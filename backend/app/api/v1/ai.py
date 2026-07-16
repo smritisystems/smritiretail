@@ -11,14 +11,19 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Body
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user
+from ...api.deps import get_current_user
 from ...models.auth import User
 
 router = APIRouter()
+
+
+class AIChatRequest(BaseModel):
+    message: str
+    context: Optional[Dict[str, Any]] = None
 
 
 @router.post(
@@ -70,4 +75,26 @@ async def ai_recommend(
         "status": "Scaffolding Only",
         "message": "AI Product Recommendations module is offline. Awaiting transaction data volume.",
         "recommendations": []
+    }
+
+
+@router.post(
+    "/chat",
+)
+async def ai_chat(
+    payload: AIChatRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Chat assistant endpoint for dashboard conversational insight.
+    """
+    if not payload.message.strip():
+        raise HTTPException(status_code=400, detail="Message text is required.")
+
+    return {
+        "reply": (
+            "**[Demo AI Mode]** SMRITI Assistant is running in offline fallback mode. "
+            "Your message has been received. Configure `GEMINI_API_KEY` if you need live generative intelligence "
+            "from the upstream Gemini service."
+        )
     }

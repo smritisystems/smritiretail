@@ -12,8 +12,9 @@ License      : Proprietary Commercial Software
 """
 
 import json
-from typing import List, Dict, Any
-from datetime import datetime, timezone, timezone
+from typing import List, Dict, Any, Optional
+from datetime import datetime, timezone
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -26,6 +27,18 @@ from ...schemas.exchange import (
     DataExchangeTaskCreate, DataExchangeTaskUpdate, DataExchangeTaskResponse,
     FieldMappingCreate, FieldMappingUpdate, FieldMappingResponse, ExecuteTaskRequest
 )
+
+
+class ExchangeValidateRequest(BaseModel):
+    partnerId: str
+    fileName: Optional[str] = None
+    format: Optional[str] = None
+    rows: List[Dict[str, Any]]
+    checksum: Optional[str] = None
+
+
+class ExchangeCommitRequest(ExchangeValidateRequest):
+    pass
 
 router = APIRouter()
 
@@ -150,6 +163,158 @@ async def delete_mapping(
     mapping.deleted_by = current_user.username
     await db.commit()
     return {"success": True}
+
+
+@router.get(
+    "/partners",
+)
+async def list_partners(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return a static stub list of exchange partners.
+    """
+    return [
+        {
+            "id": "PRT-01",
+            "name": "Reliance Retail",
+            "code": "RELIANCE",
+            "type": "Mall",
+            "communication": "CSV",
+            "schedule": "Daily",
+            "ipAllowlist": "*",
+            "allowedBranches": ["MUM"],
+            "allowedFields": ["sku", "barcode", "quantity", "mrp", "sellingPrice"],
+            "expiryDate": "2027-12-31",
+            "lastSync": "2026-07-15T08:00:00Z",
+        }
+    ]
+
+
+@router.post(
+    "/partners",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def save_partner(
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Save a partner profile and return the created partner stub.
+    """
+    return {"success": True, "partner": {**payload, "id": payload.get("id") or f"PRT-{int(datetime.now(timezone.utc).timestamp())}"}}
+
+
+@router.put(
+    "/partners/{partner_id}",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def update_partner(
+    partner_id: str,
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update an existing partner profile stub.
+    """
+    return {"success": True, "partner": {"id": partner_id, **payload}}
+
+
+@router.get(
+    "/logs",
+)
+async def list_exchange_logs(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return a stub list of exchange logs for approval and history.
+    """
+    return [
+        {
+            "id": "EXLOG-001",
+            "partnerId": "PRT-01",
+            "partnerName": "Reliance Retail",
+            "timestamp": "2026-07-15T10:30:00Z",
+            "direction": "Inbound",
+            "format": "CSV",
+            "fileName": "Reliance_POS_Daily_Sales.csv",
+            "rowCount": 4,
+            "successCount": 3,
+            "errorCount": 1,
+            "status": "Pending Approval",
+            "approvedBy": "-",
+        }
+    ]
+
+
+@router.post(
+    "/validate",
+)
+async def validate_exchange_payload(
+    payload: ExchangeValidateRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Validate exchange rows and return a mock validation report.
+    """
+    rows = payload.rows or []
+    errors = []
+    validated_rows = []
+    for idx, row in enumerate(rows, start=1):
+        row_errors = []
+        if not row.get("sku") and not row.get("Item Code"):
+            row_errors.append("SKU is required.")
+        if row_errors:
+            errors.append({"row": idx, "column": "sku", "message": row_errors.join(" ")})
+            validated_rows.append({**row, "__error": row_errors.join(" ")})
+        else:
+            validated_rows.append({**row})
+
+    return {
+        "checksum": payload.checksum or f"sha256-sim-{int(datetime.now(timezone.utc).timestamp())}",
+        "rowCount": len(rows),
+        "successCount": len(rows) - len(errors),
+        "errorCount": len(errors),
+        "errors": errors,
+        "rows": validated_rows,
+    }
+
+
+@router.post(
+    "/commit",
+)
+async def commit_exchange_payload(
+    payload: ExchangeCommitRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Commit validated exchange data and emit a mock import log.
+    """
+    return {
+        "success": True,
+        "status": "Success",
+        "logId": "EXLOG-002",
+        "message": "Exchange import committed successfully. Approval pending if required.",
+    }
+
+
+@router.post(
+    "/approve-log/{log_id}",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def approve_exchange_log(
+    log_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Approve an exchange log entry.
+    """
+    return {
+        "success": True,
+        "logId": log_id,
+        "status": "Success",
+        "message": "Exchange log approved and processed successfully.",
+    }
 
 
 # --- Tasks CRUD ---

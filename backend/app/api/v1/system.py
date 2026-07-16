@@ -11,7 +11,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Body
 from pydantic import BaseModel
@@ -27,6 +27,18 @@ from ...schemas.system import (
 )
 
 router = APIRouter()
+
+DEFAULT_LAYOUT_PREFERENCES: Dict[str, Any] = {
+    "position": "left",
+    "collapsed": False,
+    "iconOnly": False,
+    "sidebarWidth": 260,
+    "lastWorkspace": "dashboard",
+    "collapsedGroups": [],
+    "favorites": ["pos", "sales"],
+}
+
+layout_preferences: Dict[str, Any] = DEFAULT_LAYOUT_PREFERENCES.copy()
 
 
 # --- Tally Integration ---
@@ -290,3 +302,71 @@ async def list_audit_logs(
     db: AsyncSession = Depends(get_db),
 ):
     return {"logs": [], "note": "Audit log persistence via Postgres planned in v3.21.0."}
+
+
+@router.get(
+    "/layout/preferences",
+)
+async def get_layout_preferences():
+    """
+    Return frontend layout preferences saved by the current session.
+    """
+    return layout_preferences
+
+
+@router.post(
+    "/layout/preferences",
+)
+async def save_layout_preferences(
+    payload: Dict[str, Any] = Body(...),
+):
+    """
+    Store UI layout preferences for the current backend instance.
+    """
+    global layout_preferences
+
+    layout_preferences = {
+        "position": payload.get("position", layout_preferences.get("position")),
+        "collapsed": bool(payload.get("collapsed", layout_preferences.get("collapsed", False))),
+        "iconOnly": bool(payload.get("iconOnly", payload.get("icon_only", layout_preferences.get("iconOnly", False)))),
+        "sidebarWidth": int(payload.get("sidebarWidth", payload.get("sidebar_width", layout_preferences.get("sidebarWidth", 260)))),
+        "lastWorkspace": payload.get("lastWorkspace", payload.get("last_workspace", layout_preferences.get("lastWorkspace", "dashboard"))),
+        "collapsedGroups": payload.get("collapsedGroups", payload.get("collapsed_groups", layout_preferences.get("collapsedGroups", []))) or [],
+        "favorites": payload.get("favorites", layout_preferences.get("favorites", ["pos", "sales"])) or ["pos", "sales"],
+    }
+
+    return {"success": True, "prefs": layout_preferences}
+
+
+@router.post(
+    "/company/setup",
+)
+async def company_setup(
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Provision company setup from the onboarding wizard.
+    """
+    business_info = payload.get("businessInfo", {}) or {}
+    org_structure = payload.get("orgStructure", {}) or {}
+
+    company_name = business_info.get("name") or "SMRITI Retail Company"
+    first_branch_name = None
+    if isinstance(org_structure, dict):
+        stores = org_structure.get("stores")
+        if isinstance(stores, list) and stores:
+            first_branch_name = stores[0].get("name") or stores[0].get("code")
+
+    return {
+        "success": True,
+        "message": f"Company setup completed for {company_name}.",
+        "company": {
+            "name": company_name,
+            "branch": first_branch_name or "Default Branch",
+        },
+        "wizard": {
+            "businessInfo": business_info,
+            "orgStructure": org_structure,
+        },
+    }

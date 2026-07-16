@@ -42,22 +42,24 @@ from .api.v1 import (
     changelog,
     crm,
     dev_tracker,
+    docs,
     exchange,
+    health_flags,
     inventory,
     master_lookup,
     masters,
     metadata,
     numbering,
-    workflow,
-    health_flags,
     pos,
     purchase,
     reports,
     roles,
     sales,
     supplier_payment,
+    system,
     terms,
     users,
+    workflow,
 )
 from .core.config import settings
 from .core.constants import SMRITI_BANNER
@@ -129,6 +131,7 @@ app.include_router(barcode.router,          prefix=settings.API_V1_STR + "/barco
 app.include_router(exchange.router,         prefix=settings.API_V1_STR + "/exchange",      tags=["Data Exchange Hub"])
 app.include_router(ai.router,               prefix=settings.API_V1_STR + "/ai",            tags=["AI Assistant"])
 app.include_router(docs.router,             prefix=settings.API_V1_STR + "/docs",          tags=["Documentation"])
+app.include_router(system.router,           prefix=settings.API_V1_STR,                     tags=["System"])
 app.include_router(roles.router,            prefix=settings.API_V1_STR + "/roles",         tags=["Role Matrix"])
 app.include_router(compliance_router,       prefix=settings.API_V1_STR)
 
