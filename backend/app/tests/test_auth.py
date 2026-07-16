@@ -108,6 +108,89 @@ async def test_bootstrap_creates_sysadmin(db_session):
     data = res.json()
     assert data["role"] == "SYSADMIN"
     assert data["is_active"] is True
+    assert data["status"] == "PendingPasswordChange"
+    assert data.get("password_reset_required") is True
+
+
+async def test_login_returns_password_reset_required_for_bootstrap_user(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post("/api/v1/auth/bootstrap", json={
+            "username": f"super_{suffix}",
+            "password": "TempPass@123",
+            "email": f"admin_{suffix}@smriti.test",
+        })
+        assert res.status_code == 201
+
+        login_res = await client.post("/api/v1/auth/login", json={
+            "username": f"super_{suffix}",
+            "password": "TempPass@123",
+        })
+        assert login_res.status_code == 200
+        login_data = login_res.json()
+        assert login_data.get("password_reset_required") is True
+
+
+async def test_password_change_clears_pending_status(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        bootstrap_res = await client.post("/api/v1/auth/bootstrap", json={
+            "username": f"super_{suffix}",
+            "password": "TempPass@123",
+            "email": f"admin_{suffix}@smriti.test",
+        })
+        assert bootstrap_res.status_code == 201
+
+        login_res = await client.post("/api/v1/auth/login", json={
+            "username": f"super_{suffix}",
+            "password": "TempPass@123",
+        })
+        assert login_res.status_code == 200
+        token = login_res.json()["access_token"]
+
+        reset_res = await client.patch(
+            "/api/v1/users/me/password",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "current_password": "TempPass@123",
+                "new_password": "Str0ngPass!",
+            },
+        )
+        assert reset_res.status_code == 200
+
+        # Ensure subsequent login does not require reset
+        login_final_res = await client.post("/api/v1/auth/login", json={
+            "username": f"super_{suffix}",
+            "password": "Str0ngPass!",
+        })
+        assert login_final_res.status_code == 200
+        assert login_final_res.json().get("password_reset_required") is False
+
+
+async def test_pending_password_change_blocks_protected_routes(db_session):
+    """A bootstrap user with pending password change cannot access protected endpoints."""
+    suffix = uuid.uuid4().hex[:6]
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        bootstrap_res = await client.post("/api/v1/auth/bootstrap", json={
+            "username": f"pending_{suffix}",
+            "password": "TempPass@123",
+            "email": f"pending_{suffix}@smriti.test",
+        })
+        assert bootstrap_res.status_code == 201
+
+        login_res = await client.post("/api/v1/auth/login", json={
+            "username": f"pending_{suffix}",
+            "password": "TempPass@123",
+        })
+        assert login_res.status_code == 200
+        token = login_res.json()["access_token"]
+
+        protected_res = await client.get(
+            "/api/v1/users/",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert protected_res.status_code == 403
+        assert "Password change is required" in protected_res.json()["detail"]
 
 
 async def test_bootstrap_blocked_when_users_exist(db_session):
@@ -122,6 +205,104 @@ async def test_bootstrap_blocked_when_users_exist(db_session):
         })
     assert res.status_code == 403
     assert "Bootstrap" in res.json()["detail"] or "already" in res.json()["detail"]
+
+
+async def test_auth_tenant_options_requires_authentication(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    await _make_tenant(db_session, suffix)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.get("/api/v1/auth/tenants")
+
+    assert res.status_code == 401
+
+
+async def test_auth_tenant_options_returns_companies_and_branches_for_sysadmin(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, suffix)
+    await _make_user(db_session, suffix, UserRole.SYSADMIN)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        login_res = await client.post("/api/v1/auth/login", json={
+            "username": f"user_{suffix}",
+            "password": "Password@123",
+        })
+        assert login_res.status_code == 200
+        token = login_res.json()["access_token"]
+
+        res = await client.get(
+            "/api/v1/auth/tenants",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert res.status_code == 200
+    data = res.json()
+    assert any(company["id"] == comp.id for company in data["companies"])
+    assert any(branch["id"] == br.id and branch["company"] == comp.id for branch in data["branches"])
+
+
+async def test_auth_tenant_options_scopes_to_assigned_company(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, suffix)
+    other_comp, other_br = await _make_tenant(db_session, suffix + "x")
+    await _make_user(db_session, suffix, UserRole.MANAGER, company_id=comp.id, branch_id=br.id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        login_res = await client.post("/api/v1/auth/login", json={
+            "username": f"user_{suffix}",
+            "password": "Password@123",
+        })
+        assert login_res.status_code == 200
+        token = login_res.json()["access_token"]
+
+        res = await client.get(
+            "/api/v1/auth/tenants",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert res.status_code == 200
+    data = res.json()
+    assert len(data["companies"]) == 1
+    assert data["companies"][0]["id"] == comp.id
+    assert len(data["branches"]) == 1
+    assert data["branches"][0]["id"] == br.id
+
+
+async def test_login_with_company_and_branch_selection(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, suffix)
+    await _make_user(db_session, suffix, UserRole.MANAGER, company_id=comp.id, branch_id=br.id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post("/api/v1/auth/login", json={
+            "username": f"user_{suffix}",
+            "password": "Password@123",
+            "company_id": comp.id,
+            "branch_id": br.id,
+        })
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["role"] == "MANAGER"
+    assert data["company_id"] == comp.id
+    assert data["branch_id"] == br.id
+
+
+async def test_login_rejects_invalid_branch_selection(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, suffix)
+    other_comp, other_br = await _make_tenant(db_session, suffix + "x")
+    await _make_user(db_session, suffix, UserRole.MANAGER, company_id=comp.id, branch_id=br.id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post("/api/v1/auth/login", json={
+            "username": f"user_{suffix}",
+            "password": "Password@123",
+            "company_id": other_comp.id,
+            "branch_id": other_br.id,
+        })
+
+    assert res.status_code == 401
 
 
 # ---------------------------------------------------------------------------

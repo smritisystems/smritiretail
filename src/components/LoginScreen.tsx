@@ -28,7 +28,7 @@ import { motion } from "motion/react";
 import { Shield, User, Lock, ArrowRight, AlertTriangle } from "lucide-react";
 
 interface LoginScreenProps {
-  onLoginSuccess: (user: { role: string; name: string }) => void;
+  onLoginSuccess: (user: { role: string; name: string; passwordResetRequired?: boolean }) => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
@@ -48,73 +48,33 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      // Migrated: POST /api/auth/login (Express two-step bridge) → POST /api/v1/auth/login (FastAPI)
-      // Single call, JWT Bearer token only. smriti_session_token cleared (orphan from bridge era).
+      const loginPayload = {
+        username,
+        password,
+      };
+
       const res = await fetch("/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify(loginPayload),
       });
 
       const data = await res.json();
       if (res.ok && data.access_token) {
         localStorage.setItem("smriti_jwt_token", data.access_token);
         localStorage.removeItem("smriti_session_token"); // clear legacy token
-        // Map FastAPI UserResponse to { role, name } shape expected by App.tsx
         const user = data.user ?? {};
         onLoginSuccess({
           role: user.role ?? "",
           name: user.display_name || user.full_name || user.username || username,
+          passwordResetRequired: data.password_reset_required ?? false,
         });
       } else {
-        // FastAPI returns { detail } on errors
         const errMsg = typeof data.detail === "string"
           ? data.detail
           : Array.isArray(data.detail)
           ? data.detail[0]?.msg ?? "Authentication failed."
           : data.error || "Authentication failed.";
-        setError(errMsg);
-      }
-    } catch (err) {
-      setError("Failed to connect to authentication server.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickLogin = async (userType: "super" | "manager" | "cashier") => {
-    setError(null);
-    setLoading(true);
-    const creds = {
-      super:   { u: "super",   p: "whynothing" },
-      manager: { u: "manager", p: "Password@123" },
-      cashier: { u: "cashier", p: "cashier123" },
-    }[userType];
-
-    setUsername(creds.u);
-    setPassword(creds.p);
-
-    try {
-      // Quick Login also routes through FastAPI (dev convenience — same creds, same endpoint)
-      const res = await fetch("/api/v1/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: creds.u, password: creds.p }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.access_token) {
-        localStorage.setItem("smriti_jwt_token", data.access_token);
-        localStorage.removeItem("smriti_session_token");
-        const user = data.user ?? {};
-        onLoginSuccess({
-          role: user.role ?? "",
-          name: user.display_name || user.full_name || user.username || creds.u,
-        });
-      } else {
-        const errMsg = typeof data.detail === "string"
-          ? data.detail
-          : data.error || "Quick login failed.";
         setError(errMsg);
       }
     } catch (err) {
@@ -167,6 +127,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+
             <div>
               <label className="block text-[10px] font-mono font-bold text-theme-muted uppercase tracking-wider mb-1.5">
                 Operator ID / Username
@@ -214,58 +175,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               <ArrowRight size={14} />
             </button>
           </form>
-
-          {/* Quick Access Dev Portal */}
-          <div className="mt-8 pt-6 border-t border-theme-divider/60">
-            <span className="text-[10px] font-mono font-bold text-theme-muted uppercase tracking-wider block mb-3 text-center">
-              Auditor Quick Operator Access
-            </span>
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin("super")}
-                disabled={loading}
-                className="w-full py-2.5 px-3 bg-blue-950/40 hover:bg-blue-950/60 border border-blue-500/20 rounded-xl flex flex-col items-center justify-center text-center transition-all cursor-pointer group"
-              >
-                <span className="text-xs font-bold text-blue-300 group-hover:text-blue-200">
-                  Super Administrator
-                </span>
-                <span className="text-[9px] text-theme-muted font-mono mt-0.5">
-                  System Admin (Username: super / Password: whynothing)
-                </span>
-              </button>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin("manager")}
-                  disabled={loading}
-                  className="py-2.5 px-3 bg-indigo-950/40 hover:bg-indigo-950/60 border border-indigo-500/20 rounded-xl flex flex-col items-center justify-center text-center transition-all cursor-pointer group"
-                >
-                  <span className="text-xs font-bold text-indigo-300 group-hover:text-indigo-200">
-                    Store Manager
-                  </span>
-                  <span className="text-[9px] text-theme-muted font-mono mt-0.5">
-                    Full Write Access
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin("cashier")}
-                  disabled={loading}
-                  className="py-2.5 px-3 bg-emerald-950/40 hover:bg-emerald-950/60 border border-emerald-500/20 rounded-xl flex flex-col items-center justify-center text-center transition-all cursor-pointer group"
-                >
-                  <span className="text-xs font-bold text-emerald-300 group-hover:text-emerald-200">
-                    Cashier Desk
-                  </span>
-                  <span className="text-[9px] text-theme-muted font-mono mt-0.5">
-                    Restricted Access
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
 
         <div className="bg-theme-surface-2 px-6 py-3 border-t border-theme-divider flex items-center justify-between text-[10px] text-theme-muted font-mono">
