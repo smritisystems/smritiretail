@@ -11,16 +11,23 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Any, Dict, List
+import re
+import uuid
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Body
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 from ...api.deps import get_db, get_current_user, require_role
+from ...core.security import hash_password
 from ...models.auth import User, UserRole
+from ...models.psv import PSVParty, PSVPartySkuTracking
 from ...models.system import TallyConfig, SystemConfig
+from ...models.tenant import Company, Branch
+from ...schemas.psv import PSVPartyResponse
 from ...schemas.system import (
     TallyConfigCreate, TallyConfigUpdate, TallyConfigResponse,
     SystemConfigCreate, SystemConfigUpdate, SystemConfigResponse
@@ -38,7 +45,40 @@ DEFAULT_LAYOUT_PREFERENCES: Dict[str, Any] = {
     "favorites": ["pos", "sales"],
 }
 
+SETUP_COMPLETED_KEY = "setup_completed"
+
 layout_preferences: Dict[str, Any] = DEFAULT_LAYOUT_PREFERENCES.copy()
+
+
+async def get_system_config(db: AsyncSession, key: str) -> Optional[SystemConfig]:
+    q = select(SystemConfig).where(SystemConfig.key == key, SystemConfig.is_deleted == False)
+    res = await db.execute(q)
+    return res.scalars().first()
+
+
+async def set_system_config(db: AsyncSession, key: str, value: str, current_user: User) -> SystemConfig:
+    existing = await get_system_config(db, key)
+    if existing:
+        existing.value = value
+        existing.updated_by = current_user.username
+        existing.modified_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(existing)
+        return existing
+
+    new_id = f"sys-{int(datetime.now(timezone.utc).timestamp())}"
+    config = SystemConfig(
+        id=new_id,
+        key=key,
+        value=value,
+        category="Setup",
+        created_by=current_user.username,
+        updated_by=current_user.username,
+    )
+    db.add(config)
+    await db.commit()
+    await db.refresh(config)
+    return config
 
 
 # --- Tally Integration ---
@@ -255,6 +295,55 @@ async def health_check(
     }
 
 
+@router.get(
+    "/psv/parties",
+    response_model=List[PSVPartyResponse],
+    summary="List PSV Partner Parties",
+    description="Returns Partner SKU Verification (PSV) partner party inventory and SKU tracking data.",
+)
+async def list_psv_parties(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List all PSV partner party records with SKU tracking details.
+    """
+    q = (
+        select(PSVParty)
+        .options(selectinload(PSVParty.sku_tracking).selectinload(PSVPartySkuTracking.product))
+        .order_by(PSVParty.name)
+    )
+    res = await db.execute(q)
+    parties = res.scalars().all()
+
+    result = []
+    for party in parties:
+        result.append({
+            "id": party.id,
+            "name": party.name,
+            "location": party.location,
+            "stockCount": int(party.stock_count or 0),
+            "sellThrough": float(party.sell_through or 0.0),
+            "weeksOfCover": float(party.weeks_of_cover or 0.0),
+            "capitalLocked": float(party.capital_locked or 0.0),
+            "status": party.status or "Healthy",
+            "history": [],
+            "skuTracking": [
+                {
+                    "productId": sku.product_id,
+                    "sku": sku.sku,
+                    "productName": sku.product.name if getattr(sku, "product", None) else None,
+                    "invoicedQty": int(sku.invoiced_qty or 0),
+                    "confirmedSoldQty": int(sku.confirmed_sold_qty or 0),
+                    "returnedQty": int(sku.returned_qty or 0),
+                }
+                for sku in (party.sku_tracking or [])
+            ],
+        })
+
+    return result
+
+
 # ─────────────────────────── Audit Logs ──────────────────────────────────────
 
 class AuditLogCreate(BaseModel):
@@ -338,11 +427,48 @@ async def save_layout_preferences(
     return {"success": True, "prefs": layout_preferences}
 
 
+@router.get(
+    "/setup-status",
+)
+@router.get(
+    "/system/setup-status",
+)
+async def get_setup_status(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return whether the company setup wizard has already completed for this tenant.
+    """
+    setup_config = await get_system_config(db, SETUP_COMPLETED_KEY)
+    return {"setupCompleted": setup_config is not None and setup_config.value == "true"}
+
+
+def normalize_staff_role(role: str) -> UserRole:
+    normalized = (role or "").strip().lower()
+    if any(keyword in normalized for keyword in ["owner", "administrator", "admin", "manager", "executive", "lead", "inventory"]):
+        return UserRole.MANAGER
+    if "cashier" in normalized:
+        return UserRole.CASHIER
+    if any(keyword in normalized for keyword in ["accountant", "account", "report"]):
+        return UserRole.REPORT_USER
+    if "viewer" in normalized:
+        return UserRole.VIEWER
+    return UserRole.CASHIER
+
+
+def normalize_branch_code(code: str | None, idx: int) -> str:
+    if code and code.strip():
+        return code.strip().upper().replace(" ", "-")
+    return f"BR-{idx + 1:02d}"
+
+
 @router.post(
     "/company/setup",
 )
 async def company_setup(
     payload: Dict[str, Any] = Body(...),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -350,23 +476,127 @@ async def company_setup(
     """
     business_info = payload.get("businessInfo", {}) or {}
     org_structure = payload.get("orgStructure", {}) or {}
+    users_payload = payload.get("users", {}) or {}
 
     company_name = business_info.get("name") or "SMRITI Retail Company"
-    first_branch_name = None
+    company_gstin = business_info.get("gstin") or None
+    branch_entries = []
+
     if isinstance(org_structure, dict):
         stores = org_structure.get("stores")
         if isinstance(stores, list) and stores:
-            first_branch_name = stores[0].get("name") or stores[0].get("code")
+            branch_entries = stores
+
+    existing_setup = await get_system_config(db, SETUP_COMPLETED_KEY)
+    if existing_setup and existing_setup.value == "true":
+        raise HTTPException(
+            status_code=400,
+            detail="Company setup has already been completed."
+        )
+
+    if not branch_entries:
+        branch_entries = [
+            {
+                "name": company_name,
+                "code": "BR-01",
+            }
+        ]
+
+    timestamp_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    company_id = f"comp-{timestamp_ms}"
+    company = Company(
+        id=company_id,
+        name=company_name,
+        gst_number=company_gstin,
+        is_active=True,
+        is_deleted=False,
+    )
+    db.add(company)
+    await db.flush()
+
+    created_branches = []
+    for idx, store in enumerate(branch_entries):
+        branch_name = store.get("name") or store.get("code") or f"Branch {idx + 1}"
+        branch_code = normalize_branch_code(store.get("code"), idx)
+        branch_id = f"br-{timestamp_ms + idx}"
+        branch = Branch(
+            id=branch_id,
+            company_id=company_id,
+            name=branch_name,
+            code=branch_code,
+            is_active=True,
+            is_deleted=False,
+        )
+        db.add(branch)
+        created_branches.append(branch)
+
+    staff_entries = []
+    if isinstance(users_payload, dict):
+        staff_entries = users_payload.get("staff") or []
+    if not isinstance(staff_entries, list):
+        staff_entries = []
+
+    created_users = []
+    for idx, staff in enumerate(staff_entries):
+        username = (staff.get("username") or "").strip()
+        display_name = (staff.get("name") or username or f"user{idx + 1}").strip()
+        role = normalize_staff_role(staff.get("role") or "Cashier")
+        email = staff.get("email") or None
+        mobile = staff.get("mobile") or None
+        assigned_branch = created_branches[0] if created_branches else None
+
+        if not username:
+            username = re.sub(r"[^a-z0-9]", "", display_name.lower()) or f"user{idx + 1}"
+
+        user = User(
+            id=f"usr-{uuid.uuid4().hex[:8]}",
+            username=username,
+            email=email,
+            mobile=mobile,
+            hashed_password=hash_password("smriti123"),
+            role=role,
+            is_active=True,
+            is_deleted=False,
+            company_id=company_id if role != UserRole.SYSADMIN else None,
+            branch_id=assigned_branch.id if assigned_branch is not None else None,
+            display_name=display_name,
+            full_name=display_name,
+        )
+        db.add(user)
+        created_users.append(user)
+
+    existing_config = await get_system_config(db, SETUP_COMPLETED_KEY)
+    if existing_config:
+        existing_config.value = "true"
+        existing_config.updated_by = current_user.username
+        existing_config.modified_at = datetime.now(timezone.utc)
+    else:
+        config_id = f"sys-{int(datetime.now(timezone.utc).timestamp())}"
+        system_config = SystemConfig(
+            id=config_id,
+            key=SETUP_COMPLETED_KEY,
+            value="true",
+            category="Setup",
+            created_by=current_user.username,
+            updated_by=current_user.username,
+        )
+        db.add(system_config)
+
+    await db.commit()
 
     return {
         "success": True,
-        "message": f"Company setup completed for {company_name}.",
         "company": {
-            "name": company_name,
-            "branch": first_branch_name or "Default Branch",
-        },
-        "wizard": {
-            "businessInfo": business_info,
-            "orgStructure": org_structure,
-        },
+            "id": company.id,
+            "name": company.name,
+            "gstin": company.gst_number,
+            "branches": [
+                {"id": b.id, "name": b.name, "code": b.code}
+                for b in created_branches
+            ],
+            "users": [
+                {"id": u.id, "username": u.username, "role": u.role.value, "company_id": u.company_id, "branch_id": u.branch_id}
+                for u in created_users
+            ]
+        }
     }

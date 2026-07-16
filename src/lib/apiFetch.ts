@@ -56,7 +56,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}): Pro
  */
 export async function recordAuditAction(actionType: string, tableName: string, recordId: string, reason: string): Promise<void> {
   try {
-    await apiFetchV1("/system/audit-logs", {
+    await apiFetchV1("/audit-logs", {
       method: "POST",
       body: JSON.stringify({ actionType, tableName, recordId, reason })
     });

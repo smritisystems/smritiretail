@@ -3,20 +3,10 @@
     "timestamp": "16-Jul-26",
     "dhi": 43,
     "developmentScore": 28,
-    "qualityScore": 42,
+    "qualityScore": 44,
     "releaseScore": 55,
     "securityScore": 0,
     "testCoverage": 28,
     "documentation": 100
-  },
-  {
-    "timestamp": "2026-07-16T05:14:12.816Z",
-    "dhi": 24,
-    "developmentScore": 10,
-    "qualityScore": 41.5,
-    "releaseScore": 26,
-    "securityScore": 0,
-    "testCoverage": 13,
-    "documentation": 31
   }
 ]

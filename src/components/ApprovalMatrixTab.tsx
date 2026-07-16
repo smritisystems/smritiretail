@@ -108,7 +108,7 @@ export const ApprovalMatrixTab: React.FC = () => {
 
   const handleWorkflowAction = async (docType: string, id: string, action: string) => {
     try {
-      const res = await fetch(`/api/workflow/${docType}/${id}/${action}`, {
+      const res = await fetch(`/api/v1/workflow/${docType}/${id}/${action}`, {
         method: "POST"
       });
       if (res.ok) {

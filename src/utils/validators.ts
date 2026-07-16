@@ -43,3 +43,13 @@ export function isValidMobile(mobile: string): boolean {
   const regex = /^[6-9]\d{9}$/;
   return regex.test(clean);
 }
+
+/**
+ * Validates basic email address format.
+ */
+export function isValidEmail(email: string): boolean {
+  if (!email) return false;
+  const clean = email.trim();
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return regex.test(clean);
+}

@@ -48,6 +48,7 @@ import {
 import { User, UserPreferences, AuditLogEntry } from "../types.js";
 import { useNotifications } from "../notifications/notification_store.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { isValidMobile, isValidEmail } from "../utils/validators.ts";
 
 interface SessionInfo {
   token: string;
@@ -65,12 +66,12 @@ interface SessionInfo {
 export const UserProfileTab: React.FC = () => {
   const { addNotification } = useNotifications();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [currentSessionToken, setCurrentSessionToken] = useState<string>("");
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [activeSubTab, setActiveSubTab] = useState<"summary" | "sessions" | "notifications" | "preferences">("summary");
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [userActivities, setUserActivities] = useState<AuditLogEntry[]>([]);
+  const [profileValidationErrors, setProfileValidationErrors] = useState<string[]>([]);
 
   // Form States
   const [displayName, setDisplayName] = useState<string>("");
@@ -91,28 +92,52 @@ export const UserProfileTab: React.FC = () => {
     policyAnnouncements: true,
   });
 
+  const getAvatarInitial = (user: User | null) => {
+    const name = user?.fullName || user?.displayName || user?.username || "S";
+    if (typeof name !== "string" || name.length === 0) {
+      return "S";
+    }
+    return name.charAt(0);
+  };
+
+  const getUserDisplayName = (user: User | null) => {
+    const name = user?.fullName || user?.displayName || user?.username || "SMRITI User";
+    return typeof name === "string" ? name : "SMRITI User";
+  };
+
   const fetchProfileData = async () => {
     try {
       setLoading(true);
       // Migrated: GET /api/auth/me (Express) → GET /api/v1/auth/me (FastAPI JWT)
-      // FastAPI returns UserResponse directly (not wrapped in { user, sessionInfo })
-      const userObj = await apiFetchV1("/auth/me") as User;
-      setCurrentUser(userObj);
-      setCurrentSessionToken(""); // JWT is stateless — no session token concept
+      // FastAPI returns UserResponse directly and may not include full staff fields.
+      const authUser = await apiFetchV1("/auth/me") as {
+        id: string;
+        username: string;
+        email?: string;
+        mobile?: string;
+        role: string;
+        is_active: boolean;
+        company_id?: string;
+        branch_id?: string;
+      };
+
+      // Load the full staff profile using the authenticated user ID.
+      const fullProfile = await apiFetchV1(`/users/${authUser.id}`) as User;
+      setCurrentUser(fullProfile);
 
       // Sync form fields
-      setDisplayName(userObj.display_name || userObj.full_name?.split(" ")[0] || userObj.username || "");
-      setMobile(userObj.mobile || "");
-      setEmail(userObj.email || "");
+      setDisplayName(fullProfile.displayName || fullProfile.fullName?.split(" ")[0] || fullProfile.username || "");
+      setMobile(fullProfile.mobile || "");
+      setEmail(fullProfile.email || "");
 
-      if (userObj.preferences) {
-        setTheme(userObj.preferences.theme || "dark");
-        setLanguage(userObj.preferences.language || "English");
-        setTimeZone(userObj.preferences.timeZone || "Asia/Kolkata");
+      if (fullProfile.preferences) {
+        setTheme(fullProfile.preferences.theme || "dark");
+        setLanguage(fullProfile.preferences.language || "English");
+        setTimeZone(fullProfile.preferences.timeZone || "Asia/Kolkata");
       }
 
-      if (userObj.notificationSettings) {
-        setNotificationSettings(userObj.notificationSettings);
+      if (fullProfile.notificationSettings) {
+        setNotificationSettings(fullProfile.notificationSettings);
       }
 
       // Sessions list removed — JWT is stateless; no in-memory sessions exist in FastAPI.
@@ -124,7 +149,7 @@ export const UserProfileTab: React.FC = () => {
         const auditData = await apiFetchV1("/audit-logs");
         const logsData = Array.isArray(auditData) ? auditData : auditData?.logs || [];
         const filtered = logsData
-          .filter((log: any) => log.userId === userObj.id || log.userName === userObj.full_name || log.userName === userObj.username)
+          .filter((log: any) => log.userId === fullProfile.id || log.userName === fullProfile.fullName || log.userName === fullProfile.username)
           .slice(0, 5);
         setUserActivities(filtered);
       } catch {
@@ -147,15 +172,42 @@ export const UserProfileTab: React.FC = () => {
     fetchProfileData();
   }, []);
 
+  const validatePersonalProfile = (): string[] => {
+    const errors: string[] = [];
+    if (!displayName.trim()) {
+      errors.push("Display Name is required.");
+    }
+    if (mobile.trim() && !isValidMobile(mobile.trim())) {
+      errors.push("Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.");
+    }
+    if (email.trim() && !isValidEmail(email.trim())) {
+      errors.push("Please enter a valid email address.");
+    }
+    return errors;
+  };
+
   const handleUpdatePersonal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
+
+    const validationErrors = validatePersonalProfile();
+    setProfileValidationErrors(validationErrors);
+    if (validationErrors.length > 0) {
+      addNotification({
+        title: "Validation Error",
+        message: validationErrors.join(" "),
+        type: "alert",
+        priority: "high"
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       // Migrated: PUT /api/users/{id} (Express) → PATCH /api/v1/users/{id} (FastAPI)
       await apiFetchV1(`/users/${currentUser.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ display_name: displayName, mobile, email }),
+        body: JSON.stringify({ displayName, mobile, email }),
       });
 
       addNotification({
@@ -185,7 +237,7 @@ export const UserProfileTab: React.FC = () => {
       // Migrated: PUT /api/users/{id}/preferences (Express) → PUT /api/v1/users/{id}/preferences (FastAPI)
       await apiFetchV1(`/users/${currentUser.id}/preferences`, {
         method: "PUT",
-        body: JSON.stringify({ preferences: { theme, language, timeZone } }),
+        body: JSON.stringify({ theme, language, timeZone }),
       });
 
       addNotification({
@@ -216,7 +268,7 @@ export const UserProfileTab: React.FC = () => {
       // Migrated: PUT /api/users/{id}/notifications (Express) → PUT /api/v1/users/{id}/notifications (FastAPI)
       await apiFetchV1(`/users/${currentUser.id}/notifications`, {
         method: "PUT",
-        body: JSON.stringify({ notificationSettings: updated }),
+        body: JSON.stringify(updated),
       });
 
       addNotification({
@@ -241,7 +293,7 @@ export const UserProfileTab: React.FC = () => {
     try {
       // Express sessions are retired. Revoke = POST /api/v1/auth/logout (blacklists refresh token).
       // For now, clear local JWT and reload to force re-login.
-      await apiFetchV1("/auth/logout", { method: "POST", body: JSON.stringify({ token }) });
+      await apiFetchV1("/auth/logout", { method: "POST", body: JSON.stringify({ refresh_token: token }) });
 
       addNotification({
         title: "Session Terminated",
@@ -321,11 +373,11 @@ export const UserProfileTab: React.FC = () => {
         <div className="space-y-6 lg:col-span-1">
           <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-6 text-center space-y-4">
             <div className="mx-auto w-24 h-24 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-400 font-display font-bold text-4xl border-2 border-blue-500/30">
-              {currentUser.fullName.charAt(0)}
+              {getAvatarInitial(currentUser)}
             </div>
             <div>
-              <h3 className="font-bold text-lg text-theme-body">{currentUser.fullName}</h3>
-              <p className="text-xs text-theme-muted font-mono">{currentUser.designation}</p>
+              <h3 className="font-bold text-lg text-theme-body">{getUserDisplayName(currentUser)}</h3>
+              <p className="text-xs text-theme-muted font-mono">{currentUser.designation || "Operator"}</p>
             </div>
 
             <div className="pt-4 border-t border-theme-divider text-left space-y-3">
@@ -443,6 +495,17 @@ export const UserProfileTab: React.FC = () => {
                     <Save size={13} /> {saving ? "Saving..." : "Save Details"}
                   </button>
                 </div>
+
+                {profileValidationErrors.length > 0 && (
+                  <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-700">
+                    <p className="font-bold uppercase tracking-wide text-[10px] mb-2">Validation Required</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      {profileValidationErrors.map((error) => (
+                        <li key={error}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">

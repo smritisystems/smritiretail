@@ -78,7 +78,7 @@ interface StaffUser {
   id: string;
   name: string;
   username: string;
-  role: "Owner" | "Administrator" | "Store Manager" | "Cashier" | "Accountant" | "Inventory Executive";
+  role: "Owner" | "Administrator" | "Store Manager" | "Cashier" | "Accountant" | "Inventory Executive" | "Report User" | "Viewer";
   email: string;
 }
 
@@ -417,6 +417,22 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
       if (data && data.success) {
         setSetupSuccess(true);
         localStorage.setItem("smriti_setup_completed", "true");
+
+        const layoutPrefsRaw = localStorage.getItem("smriti_layout_preferences");
+        if (layoutPrefsRaw) {
+          try {
+            const layoutPrefs = JSON.parse(layoutPrefsRaw);
+            if (layoutPrefs?.lastWorkspace === "company-setup") {
+              localStorage.setItem(
+                "smriti_layout_preferences",
+                JSON.stringify({ ...layoutPrefs, lastWorkspace: "dashboard" }),
+              );
+            }
+          } catch {
+            // Ignore invalid saved layout prefs
+          }
+        }
+
         localStorage.setItem("smriti_setup_business_type", businessType);
         setTimeout(() => {
           if (onComplete) {
@@ -457,7 +473,7 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
             className="flex-1 flex flex-col items-center justify-center py-20 px-6 text-center"
           >
             <div className="w-24 h-24 rounded-full bg-emerald-950 border border-emerald-500 flex items-center justify-center text-emerald-400 mb-6 shadow-2xl animate-bounce">
-              <CheckCircle2 size={48} className="animate-pulse" />
+              <Check size={32} className="animate-pulse" />
             </div>
             <h2 className="font-display font-bold text-2xl text-theme-body mb-2">
               SMRITI Retail OS Activated!
@@ -1140,10 +1156,13 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
                       onChange={e => setNewStaffRole(e.target.value as any)}
                       className="bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body outline-none"
                     >
+                      <option value="Owner">Owner</option>
                       <option value="Administrator">Administrator</option>
                       <option value="Store Manager">Store Manager</option>
                       <option value="Cashier">Cashier</option>
                       <option value="Accountant">Accountant</option>
+                      <option value="Report User">Report User</option>
+                      <option value="Viewer">Viewer</option>
                     </select>
                     <button
                       onClick={handleAddStaff}

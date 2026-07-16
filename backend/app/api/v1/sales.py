@@ -66,6 +66,12 @@ async def list_sales_invoices_contract(
 # ─────────────────────────── Sales Quotation ───────────────────────────
 
 @router.post(
+    "/quotations",
+    response_model=SalesQuotationResponse,
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+@router.post(
     "/quotations/",
     response_model=SalesQuotationResponse,
     status_code=201,
@@ -79,6 +85,7 @@ async def create_sales_quotation(
     return await SalesService(db, tenant_ctx).create_sales_quotation(q_in)
 
 
+@router.get("/quotations", response_model=List[SalesQuotationResponse])
 @router.get("/quotations/", response_model=List[SalesQuotationResponse])
 async def list_sales_quotations(
     db: AsyncSession = Depends(get_db),
@@ -133,6 +140,12 @@ async def delete_sales_quotation(
 # ─────────────────────────── Sales Order ───────────────────────────
 
 @router.post(
+    "/orders",
+    response_model=SalesOrderResponse,
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+@router.post(
     "/orders/",
     response_model=SalesOrderResponse,
     status_code=201,
@@ -146,6 +159,7 @@ async def create_sales_order(
     return await SalesService(db, tenant_ctx).create_sales_order(so_in)
 
 
+@router.get("/orders", response_model=List[SalesOrderResponse])
 @router.get("/orders/", response_model=List[SalesOrderResponse])
 async def list_sales_orders(
     db: AsyncSession = Depends(get_db),
@@ -200,6 +214,12 @@ async def delete_sales_order(
 # ─────────────────────────── Sales Return ───────────────────────────
 
 @router.post(
+    "/returns",
+    response_model=SalesReturnResponse,
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+@router.post(
     "/returns/",
     response_model=SalesReturnResponse,
     status_code=201,
@@ -213,6 +233,7 @@ async def create_sales_return(
     return await SalesService(db, tenant_ctx).create_sales_return(sr_in)
 
 
+@router.get("/returns", response_model=List[SalesReturnResponse])
 @router.get("/returns/", response_model=List[SalesReturnResponse])
 async def list_sales_returns(
     db: AsyncSession = Depends(get_db),
@@ -303,21 +324,6 @@ async def cancel_sales_invoice(
     """
     invoice = await SalesService(db, tenant_ctx).cancel_sales_invoice(invoice_id)
     return {"success": True, "message": f"Invoice {invoice.invoice_no} cancelled successfully."}
-
-
-# ─────────────────────────── Sales Invoice GET by ID (catch-all: MUST be last) ───────────────────────────
-
-@router.get("/{invoice_id}", response_model=SalesInvoiceResponse)
-async def get_sales_invoice(
-    invoice_id: str,
-    db: AsyncSession = Depends(get_db),
-    tenant_ctx: TenantContext = Depends(get_tenant_context),
-):
-    repo = SalesInvoiceRepository(db, tenant_ctx)
-    invoice = await repo.get(invoice_id)
-    if not invoice:
-        raise HTTPException(status_code=404, detail="Sales invoice not found")
-    return invoice
 
 
 # ─────────────────────────── Phase 4B: Convert Quotation ─────────────────────

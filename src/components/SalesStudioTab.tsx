@@ -451,7 +451,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       if (filters.status && filters.status.length > 0) params.append("status", filters.status.join(","));
       if (filters.date?.start) params.append("startDate", filters.date.start);
       if (filters.date?.end) params.append("endDate", filters.date.end);
-      const data = await apiFetchV1(`/sales/returns${params.toString() ? `?${params.toString()}` : ""}`);
+      const data = await apiFetchV1(`/sales/returns/${params.toString() ? `?${params.toString()}` : ""}`);
       setSalesReturns(data);
     } catch (e) {
       onNotification("Sync Error", "Failed to load sales returns.", "error");
@@ -820,7 +820,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
     try {
       // Migrated: POST /api/sales/returns (Express) → POST /api/v1/sales/returns (FastAPI)
-      await apiFetchV1("/sales/returns", {
+      await apiFetchV1("/sales/returns/", {
         method: "POST",
         body: JSON.stringify({
           originalInvoiceId: returnOriginalInvoiceId,

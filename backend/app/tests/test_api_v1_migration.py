@@ -109,8 +109,16 @@ async def test_api_v1_migration_endpoints(db_session):
             , headers=headers,
         )
         assert res_setup.status_code == 200
-        assert res_setup.json()["success"] is True
-        assert res_setup.json()["company"]["name"] == "Demo Co"
+        setup_payload = res_setup.json()
+        assert setup_payload["success"] is True
+        assert setup_payload["company"]["name"] == "Demo Co"
+        assert setup_payload["company"]["branches"][0]["name"] == "Flagship"
+        assert setup_payload["company"]["branches"][0]["code"] == "BR-01"
+        assert setup_payload["company"]["users"] == []
+
+        res_setup_status = await client.get("/api/v1/system/setup-status", headers=headers)
+        assert res_setup_status.status_code == 200
+        assert res_setup_status.json()["setupCompleted"] is True
 
         res_partners = await client.get("/api/v1/exchange/partners", headers=headers)
         assert res_partners.status_code == 200

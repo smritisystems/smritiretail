@@ -35,14 +35,8 @@ ENV PORT=3000
 # Install runtime dependencies for healthcheck curl and git CLI
 RUN apk add --no-cache curl git
 
-COPY package*.json ./
-RUN npm install --omit=dev
-
-COPY --from=builder /usr/src/app/dist ./dist
-COPY --from=builder /usr/src/app/db_store.json ./db_store.json
-COPY --from=builder /usr/src/app/smriti-config.json ./smriti-config.json
-COPY --from=builder /usr/src/app/CHANGELOG.md ./CHANGELOG.md
+COPY --from=builder /usr/src/app .
 
 EXPOSE 3000
 
-CMD ["node", "dist/server.cjs"]
+CMD ["npx", "tsx", "gateway.ts"]

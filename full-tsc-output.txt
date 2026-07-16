@@ -1,0 +1,36 @@
+﻿src/components/SalesStudioTab.tsx(165,12): error TS2304: Cannot find name 'isValidMobile'.
+src/components/SalesStudioTab.tsx(395,24): error TS2304: Cannot find name 'selectedAttributeGroup'.
+src/components/SalesStudioTab.tsx(465,21): error TS2552: Cannot find name 'getCustomers'. Did you mean 'setCustomers'?
+src/components/SalesStudioTab.tsx(466,22): error TS2552: Cannot find name 'getCustomerGroups'. Did you mean 'setCustomerGroups'?
+src/components/SalesStudioTab.tsx(477,7): error TS2304: Cannot find name 'recordAuditAction'.
+src/components/SalesStudioTab.tsx(483,7): error TS2304: Cannot find name 'recordAuditAction'.
+src/components/SalesStudioTab.tsx(489,7): error TS2304: Cannot find name 'recordAuditAction'.
+src/components/SalesStudioTab.tsx(495,7): error TS2304: Cannot find name 'recordAuditAction'.
+src/components/SalesStudioTab.tsx(501,7): error TS2304: Cannot find name 'recordAuditAction'.
+src/components/SalesStudioTab.tsx(1064,19): error TS2304: Cannot find name 'recordAuditAction'.
+src/components/SalesStudioTab.tsx(1434,40): error TS2304: Cannot find name 'ProductImage'.
+src/components/SalesStudioTab.tsx(1817,40): error TS2304: Cannot find name 'ProductImage'.
+src/components/SalesStudioTab.tsx(2060,40): error TS2304: Cannot find name 'ProductImage'.
+src/components/SalesStudioTab.tsx(2365,27): error TS2304: Cannot find name 'saveCustomers'.
+src/components/SalesStudioTab.tsx(2640,31): error TS2304: Cannot find name 'saveCustomers'.
+src/components/SalesStudioTab.tsx(2874,32): error TS2304: Cannot find name 'formatDateTime'.
+src/components/SalesStudioTab.tsx(2880,32): error TS2304: Cannot find name 'formatCurrency'.
+src/components/SalesStudioTab.tsx(3016,32): error TS2304: Cannot find name 'formatDateTime'.
+src/components/SalesStudioTab.tsx(3022,32): error TS2304: Cannot find name 'formatCurrency'.
+src/components/SalesStudioTab.tsx(3121,34): error TS2304: Cannot find name 'formatDateTime'.
+src/components/SalesStudioTab.tsx(3127,34): error TS2304: Cannot find name 'formatCurrency'.
+src/components/SalesStudioTab.tsx(3130,34): error TS2304: Cannot find name 'formatCurrency'.
+src/components/SalesStudioTab.tsx(3252,34): error TS2304: Cannot find name 'formatDateTime'.
+src/components/SalesStudioTab.tsx(3258,34): error TS2304: Cannot find name 'formatCurrency'.
+src/components/SalesStudioTab.tsx(3434,64): error TS2304: Cannot find name 'formatDate'.
+src/components/SalesStudioTab.tsx(3561,64): error TS2304: Cannot find name 'formatDate'.
+src/components/SalesStudioTab.tsx(3773,33): error TS2304: Cannot find name 'isValidMobile'.
+src/components/SalesStudioTab.tsx(3823,23): error TS2304: Cannot find name 'saveCustomers'.
+src/services/numberingEngine.ts(158,26): error TS2304: Cannot find name 'apiFetchV1'.
+src/services/numberingEngine.ts(168,24): error TS2304: Cannot find name 'apiFetchV1'.
+src/services/numberingEngine.ts(176,24): error TS2304: Cannot find name 'apiFetchV1'.
+src/services/numberingEngine.ts(184,11): error TS2304: Cannot find name 'apiFetchV1'.
+src/services/numberingEngine.ts(192,20): error TS2304: Cannot find name 'apiFetchV1'.
+src/services/numberingEngine.ts(200,24): error TS2304: Cannot find name 'apiFetchV1'.
+src/tests/auth.test.ts(16,21): error TS2307: Cannot find module '../../server.js' or its corresponding type declarations.
+src/tests/reportUser.test.ts(16,21): error TS2307: Cannot find module '../../server.js' or its corresponding type declarations.

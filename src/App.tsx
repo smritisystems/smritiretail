@@ -122,10 +122,6 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     checkAuth();
-    // Trigger asynchronous customer CRM sync from mock database server
-    import("./services/customerStore.js").then((m) => {
-      m.syncCustomersWithBackend();
-    });
   }, []);
 
   const handleLoginSuccess = (user: { role: string; name: string }) => {
@@ -138,11 +134,66 @@ const AppContent: React.FC = () => {
     setCurrentUser(null);
   };
 
-  const isSetupCompleted = localStorage.getItem("smriti_setup_completed") === "true";
-  const activeTab = isSetupCompleted ? (preferences.lastWorkspace || "dashboard") : "company-setup";
-  const setActiveTab = (tab: string) => {
-    addToRecentlyUsed(tab);
+  useEffect(() => {
+    if (!currentUser) return;
+    import("./services/customerStore.js").then((m) => {
+      m.syncCustomersWithBackend();
+    });
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      refreshSetupStatus();
+    }
+  }, [currentUser]);
+
+  const [isSetupCompleted, setIsSetupCompleted] = useState<boolean>(() => {
+    return localStorage.getItem("smriti_setup_completed") === "true";
+  });
+
+  const markSetupCompleted = () => {
+    localStorage.setItem("smriti_setup_completed", "true");
+    setIsSetupCompleted(true);
+
+    if (preferences.lastWorkspace === "company-setup") {
+      addToRecentlyUsed("dashboard");
+    }
   };
+
+  const refreshSetupStatus = async () => {
+    try {
+      const data = await apiFetchV1("/setup-status");
+      if (data?.setupCompleted) {
+        setIsSetupCompleted(true);
+        localStorage.setItem("smriti_setup_completed", "true");
+      }
+    } catch (error) {
+      console.warn("Unable to refresh setup completion status:", error);
+    }
+  };
+
+  const safeLastWorkspace =
+    isSetupCompleted && preferences.lastWorkspace === "company-setup"
+      ? "dashboard"
+      : preferences.lastWorkspace;
+
+  const activeTab = isSetupCompleted ? (safeLastWorkspace || "dashboard") : "company-setup";
+  const setActiveTab = (tab: string) => {
+    const resolvedTab = isSetupCompleted && tab === "company-setup" ? "dashboard" : tab;
+    addToRecentlyUsed(resolvedTab);
+  };
+
+  useEffect(() => {
+    if (isSetupCompleted && preferences.lastWorkspace === "company-setup") {
+      addToRecentlyUsed("dashboard");
+    }
+  }, [isSetupCompleted, preferences.lastWorkspace, addToRecentlyUsed]);
+
+  useEffect(() => {
+    if (isSetupCompleted && preferences.lastWorkspace === "company-setup") {
+      addToRecentlyUsed("dashboard");
+    }
+  }, [isSetupCompleted, preferences.lastWorkspace, addToRecentlyUsed]);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [profiles, setProfiles] = useState<POSProfile[]>([]);
@@ -271,6 +322,15 @@ const AppContent: React.FC = () => {
         setProducts(mappedProducts);
       } catch (err) {
         console.error("Failed to load products from FastAPI:", err);
+      }
+
+      try {
+        const psvData = await apiFetchV1("/psv/parties");
+        if (Array.isArray(psvData)) {
+          setPsvParties(psvData);
+        }
+      } catch (err) {
+        console.error("Failed to load PSV parties from FastAPI:", err);
       }
     } catch (error) {
       console.error("Critical error syncing system data:", error);
@@ -410,6 +470,7 @@ const AppContent: React.FC = () => {
         return (
           <SetupWizardTab 
             onComplete={() => {
+              markSetupCompleted();
               addNotification("Setup Complete", "Welcome to SMRITI Retail OS dashboard!", "success");
               setActiveTab("dashboard");
             }} 

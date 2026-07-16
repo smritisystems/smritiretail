@@ -490,7 +490,7 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
               <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex items-center gap-5">
                   <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-500 font-display font-bold text-2xl border border-blue-500/30">
-                    {selectedStaff.fullName.charAt(0)}
+                    {String(selectedStaff.fullName || "S").charAt(0)}
                   </div>
                   <div>
                     <div className="flex items-center gap-3">

@@ -35,7 +35,12 @@ class Settings(BaseSettings):
     # Platform profiles
     EDITION: str = "Enterprise Edition"
     ORGANIZATION: str = "AITDL NETWORKS"
-    ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
+    ALLOWED_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5000",
+        "http://127.0.0.1:5000",
+    ]
 
     # Feature Flags for Transactional Core Cutover
     USE_FASTAPI_SALES: bool = False

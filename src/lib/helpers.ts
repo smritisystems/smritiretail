@@ -16,7 +16,6 @@
  */
 
 import crypto from "crypto";
-import express from "express";
 import { roles, auditLogs, stockLedger } from "../state/store.js";
 import { pool } from "../db/pool.js";
 
@@ -140,20 +139,20 @@ export function parseDeviceType(userAgent: string): "desktop" | "mobile" | "tabl
 }
 
 // Reusable Permission Helper
-export function hasPermission(req: express.Request, permission: string): boolean {
-  const roleName = req.headers["x-user-role"] as string;
+export function hasPermission(req: any, permission: string): boolean {
+  const roleName = req?.headers?.["x-user-role"] as string;
   if (!roleName || roleName === "Guest") return false;
-  
+
   const roleObj = roles.find(r => r.name === roleName);
   if (!roleObj) return false;
-  
+
   return roleObj.permissions.includes(permission);
 }
 
 // Reusable Role Authorization Middleware (Allow-List based)
 export const requireRole = (...allowedRoles: string[]) => {
-  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const role = (req.headers["x-user-role"] as string) || "Guest";
+  return (req: any, res: any, next: any) => {
+    const role = (req?.headers?.["x-user-role"] as string) || "Guest";
     if (allowedRoles.includes(role)) {
       return next();
     }
