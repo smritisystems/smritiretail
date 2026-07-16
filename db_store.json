@@ -1,0 +1,420 @@
+{
+  "tallyExportQueue": [],
+  "partnersList": [],
+  "transformationMappings": [],
+  "exchangeLogs": [],
+  "ledgerEntries": [
+    {
+      "id": "L-SET-17841789079371",
+      "date": "2026-07-16T05:15:07.937Z",
+      "account": "Capital Account",
+      "type": "Credit",
+      "amount": 1000000,
+      "referenceId": "SETUP",
+      "referenceType": "Capital",
+      "description": "Opening business capital introduced during SMRITI setup wizard",
+      "balance": 1000000
+    },
+    {
+      "id": "L-SET-17841789079372",
+      "date": "2026-07-16T05:15:07.937Z",
+      "account": "HDFC Bank Account",
+      "type": "Debit",
+      "amount": 800000,
+      "referenceId": "SETUP",
+      "referenceType": "Capital",
+      "description": "Opening bank deposit in Account N/A",
+      "balance": 800000
+    },
+    {
+      "id": "L-SET-17841789079373",
+      "date": "2026-07-16T05:15:07.937Z",
+      "account": "Cash Account",
+      "type": "Debit",
+      "amount": 200000,
+      "referenceId": "SETUP",
+      "referenceType": "Capital",
+      "description": "Cash-in-hand setup balance",
+      "balance": 200000
+    },
+    {
+      "id": "L-SET-17841789369541",
+      "date": "2026-07-16T05:15:36.954Z",
+      "account": "Capital Account",
+      "type": "Credit",
+      "amount": 1000000,
+      "referenceId": "SETUP",
+      "referenceType": "Capital",
+      "description": "Opening business capital introduced during SMRITI setup wizard",
+      "balance": 1000000
+    },
+    {
+      "id": "L-SET-17841789369542",
+      "date": "2026-07-16T05:15:36.954Z",
+      "account": "HDFC Bank Account",
+      "type": "Debit",
+      "amount": 800000,
+      "referenceId": "SETUP",
+      "referenceType": "Capital",
+      "description": "Opening bank deposit in Account N/A",
+      "balance": 800000
+    },
+    {
+      "id": "L-SET-17841789369543",
+      "date": "2026-07-16T05:15:36.954Z",
+      "account": "Cash Account",
+      "type": "Debit",
+      "amount": 200000,
+      "referenceId": "SETUP",
+      "referenceType": "Capital",
+      "description": "Cash-in-hand setup balance",
+      "balance": 200000
+    },
+    {
+      "id": "L-SET-17841798289741",
+      "date": "2026-07-16T05:30:28.974Z",
+      "account": "Capital Account",
+      "type": "Credit",
+      "amount": 1000000,
+      "referenceId": "SETUP",
+      "referenceType": "Capital",
+      "description": "Opening business capital introduced during SMRITI setup wizard",
+      "balance": 1000000
+    },
+    {
+      "id": "L-SET-17841798289742",
+      "date": "2026-07-16T05:30:28.974Z",
+      "account": "HDFC Bank Account",
+      "type": "Debit",
+      "amount": 800000,
+      "referenceId": "SETUP",
+      "referenceType": "Capital",
+      "description": "Opening bank deposit in Account N/A",
+      "balance": 800000
+    },
+    {
+      "id": "L-SET-17841798289743",
+      "date": "2026-07-16T05:30:28.974Z",
+      "account": "Cash Account",
+      "type": "Debit",
+      "amount": 200000,
+      "referenceId": "SETUP",
+      "referenceType": "Capital",
+      "description": "Cash-in-hand setup balance",
+      "balance": 200000
+    }
+  ],
+  "auditLogs": [
+    {
+      "id": "AUD-1784178907911979",
+      "timestamp": "2026-07-16T05:15:07.911Z",
+      "userId": "SYSTEM",
+      "userName": "Setup wizard",
+      "module": "Organization",
+      "action": "COMPANY_PROVISION",
+      "targetId": "SMRITI",
+      "targetName": "AITDL NETWORKS",
+      "newValue": "{\"name\":\"AITDL NETWORKS\",\"tradeName\":\"AITDL NETWORKS\",\"businessType\":\"retail\",\"gstin\":\"09AAACS1234A1Z1\",\"pan\":\"AAACS1234A\",\"state\":\"Uttar Pradesh\",\"financialYear\":\"2026-2027\",\"booksStartDate\":\"2026-04-01\"}",
+      "ipAddress": "127.0.0.1"
+    },
+    {
+      "id": "AUD-1784178936934782",
+      "timestamp": "2026-07-16T05:15:36.934Z",
+      "userId": "SYSTEM",
+      "userName": "Setup wizard",
+      "module": "Organization",
+      "action": "COMPANY_PROVISION",
+      "targetId": "SMRITI",
+      "targetName": "AITDL NETWORKS",
+      "newValue": "{\"name\":\"AITDL NETWORKS\",\"tradeName\":\"AITDL NETWORKS\",\"businessType\":\"retail\",\"gstin\":\"09AAACS1234A1Z1\",\"pan\":\"AAACS1234A\",\"state\":\"Uttar Pradesh\",\"financialYear\":\"2026-2027\",\"booksStartDate\":\"2026-04-01\"}",
+      "ipAddress": "127.0.0.1"
+    },
+    {
+      "id": "AUD-1784179828958500",
+      "timestamp": "2026-07-16T05:30:28.958Z",
+      "userId": "SYSTEM",
+      "userName": "Setup wizard",
+      "module": "Organization",
+      "action": "COMPANY_PROVISION",
+      "targetId": "SMRITI",
+      "targetName": "AITDL NETWORKS",
+      "newValue": "{\"name\":\"AITDL NETWORKS\",\"tradeName\":\"AITDL NETWORKS\",\"businessType\":\"retail\",\"gstin\":\"09AAACS1234A1Z1\",\"pan\":\"AAACS1234A\",\"state\":\"Uttar Pradesh\",\"financialYear\":\"2026-2027\",\"booksStartDate\":\"2026-04-01\"}",
+      "ipAddress": "127.0.0.1"
+    }
+  ],
+  "profiles": [
+    {
+      "id": "prof-1",
+      "name": "Main Flagship Store Counter A",
+      "cashier": "John Cashier",
+      "warehouse": "Main Flagship Store WH",
+      "branch": "Main Flagship Store",
+      "isLocked": false,
+      "isArchived": false
+    },
+    {
+      "id": "prof-2",
+      "name": "Main Flagship Store Counter A",
+      "cashier": "John Cashier",
+      "warehouse": "Main Flagship Store WH",
+      "branch": "Main Flagship Store",
+      "isLocked": false,
+      "isArchived": false
+    },
+    {
+      "id": "prof-3",
+      "name": "Main Flagship Store Counter A",
+      "cashier": "John Cashier",
+      "warehouse": "Main Flagship Store WH",
+      "branch": "Main Flagship Store",
+      "isLocked": false,
+      "isArchived": false
+    }
+  ],
+  "bills": [],
+  "holdBills": [],
+  "quotations": [],
+  "salesOrders": [],
+  "salesInvoices": [
+    {
+      "id": "SINV-001",
+      "invoiceNo": "SINV-2026-0001",
+      "date": "2026-07-08",
+      "customerId": "CUST-001",
+      "taxTotal": 3050,
+      "grandTotal": 20000,
+      "isInterstate": false,
+      "status": "Approved",
+      "items": [
+        {
+          "productId": "PROD-001",
+          "code": "SKU-001",
+          "name": "Premium Cotton Shirt",
+          "quantity": 10,
+          "price": 1695,
+          "hsnCode": "6205",
+          "gstRate": 18,
+          "taxAmount": 3050,
+          "totalAmount": 20000
+        }
+      ]
+    },
+    {
+      "id": "SINV-002",
+      "invoiceNo": "SINV-2026-0002",
+      "date": "2026-07-05",
+      "customerId": "CUST-002",
+      "taxTotal": 76270,
+      "grandTotal": 500000,
+      "isInterstate": true,
+      "status": "Approved",
+      "items": [
+        {
+          "productId": "PROD-002",
+          "code": "SKU-002",
+          "name": "Designer Denim Jacket",
+          "quantity": 100,
+          "price": 4237,
+          "hsnCode": "6203",
+          "gstRate": 18,
+          "taxAmount": 76270,
+          "totalAmount": 500000
+        }
+      ]
+    },
+    {
+      "id": "SINV-003",
+      "invoiceNo": "SINV-2026-0003",
+      "date": "2026-07-06",
+      "customerId": "CUST-003",
+      "taxTotal": 2288,
+      "grandTotal": 15000,
+      "isInterstate": false,
+      "status": "Approved",
+      "items": [
+        {
+          "productId": "PROD-001",
+          "code": "SKU-001",
+          "name": "Premium Cotton Shirt",
+          "quantity": 10,
+          "price": 1271,
+          "hsnCode": "6205",
+          "gstRate": 18,
+          "taxAmount": 2288,
+          "totalAmount": 15000
+        }
+      ]
+    },
+    {
+      "id": "SINV-004",
+      "invoiceNo": "SINV-2026-0004",
+      "date": "2026-07-06",
+      "customerId": "CUST-004",
+      "taxTotal": 18305,
+      "grandTotal": 120000,
+      "isInterstate": false,
+      "status": "Approved",
+      "items": [
+        {
+          "productId": "PROD-003",
+          "code": "SKU-003",
+          "name": "Casual Summer Dress",
+          "quantity": 60,
+          "price": 1695,
+          "hsnCode": "6204",
+          "gstRate": 18,
+          "taxAmount": 18305,
+          "totalAmount": 120000
+        }
+      ]
+    },
+    {
+      "id": "SINV-005",
+      "invoiceNo": "SINV-2026-0005",
+      "date": "2026-07-07",
+      "customerId": "CUST-005",
+      "taxTotal": 27458,
+      "grandTotal": 180000,
+      "isInterstate": true,
+      "status": "Approved",
+      "items": [
+        {
+          "productId": "PROD-002",
+          "code": "SKU-002",
+          "name": "Designer Denim Jacket",
+          "quantity": 40,
+          "price": 3814,
+          "hsnCode": "6203",
+          "gstRate": 18,
+          "taxAmount": 27458,
+          "totalAmount": 180000
+        }
+      ]
+    },
+    {
+      "id": "SINV-006",
+      "invoiceNo": "SINV-2026-0006",
+      "date": "2026-07-08",
+      "customerId": "CUST-006",
+      "taxTotal": 38136,
+      "grandTotal": 250000,
+      "isInterstate": true,
+      "status": "Approved",
+      "items": [
+        {
+          "productId": "PROD-003",
+          "code": "SKU-003",
+          "name": "Casual Summer Dress",
+          "quantity": 125,
+          "price": 1695,
+          "hsnCode": "6204",
+          "gstRate": 18,
+          "taxAmount": 38136,
+          "totalAmount": 250000
+        }
+      ]
+    },
+    {
+      "id": "SINV-007",
+      "invoiceNo": "SINV-2026-0007",
+      "date": "2026-07-09",
+      "customerId": "CUST-007",
+      "taxTotal": 48814,
+      "grandTotal": 320000,
+      "isInterstate": true,
+      "status": "Approved",
+      "items": [
+        {
+          "productId": "PROD-001",
+          "code": "SKU-001",
+          "name": "Premium Cotton Shirt",
+          "quantity": 200,
+          "price": 1356,
+          "hsnCode": "6205",
+          "gstRate": 18,
+          "taxAmount": 48814,
+          "totalAmount": 320000
+        }
+      ]
+    }
+  ],
+  "salesReturns": [
+    {
+      "id": "SRET-001",
+      "returnNo": "SRET-2026-0001",
+      "originalInvoiceId": "SINV-001",
+      "creditNoteNumber": "CN-2026-0001",
+      "date": "2026-07-09",
+      "reason": "Fitting issues",
+      "taxTotal": 763,
+      "grandTotal": 5000,
+      "isInterstate": false,
+      "status": "Approved",
+      "items": [
+        {
+          "productId": "PROD-001",
+          "quantity": 2,
+          "price": 2119,
+          "gstRate": 18,
+          "taxAmount": 763,
+          "totalAmount": 5000
+        }
+      ]
+    },
+    {
+      "id": "SRET-002",
+      "returnNo": "SRET-2026-0002",
+      "originalInvoiceId": "SINV-002",
+      "creditNoteNumber": "CN-2026-0002",
+      "date": "2026-07-07",
+      "reason": "Fabric defect on 10 jackets",
+      "taxTotal": 7627,
+      "grandTotal": 50000,
+      "isInterstate": true,
+      "status": "Approved",
+      "items": [
+        {
+          "productId": "PROD-002",
+          "quantity": 10,
+          "price": 4237,
+          "gstRate": 18,
+          "taxAmount": 7627,
+          "totalAmount": 50000
+        }
+      ]
+    },
+    {
+      "id": "SRET-003",
+      "returnNo": "SRET-2026-0003",
+      "originalInvoiceId": "SINV-003",
+      "creditNoteNumber": "CN-2026-0003",
+      "date": "2026-07-07",
+      "reason": "Excess stock return",
+      "taxTotal": 2288,
+      "grandTotal": 15000,
+      "isInterstate": false,
+      "status": "Approved",
+      "items": [
+        {
+          "productId": "PROD-001",
+          "quantity": 10,
+          "price": 1271,
+          "gstRate": 18,
+          "taxAmount": 2288,
+          "totalAmount": 15000
+        }
+      ]
+    }
+  ],
+  "fields": [],
+  "formulas": [],
+  "psvParties": [],
+  "companyState": "DL",
+  "goodsReceipts": [],
+  "attributeDefinitions": [],
+  "attributeGroups": [],
+  "variantTemplates": [],
+  "categoryAttributeGroupMappings": [],
+  "roles": [],
+  "reportSchedules": []
+}

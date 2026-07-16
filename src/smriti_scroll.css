@@ -1,0 +1,99 @@
+/**
+ * Project      : SMRITI Retail OS
+ * Repository   : SMRITIRetailNX
+ * Organization : AITDL NETWORKS
+ *
+ * Founders
+ *
+ * * Pushpa Devi Jawahar Mallah
+ *   * Founder & Chairperson
+ *   * Phone: +91 9324117007
+ *   * Email: founder@aitdl.com
+ *
+ * * Jawahar Ramkripal Mallah
+ *   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
+ *   * Email: founder@aitdl.com
+ *
+ * * Websites: aitdl.com | erpnbook.com | smritibooks.com
+ *
+ * * Version    : 2.1.1
+ * * Created    : 2026-07-10
+ * * Modified   : 2026-07-11
+ * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+ * * License    : Proprietary Commercial Software
+ */
+
+/* Class to completely hide native scrollbars while preserving touch, touchpad, mouse, and keyboard scrolling */
+.smriti-hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.smriti-hide-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Custom premium CSS-only overlay scrollbar for general/legacy scroll containers */
+.custom-scrollbar {
+  scrollbar-width: none; /* Hidden by default in Firefox */
+  -ms-overflow-style: none; /* Hidden by default in IE/Edge */
+}
+
+.custom-scrollbar:hover {
+  scrollbar-width: thin; /* Show thin in Firefox on hover */
+  scrollbar-color: rgba(37, 99, 235, 0.4) transparent;
+}
+
+/* Scrollbar layout configuration */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent; /* No layout-shifting background track */
+}
+
+/* Scrollbar thumb starting state (completely transparent/hidden) */
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+  /* Note: transition properties do not natively animate Webkit scrollbars, 
+     so we rely on hover state styling for smooth fade-in appearance */
+}
+
+/* Fade-in scrollbar thumb on container hover */
+.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: rgba(37, 99, 235, 0.4);
+}
+
+/* Brighter thumb highlight when user hovers directly over the scrollbar itself */
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(37, 99, 235, 0.75) !important;
+}
+
+/* Smooth, responsive animations for custom scrollbar overlay elements */
+.smriti-scroll-thumb-active {
+  transition: opacity 300ms cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms ease;
+}
+
+/* Gradient shadow indicator for more content at top/bottom of panels */
+.smriti-scroll-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 24px;
+  pointer-events: none;
+  z-index: 20;
+  transition: opacity 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.smriti-scroll-indicator-top {
+  top: 0;
+}
+
+.smriti-scroll-indicator-bottom {
+  bottom: 0;
+}

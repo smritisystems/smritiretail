@@ -1,0 +1,135 @@
+/**
+ * Project      : SMRITI Retail OS
+ * Repository   : SMRITIRetailNX
+ * Organization : AITDL NETWORKS
+ *
+ * Founders
+ *
+ * * Pushpa Devi Jawahar Mallah
+ *   * Founder & Chairperson
+ *   * Phone: +91 9324117007
+ *   * Email: founder@aitdl.com
+ *
+ * * Jawahar Ramkripal Mallah
+ *   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
+ *   * Email: founder@aitdl.com
+ *
+ * * Websites: aitdl.com | erpnbook.com | smritibooks.com
+ *
+ * * Version    : 2.1.1
+ * * Created    : 2026-07-10
+ * * Modified   : 2026-07-11
+ * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+ * * License    : Proprietary Commercial Software
+ */
+
+@import "tailwindcss";
+@import "./smriti_scroll.css";
+
+/* Tailwind v4 class-based dark mode */
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+	--font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+	--font-display: "Space Grotesk", sans-serif;
+	--font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+	--color-theme-base: var(--c-theme-base);
+	--color-theme-surface-1: var(--c-theme-surface-1);
+	--color-theme-surface-2: var(--c-theme-surface-2);
+	--color-theme-surface-3: var(--c-theme-surface-3);
+	--color-theme-surface-4: var(--c-theme-surface-4);
+	--color-theme-surface-hover: var(--c-theme-surface-hover);
+	--color-theme-divider: var(--c-theme-divider);
+	--color-theme-muted: var(--c-theme-muted);
+	--color-theme-primary: var(--c-theme-primary);
+	--color-theme-body: var(--c-theme-body);
+}
+
+@layer base {
+	:root {
+		/* Light Mode Palette */
+		--c-theme-base: #f1f5f9; /* gray-100 */
+		--c-theme-surface-1: #ffffff;
+		--c-theme-surface-2: #f8fafc; /* gray-50 */
+		--c-theme-surface-3: #ffffff;
+		--c-theme-surface-4: #f1f5f9; /* gray-100 */
+		--c-theme-surface-hover: #e2e8f0; /* gray-200 */
+		--c-theme-divider: #e2e8f0;
+		--c-theme-muted: #64748b; /* gray-500 */
+		--c-theme-primary: #0f172a; /* gray-900 */
+		--c-theme-body: #0f172a; /* gray-900 */
+	}
+
+	.dark {
+		/* Dark Mode Palette (original SMRITI hex values) */
+		--c-theme-base: #1a2b5c;
+		--c-theme-surface-1: #16213e;
+		--c-theme-surface-2: #121c35;
+		--c-theme-surface-3: #1a2744;
+		--c-theme-surface-4: #111827;
+		--c-theme-surface-hover: #20315a;
+		--c-theme-divider: #2a3a5c;
+		--c-theme-muted: #8892a4;
+		--c-theme-primary: #e2e8f0;
+		--c-theme-body: #ffffff;
+	}
+
+	html, body, #root {
+		margin: 0 !important;
+		padding: 0 !important;
+		width: 100% !important;
+		height: 100% !important;
+		overflow: hidden !important;
+	}
+
+	body {
+		background-color: var(--c-theme-base);
+		color: var(--c-theme-primary);
+		font-family: var(--font-sans);
+		transition:
+			background-color 0.3s ease,
+			color 0.3s ease;
+	}
+}
+
+/* Material Symbols configuration */
+.material-symbols-outlined {
+	font-family: "Material Symbols Outlined";
+	font-weight: normal;
+	font-style: normal;
+	font-size: 24px;
+	line-height: 1;
+	letter-spacing: normal;
+	text-transform: none;
+	display: inline-block;
+	white-space: nowrap;
+	word-wrap: normal;
+	direction: ltr;
+	-webkit-font-smoothing: antialiased;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-only-container, .print-only-container * {
+    visibility: visible;
+  }
+  .print-only-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white !important;
+    color: black !important;
+  }
+}
+@media screen {
+  .print-only-container {
+    display: none !important;
+  }
+}
+

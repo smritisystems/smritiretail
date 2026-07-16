@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%" fill="none">
+  <defs>
+    <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2dd4bf" />
+      <stop offset="100%" stop-color="#0ea5e9" />
+    </linearGradient>
+  </defs>
+  <!-- Handle -->
+  <path d="M 22 20 C 22 10, 42 10, 42 20" stroke="url(#logo-grad)" stroke-width="3.5" stroke-linecap="round" />
+  <!-- Bag Body -->
+  <path d="M 15 20 L 17 50 C 17 53, 19 55, 22 55 L 42 55 C 45 55, 47 53, 47 50 L 49 20 C 49 18, 47 17, 44 17 L 20 17 C 17 17, 15 18, 15 20 Z" 
+        stroke="url(#logo-grad)" stroke-width="3.5" stroke-linejoin="round" fill="rgba(20, 184, 166, 0.05)" />
+  <!-- Stylized S -->
+  <path d="M 37 29.5 C 37 27, 34.5 26, 32 26 C 29.5 26, 27 27, 27 29.5 C 27 33, 37 32, 37 36.5 C 37 39, 34.5 40, 32 40 C 29.5 40, 27 39, 27 36.5" 
+        stroke="url(#logo-grad)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

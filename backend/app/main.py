@@ -1,0 +1,223 @@
+"""
+Project      : SMRITI Retail OS
+Repository   : SMRITIRetailNX
+Organization : AITDL NETWORKS
+
+Founders
+
+* Pushpa Devi Jawahar Mallah
+  * Founder & Chairperson
+  * Phone: +91 9324117007
+  * Email: founder@aitdl.com
+
+* Jawahar Ramkripal Mallah
+  * Founder, Chief Executive Officer (CEO) & Chief Software Architect
+  * Email: founder@aitdl.com
+
+* Websites: aitdl.com | erpnbook.com | smritibooks.com
+
+* Version      : 3.17.0
+Created      : 2026-07-11
+Modified     : 2026-07-14
+Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+License      : Proprietary Commercial Software
+"""
+
+import datetime
+import time
+
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.compliance.api import router as compliance_router
+
+from .api.v1 import (
+    ai,
+    attributes,
+    auth,
+    barcode,
+    changelog,
+    crm,
+    dev_tracker,
+    exchange,
+    inventory,
+    master_lookup,
+    masters,
+    metadata,
+    numbering,
+    workflow,
+    health_flags,
+    pos,
+    purchase,
+    reports,
+    roles,
+    sales,
+    supplier_payment,
+    terms,
+    users,
+)
+from .core.config import settings
+from .core.constants import SMRITI_BANNER
+from .core.error_handlers import register_error_handlers
+from .core.logging import logger
+from .db.session import verify_db_connectivity
+from .middleware.request_logger import RequestLoggerMiddleware
+
+STARTUP_TIME = time.time()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """SMRITI startup: log banner. Yield for request handling. Shutdown is a no-op."""
+    print(SMRITI_BANNER)
+    logger.info(f"[SMRITI] Starting FastAPI Python Core on port {settings.PORT}...")
+    logger.info(f"[SMRITI] Mode: {settings.EDITION} | Version: {settings.VERSION}")
+    yield
+
+# Initialize FastAPI instance
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    lifespan=lifespan,
+    version=settings.VERSION,
+    description="SMRITI Retail OS - Enterprise Python Core Backend Service",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# Register HREP error handlers
+register_error_handlers(app)
+
+# 1. Register CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 2. Register Request Logger & ID Middleware
+app.add_middleware(RequestLoggerMiddleware)
+
+# 3. Register Versioned Router Endpoints
+app.include_router(health_flags.router, prefix=settings.API_V1_STR + "/health",    tags=["Health"])
+app.include_router(workflow.router,     prefix=settings.API_V1_STR + "/workflow",  tags=["Workflow"])  # AD-3: Core Workflow
+app.include_router(metadata.router,     prefix=settings.API_V1_STR)
+app.include_router(changelog.router, prefix=settings.API_V1_STR)
+app.include_router(dev_tracker.router, prefix=settings.API_V1_STR)
+app.include_router(auth.router,      prefix=settings.API_V1_STR + "/auth",          tags=["Authentication"])
+app.include_router(users.router,     prefix=settings.API_V1_STR + "/users",         tags=["User Management"])
+app.include_router(inventory.router, prefix=settings.API_V1_STR + "/inventory",      tags=["Inventory"])
+app.include_router(inventory.router, prefix=settings.API_V1_STR + "/products",       tags=["Inventory"])
+app.include_router(crm.router,       prefix=settings.API_V1_STR,                    tags=["CRM"])
+app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales-invoices", tags=["Sales-Legacy"])  # Deprecated — remove at v3.20.0
+app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Contract URL (Phase 4A)
+app.include_router(purchase.router,  prefix=settings.API_V1_STR,                    tags=["Purchase-Legacy"])  # Deprecated — remove at v3.20.0
+app.include_router(purchase.router,  prefix=settings.API_V1_STR + "/purchase",      tags=["Purchase"])         # Contract URL (Phase 4A)
+app.include_router(pos.router,              prefix=settings.API_V1_STR,                    tags=["POS Shift"])
+app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,                    tags=["Supplier Payments"])
+app.include_router(reports.router,          prefix=settings.API_V1_STR,                    tags=["Reports"])
+app.include_router(master_lookup.router,    prefix=settings.API_V1_STR + "/masters",       tags=["Masters"])
+app.include_router(masters.router,          prefix=settings.API_V1_STR + "/masters",       tags=["Masters"])
+app.include_router(numbering.router,        prefix=settings.API_V1_STR + "/numbering",     tags=["Numbering Engine"])
+app.include_router(terms.router,            prefix=settings.API_V1_STR + "/terms",         tags=["Terms & Conditions"])
+app.include_router(attributes.router,       prefix=settings.API_V1_STR + "/attributes",    tags=["Attributes & Variants"])  # noqa: E501
+app.include_router(barcode.router,          prefix=settings.API_V1_STR + "/barcode",       tags=["Barcode Studio"])
+app.include_router(exchange.router,         prefix=settings.API_V1_STR + "/exchange",      tags=["Data Exchange Hub"])
+app.include_router(ai.router,               prefix=settings.API_V1_STR + "/ai",            tags=["AI Assistant"])
+app.include_router(docs.router,             prefix=settings.API_V1_STR + "/docs",          tags=["Documentation"])
+app.include_router(roles.router,            prefix=settings.API_V1_STR + "/roles",         tags=["Role Matrix"])
+app.include_router(compliance_router,       prefix=settings.API_V1_STR)
+
+
+# 4. Standard Health Diagnostics Endpoints
+@app.get("/health", tags=["Health Diagnostics"])
+async def health_check():
+    """
+    Perform deep health audit asserting database and service connectivity pool status.
+    """
+    db_ok = await verify_db_connectivity()
+    return {
+        "status": "healthy" if db_ok else "degraded",
+        "database": "connected" if db_ok else "disconnected",
+        "service": "operational"
+    }
+
+@app.get("/ready", tags=["Health Diagnostics"])
+async def readiness_check():
+    """
+    Verify if the API framework service is ready to receive requests.
+    """
+    return {"status": "ready"}
+
+@app.get("/live", tags=["Health Diagnostics"])
+async def liveness_check():
+    """
+    Assert that the API backend process is alive.
+    """
+    return {"status": "alive"}
+
+@app.get("/version", tags=["Health Diagnostics"])
+async def version_check():
+    """
+    Fetch SMRITI core build specification version.
+    """
+    return {
+        "name": settings.PROJECT_NAME,
+        "version": settings.VERSION,
+        "edition": settings.EDITION
+    }
+
+@app.get("/metrics", tags=["Health Diagnostics"])
+async def metrics_check():
+    """
+    Expose basic diagnostic metrics.
+    """
+    return {
+        "requests_total": 0,  # Can bind to prometheus client
+        "active_connections": 1
+    }
+
+@app.get("/", include_in_schema=False)
+async def root_landing_page(request: Request):
+    db_ok = await verify_db_connectivity()
+    db_status = "connected" if db_ok else "disconnected"
+    
+    uptime_seconds = int(time.time() - STARTUP_TIME)
+    uptime = str(datetime.timedelta(seconds=uptime_seconds))
+    
+    router_count = len(app.routes)
+    
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        from .core.error_handlers import templates
+        return templates.TemplateResponse(
+            request=request,
+            name="errors/landing.html",
+            context={
+                "db_status": db_status,
+                "uptime": uptime,
+                "router_count": router_count,
+                "env": settings.ENVIRONMENT,
+                "edition": settings.EDITION,
+                "version": settings.VERSION,
+            }
+        )
+        
+    return JSONResponse(content={
+        "product": settings.PROJECT_NAME,
+        "version": settings.VERSION,
+        "edition": settings.EDITION,
+        "environment": settings.ENVIRONMENT,
+        "api_status": "healthy",
+        "database_status": db_status,
+        "uptime": uptime,
+        "mounted_routes": router_count,
+        "documentation": "/docs"
+    })
+
+
+

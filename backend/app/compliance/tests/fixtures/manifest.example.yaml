@@ -1,0 +1,32 @@
+# Project      : SMRITI Retail OS
+# Author       : Jawahar Ramkripal Mallah
+# Email        : support@smritibooks.com
+# Websites     : smritibooks.com | erpnbook.com | aitdl.com
+# Version      : 3.16.0
+# Created      : 2026-07-12
+# Modified     : 2026-07-12
+# Copyright    : © SMRITIBooks.com. All Rights Reserved.
+# License      : Proprietary Commercial Software
+# Classification: Internal
+
+id: test_connector
+name: Test Connector
+version: 1.0.0
+provider: NIC
+api_version: v1
+status: active
+display_name: Test Connector Integration
+description: Test connector manifest for registry verification
+documentation_url: https://smritibooks.com/docs/test_connector
+minimum_platform_version: 3.16.0
+authentication:
+  type: token
+environments:
+  sandbox:
+    enabled: true
+  production:
+    enabled: false
+capabilities:
+  - generate
+  - cancel
+  - update_vehicle

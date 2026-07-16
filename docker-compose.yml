@@ -1,0 +1,94 @@
+# Project      : SMRITI Retail OS
+# Author       : Jawahar Ramkripal Mallah
+# Email        : support@smritibooks.com
+# Websites     : smritibooks.com | erpnbook.com | aitdl.com
+# Version      : 3.15.0
+# Created      : 2026-07-11
+# Modified     : 2026-07-12
+# Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+# License      : Proprietary Commercial Software
+# Classification: Internal
+
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: smriti-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-smriti_retail_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - smriti_db_volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d smriti_retail_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smriti-api
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smriti_retail_db}"
+      DATABASE_PROVIDER: "postgres"
+      SYNC_PROVIDER: "postgres"
+      CACHE_PROVIDER: "memory"
+      STORAGE_PROVIDER: "filesystem"
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      PYTHON_CORE_HOST: "python-core:8000"
+    volumes:
+      - ./.git:/usr/src/app/.git
+    depends_on:
+      db:
+        condition: service_healthy
+      python-core:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  python-core:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smriti-python-core
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_API_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smriti_retail_db}"
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      JWT_SECRET_KEY: "${JWT_SECRET_KEY:-9a12c418-5a48-43d9-90b5-555a6d71b87a}"
+      SGIP_VAULT_MASTER_KEY: "${SGIP_VAULT_MASTER_KEY:-sgip_vault_master_secret_key_12345}"
+      # When true, the container will skip running Alembic migrations on startup.
+      # Recommended long-term: run migrations as a one-off job from CI or an init container.
+      SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-false}"
+    volumes:
+      - ./CHANGELOG.md:/app/CHANGELOG.md
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  smriti_db_volume:
+    name: smriti_db_volume

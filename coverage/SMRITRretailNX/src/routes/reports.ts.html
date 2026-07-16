@@ -1,0 +1,682 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for SMRITRretailNX/src/routes/reports.ts</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../../prettify.css" />
+    <link rel="stylesheet" href="../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../../index.html">All files</a> / <a href="index.html">SMRITRretailNX/src/routes</a> reports.ts</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">13.04% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>6/46</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/44</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/8</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">14.63% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>6/41</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a>
+<a name='L157'></a><a href='#L157'>157</a>
+<a name='L158'></a><a href='#L158'>158</a>
+<a name='L159'></a><a href='#L159'>159</a>
+<a name='L160'></a><a href='#L160'>160</a>
+<a name='L161'></a><a href='#L161'>161</a>
+<a name='L162'></a><a href='#L162'>162</a>
+<a name='L163'></a><a href='#L163'>163</a>
+<a name='L164'></a><a href='#L164'>164</a>
+<a name='L165'></a><a href='#L165'>165</a>
+<a name='L166'></a><a href='#L166'>166</a>
+<a name='L167'></a><a href='#L167'>167</a>
+<a name='L168'></a><a href='#L168'>168</a>
+<a name='L169'></a><a href='#L169'>169</a>
+<a name='L170'></a><a href='#L170'>170</a>
+<a name='L171'></a><a href='#L171'>171</a>
+<a name='L172'></a><a href='#L172'>172</a>
+<a name='L173'></a><a href='#L173'>173</a>
+<a name='L174'></a><a href='#L174'>174</a>
+<a name='L175'></a><a href='#L175'>175</a>
+<a name='L176'></a><a href='#L176'>176</a>
+<a name='L177'></a><a href='#L177'>177</a>
+<a name='L178'></a><a href='#L178'>178</a>
+<a name='L179'></a><a href='#L179'>179</a>
+<a name='L180'></a><a href='#L180'>180</a>
+<a name='L181'></a><a href='#L181'>181</a>
+<a name='L182'></a><a href='#L182'>182</a>
+<a name='L183'></a><a href='#L183'>183</a>
+<a name='L184'></a><a href='#L184'>184</a>
+<a name='L185'></a><a href='#L185'>185</a>
+<a name='L186'></a><a href='#L186'>186</a>
+<a name='L187'></a><a href='#L187'>187</a>
+<a name='L188'></a><a href='#L188'>188</a>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a>
+<a name='L193'></a><a href='#L193'>193</a>
+<a name='L194'></a><a href='#L194'>194</a>
+<a name='L195'></a><a href='#L195'>195</a>
+<a name='L196'></a><a href='#L196'>196</a>
+<a name='L197'></a><a href='#L197'>197</a>
+<a name='L198'></a><a href='#L198'>198</a>
+<a name='L199'></a><a href='#L199'>199</a>
+<a name='L200'></a><a href='#L200'>200</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
+ * @file src/routes/reports.ts
+ * @description Reports studio registration, visibilities permission gates, and automated schedulers.
+ * @module src/routes/reports
+ *
+ * Project      : SMRITI Retail OS
+ * Author       : Jawahar Ramkripal Mallah
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 3.15.0
+ * Created      : 2026-07-12
+ * Modified     : 2026-07-12
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ */
+&nbsp;
+import express from "express";
+import { reportSchedules, saveDb } from "../state/store.js";
+import { hasPermission } from "../lib/helpers.js";
+&nbsp;
+const router = express.Router();
+&nbsp;
+const SMRITI_STUDIOS = {
+  sales_studio: {
+    name: "Sales Report Studio",
+    description: "Gross revenue, ticket size, payment modes, sales returns &amp; salesperson indices.",
+    icon: "bar_chart",
+    reports: [
+      { id: "RPT-SAL-001", code: "RPT-SAL-001", title: "Daily Sales Summary Register", description: "All completed cash, card, and UPI invoice records with aggregate revenue and average tickets.", category: "Sales Summary", format: "Matrix", owner: "System", drillDownEnabled: true },
+      { id: "RPT-SAL-002", code: "RPT-SAL-002", title: "Sales Returns &amp; Credit Notes Log", description: "Detailed log of product returns, reason analyses, and credit notes issued.", category: "Returns", format: "Grid", owner: "System", drillDownEnabled: true },
+      { id: "RPT-SAL-003", code: "RPT-SAL-003", title: "Top Selling Products Ledger", description: "Top performing items ranked by volume, revenue contributions, and margins.", category: "Product Analysis", format: "Pivot", owner: "System", drillDownEnabled: true },
+      { id: "RPT-SAL-004", code: "RPT-SAL-004", title: "Salesperson Performance Index", description: "Individual sales staff conversions, target tracking, and commission calculations.", category: "Staff Analysis", format: "Grid", owner: "Admin", drillDownEnabled: false }
+    ]
+  },
+  purchase_studio: {
+    name: "Purchase Report Studio",
+    description: "Purchase invoices, supplier outstandings, pending GRNs, and purchase price analyses.",
+    icon: "shopping_cart",
+    reports: [
+      { id: "RPT-PUR-001", code: "RPT-PUR-001", title: "Purchase Orders &amp; GRN Register", description: "Record of all purchase orders issued, received quantities, and pending receipts.", category: "Procurement", format: "Grid", owner: "System", drillDownEnabled: true },
+      { id: "RPT-PUR-002", code: "RPT-PUR-002", title: "Supplier Outstanding Ledger", description: "Aggregated outstanding payable value to active suppliers for fulfilled purchases.", category: "Payables", format: "Grid", owner: "System", drillDownEnabled: true },
+      { id: "RPT-PUR-003", code: "RPT-PUR-003", title: "Items Pending Delivery Report", description: "Tracks procurement items ordered but not yet received, with supplier counts.", category: "Procurement", format: "Grid", owner: "System", drillDownEnabled: false },
+      { id: "RPT-PUR-004", code: "RPT-PUR-004", title: "Purchase Cost Price Trend", description: "Cost price fluctuations, average landed costs, and supplier margin impact.", category: "Cost Analysis", format: "Pivot", owner: "Admin", drillDownEnabled: false }
+    ]
+  },
+  inventory_studio: {
+    name: "Inventory Report Studio",
+    description: "Stock valuations, safety stock warnings, expiry lists, and dead stock reports.",
+    icon: "inventory_2",
+    reports: [
+      { id: "RPT-INV-001", code: "RPT-INV-001", title: "Critical Low Stock &amp; Reorder Warning", description: "Items below designated safety stocks requiring instant procurement reorders.", category: "Alerts", format: "Grid", owner: "System", drillDownEnabled: true },
+      { id: "RPT-INV-002", code: "RPT-INV-002", title: "Inventory Valuation Ledger", description: "Stock quantities, average unit costs, and total capital locked in warehouses.", category: "Valuation", format: "Pivot", owner: "System", drillDownEnabled: true },
+      { id: "RPT-INV-003", code: "RPT-INV-003", title: "Dead Stock &amp; Slow-Moving SKUs", description: "Identifies capital trapped in items with zero sales velocity over the last 90 days.", category: "Velocity", format: "Grid", owner: "Admin", drillDownEnabled: false },
+      { id: "RPT-INV-004", code: "RPT-INV-004", title: "Expiry &amp; Shelf-Life Tracker", description: "Batches nearing expiration with remaining days runway for proactive discounting.", category: "Compliance", format: "Grid", owner: "System", drillDownEnabled: false }
+    ]
+  },
+  customer_studio: {
+    name: "Customer Report Studio",
+    description: "Loyalty ledgers, customer lifetime value index, and customer outstandings.",
+    icon: "group",
+    reports: [
+      { id: "RPT-CST-001", code: "RPT-CST-001", title: "Customer Lifetime Value Index", description: "Top customers ranked by total spend velocity, purchase frequency, and loyalty points.", category: "CRM", format: "Pivot", owner: "System", drillDownEnabled: true },
+      { id: "RPT-CST-002", code: "RPT-CST-002", title: "Customer Loyalty Points Register", description: "Points earned, points redeemed, and active outstanding points balances.", category: "CRM", format: "Grid", owner: "System", drillDownEnabled: false },
+      { id: "RPT-CST-003", code: "RPT-CST-003", title: "Customer Outstanding &amp; Credit Receivables", description: "Outstanding credit balances from registered wholesale buyers with aging bands.", category: "Receivables", format: "Grid", owner: "System", drillDownEnabled: true }
+    ]
+  },
+  supplier_studio: {
+    name: "Supplier Report Studio",
+    description: "Supplier scorecard profiles, compliance rankings, and payment audits.",
+    icon: "local_shipping",
+    reports: [
+      { id: "RPT-SUP-001", code: "RPT-SUP-001", title: "Supplier Compliance Scorecard", description: "Fulfillment accuracy, on-time delivery rates, and order defect metrics.", category: "Compliance", format: "Pivot", owner: "System", drillDownEnabled: false },
+      { id: "RPT-SUP-002", code: "RPT-SUP-002", title: "Supplier Payment &amp; Settlement Register", description: "Historic invoices settled, payments processed, and pending credit clearances.", category: "Settlements", format: "Grid", owner: "Admin", drillDownEnabled: true }
+    ]
+  },
+  finance_studio: {
+    name: "Finance Report Studio",
+    description: "GSTR ledgers, cash books, profit statements, and balance records.",
+    icon: "payments",
+    reports: [
+      { id: "RPT-FIN-001", code: "RPT-FIN-001", title: "GST GSTR-1 &amp; GSTR-3B Tax Ledger", description: "Consolidated tax records containing taxable value, CGST, SGST, IGST calculations.", category: "Taxation", format: "Matrix", owner: "System", drillDownEnabled: false },
+      { id: "RPT-FIN-002", code: "RPT-FIN-002", title: "Daily Cash Book &amp; UPI Summary", description: "Physical cash audits, digital UPI/Card settlements reconciled against POS shifts.", category: "Audit", format: "Grid", owner: "System", drillDownEnabled: true },
+      { id: "RPT-FIN-003", code: "RPT-FIN-003", title: "Store Profit &amp; Loss Statement", description: "Gross profit calculations comparing item sale prices against weighted landed costs.", category: "Accounting", format: "Dashboard", owner: "CEO", drillDownEnabled: false }
+    ]
+  },
+  analytics_studio: {
+    name: "Analytics Studio",
+    description: "Sales forecasts, contribution heatmaps, and stock runways.",
+    icon: "trending_up",
+    reports: [
+      { id: "RPT-ANL-001", code: "RPT-ANL-001", title: "Sales Trend Forecast &amp; Projection", description: "Generative forecasting projecting next 30 days revenue using past trends.", category: "Analytics", format: "Dashboard", owner: "CEO", drillDownEnabled: false },
+      { id: "RPT-ANL-002", code: "RPT-ANL-002", title: "Category Margin Contribution Heatmap", description: "Visual heatmap correlating category sales volumes with gross margin contribution.", category: "Analytics", format: "Dashboard", owner: "System", drillDownEnabled: false },
+      { id: "RPT-ANL-003", code: "RPT-ANL-003", title: "Inventory Runway &amp; Stockout Forecast", description: "Predictive model estimating days-of-stock remaining based on current sales velocity.", category: "Analytics", format: "Dashboard", owner: "System", drillDownEnabled: false }
+    ]
+  },
+  custom_studio: {
+    name: "Custom Report Studio",
+    description: "Custom user-designed report templates and Rule 10 system compliance logs.",
+    icon: "settings_suggest",
+    reports: [
+      { id: "RPT-CST-LOG", code: "RPT-CST-LOG", title: "Rule 10 Non-Repudiation Audit Logs", description: "Immutable system logs capturing invoice alterations, user permission shifts, and resets.", category: "Compliance", format: "Grid", owner: "System", drillDownEnabled: true },
+      { id: "RPT-CST-USR", code: "RPT-CST-USR", title: "Custom User-Designed Report #1", description: "Active user-defined query matrix compiling retail items and store sales indexes.", category: "Custom", format: "Matrix", owner: "Admin", drillDownEnabled: false }
+    ]
+  }
+};
+&nbsp;
+export function <span class="fstat-no" title="function not covered" >checkSmritiReportPermissions(r</span>eq: express.Request, action: string, reportId?: string): boolean {
+<span class="cstat-no" title="statement not covered" >  if (!hasPermission(req, "reports.view")) <span class="cstat-no" title="statement not covered" >return false;</span></span>
+  
+<span class="cstat-no" title="statement not covered" >  if (!hasPermission(req, "settings.manage")) {</span>
+<span class="cstat-no" title="statement not covered" >    if (action === "export" || action === "schedule" || action === "email") <span class="cstat-no" title="statement not covered" >return false;</span></span>
+<span class="cstat-no" title="statement not covered" >    if (reportId &amp;&amp; (reportId.startsWith("RPT-FIN") || reportId === "RPT-CST-LOG")) <span class="cstat-no" title="statement not covered" >return false;</span></span>
+  }
+  
+<span class="cstat-no" title="statement not covered" >  if (!hasPermission(req, "roles.manage")) {</span>
+<span class="cstat-no" title="statement not covered" >    if (reportId === "RPT-FIN-003" &amp;&amp; (action === "export" || action === "schedule")) <span class="cstat-no" title="statement not covered" >return false;</span></span>
+  }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  return true;</span>
+}
+&nbsp;
+router.get(<span class="fstat-no" title="function not covered" >"/api/reports/list", (r</span>eq, res) =&gt; {
+  const role = (<span class="cstat-no" title="statement not covered" >req.headers["x-user-role"] as string) || "Guest";</span>
+  
+  const filteredStudios: Record&lt;string, any&gt; = <span class="cstat-no" title="statement not covered" >{};</span>
+  
+<span class="cstat-no" title="statement not covered" >  Object.entries(SMRITI_STUDIOS).<span class="fstat-no" title="function not covered" >forEach(([</span>studioKey, studioData]) =&gt; {</span>
+    const visibleReports = <span class="cstat-no" title="statement not covered" >studioData.reports.<span class="fstat-no" title="function not covered" >filter(r</span>pt =&gt; </span>
+<span class="cstat-no" title="statement not covered" >      checkSmritiReportPermissions(req, "view", rpt.id)</span>
+    );
+    
+<span class="cstat-no" title="statement not covered" >    filteredStudios[studioKey] = {</span>
+      name: studioData.name,
+      description: studioData.description,
+      icon: studioData.icon,
+      reports: visibleReports
+    };
+  });
+  
+<span class="cstat-no" title="statement not covered" >  res.json({</span>
+    studios: filteredStudios,
+    role,
+    policyEnforcement: "SMRITI Rule 10 Non-Repudiation Schema Active"
+  });
+});
+&nbsp;
+router.post(<span class="fstat-no" title="function not covered" >"/api/reports/schedule", (r</span>eq, res) =&gt; {
+  const role = (<span class="cstat-no" title="statement not covered" >req.headers["x-user-role"] as string) || "Guest";</span>
+  const { reportId, reportName, frequency, deliveryFormat, recipientEmail, cronExpression } = <span class="cstat-no" title="statement not covered" >req.body;</span>
+  
+<span class="cstat-no" title="statement not covered" >  if (!reportId || !recipientEmail || !frequency) {</span>
+<span class="cstat-no" title="statement not covered" >    return res.status(400).json({ error: "Missing required scheduling fields: reportId, recipientEmail, and frequency are mandatory." });</span>
+  }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  if (!checkSmritiReportPermissions(req, "schedule", reportId)) {</span>
+    const role = (<span class="cstat-no" title="statement not covered" >req.headers["x-user-role"] as string) || "Guest";</span>
+<span class="cstat-no" title="statement not covered" >    return res.status(403).json({ error: `Rule 10 Enforced: Role '${role}' is not authorized to register automated email cron schedules.` });</span>
+  }
+&nbsp;
+  const newSchedule = <span class="cstat-no" title="statement not covered" >{</span>
+    id: "SCH-" + Date.now(),
+    reportId,
+    reportName: reportName || "Standard Report",
+    frequency,
+    deliveryFormat: deliveryFormat || "PDF",
+    recipientEmail,
+    cronExpression: cronExpression || "0 8 * * *",
+    isActive: true,
+    createdAt: new Date().toISOString()
+  };
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  reportSchedules.push(newSchedule);</span>
+<span class="cstat-no" title="statement not covered" >  saveDb();</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  res.json({ success: true, schedule: newSchedule });</span>
+});
+&nbsp;
+router.get(<span class="fstat-no" title="function not covered" >"/api/reports/schedules", (r</span>eq, res) =&gt; {
+<span class="cstat-no" title="statement not covered" >  res.json(reportSchedules);</span>
+});
+&nbsp;
+router.delete(<span class="fstat-no" title="function not covered" >"/api/reports/schedule/:id", (r</span>eq, res) =&gt; {
+  const { id } = <span class="cstat-no" title="statement not covered" >req.params;</span>
+<span class="cstat-no" title="statement not covered" >  if (!hasPermission(req, "settings.manage")) {</span>
+<span class="cstat-no" title="statement not covered" >    return res.status(403).json({ error: "Access Denied: You do not have permission to delete report schedules." });</span>
+  }
+&nbsp;
+  const index = <span class="cstat-no" title="statement not covered" >reportSchedules.<span class="fstat-no" title="function not covered" >findIndex(s</span> =&gt; <span class="cstat-no" title="statement not covered" >s.id === id)</span>;</span>
+<span class="cstat-no" title="statement not covered" >  if (index === -1) {</span>
+<span class="cstat-no" title="statement not covered" >    return res.status(404).json({ error: "Schedule not found." });</span>
+  }
+&nbsp;
+  const removed = <span class="cstat-no" title="statement not covered" >reportSchedules.splice(index, 1);</span>
+<span class="cstat-no" title="statement not covered" >  saveDb();</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  res.json({ success: true, removedSchedule: removed[0] });</span>
+});
+&nbsp;
+export default router;
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-07-12T06:16:26.451Z
+            </div>
+        <script src="../../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../../sorter.js"></script>
+        <script src="../../../block-navigation.js"></script>
+    </body>
+</html>
+    

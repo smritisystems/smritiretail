@@ -1,0 +1,105 @@
+<!--
+  Project      : SMRITI Retail OS
+  Author       : Jawahar Ramkripal Mallah
+  Email        : support@smritibooks.com
+  Websites     : smritibooks.com | erpnbook.com | aitdl.com
+  Version      : 3.16.0
+  Created      : 2026-07-12
+  Modified     : 2026-07-12
+  Copyright    : © SMRITIBooks.com. All Rights Reserved.
+  License      : Proprietary Commercial Software
+  Classification: Internal
+-->
+{% extends "errors/base.html" %}
+
+{% block title %}SMRITI Retail OS - Core API Landing{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-4xl bg-slate-900/60 backdrop-blur-md rounded-2xl p-8 md:p-10 border border-slate-800/80 shadow-2xl relative overflow-hidden">
+    <!-- Decorative gradient blur background inside card -->
+    <div class="absolute -top-32 -right-32 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -left-32 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="flex flex-col md:flex-row gap-8 items-start justify-between">
+        <!-- Left Side: Product Info & Description -->
+        <div class="flex-grow space-y-6">
+            <div>
+                <span class="px-2.5 py-1 rounded-full bg-blue-950/40 border border-blue-800/50 text-[10px] font-mono font-semibold uppercase tracking-wider text-blue-400">Core Services Active</span>
+                <h1 class="font-display font-bold text-3xl md:text-4xl tracking-tight text-white mt-4">
+                    SMRITI Retail OS
+                </h1>
+                <p class="text-slate-400 text-sm mt-3 leading-relaxed max-w-lg">
+                    Enterprise-grade Python core microservices powering POS terminals, supplier networks, and real-time inventory management.
+                </p>
+            </div>
+
+            <!-- Quick Links Grid -->
+            <div class="grid grid-cols-2 gap-3 max-w-md">
+                <a href="/docs" class="flex items-center justify-between p-3 rounded-xl bg-slate-950/40 hover:bg-slate-950/80 border border-slate-800/60 hover:border-blue-500/50 transition-all group">
+                    <span class="text-xs font-semibold text-slate-300 group-hover:text-blue-400 transition-colors">Swagger UI</span>
+                    <span class="text-[10px] font-mono text-slate-600 group-hover:text-slate-400 transition-colors">/docs</span>
+                </a>
+                <a href="/redoc" class="flex items-center justify-between p-3 rounded-xl bg-slate-950/40 hover:bg-slate-950/80 border border-slate-800/60 hover:border-blue-500/50 transition-all group">
+                    <span class="text-xs font-semibold text-slate-300 group-hover:text-blue-400 transition-colors">ReDoc</span>
+                    <span class="text-[10px] font-mono text-slate-600 group-hover:text-slate-400 transition-colors">/redoc</span>
+                </a>
+                <a href="/openapi.json" class="flex items-center justify-between p-3 rounded-xl bg-slate-950/40 hover:bg-slate-950/80 border border-slate-800/60 hover:border-blue-500/50 transition-all group col-span-2">
+                    <span class="text-xs font-semibold text-slate-300 group-hover:text-blue-400 transition-colors">OpenAPI Schema Specs</span>
+                    <span class="text-[10px] font-mono text-slate-600 group-hover:text-slate-400 transition-colors">/openapi.json</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Right Side: Diagnostics Sidebar -->
+        <div class="w-full md:w-80 shrink-0 bg-slate-950/60 border border-slate-800/60 rounded-xl p-5 space-y-5 text-xs font-mono">
+            <span class="block font-sans font-bold text-sm tracking-tight text-white pb-3 border-b border-slate-800/80">Diagnostics & State</span>
+            
+            <div class="space-y-3.5">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500">API Status</span>
+                    <span class="flex items-center gap-1.5 text-emerald-400 font-semibold uppercase text-[10px]">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Healthy
+                    </span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500">Database Status</span>
+                    {% if db_status == 'connected' %}
+                        <span class="flex items-center gap-1.5 text-emerald-400 font-semibold uppercase text-[10px]">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Connected
+                        </span>
+                    {% else %}
+                        <span class="flex items-center gap-1.5 text-red-400 font-semibold uppercase text-[10px]">
+                            <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                            Disconnected
+                        </span>
+                    {% endif %}
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500">Loaded Routers</span>
+                    <span class="text-slate-300 font-semibold">{{ router_count }} mounted</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500">App Uptime</span>
+                    <span class="text-slate-300 font-semibold">{{ uptime }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500">Edition</span>
+                    <span class="text-slate-300 font-semibold text-[10px] text-right">{{ edition }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500">Environment</span>
+                    <span class="text-blue-400 font-semibold uppercase">{{ env }}</span>
+                </div>
+            </div>
+            
+            <div class="pt-4 border-t border-slate-800/80">
+                <a href="/health" class="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-900 hover:bg-slate-800 active:bg-slate-900 text-slate-300 hover:text-white font-medium font-sans rounded-lg transition-colors border border-slate-800">
+                    Run Health Diagnostic Check
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

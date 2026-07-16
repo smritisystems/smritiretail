@@ -1,0 +1,22 @@
+{
+  "app": {
+    "productName": "SMRITI Retail OS",
+    "edition": "Enterprise Edition",
+    "releaseNumber": "REL-2410-B",
+    "buildNumber": "BUILD-8092.44",
+    "environment": "Production",
+    "uiVersion": "SRLE v1.0",
+    "workflowEngineVersion": "v1.4",
+    "printEngineVersion": "v1.2"
+  },
+  "author": {
+    "authorName": "Jawahar Ramkripal Mallah",
+    "role": "Chief Systems Architect & Creator",
+    "organization": "AITDL NETWORKS",
+    "product": "SMRITI Retail OS",
+    "website": "smritibooks.com",
+    "supportEmail": "jawahar.mallah@gmail.com",
+    "copyright": "© AITDL.com and SMRITIBooks.com. All Rights Reserved.",
+    "license": "Proprietary Commercial Software"
+  }
+}
