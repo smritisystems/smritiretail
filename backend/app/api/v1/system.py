@@ -13,6 +13,7 @@ License      : Proprietary Commercial Software
 
 import re
 import uuid
+import secrets
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Body
@@ -548,22 +549,31 @@ async def company_setup(
         if not username:
             username = re.sub(r"[^a-z0-9]", "", display_name.lower()) or f"user{idx + 1}"
 
+        temp_password = secrets.token_urlsafe(12)
         user = User(
             id=f"usr-{uuid.uuid4().hex[:8]}",
             username=username,
             email=email,
             mobile=mobile,
-            hashed_password=hash_password("smriti123"),
+            hashed_password=hash_password(temp_password),
             role=role,
             is_active=True,
             is_deleted=False,
             company_id=company_id if role != UserRole.SYSADMIN else None,
             branch_id=assigned_branch.id if assigned_branch is not None else None,
+            status="PendingPasswordChange",
             display_name=display_name,
             full_name=display_name,
         )
         db.add(user)
-        created_users.append(user)
+        created_users.append({
+            "id": user.id,
+            "username": user.username,
+            "role": user.role.value,
+            "company_id": user.company_id,
+            "branch_id": user.branch_id,
+            "temp_password": temp_password,
+        })
 
     existing_config = await get_system_config(db, SETUP_COMPLETED_KEY)
     if existing_config:
@@ -594,9 +604,6 @@ async def company_setup(
                 {"id": b.id, "name": b.name, "code": b.code}
                 for b in created_branches
             ],
-            "users": [
-                {"id": u.id, "username": u.username, "role": u.role.value, "company_id": u.company_id, "branch_id": u.branch_id}
-                for u in created_users
-            ]
-        }
+            "users": created_users,
+        },
     }

@@ -88,6 +88,10 @@ class User(Base):
     modified_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc),
                          onupdate=lambda: datetime.now(timezone.utc))
 
+    @property
+    def password_reset_required(self) -> bool:
+        return self.status == "PendingPasswordChange"
+
     company = relationship("Company", foreign_keys=[company_id])
     branch_rel  = relationship("Branch",  foreign_keys=[branch_id])
 

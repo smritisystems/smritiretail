@@ -31,6 +31,23 @@ from ..models.auth import UserRole
 class LoginRequest(BaseModel):
     username: str
     password: str
+    company_id: Optional[str] = None
+    branch_id: Optional[str] = None
+
+
+class UserResponse(BaseModel):
+    id: str
+    username: str
+    email: Optional[str] = None
+    mobile: Optional[str] = None
+    role: UserRole
+    is_active: bool
+    status: str
+    company_id: Optional[str] = None
+    branch_id: Optional[str] = None
+    password_reset_required: bool = False
+
+    model_config = {"from_attributes": True}
 
 
 class TokenResponse(BaseModel):
@@ -40,6 +57,8 @@ class TokenResponse(BaseModel):
     role: UserRole
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
+    password_reset_required: bool = False
+    user: Optional[UserResponse] = None
 
 
 class AccessTokenResponse(BaseModel):
@@ -58,16 +77,3 @@ class BootstrapRequest(BaseModel):
     password: str
     email: Optional[str] = None
     mobile: Optional[str] = None
-
-
-class UserResponse(BaseModel):
-    id: str
-    username: str
-    email: Optional[str] = None
-    mobile: Optional[str] = None
-    role: UserRole
-    is_active: bool
-    company_id: Optional[str] = None
-    branch_id: Optional[str] = None
-
-    model_config = {"from_attributes": True}

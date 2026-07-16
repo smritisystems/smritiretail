@@ -79,6 +79,7 @@ import { ShortcutProvider } from "./contexts/ShortcutContext.tsx";
 import { ShortcutPalette } from "./components/ShortcutPalette.tsx";
 import { WorkspaceTaskbar } from "./components/WorkspaceTaskbar.tsx";
 import { SetupWizardTab } from "./components/SetupWizard/SetupWizardTab.tsx";
+import { PasswordResetScreen } from "./components/PasswordResetScreen.tsx";
 import { PrintPreviewModal } from "./components/PrintPreviewModal.tsx";
 import { LoginScreen } from "./components/LoginScreen.tsx";
 import { SmritiErrorBoundary } from "./components/SmritiErrorBoundary.tsx";
@@ -97,7 +98,7 @@ const AppContent: React.FC = () => {
   const { globalZoom, popOutTab } = useWorkspace();
   const { addNotification: addSystemNotification } = useNotifications();
   
-  const [currentUser, setCurrentUser] = useState<{ role: string; name: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ role: string; name: string; passwordResetRequired?: boolean } | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   const checkAuth = async () => {
@@ -108,6 +109,7 @@ const AppContent: React.FC = () => {
         setCurrentUser({
           role: data.role ?? "",
           name: data.display_name || data.full_name || data.username || "",
+          passwordResetRequired: data.password_reset_required ?? false,
         });
       } else {
         setCurrentUser(null);
@@ -124,7 +126,7 @@ const AppContent: React.FC = () => {
     checkAuth();
   }, []);
 
-  const handleLoginSuccess = (user: { role: string; name: string }) => {
+  const handleLoginSuccess = (user: { role: string; name: string; passwordResetRequired?: boolean }) => {
     setCurrentUser(user);
   };
 
@@ -142,7 +144,7 @@ const AppContent: React.FC = () => {
   }, [currentUser]);
 
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && !currentUser.passwordResetRequired) {
       refreshSetupStatus();
     }
   }, [currentUser]);
@@ -179,6 +181,9 @@ const AppContent: React.FC = () => {
 
   const activeTab = isSetupCompleted ? (safeLastWorkspace || "dashboard") : "company-setup";
   const setActiveTab = (tab: string) => {
+    if (!isSetupCompleted && tab !== "company-setup") {
+      return;
+    }
     const resolvedTab = isSetupCompleted && tab === "company-setup" ? "dashboard" : tab;
     addToRecentlyUsed(resolvedTab);
   };
@@ -503,6 +508,28 @@ const AppContent: React.FC = () => {
 
   if (!currentUser) {
     return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (currentUser.passwordResetRequired) {
+    return (
+      <PasswordResetScreen
+        onResetSuccess={() => {
+          setCurrentUser((prev) => prev ? { ...prev, passwordResetRequired: false } : prev);
+        }}
+      />
+    );
+  }
+
+  if (!isSetupCompleted) {
+    return (
+      <SetupWizardTab
+        onComplete={() => {
+          markSetupCompleted();
+          addNotification("Setup Complete", "Welcome to SMRITI Retail OS dashboard!", "success");
+          setActiveTab("dashboard");
+        }}
+      />
+    );
   }
 
   return (

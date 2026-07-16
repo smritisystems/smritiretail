@@ -25,7 +25,7 @@ Founders
 
 from dataclasses import dataclass
 from typing import Callable, Tuple
-from fastapi import Depends, HTTPException, Header
+from fastapi import Depends, HTTPException, Header, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.config import settings
@@ -50,6 +50,7 @@ class TenantContext:
 # get_current_user
 # ---------------------------------------------------------------------------
 async def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(_get_db),
 ) -> User:
@@ -80,7 +81,22 @@ async def get_current_user(
     # Lazy-import to avoid circular imports (AuthService ↔ deps)
     from ..services.auth import AuthService
     service = AuthService(db)
-    return await service.get_user_by_id(user_id)
+    user = await service.get_user_by_id(user_id)
+
+    if user.status == "PendingPasswordChange":
+        allowed_paths = {
+            "/api/v1/auth/me",
+            "/api/v1/users/me/password",
+            "/api/v1/auth/logout",
+            "/api/v1/auth/refresh",
+        }
+        if request.url.path not in allowed_paths:
+            raise HTTPException(
+                status_code=403,
+                detail="Password change is required before accessing the application.",
+            )
+
+    return user
 
 
 # ---------------------------------------------------------------------------

@@ -28,7 +28,7 @@ from ..schemas.user import (
     StaffUserResponse, SalaryStructure, PaymentDetails, PerformanceMetrics,
     UserPreferencesSchema, NotificationSettings
 )
-from ..core.security import hash_password, verify_password
+from ..core.security import hash_password, verify_password, validate_password_strength
 
 
 def to_staff_response(user: User) -> StaffUserResponse:
@@ -144,6 +144,7 @@ class UserService:
                            "or does not belong to the given company.",
                 )
 
+        validate_password_strength(req.password)
         user = User(
             id=f"usr-{uuid.uuid4().hex[:8]}",
             username=req.username,
@@ -264,13 +265,15 @@ class UserService:
                 detail="The current password you entered is incorrect. "
                        "Please try again.",
             )
-        if len(req.new_password) < 8:
+        if req.current_password == req.new_password:
             raise HTTPException(
                 status_code=400,
-                detail="Your new password must be at least 8 characters long.",
+                detail="The new password must be different from the current password.",
             )
+        validate_password_strength(req.new_password)
         user.hashed_password = hash_password(req.new_password)
         user.modified_at = datetime.now(timezone.utc)
+        user.status = "Active"
         await self.db.commit()
 
     # ==================================================================
@@ -510,6 +513,19 @@ class UserService:
         if user_id == requesting_user_id:
             raise HTTPException(status_code=400, detail="You cannot delete your own active operator profile.")
         user = await self.get_user(user_id)
+        if user.role == UserRole.SYSADMIN:
+            q = select(func.count()).where(
+                User.role == UserRole.SYSADMIN,
+                User.is_deleted == False,
+                User.is_active == True,
+                User.id != user.id,
+            )
+            remaining = (await self.db.execute(q)).scalar_one()
+            if remaining == 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot deactivate the last active SYSADMIN. Add another SYSADMIN before removing this account.",
+                )
         user.is_active = False
         user.is_deleted = True
         user.status = "Inactive"

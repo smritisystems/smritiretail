@@ -67,7 +67,7 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
   // Modal Fields
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("smriti123");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState("Cashier");
   const [designation, setDesignation] = useState("");
   const [department, setDepartment] = useState("Sales");
@@ -169,7 +169,7 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
     setModalMode("add");
     setFullName("");
     setUsername("");
-    setPassword("smriti123");
+    setPassword("");
     setRole("Cashier");
     setDesignation(designations[0]?.id || "Sales Executive");
     setDepartment(departments[0]?.id || "Sales");
@@ -227,6 +227,11 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
       };
 
       if (modalMode === "add") {
+        if (!password) {
+          alert("Please set a secure password for the new operator.");
+          return;
+        }
+
         // Migrated: POST /api/users (Express) → POST /api/v1/users/ (FastAPI — StaffUserCreate schema)
         await apiFetchV1("/users/", {
           method: "POST",
