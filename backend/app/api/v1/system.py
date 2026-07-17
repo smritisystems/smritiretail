@@ -14,8 +14,8 @@ License      : Proprietary Commercial Software
 import re
 import uuid
 import secrets
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
-from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Body
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,11 +28,17 @@ from ...models.auth import User, UserRole
 from ...models.psv import PSVParty, PSVPartySkuTracking
 from ...models.system import TallyConfig, SystemConfig
 from ...models.tenant import Company, Branch
+from ...models.inventory import Store
 from ...schemas.psv import PSVPartyResponse
 from ...schemas.system import (
     TallyConfigCreate, TallyConfigUpdate, TallyConfigResponse,
-    SystemConfigCreate, SystemConfigUpdate, SystemConfigResponse
+    SystemConfigCreate, SystemConfigUpdate, SystemConfigResponse,
+    CompanySetupRequest, StoreConfig
 )
+from ...schemas.numbering import DocumentSeriesCreate
+from ...services.numbering import NumberingService
+from ...schemas.user import UserCreate
+from ...services.user import UserService
 
 router = APIRouter()
 
@@ -47,6 +53,16 @@ DEFAULT_LAYOUT_PREFERENCES: Dict[str, Any] = {
 }
 
 SETUP_COMPLETED_KEY = "setup_completed"
+CURRENT_FINANCIAL_YEAR_KEY = "current_financial_year"
+BOOKS_START_DATE_KEY = "books_start_date"
+BUSINESS_TRADE_NAME_KEY = "business_trade_name"
+BUSINESS_TYPE_KEY = "business_type"
+BUSINESS_STATE_KEY = "business_state"
+BUSINESS_PAN_KEY = "business_pan"
+LICENSE_STATUS_KEY = "license_status"
+LICENSE_TYPE_KEY = "license_type"
+LICENSE_MODE_KEY = "license_mode"
+LICENSE_EXPIRES_KEY = "license_expires_at"
 
 layout_preferences: Dict[str, Any] = DEFAULT_LAYOUT_PREFERENCES.copy()
 
@@ -57,13 +73,22 @@ async def get_system_config(db: AsyncSession, key: str) -> Optional[SystemConfig
     return res.scalars().first()
 
 
-async def set_system_config(db: AsyncSession, key: str, value: str, current_user: User) -> SystemConfig:
+async def set_system_config(
+    db: AsyncSession,
+    key: str,
+    value: str,
+    current_user: User,
+    commit: bool = True,
+) -> SystemConfig:
     existing = await get_system_config(db, key)
     if existing:
         existing.value = value
         existing.updated_by = current_user.username
         existing.modified_at = datetime.now(timezone.utc)
-        await db.commit()
+        if commit:
+            await db.commit()
+        else:
+            await db.flush()
         await db.refresh(existing)
         return existing
 
@@ -77,7 +102,10 @@ async def set_system_config(db: AsyncSession, key: str, value: str, current_user
         updated_by=current_user.username,
     )
     db.add(config)
-    await db.commit()
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
     await db.refresh(config)
     return config
 
@@ -468,28 +496,28 @@ def normalize_branch_code(code: str | None, idx: int) -> str:
     "/company/setup",
 )
 async def company_setup(
-    payload: Dict[str, Any] = Body(...),
+    payload: CompanySetupRequest = Body(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     Provision company setup from the onboarding wizard.
     """
-    business_info = payload.get("businessInfo", {}) or {}
-    org_structure = payload.get("orgStructure", {}) or {}
-    users_payload = payload.get("users", {}) or {}
+    business_info = payload.businessInfo
+    org_structure = payload.orgStructure
+    users_payload = payload.users
 
-    company_name = business_info.get("name") or "SMRITI Retail Company"
-    company_gstin = business_info.get("gstin") or None
-    branch_entries = []
-
-    if isinstance(org_structure, dict):
-        stores = org_structure.get("stores")
-        if isinstance(stores, list) and stores:
-            branch_entries = stores
+    company_name = business_info.name or "SMRITI Retail Company"
+    company_gstin = business_info.gstin or None
+    branch_entries = org_structure.stores or []
 
     existing_setup = await get_system_config(db, SETUP_COMPLETED_KEY)
     if existing_setup and existing_setup.value == "true":
+        if current_user.role != UserRole.SYSADMIN:
+            raise HTTPException(
+                status_code=403,
+                detail="Only a SYSADMIN can run the company setup after initialization."
+            )
         raise HTTPException(
             status_code=400,
             detail="Company setup has already been completed."
@@ -497,102 +525,177 @@ async def company_setup(
 
     if not branch_entries:
         branch_entries = [
-            {
-                "name": company_name,
-                "code": "BR-01",
-            }
+            StoreConfig(
+                name=company_name,
+                code="BR-01",
+                type="Company Owned",
+                address="",
+                city="",
+                state="",
+                pinCode="",
+                contactPerson="Branch Manager",
+                mobile="",
+                email=""
+            )
         ]
+
+    business_financial_year = business_info.financialYear or "2026-2027"
+    books_start_date = business_info.booksStartDate or "2026-04-01"
+    trade_name = business_info.tradeName or company_name
+    business_type = business_info.businessType or "retail"
+    business_state = business_info.state or ""
+    business_pan = business_info.pan or ""
+    license_status = (payload.license.status or "Trial").title()
+    license_type = (payload.license.type or "Trial").title()
+    license_mode = (payload.license.mode or "Offline").title()
+    license_expires_at = payload.license.expiresAt or (
+        (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    )
 
     timestamp_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     company_id = f"comp-{timestamp_ms}"
-    company = Company(
-        id=company_id,
-        name=company_name,
-        gst_number=company_gstin,
-        is_active=True,
-        is_deleted=False,
-    )
-    db.add(company)
-    await db.flush()
-
     created_branches = []
-    for idx, store in enumerate(branch_entries):
-        branch_name = store.get("name") or store.get("code") or f"Branch {idx + 1}"
-        branch_code = normalize_branch_code(store.get("code"), idx)
-        branch_id = f"br-{timestamp_ms + idx}"
-        branch = Branch(
-            id=branch_id,
-            company_id=company_id,
-            name=branch_name,
-            code=branch_code,
-            is_active=True,
-            is_deleted=False,
-        )
-        db.add(branch)
-        created_branches.append(branch)
-
-    staff_entries = []
-    if isinstance(users_payload, dict):
-        staff_entries = users_payload.get("staff") or []
-    if not isinstance(staff_entries, list):
-        staff_entries = []
-
+    created_stores = []
     created_users = []
-    for idx, staff in enumerate(staff_entries):
-        username = (staff.get("username") or "").strip()
-        display_name = (staff.get("name") or username or f"user{idx + 1}").strip()
-        role = normalize_staff_role(staff.get("role") or "Cashier")
-        email = staff.get("email") or None
-        mobile = staff.get("mobile") or None
-        assigned_branch = created_branches[0] if created_branches else None
+    user_service = UserService(db)
 
-        if not username:
-            username = re.sub(r"[^a-z0-9]", "", display_name.lower()) or f"user{idx + 1}"
+    staff_entries = users_payload.staff or []
 
-        temp_password = secrets.token_urlsafe(12)
-        user = User(
-            id=f"usr-{uuid.uuid4().hex[:8]}",
-            username=username,
-            email=email,
-            mobile=mobile,
-            hashed_password=hash_password(temp_password),
-            role=role,
+    async with db.begin():
+        company = Company(
+            id=company_id,
+            name=company_name,
+            gst_number=company_gstin,
             is_active=True,
             is_deleted=False,
-            company_id=company_id if role != UserRole.SYSADMIN else None,
-            branch_id=assigned_branch.id if assigned_branch is not None else None,
-            status="PendingPasswordChange",
-            display_name=display_name,
-            full_name=display_name,
         )
-        db.add(user)
-        created_users.append({
-            "id": user.id,
-            "username": user.username,
-            "role": user.role.value,
-            "company_id": user.company_id,
-            "branch_id": user.branch_id,
-            "temp_password": temp_password,
-        })
+        db.add(company)
+        await db.flush()
 
-    existing_config = await get_system_config(db, SETUP_COMPLETED_KEY)
-    if existing_config:
-        existing_config.value = "true"
-        existing_config.updated_by = current_user.username
-        existing_config.modified_at = datetime.now(timezone.utc)
-    else:
-        config_id = f"sys-{int(datetime.now(timezone.utc).timestamp())}"
-        system_config = SystemConfig(
-            id=config_id,
-            key=SETUP_COMPLETED_KEY,
-            value="true",
-            category="Setup",
-            created_by=current_user.username,
-            updated_by=current_user.username,
-        )
-        db.add(system_config)
+        for idx, store in enumerate(branch_entries):
+            branch_name = store.name or store.code or f"Branch {idx + 1}"
+            branch_code = normalize_branch_code(store.code, idx)
+            branch_id = f"br-{timestamp_ms + idx}"
+            branch = Branch(
+                id=branch_id,
+                company_id=company_id,
+                name=branch_name,
+                code=branch_code,
+                is_active=True,
+                is_deleted=False,
+            )
+            db.add(branch)
+            created_branches.append(branch)
 
-    await db.commit()
+            store_id = f"stor-{timestamp_ms + idx}"
+            store_record = Store(
+                id=store_id,
+                company_id=company_id,
+                branch_id=branch_id,
+                code=branch_code,
+                name=branch_name,
+                store_type=store.type or "Company Owned",
+                address=store.address or "",
+                is_active=True,
+                is_deleted=False,
+                created_by=current_user.username,
+                updated_by=current_user.username,
+            )
+            db.add(store_record)
+            created_stores.append(store_record)
+
+        for idx, staff in enumerate(staff_entries):
+            username = (staff.username or "").strip()
+            display_name = (staff.name or username or f"user{idx + 1}").strip()
+            role = normalize_staff_role(staff.role or "Cashier")
+            email = staff.email or None
+            mobile = staff.mobile or None
+            assigned_branch = created_branches[0] if created_branches else None
+
+            if not username:
+                username = re.sub(r"[^a-z0-9]", "", display_name.lower()) or f"user{idx + 1}"
+
+            temp_password = secrets.token_urlsafe(12)
+            user_req = UserCreate(
+                username=username,
+                password=temp_password,
+                email=email,
+                mobile=mobile,
+                role=role,
+                company_id=company_id if role != UserRole.SYSADMIN else None,
+                branch_id=assigned_branch.id if assigned_branch is not None else None,
+            )
+            created_user = await user_service.create_user(user_req, commit=False)
+            created_users.append({
+                "id": created_user.id,
+                "username": created_user.username,
+                "role": created_user.role.value,
+                "company_id": created_user.company_id,
+                "branch_id": created_user.branch_id,
+                "temp_password": temp_password,
+            })
+
+        numbering_service = NumberingService(db)
+        numbering_templates = payload.numbering or []
+
+        if not numbering_templates:
+            numbering_templates = [
+                DocumentSeriesCreate(
+                    name="Sales Invoice Series",
+                    documentType="Sales Invoice",
+                    module="Sales",
+                    prefix="SI-{FY}-",
+                    suffix="",
+                    runningLength=6,
+                    resetRule="Financial Year",
+                    currentNumber=0,
+                    financialYear=business_financial_year,
+                    companyCode=company_id,
+                    mode="Auto",
+                    description="Default sales invoice numbering series.",
+                ),
+                DocumentSeriesCreate(
+                    name="Purchase Order Series",
+                    documentType="Purchase Order",
+                    module="Purchase",
+                    prefix="PO-{FY}-",
+                    suffix="",
+                    runningLength=6,
+                    resetRule="Financial Year",
+                    currentNumber=0,
+                    financialYear=business_financial_year,
+                    companyCode=company_id,
+                    mode="Auto",
+                    description="Default purchase order numbering series.",
+                ),
+            ]
+
+        for series_req in numbering_templates:
+            if not series_req.companyCode:
+                series_req.companyCode = company_id
+            if not series_req.financialYear:
+                series_req.financialYear = business_financial_year
+
+            existing_series = await numbering_service.get_series(
+                series_req.companyCode,
+                series_req.documentType,
+            )
+            if existing_series:
+                continue
+
+            await numbering_service.create_series(series_req, current_user.username, commit=False)
+
+        await set_system_config(db, CURRENT_FINANCIAL_YEAR_KEY, business_financial_year, current_user, commit=False)
+        await set_system_config(db, BOOKS_START_DATE_KEY, books_start_date, current_user, commit=False)
+        await set_system_config(db, BUSINESS_TRADE_NAME_KEY, trade_name, current_user, commit=False)
+        await set_system_config(db, BUSINESS_TYPE_KEY, business_type, current_user, commit=False)
+        await set_system_config(db, BUSINESS_STATE_KEY, business_state, current_user, commit=False)
+        await set_system_config(db, BUSINESS_PAN_KEY, business_pan, current_user, commit=False)
+        await set_system_config(db, LICENSE_STATUS_KEY, license_status, current_user, commit=False)
+        await set_system_config(db, LICENSE_TYPE_KEY, license_type, current_user, commit=False)
+        await set_system_config(db, LICENSE_MODE_KEY, license_mode, current_user, commit=False)
+        await set_system_config(db, LICENSE_EXPIRES_KEY, license_expires_at, current_user, commit=False)
+        await set_system_config(db, SETUP_COMPLETED_KEY, "true", current_user, commit=False)
 
     return {
         "success": True,
@@ -603,6 +706,10 @@ async def company_setup(
             "branches": [
                 {"id": b.id, "name": b.name, "code": b.code}
                 for b in created_branches
+            ],
+            "stores": [
+                {"id": s.id, "name": s.name, "code": s.code, "branch_id": s.branch_id}
+                for s in created_stores
             ],
             "users": created_users,
         },

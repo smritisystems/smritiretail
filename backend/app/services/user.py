@@ -119,7 +119,7 @@ class UserService:
     # ------------------------------------------------------------------
     # Create user (SYSADMIN only)
     # ------------------------------------------------------------------
-    async def create_user(self, req: UserCreate) -> User:
+    async def create_user(self, req: UserCreate, commit: bool = True) -> User:
         if req.role != UserRole.SYSADMIN:
             if not req.company_id or not req.branch_id:
                 raise HTTPException(
@@ -159,9 +159,13 @@ class UserService:
         )
         self.db.add(user)
         try:
-            await self.db.commit()
+            if commit:
+                await self.db.commit()
+            else:
+                await self.db.flush()
         except IntegrityError:
-            await self.db.rollback()
+            if commit:
+                await self.db.rollback()
             raise HTTPException(
                 status_code=400,
                 detail="A user with this username or email already exists. "

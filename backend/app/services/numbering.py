@@ -29,7 +29,19 @@ class NumberingService:
         res = await self.db.execute(q)
         return list(res.scalars().all())
 
-    async def create_series(self, data, creator: str) -> DocumentSeries:
+    async def get_series(self, company_code: str, document_type: str) -> DocumentSeries | None:
+        q = (
+            select(DocumentSeries)
+            .where(
+                DocumentSeries.company_code == company_code,
+                DocumentSeries.document_type == document_type,
+                DocumentSeries.is_deleted == False,
+            )
+        )
+        res = await self.db.execute(q)
+        return res.scalars().first()
+
+    async def create_series(self, data, creator: str, commit: bool = True) -> DocumentSeries:
         new_id = f"SER-{uuid.uuid4().hex[:8]}"
         series = DocumentSeries(
             id=new_id,
@@ -63,7 +75,10 @@ class NumberingService:
         )
         self.db.add(log)
         
-        await self.db.commit()
+        if commit:
+            await self.db.commit()
+        else:
+            await self.db.flush()
         await self.db.refresh(series)
         return series
 
