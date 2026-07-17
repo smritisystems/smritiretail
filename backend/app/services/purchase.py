@@ -530,6 +530,105 @@ class PurchaseService:
 
         return suggestions
 
+    async def convert_reorder_suggestions_to_draft(
+        self, supplier_id: str, selected_product_ids: List[str]
+    ) -> PurchaseOrder:
+        """
+        Convert selected low-stock reorder suggestions into a draft purchase order.
+        """
+        if not selected_product_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="Supplier and product selection are required to convert suggestions.",
+            )
+
+        await self._get_supplier(supplier_id)
+        suggestions = await self.list_reorder_suggestions(supplier_id)
+        selected_ids = set(selected_product_ids)
+        items_data = [s for s in suggestions if s["productId"] in selected_ids]
+
+        if len(items_data) != len(selected_ids):
+            raise HTTPException(
+                status_code=400,
+                detail="Some selected products are not eligible for reorder conversion.",
+            )
+
+        subtotal = Decimal("0.00")
+        tax_total = Decimal("0.00")
+        item_rows: list[PurchaseOrderItem] = []
+
+        for suggestion in items_data:
+            product_res = await self.db.execute(
+                select(Product).where(
+                    Product.id == suggestion["productId"],
+                    Product.company_id == self.tenant.company_id,
+                    Product.branch_id == self.tenant.branch_id,
+                    Product.is_deleted == False,
+                )
+            )
+            product = product_res.scalars().first()
+            if not product:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Product '{suggestion['productId']}' was not found.",
+                )
+
+            quantity = Decimal(str(suggestion["suggestedQty"]))
+            cost_price = Decimal(str(suggestion["lastPurchaseRate"]))
+            gst_rate = Decimal(str(product.gst_percentage or 18))
+            tax_amount = (cost_price * quantity * gst_rate / Decimal("100.00")).quantize(Decimal("0.01"))
+            line_total = (cost_price * quantity + tax_amount).quantize(Decimal("0.01"))
+
+            subtotal += cost_price * quantity
+            tax_total += tax_amount
+
+            item_rows.append(PurchaseOrderItem(
+                id=f"poi-{_uid()}",
+                order_id=f"po-{_uid()}",
+                product_id=product.id,
+                code=product.code,
+                name=product.name,
+                quantity=quantity,
+                cost_price=cost_price,
+                gst_rate=gst_rate,
+                tax_amount=tax_amount,
+                line_total=line_total,
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+            ))
+
+        order_id = f"po-{_uid()}"
+        order_no = f"PO-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
+        order = PurchaseOrder(
+            id=order_id,
+            order_no=order_no,
+            supplier_id=supplier_id,
+            status="DRAFT",
+            notes="Auto-generated from reorder trigger suggestions",
+            subtotal=subtotal.quantize(Decimal("0.01")),
+            tax_total=tax_total.quantize(Decimal("0.01")),
+            grand_total=(subtotal + tax_total).quantize(Decimal("0.01")),
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+        )
+        self.db.add(order)
+        for item in item_rows:
+            item.order_id = order_id
+        self.db.add_all(item_rows)
+
+        try:
+            await self.db.commit()
+        except IntegrityError:
+            await self.db.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail="Unable to create draft purchase order from reorder suggestions.",
+            )
+
+        await self.db.refresh(order)
+        order.items = item_rows
+        return order
+
     # ──────────────────────────────────────────────────────────────
     # Jurisdiction Configuration Helpers
     # ──────────────────────────────────────────────────────────────

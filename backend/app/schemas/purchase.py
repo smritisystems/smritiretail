@@ -223,6 +223,15 @@ class PurchaseJurisdictionConfigCreate(BaseModel):
     company_state: str
 
 
+class PurchaseConfigJurisdictionRequest(BaseModel):
+    state: Optional[str] = None
+
+
+class PurchaseReorderConvertRequest(BaseModel):
+    supplierId: str
+    selectedProductIds: List[str]
+
+
 class PurchaseJurisdictionConfigResponse(BaseModel):
     id:            str
     uuid:          str

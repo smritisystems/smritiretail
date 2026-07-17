@@ -36,6 +36,7 @@ from ...schemas.purchase import (
     PurchaseOrderCancelRequest, PurchaseOrderAmendRequest,
     PurchaseReceiptCreate, PurchaseReceiptResponse, PurchaseReceiptItemResponse,
     PurchaseJurisdictionConfigCreate, PurchaseJurisdictionConfigResponse,
+    PurchaseConfigJurisdictionRequest, PurchaseReorderConvertRequest,
 )
 from ...services.purchase import PurchaseService
 
@@ -359,6 +360,56 @@ async def update_purchase_jurisdiction(
     service = PurchaseService(db, tenant_ctx)
     state = await service.set_jurisdiction(req.company_state)
     return {"company_state": state, "message": "Tax jurisdiction updated."}
+
+
+# ─────────────────────────── Legacy Purchase Config Aliases ─────────────────────────
+
+@router.get("/config", summary="Purchase Config Legacy Alias")
+async def get_purchase_config(
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Legacy purchase configuration compatibility alias."""
+    service = PurchaseService(db, tenant_ctx)
+    state = await service.get_jurisdiction()
+    return {"companyState": state}
+
+
+@router.post(
+    "/config/jurisdiction",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Legacy Purchase Config Jurisdiction Alias",
+)
+async def update_purchase_config_jurisdiction(
+    req: PurchaseConfigJurisdictionRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Legacy purchase jurisdiction alias for Express frontend compatibility."""
+    if req.state is None:
+        return {"companyState": None}
+
+    service = PurchaseService(db, tenant_ctx)
+    state = await service.set_jurisdiction(req.state)
+    return {"companyState": state}
+
+
+@router.post(
+    "/reorder-suggestions/convert",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Legacy Purchase Reorder Suggestions Convert Alias",
+)
+async def convert_reorder_suggestions(
+    req: PurchaseReorderConvertRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Convert selected low-stock suggestions into a draft purchase order."""
+    order = await PurchaseService(db, tenant_ctx).convert_reorder_suggestions_to_draft(
+        req.supplierId, req.selectedProductIds
+    )
+    order_data = PurchaseOrderResponse.model_validate(order).model_dump()
+    return {"order": order_data}
 
 
 # ─────────────────────────── Phase 4B: Submit PO ──────────────────────────────
