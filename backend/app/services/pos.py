@@ -28,6 +28,7 @@ from ..models.pos import CashRegister, Shift
 from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.inventory import Product, StockMovement
 from ..api.deps import TenantContext
+from ..repositories.pos import CashRegisterRepository, ShiftRepository
 from ..schemas.pos import (
     CashRegisterCreate, ShiftOpen, ShiftClose,
     POSCheckoutRequest,
@@ -74,15 +75,8 @@ class POSService:
         return res.scalars().all()
 
     async def get_register(self, register_id: str) -> CashRegister:
-        res = await self.db.execute(
-            select(CashRegister).where(
-                CashRegister.id == register_id,
-                CashRegister.company_id == self.tenant.company_id,
-                CashRegister.branch_id  == self.tenant.branch_id,
-                CashRegister.is_deleted == False,
-            )
-        )
-        reg = res.scalars().first()
+        repo = CashRegisterRepository(self.db, self.tenant)
+        reg = await repo.get(register_id)
         if not reg:
             raise HTTPException(status_code=404, detail="Cash register not found.")
         return reg
@@ -164,13 +158,8 @@ class POSService:
 
     async def list_shifts(self) -> list:
         """List all shifts for this tenant (supports App.tsx shifts state)."""
-        res = await self.db.execute(
-            select(Shift).where(
-                Shift.company_id == self.tenant.company_id,
-                Shift.is_deleted == False,
-            ).order_by(Shift.opened_at.desc()).limit(100)
-        )
-        return res.scalars().all()
+        shift_repo = ShiftRepository(self.db, self.tenant)
+        return await shift_repo.get_all_recent(limit=100)
 
     # ──────────────────────────────────────────────────────────────
     # Shift — open
@@ -188,14 +177,8 @@ class POSService:
         await self.get_register(req.register_id)
 
         # Check no existing OPEN shift on this register
-        existing = await self.db.execute(
-            select(Shift).where(
-                Shift.register_id == req.register_id,
-                Shift.status      == "OPEN",
-                Shift.is_deleted  == False,
-            )
-        )
-        if existing.scalars().first():
+        shift_repo = ShiftRepository(self.db, self.tenant)
+        if await shift_repo.get_active_shift(req.register_id):
             raise HTTPException(
                 status_code=400,
                 detail="This register already has an open shift. "
@@ -325,31 +308,16 @@ class POSService:
         return res.scalars().all()
 
     async def get_shift(self, shift_id: str) -> Shift:
-        res = await self.db.execute(
-            select(Shift).where(
-                Shift.id == shift_id,
-                Shift.company_id == self.tenant.company_id,
-                Shift.branch_id  == self.tenant.branch_id,
-                Shift.is_deleted == False,
-            )
-        )
-        shift = res.scalars().first()
+        shift_repo = ShiftRepository(self.db, self.tenant)
+        shift = await shift_repo.get(shift_id)
         if not shift:
             raise HTTPException(status_code=404, detail="Shift not found.")
         return shift
 
     async def get_active_shift(self, register_id: str) -> Shift:
         """Get the currently open shift for a register."""
-        res = await self.db.execute(
-            select(Shift).where(
-                Shift.register_id == register_id,
-                Shift.status      == "OPEN",
-                Shift.company_id  == self.tenant.company_id,
-                Shift.branch_id   == self.tenant.branch_id,
-                Shift.is_deleted  == False,
-            )
-        )
-        shift = res.scalars().first()
+        repo = ShiftRepository(self.db, self.tenant)
+        shift = await repo.get_active_shift(register_id)
         if not shift:
             raise HTTPException(
                 status_code=404,

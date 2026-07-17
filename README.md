@@ -23,21 +23,28 @@
   * License    : Proprietary Commercial Software
 -->
 
-# SMRITI Retail OS (Frontend Prototype)
+# SMRITI Retail OS (React + FastAPI Full Stack)
 
-This repository contains the standalone React/TypeScript frontend prototype for **SMRITI Retail OS**, an Enterprise Experience & Operational Intelligence platform.
+This repository contains the React frontend and FastAPI backend for **SMRITI Retail OS v5.0**, built as a modular monolith with an enterprise-grade open-source stack.
 
 ## Overview
-This is a demonstration of the client-side architectural concepts, component library, and Layout Engine (SRLE) of the SMRITI platform. It runs independently of the Python/Frappe backend framework to enable rapid UI prototyping, layout testing, and design iterations.
+This repo includes:
+- a React + TypeScript + Tailwind CSS frontend served via Vite
+- a FastAPI backend using SQLAlchemy, Alembic, and PostgreSQL
+- JWT-based auth, API-first design, and Docker development support
+- a modern standalone architecture that avoids legacy Express/Frappe coupling
 
 ## Stack
 - **React 18**
 - **TypeScript**
 - **Tailwind CSS v4**
 - **Vite**
-- **Framer Motion**
+- **FastAPI**
+- **SQLAlchemy 2.x**
+- **Alembic**
+- **PostgreSQL**
 
-## Features Included in Prototype
+## Features Included
 - SMRITI Layout Engine (SRLE) dynamic workspaces
 - Print Engine Studio with real ZPL/TSPL template integration
 - Drill-down global search and side-panels
@@ -47,15 +54,29 @@ This is a demonstration of the client-side architectural concepts, component lib
 
 ## Development
 
-Install dependencies:
-\`\`\`bash
+Install frontend dependencies:
+```bash
 npm install
-\`\`\`
+```
 
-Run the development server:
-\`\`\`bash
+Install backend dependencies:
+```bash
+cd backend
+python -m pip install --upgrade pip
+pip install -r production.txt
+pip install -r dev.txt
+```
+
+Run the backend API server:
+```bash
+cd backend
+python -m uvicorn app.main:app --reload
+```
+
+Run the frontend development server:
+```bash
 npm run dev
-\`\`\`
+```
 
 ## Note
-This is exclusively the frontend prototype / UI harness. All backend business logic, database integrations, Frappe components, and Docker orchestrations have been stripped from this artifact for simplicity.
+This repository now contains a full-stack React frontend and FastAPI backend for SMRITI Retail OS v5.0. Legacy Express/Frappe proxy code has been removed from the active stack.

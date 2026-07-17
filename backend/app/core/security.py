@@ -26,27 +26,29 @@ Founders
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-import bcrypt
+from fastapi import HTTPException
+from passlib.context import CryptContext
 import hashlib
 import binascii
-from fastapi import HTTPException
 from .config import settings
 
+pwd_context = CryptContext(
+    schemes=["argon2", "bcrypt"],
+    deprecated="auto",
+)
+
 # ---------------------------------------------------------------------------
-# Password hashing — bcrypt directly
+# Password hashing — Passlib with Argon2 / bcrypt compatibility
 # ---------------------------------------------------------------------------
 
 
 def hash_password(password: str) -> str:
-    """Return a bcrypt hash of the given plain-text password."""
-    passwd_bytes = password.encode('utf-8')
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(passwd_bytes, salt)
-    return hashed.decode('utf-8')
+    """Hash the given plain-text password with the current secure algorithm."""
+    return pwd_context.hash(password)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    """Return True if plain matches the stored bcrypt or PBKDF2 hash."""
+    """Return True if plain matches the stored password hash. Supports legacy hashes."""
     if hashed and hashed.startswith("pbkdf2$"):
         try:
             parts = hashed.split("$")
@@ -59,17 +61,17 @@ def verify_password(plain: str, hashed: str) -> bool:
                 password=plain.encode("utf-8"),
                 salt=salt.encode("utf-8"),
                 iterations=iterations,
-                dklen=64
+                dklen=64,
             )
             computed_hex = binascii.hexlify(dk).decode("utf-8")
             return computed_hex == hash_hex
         except Exception:
             return False
-    else:
-        try:
-            return bcrypt.checkpw(plain.encode('utf-8'), hashed.encode('utf-8'))
-        except Exception:
-            return False
+
+    try:
+        return pwd_context.verify(plain, hashed)
+    except Exception:
+        return False
 
 
 def validate_password_strength(password: str) -> None:

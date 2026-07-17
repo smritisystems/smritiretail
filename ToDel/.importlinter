@@ -1,0 +1,76 @@
+# SMRITI Retail OS — backend architecture contracts
+# Run from backend/: `pip install import-linter --break-system-packages && lint-imports`
+#
+# These contracts encode relationships already verified in
+# SMRITI_Cross_Module_Validation_Audit_v1.0.md Section 1.2 (built from
+# `grep -n "ForeignKey(" backend/app/models/*.py`, not assumption).
+# Running this doesn't discover new architecture — it prevents the
+# architecture that's already been verified from silently drifting.
+#
+# This is a SEED set, not a complete map. Extend it as each module's
+# Cross-Module Audit pass confirms more relationships — don't add a
+# contract for a relationship you haven't grepped and confirmed.
+
+[importlinter]
+root_package = app
+
+# --- Layering: models are the foundation. Services sit above models.
+# API sits above services. Nothing depends upward. This is the concrete
+# form of "Repository cannot call API, API cannot access Database
+# directly" — the rule external reviewers keep proposing in the
+# abstract; this makes it checkable.
+[importlinter:contract:backend-layering]
+name = API depends on Services depends on Models — never the reverse
+type = layers
+layers =
+    app.api
+    app.services
+    app.models
+
+# --- Sibling independence: domain pairs with zero evidenced FK
+# relationship between them (Section 1.2) stay structurally separate
+# at the model layer. If a real reason emerges to connect two of
+# these, that's an architect decision + a migration, not an
+# accidental import.
+[importlinter:contract:purchase-crm-independence]
+name = Purchase models and CRM models have no evidenced relationship — keep independent
+type = independence
+modules =
+    app.models.purchase
+    app.models.crm
+
+[importlinter:contract:purchase-pos-independence]
+name = Purchase models and POS models have no evidenced relationship — keep independent
+type = independence
+modules =
+    app.models.purchase
+    app.models.pos
+
+[importlinter:contract:master-lookup-independence]
+name = Tier-1 master lookups are self-referential only — no domain model should FK into them directly
+type = independence
+modules =
+    app.models.master_lookup
+    app.models.sales
+    app.models.purchase
+    app.models.pos
+    app.models.crm
+
+[importlinter:contract:barcode-independence]
+name = Barcode models only relate to print templates (terms) — not sales/purchase/pos/crm
+type = independence
+modules =
+    app.models.barcode
+    app.models.sales
+    app.models.purchase
+    app.models.pos
+    app.models.crm
+
+# --- Known, evidenced relationships — NOT forbidden, listed here as a
+# comment so the next person editing this file knows they're
+# intentional and doesn't accidentally add a contract that breaks them:
+#   sales     -> crm (customer_id), pos (shift_id), inventory (product_id)
+#   purchase  -> inventory (product_id)
+#   pos       -> auth (cashier_id)
+#   supplier_payment -> purchase (supplier_id — Supplier model lives in purchase.py)
+#   auth      -> tenant (company_id, branch_id)
