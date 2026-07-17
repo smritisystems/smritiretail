@@ -50,6 +50,7 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-13 | v3.16.0 | [SMRITI Master Framework — Phase A](./foundation/SMRITI_Master_Framework_Phase_A_Plan_v3.16.0.md) | `/backend/alembic/versions/a3e4b5c6d7e8_add_smriti_master_framework_tables.py` | In Progress | [Walkthrough](../walkthrough/foundation/SMRITI_Master_Framework_Phase_A_Walkthrough_v3.16.0.md) |
 | 2026-07-13 | v3.16.0 | [SMRITI Master Framework — Phase F.3](./foundation/SMRITI_Master_Framework_Phase_F_3_Plan_v3.16.0.md) | `/backend/app/models/barcode.py`, `/src/routes/terms.ts`, `/src/routes/barcode.ts`, `/src/routes/system.ts` | Completed | [Walkthrough](../walkthrough/foundation/SMRITI_Master_Framework_Phase_F_3_Walkthrough_v3.16.0.md) |
 | 2026-07-14 | v3.17.0 | [SMRITI Master Data Consolidation](./foundation/SMRITI_Master_Data_Consolidation_Plan_v3.17.0.md) | `/backend/`, `/src/components/MasterManagementTab.tsx`, `/server.ts` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_Master_Data_Consolidation_v3.17.0.md) |
+| 2026-07-17 | v3.18.0 | [Modular Microservices Roadmap](./PLATFORM_MICROSERVICES_ROADMAP.md) | `/docs/architecture/PLATFORM_MICROSERVICES_ROADMAP.md` | Draft | — |
 
 
 

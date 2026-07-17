@@ -32,6 +32,13 @@
 
 This document defines the conceptual implementation mapping between the **SMRITI Platform Abstraction Layer (PAL)** and the underlying framework. Only adapter implementations may access the framework directly. All business services must remain framework-independent.
 
+## Long-Term Target Architecture
+
+* **Target Architecture:** Modular Microservices Platform
+* **Roadmap:** [PLATFORM_MICROSERVICES_ROADMAP.md](./PLATFORM_MICROSERVICES_ROADMAP.md)
+
+This file currently documents the adapter rules for the existing hybrid platform. The roadmap describes the future transition toward a modular microservices architecture.
+
 ---
 
 ## 1. Current Platform Adapter Stack

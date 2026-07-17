@@ -6,13 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "start": "npx tsx gateway.ts",
+    "start": "npm run dev",
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "start:fastapi": "python -m uvicorn backend.app.main:app --port 8000 --reload"
   },
   "dependencies": {
-    "@google/genai": "*",
+    "@google/genai": "2.10.0",
     "@tailwindcss/vite": "^4.3.2",
     "ajv": "^8.12.0",
     "dotenv": "^17.4.2",
@@ -39,7 +39,6 @@
     "@vitest/coverage-v8": "^4.1.10",
     "esbuild": "^0.21.4",
     "supertest": "^7.2.2",
-    "tsx": "^4.15.1",
     "typescript": "^5.4.5",
     "vite": "^5.2.11",
     "vitest": "^4.1.10"

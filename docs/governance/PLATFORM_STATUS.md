@@ -19,6 +19,8 @@ This document records high-level metrics of SMRITI Retail OS's evolutionary stat
 ## Codebase Status Summary
 * **Current Version:** v3.18.0
 * **Platform Architecture:** Hybrid Express + FastAPI
+* **Target Architecture:** Modular Microservices Platform
+* **Platform Roadmap:** [PLATFORM_MICROSERVICES_ROADMAP.md](../architecture/PLATFORM_MICROSERVICES_ROADMAP.md)
 * **PostgreSQL Schema Version:** alembic-96b45b17b8b1 (head)
 * **Overall Migration Completion:** 68%
 
