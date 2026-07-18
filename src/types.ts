@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 3.16.1
+ * * Version    : 3.27.0
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-14
+ * * Modified   : 2026-07-19
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -462,6 +462,19 @@ export interface CustomerGroup {
   canReceiveDiscount: boolean;
 }
 
+export interface AdditionalAddress {
+  label: string; // e.g. Warehouse 1, Delhi Branch
+  address_type: "Billing" | "Shipping" | "Warehouse" | "Branch" | "Plant" | "Office" | "Other";
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  country: string;
+  pincode: string;
+  gstin?: string;
+  is_default_shipping?: boolean;
+}
+
 export interface Customer {
   id: string;
   customerGroupId: string; // every customer must belong to a CustomerGroup
@@ -553,6 +566,7 @@ export interface Customer {
   lastPurchaseDate?: string;
   lastPaymentDate?: string;
   tags?: string[];
+  additionalAddresses?: AdditionalAddress[];
 }
 
 // The resolved, ready-to-use shape after merging a Customer's overrides

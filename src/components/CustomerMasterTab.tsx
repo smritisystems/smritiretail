@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.26.0
+ * Version      : 3.27.0
  * Created      : 2026-07-13
- * Modified     : 2026-07-18
+ * Modified     : 2026-07-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -15,7 +15,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { getCustomers, saveCustomers, getCustomerGroups } from "../services/customerStore.ts";
-import { Customer } from "../types";
+import { Customer, AdditionalAddress } from "../types";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { CustomerProfile } from "./customer/CustomerProfile.tsx";
 import { CustomerLedger } from "./customer/CustomerLedger.tsx";
@@ -53,6 +53,81 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
   const [newCustomerPricingGroup, setNewCustomerPricingGroup] = useState<string>("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isValidating, setIsValidating] = useState(false);
+
+  // Address management state variables
+  const [newBillingLine1, setNewBillingLine1] = useState("");
+  const [newBillingLine2, setNewBillingLine2] = useState("");
+  const [newBillingCity, setNewBillingCity] = useState("");
+  const [newBillingState, setNewBillingState] = useState("");
+  const [newBillingCountry, setNewBillingCountry] = useState("India");
+  const [newBillingPincode, setNewBillingPincode] = useState("");
+
+  const [newShippingSameAsBilling, setNewShippingSameAsBilling] = useState(true);
+
+  const [newShippingLine1, setNewShippingLine1] = useState("");
+  const [newShippingLine2, setNewShippingLine2] = useState("");
+  const [newShippingCity, setNewShippingCity] = useState("");
+  const [newShippingState, setNewShippingState] = useState("");
+  const [newShippingCountry, setNewShippingCountry] = useState("India");
+  const [newShippingPincode, setNewShippingPincode] = useState("");
+
+  const [newAdditionalAddresses, setNewAdditionalAddresses] = useState<AdditionalAddress[]>([]);
+
+  // State for single new additional address input form
+  const [newAddLabel, setNewAddLabel] = useState("");
+  const [newAddType, setNewAddType] = useState<AdditionalAddress["address_type"]>("Warehouse");
+  const [newAddLine1, setNewAddLine1] = useState("");
+  const [newAddLine2, setNewAddLine2] = useState("");
+  const [newAddCity, setNewAddCity] = useState("");
+  const [newAddState, setNewAddState] = useState("");
+  const [newAddCountry, setNewAddCountry] = useState("India");
+  const [newAddPincode, setNewAddPincode] = useState("");
+  const [newAddGstin, setNewAddGstin] = useState("");
+  const [newAddIsDefault, setNewAddIsDefault] = useState(false);
+
+  const handleAddAdditionalAddress = () => {
+    if (!newAddLabel.trim()) {
+      alert("Address Label is required (e.g. Warehouse 1)");
+      return;
+    }
+    if (!newAddLine1.trim() || !newAddCity.trim() || !newAddState.trim() || !newAddPincode.trim()) {
+      alert("Line 1, City, State, and Pincode are required.");
+      return;
+    }
+    if (newAdditionalAddresses.length >= 10) {
+      alert("Maximum limit of 10 additional addresses reached.");
+      return;
+    }
+    const newAddr: AdditionalAddress = {
+      label: newAddLabel.trim(),
+      address_type: newAddType,
+      line1: newAddLine1.trim(),
+      line2: newAddLine2.trim() || undefined,
+      city: newAddCity.trim(),
+      state: newAddState.trim(),
+      country: newAddCountry.trim(),
+      pincode: newAddPincode.trim(),
+      gstin: newAddGstin.trim() || undefined,
+      is_default_shipping: newAddIsDefault
+    };
+    
+    setNewAdditionalAddresses([...newAdditionalAddresses, newAddr]);
+    // Clear inputs
+    setNewAddLabel("");
+    setNewAddType("Warehouse");
+    setNewAddLine1("");
+    setNewAddLine2("");
+    setNewAddCity("");
+    setNewAddState("");
+    setNewAddCountry("India");
+    setNewAddPincode("");
+    setNewAddGstin("");
+    setNewAddIsDefault(false);
+  };
+
+  const handleRemoveAdditionalAddress = (idx: number) => {
+    setNewAdditionalAddresses(newAdditionalAddresses.filter((_, i) => i !== idx));
+  };
 
   // Live pricing groups fetched from FastAPI — loaded once when the modal opens
   const [pricingGroups, setPricingGroups] = useState<{ id: string; name: string; discount_percent: number }[]>([]);
@@ -96,6 +171,22 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
       effectiveTo: formMode === "advanced" && newCustomerEffectiveTo ? newCustomerEffectiveTo : undefined,
       sortOrder: formMode === "advanced" && newCustomerSortOrder ? parseInt(newCustomerSortOrder, 10) : undefined,
       salesperson: formMode === "advanced" && newCustomerSalesperson.trim() ? newCustomerSalesperson.trim() : undefined,
+      
+      // Addresses
+      billingAddressLine1: formMode === "advanced" ? newBillingLine1 : undefined,
+      billingAddressLine2: formMode === "advanced" ? newBillingLine2 : undefined,
+      billingCity: formMode === "advanced" ? newBillingCity : undefined,
+      billingState: formMode === "advanced" ? newBillingState : undefined,
+      billingCountry: formMode === "advanced" ? newBillingCountry : undefined,
+      billingPincode: formMode === "advanced" ? newBillingPincode : undefined,
+      shippingSameAsBilling: formMode === "advanced" ? newShippingSameAsBilling : true,
+      shippingAddressLine1: formMode === "advanced" && !newShippingSameAsBilling ? newShippingLine1 : undefined,
+      shippingAddressLine2: formMode === "advanced" && !newShippingSameAsBilling ? newShippingLine2 : undefined,
+      shippingCity: formMode === "advanced" && !newShippingSameAsBilling ? newShippingCity : undefined,
+      shippingState: formMode === "advanced" && !newShippingSameAsBilling ? newShippingState : undefined,
+      shippingCountry: formMode === "advanced" && !newShippingSameAsBilling ? newShippingCountry : undefined,
+      shippingPincode: formMode === "advanced" && !newShippingSameAsBilling ? newShippingPincode : undefined,
+      additionalAddresses: formMode === "advanced" ? newAdditionalAddresses : [],
     };
 
     const localVal = validateCustomerProfile(payload, customers);
@@ -159,6 +250,22 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
       setNewCustomerSortOrder("");
       setNewCustomerSalesperson("");
       setFormMode("quick");
+      
+      // Reset address details
+      setNewBillingLine1("");
+      setNewBillingLine2("");
+      setNewBillingCity("");
+      setNewBillingState("");
+      setNewBillingCountry("India");
+      setNewBillingPincode("");
+      setNewShippingSameAsBilling(true);
+      setNewShippingLine1("");
+      setNewShippingLine2("");
+      setNewShippingCity("");
+      setNewShippingState("");
+      setNewShippingCountry("India");
+      setNewShippingPincode("");
+      setNewAdditionalAddresses([]);
     } catch (err) {
       console.error(err);
       setValidationErrors(["Smriti Network validation timed out. Please try again."]);
@@ -468,6 +575,338 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
                             placeholder="0"
                             className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500 font-mono"
                           />
+                        </div>
+                      </div>
+
+                      {/* Advanced Address Management Section */}
+                      <div className="border-t border-theme-divider/50 pt-4 mt-2 space-y-4">
+                        <h4 className="text-[10px] font-bold text-blue-400 uppercase tracking-wider font-mono">
+                          Address &amp; Locations
+                        </h4>
+                        
+                        {/* Billing Address Block */}
+                        <div className="bg-theme-surface-2/40 border border-theme-divider/30 rounded-xl p-3 space-y-3">
+                          <span className="text-[10px] font-bold text-theme-muted uppercase tracking-wider block border-b border-theme-divider/30 pb-1">
+                            Billing Address
+                          </span>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Line 1</label>
+                              <input
+                                type="text"
+                                value={newBillingLine1}
+                                onChange={(e) => setNewBillingLine1(e.target.value)}
+                                placeholder="Street address, P.O. box"
+                                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Line 2</label>
+                              <input
+                                type="text"
+                                value={newBillingLine2}
+                                onChange={(e) => setNewBillingLine2(e.target.value)}
+                                placeholder="Apartment, suite, unit"
+                                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">City</label>
+                              <input
+                                type="text"
+                                value={newBillingCity}
+                                onChange={(e) => setNewBillingCity(e.target.value)}
+                                placeholder="City"
+                                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">State</label>
+                              <input
+                                type="text"
+                                value={newBillingState}
+                                onChange={(e) => setNewBillingState(e.target.value)}
+                                placeholder="State"
+                                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Pincode</label>
+                              <input
+                                type="text"
+                                value={newBillingPincode}
+                                onChange={(e) => setNewBillingPincode(e.target.value)}
+                                placeholder="Postal code"
+                                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Country</label>
+                            <input
+                              type="text"
+                              value={newBillingCountry}
+                              onChange={(e) => setNewBillingCountry(e.target.value)}
+                              placeholder="India"
+                              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Same as billing checkbox */}
+                        <div className="flex items-center gap-2 px-1">
+                          <input
+                            type="checkbox"
+                            id="shipping-same-as-billing-checkbox"
+                            checked={newShippingSameAsBilling}
+                            onChange={(e) => setNewShippingSameAsBilling(e.target.checked)}
+                            className="bg-theme-surface-2 border-theme-divider rounded focus:ring-0 w-4 h-4 cursor-pointer"
+                          />
+                          <label htmlFor="shipping-same-as-billing-checkbox" className="text-[10px] text-theme-body font-semibold cursor-pointer">
+                            Shipping address is the same as billing address
+                          </label>
+                        </div>
+
+                        {/* Shipping Address Block */}
+                        {!newShippingSameAsBilling && (
+                          <div className="bg-theme-surface-2/40 border border-theme-divider/30 rounded-xl p-3 space-y-3">
+                            <span className="text-[10px] font-bold text-theme-muted uppercase tracking-wider block border-b border-theme-divider/30 pb-1">
+                              Shipping Address
+                            </span>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Line 1</label>
+                                <input
+                                  type="text"
+                                  value={newShippingLine1}
+                                  onChange={(e) => setNewShippingLine1(e.target.value)}
+                                  placeholder="Street address, P.O. box"
+                                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Line 2</label>
+                                <input
+                                  type="text"
+                                  value={newShippingLine2}
+                                  onChange={(e) => setNewShippingLine2(e.target.value)}
+                                  placeholder="Apartment, suite, unit"
+                                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                              <div>
+                                <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">City</label>
+                                <input
+                                  type="text"
+                                  value={newShippingCity}
+                                  onChange={(e) => setNewShippingCity(e.target.value)}
+                                  placeholder="City"
+                                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">State</label>
+                                <input
+                                  type="text"
+                                  value={newShippingState}
+                                  onChange={(e) => setNewShippingState(e.target.value)}
+                                  placeholder="State"
+                                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Pincode</label>
+                                <input
+                                  type="text"
+                                  value={newShippingPincode}
+                                  onChange={(e) => setNewShippingPincode(e.target.value)}
+                                  placeholder="Postal code"
+                                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Country</label>
+                              <input
+                                type="text"
+                                value={newShippingCountry}
+                                onChange={(e) => setNewShippingCountry(e.target.value)}
+                                placeholder="India"
+                                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Additional Addresses List & Form */}
+                        <div className="bg-theme-surface-2/40 border border-theme-divider/30 rounded-xl p-3 space-y-3">
+                          <div className="flex justify-between items-center border-b border-theme-divider/30 pb-1">
+                            <span className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
+                              Additional Locations ({newAdditionalAddresses.length}/10)
+                            </span>
+                          </div>
+
+                          {/* Existing Cards */}
+                          {newAdditionalAddresses.length > 0 && (
+                            <div className="grid grid-cols-1 gap-2">
+                              {newAdditionalAddresses.map((addr, idx) => (
+                                <div key={idx} className="bg-theme-surface-3 border border-theme-divider/40 p-2.5 rounded-lg flex justify-between items-start font-sans">
+                                  <div>
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                      <span className="font-bold text-theme-body">{addr.label}</span>
+                                      <span className="text-[8px] bg-blue-950 text-blue-400 border border-blue-500/20 px-1 rounded uppercase font-bold tracking-wider font-mono">
+                                        {addr.address_type}
+                                      </span>
+                                      {addr.is_default_shipping && (
+                                        <span className="text-[8px] bg-emerald-950 text-emerald-400 border border-emerald-500/20 px-1 rounded uppercase font-bold tracking-wider font-mono">
+                                          Default Ship
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-theme-muted text-[10px] leading-tight">
+                                      {addr.line1}{addr.line2 ? `, ${addr.line2}` : ""}, {addr.city}, {addr.state} - {addr.pincode}
+                                    </p>
+                                    {addr.gstin && <p className="text-theme-muted text-[9px] font-mono mt-0.5">GSTIN: {addr.gstin}</p>}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveAdditionalAddress(idx)}
+                                    className="text-rose-500 hover:text-rose-400 p-1 flex items-center justify-center cursor-pointer"
+                                  >
+                                    <span className="material-symbols-outlined text-sm">delete</span>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Add Form Container */}
+                          {newAdditionalAddresses.length < 10 && (
+                            <div className="bg-theme-surface-3/50 border border-dashed border-theme-divider/50 p-2.5 rounded-lg space-y-2 mt-2">
+                              <span className="text-[9px] font-bold text-theme-muted uppercase tracking-wider block font-mono">
+                                Add Custom Location
+                              </span>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-[8px] text-theme-muted font-bold">Location Label *</label>
+                                  <input
+                                    type="text"
+                                    value={newAddLabel}
+                                    onChange={(e) => setNewAddLabel(e.target.value)}
+                                    placeholder="e.g. Warehouse 1, Site Office"
+                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[8px] text-theme-muted font-bold">Location Type</label>
+                                  <select
+                                    value={newAddType}
+                                    onChange={(e) => setNewAddType(e.target.value as any)}
+                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none"
+                                  >
+                                    <option value="Warehouse">Warehouse</option>
+                                    <option value="Branch">Branch</option>
+                                    <option value="Plant">Plant</option>
+                                    <option value="Office">Office</option>
+                                    <option value="Billing">Billing Address</option>
+                                    <option value="Shipping">Shipping Address</option>
+                                    <option value="Other">Other</option>
+                                  </select>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-[8px] text-theme-muted font-bold">Line 1 *</label>
+                                  <input
+                                    type="text"
+                                    value={newAddLine1}
+                                    onChange={(e) => setNewAddLine1(e.target.value)}
+                                    placeholder="Address Line 1"
+                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[8px] text-theme-muted font-bold">Line 2</label>
+                                  <input
+                                    type="text"
+                                    value={newAddLine2}
+                                    onChange={(e) => setNewAddLine2(e.target.value)}
+                                    placeholder="Address Line 2"
+                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none"
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <label className="block text-[8px] text-theme-muted font-bold">City *</label>
+                                  <input
+                                    type="text"
+                                    value={newAddCity}
+                                    onChange={(e) => setNewAddCity(e.target.value)}
+                                    placeholder="City"
+                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[8px] text-theme-muted font-bold">State *</label>
+                                  <input
+                                    type="text"
+                                    value={newAddState}
+                                    onChange={(e) => setNewAddState(e.target.value)}
+                                    placeholder="State"
+                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[8px] text-theme-muted font-bold">Pincode *</label>
+                                  <input
+                                    type="text"
+                                    value={newAddPincode}
+                                    onChange={(e) => setNewAddPincode(e.target.value)}
+                                    placeholder="Zipcode"
+                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none font-mono"
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-[8px] text-theme-muted font-bold">GSTIN (Optional)</label>
+                                  <input
+                                    type="text"
+                                    value={newAddGstin}
+                                    onChange={(e) => setNewAddGstin(e.target.value)}
+                                    placeholder="15-char ID"
+                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none font-mono"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-4">
+                                  <input
+                                    type="checkbox"
+                                    id="new-add-is-default-checkbox"
+                                    checked={newAddIsDefault}
+                                    onChange={(e) => setNewAddIsDefault(e.target.checked)}
+                                    className="bg-theme-surface-2 border-theme-divider rounded focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                                  />
+                                  <label htmlFor="new-add-is-default-checkbox" className="text-[8px] text-theme-body font-semibold cursor-pointer">
+                                    Default Delivery Point
+                                  </label>
+                                </div>
+                              </div>
+                              <div className="pt-2 text-right">
+                                <button
+                                  type="button"
+                                  onClick={handleAddAdditionalAddress}
+                                  className="bg-slate-700 hover:bg-slate-600 text-white font-semibold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider transition-colors cursor-pointer"
+                                >
+                                  + Link Address
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
 

@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.26.0
+ * Version      : 3.27.0
  * Created      : 2026-07-13
- * Modified     : 2026-07-18
+ * Modified     : 2026-07-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -151,6 +151,83 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
             </div>
           </div>
         )}
+        {/* Address Information Section */}
+        <div className="border-t border-theme-divider/30 pt-3 space-y-3">
+          <span className="text-[10px] font-bold text-theme-muted uppercase tracking-wider block font-mono">
+            Addresses &amp; Locations
+          </span>
+          
+          {/* Billing Address Card */}
+          {customer.billingAddressLine1 ? (
+            <div className="bg-theme-surface-3 border border-theme-divider/50 p-2.5 rounded-lg">
+              <span className="text-[9px] font-bold text-theme-muted uppercase tracking-wider block mb-0.5">
+                Billing Address
+              </span>
+              <p className="text-theme-body font-sans leading-relaxed">
+                {customer.billingAddressLine1}{customer.billingAddressLine2 ? `, ${customer.billingAddressLine2}` : ""}
+                <br />
+                {customer.billingCity}, {customer.billingState} - {customer.billingPincode}
+                {customer.billingCountry && `, ${customer.billingCountry}`}
+              </p>
+            </div>
+          ) : (
+            <p className="text-theme-muted italic text-[10px]">No Billing Address listed.</p>
+          )}
+
+          {/* Shipping Address Card */}
+          <div className="bg-theme-surface-3 border border-theme-divider/50 p-2.5 rounded-lg">
+            <span className="text-[9px] font-bold text-theme-muted uppercase tracking-wider block mb-0.5">
+              Shipping Address
+            </span>
+            {customer.shippingSameAsBilling !== false ? (
+              <p className="text-theme-muted italic">Same as Billing Address</p>
+            ) : customer.shippingAddressLine1 ? (
+              <p className="text-theme-body font-sans leading-relaxed">
+                {customer.shippingAddressLine1}{customer.shippingAddressLine2 ? `, ${customer.shippingAddressLine2}` : ""}
+                <br />
+                {customer.shippingCity}, {customer.shippingState} - {customer.shippingPincode}
+                {customer.shippingCountry && `, ${customer.shippingCountry}`}
+              </p>
+            ) : (
+              <p className="text-theme-muted italic text-[10px]">No Shipping Address listed.</p>
+            )}
+          </div>
+
+          {/* Additional Locations */}
+          {customer.additionalAddresses && customer.additionalAddresses.length > 0 && (
+            <div className="space-y-1.5">
+              <span className="text-[9px] font-bold text-theme-muted uppercase tracking-wider block font-mono">
+                Additional Locations ({customer.additionalAddresses.length})
+              </span>
+              <div className="grid grid-cols-1 gap-1.5">
+                {customer.additionalAddresses.map((addr, idx) => (
+                  <div key={idx} className="bg-theme-surface-3 border border-theme-divider/30 p-2 rounded-lg text-[10px]">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="font-bold text-theme-body">{addr.label}</span>
+                      <span className="text-[7px] bg-slate-800 text-slate-400 px-1 rounded uppercase font-bold tracking-wider font-mono">
+                        {addr.address_type}
+                      </span>
+                      {addr.is_default_shipping && (
+                        <span className="text-[7px] bg-emerald-950 text-emerald-400 px-1 rounded uppercase font-bold tracking-wider font-mono">
+                          Default
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-theme-muted leading-tight font-sans">
+                      {addr.line1}{addr.line2 ? `, ${addr.line2}` : ""}, {addr.city}, {addr.state} - {addr.pincode}
+                    </p>
+                    {addr.gstin && (
+                      <span className="text-[8px] font-mono text-theme-muted block mt-0.5">
+                        GSTIN: {addr.gstin}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         {customer.notes && (
           <div className="border-t border-theme-divider/30 pt-2">
             <span className="text-theme-muted block font-medium">Internal Notes</span>
