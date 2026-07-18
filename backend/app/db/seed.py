@@ -262,6 +262,117 @@ async def seed_default_users():
 
         print("[SMRITI DB SEED] Default database seeding completed successfully.")
 
+        # ── PricingGroups ──────────────────────────────────────────────────────
+        # Five canonical groups that cover the most common Indian retail pricing
+        # strategies. All are idempotent (skip if already present).
+        pricing_groups = [
+            {
+                "id": "pg-retail",
+                "name": "Retail Price",
+                "description": "Standard MRP-based retail selling price. No additional discount.",
+                "base_price_field": "price",
+                "discount_percent": "0.00",
+                "price_adjustment": "0.00",
+                "rounding_rule": "Nearest1",
+                "max_additional_discount_percent": "5.00",
+                "tax_inclusive": True,
+                "scheme_eligible": True,
+                "quantity_break_eligible": False,
+                "min_order_value": "0.00",
+            },
+            {
+                "id": "pg-distributor",
+                "name": "Distributor Price",
+                "description": "Wholesale distributor rate. Typically 15-20% below retail.",
+                "base_price_field": "price",
+                "discount_percent": "15.00",
+                "price_adjustment": "0.00",
+                "rounding_rule": "Nearest1",
+                "max_additional_discount_percent": "5.00",
+                "tax_inclusive": True,
+                "scheme_eligible": True,
+                "quantity_break_eligible": True,
+                "min_order_value": "5000.00",
+            },
+            {
+                "id": "pg-vip",
+                "name": "VIP Price",
+                "description": "Premium loyalty customer rate. Fixed discount over retail.",
+                "base_price_field": "price",
+                "discount_percent": "10.00",
+                "price_adjustment": "0.00",
+                "rounding_rule": "Nearest1",
+                "max_additional_discount_percent": "3.00",
+                "tax_inclusive": True,
+                "scheme_eligible": True,
+                "quantity_break_eligible": False,
+                "min_order_value": "0.00",
+            },
+            {
+                "id": "pg-employee",
+                "name": "Employee Price",
+                "description": "Internal employee purchase rate. Cost-price based with no markup.",
+                "base_price_field": "cost_price",
+                "discount_percent": "0.00",
+                "price_adjustment": "0.00",
+                "rounding_rule": "Nearest1",
+                "max_additional_discount_percent": "0.00",
+                "tax_inclusive": True,
+                "scheme_eligible": False,
+                "quantity_break_eligible": False,
+                "min_order_value": "0.00",
+            },
+            {
+                "id": "pg-festival",
+                "name": "Festival Price",
+                "description": "Promotional seasonal pricing. Active during festive campaigns.",
+                "base_price_field": "price",
+                "discount_percent": "20.00",
+                "price_adjustment": "0.00",
+                "rounding_rule": "Nearest5",
+                "max_additional_discount_percent": "0.00",
+                "tax_inclusive": True,
+                "scheme_eligible": True,
+                "quantity_break_eligible": True,
+                "min_order_value": "0.00",
+            },
+        ]
+
+        for pg in pricing_groups:
+            exists = await conn.fetchval(
+                "SELECT COUNT(*) FROM pricing_groups WHERE id = $1", pg["id"]
+            )
+            if not exists:
+                print(f"[SMRITI DB SEED] Seeding PricingGroup '{pg['name']}'...")
+                await conn.execute(
+                    """
+                    INSERT INTO pricing_groups (
+                        id, uuid, name, description,
+                        base_price_field, discount_percent, price_adjustment,
+                        rounding_rule, max_additional_discount_percent,
+                        tax_inclusive, scheme_eligible, quantity_break_eligible,
+                        min_order_value,
+                        company_id, branch_id,
+                        is_active, is_deleted, created_at, modified_at, version
+                    ) VALUES (
+                        $1, $2, $3, $4,
+                        $5, $6, $7,
+                        $8, $9,
+                        $10, $11, $12,
+                        $13,
+                        'comp-default', 'br-default',
+                        true, false, now(), now(), 1
+                    )
+                    """,
+                    pg["id"], str(uuid.uuid4()), pg["name"], pg["description"],
+                    pg["base_price_field"], pg["discount_percent"], pg["price_adjustment"],
+                    pg["rounding_rule"], pg["max_additional_discount_percent"],
+                    pg["tax_inclusive"], pg["scheme_eligible"], pg["quantity_break_eligible"],
+                    pg["min_order_value"],
+                )
+            else:
+                print(f"[SMRITI DB SEED] PricingGroup '{pg['name']}' already exists, skipping.")
+
     finally:
         await conn.close()
 
