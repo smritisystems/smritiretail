@@ -4,15 +4,15 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.24.0
+Version      : 3.27.0
 Created      : 2026-07-11
-Modified     : 2026-07-18
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 # SMRITI database models init
-from .crm import CustomerGroup, Customer
+from .crm import CustomerGroup, PricingGroup, Customer
 from .inventory import Product, StockMovement
 from .sales import SalesInvoice, SalesInvoiceItem
 from .tenant import Company, Branch
@@ -40,3 +40,4 @@ from .security import (
     SMRITISecurityAudit,
 )
 
+from .platform import DocumentNumberSeries, DocumentWorkflow, IntegrationLog
