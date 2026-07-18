@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.27.0
+  * Version    : 3.31.0
   * Created    : 2026-07-11
   * Modified   : 2026-07-19
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -112,5 +112,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-18 | foundation | Test Database Isolation & Onboarding Fixes v3.17.1 | [Foundation_Test_Database_Isolation_And_Setup_Fixes_v3.17.1.md](./foundation/Foundation_Test_Database_Isolation_And_Setup_Fixes_v3.17.1.md) | [Plan](../implementation/foundation/Test_Database_Isolation_Plan_v3.23.0.md) | Completed |
 | 2026-07-18 | foundation | SSACF — Security & Access Control Framework v3.24.0 — 8 DB tables, policy engine, menu resolver, seed data, 3/3 tests passing | [Security_SSACF_Role_And_Menu_Engine_v3.24.0.md](./foundation/Security_SSACF_Role_And_Menu_Engine_v3.24.0.md) | [Plan](../implementation/foundation/Role_And_Menu_Security_Engine_v3.24.0.md) | Completed |
 | 2026-07-19 | foundation | Consignment & CRM Upgrades v3.27.0 — Address management, KPIs dashboard, Modern Trade dispatches & reporting | [Consignment_And_CRM_Upgrades_Walkthrough_v3.27.0.md](./foundation/Consignment_And_CRM_Upgrades_Walkthrough_v3.27.0.md) | [Plan](../implementation/foundation/Consignment_And_CRM_Upgrades_Plan_v3.27.0.md) | Completed |
+| 2026-07-19 | foundation | SaaS Tenant Isolation & Data Security v3.31.0 — Automatic SQLAlchemy 2.0 query interceptors, BaseEntity tenant columns | [Foundation_SaaS_Tenant_Isolation_Walkthrough_v3.31.0.md](./foundation/Foundation_SaaS_Tenant_Isolation_Walkthrough_v3.31.0.md) | [Plan](../implementation/foundation/Tenant_Isolation_SaaS_Plan_v3.31.0.md) | Completed |
+
 
 
