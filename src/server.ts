@@ -1,3 +1,14 @@
+/**
+ * Project      : SMRITI Retail OS
+ * Author       : Jawahar Ramkripal Mallah
+ * Email        : support@smritibooks.com
+ * Version      : 3.31.0
+ * Created      : 2026-07-11
+ * Modified     : 2026-07-19
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ */
+
 import http, { IncomingMessage, ServerResponse } from "http";
 import crypto from "crypto";
 import { users, sessions } from "./state/store.js";
@@ -57,10 +68,30 @@ async function requestHandler(req: IncomingMessage, res: ServerResponse) {
     try {
       const body = await parseJsonBody(req);
       const user = users.find(u => u.username === body.username);
-      if (!user || !verifyPassword(body.password, user.passwordHash)) {
+      if (!user) {
         jsonResponse(res, 401, { error: "Invalid username or password." });
         return;
       }
+
+      // Check if already locked
+      if (user.status === "Locked") {
+        jsonResponse(res, 403, { error: "User account is locked." });
+        return;
+      }
+
+      if (!verifyPassword(body.password, user.passwordHash)) {
+        user.failedAttempts = (user.failedAttempts || 0) + 1;
+        if (user.failedAttempts >= 5) {
+          user.status = "Locked";
+          jsonResponse(res, 403, { error: "User account is locked due to too many failed login attempts." });
+          return;
+        }
+        jsonResponse(res, 401, { error: "Invalid username or password." });
+        return;
+      }
+
+      // Successful login resets counter
+      user.failedAttempts = 0;
 
       const token = crypto.randomUUID();
       sessions[token] = {
@@ -77,6 +108,7 @@ async function requestHandler(req: IncomingMessage, res: ServerResponse) {
       return;
     }
   }
+
 
   if (req.method === "GET" && url === "/api/auth/me") {
     const session = getSessionUser(req);
