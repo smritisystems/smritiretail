@@ -67,6 +67,25 @@ class SystemConfigResponse(BaseModel):
     }
 
 
+class SystemDoctorResponse(BaseModel):
+    status: str
+    timestamp: str
+    database_status: str
+    bootstrap_admin_exists: bool
+    total_users: int
+    setup_completed: bool
+    companies_count: int
+    branches_count: int
+    stores_count: int
+    license_status: Optional[str] = None
+    license_expires_at: Optional[str] = None
+    recommendations: list[str] = Field(default_factory=list)
+
+    model_config = {
+        "from_attributes": True
+    }
+
+
 class LicenseInfo(BaseModel):
     status: Optional[str] = "Trial"
     type: Optional[str] = "Trial"

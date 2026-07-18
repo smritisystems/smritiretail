@@ -18,6 +18,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Body
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -33,7 +34,7 @@ from ...schemas.psv import PSVPartyResponse
 from ...schemas.system import (
     TallyConfigCreate, TallyConfigUpdate, TallyConfigResponse,
     SystemConfigCreate, SystemConfigUpdate, SystemConfigResponse,
-    CompanySetupRequest, StoreConfig
+    CompanySetupRequest, StoreConfig, SystemDoctorResponse
 )
 from ...schemas.numbering import DocumentSeriesCreate
 from ...services.numbering import NumberingService
@@ -471,6 +472,109 @@ async def get_setup_status(
     """
     setup_config = await get_system_config(db, SETUP_COMPLETED_KEY)
     return {"setupCompleted": setup_config is not None and setup_config.value == "true"}
+
+
+@router.get(
+    "/doctor",
+    response_model=SystemDoctorResponse,
+    dependencies=[Depends(require_role(UserRole.SYSADMIN))],
+)
+@router.get(
+    "/system/doctor",
+    response_model=SystemDoctorResponse,
+    dependencies=[Depends(require_role(UserRole.SYSADMIN))],
+)
+async def run_system_doctor(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return a consolidated system health and bootstrap diagnostics report.
+    """
+    timestamp = datetime.now(timezone.utc).isoformat()
+    db_ok = True
+    try:
+        await db.execute(select(1))
+    except Exception:
+        db_ok = False
+
+    database_status = "PASS" if db_ok else "FAIL"
+    sysadmin_count = 0
+    total_users = 0
+    setup_completed = False
+    companies_count = 0
+    branches_count = 0
+    stores_count = 0
+    license_status = None
+    license_expires_at = None
+
+    if db_ok:
+        sysadmin_count = (await db.execute(
+            select(func.count()).select_from(User).where(
+                User.role == UserRole.SYSADMIN,
+                User.is_deleted == False,
+            )
+        )).scalar_one()
+
+        total_users = (await db.execute(
+            select(func.count()).select_from(User).where(User.is_deleted == False)
+        )).scalar_one()
+
+        setup_config = await get_system_config(db, SETUP_COMPLETED_KEY)
+        setup_completed = setup_config is not None and setup_config.value == "true"
+
+        companies_count = (await db.execute(
+            select(func.count()).select_from(Company).where(Company.is_deleted == False)
+        )).scalar_one()
+
+        branches_count = (await db.execute(
+            select(func.count()).select_from(Branch).where(Branch.is_deleted == False)
+        )).scalar_one()
+
+        stores_count = (await db.execute(
+            select(func.count()).select_from(Store).where(Store.is_deleted == False)
+        )).scalar_one()
+
+        license_config = await get_system_config(db, LICENSE_STATUS_KEY)
+        if license_config:
+            license_status = license_config.value
+            expires_config = await get_system_config(db, LICENSE_EXPIRES_KEY)
+            license_expires_at = expires_config.value if expires_config else None
+
+    bootstrap_admin_exists = sysadmin_count > 0
+
+    overall_status = "PASS"
+    if database_status != "PASS":
+        overall_status = "FAIL"
+    elif not bootstrap_admin_exists:
+        overall_status = "FAIL"
+    elif not setup_completed:
+        overall_status = "WARN"
+
+    recommendations: list[str] = []
+    if database_status != "PASS":
+        recommendations.append("Verify database connectivity and credentials.")
+    if not bootstrap_admin_exists:
+        recommendations.append("Run the bootstrap admin endpoint to create a SYSADMIN user.")
+    if not setup_completed:
+        recommendations.append("Complete the company setup wizard or insert setup_completed=true into system configs.")
+    if bootstrap_admin_exists and total_users == 1 and not setup_completed:
+        recommendations.append("A bootstrap user exists but tenant onboarding has not completed.")
+
+    return {
+        "status": overall_status,
+        "timestamp": timestamp,
+        "database_status": database_status,
+        "bootstrap_admin_exists": bootstrap_admin_exists,
+        "total_users": total_users,
+        "setup_completed": setup_completed,
+        "companies_count": companies_count,
+        "branches_count": branches_count,
+        "stores_count": stores_count,
+        "license_status": license_status,
+        "license_expires_at": license_expires_at,
+        "recommendations": recommendations,
+    }
 
 
 def normalize_staff_role(role: str) -> UserRole:
