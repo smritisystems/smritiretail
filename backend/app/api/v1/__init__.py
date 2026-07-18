@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.31.0
+Version      : 3.32.0
 Created      : 2026-07-11
-Modified     : 2026-07-20
+Modified     : 2026-07-21
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -41,4 +41,5 @@ from . import (
     users,
     consignment,
     sre,
+    dispatch,
 )

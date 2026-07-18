@@ -65,7 +65,9 @@ from .api.v1 import (
     workflow,
     consignment,
     sre,
+    dispatch,
 )
+
 from .core.config import settings
 from .core.constants import SMRITI_BANNER
 from .core.error_handlers import register_error_handlers
@@ -142,6 +144,8 @@ app.include_router(security.router,         prefix=settings.API_V1_STR + "/secur
 app.include_router(compliance_router,       prefix=settings.API_V1_STR)
 app.include_router(consignment.router,       prefix=settings.API_V1_STR + "/consignment", tags=["Consignment"])
 app.include_router(sre.router,               prefix=settings.API_V1_STR + "/sre",         tags=["SMRITI Regulatory Engine"])
+app.include_router(dispatch.router,          prefix=settings.API_V1_STR + "/dispatch",    tags=["Stock Dispatch Engine"])
+
 
 
 

@@ -49,4 +49,8 @@ from .consignment import (
 from .sre import (
     CorporateGstinRegistry, SreRuleEngine, SreStatutoryLedger, SreComplianceDecision
 )
+from .dispatch import (
+    StockDispatch, StockDispatchLine, DispatchApprovalEvent
+)
+
 
