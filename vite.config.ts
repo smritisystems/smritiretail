@@ -27,6 +27,10 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
+const pythonCoreTarget = process.env.PYTHON_CORE_HOST
+  ? `http://${process.env.PYTHON_CORE_HOST}`
+  : "http://127.0.0.1:8000";
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
@@ -34,7 +38,18 @@ export default defineConfig({
     port: 3000,
     proxy: {
       "/api/v1": {
-        target: "http://127.0.0.1:8000",
+        target: pythonCoreTarget,
+        changeOrigin: true,
+        secure: false
+      }
+    }
+  },
+  preview: {
+    host: "0.0.0.0",
+    port: 3000,
+    proxy: {
+      "/api/v1": {
+        target: pythonCoreTarget,
         changeOrigin: true,
         secure: false
       }

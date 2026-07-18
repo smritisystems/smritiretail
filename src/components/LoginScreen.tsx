@@ -28,7 +28,7 @@ import { motion } from "motion/react";
 import { Shield, User, Lock, ArrowRight, AlertTriangle } from "lucide-react";
 
 interface LoginScreenProps {
-  onLoginSuccess: (user: { role: string; name: string; passwordResetRequired?: boolean }) => void;
+  onLoginSuccess: (user: { role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string }) => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
@@ -68,6 +68,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           role: user.role ?? "",
           name: user.display_name || user.full_name || user.username || username,
           passwordResetRequired: data.password_reset_required ?? false,
+          companyId: data.company_id ?? user.company_id,
+          branchId: data.branch_id ?? user.branch_id,
         });
       } else {
         const errMsg = typeof data.detail === "string"

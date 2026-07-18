@@ -68,6 +68,8 @@ export interface NumberingAuditLog {
   details: string;
 }
 
+import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+
 export class NumberingEngine {
   private static localSeries: DocumentSeries[] = [
     {

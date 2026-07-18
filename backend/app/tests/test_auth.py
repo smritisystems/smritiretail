@@ -101,7 +101,7 @@ async def test_bootstrap_creates_sysadmin(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post("/api/v1/auth/bootstrap", json={
             "username": f"admin_{uuid.uuid4().hex[:6]}",
-            "password": "Admin@secure1",
+            "password": "Admin@123",
             "email": f"admin_{uuid.uuid4().hex[:4]}@smriti.test",
         })
     assert res.status_code == 201
@@ -201,7 +201,7 @@ async def test_bootstrap_blocked_when_users_exist(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post("/api/v1/auth/bootstrap", json={
             "username": f"admin2_{suffix}",
-            "password": "Admin@secure1",
+            "password": "Admin@123",
         })
     assert res.status_code == 403
     assert "Bootstrap" in res.json()["detail"] or "already" in res.json()["detail"]
@@ -303,6 +303,21 @@ async def test_login_rejects_invalid_branch_selection(db_session):
         })
 
     assert res.status_code == 401
+
+
+async def test_login_rejects_user_without_tenant_assignment(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, suffix)
+    await _make_user(db_session, suffix, UserRole.MANAGER)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post("/api/v1/auth/login", json={
+            "username": f"user_{suffix}",
+            "password": "Password@123",
+        })
+
+    assert res.status_code == 403
+    assert "company and branch" in res.json()["detail"].lower()
 
 
 # ---------------------------------------------------------------------------

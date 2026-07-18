@@ -39,4 +39,4 @@ COPY --from=builder /usr/src/app .
 
 EXPOSE 3000
 
-CMD ["npx", "tsx", "gateway.ts"]
+CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "3000"]

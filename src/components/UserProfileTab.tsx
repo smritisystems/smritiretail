@@ -48,6 +48,7 @@ import {
 import { User, UserPreferences, AuditLogEntry } from "../types.js";
 import { useNotifications } from "../notifications/notification_store.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { PasswordResetScreen } from "./PasswordResetScreen.tsx";
 import { isValidMobile, isValidEmail } from "../utils/validators.ts";
 
 interface SessionInfo {
@@ -70,6 +71,7 @@ export const UserProfileTab: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<"summary" | "sessions" | "notifications" | "preferences">("summary");
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
+  const [isChangingPassword, setIsChangingPassword] = useState<boolean>(false);
   const [userActivities, setUserActivities] = useState<AuditLogEntry[]>([]);
   const [profileValidationErrors, setProfileValidationErrors] = useState<string[]>([]);
 
@@ -324,6 +326,21 @@ export const UserProfileTab: React.FC = () => {
     );
   }
 
+  if (isChangingPassword) {
+    return (
+      <PasswordResetScreen
+        onResetSuccess={() => {
+          setIsChangingPassword(false);
+          addNotification({
+            title: "Password Updated",
+            message: "Your password has been updated successfully.",
+            type: "success",
+          });
+        }}
+      />
+    );
+  }
+
   if (!currentUser) {
     return (
       <div className="p-8 text-center text-red-400">
@@ -485,15 +502,30 @@ export const UserProfileTab: React.FC = () => {
           <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-6 min-h-[400px]">
             {activeSubTab === "summary" && (
               <form onSubmit={handleUpdatePersonal} className="space-y-6">
-                <div className="flex items-center justify-between border-b border-theme-divider pb-3">
-                  <h3 className="text-sm font-bold text-theme-body">Operator Profile Ledger</h3>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-xs font-bold flex items-center gap-1.5 transition-colors"
-                  >
-                    <Save size={13} /> {saving ? "Saving..." : "Save Details"}
-                  </button>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-b border-theme-divider pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-theme-body">Operator Profile Ledger</h3>
+                    <p className="text-xs text-theme-muted mt-1">
+                      Update your profile details and change your password securely.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsChangingPassword(true)}
+                      className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded text-xs font-bold flex items-center gap-1.5 transition-colors"
+                    >
+                      <Key size={13} /> Change Password
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-xs font-bold flex items-center gap-1.5 transition-colors"
+                    >
+                      <Save size={13} /> {saving ? "Saving..." : "Save Details"}
+                    </button>
+                  </div>
                 </div>
 
                 {profileValidationErrors.length > 0 && (

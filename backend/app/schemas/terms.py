@@ -116,6 +116,7 @@ class ResolvedLevel(BaseModel):
     count: int
 
     model_config = {
+        "from_attributes": True,
         "populate_by_name": True
     }
 
@@ -140,6 +141,7 @@ class ResolvedClause(BaseModel):
     status: str
 
     model_config = {
+        "from_attributes": True,
         "populate_by_name": True
     }
 
@@ -149,6 +151,7 @@ class TermsResolveResponse(BaseModel):
     resolvedList: List[ResolvedClause] = Field(..., serialization_alias="resolvedList")
 
     model_config = {
+        "from_attributes": True,
         "populate_by_name": True
     }
 

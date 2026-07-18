@@ -47,8 +47,11 @@ async def test_product_repository_crud(db_session):
     assert fetched.name == "Test product"
     
     # 3. Update
+    previous_version = fetched.version
     updated = await repo.update(fetched, {"price": Decimal("109.99")})
     assert updated.price == Decimal("109.99")
+    assert updated.version == previous_version + 1
+    assert updated.modified_at.tzinfo is not None
     
     # 4. Count
     total = await repo.count()
@@ -57,6 +60,8 @@ async def test_product_repository_crud(db_session):
     # 5. Delete (Soft)
     deleted = await repo.soft_delete(fetched)
     assert deleted.is_deleted is True
+    assert deleted.version == updated.version + 1
+    assert deleted.deleted_at.tzinfo is not None
     
     # Fetching should return None now (due to soft delete check)
     fetched_deleted = await repo.get(prod_id)

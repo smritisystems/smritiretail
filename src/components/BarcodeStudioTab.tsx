@@ -32,6 +32,7 @@ import {
   Box, History, Copy, Layers, FileDown, AlertTriangle
 } from "lucide-react";
 import { BarcodeEngine, BarcodeRecord } from "../services/barcodeEngine.ts";
+import { BarcodeLabel } from "../print_engine/templates/BarcodeLabel.tsx";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 
 interface BarcodeStudioTabProps {
@@ -41,7 +42,7 @@ interface BarcodeStudioTabProps {
 export const BarcodeStudioTab: React.FC<BarcodeStudioTabProps> = ({ currentUser }) => {
   const isReadOnly = currentUser?.role === "Report User";
   const [activeView, setActiveView] = useState<
-    "master" | "generator" | "history" | "settings" | "printing" | "scanner"
+    "master" | "generator" | "history" | "settings" | "printing" | "scanner" | "demo"
   >("master");
 
   useEffect(() => {
@@ -106,6 +107,7 @@ export const BarcodeStudioTab: React.FC<BarcodeStudioTabProps> = ({ currentUser 
           <NavItem icon={<Database />} label="Barcode Master" active={activeView === "master"} onClick={() => setActiveView("master")} />
           <NavItem icon={<Plus />} label="Generate Barcode" active={activeView === "generator"} onClick={() => setActiveView("generator")} />
           <NavItem icon={<Printer />} label="Label Printing" active={activeView === "printing"} onClick={() => setActiveView("printing")} />
+          <NavItem icon={<Tag />} label="Barcode Demo" active={activeView === "demo"} onClick={() => setActiveView("demo")} />
           <NavItem icon={<Search />} label="Scanner Console" active={activeView === "scanner"} onClick={() => setActiveView("scanner")} />
           <NavItem icon={<History />} label="Barcode History" active={activeView === "history"} onClick={() => setActiveView("history")} />
         </nav>
@@ -136,6 +138,7 @@ export const BarcodeStudioTab: React.FC<BarcodeStudioTabProps> = ({ currentUser 
               {activeView === "master" && <BarcodeMaster masterData={masterData} />}
               {activeView === "generator" && <BarcodeGenerator onAddBarcode={handleAddBarcode} />}
               {activeView === "printing" && <LabelPrinting />}
+              {activeView === "demo" && <BarcodeDemo />}
               {activeView === "scanner" && <ScannerConsole masterData={masterData} />}
               {activeView === "history" && <BarcodeHistory masterData={masterData} />}
               {activeView === "settings" && <EngineSettings />}
@@ -672,6 +675,53 @@ const ModeCard = ({ title, desc, icon, active, onClick }: any) => (
     <p className="text-xs text-theme-muted leading-relaxed">{desc}</p>
   </div>
 );
+
+const BarcodeDemo = () => {
+  const demoData = {
+    companyName: "SMRITI Demo",
+    items: [
+      {
+        name: "Demo Barcode Item",
+        rate: 125.0,
+        barcode: "8901234567890"
+      }
+    ]
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="border-b border-theme-divider pb-4">
+        <h2 className="text-xl font-bold font-display text-theme-body flex items-center gap-2">
+          <Tag className="text-indigo-400" />
+          Barcode Demo Preview
+        </h2>
+        <p className="text-xs text-theme-muted mt-1">Render the barcode label template with demo product data.</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(320px,420px)_1fr] gap-6">
+        <div className="space-y-4">
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-5 shadow-sm">
+            <h3 className="text-sm font-bold text-theme-body">Demo Product</h3>
+            <div className="mt-3 text-sm text-theme-body space-y-2">
+              <div className="flex justify-between"><span className="text-theme-muted">Name</span><span className="font-semibold">{demoData.items[0].name}</span></div>
+              <div className="flex justify-between"><span className="text-theme-muted">Rate</span><span className="font-semibold">₹{demoData.items[0].rate.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span className="text-theme-muted">Barcode</span><span className="font-mono font-semibold">{demoData.items[0].barcode}</span></div>
+            </div>
+          </div>
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-5 shadow-sm text-sm text-theme-muted">
+            Use this screen to preview label layout and verify barcode text formatting before printing.
+          </div>
+        </div>
+
+        <div className="border border-theme-divider rounded-3xl bg-theme-surface-1 p-6 flex items-center justify-center">
+          <div className="max-w-[55mm]">
+            <BarcodeLabel data={demoData} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const EngineSettings = () => {
 

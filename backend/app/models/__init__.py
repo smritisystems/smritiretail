@@ -23,6 +23,8 @@ from .purchase import (
     PurchaseReceipt, PurchaseReceiptItem,
 )
 from .pos import CashRegister, Shift
+from .product_identity import BarcodeProvider, IdentityRule, ProductIdentity
+from .user_assignment import UserCompanyAssignment, UserBranchAssignment, UserStoreAssignment
 from .workflow import WorkflowEvent
 from .supplier_payment import SupplierPayment
 from .report_schedule import ReportSchedule

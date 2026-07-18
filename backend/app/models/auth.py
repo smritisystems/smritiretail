@@ -54,7 +54,7 @@ class User(Base):
     branch_id  = Column(String(50), ForeignKey("branches.id",  ondelete="RESTRICT"), nullable=True, index=True)
 
     # Extended staff management fields
-    status            = Column(String(20), nullable=False, default="Active")
+    status            = Column(String(50), nullable=False, default="Active")
     employee_id       = Column(String(20), nullable=True)
     employee_code     = Column(String(20), nullable=True)
     display_name      = Column(String(100), nullable=True)

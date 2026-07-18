@@ -68,6 +68,7 @@ async def clear_db(db_session: AsyncSession):
     from app.models.supplier_payment import SupplierPayment
     from app.models.tenant import Branch, Company
     from app.models.barcode import BarcodeLayout, PrintHistory
+    from app.models.product_identity import BarcodeProvider, IdentityRule, ProductIdentity
     from app.models.system import SystemConfig
     from app.models.master_lookup import MasterType, MasterValue
     from app.models.workflow import WorkflowEvent
@@ -75,6 +76,9 @@ async def clear_db(db_session: AsyncSession):
 
     await db_session.execute(delete(SalesReturnItem))
     await db_session.execute(delete(SalesReturn))
+    await db_session.execute(delete(ProductIdentity))
+    await db_session.execute(delete(BarcodeProvider))
+    await db_session.execute(delete(IdentityRule))
     await db_session.execute(delete(SalesOrderItem))
     await db_session.execute(delete(SalesOrder))
     await db_session.execute(delete(SalesQuotationItem))

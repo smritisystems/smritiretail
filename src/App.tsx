@@ -98,7 +98,7 @@ const AppContent: React.FC = () => {
   const { globalZoom, popOutTab } = useWorkspace();
   const { addNotification: addSystemNotification } = useNotifications();
   
-  const [currentUser, setCurrentUser] = useState<{ role: string; name: string; passwordResetRequired?: boolean } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string } | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   const checkAuth = async () => {
@@ -109,6 +109,8 @@ const AppContent: React.FC = () => {
         setCurrentUser({
           role: data.role ?? "",
           name: data.display_name || data.full_name || data.username || "",
+          companyId: data.company_id ?? undefined,
+          branchId: data.branch_id ?? undefined,
           passwordResetRequired: data.password_reset_required ?? false,
         });
       } else {
@@ -126,7 +128,7 @@ const AppContent: React.FC = () => {
     checkAuth();
   }, []);
 
-  const handleLoginSuccess = (user: { role: string; name: string; passwordResetRequired?: boolean }) => {
+  const handleLoginSuccess = (user: { role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string }) => {
     setCurrentUser(user);
   };
 
@@ -149,12 +151,9 @@ const AppContent: React.FC = () => {
     }
   }, [currentUser]);
 
-  const [isSetupCompleted, setIsSetupCompleted] = useState<boolean>(() => {
-    return localStorage.getItem("smriti_setup_completed") === "true";
-  });
+  const [isSetupCompleted, setIsSetupCompleted] = useState<boolean | null>(null);
 
   const markSetupCompleted = () => {
-    localStorage.setItem("smriti_setup_completed", "true");
     setIsSetupCompleted(true);
 
     if (preferences.lastWorkspace === "company-setup") {
@@ -165,12 +164,10 @@ const AppContent: React.FC = () => {
   const refreshSetupStatus = async () => {
     try {
       const data = await apiFetchV1("/setup-status");
-      if (data?.setupCompleted) {
-        setIsSetupCompleted(true);
-        localStorage.setItem("smriti_setup_completed", "true");
-      }
+      setIsSetupCompleted(Boolean(data?.setupCompleted));
     } catch (error) {
       console.warn("Unable to refresh setup completion status:", error);
+      setIsSetupCompleted(false);
     }
   };
 
@@ -187,12 +184,6 @@ const AppContent: React.FC = () => {
     const resolvedTab = isSetupCompleted && tab === "company-setup" ? "dashboard" : tab;
     addToRecentlyUsed(resolvedTab);
   };
-
-  useEffect(() => {
-    if (isSetupCompleted && preferences.lastWorkspace === "company-setup") {
-      addToRecentlyUsed("dashboard");
-    }
-  }, [isSetupCompleted, preferences.lastWorkspace, addToRecentlyUsed]);
 
   useEffect(() => {
     if (isSetupCompleted && preferences.lastWorkspace === "company-setup") {
@@ -520,7 +511,20 @@ const AppContent: React.FC = () => {
     );
   }
 
-  if (!isSetupCompleted) {
+  if (currentUser && isSetupCompleted === null) {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
+        <div className="w-10 h-10 rounded-xl bg-[#2563EB] flex items-center justify-center font-bold text-lg text-white border border-theme-divider shadow-lg animate-pulse">
+          S
+        </div>
+        <p className="mt-4 text-[10px] font-mono text-theme-muted tracking-widest uppercase">
+          Verifying initialization state...
+        </p>
+      </div>
+    );
+  }
+
+  if (isSetupCompleted === false) {
     return (
       <SetupWizardTab
         onComplete={() => {

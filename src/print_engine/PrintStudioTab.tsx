@@ -25,7 +25,7 @@
 
 import React, { useState, useEffect } from "react";
 import { SmritiScrollArea } from "../components/SmritiScrollArea.tsx";
-import { Printer, Settings, LayoutTemplate, FileText, Search, Play, Download, ScanBarcode, Clock } from "lucide-react";
+import { Printer, Settings, LayoutTemplate, FileText, Search, Play, Download, ScanBarcode, Clock, Tag } from "lucide-react";
 import { usePrintEngine } from "./print_store.tsx";
 import { useLayoutEngine } from "../layout_engine/layout_store.tsx";
 import { StandardInvoiceA4 } from "./templates/StandardInvoiceA4.tsx";
@@ -49,6 +49,22 @@ const MOCK_DATA = {
   cashier: "John D.",
   paymentMethod: "CARD",
   paid: 209.82
+};
+
+const BARCODE_DEMO_DATA = {
+  invoiceNo: "LABEL-DEMO-001",
+  date: "2026-07-18",
+  companyName: "SMRITI Demo Co.",
+  customerName: "Demo Retail",
+  items: [
+    { name: "Demo Barcode Item", qty: 1, rate: 125.00, barcode: "8901234567890" }
+  ],
+  subtotal: 125.00,
+  tax: 0.00,
+  total: 125.00,
+  cashier: "Demo User",
+  paymentMethod: "CASH",
+  paid: 125.00
 };
 
 export const PrintStudioTab: React.FC = () => {
@@ -87,12 +103,13 @@ export const PrintStudioTab: React.FC = () => {
   const handlePrint = () => {
     print({
       templateId: activeTemplate,
-      data: MOCK_DATA
+      data: selectedTemplate?.id === "label-50x25" ? BARCODE_DEMO_DATA : MOCK_DATA
     });
   };
 
   const selectedTemplate = templates.find(t => t.id === activeTemplate);
   const PreviewComponent = selectedTemplate?.component || (() => <div>No template selected</div>);
+  const previewData = selectedTemplate?.id === "label-50x25" ? BARCODE_DEMO_DATA : MOCK_DATA;
 
   return (
     <div className="flex h-full bg-theme-base font-sans overflow-hidden text-theme-body">
@@ -172,6 +189,12 @@ export const PrintStudioTab: React.FC = () => {
               className="flex items-center gap-2 px-4 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider text-theme-primary rounded-lg text-sm font-semibold transition-colors shadow-sm cursor-pointer"
             >
               <Clock size={14} className="text-theme-muted" /> View Spool Logs
+            </button>
+            <button 
+              onClick={() => setActiveTemplate("label-50x25")}
+              className="flex items-center gap-2 px-4 py-1.5 bg-slate-500 hover:bg-slate-600 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm cursor-pointer"
+            >
+              <Tag size={14} /> Show Barcode Demo
             </button>
             <button 
               onClick={handlePrint}

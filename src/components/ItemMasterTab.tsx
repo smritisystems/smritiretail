@@ -83,6 +83,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isCreating, setIsCreating] = useState<boolean>(false);
+  const [itemMasterMode, setItemMasterMode] = useState<"simple" | "advanced">("advanced");
   const [formImage, setFormImage] = useState<string>("");
   const [displayPolicy, setDisplayPolicy] = useState<DisplayPolicy>(DEFAULT_DISPLAY_POLICY);
   const [showPolicyModal, setShowPolicyModal] = useState<boolean>(false);
@@ -95,6 +96,11 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
       } catch (e) {
         console.error("Failed to parse display policy:", e);
       }
+    }
+
+    const savedMode = localStorage.getItem("smriti_item_master_mode");
+    if (savedMode === "simple" || savedMode === "advanced") {
+      setItemMasterMode(savedMode);
     }
   }, []);
 
@@ -162,18 +168,27 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
 
   const categories = ["All", ...Array.from(new Set(products.map(p => p.category)))];
 
+  const generateSimpleBarcode = () => `SMR-B${Math.floor(100000 + Math.random() * 900000)}`;
+
   const handleNameChange = (nameVal: string) => {
     setFormName(nameVal);
     const sanitized = nameVal.trim().toUpperCase().replace(/[^A-Z0-9]/g, "-").slice(0, 8);
     if (sanitized && !formStyleCode) {
       setFormStyleCode(sanitized);
     }
+
+    if (itemMasterMode === "simple" && !isEditing) {
+      setFormCode(generateSimpleSku(nameVal));
+      if (!formBarcode) {
+        setFormBarcode(generateSimpleBarcode());
+      }
+    }
   };
 
   const handleOpenCreate = () => {
     setFormName("");
-    setFormCode("");
-    setFormBarcode("");
+    setFormCode(itemMasterMode === "simple" ? generateSimpleSku("") : "");
+    setFormBarcode(itemMasterMode === "simple" ? generateSimpleBarcode() : "");
     setFormPrice(0);
     setFormMrp(0);
     setFormStock(0);
@@ -209,35 +224,40 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
 
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim() || !formCode.trim() || !formBarcode.trim()) {
+    const effectiveCode = formCode.trim() || (itemMasterMode === "simple" ? generateSimpleSku(formName) : "");
+    const effectiveBarcode = formBarcode.trim() || (itemMasterMode === "simple" ? generateSimpleBarcode() : "");
+
+    if (!formName.trim() || !effectiveCode || !effectiveBarcode) {
       onNotification("Missing Fields", "Name, SKU Code, and Barcode are required parameters.", "error");
       return;
     }
 
     setLoading(true);
     try {
-      // Validate mandatory attributes
-      for (const attr of activeGroupAttrs) {
-        if (attr.isMandatory && !dynamicAttributes[attr.name]) {
-          onNotification("Mandatory Attribute", `Please specify a value for "${attr.label}".`, "error");
-          setLoading(false);
-          return;
+      // Validate mandatory attributes only in advanced mode
+      if (itemMasterMode === "advanced") {
+        for (const attr of activeGroupAttrs) {
+          if (attr.isMandatory && !dynamicAttributes[attr.name]) {
+            onNotification("Mandatory Attribute", `Please specify a value for "${attr.label}".`, "error");
+            setLoading(false);
+            return;
+          }
         }
       }
 
       const payload = {
         name: formName,
-        code: formCode,
+        code: effectiveCode,
         price: formPrice,
         stock: formStock,
         category: formCategory,
-        barcode: formBarcode,
+        barcode: effectiveBarcode,
         mrp: formMrp || formPrice,
         gst_percentage: formGst,
-        style_code: formStyleCode || formCode,
+        style_code: formStyleCode || effectiveCode,
         cost_price: formCostPrice || Math.round(formPrice * 0.6),
-        sku: formSku || formCode,
-        attributes: dynamicAttributes,
+        sku: formSku || effectiveCode,
+        attributes: itemMasterMode === "advanced" ? dynamicAttributes : {},
         ...(!isEditing ? { id: `p-${Date.now()}` } : {})
       };
 
@@ -328,6 +348,11 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     if (!formMrp) setFormMrp(Math.round(formPrice * 1.25));
 
     onNotification("Automation Active", "Suggested compliance codes injected.", "success");
+  };
+
+  const generateSimpleSku = (name: string) => {
+    const base = name.trim().toUpperCase().replace(/[^A-Z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+    return base ? `${base.slice(0, 12)}-${Math.floor(100 + Math.random() * 900)}` : `SMR-${Date.now().toString().slice(-6)}`;
   };
 
   const filteredProducts = products.filter(p => {
@@ -558,7 +583,30 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
 
           {/* Primary Toolbar Controls */}
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-            
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 w-full md:w-auto">
+              <div className="flex items-center gap-2 text-xs text-theme-muted font-mono">
+                <span>Item Master Mode</span>
+                <button
+                  onClick={() => {
+                    setItemMasterMode("simple");
+                    localStorage.setItem("smriti_item_master_mode", "simple");
+                  }}
+                  className={`px-3 py-1 rounded-lg border text-xs font-semibold transition-colors ${itemMasterMode === "simple" ? "bg-blue-600 text-white border-blue-600" : "bg-theme-surface-2 text-theme-body border-theme-divider hover:bg-theme-surface-hover"}`}
+                >
+                  Simple
+                </button>
+                <button
+                  onClick={() => {
+                    setItemMasterMode("advanced");
+                    localStorage.setItem("smriti_item_master_mode", "advanced");
+                  }}
+                  className={`px-3 py-1 rounded-lg border text-xs font-semibold transition-colors ${itemMasterMode === "advanced" ? "bg-blue-600 text-white border-blue-600" : "bg-theme-surface-2 text-theme-body border-theme-divider hover:bg-theme-surface-hover"}`}
+                >
+                  Advanced
+                </button>
+              </div>
+            </div>
+
             {/* Search & Category Filter */}
             {selectedIds.size > 0 && (
               <div className="flex items-center space-x-2 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1.5 rounded-lg mr-3">
@@ -703,249 +751,384 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   </div>
 
                   <form onSubmit={handleSaveItem} className="p-6 space-y-5">
-                    {/* 1. Item Name and Group */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Item Display Name *</label>
-                        <input
-                          type="text"
-                          required
-                          value={formName}
-                          onChange={(e) => handleNameChange(e.target.value)}
-                          placeholder="e.g. Vintage Leather Sneakers"
-                          className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body placeholder-[#8892a4] focus:outline-none focus:border-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Category / Group</label>
-                        <select
-                          value={formCategory}
-                          onChange={(e) => setFormCategory(e.target.value)}
-                          className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                        >
-                          <option value="Apparel">Apparel</option>
-                          <option value="Footwear">Footwear</option>
-                          <option value="Pharmacy">Pharmacy</option>
-                          <option value="Jewellery">Jewellery</option>
-                          <option value="Accessories">Accessories</option>
-                          <option value="General">General</option>
-                        </select>
-                      </div>
-                    </div>
+                    {itemMasterMode === "simple" ? (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Item Display Name *</label>
+                            <input
+                              type="text"
+                              required
+                              value={formName}
+                              onChange={(e) => handleNameChange(e.target.value)}
+                              placeholder="e.g. Vintage Leather Sneakers"
+                              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body placeholder-[#8892a4] focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Category / Group</label>
+                            <select
+                              value={formCategory}
+                              onChange={(e) => setFormCategory(e.target.value)}
+                              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
+                            >
+                              <option value="Apparel">Apparel</option>
+                              <option value="Footwear">Footwear</option>
+                              <option value="Pharmacy">Pharmacy</option>
+                              <option value="Jewellery">Jewellery</option>
+                              <option value="Accessories">Accessories</option>
+                              <option value="General">General</option>
+                            </select>
+                          </div>
+                        </div>
 
-                    {/* SMRITI Dynamic Attributes Mapping Form */}
-                    <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400">
-                          {activeGroup ? `Dynamic schema: ${activeGroup.name}` : "General Core Specifications"}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={handleSuggestCodes}
-                          className="text-[10px] font-bold text-blue-400 hover:text-blue-300 flex items-center space-x-1 cursor-pointer"
-                        >
-                          <Sliders size={11} />
-                          <span>Code Construction Autopilot</span>
-                        </button>
-                      </div>
-
-                      {/* Render dynamic attributes inputs from group */}
-                      {activeGroupAttrs.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {activeGroupAttrs.map(attr => (
-                            <div key={attr.id}>
-                              <label className="text-[9px] font-mono text-theme-muted block mb-1 uppercase">
-                                {attr.label} {attr.isMandatory && <span className="text-rose-400 font-bold">*</span>}
-                              </label>
-                              {attr.dataType === "select" ? (
-                                <select
-                                  value={dynamicAttributes[attr.name] || ""}
-                                  onChange={(e) => setDynamicAttributes(prev => ({ ...prev, [attr.name]: e.target.value }))}
-                                  className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                                >
-                                  <option value="">-- Pick option --</option>
-                                  {attr.validValues.map(v => (
-                                    <option key={v} value={v}>{v}</option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <input
-                                  type={attr.dataType === "number" ? "number" : "text"}
-                                  value={dynamicAttributes[attr.name] || ""}
-                                  onChange={(e) => setDynamicAttributes(prev => ({ ...prev, [attr.name]: e.target.value }))}
-                                  placeholder={`Enter ${attr.label}`}
-                                  className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                                />
-                              )}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">SKU Unique Code</label>
+                            <input
+                              type="text"
+                              required
+                              disabled={isEditing}
+                              value={formCode}
+                              onChange={(e) => setFormCode(e.target.value)}
+                              placeholder="Auto-generated for simple mode"
+                              className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono disabled:opacity-50"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Barcode / POS Identifier</label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-2.5 text-theme-muted"><Barcode size={12} /></span>
+                              <input
+                                type="text"
+                                required
+                                value={formBarcode}
+                                onChange={(e) => setFormBarcode(e.target.value)}
+                                placeholder="Auto-generated if blank"
+                                className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg pl-8 pr-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                              />
                             </div>
-                          ))}
+                          </div>
                         </div>
-                      ) : (
-                        <div className="text-[11px] text-theme-muted py-1 border-b border-theme-divider/20">
-                          No category-specific attributes found. Create attribute groups to map Apparel, Footwear, Saree, Sourcing, or Pharmacy attributes automatically.
-                        </div>
-                      )}
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                        <div>
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">Style Reference Code</label>
-                          <input
-                            type="text"
-                            value={formStyleCode}
-                            onChange={(e) => setFormStyleCode(e.target.value)}
-                            placeholder="Style Code"
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono uppercase"
-                          />
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div>
+                            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Selling Price (₹)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              required
+                              value={formPrice || ""}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setFormPrice(val);
+                                if (!formMrp || formMrp < val) setFormMrp(Math.round(val * 1.25));
+                              }}
+                              placeholder="Selling Price"
+                              className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Purchase Price</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={formCostPrice || ""}
+                              onChange={(e) => setFormCostPrice(parseFloat(e.target.value) || 0)}
+                              placeholder="Purchase Price"
+                              className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">MRP</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={formMrp || ""}
+                              onChange={(e) => setFormMrp(parseFloat(e.target.value) || 0)}
+                              placeholder="MRP"
+                              className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">SKU Unique Code *</label>
-                          <input
-                            type="text"
-                            required
-                            disabled={isEditing}
-                            value={formCode}
-                            onChange={(e) => setFormCode(e.target.value)}
-                            placeholder="SKU Code (e.g. TSH-COT-L)"
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono disabled:opacity-50"
-                          />
-                        </div>
-                      </div>
 
-                      <div>
-                        <label className="text-[9px] font-mono text-theme-muted block mb-1">Barcode / POS Identifier *</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2.5 text-theme-muted"><Barcode size={12} /></span>
-                          <input
-                            type="text"
-                            required
-                            value={formBarcode}
-                            onChange={(e) => setFormBarcode(e.target.value)}
-                            placeholder="e.g. SMR-B301"
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg pl-8 pr-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                          />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">GST</label>
+                            <select
+                              value={formGst}
+                              onChange={(e) => setFormGst(parseInt(e.target.value) || 18)}
+                              className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                            >
+                              <option value="0">0% GST</option>
+                              <option value="5">5% GST</option>
+                              <option value="18">18% GST</option>
+                              <option value="40">40% GST</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Stock</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={formStock}
+                              onChange={(e) => setFormStock(Math.max(0, parseInt(e.target.value) || 0))}
+                              placeholder="Stock"
+                              className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                            />
+                          </div>
                         </div>
-                      </div>
-                    </div>
 
-                    {/* SMRITI Financials / Taxation / Multi-price Engine */}
-                    <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50 space-y-4">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400 block">Financial & Cost Configuration</span>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-                        <div>
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">Buy Cost Price (₹) *</label>
-                          <input
-                            type="number"
-                            min="0"
-                            required
-                            value={formCostPrice || ""}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              setFormCostPrice(val);
-                              if (!formPrice) setFormPrice(Math.round(val * 1.5));
-                              if (!formMrp) setFormMrp(Math.round(val * 1.8));
-                            }}
-                            placeholder="Buy Cost Price"
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                          />
+                        <div className="bg-theme-surface-3 p-4 rounded-xl border border-theme-divider/50 space-y-2 text-[10px] text-theme-muted">
+                          <p className="font-semibold text-theme-body">Simple Mode</p>
+                          <p>Only the essential SKU fields are shown. Advanced configuration is hidden so you can create items quickly.</p>
                         </div>
-                        <div>
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">Standard Price (₹) *</label>
-                          <input
-                            type="number"
-                            min="0"
-                            required
-                            value={formPrice || ""}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              setFormPrice(val);
-                              if (!formMrp || formMrp < val) setFormMrp(Math.round(val * 1.25));
-                            }}
-                            placeholder="Selling Price"
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                          />
+                      </>
+                    ) : (
+                      <>
+                        {/* 1. Item Name and Group */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Item Display Name *</label>
+                            <input
+                              type="text"
+                              required
+                              value={formName}
+                              onChange={(e) => handleNameChange(e.target.value)}
+                              placeholder="e.g. Vintage Leather Sneakers"
+                              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body placeholder-[#8892a4] focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Category / Group</label>
+                            <select
+                              value={formCategory}
+                              onChange={(e) => setFormCategory(e.target.value)}
+                              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
+                            >
+                              <option value="Apparel">Apparel</option>
+                              <option value="Footwear">Footwear</option>
+                              <option value="Pharmacy">Pharmacy</option>
+                              <option value="Jewellery">Jewellery</option>
+                              <option value="Accessories">Accessories</option>
+                              <option value="General">General</option>
+                            </select>
+                          </div>
                         </div>
-                        <div>
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">Maximum Retail Price (MRP)</label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={formMrp || ""}
-                            onChange={(e) => setFormMrp(parseFloat(e.target.value) || 0)}
-                            placeholder="MRP (₹)"
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">GST Tax Category %</label>
-                          <select
-                            value={formGst}
-                            onChange={(e) => setFormGst(parseInt(e.target.value) || 18)}
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                          >
-                            <option value="0">0% GST (Exempt/Essential)</option>
-                            <option value="5">5% GST (Apparel & Footwear ≤₹2,500)</option>
-                            <option value="18">18% GST (Standard/Apparel &amp; Footwear &gt;₹2,500)</option>
-                            <option value="40">40% GST (Luxury & Sin Goods)</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">Initial Stock On Hand</label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={formStock}
-                            onChange={(e) => setFormStock(Math.max(0, parseInt(e.target.value) || 0))}
-                            placeholder="Opening Stock"
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                          />
-                        </div>
-                      </div>
-                    </div>
 
-                    {/* SMRITI Product Image (SPIF) */}
-                    <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50 space-y-3">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400 block">SMRITI Product Image Framework (SPIF)</span>
-                      <div className="flex items-center space-x-4">
-                        {formImage ? (
-                          <div className="relative group w-16 h-16 rounded-xl overflow-hidden border border-theme-divider bg-theme-surface-3">
-                            <img src={formImage.startsWith("data:") ? formImage : `/api/v1${formImage}`} alt="Product Preview" className="w-full h-full object-cover" />
+                        {/* SMRITI Dynamic Attributes Mapping Form */}
+                        <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50 space-y-4">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400">
+                              {activeGroup ? `Dynamic schema: ${activeGroup.name}` : "General Core Specifications"}
+                            </span>
                             <button
                               type="button"
-                              onClick={() => setFormImage("")}
-                              className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex items-center justify-center text-rose-400 font-bold transition-opacity text-[10px]"
+                              onClick={handleSuggestCodes}
+                              className="text-[10px] font-bold text-blue-400 hover:text-blue-300 flex items-center space-x-1 cursor-pointer"
                             >
-                              Remove
+                              <Sliders size={11} />
+                              <span>Code Construction Autopilot</span>
                             </button>
                           </div>
-                        ) : (
-                          <label className="flex flex-col items-center justify-center w-16 h-16 rounded-xl border border-dashed border-theme-divider hover:border-blue-500 bg-theme-surface-3 cursor-pointer transition-colors text-theme-muted hover:text-theme-body">
-                            <span className="material-symbols-outlined text-sm">add_a_photo</span>
-                            <span className="text-[9px] font-mono mt-1">Upload</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onloadend = () => {
-                                    setFormImage(reader.result as string);
-                                  };
-                                  reader.readAsDataURL(file);
-                                }
-                              }}
-                            />
-                          </label>
-                        )}
-                        <div className="flex-1 text-[10px] text-theme-muted font-mono leading-relaxed">
-                          Supported formats: JPG, PNG, WEBP.
-                          <br />
-                          Images are automatically optimized and converted to high-performance WebP.
+
+                          {/* Render dynamic attributes inputs from group */}
+                          {activeGroupAttrs.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {activeGroupAttrs.map(attr => (
+                                <div key={attr.id}>
+                                  <label className="text-[9px] font-mono text-theme-muted block mb-1 uppercase">
+                                    {attr.label} {attr.isMandatory && <span className="text-rose-400 font-bold">*</span>}
+                                  </label>
+                                  {attr.dataType === "select" ? (
+                                    <select
+                                      value={dynamicAttributes[attr.name] || ""}
+                                      onChange={(e) => setDynamicAttributes(prev => ({ ...prev, [attr.name]: e.target.value }))}
+                                      className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500"
+                                    >
+                                      <option value="">-- Pick option --</option>
+                                      {attr.validValues.map(v => (
+                                        <option key={v} value={v}>{v}</option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <input
+                                      type={attr.dataType === "number" ? "number" : "text"}
+                                      value={dynamicAttributes[attr.name] || ""}
+                                      onChange={(e) => setDynamicAttributes(prev => ({ ...prev, [attr.name]: e.target.value }))}
+                                      placeholder={`Enter ${attr.label}`}
+                                      className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                                    />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-theme-muted py-1 border-b border-theme-divider/20">
+                              No category-specific attributes found. Create attribute groups to map Apparel, Footwear, Saree, Sourcing, or Pharmacy attributes automatically.
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                            <div>
+                              <label className="text-[9px] font-mono text-theme-muted block mb-1">Style Reference Code</label>
+                              <input
+                                type="text"
+                                value={formStyleCode}
+                                onChange={(e) => setFormStyleCode(e.target.value)}
+                                placeholder="Style Code"
+                                className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono uppercase"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-mono text-theme-muted block mb-1">SKU Unique Code *</label>
+                              <input
+                                type="text"
+                                required
+                                disabled={isEditing}
+                                value={formCode}
+                                onChange={(e) => setFormCode(e.target.value)}
+                                placeholder="SKU Code (e.g. TSH-COT-L)"
+                                className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono disabled:opacity-50"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-[9px] font-mono text-theme-muted block mb-1">Barcode / POS Identifier *</label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-2.5 text-theme-muted"><Barcode size={12} /></span>
+                              <input
+                                type="text"
+                                required
+                                value={formBarcode}
+                                onChange={(e) => setFormBarcode(e.target.value)}
+                                placeholder="e.g. SMR-B301"
+                                className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg pl-8 pr-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                              />
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
+
+                        <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50 space-y-4">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400 block">Financial & Cost Configuration</span>
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                            <div>
+                              <label className="text-[9px] font-mono text-theme-muted block mb-1">Buy Cost Price (₹) *</label>
+                              <input
+                                type="number"
+                                min="0"
+                                required
+                                value={formCostPrice || ""}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  setFormCostPrice(val);
+                                  if (!formPrice) setFormPrice(Math.round(val * 1.5));
+                                  if (!formMrp) setFormMrp(Math.round(val * 1.8));
+                                }}
+                                placeholder="Buy Cost Price"
+                                className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-mono text-theme-muted block mb-1">Standard Price (₹) *</label>
+                              <input
+                                type="number"
+                                min="0"
+                                required
+                                value={formPrice || ""}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  setFormPrice(val);
+                                  if (!formMrp || formMrp < val) setFormMrp(Math.round(val * 1.25));
+                                }}
+                                placeholder="Selling Price"
+                                className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-mono text-theme-muted block mb-1">Maximum Retail Price (MRP)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={formMrp || ""}
+                                onChange={(e) => setFormMrp(parseFloat(e.target.value) || 0)}
+                                placeholder="MRP (₹)"
+                                className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-mono text-theme-muted block mb-1">GST Tax Category %</label>
+                              <select
+                                value={formGst}
+                                onChange={(e) => setFormGst(parseInt(e.target.value) || 18)}
+                                className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                              >
+                                <option value="0">0% GST (Exempt/Essential)</option>
+                                <option value="5">5% GST (Apparel & Footwear ≤₹2,500)</option>
+                                <option value="18">18% GST (Standard/Apparel & Footwear &gt;₹2,500)</option>
+                                <option value="40">40% GST (Luxury & Sin Goods)</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-mono text-theme-muted block mb-1">Initial Stock On Hand</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={formStock}
+                                onChange={(e) => setFormStock(Math.max(0, parseInt(e.target.value) || 0))}
+                                placeholder="Opening Stock"
+                                className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50 space-y-3">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400 block">SMRITI Product Image Framework (SPIF)</span>
+                          <div className="flex items-center space-x-4">
+                            {formImage ? (
+                              <div className="relative group w-16 h-16 rounded-xl overflow-hidden border border-theme-divider bg-theme-surface-3">
+                                <img src={formImage.startsWith("data:") ? formImage : `/api/v1${formImage}`} alt="Product Preview" className="w-full h-full object-cover" />
+                                <button
+                                  type="button"
+                                  onClick={() => setFormImage("")}
+                                  className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex items-center justify-center text-rose-400 font-bold transition-opacity text-[10px]"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ) : (
+                              <label className="flex flex-col items-center justify-center w-16 h-16 rounded-xl border border-dashed border-theme-divider hover:border-blue-500 bg-theme-surface-3 cursor-pointer transition-colors text-theme-muted hover:text-theme-body">
+                                <span className="material-symbols-outlined text-sm">add_a_photo</span>
+                                <span className="text-[9px] font-mono mt-1">Upload</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const reader = new FileReader();
+                                      reader.onloadend = () => {
+                                        setFormImage(reader.result as string);
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }}
+                                />
+                              </label>
+                            )}
+                            <div className="flex-1 text-[10px] text-theme-muted font-mono leading-relaxed">
+                              Supported formats: JPG, PNG, WEBP.
+                              <br />
+                              Images are automatically optimized and converted to high-performance WebP.
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
 
                     {/* Form Buttons */}
                     <div className="flex justify-end space-x-3 pt-3 border-t border-theme-divider/50">

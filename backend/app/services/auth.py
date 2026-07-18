@@ -133,6 +133,15 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        if user.role != UserRole.SYSADMIN and (not user.company_id or not user.branch_id):
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Your operator account is not assigned to a company and branch. "
+                    "A SYSADMIN must assign tenant access before you can sign in."
+                ),
+            )
+
         payload = _build_token_payload(user)
         return {
             "access_token":  create_access_token(payload),

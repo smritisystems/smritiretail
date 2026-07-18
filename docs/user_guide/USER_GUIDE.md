@@ -27,6 +27,19 @@
 
 Welcome to the SMRITI Retail OS user and operation manual. This document guides store operators, managers, and cashiers on standard workflow practices.
 
+
+
+<!-- USER GUIDE INDEX START -->
+## Related User Guide Documents
+
+This section is auto-generated from `docs/user_guide/*.md`. Run this script after adding or removing files.
+
+- [End-User Training — Authors & Product Metadata](docs/user_guide/ENDUSER_TRAINING_AUTHORS.md)
+- [End-User Training — Company & Demo Details](docs/user_guide/ENDUSER_TRAINING_COMPANY_DETAILS.md)
+- [End-User Training — Sales Studio](docs/user_guide/ENDUSER_TRAINING_SALES_STUDIO.md)
+
+<!-- USER GUIDE INDEX END -->
+
 ---
 
 ## POS Cashier Desk Operations

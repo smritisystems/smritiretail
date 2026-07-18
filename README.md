@@ -78,5 +78,14 @@ Run the frontend development server:
 npm run dev
 ```
 
+## Environment Configuration Behavior
+- Production: requires real environment variables and will not fall back to `.env.example`.
+- Development: uses `.env` when present, and may use `.env.example` only under approved local/test conditions.
+- CI / tests: may use `.env.example` when explicitly running the test environment.
+
+## Architecture Note
+This configuration behavior is an implementation detail. It does not modify the metadata architecture defined in `ADR-002-SMRITI-METADATA-ARCHITECTURE` and therefore does not require a superseding ADR.
+Future changes affecting metadata ownership, runtime metadata, or architecture must follow the governance process documented in `docs/governance/GOVERNANCE_FREEZE_CHECKLIST.md`.
+
 ## Note
 This repository now contains a full-stack React frontend and FastAPI backend for SMRITI Retail OS v5.0. Legacy Express/Frappe proxy code has been removed from the active stack.

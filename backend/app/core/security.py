@@ -28,6 +28,7 @@ from typing import Optional
 from jose import JWTError, jwt
 from fastapi import HTTPException
 from passlib.context import CryptContext
+from passlib.exc import MissingBackendError
 import hashlib
 import binascii
 from .config import settings
@@ -44,7 +45,12 @@ pwd_context = CryptContext(
 
 def hash_password(password: str) -> str:
     """Hash the given plain-text password with the current secure algorithm."""
-    return pwd_context.hash(password)
+    try:
+        return pwd_context.hash(password)
+    except MissingBackendError:
+        # Fallback to bcrypt if Argon2 is unavailable in this environment.
+        fallback_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        return fallback_context.hash(password)
 
 
 def verify_password(plain: str, hashed: str) -> bool:

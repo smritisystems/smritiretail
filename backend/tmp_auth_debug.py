@@ -11,7 +11,7 @@ async def main():
     AsyncSession = async_sessionmaker(engine, expire_on_commit=False)
     async with AsyncSession() as session:
         service = AuthService(session)
-        req = BootstrapRequest(username='admin_test', password='Admin@secure1', email='admin_test@smriti.test')
+        req = BootstrapRequest(username='admin_test', password='Admin@123', email='admin_test@smriti.test')
         try:
             user = await service.bootstrap_admin(req)
             print('created', user.id, user.username)

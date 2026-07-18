@@ -33,8 +33,189 @@ interface GridRow {
   mrp: string;
   gstPercentage: string;
   stock: string;
+  brand: string;
+  styleCode: string;
+  category: string;
+  hsnCode: string;
+  vendorCode: string;
+  purchaseClass: string;
+  department: string;
+  merchandiseCategory: string;
+  subCategory: string;
+  gender: string;
+  heels: string;
+  upperMaterial: string;
+  outsole: string;
+  imageLink: string;
   attributes: Record<string, string>;
 }
+
+interface FieldConfig {
+  key: string;
+  label: string;
+  required: boolean;
+  aliases: string[];
+  editable: boolean;
+}
+
+const FIELD_CONFIG_STORAGE_KEY = "smriti_excel_import_field_configs";
+
+const defaultFieldConfigs: FieldConfig[] = [
+  {
+    key: "code",
+    label: "SKU Code",
+    required: true,
+    aliases: ["Product Style Code", "Style Code", "SKU Code", "SKU", "Code", "Product Code", "Product Style"],
+    editable: false,
+  },
+  {
+    key: "name",
+    label: "Item Name",
+    required: true,
+    aliases: ["Item Name", "Description", "Item Description", "Name", "Product Name"],
+    editable: false,
+  },
+  {
+    key: "barcode",
+    label: "Barcode",
+    required: true,
+    aliases: ["Barcode", "Barcode No", "Barcode Number", "UPC", "EAN"],
+    editable: false,
+  },
+  {
+    key: "costPrice",
+    label: "Buy Cost",
+    required: false,
+    aliases: ["Buy Cost", "Cost Price", "Buying Price", "Cost", "Buy"],
+    editable: true,
+  },
+  {
+    key: "price",
+    label: "Selling Price",
+    required: false,
+    aliases: ["Selling Price", "Selling", "Price", "Plate Rate"],
+    editable: true,
+  },
+  {
+    key: "mrp",
+    label: "MRP",
+    required: false,
+    aliases: ["MRP", "Max Retail Price", "MRP Price", "Plate Rate or MRP"],
+    editable: true,
+  },
+  {
+    key: "gstPercentage",
+    label: "GST %",
+    required: false,
+    aliases: ["GST %", "GST Percentage", "Tax", "Product Tax", "GST"],
+    editable: true,
+  },
+  {
+    key: "stock",
+    label: "Stock",
+    required: false,
+    aliases: ["Initial Stock", "Stock", "Qty", "Quantity"],
+    editable: true,
+  },
+  {
+    key: "brand",
+    label: "Brand Name",
+    required: false,
+    aliases: ["Brand", "Brand Name", "Manufacturer", "Label"],
+    editable: true,
+  },
+  {
+    key: "styleCode",
+    label: "Product Style Code",
+    required: false,
+    aliases: ["Product Style Code", "Style Code", "StyleCode", "Product Code"],
+    editable: true,
+  },
+  {
+    key: "category",
+    label: "Category",
+    required: false,
+    aliases: ["Category", "Merchandise Category", "Product Category", "Department"],
+    editable: true,
+  },
+  {
+    key: "hsnCode",
+    label: "HSN Code",
+    required: false,
+    aliases: ["HSN Code", "HSN", "HSN/SAC", "HSNCode"],
+    editable: true,
+  },
+  {
+    key: "vendorCode",
+    label: "Vendor Code",
+    required: false,
+    aliases: ["Vendor Code", "Vendor", "Supplier Code", "VendorID"],
+    editable: true,
+  },
+  {
+    key: "purchaseClass",
+    label: "Purchase Class",
+    required: false,
+    aliases: ["Purchase Class", "PurchaseType", "Buying Class", "Purchase Category"],
+    editable: true,
+  },
+  {
+    key: "department",
+    label: "Department",
+    required: false,
+    aliases: ["Department", "Division", "Store Department"],
+    editable: true,
+  },
+  {
+    key: "merchandiseCategory",
+    label: "Merchandise Category",
+    required: false,
+    aliases: ["Merchandise Category", "Merchandise", "Merch Category", "Sub Category"],
+    editable: true,
+  },
+  {
+    key: "subCategory",
+    label: "Sub Category",
+    required: false,
+    aliases: ["Sub Category", "Sub-category", "Subcategory", "Segment"],
+    editable: true,
+  },
+  {
+    key: "gender",
+    label: "Gender",
+    required: false,
+    aliases: ["Gender", "Gender Code", "Sex"],
+    editable: true,
+  },
+  {
+    key: "heels",
+    label: "Heels",
+    required: false,
+    aliases: ["Heels", "Heel Type", "Heel"],
+    editable: true,
+  },
+  {
+    key: "upperMaterial",
+    label: "Upper Material",
+    required: false,
+    aliases: ["Upper Material", "UpperMaterial", "Upper", "Upper Shoe Material"],
+    editable: true,
+  },
+  {
+    key: "outsole",
+    label: "Outsole",
+    required: false,
+    aliases: ["Outsole", "Outer Sole", "Sole", "Out Sole"],
+    editable: true,
+  },
+  {
+    key: "imageLink",
+    label: "Image Link",
+    required: false,
+    aliases: ["Image Link", "Image URL", "Picture", "Image", "ImagePath"],
+    editable: true,
+  },
+];
 
 export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
   onRefreshProducts,
@@ -47,18 +228,37 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
   const [focusedCell, setFocusedCell] = useState<{ rowIndex: number; field: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [fieldConfigs, setFieldConfigs] = useState<FieldConfig[]>(defaultFieldConfigs);
+
+  const updateFieldConfig = (key: string, patch: Partial<FieldConfig>) => {
+    const nextConfigs = fieldConfigs.map((config) =>
+      config.key === key ? { ...config, ...patch } : config
+    );
+    setFieldConfigs(nextConfigs);
+    localStorage.setItem(FIELD_CONFIG_STORAGE_KEY, JSON.stringify(nextConfigs));
+  };
+
+  const resetFieldConfigs = () => {
+    setFieldConfigs(defaultFieldConfigs);
+    localStorage.removeItem(FIELD_CONFIG_STORAGE_KEY);
+  };
+
+  useEffect(() => {
+    try {
+      const savedConfig = localStorage.getItem(FIELD_CONFIG_STORAGE_KEY);
+      if (savedConfig) {
+        const parsed = JSON.parse(savedConfig) as FieldConfig[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setFieldConfigs(parsed);
+        }
+      }
+    } catch {
+      setFieldConfigs(defaultFieldConfigs);
+    }
+  }, []);
 
   // Core columns
-  const coreCols = [
-    { key: "code", label: "SKU Code" },
-    { key: "name", label: "Item Name" },
-    { key: "barcode", label: "Barcode" },
-    { key: "costPrice", label: "Buy Cost" },
-    { key: "price", label: "Selling Price" },
-    { key: "mrp", label: "MRP" },
-    { key: "gstPercentage", label: "GST %" },
-    { key: "stock", label: "Initial Stock" }
-  ];
+  const coreCols = fieldConfigs;
 
   // Fetch groups and definitions on mount
   useEffect(() => {
@@ -111,6 +311,20 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
       mrp: "",
       gstPercentage: "18",
       stock: "",
+      brand: "",
+      styleCode: "",
+      category: "",
+      hsnCode: "",
+      vendorCode: "",
+      purchaseClass: "",
+      department: "",
+      merchandiseCategory: "",
+      subCategory: "",
+      gender: "",
+      heels: "",
+      upperMaterial: "",
+      outsole: "",
+      imageLink: "",
       attributes: {}
     };
   };
@@ -212,38 +426,38 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
     document.getElementById(cellId)?.focus();
   };
 
-  // Header aliases for automatic mapping of copy-pasted Excel tables
-  const headerMapping: Record<string, string[]> = {
-    code: ["sku code", "product style code", "style code", "sku", "code", "product code", "product style"],
-    name: ["item name", "description", "item description", "name", "product name"],
-    barcode: ["barcode", "barcode no", "barcode number", "upc", "ean"],
-    costPrice: ["buy cost", "cost price", "buying price", "cost", "buy"],
-    price: ["selling price", "selling", "price", "plate rate", "plate rate or mrp"],
-    mrp: ["mrp", "max retail price", "mrp price", "plate rate or mrp"],
-    gstPercentage: ["gst %", "gst percentage", "tax", "product tax", "gst"],
-    stock: ["initial stock", "stock", "qty", "quantity"]
-  };
+  const normalizeHeader = (text: string) =>
+    text.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 
   const findFieldKeys = (headerText: string, attrs: typeof activeAttrs): string[] => {
-    const text = headerText.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+    const normalized = normalizeHeader(headerText);
     const keys: string[] = [];
-    
-    // Check core columns
-    for (const [key, aliases] of Object.entries(headerMapping)) {
-      if (aliases.some(alias => alias.toLowerCase().replace(/[^a-z0-9]/g, "") === text)) {
-        keys.push(key);
+
+    // Check core columns using configured aliases
+    for (const config of fieldConfigs) {
+      if (
+        config.aliases.some(
+          (alias) => normalizeHeader(alias) === normalized
+        )
+      ) {
+        keys.push(config.key);
       }
     }
-    
+
     // Check active attributes
     for (const attr of attrs) {
-      const attrNameClean = attr.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-      const attrLabelClean = attr.label.toLowerCase().replace(/[^a-z0-9]/g, "");
-      if (text === attrNameClean || text === attrLabelClean) {
+      const attrNameClean = normalizeHeader(attr.name);
+      const attrLabelClean = normalizeHeader(attr.label);
+      if (normalized === attrNameClean || normalized === attrLabelClean) {
         keys.push(`attr_${attr.name}`);
       }
     }
-    
+
+    // Unknown headers are treated as custom attribute names
+    if (keys.length === 0 && normalized) {
+      keys.push(`attr_${normalized}`);
+    }
+
     return keys;
   };
 
@@ -387,6 +601,21 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
           return;
         }
 
+        for (const config of fieldConfigs) {
+          if (config.editable && config.required) {
+            const value = (row as any)[config.key];
+            if (!value || value.toString().trim() === "") {
+              onNotification(
+                "Validation Failed",
+                `Row ${i + 1} requires ${config.label} because it is configured as required.`,
+                "error"
+              );
+              setLoading(false);
+              return;
+            }
+          }
+        }
+
         for (const attr of activeAttrs) {
           const val = row.attributes[attr.name];
           if (attr.isMandatory && (!val || val.trim() === "")) {
@@ -414,24 +643,51 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
             name: row.name,
             price: parseFloat(row.price) || 0,
             stock: parseInt(row.stock) || 0,
-            category: activeGroup?.name || "General",
+            category: row.category.trim() || activeGroup?.name || "General",
             barcode: row.barcode,
             cost_price: parseFloat(row.costPrice) || Math.round((parseFloat(row.price) || 0) * 0.6),
             mrp: parseFloat(row.mrp) || parseFloat(row.price) || 0,
             gst_percentage: parseFloat(row.gstPercentage) || 18.00,
             sku: uniqueSku,
-            style_code: row.code.trim(),
-            brand: row.attributes.brand || "SMRITI",
-            attributes: row.attributes
+            style_code: row.styleCode.trim() || row.code.trim(),
+            brand: row.brand.trim() || row.attributes.brand || "SMRITI",
+            hsn_code: row.hsnCode.trim() || row.attributes.hsnCode || row.attributes.HSN || row.attributes.hsn || "61091000",
+            primary_image_url: row.imageLink.trim() || undefined,
+            attributes: {
+              ...row.attributes,
+              ...(row.brand.trim() ? { brand: row.brand.trim() } : {}),
+              ...(row.styleCode.trim() ? { styleCode: row.styleCode.trim() } : {}),
+              ...(row.category.trim() ? { category: row.category.trim() } : {}),
+              ...(row.hsnCode.trim() ? { hsnCode: row.hsnCode.trim() } : {}),
+              ...(row.vendorCode.trim() ? { vendorCode: row.vendorCode.trim() } : {}),
+              ...(row.purchaseClass.trim() ? { purchaseClass: row.purchaseClass.trim() } : {}),
+                ...(row.department.trim() ? { department: row.department.trim() } : {}),
+              ...(row.merchandiseCategory.trim() ? { merchandiseCategory: row.merchandiseCategory.trim() } : {}),
+              ...(row.subCategory.trim() ? { subCategory: row.subCategory.trim() } : {}),
+              ...(row.gender.trim() ? { gender: row.gender.trim() } : {}),
+              ...(row.heels.trim() ? { heels: row.heels.trim() } : {}),
+              ...(row.upperMaterial.trim() ? { upperMaterial: row.upperMaterial.trim() } : {}),
+              ...(row.outsole.trim() ? { outsole: row.outsole.trim() } : {}),
+            },
           };
 
-          await apiFetchV1("/products/", {
-            method: "POST",
-            body: JSON.stringify(payload)
-          });
-          successCount++;
-        } catch (err) {
-          console.error("Failed to commit item:", row.code, err);
+          try {
+            const response = await apiFetchV1("/products", {
+              method: "POST",
+              body: JSON.stringify(payload),
+            });
+
+            if (response && response.ok) {
+              successCount++;
+            } else {
+              failCount++;
+            }
+          } catch (err) {
+            console.error("Product save failed", err);
+            failCount++;
+          }
+        } catch (err: any) {
+          console.error("Row save error", err);
           failCount++;
         }
       }
@@ -454,11 +710,45 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
 
   // Build template header string from current grid columns + active attributes
   const copyTemplateHeaders = () => {
-    const coreLabels = ["Product Style Code", "Item Name", "Barcode", "Buy Cost", "Selling Price", "MRP", "GST %", "Stock"];
-    const attrLabels = activeAttrs.map(a => a.label);
+    const coreLabels = fieldConfigs.map((config) => config.label);
+    const attrLabels = activeAttrs.map((a) => a.label);
     const allHeaders = [...coreLabels, ...attrLabels].join("\t");
     navigator.clipboard.writeText(allHeaders).then(() => {
       onNotification("Headers Copied", "Paste this header row into your Excel sheet as the first row, then fill data below it.", "success");
+    });
+  };
+
+  const copyTemplateSample = () => {
+    const coreLabels = fieldConfigs.map((config) => config.label);
+    const attrLabels = activeAttrs.map((a) => a.label);
+    const allHeaders = [...coreLabels, ...attrLabels].join("\t");
+    const sampleValues = [
+      "700070007001",
+      "CH-01-A",
+      "TATTLY THREADS CHIKKU",
+      "TATTLY THREADS",
+      "CH-01-A",
+      "LADIES",
+      "61091000",
+      "SIS",
+      "LADIES FTW",
+      "LADIES FTW",
+      "CHAPPAL",
+      "FLAT",
+      "LADIES",
+      "FLAT",
+      "SYNTHETIC",
+      "TPR",
+      "https://example.com/image.jpg",
+      "179",
+      "299",
+      "375",
+      "5",
+      "5"
+    ];
+    const sampleRow = [...sampleValues, ...activeAttrs.map(() => "")].join("\t");
+    navigator.clipboard.writeText(`${allHeaders}\n${sampleRow}`).then(() => {
+      onNotification("Template & Sample Copied", "Copied headers and a sample row to the clipboard.", "success");
     });
   };
 
@@ -537,17 +827,72 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
               ))}
             </div>
 
-            {/* Accepted column header alias reference table */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
+            <div className="space-y-4">
+              <div className="bg-theme-surface-2 border border-blue-500/10 rounded-xl p-4">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+                  <div>
+                    <div className="text-[10px] font-bold text-blue-300 uppercase tracking-wider font-mono">Optional Field Configuration</div>
+                    <div className="text-[11px] text-theme-muted mt-1">
+                      Make optional import fields required or customize accepted Excel header aliases.
+                    </div>
+                  </div>
+                  <button
+                    onClick={resetFieldConfigs}
+                    className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold rounded-lg transition-colors"
+                  >
+                    Reset to defaults
+                  </button>
+                </div>
+
+                <div className="grid gap-4">
+                  {fieldConfigs.filter((config) => config.editable).map((config) => (
+                    <div key={config.key} className="grid gap-2 md:grid-cols-[160px_1fr_96px] items-center">
+                      <div className="text-[10px] font-bold text-theme-body uppercase tracking-wider">{config.label}</div>
+                      <input
+                        type="text"
+                        value={config.aliases.join(" · ")}
+                        onChange={(e) =>
+                          updateFieldConfig(config.key, {
+                            aliases: e.target.value
+                              .split(/·|,|;/)
+                              .map((alias) => alias.trim())
+                              .filter(Boolean),
+                          })
+                        }
+                        className="w-full min-w-0 bg-theme-surface-1 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
+                      />
+                      <label className="inline-flex items-center gap-2 text-[10px] text-theme-muted">
+                        <input
+                          type="checkbox"
+                          checked={config.required}
+                          onChange={(e) => updateFieldConfig(config.key, { required: e.target.checked })}
+                          className="h-4 w-4 rounded border-theme-divider text-blue-500 focus:ring-blue-500"
+                        />
+                        Required
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-[10px] font-bold text-theme-muted uppercase tracking-wider font-mono">Accepted Column Header Names (any of these will be recognised)</span>
-                <button
-                  onClick={copyTemplateHeaders}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
-                >
-                  <ClipboardCopy size={11} />
-                  <span>Copy Template Headers</span>
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={copyTemplateHeaders}
+                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
+                  >
+                    <ClipboardCopy size={11} />
+                    <span>Copy Header Row</span>
+                  </button>
+                  <button
+                    onClick={copyTemplateSample}
+                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/30 text-blue-300 text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
+                  >
+                    <ClipboardCopy size={11} />
+                    <span>Copy Sample Template</span>
+                  </button>
+                </div>
               </div>
               <div className="overflow-x-auto border border-blue-500/15 rounded-xl">
                 <table className="w-full text-left border-collapse text-[10px]">
@@ -568,6 +913,20 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
                       { field: "MRP",           req: false, aliases: "MRP · Max Retail Price · MRP Price · Plate Rate or MRP" },
                       { field: "GST %",         req: false, aliases: "GST % · GST Percentage · Tax · Product Tax · GST" },
                       { field: "Stock",         req: false, aliases: "Initial Stock · Stock · Qty · Quantity" },
+                      { field: "Brand Name",    req: false, aliases: "Brand · Brand Name · Manufacturer · Label" },
+                      { field: "Product Style Code", req: false, aliases: "Product Style Code · Style Code · StyleCode · Product Code" },
+                      { field: "Category",      req: false, aliases: "Category · Merchandise Category · Product Category · Department" },
+                      { field: "HSN Code",     req: false, aliases: "HSN Code · HSN · HSN/SAC · HSNCode" },
+                      { field: "Vendor Code",   req: false, aliases: "Vendor Code · Vendor · Supplier Code · VendorID" },
+                      { field: "Purchase Class", req: false, aliases: "Purchase Class · PurchaseType · Buying Class · Purchase Category" },
+                      { field: "Department",   req: false, aliases: "Department · Division · Store Department" },
+                      { field: "Merchandise Category", req: false, aliases: "Merchandise Category · Merchandise · Merch Category · Sub Category" },
+                      { field: "Sub Category", req: false, aliases: "Sub Category · Sub-category · Subcategory · Segment" },
+                      { field: "Gender",       req: false, aliases: "Gender · Gender Code · Sex" },
+                      { field: "Heels",        req: false, aliases: "Heels · Heel Type · Heel" },
+                      { field: "Upper Material", req: false, aliases: "Upper Material · UpperMaterial · Upper · Upper Shoe Material" },
+                      { field: "Outsole",      req: false, aliases: "Outsole · Outer Sole · Sole · Out Sole" },
+                      { field: "Image Link",   req: false, aliases: "Image Link · Image URL · Picture · Image · ImagePath" },
                       ...activeAttrs.map(a => ({
                         field: a.label,
                         req: a.isMandatory,
@@ -591,6 +950,16 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
                 ✦ Column names are matched case-insensitively. Extra spaces and special characters are ignored.
                 ✦ Columns that don't match any known header are silently skipped.
               </p>
+              <div className="bg-theme-surface-1 border border-blue-500/10 rounded-xl p-3 text-[10px] font-mono text-theme-muted">
+                <div className="font-semibold text-theme-body mb-2">Exact Excel header row for the current Item Master import template:</div>
+                <pre className="whitespace-pre-wrap break-all bg-theme-surface-2 rounded-xl p-3 text-[10px] text-theme-body">
+SKU Code	Item Name	Barcode	Buy Cost	Selling Price	MRP	GST %	Stock	Brand Name	Product Style Code	Category	HSN Code	Vendor Code	Purchase Class	Department	Merchandise Category	Sub Category	Gender	Heels	Upper Material	Outsole	Image Link
+                </pre>
+                <div className="font-semibold text-theme-body mt-2">Sample row values for a matching import row:</div>
+                <pre className="whitespace-pre-wrap break-all bg-theme-surface-2 rounded-xl p-3 text-[10px] text-theme-body">
+SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-A	Footwear	61091000	VEND-1001	Retail	Footwear	Ladies Footwear	Ladies Footwear	Women	Flat	Synthetic	TPR	https://example.com/image.jpg
+                </pre>
+              </div>
             </div>
           </div>
         )}
@@ -730,6 +1099,202 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "stock")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "stock" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
+                    />
+                  </td>
+
+                  {/* Brand */}
+                  <td className="p-1 border-r border-theme-divider/40">
+                    <input
+                      id={`cell-${rowIndex}-brand`}
+                      type="text"
+                      placeholder="SMRITI"
+                      value={row.brand}
+                      onChange={(e) => handleCellChange(rowIndex, "brand", e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "brand")}
+                      onFocus={() => setFocusedCell({ rowIndex, field: "brand" })}
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                    />
+                  </td>
+
+                  {/* Product Style Code */}
+                  <td className="p-1 border-r border-theme-divider/40">
+                    <input
+                      id={`cell-${rowIndex}-styleCode`}
+                      type="text"
+                      placeholder="STYLE-001"
+                      value={row.styleCode}
+                      onChange={(e) => handleCellChange(rowIndex, "styleCode", e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "styleCode")}
+                      onFocus={() => setFocusedCell({ rowIndex, field: "styleCode" })}
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                    />
+                  </td>
+
+                  {/* Category */}
+                  <td className="p-1 border-r border-theme-divider/40">
+                    <input
+                      id={`cell-${rowIndex}-category`}
+                      type="text"
+                      placeholder="Apparel"
+                      value={row.category}
+                      onChange={(e) => handleCellChange(rowIndex, "category", e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "category")}
+                      onFocus={() => setFocusedCell({ rowIndex, field: "category" })}
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                    />
+                  </td>
+
+                  {/* HSN Code */}
+                  <td className="p-1 border-r border-theme-divider/40">
+                    <input
+                      id={`cell-${rowIndex}-hsnCode`}
+                      type="text"
+                      placeholder="61091000"
+                      value={row.hsnCode}
+                      onChange={(e) => handleCellChange(rowIndex, "hsnCode", e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "hsnCode")}
+                      onFocus={() => setFocusedCell({ rowIndex, field: "hsnCode" })}
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                    />
+                  </td>
+
+                  {/* Vendor Code */}
+                  <td className="p-1 border-r border-theme-divider/40">
+                    <input
+                      id={`cell-${rowIndex}-vendorCode`}
+                      type="text"
+                      placeholder="VND-12345"
+                      value={row.vendorCode}
+                      onChange={(e) => handleCellChange(rowIndex, "vendorCode", e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "vendorCode")}
+                      onFocus={() => setFocusedCell({ rowIndex, field: "vendorCode" })}
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                    />
+                  </td>
+
+                  {/* Purchase Class */}
+                  <td className="p-1 border-r border-theme-divider/40">
+                    <input
+                      id={`cell-${rowIndex}-purchaseClass`}
+                      type="text"
+                      placeholder="Standard"
+                      value={row.purchaseClass}
+                      onChange={(e) => handleCellChange(rowIndex, "purchaseClass", e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "purchaseClass")}
+                      onFocus={() => setFocusedCell({ rowIndex, field: "purchaseClass" })}
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                    />
+                  </td>
+
+                  {/* Department */}
+                  <td className="p-1 border-r border-theme-divider/40">
+                    <input
+                      id={`cell-${rowIndex}-department`}
+                      type="text"
+                      placeholder="Ladies FTW"
+                      value={row.department}
+                      onChange={(e) => handleCellChange(rowIndex, "department", e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "department")}
+                      onFocus={() => setFocusedCell({ rowIndex, field: "department" })}
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                    />
+                  </td>
+
+                  {/* Merchandise Category */}
+                  <td className="p-1 border-r border-theme-divider/40">
+                    <input
+                      id={`cell-${rowIndex}-merchandiseCategory`}
+                      type="text"
+                      placeholder="Chappal"
+                      value={row.merchandiseCategory}
+                      onChange={(e) => handleCellChange(rowIndex, "merchandiseCategory", e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "merchandiseCategory")}
+                      onFocus={() => setFocusedCell({ rowIndex, field: "merchandiseCategory" })}
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                    />
+                  </td>
+
+                  {/* Sub Category */}
+                  <td className="p-1 border-r border-theme-divider/40">
+                    <input
+                      id={`cell-${rowIndex}-subCategory`}
+                      type="text"
+                      placeholder="Flat"
+                      value={row.subCategory}
+                      onChange={(e) => handleCellChange(rowIndex, "subCategory", e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "subCategory")}
+                      onFocus={() => setFocusedCell({ rowIndex, field: "subCategory" })}
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                    />
+                  </td>
+
+                  {/* Gender */}
+                  <td className="p-1 border-r border-theme-divider/40">
+                    <input
+                      id={`cell-${rowIndex}-gender`}
+                      type="text"
+                      placeholder="LADIES"
+                      value={row.gender}
+                      onChange={(e) => handleCellChange(rowIndex, "gender", e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "gender")}
+                      onFocus={() => setFocusedCell({ rowIndex, field: "gender" })}
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                    />
+                  </td>
+
+                  {/* Heels */}
+                  <td className="p-1 border-r border-theme-divider/40">
+                    <input
+                      id={`cell-${rowIndex}-heels`}
+                      type="text"
+                      placeholder="Flat"
+                      value={row.heels}
+                      onChange={(e) => handleCellChange(rowIndex, "heels", e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "heels")}
+                      onFocus={() => setFocusedCell({ rowIndex, field: "heels" })}
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                    />
+                  </td>
+
+                  {/* Upper Material */}
+                  <td className="p-1 border-r border-theme-divider/40">
+                    <input
+                      id={`cell-${rowIndex}-upperMaterial`}
+                      type="text"
+                      placeholder="Synthetic"
+                      value={row.upperMaterial}
+                      onChange={(e) => handleCellChange(rowIndex, "upperMaterial", e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "upperMaterial")}
+                      onFocus={() => setFocusedCell({ rowIndex, field: "upperMaterial" })}
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                    />
+                  </td>
+
+                  {/* Outsole */}
+                  <td className="p-1 border-r border-theme-divider/40">
+                    <input
+                      id={`cell-${rowIndex}-outsole`}
+                      type="text"
+                      placeholder="TPR"
+                      value={row.outsole}
+                      onChange={(e) => handleCellChange(rowIndex, "outsole", e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "outsole")}
+                      onFocus={() => setFocusedCell({ rowIndex, field: "outsole" })}
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                    />
+                  </td>
+
+                  {/* Image Link */}
+                  <td className="p-1 border-r border-theme-divider/40">
+                    <input
+                      id={`cell-${rowIndex}-imageLink`}
+                      type="text"
+                      placeholder="https://..."
+                      value={row.imageLink}
+                      onChange={(e) => handleCellChange(rowIndex, "imageLink", e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, rowIndex, "imageLink")}
+                      onFocus={() => setFocusedCell({ rowIndex, field: "imageLink" })}
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
                   </td>
 

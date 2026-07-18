@@ -24,6 +24,11 @@ import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { Product, Quotation, SalesOrder, SalesItemLine, SalesInvoice, SalesReturn, Customer, CustomerGroup } from "../types.js";
 import { SmartFilter, FilterDefinition } from "./SmartFilter.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { getCustomers, getCustomerGroups, saveCustomers } from "../services/customerStore.ts";
+import { recordAuditAction } from "../lib/apiFetch.ts";
+import { ProductImage } from "./common/ProductImage.tsx";
+import { formatDate, formatDateTime, formatCurrency } from "../utils/formatters.ts";
+import { isValidMobile } from "../utils/validators.ts";
 import { useACAS } from "../context-actions/ContextProvider.tsx";
 
 interface ParsedRow {
@@ -250,12 +255,13 @@ function processParsedRows(headers: string[], dataRows: string[][], groups: Cust
 interface SalesStudioTabProps {
   products: Product[];
   onNotification: (title: string, message: string, type?: "success" | "error") => void;
-  currentUser?: { role: string; name: string } | null;
+  currentUser?: { role: string; name: string; companyId?: string; branchId?: string } | null;
 }
 
 export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNotification, currentUser }) => {
   const { openMenu } = useACAS();
   const isReadOnly = currentUser?.role === "Report User";
+  const hasTenantContext = Boolean(currentUser?.companyId && currentUser?.branchId);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [salesInvoices, setSalesInvoices] = useState<SalesInvoice[]>([]);
@@ -308,6 +314,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [isValidatingOnServer, setIsValidatingOnServer] = useState<boolean>(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState<string>("");
   const [selectedTagFilter, setSelectedTagFilter] = useState<string>("");
+  const [selectedAttributeGroup, setSelectedAttributeGroup] = useState<string>("");
 
   // Manual Customer addition states
   const [isAddingCustomer, setIsAddingCustomer] = useState<boolean>(false);
@@ -343,12 +350,15 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [matrixQuantities, setMatrixQuantities] = useState<Record<string, number>>({}); // productId -> qty
 
   useEffect(() => {
+    if (!hasTenantContext) {
+      return;
+    }
     fetchQuotations();
     fetchSalesOrders();
     fetchSalesInvoices();
     fetchSalesReturns();
     fetchCustomers();
-  }, []);
+  }, [hasTenantContext]);
 
   // CSV live-reparsing and validation effect
   useEffect(() => {
@@ -501,6 +511,22 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       recordAuditAction("TRANSACTION_VIEW", "customers", selectedCustomer.id, `Viewed customer profile details: ${selectedCustomer.name}`);
     }
   }, [selectedCustomer]);
+
+  if (!hasTenantContext) {
+    return (
+      <div className="p-8">
+        <div className="rounded-3xl border border-rose-500/20 bg-rose-950/10 p-8 shadow-sm">
+          <div className="mb-4 text-2xl font-semibold text-rose-200">Sales Studio requires tenant assignment</div>
+          <p className="mb-3 text-sm text-rose-300 leading-relaxed">
+            Your current operator account is not assigned to a company and branch. Sales Studio is a tenant-scoped business module and requires a tenant-scoped user to access sales invoices, orders, quotations, returns and customer-ledger data.
+          </p>
+          <p className="text-sm text-rose-300 leading-relaxed">
+            Please ask a SYSADMIN to assign your account to a company and branch, or log in with a tenant-scoped sales operator account.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // ACAS Global Event Listeners
   useEffect(() => {
@@ -3649,6 +3675,126 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 <p>This sales order is committed to inventory logic. Quantities are reserved and waiting for shipment dispatch protocols (Phase 2).</p>
               </div>
             </div>
+          ) : selectedInvoice ? (
+            /* Selected Sales Invoice Side Pane */
+            <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 space-y-6 shadow-xl sticky top-24">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-900 rounded px-1.5 py-0.2 font-mono font-bold uppercase">SALES INVOICE</span>
+                    <span className="text-xs text-theme-muted font-mono font-medium">#{selectedInvoice.id.slice(-5)}</span>
+                  </div>
+                  <h4 className="font-display font-bold text-base text-theme-body mt-1.5">{selectedInvoice.invoiceNo}</h4>
+                  <p className="text-[11px] text-theme-muted mt-0.5">Customer: <span className="text-theme-body font-medium">{customers.find(c => c.id === selectedInvoice.customerId)?.name || "Walk-In"}</span></p>
+                </div>
+                <button
+                  onClick={() => setSelectedInvoice(null)}
+                  className="p-1 rounded bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="space-y-4 border-t border-b border-theme-divider py-4">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-theme-muted font-medium">Invoice Date</span>
+                  <span className="text-theme-body font-mono">{formatDate(selectedInvoice.date)}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-theme-muted font-medium">Workflow Status</span>
+                  <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                    selectedInvoice.status === "Draft" ? "bg-theme-surface-3 text-theme-muted border border-theme-divider" :
+                    selectedInvoice.status === "Submitted" ? "bg-amber-950/80 text-amber-400 border border-amber-800" :
+                    selectedInvoice.status === "Approved" ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800" :
+                    "bg-rose-950/80 text-rose-400 border border-rose-800"
+                  }`}>
+                    {selectedInvoice.status}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-[10px] text-theme-muted">
+                  <div className="bg-theme-surface-2 p-3 rounded-xl border border-theme-divider">
+                    <div className="font-semibold text-theme-body">Interstate</div>
+                    <div className="mt-1 font-mono">{selectedInvoice.isInterstate ? "Yes" : "No"}</div>
+                  </div>
+                  <div className="bg-theme-surface-2 p-3 rounded-xl border border-theme-divider">
+                    <div className="font-semibold text-theme-body">E-Way Bill</div>
+                    <div className="mt-1 font-mono">{selectedInvoice.eWayBillNo || "Not provided"}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block">INVOICE LINE ITEMS</span>
+                <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1.5">
+                  {selectedInvoice.items.map((line, idx) => (
+                    <div key={idx} className="bg-theme-surface-2 p-3 rounded-lg border border-theme-divider/60 flex justify-between items-start text-xs">
+                      <div>
+                        <div className="font-semibold text-theme-body">{line.name}</div>
+                        <div className="text-[10px] text-theme-muted font-mono mt-0.5">
+                          Qty {line.quantity} × â‚¹{line.price}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold text-theme-body">â‚¹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
+                        <div className="text-[9px] text-theme-muted mt-0.5 font-mono">GST {line.gstRate}%</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-2">
+                <div className="flex justify-between items-center text-xs text-theme-muted">
+                  <span>GST Total</span>
+                  <span className="font-mono text-theme-body">â‚¹{selectedInvoice.taxTotal.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs text-theme-muted">
+                  <span>Subtotal</span>
+                  <span className="font-mono text-theme-body">â‚¹{(selectedInvoice.grandTotal - selectedInvoice.taxTotal).toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs font-bold text-theme-body pt-2 border-t border-theme-divider/60">
+                  <span>Total Payable</span>
+                  <span className="text-emerald-400 font-mono text-sm">â‚¹{selectedInvoice.grandTotal.toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {(selectedInvoice.status === "Submitted" || selectedInvoice.status === "Draft") && (
+                  <button
+                    onClick={() => handleApproveInvoice({ detail: selectedInvoice })}
+                    disabled={isReadOnly}
+                    className={`w-full py-3 ${isReadOnly ? "bg-theme-surface-3 text-theme-muted cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-500 text-white"} font-bold text-xs rounded-xl shadow-lg flex items-center justify-center space-x-2.5 transition-all`}
+                  >
+                    <CheckCircle2 size={16} />
+                    <span>{selectedInvoice.status === "Draft" ? "Submit & Approve" : "Approve Invoice"}</span>
+                  </button>
+                )}
+                {selectedInvoice.status === "Approved" && (
+                  <button
+                    onClick={() => handleCancelInvoice({ detail: selectedInvoice })}
+                    disabled={isReadOnly}
+                    className={`w-full py-3 ${isReadOnly ? "bg-theme-surface-3 text-theme-muted cursor-not-allowed" : "bg-rose-600 hover:bg-rose-500 text-white"} font-bold text-xs rounded-xl shadow-lg flex items-center justify-center space-x-2.5 transition-all`}
+                  >
+                    <X size={16} />
+                    <span>Cancel Invoice</span>
+                  </button>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => handlePrintInvoice({ detail: selectedInvoice })}
+                    className="w-full py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded-xl text-xs font-semibold transition-colors"
+                  >
+                    Print
+                  </button>
+                  <button
+                    onClick={() => handleWhatsAppInvoice({ detail: selectedInvoice })}
+                    className="w-full py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded-xl text-xs font-semibold transition-colors"
+                  >
+                    WhatsApp
+                  </button>
+                </div>
+              </div>
+            </div>
           ) : (
             /* Empty Right Pane State */
             <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-8 text-center space-y-3 text-theme-muted sticky top-24">
@@ -3656,7 +3802,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 <FileText size={20} />
               </div>
               <h4 className="font-display font-bold text-xs text-theme-body uppercase tracking-wider">Detail Inspection Desk</h4>
-              <p className="text-[11px] leading-relaxed">Select any quotation or sales order from the registry list to load its real-time tax breakdown, workflow status transitions, and committed items.</p>
+              <p className="text-[11px] leading-relaxed">Select any quotation, sales order, or sales invoice from the registry list to load its real-time tax breakdown, workflow status transitions, and committed items.</p>
             </div>
           )}
 

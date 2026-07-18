@@ -46,3 +46,15 @@ This document details common operational issues and resolutions.
 - **Symptom:** Total debits in General Ledger do not balance with sales invoice.
 - **Cause:** Incomplete split payment breakdown payload.
 - **Resolution:** Check `/api/pos/checkout` request logs. The payment mode must be set to `"Split"` with a valid `breakup` mapping.
+## 4. Auth Bootstrap Fails with Data Conflict
+- **Symptom:** `POST /api/v1/auth/bootstrap` returns `400` with error code `SMRITI-DATA-001` and no SYSADMIN user is created.
+- **Cause:** The first-run bootstrap process inserts a `status` value of `PendingPasswordChange`, but the database `users.status` column may be defined too short (e.g. `varchar(20)`). This is a schema mismatch, not invalid credentials.
+- **Resolution:**
+  1. Verify the database has no existing users: `SELECT count(*) FROM users;`.
+  2. Confirm default bootstrap credentials:
+     - `username`: `admin`
+     - `password`: `Admin@123`
+     - `email`: `admin@smriti.local`
+  3. If the bootstrap endpoint still fails, update the schema so `users.status` supports at least 50 characters and retry bootstrap.
+  4. After successful bootstrap, log in with the same credentials and change the password if prompted.
+  5. Note: frontend seeded demo users like `super` / `whynothing` are separate from backend bootstrap users and may not exist in the backend DB until the system is initialized.

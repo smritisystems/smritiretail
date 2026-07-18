@@ -416,24 +416,6 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
 
       if (data && data.success) {
         setSetupSuccess(true);
-        localStorage.setItem("smriti_setup_completed", "true");
-
-        const layoutPrefsRaw = localStorage.getItem("smriti_layout_preferences");
-        if (layoutPrefsRaw) {
-          try {
-            const layoutPrefs = JSON.parse(layoutPrefsRaw);
-            if (layoutPrefs?.lastWorkspace === "company-setup") {
-              localStorage.setItem(
-                "smriti_layout_preferences",
-                JSON.stringify({ ...layoutPrefs, lastWorkspace: "dashboard" }),
-              );
-            }
-          } catch {
-            // Ignore invalid saved layout prefs
-          }
-        }
-
-        localStorage.setItem("smriti_setup_business_type", businessType);
         setTimeout(() => {
           if (onComplete) {
             onComplete();

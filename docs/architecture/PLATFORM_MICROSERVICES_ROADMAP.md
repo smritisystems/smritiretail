@@ -14,6 +14,8 @@
 
 **Status:** Target architecture for a long-lived, cross-domain SMRITI Platform.
 
+> See also: [Architecture Docs README](./README.md) and [Product Identity Engine](./PRODUCT_IDENTITY_ENGINE.md) — governance-grade product identity, barcode assignment, and master data rule management for the modular platform.
+
 ## Vision
 
 SMRITI Retail OS is evolving into a modular platform capable of supporting Retail, Pharma, Restaurant, Manufacturing, Distribution, School, Hospital, and other verticals. The long-term architecture should be service-oriented, not a single monolith, but also not dozens of tiny services from day one.

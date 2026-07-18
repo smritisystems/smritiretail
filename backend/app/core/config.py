@@ -13,8 +13,93 @@ License      : Proprietary Commercial Software
 
 import os
 import json
+import socket
+import asyncio
 from pathlib import Path
+from urllib.parse import urlparse, urlunparse
 from pydantic_settings import BaseSettings
+
+
+def _is_port_open(host: str, port: int, timeout: float = 0.8) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _is_postgres_server(host: str, port: int, user: str = "postgres", password: str = "postgres", database: str = "postgres", timeout: float = 0.8) -> bool:
+    if not _is_port_open(host, port, timeout=timeout):
+        return False
+
+    try:
+        import asyncpg
+    except ImportError:
+        return False
+
+    conn_str = f"postgresql://{user}:{password}@{host}:{port}/{database}"
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+        conn = loop.run_until_complete(asyncpg.connect(conn_str, timeout=timeout))
+        loop.run_until_complete(conn.close())
+        return True
+    except Exception:
+        return False
+    finally:
+        try:
+            loop.close()
+        except Exception:
+            pass
+
+
+def _replace_url_port(conn_str: str, port_int: int) -> str:
+    parsed = urlparse(conn_str)
+    if parsed.scheme not in {"postgresql", "postgresql+asyncpg"}:
+        return conn_str
+
+    hostname = parsed.hostname or ""
+    if not hostname:
+        return conn_str
+
+    if parsed.username:
+        auth = parsed.username
+        if parsed.password:
+            auth += f":{parsed.password}"
+        netloc = f"{auth}@{hostname}:{port_int}"
+    else:
+        netloc = f"{hostname}:{port_int}"
+
+    if parsed.port is None:
+        netloc = netloc
+
+    return urlunparse(parsed._replace(netloc=netloc))
+
+
+def _resolve_local_dev_postgres_url(conn_str: str) -> str:
+    parsed = urlparse(conn_str)
+    if parsed.scheme not in {"postgresql", "postgresql+asyncpg"}:
+        return conn_str
+
+    host = parsed.hostname or ""
+    if host not in {"127.0.0.1", "localhost"}:
+        return conn_str
+
+    port = parsed.port
+    if port is None:
+        return conn_str
+
+    if _is_postgres_server(host, port):
+        return conn_str
+
+    for alt_port in (5432, 5434):
+        if alt_port == port:
+            continue
+        if _is_postgres_server(host, alt_port):
+            return _replace_url_port(conn_str, alt_port)
+
+    return conn_str
+
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "SMRITI Retail OS"
@@ -40,6 +125,10 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
         "http://localhost:5000",
         "http://127.0.0.1:5000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
     ]
 
     # Feature Flags for Transactional Core Cutover
@@ -78,7 +167,24 @@ def load_settings() -> Settings:
         if conn_str.startswith("postgresql://"):
             conn_str = conn_str.replace("postgresql://", "postgresql+asyncpg://", 1)
         base_settings.DATABASE_URL = conn_str
-        
+
+    # Prefer an explicit DATABASE_URL environment override.
+    if db_url:
+        base_settings.DATABASE_URL = db_url
+    else:
+        postgres_port = os.getenv("POSTGRES_PORT")
+        if postgres_port:
+            try:
+                port_int = int(postgres_port)
+                base_settings.DATABASE_URL = _replace_url_port(base_settings.DATABASE_URL, port_int)
+            except ValueError:
+                pass
+
+        env = base_settings.ENVIRONMENT.strip().lower()
+        is_local_dev = env in {"development", "local", "test"} or (env == "" and Path(__file__).resolve().parents[4].joinpath(".git").exists())
+        if is_local_dev and base_settings.DATABASE_URL.startswith("postgresql+asyncpg://"):
+            base_settings.DATABASE_URL = _resolve_local_dev_postgres_url(base_settings.DATABASE_URL)
+
     if "app" in json_data:
         app_data = json_data["app"]
         base_settings.PROJECT_NAME = app_data.get("productName", base_settings.PROJECT_NAME)

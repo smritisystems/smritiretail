@@ -9,8 +9,6 @@
 # License      : Proprietary Commercial Software
 # Classification: Internal
 
-version: "3.8"
-
 services:
   db:
     image: postgres:15-alpine

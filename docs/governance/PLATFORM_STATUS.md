@@ -24,6 +24,13 @@ This document records high-level metrics of SMRITI Retail OS's evolutionary stat
 * **PostgreSQL Schema Version:** alembic-96b45b17b8b1 (head)
 * **Overall Migration Completion:** 68%
 
+## Accepted Metadata Architecture Dispositions
+These entries document accepted architectural decisions for metadata ownership. They are not unresolved debt and require no migration or re-centralization action unless a new ADR is created.
+
+- **WorkflowEngine / workflow metadata:** `backend/app/api/v1/workflow.py` is accepted as the canonical workflow/status-transition metadata owner. This capability is in active use by Sales and Purchase workflows and is not planned to be migrated into `src/services/metadataRegistry.ts`. [ADR-002 v1.1, Ledger §2]
+- **`masters_registry.ts` / Customer bespoke pattern:** `src/masters_registry.ts` remains canonical for static master schema metadata, while the Customer domain remains a separate bespoke pattern. No migration from Customer to the generic masters registry is planned. [ADR-002, Ledger §3]
+- **Print/report engine metadata independence:** `src/print_engine/print_store.tsx` and `ReportDesignerTab.tsx` remain accepted as subsystem-owned metadata domains. Centralizing print/report metadata under `MetadataRegistry` is not currently planned. [ADR-002, Ledger §4/§5]
+
 ---
 
 ## Module Migration Breakdown

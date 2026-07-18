@@ -37,162 +37,56 @@ export interface ModuleMetadata {
   lastUpdated?: string;
 }
 
-export interface ScreenMetadata {
-  id: string;
-  name: string;
-  module: string;
-  route: string;
-  icon?: string;
-  parentMenu?: string;
-  relatedReports?: string[];
-  relatedMasters?: string[];
-  relatedTransactions?: string[];
-  requiredPermissions?: string[];
-  keyboardShortcuts?: Record<string, string>;
-}
-
-export interface ReportMetadata {
-  id: string;
-  name: string;
-  category: string;
-  module: string;
-  description: string;
-  dataSource?: string;
-  defaultFilters?: string[];
-  exportFormats?: string[];
-  createdBy?: string;
-  modifiedBy?: string;
-  version: string;
-  scheduleEnabled?: boolean;
-  drillDownEnabled?: boolean;
-}
-
-export interface FormMetadata {
-  id: string;
-  version: string;
-  owner: string;
-  relatedTables?: string[];
-  validationRules?: string[];
-  requiredFields?: string[];
-  optionalFields?: string[];
-  workflowEnabled?: boolean;
-  printFormats?: string[];
-  auditEnabled?: boolean;
-}
-
-export interface ApiMetadata {
-  name: string;
-  version: string;
-  endpoint: string;
-  httpMethod: string;
-  authentication: string;
-  requestSchema?: string;
-  responseSchema?: string;
-  errorCodes?: string[];
-  rateLimits?: string;
-  ownerModule: string;
-}
-
-export interface DatabaseMetadata {
-  tableName: string;
-  primaryKey: string;
-  foreignKeys?: string[];
-  relationships?: string[];
-  indexes?: string[];
-  constraints?: string[];
-  description: string;
-  ownerModule: string;
-  version: string;
-}
-
-export interface PrintTemplateMetadata {
-  id: string;
-  name: string;
-  format: string;
-  module: string;
-  documentType: string;
-  qrCodeSupport?: boolean;
-  barcodeSupport?: boolean;
-  logoSupport?: boolean;
-  digitalSignatureSupport?: boolean;
-  version: string;
-}
-
+// Scope narrowed to module metadata only per ADR-002 (docs/architecture/decisions/ADR-002-SMRITI-METADATA-ARCHITECTURE.md), disposition (a).
 class MetadataRegistryService {
-  private modules: Map<string, ModuleMetadata> = new Map();
-  private screens: Map<string, ScreenMetadata> = new Map();
-  private reports: Map<string, ReportMetadata> = new Map();
-  private forms: Map<string, FormMetadata> = new Map();
-  private apis: Map<string, ApiMetadata> = new Map();
-  private databases: Map<string, DatabaseMetadata> = new Map();
-  private printTemplates: Map<string, PrintTemplateMetadata> = new Map();
+  private modules: Map<string, Readonly<ModuleMetadata>> = new Map();
+  private listeners: Set<() => void> = new Set();
 
   registerModule(metadata: ModuleMetadata) {
-    this.modules.set(metadata.id, metadata);
+    const existing = this.modules.get(metadata.id);
+    const payload = Object.freeze({ ...metadata });
+
+    if (existing) {
+      const existingJson = JSON.stringify(existing);
+      const payloadJson = JSON.stringify(payload);
+      if (existingJson !== payloadJson) {
+        throw new Error(`Module '${metadata.id}' is already registered with different metadata.`);
+      }
+      return;
+    }
+
+    this.modules.set(payload.id, payload);
+    this.emitChange();
   }
 
-  registerScreen(metadata: ScreenMetadata) {
-    this.screens.set(metadata.id, metadata);
+  getModule(id: string): Readonly<ModuleMetadata> | undefined {
+    return this.modules.get(id);
   }
 
-  registerReport(metadata: ReportMetadata) {
-    this.reports.set(metadata.id, metadata);
-  }
-
-  registerForm(metadata: FormMetadata) {
-    this.forms.set(metadata.id, metadata);
-  }
-
-  registerApi(metadata: ApiMetadata) {
-    this.apis.set(`${metadata.httpMethod}:${metadata.endpoint}`, metadata);
-  }
-
-  registerDatabase(metadata: DatabaseMetadata) {
-    this.databases.set(metadata.tableName, metadata);
-  }
-
-  registerPrintTemplate(metadata: PrintTemplateMetadata) {
-    this.printTemplates.set(metadata.id, metadata);
-  }
-
-  getModules(): ModuleMetadata[] {
+  getModules(): ReadonlyArray<Readonly<ModuleMetadata>> {
     return Array.from(this.modules.values());
-  }
-
-  getScreens(): ScreenMetadata[] {
-    return Array.from(this.screens.values());
-  }
-
-  getReports(): ReportMetadata[] {
-    return Array.from(this.reports.values());
-  }
-
-  getForms(): FormMetadata[] {
-    return Array.from(this.forms.values());
-  }
-
-  getApis(): ApiMetadata[] {
-    return Array.from(this.apis.values());
-  }
-
-  getDatabases(): DatabaseMetadata[] {
-    return Array.from(this.databases.values());
-  }
-
-  getPrintTemplates(): PrintTemplateMetadata[] {
-    return Array.from(this.printTemplates.values());
   }
 
   getAllMetadata() {
     return {
       modules: this.getModules(),
-      screens: this.getScreens(),
-      reports: this.getReports(),
-      forms: this.getForms(),
-      apis: this.getApis(),
-      databases: this.getDatabases(),
-      printTemplates: this.getPrintTemplates()
     };
+  }
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  clear() {
+    this.modules.clear();
+    this.emitChange();
+  }
+
+  private emitChange() {
+    this.listeners.forEach((listener) => listener());
   }
 }
 
