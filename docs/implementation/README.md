@@ -4,9 +4,9 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 3.17.0
+  Version      : 3.28.0
   Created      : 2026-07-11
-  Modified     : 2026-07-14
+  Modified     : 2026-07-19
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
@@ -54,6 +54,8 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-18 | v3.23.0 | [Test Database Isolation & Onboarding Fixes](./foundation/Test_Database_Isolation_Plan_v3.23.0.md) | `/backend/app/tests/conftest.py`, `/backend/app/api/v1/system.py`, `/backend/app/tests/test_api_v1_migration.py` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_Test_Database_Isolation_And_Setup_Fixes_v3.17.1.md) |
 | 2026-07-18 | v3.24.0 | [Role & Menu Security Engine (SSACF)](./foundation/Role_And_Menu_Security_Engine_v3.24.0.md) | `/backend/app/models/security.py`, `/backend/app/api/v1/security.py`, `/backend/app/db/seed.py` | Completed | [Walkthrough](../walkthrough/foundation/Security_SSACF_Role_And_Menu_Engine_v3.24.0.md) |
 | 2026-07-18 | v3.25.0 | [SSACF Phase 2 — Cache Abstraction, Cycle Detection & Scoped Permissions](./foundation/SSACF_Phase2_Roadmap_v3.25.0.md) | TBD | Draft | — |
+| 2026-07-19 | v3.28.0 | [Consignment & Sale on Approval GST Engine Refinement](./foundation/Consignment_Approval_GST_Engine_Plan_v3.28.0.md) | `/backend/app/models/dispatch.py`, `/backend/app/services/dispatch_gst.py` | Draft | — |
+
 
 
 
