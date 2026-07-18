@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.18.1 (Phase 2 — Sales UPDATE/DELETE/CANCEL)
+Version      : 3.26.0 (Phase 3 — PricingGroup Price Engine)
 Created      : 2026-07-11
-Modified     : 2026-07-15 (Phase 2)
+Modified     : 2026-07-18 (Phase 3)
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -72,7 +72,14 @@ class SalesService:
         if existing.scalars().first():
             raise HTTPException(status_code=400, detail="Sales invoice with this invoice number already exists")
 
-        # 1. Validate items and calculate totals
+        # 1. Resolve customer pricing group → price engine parameters
+        # This must happen BEFORE the item loop so the same policy applies to all lines.
+        pricing_params = await self.crm_service.resolve_customer_pricing(invoice_in.customer_id)
+        pg_discount    = Decimal(str(pricing_params["discount_percent"]))    # e.g. 5.00
+        pg_adjustment  = Decimal(str(pricing_params["price_adjustment"]))    # absolute ±
+        rounding_rule  = pricing_params["rounding_rule"]                     # e.g. "Nearest1"
+
+        # 2. Validate items and calculate totals
         calculated_tax_total = Decimal("0.00")
         calculated_grand_total = Decimal("0.00")
         invoice_items = []
@@ -83,17 +90,32 @@ class SalesService:
             if not available:
                 raise HTTPException(status_code=400, detail=f"Insufficient stock for product ID: {item.product_id}")
 
-            # Calculations
             quantity = item.quantity
-            price = item.price
+            # --- Price Engine: apply PricingGroup discount + adjustment ---
+            # item.price is the base selling price supplied by the frontend.
+            # The PricingGroup can reduce it by discount_percent and then
+            # shift it by an absolute price_adjustment (markup +ve / markdown -ve).
+            base_price = item.price
+            if pg_discount > Decimal("0"):
+                base_price = base_price * (1 - pg_discount / Decimal("100"))
+            if pg_adjustment != Decimal("0"):
+                base_price = base_price + pg_adjustment
+            # Rounding
+            if rounding_rule == "Nearest1":
+                price = base_price.quantize(Decimal("1"))
+            elif rounding_rule == "Nearest5":
+                price = (base_price / 5).quantize(Decimal("1")) * 5
+            elif rounding_rule == "Nearest10":
+                price = (base_price / 10).quantize(Decimal("1")) * 10
+            else:
+                price = base_price.quantize(Decimal("0.01"))
             gst_rate = item.gst_rate
 
-            # Tax amount = quantity * price * (gst_rate / 100)
-            item_tax = quantity * price * (gst_rate / Decimal("100.00"))
-            # Total amount = (quantity * price) + item_tax
-            item_total = (quantity * price) + item_tax
+            # Tax amount = quantity * effective_price * (gst_rate / 100)
+            item_tax   = (quantity * price * (gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
+            item_total = (quantity * price + item_tax).quantize(Decimal("0.01"))
 
-            calculated_tax_total += item_tax
+            calculated_tax_total   += item_tax
             calculated_grand_total += item_total
 
             db_item = SalesInvoiceItem(
@@ -174,6 +196,22 @@ class SalesService:
             )
         await self.db.refresh(db_invoice)
         return db_invoice
+
+    async def get_sales_invoice(self, invoice_id: str) -> tuple[SalesInvoice, List[SalesInvoiceItem]]:
+        res = await self.db.execute(
+            select(SalesInvoice)
+            .options(selectinload(SalesInvoice.items))
+            .where(
+                SalesInvoice.id == invoice_id,
+                SalesInvoice.company_id == self.tenant_ctx.company_id,
+                SalesInvoice.branch_id == self.tenant_ctx.branch_id,
+                SalesInvoice.is_deleted == False
+            )
+        )
+        invoice = res.scalars().first()
+        if not invoice:
+            raise HTTPException(status_code=404, detail="Sales invoice not found")
+        return invoice, invoice.items
 
     # ──────────────────────────────────────────────────────────────
     # Sales Quotation

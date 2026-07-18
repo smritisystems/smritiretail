@@ -63,6 +63,18 @@ async def list_sales_invoices_contract(
     return await repo.get_all(skip=skip, limit=limit)
 
 
+@router.get("/invoices/{invoice_id}", response_model=SalesInvoiceResponse, summary="Get Sales Invoice (Contract URL)")
+async def get_sales_invoice_contract(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Get a single sales invoice by ID."""
+    service = SalesService(db, tenant_ctx)
+    invoice, _ = await service.get_sales_invoice(invoice_id)
+    return invoice
+
+
 # ─────────────────────────── Sales Quotation ───────────────────────────
 
 @router.post(

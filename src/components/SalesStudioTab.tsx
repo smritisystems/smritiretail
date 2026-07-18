@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 2.1.5
+ * Version      : 3.27.0
  * Created      : 2026-07-10
- * Modified     : 2026-07-18
+ * Modified     : 2026-07-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -532,7 +532,12 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   // used both as window event listeners (ACAS) and as direct onClick handlers in JSX.
   const handlePrintInvoice = useCallback((e: any) => {
     const inv = e?.detail ?? e;
-    onNotification("Print Action", `Sales Invoice ${inv.invoiceNo ?? ""} sent to standard print spooler.`, "success");
+    if (inv && inv.id) {
+      window.open(`/invoice-print?id=${inv.id}`, "_blank", "width=920,height=1200,menubar=no,toolbar=no,location=no,status=no");
+      onNotification("Print Action", `Sales Invoice ${inv.invoiceNo ?? ""} opened in print popout.`, "success");
+    } else {
+      onNotification("Print Error", "Could not locate invoice ID for print operation.", "error");
+    }
   }, [onNotification]);
 
   const handleWhatsAppInvoice = useCallback((e: any) => {
