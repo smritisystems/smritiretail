@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.21.0
+Version      : 3.24.0
 Created      : 2026-07-11
-Modified     : 2026-07-15
+Modified     : 2026-07-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -28,3 +28,15 @@ from .user_assignment import UserCompanyAssignment, UserBranchAssignment, UserSt
 from .workflow import WorkflowEvent
 from .supplier_payment import SupplierPayment
 from .report_schedule import ReportSchedule
+from .security import (
+    PermissionType,
+    SMRITIRole,
+    SMRITIPermission,
+    SMRITIPolicy,
+    SMRITIRolePolicy,
+    SMRITIPolicyPermission,
+    SMRITIUserRole,
+    SMRITIMenu,
+    SMRITISecurityAudit,
+)
+

@@ -51,6 +51,12 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-13 | v3.16.0 | [SMRITI Master Framework — Phase F.3](./foundation/SMRITI_Master_Framework_Phase_F_3_Plan_v3.16.0.md) | `/backend/app/models/barcode.py`, `/src/routes/terms.ts`, `/src/routes/barcode.ts`, `/src/routes/system.ts` | Completed | [Walkthrough](../walkthrough/foundation/SMRITI_Master_Framework_Phase_F_3_Walkthrough_v3.16.0.md) |
 | 2026-07-14 | v3.17.0 | [SMRITI Master Data Consolidation](./foundation/SMRITI_Master_Data_Consolidation_Plan_v3.17.0.md) | `/backend/`, `/src/components/MasterManagementTab.tsx`, `/server.ts` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_Master_Data_Consolidation_v3.17.0.md) |
 | 2026-07-17 | v3.18.0 | [Modular Microservices Roadmap](./PLATFORM_MICROSERVICES_ROADMAP.md) | `/docs/architecture/PLATFORM_MICROSERVICES_ROADMAP.md` | Draft | — |
+| 2026-07-18 | v3.23.0 | [Test Database Isolation & Onboarding Fixes](./foundation/Test_Database_Isolation_Plan_v3.23.0.md) | `/backend/app/tests/conftest.py`, `/backend/app/api/v1/system.py`, `/backend/app/tests/test_api_v1_migration.py` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_Test_Database_Isolation_And_Setup_Fixes_v3.17.1.md) |
+| 2026-07-18 | v3.24.0 | [Role & Menu Security Engine (SSACF)](./foundation/Role_And_Menu_Security_Engine_v3.24.0.md) | `/backend/app/models/security.py`, `/backend/app/api/v1/security.py`, `/backend/app/db/seed.py` | Completed | [Walkthrough](../walkthrough/foundation/Security_SSACF_Role_And_Menu_Engine_v3.24.0.md) |
+| 2026-07-18 | v3.25.0 | [SSACF Phase 2 — Cache Abstraction, Cycle Detection & Scoped Permissions](./foundation/SSACF_Phase2_Roadmap_v3.25.0.md) | TBD | Draft | — |
+
+
+
 
 
 

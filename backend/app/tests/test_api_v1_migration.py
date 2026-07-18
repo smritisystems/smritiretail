@@ -34,8 +34,14 @@ async def override_db(db_session):
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
-    yield
-    app.dependency_overrides.pop(get_db, None)
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        try:
+            await clear_db(db_session)  # ensure setup_completed and company data are wiped after each test
+        except Exception:
+            pass
 
 
 async def _create_user(db_session, role=UserRole.MANAGER):
@@ -83,7 +89,7 @@ def _auth_headers(user: User):
 
 @pytest.mark.asyncio
 async def test_api_v1_migration_endpoints(db_session):
-    user, _, _ = await _create_user(db_session)
+    user, _, _ = await _create_user(db_session, role=UserRole.SYSADMIN)
     headers = _auth_headers(user)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -110,7 +116,7 @@ async def test_api_v1_migration_endpoints(db_session):
 
         res_setup = await client.post(
             "/api/v1/company/setup",
-            json={"businessInfo": {"name": "Demo Co"}, "orgStructure": {"stores": [{"name": "Flagship"}]}}
+            json={"businessInfo": {"name": "Demo Co"}, "orgStructure": {"stores": [{"name": "Flagship", "code": "BR-01"}]}}
             , headers=headers,
         )
         assert res_setup.status_code == 200
@@ -218,6 +224,7 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
         db_session.add(admin)
         await db_session.commit()
 
+
         headers = {"Authorization": f"Bearer {create_access_token({
             "sub": admin.id,
             "username": admin.username,
@@ -233,7 +240,7 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
             "/api/v1/company/setup",
             json={
                 "businessInfo": {"name": "Tenant Co"},
-                "orgStructure": {"stores": [{"name": "Main Branch"}]},
+                "orgStructure": {"stores": [{"name": "Main Branch", "code": "BR-MAIN"}]},
                 "users": {
                     "staff": [
                         {
@@ -278,7 +285,7 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
         assert token["username"] == created_user["username"]
 
         tenant_access = await client.get(
-            "/api/v1/inventory",
+            "/api/v1/inventory/",
             headers={"Authorization": f"Bearer {login_payload['access_token']}"},
         )
         assert tenant_access.status_code == 200
@@ -288,7 +295,7 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
             username="no_tenant",
             email="no_tenant@tenant.test",
             hashed_password=hash_password("Test@1234"),
-            role=UserRole.MANAGER,
+            role=UserRole.SYSADMIN,
             is_active=True,
             is_deleted=False,
             company_id=None,
@@ -306,7 +313,7 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
         unassigned_token = unassigned_login.json()["access_token"]
 
         invalid_context = await client.get(
-            "/api/v1/inventory",
+            "/api/v1/inventory/",
             headers={"Authorization": f"Bearer {unassigned_token}"},
         )
         assert invalid_context.status_code == 403

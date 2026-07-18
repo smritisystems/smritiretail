@@ -3,7 +3,7 @@ Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Version      : 3.22.0
 Created      : 2026-07-16
-Modified     : 2026-07-16
+Modified     : 2026-07-18
 """
 
 import uuid

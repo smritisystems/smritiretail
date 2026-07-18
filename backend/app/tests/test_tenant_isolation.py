@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.9.0
 Created      : 2026-07-11
-Modified     : 2026-07-11
+Modified     : 2026-07-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -116,7 +116,7 @@ async def test_header_validation(db_session):
     """
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # No tenant set — should return 403 ("No test tenant context set")
-        response = await client.get("/api/v1/products/")
+        response = await client.get("/api/v1/inventory/")
         assert response.status_code == 403
 
 async def test_read_isolation(db_session):
@@ -143,25 +143,25 @@ async def test_read_isolation(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # GET under Tenant A context should find Product A
         set_test_tenant(comp_a.id, br_a.id)
-        res_a = await client.get("/api/v1/products/")
+        res_a = await client.get("/api/v1/inventory/")
         assert res_a.status_code == 200
         products_a = res_a.json()
         assert any(p["id"] == prod_a.id for p in products_a)
 
         # GET under Tenant B context should NOT find Product A
         set_test_tenant(comp_b.id, br_b.id)
-        res_b = await client.get("/api/v1/products/")
+        res_b = await client.get("/api/v1/inventory/")
         assert res_b.status_code == 200
         products_b = res_b.json()
         assert not any(p["id"] == prod_a.id for p in products_b)
 
         # Search under Tenant B should NOT return Product A
-        search_res = await client.get("/api/v1/products/search?q=Product")
+        search_res = await client.get("/api/v1/inventory/search?q=Product")
         assert search_res.status_code == 200
         assert not any(p["id"] == prod_a.id for p in search_res.json())
 
         # Detail GET under Tenant B should return 404
-        detail_res = await client.get(f"/api/v1/products/{prod_a.id}")
+        detail_res = await client.get(f"/api/v1/inventory/{prod_a.id}")
         assert detail_res.status_code == 404
 
 async def test_write_validation(db_session):
@@ -180,7 +180,7 @@ async def test_write_validation(db_session):
     }
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.post("/api/v1/products/", json=product_data)
+        response = await client.post("/api/v1/inventory/", json=product_data)
         assert response.status_code == 201
         created_prod = response.json()
         assert created_prod["company_id"] == company.id
@@ -271,13 +271,13 @@ async def test_cross_tenant_branch_validation(db_session):
     # Tenant A should not see Tenant B's branch in results
     set_test_tenant(comp_a.id, br_a.id)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        res = await client.get("/api/v1/products/")
+        res = await client.get("/api/v1/inventory/")
         assert res.status_code == 200   # Tenant A context is valid
 
     # Set Tenant B context and confirm Tenant A products are invisible
     set_test_tenant(comp_b.id, br_b.id)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        res = await client.get("/api/v1/products/")
+        res = await client.get("/api/v1/inventory/")
         assert res.status_code == 200
 
 
@@ -335,7 +335,7 @@ async def test_concurrent_duplicate_barcode_returns_400_not_500(db_session, db_e
                 "price": 99.0,
                 "stock": 5,
             }
-            return await client.post("/api/v1/products/", json=payload)
+            return await client.post("/api/v1/inventory/", json=payload)
 
     results = await asyncio.gather(post_product("A"), post_product("B"), return_exceptions=False)
 

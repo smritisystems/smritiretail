@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.7.0
 Created      : 2026-07-11
-Modified     : 2026-07-11
+Modified     : 2026-07-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -58,9 +58,10 @@ async def test_product_repository_crud(db_session):
     assert total >= 1
     
     # 5. Delete (Soft)
+    version_before_soft_delete = updated.version  # capture before session refresh below
     deleted = await repo.soft_delete(fetched)
     assert deleted.is_deleted is True
-    assert deleted.version == updated.version + 1
+    assert deleted.version == version_before_soft_delete + 1
     assert deleted.deleted_at.tzinfo is not None
     
     # Fetching should return None now (due to soft delete check)

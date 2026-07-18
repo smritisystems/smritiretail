@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.16.0
 Created      : 2026-07-12
-Modified     : 2026-07-12
+Modified     : 2026-07-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -111,7 +111,7 @@ async def test_soft_delete_product_success(db_session):
 
     # Call API to delete the product
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res = await ac.delete("/api/v1/products/prod-delete-test", headers=headers)
+        res = await ac.delete("/api/v1/inventory/prod-delete-test", headers=headers)
         assert res.status_code == 200
         assert res.json() == {"success": True, "message": "Product deleted successfully"}
 
@@ -148,7 +148,7 @@ async def test_soft_delete_product_unauthorized_role(db_session):
 
     # Call API to delete the product (expect 403 Forbidden)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res = await ac.delete("/api/v1/products/prod-delete-fail", headers=headers)
+        res = await ac.delete("/api/v1/inventory/prod-delete-fail", headers=headers)
         assert res.status_code == 403
 
     # Verify database state remains active

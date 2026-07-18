@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.17.0
+Version      : 3.24.0
 Created      : 2026-07-11
-Modified     : 2026-07-14
+Modified     : 2026-07-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -54,6 +54,16 @@ from app.models.product_identity import BarcodeProvider, IdentityRule, ProductId
 from app.models.role import Role
 from app.models.master_lookup import MasterType, MasterValue
 from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment, UserStoreAssignment
+from app.models.security import (
+    SMRITIRole,
+    SMRITIPermission,
+    SMRITIPolicy,
+    SMRITIRolePolicy,
+    SMRITIPolicyPermission,
+    SMRITIUserRole,
+    SMRITIMenu,
+    SMRITISecurityAudit,
+)
 config = context.config
 
 if config.config_file_name is not None:
@@ -124,6 +134,14 @@ def include_object(object, name, type_, reflected, compare_to):
             "sales_return_items",
             "purchase_reorder_configs",
             "purchase_jurisdiction_configs",
+            "smriti_roles",
+            "smriti_permissions",
+            "smriti_policies",
+            "smriti_role_policies",
+            "smriti_policy_permissions",
+            "smriti_user_roles",
+            "smriti_menus",
+            "smriti_security_audits",
         ]
     return True
 

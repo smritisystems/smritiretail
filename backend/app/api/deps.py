@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.16.0
+* Version    : 3.24.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-12
+* Modified   : 2026-07-18
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
@@ -33,6 +33,7 @@ from ..core.config import settings
 from ..db.session import get_db as _get_db
 from ..models.auth import User, UserRole
 from ..core.security import decode_token
+from ..services.security import SecurityService
 
 get_db = _get_db  # re-exported for router convenience
 
@@ -165,3 +166,32 @@ async def verify_internal_service_key(
             status_code=403,
             detail="Forbidden: Invalid or missing internal service authorization."
         )
+
+
+# ---------------------------------------------------------------------------
+# require_permission — dynamic permission guard
+# ---------------------------------------------------------------------------
+def require_permission(permission_code: str) -> Callable:
+    """
+    Returns a FastAPI dependency that verifies whether the current user has the 
+    specified permission code allowed. Explicit deny overrides inherit/allow.
+    """
+    async def _guard(
+        current_user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db)
+    ) -> User:
+        service = SecurityService(db)
+        is_allowed = await service.verify_user_permission(current_user.id, permission_code)
+        if not is_allowed:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "title": "Access Denied",
+                    "explanation": f"Your account does not have the required permission ({permission_code}) to perform this action.",
+                    "suggested_action": "Please contact your system administrator to assign the appropriate policy.",
+                    "reference_id": "SMRITI-PERM-001"
+                }
+            )
+        return current_user
+    return _guard
+

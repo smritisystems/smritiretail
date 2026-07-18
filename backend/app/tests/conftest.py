@@ -4,7 +4,7 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.21.0
+Version      : 3.24.0
 Created      : 2026-07-11
 Modified     : 2026-07-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -55,69 +55,66 @@ async def db_session(db_engine) -> AsyncSession:
 
 async def clear_db(db_session: AsyncSession):
     """
-    Cleans up all database tables in a strictly safe foreign-key order.
-    Ensures that test runs across different modules do not conflict or cause integrity errors.
+    Cleans up all database tables atomically using TRUNCATE ... RESTART IDENTITY CASCADE.
+    This is the only reliable way to ensure complete isolation between tests:
+    - CASCADE handles FK chains automatically regardless of deletion order
+    - RESTART IDENTITY resets all sequences so ID generation is predictable
+    - Single atomic statement prevents partial-clean states on error
     """
-    from sqlalchemy import delete
+    from sqlalchemy import text
 
-    from app.models.auth import RefreshTokenBlacklist, User
-    from app.models.crm import Customer, CustomerGroup
-    from app.models.exchange import DataExchangeTask, DataExchangeFieldMapping
-    from app.models.inventory import Product, StockMovement, Store, Warehouse
-    from app.models.pos import CashRegister, Shift
-    from app.models.purchase import PurchaseOrder, PurchaseOrderItem, PurchaseReceipt, PurchaseReceiptItem, Supplier
-    from app.models.sales import (
-        SalesInvoice, SalesInvoiceItem,
-        SalesQuotation, SalesQuotationItem,
-        SalesOrder, SalesOrderItem,
-        SalesReturn, SalesReturnItem,
+    # All first-party transactional tables — names verified from __tablename__ in models.
+    # TRUNCATE ... CASCADE handles all FK chains automatically.
+    # We query pg_tables first so tables not yet migrated don't crash the setup.
+    wanted = {
+        "sales_return_items", "sales_returns",
+        "sales_invoice_items", "sales_invoices",
+        "sales_order_items", "sales_orders",
+        "sales_quotation_items", "sales_quotations",
+        "purchase_receipt_items", "purchase_receipts",
+        "purchase_order_items", "purchase_orders",
+        "supplier_payments", "suppliers",
+        "psv_sku_tracking", "psv_parties",
+        "product_identities", "barcode_providers", "identity_rules",
+        "stock_movements", "products",
+        "shifts", "cash_registers",
+        "customers", "customer_groups",
+        "workflow_events",
+        "refresh_token_blacklist",
+        "print_histories", "barcode_layouts",
+        "print_profiles", "print_templates",
+        "system_configs",
+        "document_series", "numbering_audit_logs",
+        "approval_workflow_logs",
+        "tally_configs",
+        "terms_clauses", "terms_defaults", "terms_snapshots",
+        "data_exchange_field_mappings", "data_exchange_tasks",
+        "report_schedules",
+        "attribute_definitions", "attribute_groups",
+        "category_attribute_group_mappings", "variant_templates",
+        "purchase_jurisdiction_configs", "purchase_reorder_configs",
+        "user_branch_assignments", "user_company_assignments", "user_store_assignments",
+        "roles",
+        "users",
+        "stores", "warehouses",
+        "master_values", "master_types",
+        "branches", "companies",
+        "smriti_roles", "smriti_permissions", "smriti_policies",
+        "smriti_role_policies", "smriti_policy_permissions",
+        "smriti_user_roles", "smriti_menus", "smriti_security_audits",
+    }
+
+    # Find which of our wanted tables actually exist in this schema
+    result = await db_session.execute(
+        text("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
     )
-    from app.models.supplier_payment import SupplierPayment
-    from app.models.tenant import Branch, Company
-    from app.models.barcode import BarcodeLayout, PrintHistory
-    from app.models.product_identity import BarcodeProvider, IdentityRule, ProductIdentity
-    from app.models.system import SystemConfig
-    from app.models.master_lookup import MasterType, MasterValue
-    from app.models.workflow import WorkflowEvent
-    from app.models.report_schedule import ReportSchedule
+    existing = {row[0] for row in result.fetchall()}
+    to_truncate = wanted & existing
 
-    await db_session.execute(delete(SalesReturnItem))
-    await db_session.execute(delete(SalesReturn))
-    await db_session.execute(delete(ProductIdentity))
-    await db_session.execute(delete(BarcodeProvider))
-    await db_session.execute(delete(IdentityRule))
-    await db_session.execute(delete(SalesOrderItem))
-    await db_session.execute(delete(SalesOrder))
-    await db_session.execute(delete(SalesQuotationItem))
-    await db_session.execute(delete(SalesQuotation))
-    await db_session.execute(delete(SalesInvoiceItem))
-    await db_session.execute(delete(SalesInvoice))
-    await db_session.execute(delete(Shift))
-    await db_session.execute(delete(CashRegister))
-    await db_session.execute(delete(PurchaseOrderItem))
-    await db_session.execute(delete(PurchaseOrder))
-    await db_session.execute(delete(PurchaseReceiptItem))
-    await db_session.execute(delete(PurchaseReceipt))
-    await db_session.execute(delete(SupplierPayment))
-    await db_session.execute(delete(Supplier))
-    await db_session.execute(delete(StockMovement))
-    await db_session.execute(delete(Product))
-    await db_session.execute(delete(Customer))
-    await db_session.execute(delete(CustomerGroup))
-    await db_session.execute(delete(WorkflowEvent))
-    await db_session.execute(delete(RefreshTokenBlacklist))
-    await db_session.execute(delete(PrintHistory))
-    await db_session.execute(delete(BarcodeLayout))
-    await db_session.execute(delete(SystemConfig))
-    await db_session.execute(delete(DataExchangeTask))
-    await db_session.execute(delete(DataExchangeFieldMapping))
-    await db_session.execute(delete(User))
-    await db_session.execute(delete(Store))
-    await db_session.execute(delete(Warehouse))
-    await db_session.execute(delete(MasterValue))
-    await db_session.execute(delete(MasterType))
-    await db_session.execute(delete(ReportSchedule))
-    await db_session.execute(delete(Branch))
-    await db_session.execute(delete(Company))
+    if to_truncate:
+        table_list = ", ".join(to_truncate)
+        await db_session.execute(
+            text(f"TRUNCATE TABLE {table_list} RESTART IDENTITY CASCADE")
+        )
     await db_session.commit()
 

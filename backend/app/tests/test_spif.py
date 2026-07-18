@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.16.0
 Created      : 2026-07-13
-Modified     : 2026-07-13
+Modified     : 2026-07-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -117,7 +117,7 @@ async def test_spif_lifecycle_success(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # 1. Upload Primary Product Image
         payload = {"image_data": TINY_BASE64_IMAGE}
-        res_upload = await ac.post("/api/v1/products/prod-spif-test/image", json=payload, headers=headers)
+        res_upload = await ac.post("/api/v1/inventory/prod-spif-test/image", json=payload, headers=headers)
         assert res_upload.status_code == 200
         data_upload = res_upload.json()
         assert data_upload["primary_image_url"] is not None
@@ -126,12 +126,12 @@ async def test_spif_lifecycle_success(db_session):
         uploaded_filename = data_upload["primary_image_url"].split("/")[-1]
 
         # 2. Get / Serve the Uploaded Image
-        res_serve = await ac.get(f"/api/v1/products/images/{uploaded_filename}")
+        res_serve = await ac.get(f"/api/v1/inventory/images/{uploaded_filename}")
         assert res_serve.status_code == 200
         assert res_serve.headers["content-type"] == "image/webp"
 
         # 3. Add Image to Gallery
-        res_gal = await ac.post("/api/v1/products/prod-spif-test/gallery", json=payload, headers=headers)
+        res_gal = await ac.post("/api/v1/inventory/prod-spif-test/gallery", json=payload, headers=headers)
         assert res_gal.status_code == 200
         data_gal = res_gal.json()
         assert len(data_gal["gallery_images"]) == 1
@@ -140,13 +140,13 @@ async def test_spif_lifecycle_success(db_session):
         gal_filename = data_gal["gallery_images"][0].split("/")[-1]
 
         # 4. Delete Gallery Image
-        res_del_gal = await ac.delete(f"/api/v1/products/prod-spif-test/gallery/{gal_filename}", headers=headers)
+        res_del_gal = await ac.delete(f"/api/v1/inventory/prod-spif-test/gallery/{gal_filename}", headers=headers)
         assert res_del_gal.status_code == 200
         data_del_gal = res_del_gal.json()
         assert len(data_del_gal["gallery_images"]) == 0
 
         # 5. Delete Primary Product Image
-        res_del = await ac.delete("/api/v1/products/prod-spif-test/image", headers=headers)
+        res_del = await ac.delete("/api/v1/inventory/prod-spif-test/image", headers=headers)
         assert res_del.status_code == 200
         data_del = res_del.json()
         assert data_del["primary_image_url"] is None

@@ -93,7 +93,7 @@ async def set_system_config(
         await db.refresh(existing)
         return existing
 
-    new_id = f"sys-{int(datetime.now(timezone.utc).timestamp())}"
+    new_id = f"sys-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
     config = SystemConfig(
         id=new_id,
         key=key,
@@ -665,7 +665,9 @@ async def company_setup(
 
     staff_entries = users_payload.staff or []
 
-    async with db.begin():
+    in_tx = db.in_transaction()
+    transaction = db.begin_nested() if in_tx else db.begin()
+    async with transaction:
         company = Company(
             id=company_id,
             name=company_name,
@@ -691,6 +693,13 @@ async def company_setup(
             db.add(branch)
             created_branches.append(branch)
 
+        await db.flush()
+
+        for idx, store in enumerate(branch_entries):
+            branch_name = created_branches[idx].name
+            branch_code = created_branches[idx].code
+            branch_id = created_branches[idx].id
+
             store_id = f"stor-{timestamp_ms + idx}"
             store_record = Store(
                 id=store_id,
@@ -708,6 +717,8 @@ async def company_setup(
             db.add(store_record)
             created_stores.append(store_record)
 
+        await db.flush()
+
         for idx, staff in enumerate(staff_entries):
             username = (staff.username or "").strip()
             display_name = (staff.name or username or f"user{idx + 1}").strip()
@@ -719,7 +730,15 @@ async def company_setup(
             if not username:
                 username = re.sub(r"[^a-z0-9]", "", display_name.lower()) or f"user{idx + 1}"
 
-            temp_password = secrets.token_urlsafe(12)
+            import random
+            import string
+            temp_password = (
+                random.choice(string.ascii_uppercase) +
+                random.choice(string.ascii_lowercase) +
+                random.choice(string.digits) +
+                random.choice("!@#$%^&*") +
+                "".join(random.choices(string.ascii_letters + string.digits, k=8))
+            )
             user_req = UserCreate(
                 username=username,
                 password=temp_password,
@@ -800,6 +819,9 @@ async def company_setup(
         await set_system_config(db, LICENSE_MODE_KEY, license_mode, current_user, commit=False)
         await set_system_config(db, LICENSE_EXPIRES_KEY, license_expires_at, current_user, commit=False)
         await set_system_config(db, SETUP_COMPLETED_KEY, "true", current_user, commit=False)
+
+    if in_tx:
+        await db.commit()
 
     return {
         "success": True,

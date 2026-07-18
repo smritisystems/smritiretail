@@ -540,7 +540,7 @@ async def test_role_guard_cashier_cannot_create_product(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post(
-            "/api/v1/products/",
+            "/api/v1/inventory/",
             json={
                 "id": f"prod-rbac-{suffix}",
                 "code": f"RBAC{suffix}",
@@ -573,7 +573,7 @@ async def test_role_guard_manager_can_create_product(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post(
-            "/api/v1/products/",
+            "/api/v1/inventory/",
             json={
                 "id": f"prod-mgr-{suffix}",
                 "code": f"MGR{suffix}",
@@ -594,5 +594,5 @@ async def test_role_guard_manager_can_create_product(db_session):
 async def test_protected_route_no_token(db_session):
     """GET /products/ returns 401 when no Bearer token is provided."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        res = await client.get("/api/v1/products/")
+        res = await client.get("/api/v1/inventory/")
     assert res.status_code == 401

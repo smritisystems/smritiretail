@@ -102,10 +102,13 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 
 
-| 2026-07-15 | foundation | Systemic Debt v3.21.0 � WorkflowEvent, Exchange TZ, Reports N+1, Barcode Race | [SystemicDebt_WorkflowEvent_ExchangeTz_ReportsN1_BarcodeRace_v3.21.0.md](foundation/SystemicDebt_WorkflowEvent_ExchangeTz_ReportsN1_BarcodeRace_v3.21.0.md) |
-| 2026-07-16 | foundation | Reports Strangler-Fig Migration v3.21.0 � FastAPI+Postgres complete | [Reports_StranglerFig_Migration_v3.21.0.md](foundation/Reports_StranglerFig_Migration_v3.21.0.md) |
-| 2026-07-16 | foundation | Inventory/Products Strangler-Fig Completion v3.21.0 � Phase D+E, policy established | [Inventory_StranglerFig_Completion_v3.21.0.md](foundation/Inventory_StranglerFig_Completion_v3.21.0.md) |
-| 2026-07-16 | foundation | Auth Module Strangler-Fig Migration v3.21.0 � JWT, dual-path middleware, staff CRUD | [Auth_StranglerFig_Migration_v3.21.0.md](foundation/Auth_StranglerFig_Migration_v3.21.0.md) |
-| 2026-07-16 | foundation | Sales & Purchase Strangler-Fig Cleanup v3.21.0 � dead code removal, 30 if/else blocks stripped, 2 route files deleted, 3 bug fixes | [Sales_Purchase_StranglerFig_Cleanup_v3.21.0.md](foundation/Sales_Purchase_StranglerFig_Cleanup_v3.21.0.md) |
-| 2026-07-16 | foundation | POS Strangler-Fig Cleanup v3.21.1 � 3 if/else blocks stripped, ABE checkout fixed, pos.ts deleted, PosProfilesTab debt annotated | [POS_StranglerFig_Cleanup_v3.21.1.md](foundation/POS_StranglerFig_Cleanup_v3.21.1.md) |
-| 2026-07-16 | foundation | POS Profiles CRUD API v3.22.0 � 6 FastAPI endpoints, DB migration, all ARCH-DEBT markers cleared | [POS_Profiles_CRUD_API_v3.22.0.md](foundation/POS_Profiles_CRUD_API_v3.22.0.md) |
+| 2026-07-15 | foundation | Systemic Debt v3.21.0  WorkflowEvent, Exchange TZ, Reports N+1, Barcode Race | [SystemicDebt_WorkflowEvent_ExchangeTz_ReportsN1_BarcodeRace_v3.21.0.md](foundation/SystemicDebt_WorkflowEvent_ExchangeTz_ReportsN1_BarcodeRace_v3.21.0.md) |
+| 2026-07-16 | foundation | Reports Strangler-Fig Migration v3.21.0  FastAPI+Postgres complete | [Reports_StranglerFig_Migration_v3.21.0.md](foundation/Reports_StranglerFig_Migration_v3.21.0.md) |
+| 2026-07-16 | foundation | Inventory/Products Strangler-Fig Completion v3.21.0  Phase D+E, policy established | [Inventory_StranglerFig_Completion_v3.21.0.md](foundation/Inventory_StranglerFig_Completion_v3.21.0.md) |
+| 2026-07-16 | foundation | Auth Module Strangler-Fig Migration v3.21.0  JWT, dual-path middleware, staff CRUD | [Auth_StranglerFig_Migration_v3.21.0.md](foundation/Auth_StranglerFig_Migration_v3.21.0.md) |
+| 2026-07-16 | foundation | Sales & Purchase Strangler-Fig Cleanup v3.21.0  dead code removal, 30 if/else blocks stripped, 2 route files deleted, 3 bug fixes | [Sales_Purchase_StranglerFig_Cleanup_v3.21.0.md](foundation/Sales_Purchase_StranglerFig_Cleanup_v3.21.0.md) |
+| 2026-07-16 | foundation | POS Strangler-Fig Cleanup v3.21.1  3 if/else blocks stripped, ABE checkout fixed, pos.ts deleted, PosProfilesTab debt annotated | [POS_StranglerFig_Cleanup_v3.21.1.md](foundation/POS_StranglerFig_Cleanup_v3.21.1.md) |
+| 2026-07-16 | foundation | POS Profiles CRUD API v3.22.0  6 FastAPI endpoints, DB migration, all ARCH-DEBT markers cleared | [POS_Profiles_CRUD_API_v3.22.0.md](foundation/POS_Profiles_CRUD_API_v3.22.0.md) |
+| 2026-07-18 | foundation | Test Database Isolation & Onboarding Fixes v3.17.1 | [Foundation_Test_Database_Isolation_And_Setup_Fixes_v3.17.1.md](./foundation/Foundation_Test_Database_Isolation_And_Setup_Fixes_v3.17.1.md) | [Plan](../implementation/foundation/Test_Database_Isolation_Plan_v3.23.0.md) | Completed |
+| 2026-07-18 | foundation | SSACF — Security & Access Control Framework v3.24.0 — 8 DB tables, policy engine, menu resolver, seed data, 3/3 tests passing | [Security_SSACF_Role_And_Menu_Engine_v3.24.0.md](./foundation/Security_SSACF_Role_And_Menu_Engine_v3.24.0.md) | [Plan](../implementation/foundation/Role_And_Menu_Security_Engine_v3.24.0.md) | Completed |
+

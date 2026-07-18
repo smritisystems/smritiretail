@@ -33,8 +33,14 @@ async def override_db(db_session):
     async def _get_db():
         yield db_session
     app.dependency_overrides[get_db] = _get_db
-    yield
-    app.dependency_overrides.pop(get_db, None)
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        try:
+            await clear_db(db_session)
+        except Exception:
+            pass
 
 
 def _auth_headers(user: User):

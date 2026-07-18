@@ -16,7 +16,7 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version      : 3.17.0
+* Version      : 3.24.0
 Created      : 2026-07-11
 Modified     : 2026-07-18
 Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
@@ -57,6 +57,7 @@ from .api.v1 import (
     reports,
     roles,
     sales,
+    security,
     supplier_payment,
     system,
     terms,
@@ -117,6 +118,7 @@ app.include_router(users.router,     prefix=settings.API_V1_STR + "/users",     
 app.include_router(inventory.router, prefix=settings.API_V1_STR + "/inventory",      tags=["Inventory"])  # Canonical route
 app.include_router(crm.router,       prefix=settings.API_V1_STR,                    tags=["CRM"])
 app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Canonical route (Phase 4A)
+app.include_router(purchase.router,  prefix=settings.API_V1_STR,                    tags=["Purchase-Legacy"])  # Root mount: /api/v1/suppliers/, /api/v1/purchase-receipts/ — retain until test suite migrated to /api/v1/purchase/*
 app.include_router(purchase.router,  prefix=settings.API_V1_STR + "/purchase",      tags=["Purchase"])         # Canonical route (Phase 4A)
 app.include_router(pos.router,              prefix=settings.API_V1_STR,                    tags=["POS Shift"])
 app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,                    tags=["Supplier Payments"])
@@ -134,6 +136,7 @@ app.include_router(ai.router,               prefix=settings.API_V1_STR + "/ai", 
 app.include_router(docs.router,             prefix=settings.API_V1_STR + "/docs",          tags=["Documentation"])
 app.include_router(system.router,           prefix=settings.API_V1_STR,                     tags=["System"])
 app.include_router(roles.router,            prefix=settings.API_V1_STR + "/roles",         tags=["Role Matrix"])
+app.include_router(security.router,         prefix=settings.API_V1_STR + "/security",      tags=["Security Engine"])
 app.include_router(compliance_router,       prefix=settings.API_V1_STR)
 
 

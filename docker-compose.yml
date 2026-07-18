@@ -45,6 +45,7 @@ services:
       STORAGE_PROVIDER: "filesystem"
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
       PYTHON_CORE_HOST: "python-core:8000"
+      INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:-smriti_test_internal_key_do_not_use_in_production}"
     volumes:
       - ./.git:/usr/src/app/.git
     depends_on:
@@ -72,6 +73,7 @@ services:
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
       JWT_SECRET_KEY: "${JWT_SECRET_KEY:-9a12c418-5a48-43d9-90b5-555a6d71b87a}"
       SGIP_VAULT_MASTER_KEY: "${SGIP_VAULT_MASTER_KEY:-sgip_vault_master_secret_key_12345}"
+      INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:-smriti_test_internal_key_do_not_use_in_production}"
       # When true, the container will skip running Alembic migrations on startup.
       # Recommended long-term: run migrations as a one-off job from CI or an init container.
       SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-false}"

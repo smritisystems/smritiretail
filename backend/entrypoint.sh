@@ -14,13 +14,15 @@ set -e
 
 export PYTHONPATH=/app
 
-# Optionally skip migrations (for controlled environments). Set SKIP_MIGRATIONS=true to disable.
 if [ "${SKIP_MIGRATIONS:-false}" != "true" ]; then
     echo "Running Alembic database migrations..."
     alembic upgrade head
 else
     echo "SKIP_MIGRATIONS=true, skipping Alembic migrations."
 fi
+
+echo "Running default database seeds..."
+python -m app.db.seed
 
 echo "Starting SMRITI FastAPI Python Core..."
 exec gunicorn app.main:app \
