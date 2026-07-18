@@ -5,7 +5,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.24.0
 Created      : 2026-07-18
-Modified     : 2026-07-18
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -56,8 +56,9 @@ async def seed_default_users():
         if not setup_config_exists:
             print("[SMRITI DB SEED] Seeding setup_completed system configuration...")
             await conn.execute(
-                "INSERT INTO system_configs (id, key, value, description, created_at, modified_at) "
-                "VALUES ('sys-setup-completed', 'setup_completed', 'true', 'System setup completed during default seeding', now(), now())"
+                "INSERT INTO system_configs (id, uuid, key, value, category, created_at, modified_at) "
+                "VALUES ('sys-setup-completed', $1, 'setup_completed', 'true', 'Setup', now(), now())",
+                str(uuid.uuid4())
             )
 
         # 4. Seed Generalized Master Lookup Types
@@ -82,9 +83,9 @@ async def seed_default_users():
             if not mt_exists:
                 print(f"[SMRITI DB SEED] Seeding master lookup type '{mt['code']}'...")
                 await conn.execute(
-                    "INSERT INTO master_types (id, uuid, code, label, field_schema, ui_schema, version, evidence_level, created_at) "
-                    "VALUES ($1, $2, $3, $4, cast($5 as jsonb), cast($6 as jsonb), 1, 'D', now())",
-                    str(uuid.uuid4()), str(uuid.uuid4()), mt["code"], mt["label"],
+                    "INSERT INTO master_types (id, code, label, field_schema, ui_schema, version, evidence_level, created_at) "
+                    "VALUES ($1, $2, $3, cast($4 as jsonb), cast($5 as jsonb), 1, 'D', now())",
+                    str(uuid.uuid4()), mt["code"], mt["label"],
                     json.dumps(mt["field_schema"]), json.dumps({})
                 )
 
@@ -105,9 +106,9 @@ async def seed_default_users():
             if not exists:
                 print(f"[SMRITI DB SEED] Seeding department value '{dept['name']}'...")
                 await conn.execute(
-                    "INSERT INTO master_values (id, uuid, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted) "
-                    "VALUES ($1, $2, $3, $4, $5, cast($6 as jsonb), true, 0, now(), false)",
-                    str(uuid.uuid4()), str(uuid.uuid4()), dept_type_id, dept["code"], dept["name"], json.dumps(dept["data"])
+                    "INSERT INTO master_values (id, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted) "
+                    "VALUES ($1, $2, $3, $4, cast($5 as jsonb), true, 0, now(), false)",
+                    str(uuid.uuid4()), dept_type_id, dept["code"], dept["name"], json.dumps(dept["data"])
                 )
 
         default_designations = [
@@ -122,9 +123,9 @@ async def seed_default_users():
             if not exists:
                 print(f"[SMRITI DB SEED] Seeding designation value '{desig['name']}'...")
                 await conn.execute(
-                    "INSERT INTO master_values (id, uuid, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted) "
-                    "VALUES ($1, $2, $3, $4, $5, cast($6 as jsonb), true, 0, now(), false)",
-                    str(uuid.uuid4()), str(uuid.uuid4()), desig_type_id, desig["code"], desig["name"], json.dumps(desig["data"])
+                    "INSERT INTO master_values (id, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted) "
+                    "VALUES ($1, $2, $3, $4, cast($5 as jsonb), true, 0, now(), false)",
+                    str(uuid.uuid4()), desig_type_id, desig["code"], desig["name"], json.dumps(desig["data"])
                 )
 
         # 6. Seed Dynamic Roles (SSACF)
