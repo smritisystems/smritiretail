@@ -13,7 +13,7 @@ License      : Proprietary Commercial Software
 
 # SMRITI repositories init
 from .product import ProductRepository
-from .customer import CustomerRepository, CustomerGroupRepository
+from .customer import CustomerRepository, CustomerGroupRepository, PricingGroupRepository
 from .sales import SalesInvoiceRepository
 from .pos import CashRegisterRepository, ShiftRepository
 

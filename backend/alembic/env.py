@@ -21,7 +21,7 @@ from app.core.config import settings
 from app.db.base import Base
 
 # Import all models to ensure they are registered on Base.metadata
-from app.models.crm import CustomerGroup, Customer
+from app.models.crm import CustomerGroup, PricingGroup, Customer
 from app.models.inventory import Product, StockMovement, Store, Warehouse
 from app.models.sales import (
     SalesInvoice, SalesInvoiceItem,

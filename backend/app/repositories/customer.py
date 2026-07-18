@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.8.0
+Version      : 3.26.0
 Created      : 2026-07-11
-Modified     : 2026-07-11
+Modified     : 2026-07-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -14,9 +14,10 @@ License      : Proprietary Commercial Software
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from ..models.crm import Customer, CustomerGroup
+from ..models.crm import Customer, CustomerGroup, PricingGroup
 from .base import BaseRepository
 from ..api.deps import TenantContext
+
 
 class CustomerRepository(BaseRepository[Customer]):
     def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
@@ -39,6 +40,13 @@ class CustomerRepository(BaseRepository[Customer]):
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
+
 class CustomerGroupRepository(BaseRepository[CustomerGroup]):
     def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
         super().__init__(CustomerGroup, db, tenant_ctx)
+
+
+class PricingGroupRepository(BaseRepository[PricingGroup]):
+    def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
+        super().__init__(PricingGroup, db, tenant_ctx)
+
