@@ -4,7 +4,7 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 3.29.0
+  Version      : 3.30.0
   Created      : 2026-07-11
   Modified     : 2026-07-19
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -56,6 +56,8 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-18 | v3.25.0 | [SSACF Phase 2 — Cache Abstraction, Cycle Detection & Scoped Permissions](./foundation/SSACF_Phase2_Roadmap_v3.25.0.md) | TBD | Draft | — |
 | 2026-07-19 | v3.28.0 | [Consignment & Sale on Approval GST Engine Refinement](./foundation/Consignment_Approval_GST_Engine_Plan_v3.28.0.md) | `/backend/app/models/dispatch.py`, `/backend/app/services/dispatch_gst.py` | Draft | — |
 | 2026-07-19 | v3.29.0 | [SMRITI Regulatory Engine (SRE)](./foundation/SRE_Engine_Implementation_Plan_v3.29.0.md) | `/backend/app/models/sre.py`, `/backend/app/services/sre/sre_service.py` | Draft | — |
+| 2026-07-19 | v3.30.0 | [SaaS Tenant Isolation & Data Security](./foundation/Tenant_Isolation_SaaS_Plan_v3.30.0.md) | `/backend/app/models/base.py`, `/backend/app/api/deps.py` | Draft | — |
+
 
 
 
