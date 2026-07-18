@@ -12,16 +12,19 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from datetime import datetime, timezone
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, Text, text
+from datetime import UTC, datetime
+
+from sqlalchemy import Boolean, Column, Date, ForeignKey, Integer, Numeric, String, Text, text
 from sqlalchemy.orm import relationship
+
 from ..db.base import Base, BaseEntity
+
 
 class SalesInvoice(BaseEntity):
     __tablename__ = "sales_invoices"
 
     invoice_no   = Column(String(100), nullable=False, unique=True)
-    date         = Column(Date, nullable=False, server_default=text("CURRENT_DATE"), default=lambda: datetime.now(timezone.utc).date())
+    date         = Column(Date, nullable=False, server_default=text("CURRENT_DATE"), default=lambda: datetime.now(UTC).date())
     customer_id  = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), index=True)
     shift_id     = Column(String(50), ForeignKey("shifts.id",    ondelete="SET NULL"), nullable=True, index=True)
     tax_total    = Column(Numeric(15, 2), default=0.00)
@@ -58,7 +61,7 @@ class SalesQuotation(BaseEntity):
     __tablename__ = "sales_quotations"
 
     quotation_no  = Column(String(100), nullable=False, unique=True)
-    date          = Column(Date, nullable=False, server_default=text("CURRENT_DATE"), default=lambda: datetime.now(timezone.utc).date())
+    date          = Column(Date, nullable=False, server_default=text("CURRENT_DATE"), default=lambda: datetime.now(UTC).date())
     customer_name = Column(String(255), nullable=False)
     tax_total     = Column(Numeric(15, 2), default=0.00)
     grand_total   = Column(Numeric(15, 2), nullable=False, default=0.00)
@@ -92,7 +95,7 @@ class SalesOrder(BaseEntity):
     __tablename__ = "sales_orders"
 
     order_no           = Column(String(100), nullable=False, unique=True)
-    date               = Column(Date, nullable=False, server_default=text("CURRENT_DATE"), default=lambda: datetime.now(timezone.utc).date())
+    date               = Column(Date, nullable=False, server_default=text("CURRENT_DATE"), default=lambda: datetime.now(UTC).date())
     customer_name      = Column(String(255), nullable=False)
     tax_total          = Column(Numeric(15, 2), default=0.00)
     grand_total        = Column(Numeric(15, 2), nullable=False, default=0.00)
@@ -128,7 +131,7 @@ class SalesReturn(BaseEntity):
     return_no          = Column(String(100), nullable=False, unique=True)
     original_invoice_id = Column(String(50), ForeignKey("sales_invoices.id", ondelete="RESTRICT"), nullable=False, index=True)
     credit_note_number = Column(String(100), nullable=True)
-    date               = Column(Date, nullable=False, server_default=text("CURRENT_DATE"), default=lambda: datetime.now(timezone.utc).date())
+    date               = Column(Date, nullable=False, server_default=text("CURRENT_DATE"), default=lambda: datetime.now(UTC).date())
     reason             = Column(Text, nullable=True)
     tax_total          = Column(Numeric(15, 2), default=0.00)
     grand_total        = Column(Numeric(15, 2), nullable=False, default=0.00)

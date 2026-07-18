@@ -11,8 +11,9 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from sqlalchemy import Column, String, Boolean, Text, Integer
+from sqlalchemy import Boolean, Column, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
+
 from ..db.base import BaseEntity
 
 

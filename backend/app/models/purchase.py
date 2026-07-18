@@ -24,7 +24,8 @@ Founders
 Classification: Internal
 """
 
-from sqlalchemy import Column, String, Numeric, Integer, ForeignKey, Text
+from sqlalchemy import Column, ForeignKey, Numeric, String, Text
+
 from ..db.base import BaseEntity
 
 

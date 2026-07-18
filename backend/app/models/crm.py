@@ -12,10 +12,13 @@ License      : Proprietary Commercial Software
 """
 
 from datetime import datetime
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date
-from sqlalchemy.orm import relationship
+
+from sqlalchemy import Boolean, Column, Date, ForeignKey, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.orm import relationship
+
 from ..db.base import BaseEntity
+
 
 class CustomerGroup(BaseEntity):
     __tablename__ = "customer_groups"

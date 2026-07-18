@@ -12,9 +12,11 @@ License      : Proprietary Commercial Software
 """
 
 from decimal import Decimal
-from ..models.crm import CustomerGroup, Customer
+
+from ..models.crm import Customer, CustomerGroup
 from ..models.inventory import Product
 from ..models.sales import SalesInvoice, SalesInvoiceItem
+
 
 def test_product_model_instantiation():
     product = Product(

@@ -24,11 +24,10 @@ Founders
 Classification: Internal
 """
 
-from decimal import Decimal
-from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from decimal import Decimal
 
+from pydantic import BaseModel
 
 # ─────────────────────────── Supplier ───────────────────────────
 
@@ -36,29 +35,29 @@ class SupplierCreate(BaseModel):
     id:          str
     name:        str
     code:        str
-    gst_number:  Optional[str] = None
-    mobile:      Optional[str] = None
-    email:       Optional[str] = None
-    address:     Optional[str] = None
-    city:        Optional[str] = None
-    state:       Optional[str] = None
-    pincode:     Optional[str] = None
+    gst_number:  str | None = None
+    mobile:      str | None = None
+    email:       str | None = None
+    address:     str | None = None
+    city:        str | None = None
+    state:       str | None = None
+    pincode:     str | None = None
 
 
 class SupplierResponse(BaseModel):
     id:          str
     name:        str
     code:        str
-    gst_number:  Optional[str] = None
-    mobile:      Optional[str] = None
-    email:       Optional[str] = None
-    address:     Optional[str] = None
-    city:        Optional[str] = None
-    state:       Optional[str] = None
-    pincode:     Optional[str] = None
+    gst_number:  str | None = None
+    mobile:      str | None = None
+    email:       str | None = None
+    address:     str | None = None
+    city:        str | None = None
+    state:       str | None = None
+    pincode:     str | None = None
     outstanding: Decimal
-    company_id:  Optional[str] = None
-    branch_id:   Optional[str] = None
+    company_id:  str | None = None
+    branch_id:   str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -66,14 +65,14 @@ class SupplierResponse(BaseModel):
 
 class SupplierUpdate(BaseModel):
     """Partial-update schema for a supplier. All fields optional."""
-    name:       Optional[str] = None
-    gst_number: Optional[str] = None
-    mobile:     Optional[str] = None
-    email:      Optional[str] = None
-    address:    Optional[str] = None
-    city:       Optional[str] = None
-    state:      Optional[str] = None
-    pincode:    Optional[str] = None
+    name:       str | None = None
+    gst_number: str | None = None
+    mobile:     str | None = None
+    email:      str | None = None
+    address:    str | None = None
+    city:       str | None = None
+    state:      str | None = None
+    pincode:    str | None = None
 
 
 # ─────────────────────────── Purchase Order ───────────────────────────
@@ -105,12 +104,12 @@ class PurchaseOrderCreate(BaseModel):
     id:          str
     order_no:    str
     supplier_id: str
-    notes:       Optional[str] = None
-    items:       List[PurchaseOrderItemCreate]
+    notes:       str | None = None
+    items:       list[PurchaseOrderItemCreate]
 
 class PurchaseOrderCancelRequest(BaseModel):
     """Optional cancellation reason for cancelling a purchase order."""
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 class PurchaseOrderAmendRequest(BaseModel):
@@ -120,21 +119,21 @@ class PurchaseOrderAmendRequest(BaseModel):
     """
     new_order_id: str
     new_order_no: str
-    items:        List[PurchaseOrderItemCreate]
-    reason:       Optional[str] = None
+    items:        list[PurchaseOrderItemCreate]
+    reason:       str | None = None
 
 class PurchaseOrderResponse(BaseModel):
     id:          str
     order_no:    str
     supplier_id: str
     status:      str
-    notes:       Optional[str] = None
+    notes:       str | None = None
     subtotal:    Decimal
     tax_total:   Decimal
     grand_total: Decimal
-    items:       List[PurchaseOrderItemResponse] = []
-    company_id:  Optional[str] = None
-    branch_id:   Optional[str] = None
+    items:       list[PurchaseOrderItemResponse] = []
+    company_id:  str | None = None
+    branch_id:   str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -145,7 +144,7 @@ class PurchaseReceiptItemCreate(BaseModel):
     product_id:       str
     code:             str
     name:             str
-    quantity_ordered:  Optional[Decimal] = None
+    quantity_ordered:  Decimal | None = None
     quantity_received: Decimal
     cost_price:       Decimal
     gst_rate:         Decimal = Decimal("18.00")
@@ -156,7 +155,7 @@ class PurchaseReceiptItemResponse(BaseModel):
     product_id:        str
     code:              str
     name:              str
-    quantity_ordered:  Optional[Decimal] = None
+    quantity_ordered:  Decimal | None = None
     quantity_received: Decimal
     cost_price:        Decimal
     gst_rate:          Decimal
@@ -170,24 +169,24 @@ class PurchaseReceiptCreate(BaseModel):
     id:          str
     receipt_no:  str
     supplier_id: str
-    order_id:    Optional[str] = None   # link to PO — optional
-    notes:       Optional[str] = None
-    items:       List[PurchaseReceiptItemCreate]
+    order_id:    str | None = None   # link to PO — optional
+    notes:       str | None = None
+    items:       list[PurchaseReceiptItemCreate]
 
 
 class PurchaseReceiptResponse(BaseModel):
     id:          str
     receipt_no:  str
     supplier_id: str
-    order_id:    Optional[str] = None
+    order_id:    str | None = None
     status:      str
-    notes:       Optional[str] = None
+    notes:       str | None = None
     subtotal:    Decimal
     tax_total:   Decimal
     grand_total: Decimal
-    items:       List[PurchaseReceiptItemResponse] = []
-    company_id:  Optional[str] = None
-    branch_id:   Optional[str] = None
+    items:       list[PurchaseReceiptItemResponse] = []
+    company_id:  str | None = None
+    branch_id:   str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -198,7 +197,7 @@ class PurchaseReorderConfigCreate(BaseModel):
     product_id:            str
     reorder_level:         Decimal
     reorder_quantity:      Decimal
-    preferred_supplier_id: Optional[str] = None
+    preferred_supplier_id: str | None = None
 
 
 class PurchaseReorderConfigResponse(BaseModel):
@@ -207,9 +206,9 @@ class PurchaseReorderConfigResponse(BaseModel):
     product_id:            str
     reorder_level:         Decimal
     reorder_quantity:      Decimal
-    preferred_supplier_id: Optional[str] = None
-    company_id:            Optional[str] = None
-    branch_id:             Optional[str] = None
+    preferred_supplier_id: str | None = None
+    company_id:            str | None = None
+    branch_id:             str | None = None
     created_at:            datetime
     modified_at:           datetime
     is_active:             bool
@@ -227,8 +226,8 @@ class PurchaseJurisdictionConfigResponse(BaseModel):
     id:            str
     uuid:          str
     company_state: str
-    company_id:    Optional[str] = None
-    branch_id:     Optional[str] = None
+    company_id:    str | None = None
+    branch_id:     str | None = None
     created_at:    datetime
     modified_at:   datetime
     is_active:     bool

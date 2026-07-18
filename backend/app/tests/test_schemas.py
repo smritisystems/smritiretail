@@ -12,11 +12,14 @@ License      : Proprietary Commercial Software
 """
 
 from decimal import Decimal
+
 import pytest
 from pydantic import ValidationError
-from app.schemas.crm import CustomerCreate, CustomerGroupCreate
+
+from app.schemas.crm import CustomerGroupCreate
 from app.schemas.inventory import ProductCreate
 from app.schemas.sales import SalesInvoiceCreate
+
 
 def test_crm_schema_validation():
     # Valid customer group creation

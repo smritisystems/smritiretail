@@ -11,16 +11,12 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Optional, List
-from fastapi import APIRouter, Depends, Query, HTTPException, Body
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_current_user, get_db, require_role
 from ...models.auth import User, UserRole
-from ...schemas.user import (
-    UserCreate, UserUpdate, UserResponse, UserListResponse, PasswordChange,
-    StaffUserCreate, StaffUserUpdate, StaffUserResponse, StaffUserListResponse
-)
+from ...schemas.user import PasswordChange, StaffUserCreate, StaffUserListResponse, StaffUserResponse, StaffUserUpdate
 from ...services.user import UserService, to_staff_response
 
 router = APIRouter()
@@ -55,9 +51,9 @@ async def create_staff_user(
 async def list_staff_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
-    role: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
-    search: Optional[str] = Query(None),
+    role: str | None = Query(None),
+    status: str | None = Query(None),
+    search: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """

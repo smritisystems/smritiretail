@@ -11,24 +11,41 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Any, Dict, List
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Body
+import re
+import secrets
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_current_user, get_db, require_role
 from ...models.auth import User, UserRole
-from ...models.system import TallyConfig, SystemConfig
+from ...models.inventory import Store
+from ...models.psv import PSVParty, PSVPartySkuTracking
+from ...models.system import SystemConfig, TallyConfig
+from ...models.tenant import Branch, Company
+from ...schemas.numbering import DocumentSeriesCreate
+from ...schemas.psv import PSVPartyResponse
 from ...schemas.system import (
-    TallyConfigCreate, TallyConfigUpdate, TallyConfigResponse,
-    SystemConfigCreate, SystemConfigUpdate, SystemConfigResponse
+    CompanySetupRequest,
+    StoreConfig,
+    SystemConfigCreate,
+    SystemConfigResponse,
+    SystemConfigUpdate,
+    TallyConfigCreate,
+    TallyConfigResponse,
 )
+from ...schemas.user import UserCreate
+from ...services.numbering import NumberingService
+from ...services.user import UserService
 
 router = APIRouter()
 
-DEFAULT_LAYOUT_PREFERENCES: Dict[str, Any] = {
+DEFAULT_LAYOUT_PREFERENCES: dict[str, Any] = {
     "position": "left",
     "collapsed": False,
     "iconOnly": False,
@@ -38,14 +55,69 @@ DEFAULT_LAYOUT_PREFERENCES: Dict[str, Any] = {
     "favorites": ["pos", "sales"],
 }
 
-layout_preferences: Dict[str, Any] = DEFAULT_LAYOUT_PREFERENCES.copy()
+SETUP_COMPLETED_KEY = "setup_completed"
+CURRENT_FINANCIAL_YEAR_KEY = "current_financial_year"
+BOOKS_START_DATE_KEY = "books_start_date"
+BUSINESS_TRADE_NAME_KEY = "business_trade_name"
+BUSINESS_TYPE_KEY = "business_type"
+BUSINESS_STATE_KEY = "business_state"
+BUSINESS_PAN_KEY = "business_pan"
+LICENSE_STATUS_KEY = "license_status"
+LICENSE_TYPE_KEY = "license_type"
+LICENSE_MODE_KEY = "license_mode"
+LICENSE_EXPIRES_KEY = "license_expires_at"
+
+layout_preferences: dict[str, Any] = DEFAULT_LAYOUT_PREFERENCES.copy()
+
+
+async def get_system_config(db: AsyncSession, key: str) -> SystemConfig | None:
+    q = select(SystemConfig).where(SystemConfig.key == key, SystemConfig.is_deleted == False)
+    res = await db.execute(q)
+    return res.scalars().first()
+
+
+async def set_system_config(
+    db: AsyncSession,
+    key: str,
+    value: str,
+    current_user: User,
+    commit: bool = True,
+) -> SystemConfig:
+    existing = await get_system_config(db, key)
+    if existing:
+        existing.value = value
+        existing.updated_by = current_user.username
+        existing.modified_at = datetime.now(UTC)
+        if commit:
+            await db.commit()
+        else:
+            await db.flush()
+        await db.refresh(existing)
+        return existing
+
+    new_id = f"sys-{int(datetime.now(UTC).timestamp())}"
+    config = SystemConfig(
+        id=new_id,
+        key=key,
+        value=value,
+        category="Setup",
+        created_by=current_user.username,
+        updated_by=current_user.username,
+    )
+    db.add(config)
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
+    await db.refresh(config)
+    return config
 
 
 # --- Tally Integration ---
 
 @router.get(
     "/tally",
-    response_model=List[TallyConfigResponse],
+    response_model=list[TallyConfigResponse],
 )
 async def get_tally_config(
     db: AsyncSession = Depends(get_db),
@@ -93,12 +165,12 @@ async def save_tally_config(
         existing.sync_interval_mins = req.syncIntervalMins
         existing.is_active = req.isActive if req.isActive is not None else True
         existing.updated_by = current_user.username
-        existing.modified_at = datetime.now(timezone.utc)
+        existing.modified_at = datetime.now(UTC)
         await db.commit()
         await db.refresh(existing)
         config = existing
     else:
-        new_id = f"tal-{int(datetime.now(timezone.utc).timestamp())}"
+        new_id = f"tal-{int(datetime.now(UTC).timestamp())}"
         config = TallyConfig(
             id=new_id,
             endpoint=req.endpoint,
@@ -151,7 +223,7 @@ async def sync_tally(
 
 @router.get(
     "/configs",
-    response_model=List[SystemConfigResponse],
+    response_model=list[SystemConfigResponse],
 )
 async def list_system_configs(
     db: AsyncSession = Depends(get_db),
@@ -184,7 +256,7 @@ async def create_system_config(
     if existing:
         raise HTTPException(status_code=400, detail=f"Configuration parameter '{req.key}' already registered.")
 
-    new_id = f"sys-{int(datetime.now(timezone.utc).timestamp())}"
+    new_id = f"sys-{int(datetime.now(UTC).timestamp())}"
     config = SystemConfig(
         id=new_id,
         key=req.key,
@@ -221,7 +293,7 @@ async def update_system_config(
 
     config.value = req.value
     config.updated_by = current_user.username
-    config.modified_at = datetime.now(timezone.utc)
+    config.modified_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(config)
     return config
@@ -247,12 +319,61 @@ async def health_check(
 
     return {
         "status": "Healthy" if db_healthy else "Degraded",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "services": {
             "database": "Connected" if db_healthy else "Disconnected",
             "server": "Active"
         }
     }
+
+
+@router.get(
+    "/psv/parties",
+    response_model=list[PSVPartyResponse],
+    summary="List PSV Partner Parties",
+    description="Returns Partner SKU Verification (PSV) partner party inventory and SKU tracking data.",
+)
+async def list_psv_parties(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List all PSV partner party records with SKU tracking details.
+    """
+    q = (
+        select(PSVParty)
+        .options(selectinload(PSVParty.sku_tracking).selectinload(PSVPartySkuTracking.product))
+        .order_by(PSVParty.name)
+    )
+    res = await db.execute(q)
+    parties = res.scalars().all()
+
+    result = []
+    for party in parties:
+        result.append({
+            "id": party.id,
+            "name": party.name,
+            "location": party.location,
+            "stockCount": int(party.stock_count or 0),
+            "sellThrough": float(party.sell_through or 0.0),
+            "weeksOfCover": float(party.weeks_of_cover or 0.0),
+            "capitalLocked": float(party.capital_locked or 0.0),
+            "status": party.status or "Healthy",
+            "history": [],
+            "skuTracking": [
+                {
+                    "productId": sku.product_id,
+                    "sku": sku.sku,
+                    "productName": sku.product.name if getattr(sku, "product", None) else None,
+                    "invoicedQty": int(sku.invoiced_qty or 0),
+                    "confirmedSoldQty": int(sku.confirmed_sold_qty or 0),
+                    "returnedQty": int(sku.returned_qty or 0),
+                }
+                for sku in (party.sku_tracking or [])
+            ],
+        })
+
+    return result
 
 
 # ─────────────────────────── Audit Logs ──────────────────────────────────────
@@ -288,7 +409,7 @@ async def create_audit_log(
         "record_id":  payload.recordId,
         "reason":     payload.reason,
         "user_id":    user.id,
-        "timestamp":  datetime.now(timezone.utc).isoformat(),
+        "timestamp":  datetime.now(UTC).isoformat(),
     }
 
 
@@ -318,7 +439,7 @@ async def get_layout_preferences():
     "/layout/preferences",
 )
 async def save_layout_preferences(
-    payload: Dict[str, Any] = Body(...),
+    payload: dict[str, Any] = Body(...),
 ):
     """
     Store UI layout preferences for the current backend instance.
@@ -338,35 +459,261 @@ async def save_layout_preferences(
     return {"success": True, "prefs": layout_preferences}
 
 
+@router.get(
+    "/setup-status",
+)
+@router.get(
+    "/system/setup-status",
+)
+async def get_setup_status(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return whether the company setup wizard has already completed for this tenant.
+    """
+    setup_config = await get_system_config(db, SETUP_COMPLETED_KEY)
+    return {"setupCompleted": setup_config is not None and setup_config.value == "true"}
+
+
+def normalize_staff_role(role: str) -> UserRole:
+    normalized = (role or "").strip().lower()
+    if any(keyword in normalized for keyword in ["owner", "administrator", "admin", "manager", "executive", "lead", "inventory"]):
+        return UserRole.MANAGER
+    if "cashier" in normalized:
+        return UserRole.CASHIER
+    if any(keyword in normalized for keyword in ["accountant", "account", "report"]):
+        return UserRole.REPORT_USER
+    if "viewer" in normalized:
+        return UserRole.VIEWER
+    return UserRole.CASHIER
+
+
+def normalize_branch_code(code: str | None, idx: int) -> str:
+    if code and code.strip():
+        return code.strip().upper().replace(" ", "-")
+    return f"BR-{idx + 1:02d}"
+
+
 @router.post(
     "/company/setup",
 )
 async def company_setup(
-    payload: Dict[str, Any] = Body(...),
+    payload: CompanySetupRequest = Body(...),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     Provision company setup from the onboarding wizard.
     """
-    business_info = payload.get("businessInfo", {}) or {}
-    org_structure = payload.get("orgStructure", {}) or {}
+    business_info = payload.businessInfo
+    org_structure = payload.orgStructure
+    users_payload = payload.users
 
-    company_name = business_info.get("name") or "SMRITI Retail Company"
-    first_branch_name = None
-    if isinstance(org_structure, dict):
-        stores = org_structure.get("stores")
-        if isinstance(stores, list) and stores:
-            first_branch_name = stores[0].get("name") or stores[0].get("code")
+    company_name = business_info.name or "SMRITI Retail Company"
+    company_gstin = business_info.gstin or None
+    branch_entries = org_structure.stores or []
+
+    existing_setup = await get_system_config(db, SETUP_COMPLETED_KEY)
+    if existing_setup and existing_setup.value == "true":
+        if current_user.role != UserRole.SYSADMIN:
+            raise HTTPException(
+                status_code=403,
+                detail="Only a SYSADMIN can run the company setup after initialization."
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="Company setup has already been completed."
+        )
+
+    if not branch_entries:
+        branch_entries = [
+            StoreConfig(
+                name=company_name,
+                code="BR-01",
+                type="Company Owned",
+                address="",
+                city="",
+                state="",
+                pinCode="",
+                contactPerson="Branch Manager",
+                mobile="",
+                email=""
+            )
+        ]
+
+    business_financial_year = business_info.financialYear or "2026-2027"
+    books_start_date = business_info.booksStartDate or "2026-04-01"
+    trade_name = business_info.tradeName or company_name
+    business_type = business_info.businessType or "retail"
+    business_state = business_info.state or ""
+    business_pan = business_info.pan or ""
+    license_status = (payload.license.status or "Trial").title()
+    license_type = (payload.license.type or "Trial").title()
+    license_mode = (payload.license.mode or "Offline").title()
+    license_expires_at = payload.license.expiresAt or (
+        (datetime.now(UTC) + timedelta(days=30)).isoformat()
+    )
+
+    timestamp_ms = int(datetime.now(UTC).timestamp() * 1000)
+    company_id = f"comp-{timestamp_ms}"
+    created_branches = []
+    created_stores = []
+    created_users = []
+    user_service = UserService(db)
+
+    staff_entries = users_payload.staff or []
+
+    async with db.begin():
+        company = Company(
+            id=company_id,
+            name=company_name,
+            gst_number=company_gstin,
+            is_active=True,
+            is_deleted=False,
+        )
+        db.add(company)
+        await db.flush()
+
+        for idx, store in enumerate(branch_entries):
+            branch_name = store.name or store.code or f"Branch {idx + 1}"
+            branch_code = normalize_branch_code(store.code, idx)
+            branch_id = f"br-{timestamp_ms + idx}"
+            branch = Branch(
+                id=branch_id,
+                company_id=company_id,
+                name=branch_name,
+                code=branch_code,
+                is_active=True,
+                is_deleted=False,
+            )
+            db.add(branch)
+            created_branches.append(branch)
+
+            store_id = f"stor-{timestamp_ms + idx}"
+            store_record = Store(
+                id=store_id,
+                company_id=company_id,
+                branch_id=branch_id,
+                code=branch_code,
+                name=branch_name,
+                store_type=store.type or "Company Owned",
+                address=store.address or "",
+                is_active=True,
+                is_deleted=False,
+                created_by=current_user.username,
+                updated_by=current_user.username,
+            )
+            db.add(store_record)
+            created_stores.append(store_record)
+
+        for idx, staff in enumerate(staff_entries):
+            username = (staff.username or "").strip()
+            display_name = (staff.name or username or f"user{idx + 1}").strip()
+            role = normalize_staff_role(staff.role or "Cashier")
+            email = staff.email or None
+            mobile = staff.mobile or None
+            assigned_branch = created_branches[0] if created_branches else None
+
+            if not username:
+                username = re.sub(r"[^a-z0-9]", "", display_name.lower()) or f"user{idx + 1}"
+
+            temp_password = secrets.token_urlsafe(12)
+            user_req = UserCreate(
+                username=username,
+                password=temp_password,
+                email=email,
+                mobile=mobile,
+                role=role,
+                company_id=company_id if role != UserRole.SYSADMIN else None,
+                branch_id=assigned_branch.id if assigned_branch is not None else None,
+            )
+            created_user = await user_service.create_user(user_req, commit=False)
+            created_users.append({
+                "id": created_user.id,
+                "username": created_user.username,
+                "role": created_user.role.value,
+                "company_id": created_user.company_id,
+                "branch_id": created_user.branch_id,
+                "temp_password": temp_password,
+            })
+
+        numbering_service = NumberingService(db)
+        numbering_templates = payload.numbering or []
+
+        if not numbering_templates:
+            numbering_templates = [
+                DocumentSeriesCreate(
+                    name="Sales Invoice Series",
+                    documentType="Sales Invoice",
+                    module="Sales",
+                    prefix="SI-{FY}-",
+                    suffix="",
+                    runningLength=6,
+                    resetRule="Financial Year",
+                    currentNumber=0,
+                    financialYear=business_financial_year,
+                    companyCode=company_id,
+                    mode="Auto",
+                    description="Default sales invoice numbering series.",
+                ),
+                DocumentSeriesCreate(
+                    name="Purchase Order Series",
+                    documentType="Purchase Order",
+                    module="Purchase",
+                    prefix="PO-{FY}-",
+                    suffix="",
+                    runningLength=6,
+                    resetRule="Financial Year",
+                    currentNumber=0,
+                    financialYear=business_financial_year,
+                    companyCode=company_id,
+                    mode="Auto",
+                    description="Default purchase order numbering series.",
+                ),
+            ]
+
+        for series_req in numbering_templates:
+            if not series_req.companyCode:
+                series_req.companyCode = company_id
+            if not series_req.financialYear:
+                series_req.financialYear = business_financial_year
+
+            existing_series = await numbering_service.get_series(
+                series_req.companyCode,
+                series_req.documentType,
+            )
+            if existing_series:
+                continue
+
+            await numbering_service.create_series(series_req, current_user.username, commit=False)
+
+        await set_system_config(db, CURRENT_FINANCIAL_YEAR_KEY, business_financial_year, current_user, commit=False)
+        await set_system_config(db, BOOKS_START_DATE_KEY, books_start_date, current_user, commit=False)
+        await set_system_config(db, BUSINESS_TRADE_NAME_KEY, trade_name, current_user, commit=False)
+        await set_system_config(db, BUSINESS_TYPE_KEY, business_type, current_user, commit=False)
+        await set_system_config(db, BUSINESS_STATE_KEY, business_state, current_user, commit=False)
+        await set_system_config(db, BUSINESS_PAN_KEY, business_pan, current_user, commit=False)
+        await set_system_config(db, LICENSE_STATUS_KEY, license_status, current_user, commit=False)
+        await set_system_config(db, LICENSE_TYPE_KEY, license_type, current_user, commit=False)
+        await set_system_config(db, LICENSE_MODE_KEY, license_mode, current_user, commit=False)
+        await set_system_config(db, LICENSE_EXPIRES_KEY, license_expires_at, current_user, commit=False)
+        await set_system_config(db, SETUP_COMPLETED_KEY, "true", current_user, commit=False)
 
     return {
         "success": True,
-        "message": f"Company setup completed for {company_name}.",
         "company": {
-            "name": company_name,
-            "branch": first_branch_name or "Default Branch",
-        },
-        "wizard": {
-            "businessInfo": business_info,
-            "orgStructure": org_structure,
+            "id": company.id,
+            "name": company.name,
+            "gstin": company.gst_number,
+            "branches": [
+                {"id": b.id, "name": b.name, "code": b.code}
+                for b in created_branches
+            ],
+            "stores": [
+                {"id": s.id, "name": s.name, "code": s.code, "branch_id": s.branch_id}
+                for s in created_stores
+            ],
+            "users": created_users,
         },
     }

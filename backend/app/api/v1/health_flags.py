@@ -11,13 +11,14 @@ Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+from typing import Any
+
 from fastapi import APIRouter
-from typing import Dict, Any
 
 router = APIRouter()
 
 # Contract URL endpoints that must be reachable for each feature flag
-FLAG_ENDPOINTS: Dict[str, list] = {
+FLAG_ENDPOINTS: dict[str, list] = {
     "USE_FASTAPI_POS": [
         "POST /api/v1/pos/shifts/open",
         "POST /api/v1/pos/shifts/close/{shift_id}",
@@ -41,7 +42,7 @@ FLAG_ENDPOINTS: Dict[str, list] = {
     ],
 }
 
-DEPRECATED_ENDPOINTS: Dict[str, list] = {
+DEPRECATED_ENDPOINTS: dict[str, list] = {
     "USE_FASTAPI_POS": [
         "POST /api/v1/shifts/open (deprecated — REMOVED in v3.20.0)",
         "POST /api/v1/shifts/{id}/close (deprecated — REMOVED in v3.20.0)",
@@ -58,7 +59,7 @@ DEPRECATED_ENDPOINTS: Dict[str, list] = {
 
 
 @router.get("/flags", summary="Feature Flag Health Check")
-async def flag_health() -> Dict[str, Any]:
+async def flag_health() -> dict[str, Any]:
     """
     Returns the current state of each FastAPI feature flag cutover.
     Shows which contract URL endpoints are registered and which legacy

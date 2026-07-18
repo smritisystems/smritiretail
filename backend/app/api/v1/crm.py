@@ -11,19 +11,23 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...api.deps import get_db, get_tenant_context, TenantContext, require_role
+
+from ...api.deps import TenantContext, get_db, get_tenant_context, require_role
 from ...models.auth import UserRole
 from ...models.crm import Customer
+from ...repositories.customer import CustomerGroupRepository, CustomerRepository
 from ...schemas.crm import (
-    CustomerCreate, CustomerResponse,
-    CustomerGroupCreate, CustomerGroupResponse,
+    CustomerCreate,
+    CustomerGroupCreate,
+    CustomerGroupResponse,
+    CustomerResponse,
 )
-from ...repositories.customer import CustomerRepository, CustomerGroupRepository
 from ...services.crm import CrmService
 
 router = APIRouter()
@@ -48,8 +52,8 @@ async def create_customer(
 
 
 class CustomerValidationRequest(BaseModel):
-    customer: Dict[str, Any]
-    existingCustomers: Optional[List[Dict[str, Any]]] = None
+    customer: dict[str, Any]
+    existingCustomers: list[dict[str, Any]] | None = None
 
 
 @router.post(
@@ -89,8 +93,8 @@ async def validate_customer_add(
         if email:
             seen_emails.add(email)
 
-    errors: List[str] = []
-    warnings: List[str] = []
+    errors: list[str] = []
+    warnings: list[str] = []
 
     name = str(payload.get("name") or "").strip()
     mobile = str(payload.get("mobile") or "").strip()
@@ -123,7 +127,7 @@ async def validate_customer_add(
     return {"valid": valid, "errors": errors, "warnings": warnings}
 
 
-@router.get("/customers", response_model=List[CustomerResponse])
+@router.get("/customers", response_model=list[CustomerResponse])
 async def list_customers(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
@@ -134,9 +138,9 @@ async def list_customers(
     return await repo.get_all(skip=skip, limit=limit)
 
 
-@router.get("/customers/search", response_model=List[CustomerResponse])
+@router.get("/customers/search", response_model=list[CustomerResponse])
 async def search_customers(
-    q: Optional[str] = Query(None),
+    q: str | None = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -177,7 +181,7 @@ async def create_customer_group(
     return await service.create_customer_group(group_in)
 
 
-@router.get("/customer-groups", response_model=List[CustomerGroupResponse])
+@router.get("/customer-groups", response_model=list[CustomerGroupResponse])
 async def list_customer_groups(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),

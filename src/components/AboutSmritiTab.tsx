@@ -33,7 +33,7 @@ export const AboutSmritiTab: React.FC = () => {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [metadata, setMetadata] = useState<any>(null);
-  const [clientModules, setClientModules] = useState<ModuleMetadata[]>([]);
+  const [clientModules, setClientModules] = useState<ReadonlyArray<ModuleMetadata>>([]);
   const [changelog, setChangelog] = useState<string>("");
   const [loadingChangelog, setLoadingChangelog] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -79,8 +79,11 @@ export const AboutSmritiTab: React.FC = () => {
         console.error("Failed to load metadata:", err);
         setLoading(false);
       });
-      
-    setClientModules(MetadataRegistry.getModules());
+
+    const updateModules = () => setClientModules(MetadataRegistry.getModules());
+    updateModules();
+    const unsubscribe = MetadataRegistry.subscribe(updateModules);
+    return unsubscribe;
   }, []);
 
   // Fetch changelog when Release Notes tab is active

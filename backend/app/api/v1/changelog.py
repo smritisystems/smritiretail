@@ -23,9 +23,10 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse
-from pathlib import Path
 
 router = APIRouter()
 
@@ -49,7 +50,7 @@ async def get_changelog():
         raise HTTPException(status_code=404, detail="Changelog file not found")
         
     try:
-        with open(changelog_path, "r", encoding="utf-8") as f:
+        with open(changelog_path, encoding="utf-8") as f:
             return f.read()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read changelog: {e}")

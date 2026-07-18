@@ -126,9 +126,20 @@ class MetadataRegistryService {
   private apis: Map<string, ApiMetadata> = new Map();
   private databases: Map<string, DatabaseMetadata> = new Map();
   private printTemplates: Map<string, PrintTemplateMetadata> = new Map();
+  private subscribers: Set<() => void> = new Set();
+
+  subscribe(callback: () => void): () => void {
+    this.subscribers.add(callback);
+    return () => this.subscribers.delete(callback);
+  }
+
+  private notify() {
+    this.subscribers.forEach(cb => cb());
+  }
 
   registerModule(metadata: ModuleMetadata) {
     this.modules.set(metadata.id, metadata);
+    this.notify();
   }
 
   registerScreen(metadata: ScreenMetadata) {

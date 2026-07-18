@@ -12,7 +12,6 @@ License      : Proprietary Commercial Software
 """
 
 import datetime
-from datetime import timezone
 import traceback
 from pathlib import Path
 
@@ -42,7 +41,7 @@ def build_enhanced_json(status_code: int, response_model: SmritiErrorResponse) -
         "suggested_action": response_model.error.suggested_action,
         "error_code": response_model.error.error_code,
         "reference_id": response_model.error.reference_id,
-        "timestamp": datetime.datetime.now(timezone.utc).isoformat() + "Z",
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat() + "Z",
         "documentation": "/docs"
     })
     return content
@@ -57,7 +56,7 @@ def dispatch_response(request: Request, exc: Exception | None, status_code: int,
             stack_trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
             
         request_id = getattr(request.state, "request_id", None)
-        timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
         
         return templates.TemplateResponse(
             request=request,

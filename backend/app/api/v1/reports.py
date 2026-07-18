@@ -17,18 +17,18 @@ Founders
 """
 
 from datetime import date
-from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_tenant_context, get_current_user, TenantContext
-from ...schemas.reports import (
-    StockValuationReport,
-    DailySalesSummary,
-    SupplierLedger,
-    PurchaseSummaryLine,
-)
+from ...api.deps import TenantContext, get_current_user, get_db, get_tenant_context
 from ...schemas.report_schedule import ReportScheduleCreate, ReportScheduleResponse
+from ...schemas.reports import (
+    DailySalesSummary,
+    PurchaseSummaryLine,
+    StockValuationReport,
+    SupplierLedger,
+)
 from ...services.reports import ReportsService
 
 router = APIRouter(prefix="/reports")
@@ -114,10 +114,10 @@ async def supplier_ledger(
     return await ReportsService(db, tenant).supplier_ledger(supplier_id)
 
 
-@router.get("/purchase-summary", response_model=List[PurchaseSummaryLine])
+@router.get("/purchase-summary", response_model=list[PurchaseSummaryLine])
 async def purchase_summary(
-    from_date: Optional[date] = Query(default=None, description="Start date (YYYY-MM-DD)"),
-    to_date:   Optional[date] = Query(default=None, description="End date (YYYY-MM-DD)"),
+    from_date: date | None = Query(default=None, description="Start date (YYYY-MM-DD)"),
+    to_date:   date | None = Query(default=None, description="End date (YYYY-MM-DD)"),
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_db),
 ):
@@ -155,7 +155,7 @@ async def list_studios(
 # Report Schedule CRUD
 # ─────────────────────────────────────────────────────────────────────────────
 
-@router.get("/schedules", response_model=List[ReportScheduleResponse])
+@router.get("/schedules", response_model=list[ReportScheduleResponse])
 async def list_report_schedules(
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_db),

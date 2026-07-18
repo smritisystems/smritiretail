@@ -11,24 +11,33 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-import uuid
 import json
 import random
-from datetime import datetime, timezone
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+import uuid
+from datetime import UTC, datetime
+
+from fastapi import HTTPException
 from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
-from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 
+from ..core.security import hash_password, validate_password_strength, verify_password
 from ..models.auth import User, UserRole
-from ..models.tenant import Company, Branch
+from ..models.tenant import Branch, Company
 from ..schemas.user import (
-    UserCreate, UserUpdate, PasswordChange, StaffUserCreate, StaffUserUpdate,
-    StaffUserResponse, SalaryStructure, PaymentDetails, PerformanceMetrics,
-    UserPreferencesSchema, NotificationSettings
+    NotificationSettings,
+    PasswordChange,
+    PaymentDetails,
+    PerformanceMetrics,
+    SalaryStructure,
+    StaffUserCreate,
+    StaffUserResponse,
+    StaffUserUpdate,
+    UserCreate,
+    UserPreferencesSchema,
+    UserUpdate,
 )
-from ..core.security import hash_password, verify_password
 
 
 def to_staff_response(user: User) -> StaffUserResponse:
@@ -119,7 +128,7 @@ class UserService:
     # ------------------------------------------------------------------
     # Create user (SYSADMIN only)
     # ------------------------------------------------------------------
-    async def create_user(self, req: UserCreate) -> User:
+    async def create_user(self, req: UserCreate, commit: bool = True) -> User:
         if req.role != UserRole.SYSADMIN:
             if not req.company_id or not req.branch_id:
                 raise HTTPException(
@@ -144,6 +153,7 @@ class UserService:
                            "or does not belong to the given company.",
                 )
 
+        validate_password_strength(req.password)
         user = User(
             id=f"usr-{uuid.uuid4().hex[:8]}",
             username=req.username,
@@ -158,9 +168,13 @@ class UserService:
         )
         self.db.add(user)
         try:
-            await self.db.commit()
+            if commit:
+                await self.db.commit()
+            else:
+                await self.db.flush()
         except IntegrityError:
-            await self.db.rollback()
+            if commit:
+                await self.db.rollback()
             raise HTTPException(
                 status_code=400,
                 detail="A user with this username or email already exists. "
@@ -224,7 +238,7 @@ class UserService:
                     detail=f"A {effective_role.value} user must have both a company and branch assigned.",
                 )
 
-        user.modified_at = datetime.now(timezone.utc)
+        user.modified_at = datetime.now(UTC)
         try:
             await self.db.commit()
         except IntegrityError:
@@ -250,7 +264,7 @@ class UserService:
         user.is_active  = False
         user.is_deleted = True
         user.status = "Inactive"
-        user.modified_at = datetime.now(timezone.utc)
+        user.modified_at = datetime.now(UTC)
         await self.db.commit()
 
     # ------------------------------------------------------------------
@@ -264,13 +278,15 @@ class UserService:
                 detail="The current password you entered is incorrect. "
                        "Please try again.",
             )
-        if len(req.new_password) < 8:
+        if req.current_password == req.new_password:
             raise HTTPException(
                 status_code=400,
-                detail="Your new password must be at least 8 characters long.",
+                detail="The new password must be different from the current password.",
             )
+        validate_password_strength(req.new_password)
         user.hashed_password = hash_password(req.new_password)
-        user.modified_at = datetime.now(timezone.utc)
+        user.modified_at = datetime.now(UTC)
+        user.status = "Active"
         await self.db.commit()
 
     # ==================================================================
@@ -432,7 +448,7 @@ class UserService:
         if req.preferences is not None: user.preferences_json = req.preferences.json()
         if req.notificationSettings is not None: user.notification_settings_json = req.notificationSettings.json()
 
-        user.modified_at = datetime.now(timezone.utc)
+        user.modified_at = datetime.now(UTC)
         await self.db.commit()
         await self.db.refresh(user)
         return to_staff_response(user)
@@ -447,7 +463,7 @@ class UserService:
                 pass
         current.update(preferences)
         user.preferences_json = json.dumps(current)
-        user.modified_at = datetime.now(timezone.utc)
+        user.modified_at = datetime.now(UTC)
         await self.db.commit()
         await self.db.refresh(user)
         return to_staff_response(user)
@@ -462,7 +478,7 @@ class UserService:
                 pass
         current.update(notifications)
         user.notification_settings_json = json.dumps(current)
-        user.modified_at = datetime.now(timezone.utc)
+        user.modified_at = datetime.now(UTC)
         await self.db.commit()
         await self.db.refresh(user)
         return to_staff_response(user)
@@ -470,7 +486,7 @@ class UserService:
     async def update_photo(self, user_id: str, photo: str) -> StaffUserResponse:
         user = await self.get_user(user_id)
         user.photo = photo
-        user.modified_at = datetime.now(timezone.utc)
+        user.modified_at = datetime.now(UTC)
         await self.db.commit()
         await self.db.refresh(user)
         return to_staff_response(user)
@@ -510,8 +526,21 @@ class UserService:
         if user_id == requesting_user_id:
             raise HTTPException(status_code=400, detail="You cannot delete your own active operator profile.")
         user = await self.get_user(user_id)
+        if user.role == UserRole.SYSADMIN:
+            q = select(func.count()).where(
+                User.role == UserRole.SYSADMIN,
+                User.is_deleted == False,
+                User.is_active == True,
+                User.id != user.id,
+            )
+            remaining = (await self.db.execute(q)).scalar_one()
+            if remaining == 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot deactivate the last active SYSADMIN. Add another SYSADMIN before removing this account.",
+                )
         user.is_active = False
         user.is_deleted = True
         user.status = "Inactive"
-        user.modified_at = datetime.now(timezone.utc)
+        user.modified_at = datetime.now(UTC)
         await self.db.commit()

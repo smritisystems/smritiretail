@@ -12,16 +12,23 @@ License      : Proprietary Commercial Software
 """
 
 import json
-from typing import List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Body
+
+from fastapi import APIRouter, Body, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_current_user, get_db, require_role
 from ...models.auth import User, UserRole
 from ...schemas.terms import (
-    TermsClauseCreate, TermsClauseUpdate, TermsClauseResponse,
-    TermsDefaultCreate, TermsDefaultResponse, TermsResolveRequest, TermsResolveResponse,
-    TermsSnapshotCreate, TermsSnapshotResponse, ApprovalWorkflowLogResponse
+    ApprovalWorkflowLogResponse,
+    TermsClauseCreate,
+    TermsClauseResponse,
+    TermsClauseUpdate,
+    TermsDefaultCreate,
+    TermsDefaultResponse,
+    TermsResolveRequest,
+    TermsResolveResponse,
+    TermsSnapshotCreate,
+    TermsSnapshotResponse,
 )
 from ...services.terms import TermsService
 
@@ -30,7 +37,7 @@ router = APIRouter()
 
 @router.get(
     "/clauses",
-    response_model=List[TermsClauseResponse],
+    response_model=list[TermsClauseResponse],
 )
 async def list_clauses(
     db: AsyncSession = Depends(get_db),
@@ -213,7 +220,7 @@ async def reject_clause(
 
 @router.get(
     "/defaults",
-    response_model=List[TermsDefaultResponse],
+    response_model=list[TermsDefaultResponse],
 )
 async def list_defaults(
     db: AsyncSession = Depends(get_db),
@@ -282,7 +289,7 @@ async def resolve_terms(
 
 @router.get(
     "/snapshots",
-    response_model=List[TermsSnapshotResponse],
+    response_model=list[TermsSnapshotResponse],
     dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
 )
 async def list_snapshots(
@@ -356,7 +363,7 @@ async def save_snapshot(
 
 @router.get(
     "/logs",
-    response_model=List[ApprovalWorkflowLogResponse],
+    response_model=list[ApprovalWorkflowLogResponse],
     dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
 )
 async def list_logs(

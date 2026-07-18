@@ -17,17 +17,21 @@ Founders
 """
 
 
-from typing import List, Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_tenant_context, require_role, TenantContext, get_current_user
-from ...models.auth import UserRole, User
+from ...api.deps import TenantContext, get_current_user, get_db, get_tenant_context, require_role
+from ...models.auth import User, UserRole
 from ...schemas.pos import (
-    CashRegisterCreate, CashRegisterResponse,
-    POSProfileCreate, POSProfileResponse,
-    ShiftOpen, ShiftClose, ShiftResponse,
-    POSCheckoutRequest, POSCheckoutResponse,
+    CashRegisterCreate,
+    CashRegisterResponse,
+    POSCheckoutRequest,
+    POSCheckoutResponse,
+    POSProfileCreate,
+    POSProfileResponse,
+    ShiftClose,
+    ShiftOpen,
+    ShiftResponse,
 )
 from ...services.pos import POSService
 
@@ -50,7 +54,7 @@ async def create_register(
     return await POSService(db, tenant).create_register(req)
 
 
-@router.get("/registers/", response_model=List[CashRegisterResponse])
+@router.get("/registers/", response_model=list[CashRegisterResponse])
 async def list_registers(
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_db),
@@ -178,7 +182,7 @@ async def create_pos_profile(
 
 @router.get(
     "/pos/profiles/",
-    response_model=List[POSProfileResponse],
+    response_model=list[POSProfileResponse],
     summary="List POS Profiles",
 )
 async def list_pos_profiles(
@@ -240,7 +244,7 @@ async def toggle_lock_pos_profile(
 
 @router.get(
     "/pos/shifts/",
-    response_model=List[ShiftResponse],
+    response_model=list[ShiftResponse],
     summary="List All Shifts",
     description="List the 100 most recent shifts for this tenant.",
 )

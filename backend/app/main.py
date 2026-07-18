@@ -25,7 +25,6 @@ License      : Proprietary Commercial Software
 
 import datetime
 import time
-
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -36,6 +35,7 @@ from app.compliance.api import router as compliance_router
 
 from .api.v1 import (
     ai,
+    assignments,
     attributes,
     auth,
     barcode,
@@ -51,6 +51,7 @@ from .api.v1 import (
     metadata,
     numbering,
     pos,
+    product_identity,
     purchase,
     reports,
     roles,
@@ -124,10 +125,12 @@ app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,         
 app.include_router(reports.router,          prefix=settings.API_V1_STR,                    tags=["Reports"])
 app.include_router(master_lookup.router,    prefix=settings.API_V1_STR + "/masters",       tags=["Masters"])
 app.include_router(masters.router,          prefix=settings.API_V1_STR + "/masters",       tags=["Masters"])
+app.include_router(assignments.router,      prefix=settings.API_V1_STR,                      tags=["Assignments"])
 app.include_router(numbering.router,        prefix=settings.API_V1_STR + "/numbering",     tags=["Numbering Engine"])
 app.include_router(terms.router,            prefix=settings.API_V1_STR + "/terms",         tags=["Terms & Conditions"])
 app.include_router(attributes.router,       prefix=settings.API_V1_STR + "/attributes",    tags=["Attributes & Variants"])  # noqa: E501
 app.include_router(barcode.router,          prefix=settings.API_V1_STR + "/barcode",       tags=["Barcode Studio"])
+app.include_router(product_identity.router, prefix=settings.API_V1_STR + "/product-identity", tags=["Product Identity Engine"])
 app.include_router(exchange.router,         prefix=settings.API_V1_STR + "/exchange",      tags=["Data Exchange Hub"])
 app.include_router(ai.router,               prefix=settings.API_V1_STR + "/ai",            tags=["AI Assistant"])
 app.include_router(docs.router,             prefix=settings.API_V1_STR + "/docs",          tags=["Documentation"])

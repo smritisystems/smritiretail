@@ -11,11 +11,11 @@ License      : Proprietary Commercial Software
 """
 
 from pathlib import Path
-from typing import List, Optional
-from pydantic import BaseModel
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
 
-from ...api.deps import get_current_user, require_role
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+
+from ...api.deps import require_role
 from ...models.auth import UserRole
 
 router = APIRouter()
@@ -28,15 +28,15 @@ class WikiDoc(BaseModel):
     name: str
     folder: str
     title: str
-    snippet: Optional[str] = None
+    snippet: str | None = None
 
 
 class DocsAskRequest(BaseModel):
     question: str
 
 
-def crawl_docs_directory(dir_path: Path) -> List[WikiDoc]:
-    docs: List[WikiDoc] = []
+def crawl_docs_directory(dir_path: Path) -> list[WikiDoc]:
+    docs: list[WikiDoc] = []
     if not dir_path.exists() or not dir_path.is_dir():
         return docs
 
@@ -67,7 +67,7 @@ def crawl_docs_directory(dir_path: Path) -> List[WikiDoc]:
 
 @router.get(
     "/list",
-    response_model=List[WikiDoc],
+    response_model=list[WikiDoc],
     dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN, UserRole.REPORT_USER, UserRole.VIEWER))],
 )
 async def list_wiki_docs():
@@ -106,7 +106,7 @@ async def get_wiki_doc_content(path: str = Query(..., description="Relative path
 
 @router.get(
     "/search",
-    response_model=List[WikiDoc],
+    response_model=list[WikiDoc],
     dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN, UserRole.REPORT_USER, UserRole.VIEWER))],
 )
 async def search_wiki_docs(q: str = Query(..., min_length=1, description="Search query string.")):
@@ -115,7 +115,7 @@ async def search_wiki_docs(q: str = Query(..., min_length=1, description="Search
     if not query:
         return []
 
-    results: List[WikiDoc] = []
+    results: list[WikiDoc] = []
     for doc in crawl_docs_directory(DOCS_ROOT):
         file_path = DOCS_ROOT / doc.path
         try:

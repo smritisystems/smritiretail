@@ -24,18 +24,24 @@ Founders
 """
 
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.exc import IntegrityError
-from fastapi import HTTPException
-from ..models.auth import User, RefreshTokenBlacklist, UserRole
-from ..schemas.auth import LoginRequest, BootstrapRequest
-from ..core.security import (
-    hash_password, verify_password,
-    create_access_token, create_refresh_token, decode_token,
-)
+
 from ..core.config import settings
+from ..core.security import (
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    hash_password,
+    validate_password_strength,
+    verify_password,
+)
+from ..models.auth import RefreshTokenBlacklist, User, UserRole
+from ..schemas.auth import BootstrapRequest, LoginRequest
 
 
 def _build_token_payload(user: User) -> dict:
@@ -69,6 +75,7 @@ class AuthService:
                 detail="System already has registered users. Bootstrap is only allowed on a fresh installation."
             )
 
+        validate_password_strength(req.password)
         admin = User(
             id=f"usr-{uuid.uuid4().hex[:6]}",
             username=req.username,
@@ -80,6 +87,7 @@ class AuthService:
             is_deleted=False,
             company_id=None,   # SYSADMIN is global
             branch_id=None,
+            status="PendingPasswordChange",
         )
         self.db.add(admin)
         try:
@@ -110,11 +118,34 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        if req.company_id is not None and user.company_id is not None and user.company_id != req.company_id:
+            raise HTTPException(
+                status_code=401,
+                detail="Incorrect username or password.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if req.branch_id is not None and user.branch_id is not None and user.branch_id != req.branch_id:
+            raise HTTPException(
+                status_code=401,
+                detail="Incorrect username or password.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
         if not verify_password(req.password, user.hashed_password):
             raise HTTPException(
                 status_code=401,
                 detail="Incorrect username or password.",
                 headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if user.role != UserRole.SYSADMIN and (not user.company_id or not user.branch_id):
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Your operator account is not assigned to a company and branch. "
+                    "A SYSADMIN must assign tenant access before you can sign in."
+                ),
             )
 
         payload = _build_token_payload(user)
@@ -125,6 +156,8 @@ class AuthService:
             "role":          user.role,
             "company_id":    user.company_id,
             "branch_id":     user.branch_id,
+            "password_reset_required": user.status == "PendingPasswordChange",
+            "user":          user,
         }
 
     # ------------------------------------------------------------------
@@ -180,9 +213,9 @@ class AuthService:
         jti = payload.get("jti") or str(uuid.uuid4())
         exp = payload.get("exp")
         expires_at = (
-            datetime.fromtimestamp(exp, tz=timezone.utc)
+            datetime.fromtimestamp(exp, tz=UTC)
             if exp
-            else datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+            else datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         )
 
         entry = RefreshTokenBlacklist(

@@ -23,30 +23,40 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Optional
-from jose import JWTError, jwt
-import bcrypt
-import hashlib
 import binascii
+import hashlib
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+
 from fastapi import HTTPException
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from passlib.exc import MissingBackendError
+
 from .config import settings
 
+pwd_context = CryptContext(
+    schemes=["argon2", "bcrypt"],
+    deprecated="auto",
+)
+
 # ---------------------------------------------------------------------------
-# Password hashing — bcrypt directly
+# Password hashing — Passlib with Argon2 / bcrypt compatibility
 # ---------------------------------------------------------------------------
 
 
 def hash_password(password: str) -> str:
-    """Return a bcrypt hash of the given plain-text password."""
-    passwd_bytes = password.encode('utf-8')
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(passwd_bytes, salt)
-    return hashed.decode('utf-8')
+    """Hash the given plain-text password with the current secure algorithm."""
+    try:
+        return pwd_context.hash(password)
+    except MissingBackendError:
+        # Fallback to bcrypt if Argon2 is unavailable in this environment.
+        fallback_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        return fallback_context.hash(password)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    """Return True if plain matches the stored bcrypt or PBKDF2 hash."""
+    """Return True if plain matches the stored password hash. Supports legacy hashes."""
     if hashed and hashed.startswith("pbkdf2$"):
         try:
             parts = hashed.split("$")
@@ -59,17 +69,46 @@ def verify_password(plain: str, hashed: str) -> bool:
                 password=plain.encode("utf-8"),
                 salt=salt.encode("utf-8"),
                 iterations=iterations,
-                dklen=64
+                dklen=64,
             )
             computed_hex = binascii.hexlify(dk).decode("utf-8")
             return computed_hex == hash_hex
         except Exception:
             return False
-    else:
-        try:
-            return bcrypt.checkpw(plain.encode('utf-8'), hashed.encode('utf-8'))
-        except Exception:
-            return False
+
+    try:
+        return pwd_context.verify(plain, hashed)
+    except Exception:
+        return False
+
+
+def validate_password_strength(password: str) -> None:
+    """Raise HTTPException if the provided password does not meet security policy."""
+    if len(password) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="Password must be at least 8 characters long.",
+        )
+    if not any(c.isupper() for c in password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must contain at least one uppercase letter.",
+        )
+    if not any(c.islower() for c in password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must contain at least one lowercase letter.",
+        )
+    if not any(c.isdigit() for c in password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must contain at least one number.",
+        )
+    if not any(c in "!@#$%^&*()-_=+[]{}|;:'\",.<>/?`~" for c in password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must contain at least one special character.",
+        )
 
 
 # ---------------------------------------------------------------------------

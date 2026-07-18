@@ -17,19 +17,19 @@ Founders
 """
 
 import uuid
-import pytest
+from datetime import UTC
 from decimal import Decimal
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.future import select
 
+import pytest
+from httpx import ASGITransport, AsyncClient
+
+from app.api.deps import TenantContext, get_db, get_tenant_context
+from app.core.security import create_access_token, hash_password
 from app.main import app
-from app.models.auth import User, RefreshTokenBlacklist, UserRole
-from app.models.tenant import Company, Branch
+from app.models.auth import User, UserRole
 from app.models.pos import CashRegister, Shift
 from app.models.sales import SalesInvoice
-from app.api.deps import get_db, get_tenant_context, TenantContext
-from app.core.security import hash_password, create_access_token
-
+from app.models.tenant import Branch, Company
 from app.tests.conftest import clear_db
 
 # ─────────────────────────── Fixtures ───────────────────────────
@@ -249,10 +249,10 @@ async def test_close_shift_with_sales_variance(db_session):
     _set_tenant(db_session, comp.id, br.id)
 
     # Create shift directly in DB so we can link an invoice
-    from datetime import datetime, timezone
+    from datetime import datetime
     shift = Shift(
         id=f"sh-{s}", register_id=reg.id, cashier_id=cashier.id,
-        status="OPEN", opened_at=datetime.now(timezone.utc),
+        status="OPEN", opened_at=datetime.now(UTC),
         opening_balance=Decimal("200.00"),
         cash_sales_total=Decimal("0"), card_sales_total=Decimal("0"),
         upi_sales_total=Decimal("0"), total_sales=Decimal("0"),
@@ -360,10 +360,10 @@ async def _make_product(db_session, suffix, comp_id, br_id, stock: int = 50):
 async def _make_open_shift(db_session, suffix, comp_id, br_id, cashier_id, reg_id,
                            opening: str = "500.00"):
     """Helper: open a shift via the API and return its ID."""
-    from datetime import datetime, timezone
+    from datetime import datetime
     shift = Shift(
         id=f"sh-{suffix}", register_id=reg_id, cashier_id=cashier_id,
-        status="OPEN", opened_at=datetime.now(timezone.utc),
+        status="OPEN", opened_at=datetime.now(UTC),
         opening_balance=Decimal(opening),
         cash_sales_total=Decimal("0"), card_sales_total=Decimal("0"),
         upi_sales_total=Decimal("0"), total_sales=Decimal("0"),
@@ -419,6 +419,7 @@ async def test_pos_checkout_happy_path(db_session):
 
     # Verify stock was deducted in DB
     from sqlalchemy.future import select as _select
+
     from app.models.inventory import Product as _Product
     res_db = await db_session.execute(
         _select(_Product).where(_Product.id == product.id)
@@ -471,6 +472,7 @@ async def test_pos_checkout_idempotency(db_session):
 
     # Stock deducted only once
     from sqlalchemy.future import select as _select
+
     from app.models.inventory import Product as _Product
     res_db = await db_session.execute(
         _select(_Product).where(_Product.id == product.id)
@@ -491,10 +493,10 @@ async def test_pos_checkout_closed_shift_returns_400(db_session):
     _set_tenant(db_session, comp.id, br.id)
 
     # Create a CLOSED shift directly in DB
-    from datetime import datetime, timezone
+    from datetime import datetime
     shift = Shift(
         id=f"sh-closed-{s}", register_id=reg.id, cashier_id=cashier.id,
-        status="CLOSED", opened_at=datetime.now(timezone.utc),
+        status="CLOSED", opened_at=datetime.now(UTC),
         opening_balance=Decimal("0"), cash_sales_total=Decimal("0"),
         card_sales_total=Decimal("0"), upi_sales_total=Decimal("0"),
         total_sales=Decimal("0"), total_invoices="0",

@@ -12,16 +12,16 @@ License      : Proprietary Commercial Software
 """
 
 import uuid
+
 import pytest
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy import delete
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.future import select
 
+from app.api.deps import get_db
+from app.core.security import create_access_token, hash_password
 from app.main import app
 from app.models.auth import User, UserRole
-from app.models.tenant import Company, Branch
-from app.api.deps import get_db
-from app.core.security import hash_password, create_access_token
+from app.models.tenant import Branch, Company
 from app.tests.conftest import clear_db
 
 pytestmark = pytest.mark.asyncio

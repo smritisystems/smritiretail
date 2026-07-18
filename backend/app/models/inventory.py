@@ -11,10 +11,11 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from datetime import datetime
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text
+from sqlalchemy import Boolean, Column, ForeignKey, Index, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+
 from ..db.base import BaseEntity
+
 
 class Product(BaseEntity):
     __tablename__ = "products"

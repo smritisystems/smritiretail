@@ -13,18 +13,20 @@ License      : Proprietary Commercial Software
 
 import uuid
 from decimal import Decimal
+
 import pytest
 from fastapi import HTTPException
+
+from app.api.deps import TenantContext
 from app.models.crm import Customer
 from app.models.inventory import Product
-from app.models.tenant import Company, Branch
+from app.models.tenant import Branch, Company
 from app.schemas.crm import CustomerCreate, CustomerGroupCreate
 from app.schemas.inventory import ProductCreate
 from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate
 from app.services.crm import CrmService
 from app.services.inventory import InventoryService
 from app.services.sales import SalesService
-from app.api.deps import TenantContext
 
 pytestmark = pytest.mark.asyncio
 

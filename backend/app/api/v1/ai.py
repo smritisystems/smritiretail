@@ -11,9 +11,10 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Any
+
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Body
 
 from ...api.deps import get_current_user
 from ...models.auth import User
@@ -23,14 +24,14 @@ router = APIRouter()
 
 class AIChatRequest(BaseModel):
     message: str
-    context: Optional[Dict[str, Any]] = None
+    context: dict[str, Any] | None = None
 
 
 @router.post(
     "/forecast",
 )
 async def ai_forecast(
-    payload: Dict[str, Any] = Body(...),
+    payload: dict[str, Any] = Body(...),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -65,7 +66,7 @@ async def ai_ocr(
     "/recommend",
 )
 async def ai_recommend(
-    payload: Dict[str, Any] = Body(...),
+    payload: dict[str, Any] = Body(...),
     current_user: User = Depends(get_current_user),
 ):
     """

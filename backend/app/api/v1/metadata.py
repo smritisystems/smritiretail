@@ -25,6 +25,7 @@ Founders
 
 from fastapi import APIRouter
 from pydantic import BaseModel
+
 from ...core.config import settings
 
 router = APIRouter()

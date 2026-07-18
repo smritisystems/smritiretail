@@ -12,22 +12,30 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from typing import List, Any
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Any, List
 
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_current_user, get_db, require_role
 from ...models.auth import User, UserRole
-from ...models.tenant import Company, Branch
 from ...models.inventory import Store, Warehouse
+from ...models.tenant import Branch, Company
 from ...schemas.masters_tier2 import (
-    CompanyCreate, CompanyUpdate, CompanyResponse,
-    BranchCreate, BranchUpdate, BranchResponse,
-    StoreCreate, StoreUpdate, StoreResponse,
-    WarehouseCreate, WarehouseUpdate, WarehouseResponse
+    BranchCreate,
+    BranchResponse,
+    BranchUpdate,
+    CompanyCreate,
+    CompanyResponse,
+    CompanyUpdate,
+    StoreCreate,
+    StoreResponse,
+    StoreUpdate,
+    WarehouseCreate,
+    WarehouseResponse,
+    WarehouseUpdate,
 )
 
 router = APIRouter()

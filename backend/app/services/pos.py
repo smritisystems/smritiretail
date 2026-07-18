@@ -17,20 +17,23 @@ Founders
 """
 
 import uuid
+from datetime import UTC, datetime
 from decimal import Decimal
-from datetime import datetime, timezone
+
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.exc import IntegrityError
-from fastapi import HTTPException
 
+from ..api.deps import TenantContext
+from ..models.inventory import Product, StockMovement
 from ..models.pos import CashRegister, Shift
 from ..models.sales import SalesInvoice, SalesInvoiceItem
-from ..models.inventory import Product, StockMovement
-from ..api.deps import TenantContext
 from ..schemas.pos import (
-    CashRegisterCreate, ShiftOpen, ShiftClose,
+    CashRegisterCreate,
     POSCheckoutRequest,
+    ShiftClose,
+    ShiftOpen,
 )
 
 
@@ -145,11 +148,11 @@ class POSService:
 
     async def archive_register(self, register_id: str) -> CashRegister:
         """Soft-delete a CashRegister (archive). Sets is_deleted=True, is_active=False."""
-        from datetime import datetime, timezone
+        from datetime import datetime
         reg = await self.get_register(register_id)
         reg.is_deleted = True
         reg.is_active = False
-        reg.deleted_at = datetime.now(timezone.utc)
+        reg.deleted_at = datetime.now(UTC)
         await self.db.commit()
         await self.db.refresh(reg)
         return reg
@@ -213,7 +216,7 @@ class POSService:
             register_id=req.register_id,
             cashier_id=cashier_id,
             status="OPEN",
-            opened_at=datetime.now(timezone.utc),
+            opened_at=datetime.now(UTC),
             opening_balance=req.opening_balance,
             cash_sales_total=Decimal("0.00"),
             card_sales_total=Decimal("0.00"),
@@ -293,7 +296,7 @@ class POSService:
         variance = (req.closing_balance - expected).quantize(Decimal("0.01"))
 
         shift.status           = "CLOSED"
-        shift.closed_at        = datetime.now(timezone.utc)
+        shift.closed_at        = datetime.now(UTC)
         shift.cash_sales_total = cash_total.quantize(Decimal("0.01"))
         shift.card_sales_total = card_total.quantize(Decimal("0.01"))
         shift.upi_sales_total  = upi_total.quantize(Decimal("0.01"))
@@ -303,7 +306,7 @@ class POSService:
         shift.expected_cash    = expected
         shift.variance         = variance
         shift.closing_notes    = req.closing_notes
-        shift.modified_at      = datetime.now(timezone.utc)
+        shift.modified_at      = datetime.now(UTC)
 
         await self.db.commit()
         await self.db.refresh(shift)
@@ -441,7 +444,7 @@ class POSService:
                 product.stock -= int(qty)
                 self.db.add(product)
                 movement_id = (
-                    f"SM-{int(datetime.now(timezone.utc).timestamp())}-"
+                    f"SM-{int(datetime.now(UTC).timestamp())}-"
                     f"{uuid.uuid4().hex[:6]}"
                 )
                 movements.append(StockMovement(

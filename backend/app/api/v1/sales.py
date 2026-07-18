@@ -12,19 +12,29 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from typing import List, Optional
-from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...api.deps import get_db, get_tenant_context, TenantContext, require_role
+
+from ...api.deps import TenantContext, get_db, get_tenant_context, require_role
 from ...models.auth import UserRole
-from ...schemas.sales import (
-    SalesInvoiceCreate, SalesInvoiceUpdate, SalesInvoiceResponse,
-    SalesQuotationCreate, SalesQuotationUpdate, SalesQuotationResponse, SalesQuotationItemResponse,
-    SalesOrderCreate, SalesOrderUpdate, SalesOrderResponse, SalesOrderItemResponse,
-    SalesReturnCreate, SalesReturnUpdate, SalesReturnResponse, SalesReturnItemResponse,
-)
 from ...repositories.sales import SalesInvoiceRepository
+from ...schemas.sales import (
+    SalesInvoiceCreate,
+    SalesInvoiceResponse,
+    SalesInvoiceUpdate,
+    SalesOrderCreate,
+    SalesOrderItemResponse,
+    SalesOrderResponse,
+    SalesOrderUpdate,
+    SalesQuotationCreate,
+    SalesQuotationItemResponse,
+    SalesQuotationResponse,
+    SalesQuotationUpdate,
+    SalesReturnCreate,
+    SalesReturnItemResponse,
+    SalesReturnResponse,
+    SalesReturnUpdate,
+)
 from ...services.sales import SalesService
 
 router = APIRouter()
@@ -51,7 +61,7 @@ async def create_sales_invoice_contract(
     return await SalesService(db, tenant_ctx).create_sales_invoice(invoice_in)
 
 
-@router.get("/invoices", response_model=List[SalesInvoiceResponse], summary="List Sales Invoices (Contract URL)")
+@router.get("/invoices", response_model=list[SalesInvoiceResponse], summary="List Sales Invoices (Contract URL)")
 async def list_sales_invoices_contract(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
@@ -79,7 +89,7 @@ async def create_sales_quotation(
     return await SalesService(db, tenant_ctx).create_sales_quotation(q_in)
 
 
-@router.get("/quotations/", response_model=List[SalesQuotationResponse])
+@router.get("/quotations/", response_model=list[SalesQuotationResponse])
 async def list_sales_quotations(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -146,7 +156,7 @@ async def create_sales_order(
     return await SalesService(db, tenant_ctx).create_sales_order(so_in)
 
 
-@router.get("/orders/", response_model=List[SalesOrderResponse])
+@router.get("/orders/", response_model=list[SalesOrderResponse])
 async def list_sales_orders(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -213,7 +223,7 @@ async def create_sales_return(
     return await SalesService(db, tenant_ctx).create_sales_return(sr_in)
 
 
-@router.get("/returns/", response_model=List[SalesReturnResponse])
+@router.get("/returns/", response_model=list[SalesReturnResponse])
 async def list_sales_returns(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),

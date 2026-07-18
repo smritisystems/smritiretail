@@ -12,17 +12,21 @@ License      : Proprietary Commercial Software
 """
 
 # SMRITI database models init
-from .crm import CustomerGroup, Customer
+from .auth import RefreshTokenBlacklist, User, UserRole
+from .crm import Customer, CustomerGroup
 from .inventory import Product, StockMovement
-from .sales import SalesInvoice, SalesInvoiceItem
-from .tenant import Company, Branch
-from .auth import User, RefreshTokenBlacklist, UserRole
-from .purchase import (
-    Supplier,
-    PurchaseOrder, PurchaseOrderItem,
-    PurchaseReceipt, PurchaseReceiptItem,
-)
 from .pos import CashRegister, Shift
-from .workflow import WorkflowEvent
-from .supplier_payment import SupplierPayment
+from .product_identity import BarcodeProvider, IdentityRule, ProductIdentity
+from .purchase import (
+    PurchaseOrder,
+    PurchaseOrderItem,
+    PurchaseReceipt,
+    PurchaseReceiptItem,
+    Supplier,
+)
 from .report_schedule import ReportSchedule
+from .sales import SalesInvoice, SalesInvoiceItem
+from .supplier_payment import SupplierPayment
+from .tenant import Branch, Company
+from .user_assignment import UserBranchAssignment, UserCompanyAssignment, UserStoreAssignment
+from .workflow import WorkflowEvent

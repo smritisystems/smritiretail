@@ -11,23 +11,25 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import List, Optional
 from datetime import date
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+
+from ..api.deps import TenantContext
 from ..models.sales import SalesInvoice
 from .base import BaseRepository
-from ..api.deps import TenantContext
+
 
 class SalesInvoiceRepository(BaseRepository[SalesInvoice]):
-    def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
+    def __init__(self, db: AsyncSession, tenant_ctx: TenantContext | None = None):
         super().__init__(SalesInvoice, db, tenant_ctx)
 
     async def search(
-        self, invoice_no: Optional[str] = None, customer_id: Optional[str] = None,
-        status: Optional[str] = None, date_from: Optional[date] = None, date_to: Optional[date] = None,
+        self, invoice_no: str | None = None, customer_id: str | None = None,
+        status: str | None = None, date_from: date | None = None, date_to: date | None = None,
         skip: int = 0, limit: int = 50
-    ) -> List[SalesInvoice]:
+    ) -> list[SalesInvoice]:
         """
         Search sales invoices by invoice number, customer, status, and date range under tenant context.
         """

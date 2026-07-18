@@ -23,16 +23,16 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
-import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
+
 
 def draw_progress_bar(percentage: int) -> str:
     filled = int(percentage / 10)
     empty = 10 - filled
     return "█" * filled + "░" * empty + f" {percentage}%"
 
-def write_reports(res: Dict[str, Any]) -> None:
+def write_reports(res: dict[str, Any]) -> None:
     root_dir = Path(__file__).resolve().parent.parent.parent.parent
     
     # 1. Resolve date and paths
@@ -47,7 +47,7 @@ def write_reports(res: Dict[str, Any]) -> None:
     history = []
     if history_file_path.exists():
         try:
-            with open(history_file_path, "r", encoding="utf-8") as h_file:
+            with open(history_file_path, encoding="utf-8") as h_file:
                 history = json.loads(h_file.read())
         except Exception:
             pass

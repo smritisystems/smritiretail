@@ -54,27 +54,35 @@ async def clear_db(db_session: AsyncSession):
     from sqlalchemy import delete
 
     from app.models.auth import RefreshTokenBlacklist, User
+    from app.models.barcode import BarcodeLayout, PrintHistory
     from app.models.crm import Customer, CustomerGroup
-    from app.models.exchange import DataExchangeTask, DataExchangeFieldMapping
+    from app.models.exchange import DataExchangeFieldMapping, DataExchangeTask
     from app.models.inventory import Product, StockMovement, Store, Warehouse
+    from app.models.master_lookup import MasterType, MasterValue
     from app.models.pos import CashRegister, Shift
+    from app.models.product_identity import BarcodeProvider, IdentityRule, ProductIdentity
     from app.models.purchase import PurchaseOrder, PurchaseOrderItem, PurchaseReceipt, PurchaseReceiptItem, Supplier
+    from app.models.report_schedule import ReportSchedule
     from app.models.sales import (
-        SalesInvoice, SalesInvoiceItem,
-        SalesQuotation, SalesQuotationItem,
-        SalesOrder, SalesOrderItem,
-        SalesReturn, SalesReturnItem,
+        SalesInvoice,
+        SalesInvoiceItem,
+        SalesOrder,
+        SalesOrderItem,
+        SalesQuotation,
+        SalesQuotationItem,
+        SalesReturn,
+        SalesReturnItem,
     )
     from app.models.supplier_payment import SupplierPayment
-    from app.models.tenant import Branch, Company
-    from app.models.barcode import BarcodeLayout, PrintHistory
     from app.models.system import SystemConfig
-    from app.models.master_lookup import MasterType, MasterValue
+    from app.models.tenant import Branch, Company
     from app.models.workflow import WorkflowEvent
-    from app.models.report_schedule import ReportSchedule
 
     await db_session.execute(delete(SalesReturnItem))
     await db_session.execute(delete(SalesReturn))
+    await db_session.execute(delete(ProductIdentity))
+    await db_session.execute(delete(BarcodeProvider))
+    await db_session.execute(delete(IdentityRule))
     await db_session.execute(delete(SalesOrderItem))
     await db_session.execute(delete(SalesOrder))
     await db_session.execute(delete(SalesQuotationItem))

@@ -16,9 +16,9 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
-from decimal import Decimal
 from datetime import date
-from typing import Optional
+from decimal import Decimal
+
 from pydantic import BaseModel, field_validator
 
 
@@ -28,8 +28,8 @@ class SupplierPaymentCreate(BaseModel):
     amount:        Decimal
     payment_mode:  str = "CASH"     # CASH | BANK_TRANSFER | CHEQUE | UPI
     payment_date:  date
-    reference_no:  Optional[str] = None
-    notes:         Optional[str] = None
+    reference_no:  str | None = None
+    notes:         str | None = None
 
     @field_validator("amount")
     @classmethod
@@ -53,8 +53,8 @@ class SupplierPaymentResponse(BaseModel):
     amount:        Decimal
     payment_mode:  str
     payment_date:  date
-    reference_no:  Optional[str] = None
-    notes:         Optional[str] = None
-    company_id:    Optional[str] = None
-    branch_id:     Optional[str] = None
+    reference_no:  str | None = None
+    notes:         str | None = None
+    company_id:    str | None = None
+    branch_id:     str | None = None
     model_config = {"from_attributes": True}

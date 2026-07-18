@@ -12,10 +12,11 @@ License      : Proprietary Commercial Software
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from fastapi import HTTPException
 
 from ..models.numbering import DocumentSeries, NumberingAuditLog
 
@@ -29,7 +30,19 @@ class NumberingService:
         res = await self.db.execute(q)
         return list(res.scalars().all())
 
-    async def create_series(self, data, creator: str) -> DocumentSeries:
+    async def get_series(self, company_code: str, document_type: str) -> DocumentSeries | None:
+        q = (
+            select(DocumentSeries)
+            .where(
+                DocumentSeries.company_code == company_code,
+                DocumentSeries.document_type == document_type,
+                DocumentSeries.is_deleted == False,
+            )
+        )
+        res = await self.db.execute(q)
+        return res.scalars().first()
+
+    async def create_series(self, data, creator: str, commit: bool = True) -> DocumentSeries:
         new_id = f"SER-{uuid.uuid4().hex[:8]}"
         series = DocumentSeries(
             id=new_id,
@@ -63,7 +76,10 @@ class NumberingService:
         )
         self.db.add(log)
         
-        await self.db.commit()
+        if commit:
+            await self.db.commit()
+        else:
+            await self.db.flush()
         await self.db.refresh(series)
         return series
 
@@ -85,7 +101,7 @@ class NumberingService:
         if data.mode is not None: series.mode = data.mode
         if data.description is not None: series.description = data.description
         series.updated_by = updater
-        series.modified_at = datetime.now(timezone.utc)
+        series.modified_at = datetime.now(UTC)
 
         new_val_str = f"currentNumber: {series.current_number}, resetRule: {series.reset_rule}"
 
@@ -113,7 +129,7 @@ class NumberingService:
 
         series.is_active = False
         series.is_deleted = True
-        series.deleted_at = datetime.now(timezone.utc)
+        series.deleted_at = datetime.now(UTC)
         series.deleted_by = operator
 
         log = NumberingAuditLog(
@@ -147,7 +163,7 @@ class NumberingService:
             raise HTTPException(status_code=404, detail="Document series configuration not found.")
 
         # Determine current date/keys for resets
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         current_year = now.year
         current_month = str(now.month).zfill(2)
         current_day = str(now.day).zfill(2)

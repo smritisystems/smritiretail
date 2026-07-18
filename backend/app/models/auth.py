@@ -12,12 +12,13 @@ License      : Proprietary Commercial Software
 """
 
 import uuid as _uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum as PyEnum
-from sqlalchemy import (
-    Column, String, Boolean, DateTime, ForeignKey, Enum as SAEnum, Text
-)
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import relationship
+
 from ..db.base import Base
 
 
@@ -54,7 +55,7 @@ class User(Base):
     branch_id  = Column(String(50), ForeignKey("branches.id",  ondelete="RESTRICT"), nullable=True, index=True)
 
     # Extended staff management fields
-    status            = Column(String(20), nullable=False, default="Active")
+    status            = Column(String(50), nullable=False, default="Active")
     employee_id       = Column(String(20), nullable=True)
     employee_code     = Column(String(20), nullable=True)
     display_name      = Column(String(100), nullable=True)
@@ -84,9 +85,13 @@ class User(Base):
     preferences_json  = Column(Text, nullable=True)  # JSON structure
     notification_settings_json = Column(Text, nullable=True)  # JSON structure
 
-    created_at  = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
-    modified_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc),
-                         onupdate=lambda: datetime.now(timezone.utc))
+    created_at  = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    modified_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC),
+                         onupdate=lambda: datetime.now(UTC))
+
+    @property
+    def password_reset_required(self) -> bool:
+        return self.status == "PendingPasswordChange"
 
     company = relationship("Company", foreign_keys=[company_id])
     branch_rel  = relationship("Branch",  foreign_keys=[branch_id])
@@ -102,5 +107,5 @@ class RefreshTokenBlacklist(Base):
     id         = Column(String(36),  primary_key=True, default=lambda: str(_uuid.uuid4()))
     token_jti  = Column(String(255), nullable=False, unique=True, index=True)   # JWT `jti` claim
     user_id    = Column(String(50),  ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    revoked_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    revoked_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     expires_at = Column(DateTime(timezone=True), nullable=False)

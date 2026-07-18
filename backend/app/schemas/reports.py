@@ -16,11 +16,10 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
-from decimal import Decimal
 from datetime import date
-from typing import List, Optional
-from pydantic import BaseModel
+from decimal import Decimal
 
+from pydantic import BaseModel
 
 # ── Stock Valuation ──────────────────────────────────────────────────────────
 
@@ -38,7 +37,7 @@ class StockValuationReport(BaseModel):
     generated_at:    str
     total_items:     int
     total_value:     Decimal
-    lines:           List[StockValuationLine]
+    lines:           list[StockValuationLine]
 
 
 # ── Daily Sales ───────────────────────────────────────────────────────────────
@@ -51,7 +50,7 @@ class DailySalesSummary(BaseModel):
     card_sales:      Decimal
     upi_sales:       Decimal
     credit_sales:    Decimal
-    shift_breakdown: List[dict]   # {shift_id, cashier_id, total, invoices}
+    shift_breakdown: list[dict]   # {shift_id, cashier_id, total, invoices}
 
 
 # ── Supplier Ledger ───────────────────────────────────────────────────────────
@@ -71,7 +70,7 @@ class SupplierLedger(BaseModel):
     total_purchased: Decimal
     total_paid:      Decimal
     closing_balance: Decimal
-    entries:         List[SupplierLedgerEntry]
+    entries:         list[SupplierLedgerEntry]
 
 
 # ── Purchase Summary ──────────────────────────────────────────────────────────

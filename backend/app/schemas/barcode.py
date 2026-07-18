@@ -11,30 +11,31 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BarcodeLayoutCreate(BaseModel):
     name: str
     widthMm: float = Field(50.00, alias="widthMm")
     heightMm: float = Field(25.00, alias="heightMm")
-    columns: Optional[int] = 1
-    isDefault: Optional[bool] = Field(False, alias="isDefault")
-    elements: List[Dict[str, Any]]
-    prnTemplate: Optional[str] = Field(None, alias="prnTemplate")
+    columns: int | None = 1
+    isDefault: bool | None = Field(False, alias="isDefault")
+    elements: list[dict[str, Any]]
+    prnTemplate: str | None = Field(None, alias="prnTemplate")
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class BarcodeLayoutUpdate(BaseModel):
-    name: Optional[str] = None
-    widthMm: Optional[float] = Field(None, alias="widthMm")
-    heightMm: Optional[float] = Field(None, alias="heightMm")
-    columns: Optional[int] = None
-    isDefault: Optional[bool] = Field(None, alias="isDefault")
-    elements: Optional[List[Dict[str, Any]]] = None
-    prnTemplate: Optional[str] = Field(None, alias="prnTemplate")
+    name: str | None = None
+    widthMm: float | None = Field(None, alias="widthMm")
+    heightMm: float | None = Field(None, alias="heightMm")
+    columns: int | None = None
+    isDefault: bool | None = Field(None, alias="isDefault")
+    elements: list[dict[str, Any]] | None = None
+    prnTemplate: str | None = Field(None, alias="prnTemplate")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -46,8 +47,8 @@ class BarcodeLayoutResponse(BaseModel):
     heightMm: float = Field(..., serialization_alias="heightMm")
     columns: int
     isDefault: bool = Field(..., serialization_alias="isDefault")
-    elements: List[Dict[str, Any]]
-    prnTemplate: Optional[str] = Field(None, serialization_alias="prnTemplate")
+    elements: list[dict[str, Any]]
+    prnTemplate: str | None = Field(None, serialization_alias="prnTemplate")
 
     model_config = {
         "from_attributes": True,
@@ -57,11 +58,12 @@ class BarcodeLayoutResponse(BaseModel):
 
 class PrintRequest(BaseModel):
     layoutId: str = Field(..., alias="layoutId")
-    items: List[Dict[str, Any]]
-    saveAsPrn: Optional[bool] = Field(False, alias="saveAsPrn")
+    items: list[dict[str, Any]]
+    saveAsPrn: bool | None = Field(False, alias="saveAsPrn")
 
 
 from datetime import datetime
+
 
 class PrintHistoryResponse(BaseModel):
     id: str
@@ -71,7 +73,7 @@ class PrintHistoryResponse(BaseModel):
     barcode: str
     quantity: int
     status: str
-    errorMessage: Optional[str] = Field(None, serialization_alias="errorMessage")
+    errorMessage: str | None = Field(None, serialization_alias="errorMessage")
     createdAt: datetime = Field(..., serialization_alias="createdAt")
 
     model_config = {
@@ -81,8 +83,8 @@ class PrintHistoryResponse(BaseModel):
 
 
 class PrinterSettingsRequest(BaseModel):
-    connection_type: Optional[str] = Field("TCP", alias="connection_type")
-    ip: Optional[str] = None
-    port: Optional[int] = None
-    usb_target: Optional[str] = Field(None, alias="usb_target")
+    connection_type: str | None = Field("TCP", alias="connection_type")
+    ip: str | None = None
+    port: int | None = None
+    usb_target: str | None = Field(None, alias="usb_target")
 

@@ -11,15 +11,18 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_current_user, get_db, require_role
 from ...models.auth import User, UserRole
 from ...schemas.numbering import (
-    DocumentSeriesCreate, DocumentSeriesUpdate, DocumentSeriesResponse,
-    NumberingAuditLogResponse, AllocationRequest
+    AllocationRequest,
+    DocumentSeriesCreate,
+    DocumentSeriesResponse,
+    DocumentSeriesUpdate,
+    NumberingAuditLogResponse,
 )
 from ...services.numbering import NumberingService
 
@@ -28,7 +31,7 @@ router = APIRouter()
 
 @router.get(
     "/series",
-    response_model=List[DocumentSeriesResponse],
+    response_model=list[DocumentSeriesResponse],
 )
 async def list_series(
     db: AsyncSession = Depends(get_db),
@@ -91,12 +94,12 @@ async def delete_series(
     """
     service = NumberingService(db)
     await service.delete_series(id, current_user.username)
-    return {"success": True, "message": f"Series retired/deactivated."}
+    return {"success": True, "message": "Series retired/deactivated."}
 
 
 @router.get(
     "/logs",
-    response_model=List[NumberingAuditLogResponse],
+    response_model=list[NumberingAuditLogResponse],
     dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
 )
 async def list_logs(
@@ -110,8 +113,9 @@ async def list_logs(
     return await service.list_audit_logs()
 
 
-from typing import Optional
+
 from fastapi import Header
+
 
 @router.post(
     "/series/{id}/allocate",
@@ -120,8 +124,8 @@ async def allocate_number(
     id: str,
     req: AllocationRequest,
     db: AsyncSession = Depends(get_db),
-    x_internal_service_key: Optional[str] = Header(None, alias="X-Internal-Service-Key"),
-    authorization: Optional[str] = Header(None),
+    x_internal_service_key: str | None = Header(None, alias="X-Internal-Service-Key"),
+    authorization: str | None = Header(None),
 ):
     """
     Atomically allocate next serial sequence document number.

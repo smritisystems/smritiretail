@@ -23,15 +23,24 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...api.deps import get_db, get_current_user
-from ...services.auth import AuthService
+from sqlalchemy.future import select
+
+from ...api.deps import get_current_user, get_db
+from ...models.auth import User, UserRole
+from ...models.tenant import Branch, Company
 from ...schemas.auth import (
-    LoginRequest, TokenResponse, AccessTokenResponse,
-    RefreshRequest, BootstrapRequest, UserResponse,
+    AccessTokenResponse,
+    BootstrapRequest,
+    LoginRequest,
+    RefreshRequest,
+    TokenResponse,
+    UserResponse,
 )
-from ...models.auth import User
+from ...schemas.masters_tier2 import BranchResponse, CompanyResponse
+from ...services.auth import AuthService
 
 router = APIRouter()
 
@@ -64,6 +73,41 @@ async def login(
     """
     service = AuthService(db)
     return await service.login(req)
+
+
+@router.get("/tenants")
+async def list_tenant_options(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Authenticated endpoint for tenant selection after login.
+    Returns companies and branches that the current user may access.
+    """
+    if current_user.role == UserRole.SYSADMIN:
+        q_companies = select(Company).where(Company.is_deleted.is_(False)).order_by(Company.name.asc())
+        q_branches = select(Branch).where(Branch.is_deleted.is_(False)).order_by(Branch.name.asc())
+    elif current_user.company_id:
+        q_companies = select(Company).where(
+            Company.id == current_user.company_id,
+            Company.is_deleted.is_(False),
+        ).order_by(Company.name.asc())
+        q_branches = select(Branch).where(
+            Branch.company_id == current_user.company_id,
+            Branch.is_deleted.is_(False),
+        ).order_by(Branch.name.asc())
+    else:
+        return {
+            "companies": [],
+            "branches": [],
+        }
+
+    companies = (await db.execute(q_companies)).scalars().all()
+    branches = (await db.execute(q_branches)).scalars().all()
+    return {
+        "companies": [CompanyResponse.from_orm_model(c) for c in companies],
+        "branches": [BranchResponse.from_orm_model(b) for b in branches],
+    }
 
 
 @router.post("/refresh", response_model=AccessTokenResponse)

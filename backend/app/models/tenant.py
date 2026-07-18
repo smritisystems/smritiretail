@@ -12,10 +12,13 @@ License      : Proprietary Commercial Software
 """
 
 import uuid as uuid_pkg
-from datetime import datetime, timezone
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey
+from datetime import datetime
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String
 from sqlalchemy.orm import relationship
+
 from ..db.base import Base
+
 
 class Company(Base):
     __tablename__ = "companies"

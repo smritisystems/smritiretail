@@ -16,23 +16,26 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
+from datetime import UTC, date, datetime
 from decimal import Decimal
-from datetime import date, datetime, timezone
+
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from fastapi import HTTPException
 
-from ..models.inventory import Product
-from ..models.sales import SalesInvoice
-from ..models.purchase import Supplier, PurchaseOrder, PurchaseReceipt
-from ..models.supplier_payment import SupplierPayment
-from ..models.report_schedule import ReportSchedule
 from ..api.deps import TenantContext
+from ..models.inventory import Product
+from ..models.purchase import PurchaseOrder, PurchaseReceipt, Supplier
+from ..models.report_schedule import ReportSchedule
+from ..models.sales import SalesInvoice
+from ..models.supplier_payment import SupplierPayment
 from ..schemas.reports import (
-    StockValuationLine, StockValuationReport,
     DailySalesSummary,
-    SupplierLedgerEntry, SupplierLedger,
     PurchaseSummaryLine,
+    StockValuationLine,
+    StockValuationReport,
+    SupplierLedger,
+    SupplierLedgerEntry,
 )
 
 
@@ -76,7 +79,7 @@ class ReportsService:
             ))
 
         return StockValuationReport(
-            generated_at=datetime.now(timezone.utc).isoformat(),
+            generated_at=datetime.now(UTC).isoformat(),
             total_items=len(lines),
             total_value=total_value.quantize(Decimal("0.01")),
             lines=lines,

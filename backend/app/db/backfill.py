@@ -12,10 +12,12 @@ License      : Proprietary Commercial Software
 """
 
 import asyncio
-import uuid
 import sys
+import uuid
+
 sys.path.insert(0, ".")
 from app.core.config import settings
+
 
 async def backfill_tenant_ids():
     """

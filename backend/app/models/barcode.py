@@ -11,9 +11,9 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from sqlalchemy import Column, String, Boolean, Text, Numeric, Integer, ForeignKey
-from ..db.base import BaseEntity
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, Numeric, String, Text
 
+from ..db.base import BaseEntity
 
 
 class BarcodeLayout(BaseEntity):

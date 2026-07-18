@@ -24,18 +24,27 @@ Founders
 Classification: Internal
 """
 
-from typing import List, Optional
+
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_tenant_context, require_role, TenantContext
+from ...api.deps import TenantContext, get_db, get_tenant_context, require_role
 from ...models.auth import UserRole
 from ...schemas.purchase import (
-    SupplierCreate, SupplierUpdate, SupplierResponse,
-    PurchaseOrderCreate, PurchaseOrderResponse, PurchaseOrderItemResponse,
-    PurchaseOrderCancelRequest, PurchaseOrderAmendRequest,
-    PurchaseReceiptCreate, PurchaseReceiptResponse, PurchaseReceiptItemResponse,
-    PurchaseJurisdictionConfigCreate, PurchaseJurisdictionConfigResponse,
+    PurchaseConfigJurisdictionRequest,
+    PurchaseJurisdictionConfigCreate,
+    PurchaseOrderAmendRequest,
+    PurchaseOrderCancelRequest,
+    PurchaseOrderCreate,
+    PurchaseOrderItemResponse,
+    PurchaseOrderResponse,
+    PurchaseReceiptCreate,
+    PurchaseReceiptItemResponse,
+    PurchaseReceiptResponse,
+    PurchaseReorderConvertRequest,
+    SupplierCreate,
+    SupplierResponse,
+    SupplierUpdate,
 )
 from ...services.purchase import PurchaseService
 
@@ -61,7 +70,7 @@ async def create_supplier(
 
 @router.get(
     "/suppliers/",
-    response_model=List[SupplierResponse],
+    response_model=list[SupplierResponse],
 )
 async def list_suppliers(
     tenant: TenantContext = Depends(get_tenant_context),
@@ -91,7 +100,7 @@ async def get_supplier(
 # Contract URLs: when mounted at /api/v1/purchase, /orders/ resolves to /api/v1/purchase/orders/
 # Legacy /purchase-orders/ routes remain for backward compatibility (deprecated at v3.20.0).
 
-@router.get("/orders/", response_model=List[PurchaseOrderResponse], summary="List Purchase Orders (Contract URL)")
+@router.get("/orders/", response_model=list[PurchaseOrderResponse], summary="List Purchase Orders (Contract URL)")
 async def list_purchase_orders_contract(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -176,7 +185,7 @@ async def create_purchase_receipt(
 
 @router.get(
     "/purchase-receipts/",
-    response_model=List[PurchaseReceiptResponse],
+    response_model=list[PurchaseReceiptResponse],
 )
 async def list_purchase_receipts(
     tenant: TenantContext = Depends(get_tenant_context),
@@ -289,10 +298,10 @@ async def amend_purchase_order(
 
 @router.get(
     "/reorder-suggestions",
-    response_model=List[dict],
+    response_model=list[dict],
 )
 async def list_reorder_suggestions(
-    supplier_id: Optional[str] = Query(None),
+    supplier_id: str | None = Query(None),
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_db),
 ):
@@ -359,6 +368,56 @@ async def update_purchase_jurisdiction(
     service = PurchaseService(db, tenant_ctx)
     state = await service.set_jurisdiction(req.company_state)
     return {"company_state": state, "message": "Tax jurisdiction updated."}
+
+
+# ─────────────────────────── Legacy Purchase Config Aliases ─────────────────────────
+
+@router.get("/config", summary="Purchase Config Legacy Alias")
+async def get_purchase_config(
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Legacy purchase configuration compatibility alias."""
+    service = PurchaseService(db, tenant_ctx)
+    state = await service.get_jurisdiction()
+    return {"companyState": state}
+
+
+@router.post(
+    "/config/jurisdiction",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Legacy Purchase Config Jurisdiction Alias",
+)
+async def update_purchase_config_jurisdiction(
+    req: PurchaseConfigJurisdictionRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Legacy purchase jurisdiction alias for Express frontend compatibility."""
+    if req.state is None:
+        return {"companyState": None}
+
+    service = PurchaseService(db, tenant_ctx)
+    state = await service.set_jurisdiction(req.state)
+    return {"companyState": state}
+
+
+@router.post(
+    "/reorder-suggestions/convert",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Legacy Purchase Reorder Suggestions Convert Alias",
+)
+async def convert_reorder_suggestions(
+    req: PurchaseReorderConvertRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Convert selected low-stock suggestions into a draft purchase order."""
+    order = await PurchaseService(db, tenant_ctx).convert_reorder_suggestions_to_draft(
+        req.supplierId, req.selectedProductIds
+    )
+    order_data = PurchaseOrderResponse.model_validate(order).model_dump()
+    return {"order": order_data}
 
 
 # ─────────────────────────── Phase 4B: Submit PO ──────────────────────────────

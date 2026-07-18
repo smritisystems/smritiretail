@@ -11,22 +11,22 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RoleCreate(BaseModel):
     name: str
-    description: Optional[str] = None
-    permissions: List[str]
-    isSystem: Optional[bool] = Field(False, alias="isSystem")
+    description: str | None = None
+    permissions: list[str]
+    isSystem: bool | None = Field(False, alias="isSystem")
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class RoleUpdate(BaseModel):
-    description: Optional[str] = None
-    permissions: Optional[List[str]] = None
+    description: str | None = None
+    permissions: list[str] | None = None
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -34,8 +34,8 @@ class RoleUpdate(BaseModel):
 class RoleResponse(BaseModel):
     id: str
     name: str
-    description: Optional[str] = None
-    permissions: List[str]
+    description: str | None = None
+    permissions: list[str]
     isSystem: bool = Field(..., serialization_alias="isSystem")
 
     model_config = {
