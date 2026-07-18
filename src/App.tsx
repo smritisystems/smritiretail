@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.17.0
+ * Version      : 3.27.0
  * Created      : 2026-07-10
- * Modified     : 2026-07-16
+ * Modified     : 2026-07-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -43,6 +43,7 @@ import { PurchaseStudioTab } from "./components/PurchaseStudioTab.tsx";
 import { BarcodeStudioTab } from "./components/BarcodeStudioTab.tsx";
 import { MasterManagementTab } from "./components/MasterManagementTab.tsx";
 import { CustomerMasterTab } from "./components/CustomerMasterTab.tsx";
+import { CustomerDashboardTab } from "./components/CustomerDashboardTab.tsx";
 import { CrmStudioTab } from "./components/CrmStudioTab.tsx";
 import { LoyaltyStudioTab } from "./components/LoyaltyStudioTab.tsx";
 import { SupplierDashboardTab } from "./components/SupplierDashboardTab.tsx";
@@ -377,6 +378,8 @@ const AppContent: React.FC = () => {
         return <CrmStudioTab currentUser={currentUser} />;
       case "customer-master":
         return <CustomerMasterTab currentUser={currentUser} />;
+      case "customer-dashboard":
+        return <CustomerDashboardTab />;
       case "loyalty":
         return <LoyaltyStudioTab currentUser={currentUser} />;
       case "staff-management":
