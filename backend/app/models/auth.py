@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.31.0
 Created      : 2026-07-11
-Modified     : 2026-07-13
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -50,6 +50,7 @@ class User(Base):
     is_deleted      = Column(Boolean,     nullable=False, default=False)
 
     # Tenant scope — NULL for SYSADMIN
+    tenant_id  = Column(String(50), nullable=True, index=True)
     company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True, index=True)
     branch_id  = Column(String(50), ForeignKey("branches.id",  ondelete="RESTRICT"), nullable=True, index=True)
 

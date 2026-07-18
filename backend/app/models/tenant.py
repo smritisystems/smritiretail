@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.8.0
+Version      : 3.31.0
 Created      : 2026-07-11
-Modified     : 2026-07-11
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -22,6 +22,7 @@ class Company(Base):
 
     id = Column(String(50), primary_key=True)
     uuid = Column(String(36), default=lambda: str(uuid_pkg.uuid4()), unique=True, nullable=False)
+    tenant_id = Column(String(50), nullable=True, index=True)
     name = Column(String(255), nullable=False)
     gst_number = Column(String(15), nullable=True)
     is_active = Column(Boolean, default=True)
@@ -34,6 +35,7 @@ class Branch(Base):
 
     id = Column(String(50), primary_key=True)
     uuid = Column(String(36), default=lambda: str(uuid_pkg.uuid4()), unique=True, nullable=False)
+    tenant_id = Column(String(50), nullable=True, index=True)
     company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     code = Column(String(50), nullable=False, unique=True)

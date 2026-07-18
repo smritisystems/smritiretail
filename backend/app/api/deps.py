@@ -16,11 +16,11 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.24.0
-* Created    : 2026-07-11
-* Modified   : 2026-07-18
-* Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
-* License    : Proprietary Commercial Software
+ * Version    : 3.31.0
+ * Created    : 2026-07-11
+ * Modified   : 2026-07-19
+ * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+ * License    : Proprietary Commercial Software
 """
 
 from dataclasses import dataclass
@@ -30,7 +30,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.config import settings
 
-from ..db.session import get_db as _get_db
+from ..db.session import get_db as _get_db, active_tenant_ctx
 from ..models.auth import User, UserRole
 from ..core.security import decode_token
 from ..services.security import SecurityService
@@ -45,6 +45,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 class TenantContext:
     company_id: str
     branch_id: str
+    tenant_id: str = "default"
+
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -120,10 +124,16 @@ async def get_tenant_context(
                 "A SYSADMIN must assign you to a branch before you can access business data."
             ),
         )
-    return TenantContext(
+    # Default to "default" if user has no tenant_id assigned yet
+    tenant_id = getattr(current_user, "tenant_id", None) or "default"
+    ctx = TenantContext(
+        tenant_id=tenant_id,
         company_id=current_user.company_id,
         branch_id=current_user.branch_id,
     )
+    active_tenant_ctx.set(ctx)
+    return ctx
+
 
 
 # ---------------------------------------------------------------------------

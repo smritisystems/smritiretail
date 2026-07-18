@@ -16,13 +16,16 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 1.0.0
+* Version    : 3.31.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-11
+* Modified   : 2026-07-19
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
 
+from contextvars import ContextVar
+from sqlalchemy import event
+from sqlalchemy.orm import with_loader_criteria, Session
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from ..core.config import settings
 
@@ -41,6 +44,28 @@ async_session = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False
 )
+
+# Context variable to hold active request-scoped TenantContext
+active_tenant_ctx: ContextVar = ContextVar("active_tenant_ctx", default=None)
+
+@event.listens_for(Session, "do_orm_execute")
+def apply_tenant_filter(execute_state):
+    """
+    ORM query interceptor injecting tenant_id filters dynamically.
+    Avoids before_compile issues in SQLAlchemy 2.0.
+    """
+    if execute_state.is_select and not execute_state.execution_options.get("ignore_tenant_isolation", False):
+        ctx = active_tenant_ctx.get()
+        if ctx and getattr(ctx, "tenant_id", None):
+            from ..db.base import BaseEntity
+
+            execute_state.extra_options += (
+                with_loader_criteria(
+                    BaseEntity,
+                    lambda cls: cls.tenant_id == ctx.tenant_id,
+                    include_subclasses=True
+                ),
+            )
 
 # Async Generator dependency to provide DB sessions to routes
 async def get_db():

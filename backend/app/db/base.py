@@ -4,7 +4,7 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.27.0
+Version      : 3.31.0
 Created      : 2026-07-11
 Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,7 @@ class BaseEntity(Base):
 
     id = Column(String(50), primary_key=True)
     uuid = Column(String(36), default=lambda: str(uuid_pkg.uuid4()), unique=True, nullable=False)
+    tenant_id = Column(String(50), nullable=True, index=True)
     company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True)
     branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
