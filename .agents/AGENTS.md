@@ -4,9 +4,9 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 3.16.0
+  Version      : 3.29.0
   Created      : 2026-07-06
-  Modified     : 2026-07-12
+  Modified     : 2026-07-19
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
@@ -1003,3 +1003,34 @@ When any agent edits an existing file that is missing its author details block, 
 ---
 
 *DAGPMP Rule 16 | UADHP-v1.0 | Effective 2026-07-11 | Jawahar Ramkripal Mallah | support@smritibooks.com*
+
+---
+
+# SMRITI Regulatory Engine (SRE) & Basic Accounting Rules
+
+**Status:** MANDATORY — v1.0 (2026-07-19)
+
+## Rule 17. SMRITI Regulatory Engine (SRE) Architecture Constitution
+
+To ensure compliance features scale modularly as tax rules evolve, all agents must adhere to the SRE architectural rules:
+
+1. **Naming & Scope:** The compliance module must be named **SMRITI Regulatory Engine (SRE)**. Inventory compliance is mapped as one capability inside the SRE framework.
+2. **Rule Isolation:** Core rule matching must be decoupled from the ledger. An evaluation layer must evaluate dispatches against tax boundaries and log decisions to an immutable `sre_compliance_decisions` table recording: `dispatch_id`, `evaluated_rule`, `decision`, `reason`, `evaluated_at`, and `engine_version`.
+3. **Explicit State Machines:** Dispatches must follow explicit state transitions: `Draft -> Dispatched -> Deferred -> Warning -> Expired -> Deemed Supply -> Returned -> Closed`.
+4. **Outbound Event Broadcast:** SRE must broadcast status changes to the core Event Bus via structured event types:
+   - `compliance.dispatch.logged`
+   - `compliance.warning.150days`
+   - `compliance.warning.175days`
+   - `compliance.deemed_supply`
+   - `compliance.tax_invoice_required`
+   - `compliance.closed`
+
+## Rule 18. Simplified Financial & Accounting Policy for v1.0
+
+To prevent over-engineering the core accounting logic in normal retail/distributor operations, the following rules apply:
+
+1. **Supported Accounting Masters:** Focus only on Chart of Accounts, Bank/Cash Accounts, Customer/Supplier ledgers, GST ledgers, Income heads, and Expense heads.
+2. **Supported Accounting Vouchers:** Implement only standard transactions: Sales/Purchase Invoices, Returns, Cash/Bank Receipts, Payments, Contra, Journals, and Debit/Credit Notes.
+3. **Automatic Silent Posting:** Every business document (Invoice, Receipt, Payment) must automatically trigger the journal posting silently. Manual journal builder controls are not exposed to normal operations.
+4. **Prohibited Features in v1.0:** Cost centers allocation, accounting workflows, multi-level approvals, posting previews, and financial rule engines are explicitly excluded from the v1.0 footprint.
+
