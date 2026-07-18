@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.16.0
+ * Version      : 3.26.0
  * Created      : 2026-07-13
- * Modified     : 2026-07-13
+ * Modified     : 2026-07-18
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -50,10 +50,23 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
   const [newCustomerEffectiveTo, setNewCustomerEffectiveTo] = useState("");
   const [newCustomerSortOrder, setNewCustomerSortOrder] = useState("");
   const [newCustomerSalesperson, setNewCustomerSalesperson] = useState("");
+  const [newCustomerPricingGroup, setNewCustomerPricingGroup] = useState<string>("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isValidating, setIsValidating] = useState(false);
 
+  // Live pricing groups fetched from FastAPI — loaded once when the modal opens
+  const [pricingGroups, setPricingGroups] = useState<{ id: string; name: string; discount_percent: number }[]>([]);
+
   const customerGroups = getCustomerGroups();
+
+  // Fetch pricing groups from FastAPI when the Add Customer modal is opened
+  useEffect(() => {
+    if (!isAddingCustomer) return;
+    apiFetchV1("/crm/pricing-groups").then((data: any) => {
+      if (Array.isArray(data)) setPricingGroups(data);
+      else if (data?.items) setPricingGroups(data.items);
+    }).catch(() => setPricingGroups([]));
+  }, [isAddingCustomer]);
 
   const handleRegisterCustomer = async () => {
     if (isReadOnly) {
@@ -72,6 +85,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
       gstNumber: formMode === "advanced" ? newCustomerGst : "",
       pan: formMode === "advanced" ? newCustomerPan : "",
       customerGroupId: newCustomerGroup,
+      pricingGroupId: newCustomerPricingGroup || undefined,
       status: formMode === "advanced" ? newCustomerStatus : "Active",
       outstanding: 0,
       code: formMode === "advanced" && newCustomerCode.trim() ? newCustomerCode.trim() : undefined,
@@ -134,6 +148,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
       setNewCustomerGst("");
       setNewCustomerPan("");
       setNewCustomerGroup("CG-Retail");
+      setNewCustomerPricingGroup("");
       setNewCustomerStatus("Active");
       setNewCustomerCode("");
       setNewCustomerShortName("");
@@ -314,6 +329,32 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
                         ))}
                       </select>
                     </div>
+                  </div>
+
+                  {/* Pricing Group selector — visible in both Quick and Advanced modes */}
+                  <div>
+                    <label className="block text-theme-muted mb-1 font-bold flex items-center gap-1.5">
+                      Pricing Group
+                      <span className="text-[9px] bg-blue-900/60 text-blue-300 border border-blue-500/30 rounded px-1.5 py-0.5 uppercase tracking-wider font-mono">
+                        Optional
+                      </span>
+                    </label>
+                    <select
+                      id="new-customer-pricing-group"
+                      value={newCustomerPricingGroup}
+                      onChange={(e) => setNewCustomerPricingGroup(e.target.value)}
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="">— Standard Price (no group) —</option>
+                      {pricingGroups.map((pg) => (
+                        <option key={pg.id} value={pg.id}>
+                          {pg.name}{pg.discount_percent > 0 ? ` (${pg.discount_percent}% off)` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-theme-muted mt-1 font-mono">
+                      Controls automatic discount, rounding, and scheme eligibility on every invoice.
+                    </p>
                   </div>
 
                   {formMode === "advanced" && (

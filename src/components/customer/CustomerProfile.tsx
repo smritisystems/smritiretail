@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.16.0
+ * Version      : 3.26.0
  * Created      : 2026-07-13
- * Modified     : 2026-07-13
+ * Modified     : 2026-07-18
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -74,6 +74,26 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
         <div>
           <span className="text-theme-muted block font-medium">PAN</span>
           <span className="font-mono">{customer.pan || "Not Registered"}</span>
+        </div>
+        {/* Pricing classification */}
+        <div className="border-t border-theme-divider/30 pt-2 grid grid-cols-2 gap-3">
+          <div>
+            <span className="text-theme-muted block font-medium">Customer Group</span>
+            <span className="font-mono text-theme-body">
+              {(customer as any).customerGroupId || (customer as any).customer_group_id || "—"}
+            </span>
+          </div>
+          <div>
+            <span className="text-theme-muted block font-medium">Pricing Group</span>
+            {(customer as any).pricingGroupId || (customer as any).pricing_group_id ? (
+              <span className="inline-flex items-center gap-1 font-mono text-blue-300 bg-blue-950/40 border border-blue-500/30 rounded px-1.5 py-0.5 text-[10px]">
+                <span className="material-symbols-outlined text-[11px]">sell</span>
+                {(customer as any).pricingGroupId || (customer as any).pricing_group_id}
+              </span>
+            ) : (
+              <span className="text-theme-muted text-[10px] font-mono">Standard Price</span>
+            )}
+          </div>
         </div>
         {customer.salesperson && (
           <div>
