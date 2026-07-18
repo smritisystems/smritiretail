@@ -18,7 +18,7 @@ Founders
 
 * Version      : 3.17.0
 Created      : 2026-07-11
-Modified     : 2026-07-14
+Modified     : 2026-07-18
 Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -114,13 +114,10 @@ app.include_router(changelog.router, prefix=settings.API_V1_STR)
 app.include_router(dev_tracker.router, prefix=settings.API_V1_STR)
 app.include_router(auth.router,      prefix=settings.API_V1_STR + "/auth",          tags=["Authentication"])
 app.include_router(users.router,     prefix=settings.API_V1_STR + "/users",         tags=["User Management"])
-app.include_router(inventory.router, prefix=settings.API_V1_STR + "/inventory",      tags=["Inventory"])
-app.include_router(inventory.router, prefix=settings.API_V1_STR + "/products",       tags=["Inventory"])
+app.include_router(inventory.router, prefix=settings.API_V1_STR + "/inventory",      tags=["Inventory"])  # Canonical route
 app.include_router(crm.router,       prefix=settings.API_V1_STR,                    tags=["CRM"])
-app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales-invoices", tags=["Sales-Legacy"])  # Deprecated — remove at v3.20.0
-app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Contract URL (Phase 4A)
-app.include_router(purchase.router,  prefix=settings.API_V1_STR,                    tags=["Purchase-Legacy"])  # Deprecated — remove at v3.20.0
-app.include_router(purchase.router,  prefix=settings.API_V1_STR + "/purchase",      tags=["Purchase"])         # Contract URL (Phase 4A)
+app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Canonical route (Phase 4A)
+app.include_router(purchase.router,  prefix=settings.API_V1_STR + "/purchase",      tags=["Purchase"])         # Canonical route (Phase 4A)
 app.include_router(pos.router,              prefix=settings.API_V1_STR,                    tags=["POS Shift"])
 app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,                    tags=["Supplier Payments"])
 app.include_router(reports.router,          prefix=settings.API_V1_STR,                    tags=["Reports"])

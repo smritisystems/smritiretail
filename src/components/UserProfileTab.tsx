@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 3.21.0
+ * * Version      : 3.21.1
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-16
+ * * Modified     : 2026-07-18
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -334,7 +334,8 @@ export const UserProfileTab: React.FC = () => {
           addNotification({
             title: "Password Updated",
             message: "Your password has been updated successfully.",
-            type: "success",
+            type: "activity",
+            priority: "low",
           });
         }}
       />

@@ -4,13 +4,13 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 2.1.4
+ * Version      : 2.1.5
  * Created      : 2026-07-10
- * Modified     : 2026-07-16
+ * Modified     : 2026-07-18
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Printer, MessageCircle, Mail, AlignJustify, 
   FileText, Plus, Search, Grid, Trash2, Edit3, 
   RefreshCw, User, Calendar, DollarSign, Percent, 
@@ -528,43 +528,50 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     );
   }
 
-  // ACAS Global Event Listeners
-  useEffect(() => {
-    const handlePrintInvoice = (e: any) => {
-      onNotification("Print Action", `Sales Invoice ${e.detail.invoiceNo} sent to standard print spooler.`, "success");
-    };
-    const handleWhatsAppInvoice = (e: any) => {
-      onNotification("WhatsApp Shared", `Sales Invoice ${e.detail.invoiceNo} successfully dispatched.`, "success");
-    };
-    const handleApproveInvoice = async (e: any) => {
-      const inv = e.detail;
-      try {
-      // Migrated: invoice approve → apiFetchV1 (FastAPI workflow)
-        await apiFetchV1(`/workflow/SalesInvoice/${inv.id}/approve`, { method: "POST" });
-        onNotification("Invoice Approved", `Sales Invoice ${inv.invoiceNo} is now approved and written to financial ledgers.`, "success");
-        fetchSalesInvoices();
-        if (selectedInvoice && selectedInvoice.id === inv.id) {
-          setSelectedInvoice({ ...selectedInvoice, status: "Approved" });
-        }
-      } catch (err: any) {
-        onNotification("Network Error", err.message || "Workflow transaction failed.", "error");
-      }
-    };
-    const handleCancelInvoice = async (e: any) => {
-      const inv = e.detail;
-      try {
-      // Migrated: invoice cancel → apiFetchV1 (FastAPI workflow)
-        await apiFetchV1(`/workflow/SalesInvoice/${inv.id}/cancel`, { method: "POST" });
-        onNotification("Invoice Cancelled", `Sales Invoice ${inv.invoiceNo} is now marked as Cancelled.`, "success");
-        fetchSalesInvoices();
-        if (selectedInvoice && selectedInvoice.id === inv.id) {
-          setSelectedInvoice({ ...selectedInvoice, status: "Cancelled" });
-        }
-      } catch (err: any) {
-        onNotification("Network Error", err.message || "Workflow transaction failed.", "error");
-      }
-    };
+  // ACAS Global Event Handlers — hoisted to component scope so they can be
+  // used both as window event listeners (ACAS) and as direct onClick handlers in JSX.
+  const handlePrintInvoice = useCallback((e: any) => {
+    const inv = e?.detail ?? e;
+    onNotification("Print Action", `Sales Invoice ${inv.invoiceNo ?? ""} sent to standard print spooler.`, "success");
+  }, [onNotification]);
 
+  const handleWhatsAppInvoice = useCallback((e: any) => {
+    const inv = e?.detail ?? e;
+    onNotification("WhatsApp Shared", `Sales Invoice ${inv.invoiceNo ?? ""} successfully dispatched.`, "success");
+  }, [onNotification]);
+
+  const handleApproveInvoice = useCallback(async (e: any) => {
+    const inv = e?.detail ?? e;
+    try {
+      // Migrated: invoice approve → apiFetchV1 (FastAPI workflow)
+      await apiFetchV1(`/workflow/SalesInvoice/${inv.id}/approve`, { method: "POST" });
+      onNotification("Invoice Approved", `Sales Invoice ${inv.invoiceNo ?? ""} is now approved and written to financial ledgers.`, "success");
+      fetchSalesInvoices();
+      if (selectedInvoice && selectedInvoice.id === inv.id) {
+        setSelectedInvoice({ ...selectedInvoice, status: "Approved" });
+      }
+    } catch (err: any) {
+      onNotification("Network Error", err.message || "Workflow transaction failed.", "error");
+    }
+  }, [onNotification, selectedInvoice]);
+
+  const handleCancelInvoice = useCallback(async (e: any) => {
+    const inv = e?.detail ?? e;
+    try {
+      // Migrated: invoice cancel → apiFetchV1 (FastAPI workflow)
+      await apiFetchV1(`/workflow/SalesInvoice/${inv.id}/cancel`, { method: "POST" });
+      onNotification("Invoice Cancelled", `Sales Invoice ${inv.invoiceNo ?? ""} is now marked as Cancelled.`, "success");
+      fetchSalesInvoices();
+      if (selectedInvoice && selectedInvoice.id === inv.id) {
+        setSelectedInvoice({ ...selectedInvoice, status: "Cancelled" });
+      }
+    } catch (err: any) {
+      onNotification("Network Error", err.message || "Workflow transaction failed.", "error");
+    }
+  }, [onNotification, selectedInvoice]);
+
+  // ACAS Global Event Listeners — attach the stable callbacks to window events
+  useEffect(() => {
     window.addEventListener("SMRITI_PRINT_SALES_INVOICE", handlePrintInvoice);
     window.addEventListener("SMRITI_WHATSAPP_SALES_INVOICE", handleWhatsAppInvoice);
     window.addEventListener("SMRITI_APPROVE_SALES_INVOICE", handleApproveInvoice);
@@ -576,7 +583,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       window.removeEventListener("SMRITI_APPROVE_SALES_INVOICE", handleApproveInvoice);
       window.removeEventListener("SMRITI_CANCEL_SALES_INVOICE", handleCancelInvoice);
     };
-  }, [selectedInvoice]);
+  }, [handlePrintInvoice, handleWhatsAppInvoice, handleApproveInvoice, handleCancelInvoice]);
 
   // Listener for row-level Quick Edit Customer
   useEffect(() => {

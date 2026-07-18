@@ -4,7 +4,7 @@
     "edition": "Enterprise Edition",
     "releaseNumber": "REL-2410-B",
     "buildNumber": "BUILD-8092.44",
-    "environment": "Production",
+    "environment": "development",
     "uiVersion": "SRLE v1.0",
     "workflowEngineVersion": "v1.4",
     "printEngineVersion": "v1.2"

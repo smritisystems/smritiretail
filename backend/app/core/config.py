@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.16.0
 Created      : 2026-07-11
-Modified     : 2026-07-12
+Modified     : 2026-07-18
 Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -103,7 +103,7 @@ def _resolve_local_dev_postgres_url(conn_str: str) -> str:
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "SMRITI Retail OS"
-    VERSION: str = "3.16.0"
+    VERSION: str = "3.17.0"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
     
@@ -114,7 +114,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60       # 1 hour â€” suitable for retail POS sessions
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7          # 7-day sliding window refresh
-    INTERNAL_SERVICE_KEY: str = "smriti_secret_fallback_key"
+    INTERNAL_SERVICE_KEY: str  # Required — raise startup error if env var missing (no default to prevent silent bypass)
 
     
     # Platform profiles

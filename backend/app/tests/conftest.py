@@ -6,17 +6,24 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.21.0
 Created      : 2026-07-11
-Modified     : 2026-07-15
+Modified     : 2026-07-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 import asyncio
+import os
 import sys
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+
+# Pre-seed required env vars for the test process before settings loads.
+# These are safe test-only values; real credentials must be set in CI secrets or .env.
+os.environ.setdefault("JWT_SECRET_KEY", "smriti_test_jwt_key_do_not_use_in_production")
+os.environ.setdefault("SGIP_VAULT_MASTER_KEY", "smriti_test_vault_key_do_not_use_in_production")
+os.environ.setdefault("INTERNAL_SERVICE_KEY", "smriti_test_internal_key_do_not_use_in_production")
 
 from app.core.config import settings
 

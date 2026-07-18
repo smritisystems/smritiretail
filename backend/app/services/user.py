@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.16.1
 Created      : 2026-07-11
-Modified     : 2026-07-12
+Modified     : 2026-07-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -41,27 +41,27 @@ def to_staff_response(user: User) -> StaffUserResponse:
     
     if user.salary_json:
         try:
-            salary = SalaryStructure.parse_raw(user.salary_json)
+            salary = SalaryStructure.model_validate_json(user.salary_json)
         except Exception:
             pass
     if user.payment_json:
         try:
-            payment = PaymentDetails.parse_raw(user.payment_json)
+            payment = PaymentDetails.model_validate_json(user.payment_json)
         except Exception:
             pass
     if user.performance_json:
         try:
-            performance = PerformanceMetrics.parse_raw(user.performance_json)
+            performance = PerformanceMetrics.model_validate_json(user.performance_json)
         except Exception:
             pass
     if user.preferences_json:
         try:
-            preferences = UserPreferencesSchema.parse_raw(user.preferences_json)
+            preferences = UserPreferencesSchema.model_validate_json(user.preferences_json)
         except Exception:
             pass
     if user.notification_settings_json:
         try:
-            notifications = NotificationSettings.parse_raw(user.notification_settings_json)
+            notifications = NotificationSettings.model_validate_json(user.notification_settings_json)
         except Exception:
             pass
             
