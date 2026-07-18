@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.8.0
+Version      : 3.27.0
 Created      : 2026-07-11
-Modified     : 2026-07-11
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -38,4 +38,8 @@ class BaseEntity(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by = Column(String(100), nullable=True)
     version = Column(Integer, default=1)
+
+    # Generic Document Workflow & Numbering fields
+    workflow_status = Column(String(30), nullable=True)
+    document_number = Column(String(80), nullable=True)
 
