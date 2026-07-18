@@ -41,3 +41,8 @@ from .security import (
 )
 
 from .platform import DocumentNumberSeries, DocumentWorkflow, IntegrationLog
+from .consignment import (
+    ConsignmentPartner, ConsignmentTransfer, ConsignmentTransferItem,
+    ConsignmentSaleReport, ConsignmentSaleReportItem,
+    ConsignmentSettlement, ConsignmentReturn, ConsignmentReturnItem
+)

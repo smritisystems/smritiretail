@@ -44,6 +44,7 @@ import { BarcodeStudioTab } from "./components/BarcodeStudioTab.tsx";
 import { MasterManagementTab } from "./components/MasterManagementTab.tsx";
 import { CustomerMasterTab } from "./components/CustomerMasterTab.tsx";
 import { CustomerDashboardTab } from "./components/CustomerDashboardTab.tsx";
+import { ConsignmentStudioTab } from "./components/ConsignmentStudioTab.tsx";
 import { CrmStudioTab } from "./components/CrmStudioTab.tsx";
 import { LoyaltyStudioTab } from "./components/LoyaltyStudioTab.tsx";
 import { SupplierDashboardTab } from "./components/SupplierDashboardTab.tsx";
@@ -380,6 +381,8 @@ const AppContent: React.FC = () => {
         return <CustomerMasterTab currentUser={currentUser} />;
       case "customer-dashboard":
         return <CustomerDashboardTab />;
+      case "consignment-studio":
+        return <ConsignmentStudioTab products={products} currentUser={currentUser} />;
       case "loyalty":
         return <LoyaltyStudioTab currentUser={currentUser} />;
       case "staff-management":
