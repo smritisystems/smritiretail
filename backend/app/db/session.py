@@ -57,14 +57,14 @@ def apply_tenant_filter(execute_state):
     if execute_state.is_select and not execute_state.execution_options.get("ignore_tenant_isolation", False):
         ctx = active_tenant_ctx.get()
         if ctx and getattr(ctx, "tenant_id", None):
+            tenant_id = ctx.tenant_id
             from ..db.base import BaseEntity
 
-            execute_state.extra_options += (
+            execute_state.statement = execute_state.statement.options(
                 with_loader_criteria(
                     BaseEntity,
-                    lambda cls: cls.tenant_id == ctx.tenant_id,
-                    include_subclasses=True
-                ),
+                    lambda cls: cls.tenant_id == tenant_id
+                )
             )
 
 # Async Generator dependency to provide DB sessions to routes

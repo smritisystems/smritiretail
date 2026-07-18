@@ -288,6 +288,8 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
             "/api/v1/inventory/",
             headers={"Authorization": f"Bearer {login_payload['access_token']}"},
         )
+        if tenant_access.status_code != 200:
+            print("TENANT ACCESS FAILED RESPONSE:", tenant_access.text)
         assert tenant_access.status_code == 200
 
         unassigned_user = User(

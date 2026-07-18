@@ -115,6 +115,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-19 | foundation | SaaS Tenant Isolation & Data Security v3.31.0 — Automatic SQLAlchemy 2.0 query interceptors, BaseEntity tenant columns | [Foundation_SaaS_Tenant_Isolation_Walkthrough_v3.31.0.md](./foundation/Foundation_SaaS_Tenant_Isolation_Walkthrough_v3.31.0.md) | [Plan](../implementation/foundation/Tenant_Isolation_SaaS_Plan_v3.31.0.md) | Completed |
 | 2026-07-19 | foundation | SMRITI Regulatory Engine (SRE) Compliance Block v3.29.0 — Multi-GSTIN corporate registries, 180-day nightly sweeper | [Foundation_SMRITI_Regulatory_Engine_Walkthrough_v3.29.0.md](./foundation/Foundation_SMRITI_Regulatory_Engine_Walkthrough_v3.29.0.md) | [Plan](../implementation/foundation/SRE_Regulatory_Engine_Plan_v3.29.0.md) | Completed |
 | 2026-07-19 | foundation | Unified Stock Dispatch Engine v3.28.0 — Generic stock dispatches, SRE-routed series numbering, audit events logging | [Foundation_Stock_Dispatch_Engine_Walkthrough_v3.28.0.md](./foundation/Foundation_Stock_Dispatch_Engine_Walkthrough_v3.28.0.md) | [Plan](../implementation/foundation/Consignment_Approval_GST_Engine_Plan_v3.28.0.md) | Completed |
+| 2026-07-19 | foundation | SaaS Tenant Isolation Hotfix v3.31.1 — Resolved InvalidRequestError in query interceptor due to uncacheable closure variable | [Foundation_SaaS_Tenant_Isolation_Hotfix_v3.31.1.md](./foundation/Foundation_SaaS_Tenant_Isolation_Hotfix_v3.31.1.md) | — | Completed |
 
 
 

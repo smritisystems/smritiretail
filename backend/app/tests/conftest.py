@@ -40,7 +40,7 @@ def event_loop():
 
 @pytest.fixture
 async def db_engine():
-    engine = create_async_engine(settings.DATABASE_URL)
+    engine = create_async_engine(settings.DATABASE_URL, echo=True)
     yield engine
     await engine.dispose()
 
