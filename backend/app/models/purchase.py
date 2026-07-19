@@ -25,10 +25,10 @@ Classification: Internal
 """
 
 from sqlalchemy import Column, String, Numeric, Integer, ForeignKey, Text
-from ..db.base import BaseEntity
+from ..db.base import BaseEntity, RowSecuredMixin
 
 
-class Supplier(BaseEntity):
+class Supplier(RowSecuredMixin, BaseEntity):
     """
     Supplier master — a business entity from whom goods are procured.
     Tenant-scoped (company + branch) per BaseEntity.
@@ -48,7 +48,7 @@ class Supplier(BaseEntity):
     outstanding = Column(Numeric(15, 2), nullable=False, default=0.00)
 
 
-class PurchaseOrder(BaseEntity):
+class PurchaseOrder(RowSecuredMixin, BaseEntity):
     """
     A purchase order sent to a supplier.
     Status lifecycle: DRAFT → CONFIRMED → RECEIVED → CANCELLED

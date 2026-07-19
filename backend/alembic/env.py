@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.24.0
 Created      : 2026-07-11
-Modified     : 2026-07-18
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -57,9 +57,9 @@ from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignme
 from app.models.security import (
     SMRITIRole,
     SMRITIPermission,
-    SMRITIPolicy,
-    SMRITIRolePolicy,
-    SMRITIPolicyPermission,
+    SMRITIPermissionSet,
+    SMRITIRolePermissionSet,
+    SMRITIPermissionSetPermission,
     SMRITIUserRole,
     SMRITIMenu,
     SMRITISecurityAudit,
@@ -136,9 +136,9 @@ def include_object(object, name, type_, reflected, compare_to):
             "purchase_jurisdiction_configs",
             "smriti_roles",
             "smriti_permissions",
-            "smriti_policies",
-            "smriti_role_policies",
-            "smriti_policy_permissions",
+            "smriti_permission_sets",
+            "smriti_role_permission_sets",
+            "smriti_permission_set_permissions",
             "smriti_user_roles",
             "smriti_menus",
             "smriti_security_audits",

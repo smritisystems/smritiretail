@@ -15,9 +15,9 @@ Classification: Internal
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, Text, text
 from sqlalchemy.orm import relationship
-from ..db.base import Base, BaseEntity
+from ..db.base import Base, BaseEntity, RowSecuredMixin
 
-class SalesInvoice(BaseEntity):
+class SalesInvoice(RowSecuredMixin, BaseEntity):
     __tablename__ = "sales_invoices"
 
     invoice_no   = Column(String(100), nullable=False, unique=True)

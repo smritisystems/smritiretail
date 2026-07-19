@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -12,10 +12,10 @@ License      : Proprietary Commercial Software
 """
 
 from sqlalchemy import Boolean, Column, String, Numeric, ForeignKey, Text, DateTime
-from ..db.base import BaseEntity
+from ..db.base import BaseEntity, RowSecuredMixin
 
 
-class CashRegister(BaseEntity):
+class CashRegister(RowSecuredMixin, BaseEntity):
     """
     A physical POS terminal / POS profile at a branch.
     Maps 1-to-1 with the frontend POSProfile concept:
@@ -35,7 +35,7 @@ class CashRegister(BaseEntity):
     is_locked = Column(Boolean, default=False, nullable=False)  # terminal lock
 
 
-class Shift(BaseEntity):
+class Shift(RowSecuredMixin, BaseEntity):
     """
     A cashier's work session on a specific register.
 

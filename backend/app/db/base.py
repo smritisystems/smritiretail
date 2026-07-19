@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -16,11 +16,13 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, Boolean, Integer, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, declared_attr
 
+
 class Base(DeclarativeBase):
     @declared_attr
     def __tablename__(cls) -> str:
         # Automatically generate tablename from class name
         return cls.__name__.lower()
+
 
 class BaseEntity(Base):
     __abstract__ = True
@@ -44,3 +46,8 @@ class BaseEntity(Base):
     workflow_status = Column(String(30), nullable=True)
     document_number = Column(String(80), nullable=True)
 
+
+class RowSecuredMixin(BaseEntity):
+    """Mixin indicating that the model opts into Row-Level Security (RLS)."""
+    __abstract__ = True
+    _is_row_secured = True

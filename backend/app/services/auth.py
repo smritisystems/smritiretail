@@ -18,7 +18,7 @@ Founders
 
 * Version    : 3.9.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-11
+* Modified   : 2026-07-19
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
@@ -46,6 +46,7 @@ def _build_token_payload(user: User) -> dict:
         "role":       user.role.value,
         "company_id": user.company_id,
         "branch_id":  user.branch_id,
+        "is_platform_admin": user.is_platform_admin,
         "jti":        str(uuid.uuid4()),   # unique ID per token — used for blacklisting
     }
 
@@ -79,6 +80,7 @@ class AuthService:
             role=UserRole.SYSADMIN,
             is_active=True,
             is_deleted=False,
+            is_platform_admin=True,
             company_id=None,   # SYSADMIN is global
             branch_id=None,
             status="PendingPasswordChange",

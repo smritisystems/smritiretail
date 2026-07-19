@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Email        : support@smritibooks.com
@@ -172,8 +172,8 @@ async def seed_default_users():
                     f"perm-{perm.code.lower().replace('.', '-')}", str(uuid.uuid4()), perm.code, perm.resource, perm.action, perm.scope, perm.module, perm.description
                 )
 
-        # 7.5 Seed Decoupled Functional Policies
-        policies_to_seed = [
+        # 7.5 Seed Decoupled Functional Permission Sets
+        permission_sets_to_seed = [
             {"id": "pol-sales-mgmt", "code": "POL-SALES-MGMT", "name": "Sales Management Policy"},
             {"id": "pol-inventory-mgmt", "code": "POL-INVENTORY-MGMT", "name": "Inventory Management Policy"},
             {"id": "pol-crm-mgmt", "code": "POL-CRM-MGMT", "name": "CRM Management Policy"},
@@ -182,18 +182,18 @@ async def seed_default_users():
             {"id": "pol-security-admin", "code": "POL-SECURITY-ADMIN", "name": "Security Administration Policy"},
             {"id": "pol-core-view", "code": "POL-CORE-VIEW", "name": "Core View Policy"}
         ]
-        for pol in policies_to_seed:
-            exists = await conn.fetchval("SELECT COUNT(*) FROM smriti_policies WHERE code = $1", pol["code"])
+        for pol in permission_sets_to_seed:
+            exists = await conn.fetchval("SELECT COUNT(*) FROM smriti_permission_sets WHERE code = $1", pol["code"])
             if not exists:
-                print(f"[SMRITI DB SEED] Seeding policy '{pol['code']}'...")
+                print(f"[SMRITI DB SEED] Seeding permission set '{pol['code']}'...")
                 await conn.execute(
-                    "INSERT INTO smriti_policies (id, uuid, code, name, description, is_active, is_deleted, created_at, modified_at) "
+                    "INSERT INTO smriti_permission_sets (id, uuid, code, name, description, is_active, is_deleted, created_at, modified_at) "
                     "VALUES ($1, $2, $3, $4, $5, true, false, now(), now())",
                     pol["id"], str(uuid.uuid4()), pol["code"], pol["name"], pol["name"]
                 )
 
-        # 7.6 Map Permissions to Policies
-        policy_perm_mappings = {
+        # 7.6 Map Permissions to Permission Sets
+        permission_set_perm_mappings = {
             "POL-SALES-MGMT": ["SALES.CREATE", "SALES.UPDATE", "SALES.APPROVE", "SALES.VIEW", "SALES.DELETE", "POS.CHECKOUT", "POS.OPEN_SHIFT", "POS.CLOSE_SHIFT"],
             "POL-INVENTORY-MGMT": ["ITEM.CREATE", "ITEM.VIEW", "ITEM.UPDATE", "ITEM.DELETE"],
             "POL-CRM-MGMT": ["CRM.MANAGE_CUSTOMERS", "CRM.VIEW_LOYALTY"],
@@ -203,27 +203,27 @@ async def seed_default_users():
             "POL-CORE-VIEW": ["SALES.VIEW", "ITEM.VIEW", "REPORT.VIEW"]
         }
 
-        for policy_code, perm_codes in policy_perm_mappings.items():
-            policy_id = await conn.fetchval("SELECT id FROM smriti_policies WHERE code = $1", policy_code)
-            if not policy_id:
+        for perm_set_code, perm_codes in permission_set_perm_mappings.items():
+            permission_set_id = await conn.fetchval("SELECT id FROM smriti_permission_sets WHERE code = $1", perm_set_code)
+            if not permission_set_id:
                 continue
             for p_code in perm_codes:
                 perm_id = await conn.fetchval("SELECT id FROM smriti_permissions WHERE code = $1", p_code)
                 if not perm_id:
                     continue
                 mapping_exists = await conn.fetchval(
-                    "SELECT COUNT(*) FROM smriti_policy_permissions WHERE policy_id = $1 AND permission_id = $2",
-                    policy_id, perm_id
+                    "SELECT COUNT(*) FROM smriti_permission_set_permissions WHERE permission_set_id = $1 AND permission_id = $2",
+                    permission_set_id, perm_id
                 )
                 if not mapping_exists:
                     await conn.execute(
-                        "INSERT INTO smriti_policy_permissions (id, uuid, policy_id, permission_id, permission_type, created_at, modified_at) "
+                        "INSERT INTO smriti_permission_set_permissions (id, uuid, permission_set_id, permission_id, permission_type, created_at, modified_at) "
                         "VALUES ($1, $2, $3, $4, 'ALLOW', now(), now())",
-                        str(uuid.uuid4()), str(uuid.uuid4()), policy_id, perm_id
+                        str(uuid.uuid4()), str(uuid.uuid4()), permission_set_id, perm_id
                     )
 
-        # 7.7 Map Policies to Roles
-        role_policy_mappings = {
+        # 7.7 Map Permission Sets to Roles
+        role_permission_set_mappings = {
             "ADMINISTRATOR": ["POL-SALES-MGMT", "POL-INVENTORY-MGMT", "POL-CRM-MGMT", "POL-PURCHASE-MGMT", "POL-REPORTING", "POL-SECURITY-ADMIN"],
             "OWNER": ["POL-SALES-MGMT", "POL-INVENTORY-MGMT", "POL-CRM-MGMT", "POL-PURCHASE-MGMT", "POL-REPORTING"],
             "COMPANY_ADMIN": ["POL-SALES-MGMT", "POL-INVENTORY-MGMT", "POL-CRM-MGMT", "POL-PURCHASE-MGMT", "POL-REPORTING"],
@@ -236,24 +236,25 @@ async def seed_default_users():
             "VIEWER": ["POL-CORE-VIEW"]
         }
 
-        for role_code, policy_codes in role_policy_mappings.items():
+        for role_code, perm_set_codes in role_permission_set_mappings.items():
             role_id = await conn.fetchval("SELECT id FROM smriti_roles WHERE code = $1", role_code)
             if not role_id:
                 continue
-            for pol_code in policy_codes:
-                policy_id = await conn.fetchval("SELECT id FROM smriti_policies WHERE code = $1", pol_code)
-                if not policy_id:
+            for pol_code in perm_set_codes:
+                permission_set_id = await conn.fetchval("SELECT id FROM smriti_permission_sets WHERE code = $1", pol_code)
+                if not permission_set_id:
                     continue
                 mapping_exists = await conn.fetchval(
-                    "SELECT COUNT(*) FROM smriti_role_policies WHERE role_id = $1 AND policy_id = $2",
-                    role_id, policy_id
+                    "SELECT COUNT(*) FROM smriti_role_permission_sets WHERE role_id = $1 AND permission_set_id = $2",
+                    role_id, permission_set_id
                 )
                 if not mapping_exists:
                     await conn.execute(
-                        "INSERT INTO smriti_role_policies (id, uuid, role_id, policy_id, created_at, modified_at) "
+                        "INSERT INTO smriti_role_permission_sets (id, uuid, role_id, permission_set_id, created_at, modified_at) "
                         "VALUES ($1, $2, $3, $4, now(), now())",
-                        str(uuid.uuid4()), str(uuid.uuid4()), role_id, policy_id
+                        str(uuid.uuid4()), str(uuid.uuid4()), role_id, permission_set_id
                     )
+
 
         # 8. Seed Default Dynamic Menus
         menus_to_seed = [
@@ -285,7 +286,8 @@ async def seed_default_users():
                 "company_id": None,
                 "branch_id": None,
                 "full_name": "SYSTEM ADMINISTRATOR",
-                "display_name": "Super"
+                "display_name": "Super",
+                "is_platform_admin": True
             },
             {
                 "id": "usr-manager",
@@ -297,7 +299,8 @@ async def seed_default_users():
                 "company_id": "comp-default",
                 "branch_id": "br-default",
                 "full_name": "STORE MANAGER",
-                "display_name": "Manager"
+                "display_name": "Manager",
+                "is_platform_admin": False
             },
             {
                 "id": "usr-cashier",
@@ -309,7 +312,8 @@ async def seed_default_users():
                 "company_id": "comp-default",
                 "branch_id": "br-default",
                 "full_name": "CASHIER OPERATOR",
-                "display_name": "Cashier"
+                "display_name": "Cashier",
+                "is_platform_admin": False
             }
         ]
 
@@ -322,20 +326,27 @@ async def seed_default_users():
                     """
                     INSERT INTO users (
                         id, uuid, username, email, mobile, hashed_password, role, is_active, is_deleted,
+                        is_platform_admin,
                         full_name, display_name, status, country, employment_type,
                         company_id, branch_id, created_at, modified_at
                     ) VALUES (
                         $1, $2, $3, $4, $5, $6, $7, true, false,
-                        $8, $9, 'Active', 'India', 'Permanent',
-                        $10, $11, now(), now()
+                        $8,
+                        $9, $10, 'Active', 'India', 'Permanent',
+                        $11, $12, now(), now()
                     )
                     """,
                     user["id"], str(uuid.uuid4()), user["username"], user["email"], user["mobile"],
-                    hashed, user["role"], user["full_name"], user["display_name"],
+                    hashed, user["role"], user.get("is_platform_admin", False), user["full_name"], user["display_name"],
                     user["company_id"], user["branch_id"]
                 )
             else:
                 print(f"[SMRITI DB SEED] User '{user['username']}' already exists, skipping.")
+                # Resilient update for is_platform_admin for existing seed users
+                await conn.execute(
+                    "UPDATE users SET is_platform_admin = $1 WHERE username = $2",
+                    user.get("is_platform_admin", False), user["username"]
+                )
 
             # Map user to dynamic SMRITI Role
             mapped_exists = await conn.fetchval("SELECT COUNT(*) FROM smriti_user_roles WHERE user_id = $1", user["id"])

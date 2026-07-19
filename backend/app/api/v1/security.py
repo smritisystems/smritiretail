@@ -1,11 +1,11 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.24.0
 Created      : 2026-07-18
-Modified     : 2026-07-18
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -17,13 +17,13 @@ from sqlalchemy.future import select
 
 from ...api.deps import get_db, get_current_user, require_permission
 from ...models.auth import User
-from ...models.security import SMRITIRole, SMRITIPermission, SMRITIPolicy
+from ...models.security import SMRITIRole, SMRITIPermission, SMRITIPermissionSet
 from ...schemas.security import (
     SMRITIMenuResponse,
     SMRITIRoleResponse,
     SMRITIRoleCreate,
     SMRITIPermissionResponse,
-    SMRITIPolicyResponse,
+    SMRITIPermissionSetResponse,
     SecurityCheckRequest,
     SecurityCheckResponse
 )
@@ -88,14 +88,15 @@ async def list_roles(
     return list(res.scalars().all())
 
 
-@router.get("/policies", response_model=List[SMRITIPolicyResponse])
-async def list_policies(
+@router.get("/permission-sets", response_model=List[SMRITIPermissionSetResponse])
+async def list_permission_sets(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("SECURITY.VIEW_SETTINGS"))
 ):
     """
-    List all security policies. Scoped to SECURITY.VIEW_SETTINGS permission.
+    List all security permission sets. Scoped to SECURITY.VIEW_SETTINGS permission.
     """
-    stmt = select(SMRITIPolicy).where(SMRITIPolicy.is_deleted == False)
+    stmt = select(SMRITIPermissionSet).where(SMRITIPermissionSet.is_deleted == False)
     res = await db.execute(stmt)
     return list(res.scalars().all())
+

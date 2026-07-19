@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -32,9 +32,9 @@ from .security import (
     PermissionType,
     SMRITIRole,
     SMRITIPermission,
-    SMRITIPolicy,
-    SMRITIRolePolicy,
-    SMRITIPolicyPermission,
+    SMRITIPermissionSet,
+    SMRITIRolePermissionSet,
+    SMRITIPermissionSetPermission,
     SMRITIUserRole,
     SMRITIMenu,
     SMRITISecurityAudit,

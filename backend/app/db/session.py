@@ -24,6 +24,8 @@ Founders
 """
 
 from contextvars import ContextVar
+from dataclasses import dataclass
+from typing import Optional, List, Dict, Any
 from sqlalchemy import event
 from sqlalchemy.orm import with_loader_criteria, Session
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -48,6 +50,26 @@ async_session = async_sessionmaker(
 # Context variable to hold active request-scoped TenantContext
 active_tenant_ctx: ContextVar = ContextVar("active_tenant_ctx", default=None)
 
+# Context variable to hold active request-scoped SecurityContext
+@dataclass
+class SecurityContext:
+    user_id: str
+    username: str
+    platform_admin: bool
+    tenant_id: str
+    company_ids: List[str]
+    branch_ids: List[str]
+    department_ids: List[str]
+    warehouse_ids: List[str]
+    cost_center_ids: List[str]
+    record_scope: str  # SELF, TEAM, BRANCH, COMPANY, ALL
+    license: Dict[str, Any]
+    feature_flags: Dict[str, Any]
+    session: str
+    api_key: str
+
+active_security_context: ContextVar = ContextVar("active_security_context", default=None)
+
 @event.listens_for(Session, "do_orm_execute")
 def apply_tenant_filter(execute_state):
     """
@@ -66,6 +88,63 @@ def apply_tenant_filter(execute_state):
                     lambda cls: cls.tenant_id == tenant_id
                 )
             )
+
+def get_current_user_id() -> str:
+    ctx = active_security_context.get()
+    return str(ctx.user_id) if (ctx and ctx.user_id) else ""
+
+def get_current_branch_ids() -> tuple:
+    ctx = active_security_context.get()
+    return tuple(ctx.branch_ids) if (ctx and ctx.branch_ids) else ()
+
+def get_current_company_ids() -> tuple:
+    ctx = active_security_context.get()
+    return tuple(ctx.company_ids) if (ctx and ctx.company_ids) else ()
+
+@event.listens_for(Session, "do_orm_execute")
+def apply_rls_filter(execute_state):
+    """
+    ORM query interceptor injecting row-level security (RLS) filters dynamically.
+    Enforces SELF, TEAM, BRANCH, COMPANY, or ALL visibility.
+    """
+    if execute_state.is_select and not execute_state.execution_options.get("ignore_rls_isolation", False):
+        ctx = active_security_context.get()
+        print(f"DEBUG RLS INTERCEPTOR: ctx={ctx}", flush=True)
+        if ctx and not ctx.platform_admin:
+            from ..db.base import BaseEntity
+            scope = ctx.record_scope
+
+            if scope == "ALL":
+                # No RLS filter required, can view all companies/branches in the tenant
+                return
+
+            # Disable compiled cache to bypass Python 3.14 lambda caching issues
+            execute_state.execution_options = execute_state.execution_options.union({"compiled_cache": None})
+
+            if scope == "SELF":
+                execute_state.statement = execute_state.statement.options(
+                    with_loader_criteria(
+                        BaseEntity,
+                        lambda cls: cls.created_by == get_current_user_id() if hasattr(cls, "_is_row_secured") else True
+                    )
+                )
+            elif scope == "TEAM":
+                # placeholder for future models with department_id, currently no RowSecuredMixin has department_id
+                pass
+            elif scope == "BRANCH":
+                execute_state.statement = execute_state.statement.options(
+                    with_loader_criteria(
+                        BaseEntity,
+                        lambda cls: cls.branch_id.in_(get_current_branch_ids()) if hasattr(cls, "_is_row_secured") else True
+                    )
+                )
+            elif scope == "COMPANY":
+                execute_state.statement = execute_state.statement.options(
+                    with_loader_criteria(
+                        BaseEntity,
+                        lambda cls: cls.company_id.in_(get_current_company_ids()) if hasattr(cls, "_is_row_secured") else True
+                    )
+                )
 
 # Async Generator dependency to provide DB sessions to routes
 async def get_db():

@@ -1,4 +1,4 @@
-﻿<!--
+<!--
   Project      : SMRITI Retail OS
   Repository   : SMRITIRetailNX
   Organization : AITDL NETWORKS
@@ -16,9 +16,9 @@
 
   * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.25.3
+  * Version    : 3.33.0
   * Created    : 2026-07-11
-  * Modified   : 2026-07-19
+  * Modified   : 2026-07-20
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -27,6 +27,17 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+---
+
+## [3.33.0] — 2026-07-20
+
+### Added
+
+- **Permission Sets Composition**: Renamed and migrated policy models to `SMRITIPermissionSet`, `SMRITIRolePermissionSet`, and `SMRITIPermissionSetPermission` supporting dynamic role aggregation.
+- **Identity-Agnostic Platform Admin Bypass**: Extracted Platform Administrator bypass checks to a boolean database flag (`is_platform_admin`) in the `User` model, deprecating string-based SYSADMIN role checks.
+- **Enterprise Access Upgrade Alembic Migrations**: Added migrations `6a5a1f89c59e` and `382862b3ec00` representing the schema changes.
+- **Seeding and conftest cleanup**: Standardized database seeding routines to automatically populate roles, permissions, permission sets, and assignments on system initialize and test teardowns.
 
 ---
 

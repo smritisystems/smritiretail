@@ -30,7 +30,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.config import settings
 
-from ..db.session import get_db as _get_db, active_tenant_ctx
+from ..db.session import get_db as _get_db, active_tenant_ctx, active_security_context, SecurityContext
 from ..models.auth import User, UserRole
 from ..core.security import decode_token
 from ..services.security import SecurityService
@@ -202,6 +202,61 @@ def require_permission(permission_code: str) -> Callable:
                     "reference_id": "SMRITI-PERM-001"
                 }
             )
+
+        # Resolve scope for the permission
+        from sqlalchemy import select
+        from ..models.security import SMRITIPermission
+        from ..core.permissions import MANIFEST
+
+        perm_def = next((p for p in MANIFEST if p.code == permission_code), None)
+        
+        # Try loading scope from database for dynamic overrides, fallback to manifest
+        stmt = select(SMRITIPermission.scope).where(SMRITIPermission.code == permission_code)
+        res = await db.execute(stmt)
+        db_scope = res.scalar_one_or_none()
+        print(f"DEBUG PERMISSION SCOPE: permission_code={permission_code}, db_scope={db_scope}", flush=True)
+        perm_scope = db_scope if db_scope else (perm_def.scope if perm_def else "OWN_BRANCH")
+
+        # Map to RLS ResolvedScope (SELF, TEAM, BRANCH, COMPANY, ALL)
+        mapping = {
+            "GLOBAL": "ALL",
+            "OWN_BRANCH": "BRANCH",
+            "OWN_COMPANY": "COMPANY",
+            "SELF": "SELF",
+            "TEAM": "TEAM"
+        }
+        resolved_scope = mapping.get(perm_scope, "BRANCH")
+
+        # Build request-scoped SecurityContext
+        company_ids = [current_user.company_id] if current_user.company_id else []
+        branch_ids = [current_user.branch_id] if current_user.branch_id else []
+        
+        ctx = SecurityContext(
+            user_id=current_user.id,
+            username=current_user.username,
+            platform_admin=current_user.is_platform_admin,
+            tenant_id=current_user.tenant_id or "default",
+            company_ids=company_ids,
+            branch_ids=branch_ids,
+            department_ids=[],
+            warehouse_ids=[],
+            cost_center_ids=[],
+            record_scope=resolved_scope,
+            license={},
+            feature_flags={},
+            session="",
+            api_key=""
+        )
+        active_security_context.set(ctx)
+
+        # Sync active_tenant_ctx for backwards compatibility
+        t_ctx = TenantContext(
+            tenant_id=ctx.tenant_id,
+            company_id=current_user.company_id,
+            branch_id=current_user.branch_id
+        )
+        active_tenant_ctx.set(t_ctx)
+
         return current_user
     return _guard
 

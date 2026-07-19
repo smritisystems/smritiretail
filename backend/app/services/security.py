@@ -20,9 +20,9 @@ from ..models.auth import User
 from ..models.security import (
     PermissionType,
     SMRITIMenu,
-    SMRITIPolicyPermission,
+    SMRITIPermissionSetPermission,
     SMRITIRole,
-    SMRITIRolePolicy,
+    SMRITIRolePermissionSet,
     SMRITISecurityAudit,
     SMRITIUserRole,
 )
@@ -117,28 +117,28 @@ class SecurityService:
 
         role_ids = [r.id for r in effective_roles]
 
-        # Fetch policies mapped to effective roles
-        role_policy_stmt = select(SMRITIRolePolicy).where(SMRITIRolePolicy.role_id.in_(role_ids))
-        role_policy_res = await self.db.execute(role_policy_stmt)
-        role_policies = role_policy_res.scalars().all()
+        # Fetch permission sets mapped to effective roles
+        role_permission_set_stmt = select(SMRITIRolePermissionSet).where(SMRITIRolePermissionSet.role_id.in_(role_ids))
+        role_permission_set_res = await self.db.execute(role_permission_set_stmt)
+        role_permission_sets = role_permission_set_res.scalars().all()
         
-        if not role_policies:
+        if not role_permission_sets:
             return set()
 
-        policy_ids = [rp.policy_id for rp in role_policies]
+        permission_set_ids = [rp.permission_set_id for rp in role_permission_sets]
 
-        # Fetch policy permission mappings
-        policy_perm_stmt = select(SMRITIPolicyPermission).where(
-            SMRITIPolicyPermission.policy_id.in_(policy_ids)
-        ).options(selectinload(SMRITIPolicyPermission.permission))
-        policy_perm_res = await self.db.execute(policy_perm_stmt)
-        policy_permissions = policy_perm_res.scalars().all()
+        # Fetch permission set permission mappings
+        permission_set_perm_stmt = select(SMRITIPermissionSetPermission).where(
+            SMRITIPermissionSetPermission.permission_set_id.in_(permission_set_ids)
+        ).options(selectinload(SMRITIPermissionSetPermission.permission))
+        permission_set_perm_res = await self.db.execute(permission_set_perm_stmt)
+        permission_set_permissions = permission_set_perm_res.scalars().all()
 
         # Apply Tri-State Logic: Deny wins over Allow
         allowed_permissions = set()
         denied_permissions = set()
 
-        for pp in policy_permissions:
+        for pp in permission_set_permissions:
             perm_code = pp.permission.code
             if pp.permission_type == PermissionType.DENY:
                 denied_permissions.add(perm_code)
@@ -147,6 +147,7 @@ class SecurityService:
 
         # Resolve final permission codes
         resolved = allowed_permissions - denied_permissions
+
         await provider.set(user_id, resolved)
         return resolved
 
@@ -154,14 +155,12 @@ class SecurityService:
         """
         Determine if the user has a specific permission allowed.
         """
-        # Let SYSADMIN bypass security checks
+        # Let Platform Administrators bypass security checks
         user_stmt = select(User).where(User.id == user_id)
         user_res = await self.db.execute(user_stmt)
         user = user_res.scalar_one_or_none()
-        if user:
-            role_val = user.role.value if hasattr(user.role, "value") else str(user.role)
-            if role_val == "SYSADMIN":
-                return True
+        if user and user.is_platform_admin:
+            return True
 
         permissions = await self.resolve_user_permissions(user_id)
         return permission_code in permissions
@@ -180,16 +179,15 @@ class SecurityService:
         # Resolve user permissions
         user_stmt = select(User).where(User.id == user_id)
         user = (await self.db.execute(user_stmt)).scalar_one_or_none()
-        role_val = user.role.value if (user and hasattr(user.role, "value")) else (str(user.role) if user else None)
-        is_sysadmin = user and role_val == "SYSADMIN"
+        is_platform_admin = user and user.is_platform_admin
         
-        user_perms = set() if is_sysadmin else await self.resolve_user_permissions(user_id)
+        user_perms = set() if is_platform_admin else await self.resolve_user_permissions(user_id)
 
         # Filter menus by permission and feature flags
         visible_menus = []
         for m in all_menus:
             # Enforce permission checks
-            if not is_sysadmin and m.permission and m.permission not in user_perms:
+            if not is_platform_admin and m.permission and m.permission not in user_perms:
                 continue
             
             visible_menus.append({

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -22,6 +22,15 @@ from ..api.deps import TenantContext
 class SalesInvoiceRepository(BaseRepository[SalesInvoice]):
     def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
         super().__init__(SalesInvoice, db, tenant_ctx)
+
+    async def get_all(self, skip: int = 0, limit: int = 100) -> List[SalesInvoice]:
+        from sqlalchemy.orm import selectinload
+        stmt = select(SalesInvoice).filter(SalesInvoice.is_deleted == False)
+        stmt = self._apply_tenant_filter(stmt)
+        stmt = stmt.options(selectinload(SalesInvoice.items))
+        stmt = stmt.offset(skip).limit(limit)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
 
     async def search(
         self, invoice_no: Optional[str] = None, customer_id: Optional[str] = None,

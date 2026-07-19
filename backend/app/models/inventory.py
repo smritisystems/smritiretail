@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -14,9 +14,9 @@ License      : Proprietary Commercial Software
 from datetime import datetime
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from ..db.base import BaseEntity
+from ..db.base import BaseEntity, RowSecuredMixin
 
-class Product(BaseEntity):
+class Product(RowSecuredMixin, BaseEntity):
     __tablename__ = "products"
 
     code = Column(String(50), nullable=False, unique=True)

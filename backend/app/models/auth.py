@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -41,6 +41,14 @@ class User(Base):
 
     id              = Column(String(50),  primary_key=True, default=lambda: str(_uuid.uuid4())[:8])
     uuid            = Column(String(36),  nullable=False, unique=True, default=lambda: str(_uuid.uuid4()))
+
+    def __init__(self, **kwargs):
+        if "is_platform_admin" not in kwargs:
+            role = kwargs.get("role")
+            if role == UserRole.SYSADMIN or role == "SYSADMIN":
+                kwargs["is_platform_admin"] = True
+        super().__init__(**kwargs)
+
     username        = Column(String(80),  nullable=False, unique=True, index=True)
     email           = Column(String(255), nullable=True,  unique=True, index=True)
     mobile          = Column(String(20),  nullable=True)
@@ -48,6 +56,7 @@ class User(Base):
     role            = Column(SAEnum(UserRole), nullable=False, default=UserRole.CASHIER)
     is_active       = Column(Boolean,     nullable=False, default=True)
     is_deleted      = Column(Boolean,     nullable=False, default=False)
+    is_platform_admin = Column(Boolean,     nullable=False, default=False)
 
     # Tenant scope — NULL for SYSADMIN
     tenant_id  = Column(String(50), nullable=True, index=True)
