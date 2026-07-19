@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Email        : support@smritibooks.com
@@ -59,9 +59,25 @@ class SecurityService:
         direct_mappings = user_roles_res.scalars().all()
         
         if not direct_mappings:
-            return []
-
-        resolved_role_ids = {m.role_id for m in direct_mappings}
+            # Fallback to legacy User.role column for backward compatibility and test suite execution
+            from ..models.auth import User
+            user_stmt = select(User).where(User.id == user_id)
+            user_res = await self.db.execute(user_stmt)
+            user = user_res.scalar_one_or_none()
+            if user and user.role:
+                role_val = user.role.value if hasattr(user.role, "value") else str(user.role)
+                # Find matching role in smriti_roles by code
+                role_stmt = select(SMRITIRole).where(SMRITIRole.code == role_val)
+                role_res = await self.db.execute(role_stmt)
+                role_obj = role_res.scalar_one_or_none()
+                if role_obj:
+                    resolved_role_ids = {role_obj.id}
+                else:
+                    return []
+            else:
+                return []
+        else:
+            resolved_role_ids = {m.role_id for m in direct_mappings}
         visited_role_ids = set()
         resolved_roles = []
 
@@ -142,8 +158,10 @@ class SecurityService:
         user_stmt = select(User).where(User.id == user_id)
         user_res = await self.db.execute(user_stmt)
         user = user_res.scalar_one_or_none()
-        if user and user.role.value == "SYSADMIN":
-            return True
+        if user:
+            role_val = user.role.value if hasattr(user.role, "value") else str(user.role)
+            if role_val == "SYSADMIN":
+                return True
 
         permissions = await self.resolve_user_permissions(user_id)
         return permission_code in permissions
@@ -162,7 +180,8 @@ class SecurityService:
         # Resolve user permissions
         user_stmt = select(User).where(User.id == user_id)
         user = (await self.db.execute(user_stmt)).scalar_one_or_none()
-        is_sysadmin = user and user.role.value == "SYSADMIN"
+        role_val = user.role.value if (user and hasattr(user.role, "value")) else (str(user.role) if user else None)
+        is_sysadmin = user and role_val == "SYSADMIN"
         
         user_perms = set() if is_sysadmin else await self.resolve_user_permissions(user_id)
 

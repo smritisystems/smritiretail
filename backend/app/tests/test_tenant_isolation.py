@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -53,7 +53,6 @@ async def override_get_db(db_session):
         yield db_session
     app.dependency_overrides[get_db] = _get_db
 
-    # Override get_current_user — returns a mock MANAGER user.
     _mock_manager = User(
         id="test-mgr",
         username="test_manager",
@@ -64,6 +63,8 @@ async def override_get_db(db_session):
         company_id=None,
         branch_id=None,
     )
+    db_session.add(_mock_manager)
+    await db_session.commit()
     async def _get_user():
         return _mock_manager
     app.dependency_overrides[get_current_user] = _get_user

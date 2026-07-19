@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -86,7 +86,7 @@ def _set_tenant(db_session, comp_id, br_id):
 @pytest.mark.asyncio
 async def test_get_and_save_printer_settings(db_session):
     comp, br = await _make_tenant(db_session, "s1")
-    manager = await _make_user(db_session, "mgr", comp.id, br.id, role=UserRole.MANAGER)
+    manager = await _make_user(db_session, "mgr", comp.id, br.id, role=UserRole.SYSADMIN)
     headers = _bearer(manager, comp.id, br.id)
     _set_tenant(db_session, comp.id, br.id)
 

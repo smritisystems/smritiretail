@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -27,7 +27,8 @@ class SalesInvoice(BaseEntity):
     tax_total    = Column(Numeric(15, 2), default=0.00)
     grand_total  = Column(Numeric(15, 2), nullable=False, default=0.00)
     is_interstate = Column(Boolean, default=False)
-    eway_bill_no = Column(String(50))
+    # eway_bill_no represents the manually-entered Indian E-way bill number.
+    eway_bill_no = Column(String(50), doc="Stores the E-Way Bill number entered by the user. SMRITI Retail OS does not generate E-Way Bills via NIC APIs in this release. Automatic generation is tracked separately.")
     payment_mode = Column(String(20), default="CASH")  # CASH | CARD | UPI | CREDIT
     status       = Column(String(20), default="Draft")
 

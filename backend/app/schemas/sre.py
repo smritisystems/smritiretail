@@ -8,7 +8,8 @@
 from typing import Optional, List
 from decimal import Decimal
 from datetime import date, datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from app.core.gstin import validate_gstin_format
 
 
 # --- CorporateGstinRegistry Schemas ---
@@ -17,6 +18,11 @@ class CorporateGstinRegistryBase(BaseModel):
     gstin: str = Field(..., max_length=15)
     state_code: str = Field(..., max_length=2)
     warehouse_name: str = Field(..., max_length=100)
+
+    @field_validator("gstin")
+    @classmethod
+    def validate_gstin(cls, value: str) -> str:
+        return validate_gstin_format(value)
 
 
 class CorporateGstinRegistryCreate(CorporateGstinRegistryBase):
@@ -27,6 +33,13 @@ class CorporateGstinRegistryUpdate(BaseModel):
     gstin: Optional[str] = Field(None, max_length=15)
     state_code: Optional[str] = Field(None, max_length=2)
     warehouse_name: Optional[str] = Field(None, max_length=100)
+
+    @field_validator("gstin")
+    @classmethod
+    def validate_gstin(cls, value: Optional[str]) -> Optional[str]:
+        if not value:
+            return value
+        return validate_gstin_format(value)
 
 
 class CorporateGstinRegistryResponse(CorporateGstinRegistryBase):
@@ -88,6 +101,11 @@ class SreStatutoryLedgerBase(BaseModel):
     dispatch_date: date
     expiry_date: date
     is_asset_on_balance_sheet: bool = True
+
+    @field_validator("destination_gstin")
+    @classmethod
+    def validate_destination_gstin(cls, value: str) -> str:
+        return validate_gstin_format(value)
 
 
 class SreStatutoryLedgerCreate(SreStatutoryLedgerBase):

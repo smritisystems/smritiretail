@@ -41,7 +41,7 @@ SMRITI Retail OS acts as a centralized retail system-of-record. It enables high-
 ## 2. Key Features
 * **POS Billing & Invoicing:** High-speed barcode scanning billing layout with support for cash drawer shifts, hold tickets, and receipt template customization.
 * **Smart Inventory Management:** Barcode registration, SKU tracking, stock ledger entries, and automated low-stock notifications.
-* **GST & Tax Compliance:** Local and interstate tax calculation rules, HSN code registration, and NIC/GSTN staging-ready integration schemas.
+* **GST & Tax Compliance:** Local and interstate tax calculation rules, HSN code registration, and structural GSTIN check digit verification.
 * **Multi-Tenant Operations:** Support for multi-company groups and multi-branch isolation boundaries.
 * **SMRITI Layout Engine (SRLE):** Dynamically rendered widget workspaces for cashier operations and reporting.
 * **Print Engine Studio:** Raw template layout design using ZPL (Zebra) and TSPL (TSC) label printers.
@@ -204,3 +204,44 @@ For issues, configuration inquiries, or setup help:
 SMRITI Retail OS is proprietary commercial software.
 Copyright © SmritiSys. All Rights Reserved.
 Refer to the [LICENSE](LICENSE) file for usage terms and restrictions.
+
+---
+
+## 13. Capability Matrix (Indian Retail Compliance)
+
+Capability Matrix Status Vocabulary: ✅ Implemented / 🟡 Partial / 🔵 Planned / ⚪ Out of Scope / 🔴 Deprecated
+
+| Feature Area | Sub-feature / Requirement | Status | Details / Constraints |
+|---|---|---|---|
+| **POS Billing** | Shifts, hold tickets, register checkout, tax calculations | ✅ Implemented | Fully verified via test suite (`test_pos.py`, `test_sales.py`). |
+| **Inventory Management** | Barcode registration, SKU tracking, stock ledger entries | ✅ Implemented | Verified via `test_inventory_endpoint_permissions`. |
+| **Multi-Tenant Isolation** | Multi-company & multi-branch boundary checks | ✅ Implemented | Enforced in database session filters and checked via `test_tenant_isolation.py`. |
+| **GSTIN Validation** | Structural checksum validation (Luhn mod 36) | ✅ Implemented | Centralized check digit algorithm in `app/core/gstin.py` and covered in `test_gstin_compliance.py`. |
+| **GSTIN Registry** | Active taxpayer registry verification via GSTN/GSP portal | 🔵 Planned | Out of scope for this phase. Requires external API integration. |
+| **Payment Recording** | Payment Mode Recording (CASH, CARD, UPI, CREDIT) | ✅ Implemented | Supported in backend schemas and database models. |
+| **UPI Gateway** | UPI Gateway Integration | 🔵 Planned | Direct collection with payment gateway is not implemented in this phase. |
+| **UPI Signatures** | UPI Signature Verification | 🔵 Planned | Requires cryptographic key rotation and signature verification. |
+| **UPI Webhooks** | UPI Webhook Processing | 🔵 Planned | Background webhook endpoint and status polling is planned. |
+| **GST Rate Validation** | GST Rate Validation & Slabs | 🔵 Planned | `gst_rate` is currently an unconstrained Decimal (default 18.00) with no slab enforcement. |
+| **E-Way Bill** | E-Way Bill Number Field Recording | 🟡 Partial | Manual entry of `eway_bill_no` in Sales Invoice only. |
+| **E-Way Bill Auto** | E-Way Bill Auto Generation via NIC APIs | 🔵 Planned | Out of scope for this phase. |
+| **E-Invoicing** | IRN / Signed QR Code Auto Generation | 🔵 Planned | Requires sandbox credentials, IRN API, and receipt QR code integration. |
+| **HSN/SAC Validation** | Dynamic verification against master HSN database | ⚪ Out of Scope | Tracked separately; static text registration is supported. |
+| **Reverse Charge** | Reverse Charge (RCM) Transaction Handling | ⚪ Out of Scope | Tracked separately. |
+| **TCS/TDS** | Tax Collected at Source / Tax Deducted at Source | ⚪ Out of Scope | Tracked separately. |
+| **Export GST** | Export Invoice Tax Rules & Zero-rated sales | ⚪ Out of Scope | Tracked separately. |
+| **SEZ Transactions** | Special Economic Zone invoice validation | ⚪ Out of Scope | Tracked separately. |
+
+---
+
+## 14. Regulatory Compliance Roadmap (India)
+
+### E-Invoicing Integration Prerequisites (Status: 🔵 Planned)
+Before automated E-Invoicing can be deployed, the following milestones must be achieved:
+1. **NIC Sandbox Access:** Secure staging access and testing endpoints from the National Informatics Centre.
+2. **IRP Credentials:** Register a test GSTIN on the sandbox Invoice Registration Portal.
+3. **IRN API Development:** Implement the JSON schema for Invoice Reference Number (IRN) generation.
+4. **Signed QR Code Rendering:** Integrate decoding and printing of signed JWT-based QR codes on POS receipts.
+5. **Cancellation & Amendment APIs:** Support automated invoice cancellation within the 24-hour window.
+6. **Retry & Fallback Queue:** Build a background worker retry engine to queue failed registration attempts.
+7. **Production Certification:** Run compliance audits and receive NIC GSP direct integration approval.

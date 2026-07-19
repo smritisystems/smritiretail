@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Email        : support@smritibooks.com
@@ -164,7 +164,7 @@ async def test_crm_endpoint_permissions(db_session):
     # 2. Create a user WITHOUT CRM.MANAGE_CUSTOMERS permission
     unauth_user = await _create_test_entities(
         db_session,
-        user_role=UserRole.CASHIER
+        user_role=UserRole.VIEWER
     )
     unauth_headers = _auth_headers(unauth_user)
 

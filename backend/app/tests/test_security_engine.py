@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Email        : support@smritibooks.com
@@ -335,10 +335,24 @@ async def test_sysadmin_bypass(db_session):
     """
     Verify that SYSADMIN user role bypasses all permission verification.
     """
+    import uuid
+    from app.models.auth import User, UserRole
+    from app.core.security import hash_password
+    super_id = f"usr-super-{uuid.uuid4().hex[:6]}"
+    super_user = User(
+        id=super_id,
+        username=f"super_admin_{uuid.uuid4().hex[:6]}",
+        role=UserRole.SYSADMIN,
+        hashed_password=hash_password("Super@123"),
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(super_user)
+    await db_session.commit()
+
     from app.services.security import SecurityService
     service = SecurityService(db_session)
-    # usr-super is seeded as SYSADMIN role
-    is_allowed = await service.verify_user_permission("usr-super", "ANY.RANDOM.PERMISSION")
+    is_allowed = await service.verify_user_permission(super_id, "ANY.RANDOM.PERMISSION")
     assert is_allowed is True
 
 

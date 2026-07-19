@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -150,6 +150,9 @@ class POSCheckoutRequest(BaseModel):
     invoice_no:           str
     shift_id:             str
     items:                List[POSCheckoutItem]
+    # payment_mode represents the payment method for the transaction.
+    # Note: UPI payment mode is a manually-asserted label only. External payment gateway integration,
+    # signature verification, and webhook processing are not implemented in this phase.
     payment_mode:         str                  = "CASH"   # CASH | CARD | UPI | CREDIT
     grand_total:          Decimal                          # client display total; server re-computes
     customer_id:          Optional[str]        = None

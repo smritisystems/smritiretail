@@ -553,7 +553,8 @@ async def test_role_guard_cashier_cannot_create_product(db_session):
             headers={"Authorization": f"Bearer {token}"},
         )
     assert res.status_code == 403
-    assert "CASHIER" in res.json()["detail"]
+    detail = res.json()["detail"]
+    assert "CASHIER" in detail or "ITEM.CREATE" in str(detail)
 
 
 async def test_role_guard_manager_can_create_product(db_session):

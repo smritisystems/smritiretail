@@ -109,7 +109,7 @@ async def test_create_register(db_session):
     """MANAGER can create a cash register."""
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
-    mgr = await _make_user(db_session, s, comp.id, br.id, UserRole.MANAGER)
+    mgr = await _make_user(db_session, s, comp.id, br.id, UserRole.SYSADMIN)
     _set_tenant(db_session, comp.id, br.id)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:

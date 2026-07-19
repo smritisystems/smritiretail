@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -217,10 +217,8 @@ class BusinessInfo(BaseModel):
     def validate_gstin(cls, value: Optional[str]) -> str:
         if not value:
             return ""
-        gst = value.strip().upper()
-        if len(gst) != 15:
-            raise ValueError("gstin must be 15 characters long.")
-        return gst
+        from app.core.gstin import validate_gstin_format
+        return validate_gstin_format(value)
 
     @field_validator("pan")
     @classmethod

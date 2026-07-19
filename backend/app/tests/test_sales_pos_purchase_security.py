@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Email        : support@smritibooks.com
@@ -206,7 +206,7 @@ async def test_sales_endpoint_security(db_session):
     manager_headers = _auth_headers(manager)
 
     # Create Unauthorized user
-    unauth = await _create_test_entities(db_session, user_role=UserRole.VIEWER)
+    unauth = await _create_test_entities(db_session, user_role=UserRole.REPORT_USER)
     unauth_headers = _auth_headers(unauth)
 
     # Create Super user

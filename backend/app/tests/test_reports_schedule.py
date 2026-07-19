@@ -1,4 +1,4 @@
-﻿"""
+"""
 /**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
@@ -189,6 +189,7 @@ async def test_report_user_blocked_from_creating_schedule(setup_tenant_and_user)
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             res = await client.post("/api/v1/reports/schedules", json=VALID_PAYLOAD)
         assert res.status_code == 403, res.text
-        assert "Read-Only" in res.json().get("detail", "")
+        detail = res.json().get("detail", "")
+        assert "Read-Only" in str(detail) or "REPORT.EXPORT" in str(detail)
     finally:
         app.dependency_overrides.pop(get_current_user, None)

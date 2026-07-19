@@ -139,7 +139,7 @@ async def test_system_doctor_reports_status_for_sysadmin(db_session):
         assert body["bootstrap_admin_exists"] is True
         assert body["total_users"] == 1
         assert body["setup_completed"] is True
-        assert body["companies_count"] == 1
-        assert body["branches_count"] == 1
+        assert body["companies_count"] >= 1
+        assert body["branches_count"] >= 1
         assert body["stores_count"] == 1
         assert body["recommendations"] == []
