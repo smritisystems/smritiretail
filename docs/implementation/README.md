@@ -65,6 +65,7 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-20 | v3.36.0 | [Phase 8: Security-Aware Menu & API Keys UI](./foundation/Phase8_UI_Security_Approval_And_APIKey_Studio_v3.36.0.md) | `/src/components/ApprovalMatrixTab.tsx`, `/src/components/ApiKeyManagementSection.tsx` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_Enterprise_Security_And_Approval_Engine_v3.38.0.md) |
 | 2026-07-20 | v3.37.0 | [Phase 9: Stress Testing & Concurrency](./foundation/Phase9_Stress_Testing_And_Concurrency_v3.37.0.md) | `/backend/app/tests/test_enterprise_stress_and_concurrency.py` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_Enterprise_Security_And_Approval_Engine_v3.38.0.md) |
 | 2026-07-20 | v3.38.0 | [Phase 10: Governance Release & Documentation](./foundation/Phase10_Governance_Release_And_Documentation_v3.38.0.md) | `/docs/` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_Enterprise_Security_And_Approval_Engine_v3.38.0.md) |
+| 2026-07-20 | v3.39.0 | [SGIP Phase 2: E-Way Bill & E-Invoice Gateway](./foundation/SGIP_Phase2_EWayBill_EInvoice_Gateway_Plan_v3.39.0.md) | `/backend/app/compliance/` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_SGIP_Phase2_EWayBill_EInvoice_v3.39.0.md) |
 
 
 

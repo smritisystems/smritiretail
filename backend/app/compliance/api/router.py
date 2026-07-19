@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -22,6 +22,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import TenantContext, get_db, get_tenant_context
 from app.compliance.exceptions import PolicyViolationException
 from app.compliance.schemas.compliance import ComplianceOutboxOut, DebugOutboxIn, HealthStatusOut
+from app.compliance.schemas.nic import (
+    NICEWayBillRequest,
+    NICEWayBillResponse,
+    NICEInvoiceRequest,
+    NICEInvoiceResponse,
+)
+from app.compliance.connectors.nic import NICEWayBillConnectorV1, NICEInvoiceConnectorV1
 from app.compliance.services.compliance_service import ComplianceService
 from app.compliance.services.policy_service import PolicyService
 from app.compliance.services.registry_service import RegistryService
@@ -117,3 +124,51 @@ async def insert_debug_outbox(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         ) from e
+
+
+@router.post(
+    "/ewaybill/generate",
+    response_model=NICEWayBillResponse,
+    summary="Generate NIC E-Way Bill",
+    description="Submits invoice details to NIC Gateway to generate 12-digit E-Way Bill."
+)
+async def generate_ewaybill(
+    payload: NICEWayBillRequest,
+    db: AsyncSession = Depends(get_db),
+) -> NICEWayBillResponse:
+    connector = NICEWayBillConnectorV1(environment="sandbox")
+    creds = {"username": "SGIP_NIC_USER", "password": "SGIP_NIC_PASSWORD"}
+    token = connector.authenticate(creds)
+    res = connector.submit(payload.model_dump(), token)
+    return NICEWayBillResponse(**res)
+
+
+@router.post(
+    "/einvoice/generate",
+    response_model=NICEInvoiceResponse,
+    summary="Generate NIC E-Invoice (IRN)",
+    description="Submits invoice to IRP Gateway to generate 64-char IRN and signed QR code."
+)
+async def generate_einvoice(
+    payload: NICEInvoiceRequest,
+    db: AsyncSession = Depends(get_db),
+) -> NICEInvoiceResponse:
+    connector = NICEInvoiceConnectorV1(environment="sandbox")
+    creds = {"username": "SGIP_IRP_USER", "password": "SGIP_IRP_PASSWORD"}
+    token = connector.authenticate(creds)
+    res = connector.submit(payload.model_dump(), token)
+    return NICEInvoiceResponse(**res)
+
+
+@router.post(
+    "/queue/process",
+    summary="Process Pending Outbox Events",
+    description="Trigger background retry queue processing for queued compliance events."
+)
+async def process_queue(
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    from app.compliance.services.queue_engine import ComplianceQueueEngine
+    engine = ComplianceQueueEngine(db)
+    return await engine.process_pending_outbox(limit=limit)

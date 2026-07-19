@@ -30,6 +30,18 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ---
 
+## [3.39.0] — 2026-07-20
+
+### Added
+- **SGIP Phase 2: NIC E-Way Bill & E-Invoice Automated Integration Gateway**:
+  - Stateless NIC connectors `NICEWayBillConnectorV1` and `NICEInvoiceConnectorV1` in `backend/app/compliance/connectors/nic.py`.
+  - Pydantic models for E-Way Bill generation, 64-character SHA-256 IRN calculation, signed QR codes, and cancellation in `backend/app/compliance/schemas/nic.py`.
+  - Background task queue processing engine `ComplianceQueueEngine` (`backend/app/compliance/services/queue_engine.py`) with exponential backoff retries and audit logging (`ComplianceAuditLog`).
+  - FastAPI endpoints `/api/v1/compliance/ewaybill/generate`, `/api/v1/compliance/einvoice/generate`, and `/api/v1/compliance/queue/process`.
+  - Automated test suite `backend/app/compliance/tests/test_nic_compliance_gateway.py` (4/4 passed).
+
+---
+
 ## [3.38.0] — 2026-07-20
 
 ### Added
