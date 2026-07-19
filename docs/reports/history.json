@@ -1,11 +1,11 @@
 [
   {
     "timestamp": "19-Jul-26",
-    "dhi": 43,
-    "developmentScore": 28,
-    "qualityScore": 39,
-    "releaseScore": 55,
-    "securityScore": 0,
+    "dhi": 82,
+    "developmentScore": 89,
+    "qualityScore": 40,
+    "releaseScore": 68,
+    "securityScore": 100,
     "testCoverage": 28,
     "documentation": 100
   }

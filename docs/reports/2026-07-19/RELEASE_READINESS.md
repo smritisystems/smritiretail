@@ -10,4 +10,4 @@
 | Sales Studio | ❌ NO | Unit tests missing |
 | Billing Desk | ❌ NO | Unit tests missing |
 | CRM & Loyalty | ❌ NO | None |
-| About SMRITI | ❌ NO | None |
+| About SMRITI | ✅ YES | None |

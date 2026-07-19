@@ -4,10 +4,10 @@
 
 | Module | Auth Complete | Authz Complete | Security Status |
 | :--- | :---: | :---: | :--- |
-| Executive Hub | ❌ | ❌ | Non-compliant / Public |
-| Item Master | ❌ | ❌ | Non-compliant / Public |
-| Purchase Studio | ❌ | ❌ | Non-compliant / Public |
-| Sales Studio | ❌ | ❌ | Non-compliant / Public |
-| Billing Desk | ❌ | ❌ | Non-compliant / Public |
-| CRM & Loyalty | ❌ | ❌ | Non-compliant / Public |
-| About SMRITI | ❌ | ❌ | Non-compliant / Public |
+| Executive Hub | ✅ | ✅ | Secure |
+| Item Master | ✅ | ✅ | Secure |
+| Purchase Studio | ✅ | ✅ | Secure |
+| Sales Studio | ✅ | ✅ | Secure |
+| Billing Desk | ✅ | ✅ | Secure |
+| CRM & Loyalty | ✅ | ✅ | Secure |
+| About SMRITI | ✅ | ✅ | Secure |

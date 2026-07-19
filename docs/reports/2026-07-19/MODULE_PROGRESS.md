@@ -4,10 +4,10 @@
 
 | Module | Category | Progress | Risk Rating |
 | :--- | :--- | :---: | :---: |
-| Executive Hub | Operations | 32% | High |
-| Item Master | Inventory & Sourcing | 40% | High |
-| Purchase Studio | Inventory & Sourcing | 32% | High |
-| Sales Studio | Sales & POS | 40% | High |
-| Billing Desk | Sales & POS | 36% | High |
-| CRM & Loyalty | Sales & POS | 12% | Critical |
-| About SMRITI | System | 52% | High |
+| Executive Hub | Operations | 64% | Medium |
+| Item Master | Inventory & Sourcing | 72% | Medium |
+| Purchase Studio | Inventory & Sourcing | 68% | Medium |
+| Sales Studio | Sales & POS | 76% | Medium |
+| Billing Desk | Sales & POS | 68% | Medium |
+| CRM & Loyalty | Sales & POS | 44% | High |
+| About SMRITI | System | 84% | Low |

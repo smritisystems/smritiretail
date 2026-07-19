@@ -6,8 +6,8 @@
 | :--- | :---: | :--- |
 | Executive Hub | ✅ | Schema tables fully validated |
 | Item Master | ❌ | Missing or incomplete DB tables mapping |
-| Purchase Studio | ❌ | Missing or incomplete DB tables mapping |
-| Sales Studio | ❌ | Missing or incomplete DB tables mapping |
+| Purchase Studio | ✅ | Schema tables fully validated |
+| Sales Studio | ✅ | Schema tables fully validated |
 | Billing Desk | ❌ | Missing or incomplete DB tables mapping |
-| CRM & Loyalty | ❌ | Missing or incomplete DB tables mapping |
+| CRM & Loyalty | ✅ | Schema tables fully validated |
 | About SMRITI | ✅ | Schema tables fully validated |
