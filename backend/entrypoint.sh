@@ -1,4 +1,4 @@
-﻿#!/bin/sh
+#!/bin/sh
 # Project      : SMRITI Retail OS
 # Author       : Jawahar Ramkripal Mallah
 # Email        : support@smritibooks.com
