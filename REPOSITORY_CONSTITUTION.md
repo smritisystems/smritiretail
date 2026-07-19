@@ -14,7 +14,7 @@
 
 # SMRITI Retail OS Repository Constitution
 
-**Status:** APPROVED — v1.1 (2026-07-19)  
+**Status:** APPROVED — v2.0 (2026-07-19)  
 **Priority:** Highest Authority Governance Document  
 
 This document serves as the supreme governance framework for the SMRITI Retail OS codebase. Every developer, AI agent, contributor, CI/CD pipeline, and automation script must adhere strictly to the rules, policies, and laws defined herein. No other document, guidelines, or manual instructions may override or contradict this Constitution.
@@ -88,6 +88,7 @@ To maintain stability, the repository uses a structured, multi-tier branching st
 
 * **`main` (Production):** Protected. Receives code only via release pull requests from `staging` or `release/vX.Y.Z`. Direct pushes, force pushes, and deletions are disabled.
 * **`develop` (Integration):** Primary target for feature branches. Requires CI verification (linting, formatting, unit tests) before merge.
+  * *Note on Migration Branches:* During active development phases, temporary migration integration branches (such as `smritiNX`) may serve as the intermediate integration target, carrying the exact same branch protections and requirements as `develop`.
 * **`staging` (UAT / QA):** Deployed to testing environments. Receives release candidates. Requires passing integration, performance, and smoke tests.
 * **`release/vX.Y.Z` (Release Candidate):** Frozen branch for pre-release validation. Only documentation fixes, version tag adjustments, and critical release-blocking bug fixes are permitted.
 * **`hotfix/*` (Emergency Fixes):** Branched directly from `main` to address production outages. Automatically merged back to both `develop` and `main` upon approval.
@@ -95,7 +96,7 @@ To maintain stability, the repository uses a structured, multi-tier branching st
 
 ---
 
-## 4. AI Agent Constitution
+## 4. AI Agent Constitution & Risk Classification
 To ensure stability when interacting with AI coding assistants:
 * **Forbidden Actions:**
   * ❌ Push directly to `main`, `develop`, or `staging`.
@@ -110,14 +111,25 @@ To ensure stability when interacting with AI coding assistants:
   * ✅ Write unit, integration, and UI tests.
   * ✅ Update developer documentation and generate walkthrough files.
   * ✅ Open Pull Requests for maintainer review.
-* **AI Confidence Block Requirement:**
-  Every Pull Request generated or proposed by an AI Agent must include a structured summary containing:
-  ```text
-  Confidence Level: [High / Medium / Low]
-  Assumptions Made:
-  Potential Risks & Side Effects:
-  Human Review Required Areas:
-  ```
+
+### AI PR Confidence Block Requirement
+Every Pull Request generated or proposed by an AI Agent must include a structured summary containing:
+```text
+Confidence Level: [High / Medium / Low]
+Assumptions Made:
+Potential Risks & Side Effects:
+Human Review Required Areas:
+```
+
+### AI Change Classification & Review Requirements
+AI-generated Pull Requests must declare the change risk level. Each tier triggers specific review gates:
+
+* **LOW RISK (Documentation, Formatting, Comments):**
+  * Requires 1 automated lint pass and standard maintainer review.
+* **MEDIUM RISK (Features, Bug Fixes, Component Refactoring):**
+  * Requires full CI build, test execution, and approval from 1 maintainer.
+* **HIGH RISK (Database schema updates, Authentication/Security, Infrastructure, Core Architecture):**
+  * Requires full CI execution, security scan, and approval from the designated Governance Review Board members (Section 6).
 
 ---
 
@@ -150,7 +162,7 @@ To ensure isolation, local paths and environments are separated into strict tier
 
 ---
 
-## 6. Architecture Protection & CODEOWNERS
+## 6. Architecture Protection, CODEOWNERS, & Governance Review Board
 Core system directories are designated as **Protected Architecture Modules**. Any changes to files in these directories require an **Architecture Impact Report** before implementation:
 * `/backend/app/core/` (Configurations, base security, auth, core middleware)
 * `/backend/app/db/` (Database drivers, connection pool, session hooks, base models)
@@ -163,6 +175,18 @@ GitHub CODEOWNERS configuration must enforce mandatory maintainer approval for a
 
 ### Architecture Decision Records (ADR)
 Every significant architectural change, framework introduction, design pattern modification, or core dependency update must document the decision by creating an Architecture Decision Record (ADR) under `docs/architecture/adr/` following a chronological format (e.g., `ADR-001_Database_Migration_Policy.md`).
+
+### Governance Review Board (GRB)
+To streamline reviews and maintain architectural consistency, specific maintainer leads are assigned sole approval authority over their respective domains:
+
+| Domain | Protected Path / Component | Required Approval |
+| --- | --- | --- |
+| **Backend Core** | `/backend/app/core/`, `/backend/app/api/` | Architect |
+| **Database** | `/backend/app/db/`, migrations, seeds | DBA / Architect |
+| **Security & Auth**| Authentication, middleware, encryption | Security Maintainer |
+| **User Interface** | `/src/`, UI styling, component library | UI Lead |
+| **Infrastructure** | `/docker/`, Compose files, CI workflows | Infrastructure Maintainer |
+| **Governance** | `REPOSITORY_CONSTITUTION.md`, `.agents/` | Repository Owner |
 
 ---
 
@@ -323,6 +347,45 @@ To guarantee operational continuity and prevent loss of transactional and config
 * **Recovery Objectives:** The system target values are established as:
   * **Recovery Point Objective (RPO):** Maximum 24 hours of data loss.
   * **Recovery Time Objective (RTO):** Maximum 4 hours to full service restoration.
+
+---
+
+## 21. Request for Comments (RFC) Process
+Major feature implementations, schema redesigns, framework upgrades, licensing updates, or core system changes require a formal RFC process.
+* **RFC Directory:** All RFCs must be stored in `docs/rfc/` named chronologically (e.g., `RFC-0001_Plugin_Architecture.md`).
+* **Workflow:**
+  1. Author drafts the RFC detailing Objectives, Design Options, Risks, and Rollback.
+  2. The RFC is opened for discussion as a Pull Request.
+  3. The RFC requires approval by the designated Governance Review Board lead before the feature branch implementation can begin.
+
+---
+
+## 22. Plugin Approval Policy
+SMRITI is designed as an extensible platform. Third-party or auxiliary plugins must comply with the Platform Abstraction Layer (PAL) and pass the following requirements before integration:
+* **Manifest:** Must include a manifest describing capabilities, version, and endpoints.
+* **Granular Permissions:** Declarative permissions detailing all file, database, or API scopes accessed by the plugin.
+* **Compatibility:** Declared SMRITI core framework compatibility range (e.g., `core_version: ">=3.16.0"`).
+* **Signature:** Code signature verifying the source author and preventing tamper injections.
+* **License compliance:** Must possess an approved open-source or proprietary licensing agreement.
+* **Verification:** Must contain isolated unit tests and a functional walkthrough document.
+
+---
+
+## 23. Supply Chain Security
+To prevent code injection, dependency confusion, or compromised builds:
+* **SBOM Generation:** The CI/CD pipeline must automatically compile a Software Bill of Materials (SBOM) in SPDX format for every production build.
+* **Attestations:** Provenance and build attestations (e.g., SLSA framework) must be generated for all compiled artifacts.
+* **Image Signing:** Built Docker images must be cryptographically signed (e.g., using Cosign) before pushing to the container registry.
+* **Checksum Verification:** Downloaded build tools and dependencies must verify hashes against pinned lock files.
+
+---
+
+## 24. Long-Term Support (LTS) & Release Lifecycle
+To provide stability for enterprise deployments, major releases are categorized into support cycles:
+* **LTS Designation:** Designated major releases (e.g., v3.x) will receive Long-Term Support.
+* **Support Windows:**
+  * **Active Support:** 24 months from release (bug fixes, performance enhancements, and minor features).
+  * **Security Support:** 36 months from release (critical security vulnerabilities and compliance patches only).
 
 ---
 
