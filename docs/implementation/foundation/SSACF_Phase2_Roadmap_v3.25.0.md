@@ -5,7 +5,7 @@
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
   Version      : 3.25.0
   Created      : 2026-07-18
-  Modified     : 2026-07-18
+  Modified     : 2026-07-19
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
@@ -50,6 +50,7 @@ Phase 1 established the structural security model. Phase 2 is required to:
 | 2.7 | Workflow Approval Integration (approval limits, document-state gates) | Medium |
 | 2.8 | Plugin Permission & Menu Registration Framework | Low |
 | 2.9 | Legacy `UserRole` Enum Retirement | Low |
+| 2.10 | Platform vs. Business Administration Role Split & Namespacing | High |
 
 ---
 
@@ -215,6 +216,11 @@ A `register_module_manifest(manifest)` startup hook in `lifespan` upserts permis
 - `[MODIFY] backend/app/models/auth.py` — mark `UserRole` as deprecated; remove column after all guards migrated
 - `[MODIFY] backend/alembic/versions/` — drop `users.role` column after cutover validation
 
+#### Phase 2.10 — Platform vs. Business Administration Role Split & Namespacing
+- `[NEW] backend/app/db/seeds/roles_permissions.py` — seed platform permissions (`SYSTEM.*`, `PLATFORM.*`, `DATABASE.*`) and business permissions (`USER.*`, `SALES.*`, etc.) into `smriti_permissions`
+- `[NEW] backend/app/db/seeds/roles.py` — seed `SYSADMIN` (platform) and `Administrator` (business-level master) roles
+- `[MODIFY] backend/app/services/security.py` — enforce wildcard namespace matches in `check_permission` and `resolve_permissions`
+
 ---
 
 ## 8. Files Created
@@ -265,10 +271,12 @@ Each sub-phase is a separate Alembic revision. Any sub-phase can be individually
 - **2.5**: New test `test_scope_narrowing` — OWN_BRANCH scope overrides GLOBAL
 - **2.6**: New test `test_field_policy_visibility` — hidden fields excluded from response
 - **2.7**: New test `test_approval_limit_enforcement` — amount over limit rejected
+- **2.10**: New test `test_admin_sysadmin_namespace_separation` — verifying business `Administrator` cannot access platform `SYSTEM.*` namespaces and vice-versa
 
 ### Manual Verification
 - Login as `cashier` and confirm sidebar only shows permitted menus (Phase 2.2)
 - Attempt to create a role cycle in admin UI and verify rejection (Phase 2.3/2.4)
+- Login as `Administrator` and confirm no option to access platform databases or system backups exists (Phase 2.10)
 
 ---
 
@@ -298,6 +306,7 @@ Each sub-phase adds at least one new `pytest` test case to `test_security_engine
 5. Deploy Phase 2.7 (workflow) — requires two new columns on `smriti_policy_permissions`
 6. Deploy Phase 2.8 (plugin registry) — code-only change; no schema change
 7. Deploy Phase 2.9 (enum retirement) — requires `ALTER TABLE users DROP COLUMN role`; only after all tests pass without the column
+8. Deploy Phase 2.10 (role split & namespaces) — code and default seed change; no schema change
 
 ---
 
