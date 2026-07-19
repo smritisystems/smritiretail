@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 3.16.0
+ * * Version    : 3.31.4
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-13
+ * * Modified   : 2026-07-19
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -263,7 +263,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
 
       const endpoint = isEditing && selectedProduct 
         ? `/inventory/${selectedProduct.id}` 
-        : "/inventory";
+        : "/inventory/";
       const method = isEditing ? "PUT" : "POST";
 
       const resData = await apiFetchV1(endpoint, {

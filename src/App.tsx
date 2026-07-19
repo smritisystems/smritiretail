@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.27.0
+ * Version      : 3.31.4
  * Created      : 2026-07-10
  * Modified     : 2026-07-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -287,7 +287,7 @@ const AppContent: React.FC = () => {
 
       // Fetch products from FastAPI backend
       try {
-        const prodData = await apiFetchV1("/inventory");
+        const prodData = await apiFetchV1("/inventory/");
         const mappedProducts = prodData.map((p: any) => ({
           id: p.id,
           code: p.code,

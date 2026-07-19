@@ -6,15 +6,15 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.22.0
 Created      : 2026-07-11
-Modified     : 2026-07-16
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 from decimal import Decimal
 from datetime import datetime
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import List, Optional, Any
+from pydantic import BaseModel, model_validator
 
 
 class CashRegisterCreate(BaseModel):
@@ -73,9 +73,26 @@ class POSProfileResponse(BaseModel):
 
 
 class ShiftOpen(BaseModel):
-    id:              str
-    register_id:     str
+    id:              Optional[str] = None
+    register_id:     Optional[str] = None
     opening_balance: Decimal = Decimal("0.00")
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_aliases(cls, values: Any) -> Any:
+        if isinstance(values, dict):
+            # 1. Map register_id / profileId
+            if "profileId" in values and not values.get("register_id"):
+                values["register_id"] = values["profileId"]
+            # 2. Map opening_balance / openingBalance
+            if "openingBalance" in values and not values.get("opening_balance"):
+                values["opening_balance"] = values["openingBalance"]
+            # 3. Generate id if not provided
+            if not values.get("id"):
+                import uuid as uuid_lib
+                values["id"] = f"sh-{uuid_lib.uuid4().hex[:8]}"
+        return values
+
 
 
 class ShiftClose(BaseModel):

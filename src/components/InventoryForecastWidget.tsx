@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 2.1.1
+ * Version      : 3.31.4
  * Created      : 2026-07-10
- * Modified     : 2026-07-16
+ * Modified     : 2026-07-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -26,7 +26,7 @@ export const InventoryForecastWidget: React.FC = () => {
       const [salesData, purData, prodData] = await Promise.all([
         apiFetchV1("/sales/orders/"),
         apiFetchV1("/purchase/orders/"),
-        apiFetchV1("/inventory")
+        apiFetchV1("/inventory/")
       ]);
 
       const salesOrders = salesData?.orders ?? salesData ?? [];

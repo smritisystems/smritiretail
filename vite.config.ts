@@ -18,9 +18,9 @@
  *
  * * Version    : 3.16.0
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-13
- * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
- * * License    : Proprietary Commercial Software
+ * * Modified   : 2026-07-19
+ * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+ * License    : Proprietary Commercial Software
  */
 
 import { defineConfig } from "vite";
@@ -40,7 +40,17 @@ export default defineConfig({
       "/api/v1": {
         target: pythonCoreTarget,
         changeOrigin: true,
-        secure: false
+        secure: false,
+        configure: (proxy, _options) => {
+          proxy.on("proxyRes", (proxyRes, req, res) => {
+            if (proxyRes.headers.location) {
+              proxyRes.headers.location = proxyRes.headers.location.replace(
+                /https?:\/\/python-core:8000/,
+                ""
+              );
+            }
+          });
+        }
       }
     }
   },
@@ -51,7 +61,17 @@ export default defineConfig({
       "/api/v1": {
         target: pythonCoreTarget,
         changeOrigin: true,
-        secure: false
+        secure: false,
+        configure: (proxy, _options) => {
+          proxy.on("proxyRes", (proxyRes, req, res) => {
+            if (proxyRes.headers.location) {
+              proxyRes.headers.location = proxyRes.headers.location.replace(
+                /https?:\/\/python-core:8000/,
+                ""
+              );
+            }
+          });
+        }
       }
     }
   },
