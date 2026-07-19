@@ -99,7 +99,8 @@ async def clear_db(db_session: AsyncSession):
         "smriti_approval_policies", "smriti_approval_matrices", "smriti_approval_steps",
         "smriti_approval_conditions", "smriti_approval_assignments", "smriti_approval_requests",
         "smriti_approval_actions", "smriti_approval_histories", "smriti_approval_delegations",
-        "smriti_approval_escalations", "smriti_approval_comments", "smriti_approval_outbox"
+        "smriti_approval_escalations", "smriti_approval_comments", "smriti_approval_outbox",
+        "smriti_service_accounts", "smriti_api_keys", "smriti_api_key_permission_sets", "smriti_api_key_logs"
     }
 
     # Verify which of the tables actually exist in postgres currently

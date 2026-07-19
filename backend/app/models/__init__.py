@@ -59,5 +59,9 @@ from .approval import (
     SMRITIApprovalAction, SMRITIApprovalHistory, SMRITIApprovalDelegation,
     SMRITIApprovalEscalation, SMRITIApprovalComment, SMRITIApprovalOutbox
 )
+from .api_key import (
+    SMRITIServiceAccount, SMRITIAPIKey,
+    SMRITIAPIKeyPermissionSet, SMRITIAPIKeyLog
+)
 
 
