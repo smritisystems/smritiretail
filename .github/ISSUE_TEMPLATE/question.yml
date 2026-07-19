@@ -1,0 +1,47 @@
+# Project         : SMRITI Retail OS
+# Organization    : SmritiSys
+#
+# Founders
+# • Pushpa Devi Jawahar Mallah
+#   Founder & Chairperson
+#
+# • Jawahar Ramkripal Mallah
+#   Founder, Chief Executive Officer (CEO) &
+#   Chief Systems Architect
+#
+# Email           : support@smritisys.com
+# Website         : https://smritisys.com
+# Other Domains   : smritibooks.com | erpnbook.com | aitdl.com
+#
+# Version         : 3.32.0
+# Created         : 2026-07-19
+# Modified         : 2026-07-19
+#
+# Copyright       : © SmritiSys. All Rights Reserved.
+# License         : Proprietary Commercial Software
+# Classification  : Internal
+
+name: Question
+description: Ask a usage question or seek technical support for SMRITI Retail OS
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please consult the documentation guides under `docs/` before opening a question issue.
+  - type: textarea
+    id: question-details
+    attributes:
+      label: Question Details
+      description: What are you trying to accomplish or configure?
+      placeholder: Provide a clear, detailed description of your question or use case.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Info
+      description: Specify your local operating system, node version, and database type.
+      placeholder: e.g. Ubuntu 22.04 LTS, Node v18, PostgreSQL 16
+    validations:
+      required: false

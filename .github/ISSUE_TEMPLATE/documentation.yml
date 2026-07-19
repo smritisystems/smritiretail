@@ -1,0 +1,47 @@
+# Project         : SMRITI Retail OS
+# Organization    : SmritiSys
+#
+# Founders
+# • Pushpa Devi Jawahar Mallah
+#   Founder & Chairperson
+#
+# • Jawahar Ramkripal Mallah
+#   Founder, Chief Executive Officer (CEO) &
+#   Chief Systems Architect
+#
+# Email           : support@smritisys.com
+# Website         : https://smritisys.com
+# Other Domains   : smritibooks.com | erpnbook.com | aitdl.com
+#
+# Version         : 3.32.0
+# Created         : 2026-07-19
+# Modified         : 2026-07-19
+#
+# Copyright       : © SmritiSys. All Rights Reserved.
+# License         : Proprietary Commercial Software
+# Classification  : Internal
+
+name: Documentation Request
+description: Propose updates or corrections to SMRITI documentation guides
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve SMRITI Retail OS documentation!
+  - type: textarea
+    id: documentation-issue
+    attributes:
+      label: Documentation Page or Section
+      description: Which guide or document section requires updating?
+      placeholder: e.g. docs/INSTALLATION_GUIDE.md
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-change
+    attributes:
+      label: Proposed Changes
+      description: Explain the required correction or additional details
+      placeholder: Provide a clear description of the new details or spelling fix
+    validations:
+      required: true
