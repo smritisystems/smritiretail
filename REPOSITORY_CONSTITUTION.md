@@ -60,7 +60,7 @@ No destructive database changes may be performed in a single release. Column mod
 Public APIs must remain backward-compatible. A breaking API change is strictly prohibited without an approved RFC, maintainer sign-off, a major version bump, and a deprecation cycle.
 
 ### Law 6: Governance Gate Strictness
-Every Pull Request must pass 100% of the automated CI/CD governance gates. Manual bypass, forced overrides, or merging with failing checks is strictly disallowed.
+Every Pull Request must pass 100% of the automated CI/CD governance gates. Emergency exceptions are permitted only through the documented Exception Process (Section 18), require explicit approval by an authorized maintainer, and must be recorded with a remediation plan.
 
 ### Law 7: AI Agent Status
 AI Agents are auxiliary contributors, not repository maintainers. AI agents can create, refactor, document, and test code, but they are forbidden from merging protected branches, modifying repository secrets, altering license terms, or rewriting git history.
@@ -110,6 +110,14 @@ To ensure stability when interacting with AI coding assistants:
   * ✅ Write unit, integration, and UI tests.
   * ✅ Update developer documentation and generate walkthrough files.
   * ✅ Open Pull Requests for maintainer review.
+* **AI Confidence Block Requirement:**
+  Every Pull Request generated or proposed by an AI Agent must include a structured summary containing:
+  ```text
+  Confidence Level: [High / Medium / Low]
+  Assumptions Made:
+  Potential Risks & Side Effects:
+  Human Review Required Areas:
+  ```
 
 ---
 
@@ -126,16 +134,35 @@ To ensure isolation, local paths and environments are separated into strict tier
   6. Commit changes using Conventional Commits.
   7. Push the branch to the remote origin.
   8. Open a Pull Request and attach change/test reports.
+* **Mandatory Pull Request Template:**
+  Every Pull Request must strictly contain the following sections:
+  * **Purpose:** High-level summary of changes.
+  * **Scope:** Affected modules and directories.
+  * **Files Changed:** Granular file-by-file list.
+  * **Database Impact:** Schema modifications, migration scripts, or locking behavior.
+  * **API Impact:** OpenAPI modifications or route changes.
+  * **Performance Impact:** Latency, CPU, memory, or bundle size changes.
+  * **Security Impact:** Permission levels, secret usage, and authentication.
+  * **Rollback Plan:** Step-by-step restoration checklist.
+  * **Testing Evidence:** Literal stdout of tests and linter outputs.
+  * **Walkthrough:** Link to the corresponding walkthrough document.
+  * **Screenshots / Recordings:** Required for any user interface modifications.
 
 ---
 
-## 6. Architecture Protection
+## 6. Architecture Protection & CODEOWNERS
 Core system directories are designated as **Protected Architecture Modules**. Any changes to files in these directories require an **Architecture Impact Report** before implementation:
 * `/backend/app/core/` (Configurations, base security, auth, core middleware)
 * `/backend/app/db/` (Database drivers, connection pool, session hooks, base models)
 * `/backend/app/compliance/` (Tax gateways, GSTN, invoicing integrations)
 * `/docs/architecture/` (System design specifications, ADRs)
 * `/.agents/` (AI agent governance rules)
+
+### CODEOWNERS Integration
+GitHub CODEOWNERS configuration must enforce mandatory maintainer approval for any PR modifying the protected paths listed above. No merges are permitted into `develop` or `main` without explicit approval from the designated code owners of these modules.
+
+### Architecture Decision Records (ADR)
+Every significant architectural change, framework introduction, design pattern modification, or core dependency update must document the decision by creating an Architecture Decision Record (ADR) under `docs/architecture/adr/` following a chronological format (e.g., `ADR-001_Database_Migration_Policy.md`).
 
 ---
 
@@ -164,12 +191,13 @@ Destructive schema changes must be broken down into three separate releases:
 
 ---
 
-## 10. Security Policy
+## 10. Security Policy & Secrets Management
 All commits must pass a secrets scan. Pull Requests will be automatically blocked if any of the following are detected:
-* Hardcoded passwords or credentials.
-* Cleartext API keys or tokens (AWS, GCP, Azure, JWT secrets).
-* Private keys, certificates, or environment variables (`.env`).
-* Unencrypted database connection strings.
+* Hardcoded passwords, credentials, or API keys.
+* Cleartext tokens (AWS, GCP, Azure, JWT secrets, Firebase credentials, OAuth secrets).
+* Google service account JSON key files.
+* Private keys, certificates, SSH keys, or environment variables (`.env`).
+* Unencrypted database connection strings or production database dumps (`.sql`, `.dump`).
 
 ---
 
@@ -202,11 +230,21 @@ Every newly created or modified file (source code, markdown, scripts, configs) m
 
 ---
 
-## 13. Testing Policy
+## 13. Testing Policy & Repository Health Dashboard
 All code modifications require verification via automated tests:
 * Unit tests must be written for all services and utilities.
 * Integration and schema verification tests must run against PostgreSQL.
 * UI and responsive layout elements must be validated via component tests.
+
+### Repository Health Dashboard
+The CI pipeline must publish repository health metrics upon every integration run, tracking:
+* Unit & integration test coverage trend.
+* Pipeline build status.
+* Security score (vulnerabilities and secret scans).
+* Dependency health and licensing compliance.
+* Documentation completeness and walkthrough registration.
+* Docker build status.
+* Core API performance and latency trends.
 
 ---
 
@@ -225,12 +263,20 @@ Docker configurations are integrated into the main repository for development, s
 
 ---
 
-## 15. Release Governance
-Only the repository owner possesses the authority to:
-* Merge pull requests into the protected `main` branch.
-* Generate and push production Git tags (e.g., `vX.Y.Z`).
-* Create and publish official GitHub Releases.
-* Update production credentials, configuration settings, or CI secrets.
+## 15. Release Governance & Tagging
+Only authorized personnel possess the authority to merge pull requests into the protected `main` branch, publish official releases, or modify release pipeline settings.
+
+Authorized roles are restricted to:
+* Repository Owner
+* Release Manager
+* Maintainers with designated Release permission
+
+### Release Signing & Artifacts
+Every official production release must strictly enforce:
+* **Signed Git Tags:** Release tags must be cryptographically signed using GPG or SSH keys.
+* **Signed Releases:** Release files and binaries published on GitHub must carry matching signatures.
+* **Integrity Hashes:** SHA256 checksums must be generated and published alongside all releases and installer scripts.
+* **Archival:** All release artifacts must be permanently archived and mirrored in secure backup storage.
 
 ---
 
@@ -244,7 +290,7 @@ Only the repository owner possesses the authority to:
 ---
 
 ## 17. Emergency Procedures
-In the event of a security leak, production outage, or critical data integrity issue, the repository owner may trigger an **Emergency Lockdown**:
+In the event of a security leak, production outage, or critical data integrity issue, the repository owner or release manager may trigger an **Emergency Lockdown**:
 * Merges to all branches except `hotfix/*` are automatically suspended.
 * API key and credential rotation scripts are initiated.
 * Rollback procedures are immediately executed in staging and production.
@@ -254,8 +300,29 @@ In the event of a security leak, production outage, or critical data integrity i
 ## 18. Exception Process
 If a temporary deviation from these rules is required (e.g., bypass code coverage constraints for a critical production hotfix):
 * An explicit override issue must be filed in the repository tracker.
-* The repository owner must explicitly sign off on the exception.
+* An authorized maintainer must explicitly sign off and approve the exception.
 * The exception must be logged in the release notes with a defined remediation date.
+
+---
+
+## 19. Dependency Approval Policy
+No third-party dependency, package, or library (npm or python requirements) may be added to the repository without undergoing a mandatory approval review:
+* **License Review:** Verify that the license is commercial-friendly (e.g., MIT, Apache 2.0, BSD) and does not contain copyleft terms (e.g., GPL, AGPL) that violate SMRITI proprietary licensing.
+* **Security Review:** Scan the library for known CVEs using automated vulnerability indices.
+* **Maintenance Review:** Verify that the package is actively maintained (active commits, issues triage, and releases).
+* **Bundle Size Review:** Assess the package size impact on the production build and frontend bundles.
+* **Production Suitability:** Confirm that the package is stable, well-tested, and appropriate for enterprise deployment.
+
+---
+
+## 20. Backup & Disaster Recovery Policy
+To guarantee operational continuity and prevent loss of transactional and configuration data:
+* **Daily Backup Policy:** Automated daily snapshots of database contents, configuration files, and state storage must be captured and pushed to isolated, secure storage.
+* **Weekly Restore Verification:** Backups must undergo automated restore validation weekly to guarantee that snapshots are uncorrupted and bootable.
+* **Backup Encryption:** All database backups and configuration snapshots must be encrypted at rest using AES-256 before being transferred.
+* **Recovery Objectives:** The system target values are established as:
+  * **Recovery Point Objective (RPO):** Maximum 24 hours of data loss.
+  * **Recovery Time Objective (RTO):** Maximum 4 hours to full service restoration.
 
 ---
 
