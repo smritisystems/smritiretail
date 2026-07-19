@@ -18,7 +18,7 @@ Founders
 
 * Version    : 1.0.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-11
+* Modified   : 2026-07-19
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
@@ -100,8 +100,8 @@ def scan_codebase() -> dict[str, Any]:
     test_files = []
     doc_files = []
 
-    extensions = {".ts", ".tsx", ".js", ".jsx", ".css", ".sql", ".md", ".json"}
-    exclude_dirs = {"node_modules", "dist", ".git", ".gemini", ".agents"}
+    extensions = {".ts", ".tsx", ".js", ".jsx", ".css", ".sql", ".md", ".json", ".py"}
+    exclude_dirs = {"node_modules", "dist", ".git", ".gemini", ".agents", ".venv", ".venv311"}
 
     for dirpath, dirnames, filenames in os.walk(root_dir):
         # Filter directories to avoid recursion overhead
@@ -135,12 +135,26 @@ def scan_codebase() -> dict[str, Any]:
                             if line_count > 500:
                                 large_components.append(f"{rel_path} ({line_count} lines)")
 
-                        # Server routes
+                        # Server routes (FastAPI & Express)
                         if rel_path == "server.ts":
                             server_routes = re.findall(r"app\.(?:get|post|put|delete)\(\s*['\"](/api/.*?)['\"]", content)
                             for r in server_routes:
                                 if r not in routes_in_server:
                                     routes_in_server.append(r)
+                        elif rel_path.startswith("backend/app/api/v1/") and ext == ".py":
+                            filename = Path(rel_path).stem
+                            prefix = f"/api/v1/{filename}" if filename not in ["metadata", "changelog", "crm", "pos", "supplier_payment", "reports", "assignments"] else "/api/v1"
+                            if filename == "crm":
+                                prefix = "/api/v1/customers"
+                            fastapi_routes = re.findall(r"@router\.(?:get|post|put|delete|patch)\(\s*['\"](.*?)['\"]", content)
+                            for fr in fastapi_routes:
+                                path = (prefix + fr) if fr != "/" else prefix
+                                legacy_path = path.replace("/api/v1/", "/api/")
+                                legacy_raw_path = f"/api{fr}"
+                                legacy_raw_path2 = f"/api/v1{fr}"
+                                for p in [path, legacy_path, legacy_raw_path, legacy_raw_path2]:
+                                    if p not in routes_in_server:
+                                        routes_in_server.append(p)
 
                         # Frontend fetches
                         if rel_path.startswith("src/") and ext in {".ts", ".tsx"} and rel_path != "server.ts":
@@ -148,10 +162,23 @@ def scan_codebase() -> dict[str, Any]:
                             for ft in fetches:
                                 if ft not in fetched_routes_in_frontend:
                                     fetched_routes_in_frontend.append(ft)
+                            api_fetches = re.findall(r"apiFetchV1\(\s*['\"](/.*?)['\"]", content)
+                            for aft in api_fetches:
+                                ft = f"/api/v1{aft}"
+                                legacy_ft = f"/api{aft}"
+                                for p in [ft, legacy_ft]:
+                                    if p not in fetched_routes_in_frontend:
+                                        fetched_routes_in_frontend.append(p)
 
                         # DB schemas
                         if rel_path == "src/db/schema.sql" or rel_path == "server.ts":
                             tables = re.findall(r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)", content, re.IGNORECASE)
+                            for tbl in tables:
+                                tbl_lower = tbl.lower()
+                                if tbl_lower not in tables_in_db:
+                                    tables_in_db.append(tbl_lower)
+                        elif rel_path.startswith("backend/app/models/") and ext == ".py":
+                            tables = re.findall(r"__tablename__\s*=\s*['\"](.*?)['\"]", content)
                             for tbl in tables:
                                 tbl_lower = tbl.lower()
                                 if tbl_lower not in tables_in_db:
@@ -171,6 +198,9 @@ def scan_codebase() -> dict[str, Any]:
     total_security = 0
 
     server_content = file_contents.get("server.ts", "")
+    for k, v in file_contents.items():
+        if k.startswith("backend/app/") and k.endswith(".py"):
+            server_content += "\n" + v
 
     for m_id, m_cfg in MODULES_MAP.items():
         frontend_file = next((f for f in files_list if m_cfg["frontend"] in f), None)
@@ -200,11 +230,11 @@ def scan_codebase() -> dict[str, Any]:
 
         if api_complete:
             backend_complete = True
-            business_logic_complete = "saveDb" in server_content or "Pool" in server_content
-            validation_complete = "validate-add" in server_content or "errors.push" in server_content
-            security_complete = "role" in server_content or "token" in server_content
-            authentication_complete = "auth/me" in server_content or "currentUser" in server_content
-            authorization_complete = "role" in server_content or "admin" in server_content
+            business_logic_complete = "saveDb" in server_content or "Pool" in server_content or "session" in server_content or "db" in server_content.lower()
+            validation_complete = "validate-add" in server_content or "errors.push" in server_content or "validator" in server_content or "validate_" in server_content or "pydantic" in server_content.lower()
+            security_complete = "role" in server_content or "token" in server_content or "security" in server_content.lower() or "permission" in server_content.lower()
+            authentication_complete = "auth/me" in server_content or "currentUser" in server_content or "bearer" in server_content.lower() or "auth" in server_content.lower()
+            authorization_complete = "role" in server_content or "admin" in server_content or "permission" in server_content.lower()
 
         database_complete = len(m_cfg["tables"]) == 0 or any(tbl in tables_in_db for tbl in m_cfg["tables"])
         
