@@ -125,6 +125,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-19 | foundation | Sales, POS & Purchase Endpoint Migration v3.25.3 — Migrated Sales, POS, and Purchase endpoints to namespaced permission guards and verified with 22 assertions in integration tests | [Security_SSACF_Sales_POS_Purchase_Endpoint_Migration_v3.25.3.md](./foundation/Security_SSACF_Sales_POS_Purchase_Endpoint_Migration_v3.25.3.md) | [Plan](../implementation/foundation/SSACF_Phase2_4_Sales_POS_Purchase_Migration_Plan_v3.25.3.md) | Completed |
 | 2026-07-19 | v3.32.1 | Indian GSTIN & Tax Compliance Verification | [Walkthrough](./foundation/Foundation_Indian_Compliance_And_Verification_v3.32.1.md) | [Plan](../implementation/foundation/SRE_Engine_Implementation_Plan_v3.29.0.md) | Completed |
 | 2026-07-19 | v3.32.2 | SDIC Deprecation Phase 1 | [Walkthrough](./foundation/Foundation_SDIC_Deprecation_Phase1_v3.32.2.md) | [Plan](../governance/SDIC_DEPRECATION_REVIEW_v1.0.md) | Completed |
+| 2026-07-19 | v3.32.3 | SDIC Docker scan pathing and routes resolution fix | [Walkthrough](./foundation/Foundation_SDIC_Docker_Scanner_Fix_v3.32.3.md) | — | Completed |
 
 
 
