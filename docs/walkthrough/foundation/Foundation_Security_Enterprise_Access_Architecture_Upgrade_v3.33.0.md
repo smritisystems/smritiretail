@@ -97,16 +97,22 @@ None. All 228 endpoints and existing authorization matrices are fully backward-c
 
 ---
 
-## 11. Future Work
-- **Phase 5 (Record Security):** Integrate row-level filtering interceptors scoped to branch/company levels.
+## 11. Record Security (Phase 5) Implementation & Verification
+- **Dynamic ORM Interceptor (`apply_rls_filter`):** Implemented in `backend/app/db/session.py`. Intercepts all ORM SELECT statements, inspects `execute_state.all_mappers` for concrete subclasses of `RowSecuredMixin`, and dynamically applies `with_loader_criteria` options matching the user's active `record_scope` (`SELF`, `BRANCH`, `COMPANY`, `ALL`).
+- **Lambda Parameter Binding Fix:** Applied default parameter binding (`lambda cls, uid=user_id: cls.created_by == uid`) to ensure compatibility with Python 3.14 lambda tracking and SQLAlchemy 2.0 query compilation.
+- **Automated Verification:** Verified via `app/tests/test_record_security.py` (3/3 tests passed: `test_rls_self_scope_containment`, `test_rls_branch_scope_containment`, `test_rls_admin_bypass`).
+
+---
+
+## 12. Future Work
 - **Phase 6 (Approval Engine):** Modularize purchase/sales approval workflow stages.
 
 ---
 
-## 12. Related ADRs
+## 13. Related ADRs
 - **ADR-004:** Scoped Security Configuration.
 
 ---
 
-## 13. Related RFCs
+## 14. Related RFCs
 None.
