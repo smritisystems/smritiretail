@@ -14,7 +14,7 @@
 
 # SMRITI Retail OS Repository Constitution
 
-**Status:** APPROVED — v2.0 (2026-07-19)  
+**Status:** APPROVED — v2.1 (2026-07-19)  
 **Priority:** Highest Authority Governance Document  
 
 This document serves as the supreme governance framework for the SMRITI Retail OS codebase. Every developer, AI agent, contributor, CI/CD pipeline, and automation script must adhere strictly to the rules, policies, and laws defined herein. No other document, guidelines, or manual instructions may override or contradict this Constitution.
@@ -386,6 +386,47 @@ To provide stability for enterprise deployments, major releases are categorized 
 * **Support Windows:**
   * **Active Support:** 24 months from release (bug fixes, performance enhancements, and minor features).
   * **Security Support:** 36 months from release (critical security vulnerabilities and compliance patches only).
+
+---
+
+## 25. Governance Versioning Policy
+Any structural modification to the repository's governance files must be tracked using governance semantic versioning:
+* **MAJOR VERSION (e.g., v2.0 → v3.0):** Breaking governance changes (modifying the Precedence Hierarchy, The Seven Repository Laws, or the GRB approval scopes).
+* **MINOR VERSION (e.g., v2.0 → v2.1):** Adding new governance policies, procedural sections, or audit checklist guidelines.
+* **PATCH VERSION (e.g., v2.0.0 → v2.0.1):** Addressing typographical errors, vocabulary adjustments, or minor rule clarifications.
+
+---
+
+## 26. Governance Freeze & Compliance Gate
+Upon approval of the **v2.1 Final** version of this Constitution:
+* The file `REPOSITORY_CONSTITUTION.md` is frozen.
+* It must be registered in `.github/CODEOWNERS` requiring joint approval of the Repository Owner and Architect.
+* No changes, edits, or overrides may be committed without a cryptographically signed approval from the Repository Owner documenting the justification.
+
+---
+
+## 27. Governance Validation Automation
+The CI pipeline must implement a dedicated **Governance Validation Workflow** running on every Pull Request, which programmatically checks for constitutional compliance:
+* **File Headers:** Scans modified/created files for valid UADHP headers.
+* **Walkthroughs:** Verifies a matching walkthrough document is created and registered.
+* **ADR & RFC references:** Checks for appropriate ADR files or RFC tags for High-Risk changes.
+* **PR Template Validation:** Rejects the PR if the required template blocks are left incomplete or contain placeholder values.
+
+---
+
+## 28. Repository Governance Badge
+To signify enforcement and platform alignment, the primary `README.md` must display the official repository governance badge:
+```text
+Repository Constitution: v2.1 Final
+Governance Status: Enforced
+```
+
+---
+
+## 29. Periodic Governance Review
+To prevent governance rot while avoiding ad hoc churn:
+* The Governance Review Board (GRB) must convene **quarterly** to audit repository compliance metrics.
+* The review will evaluate whether pipeline evolutions, security standards, or external integrations require minor or major amendments to the Constitution.
 
 ---
 
