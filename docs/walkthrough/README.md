@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.31.3
+  * Version    : 3.31.4
   * Created    : 2026-07-11
   * Modified   : 2026-07-19
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -118,6 +118,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-19 | foundation | SaaS Tenant Isolation Hotfix v3.31.1 — Resolved InvalidRequestError in query interceptor due to uncacheable closure variable | [Foundation_SaaS_Tenant_Isolation_Hotfix_v3.31.1.md](./foundation/Foundation_SaaS_Tenant_Isolation_Hotfix_v3.31.1.md) | — | Completed |
 | 2026-07-19 | foundation | Database Seeding Fix v3.31.2 — Fixed UndefinedColumnError in database seeds due to non-existent uuid column | [Foundation_Database_Seed_Fix_Walkthrough_v3.31.2.md](./foundation/Foundation_Database_Seed_Fix_Walkthrough_v3.31.2.md) | — | Completed |
 | 2026-07-19 | foundation | Setup Wizard Conflict Fix v3.31.3 — Resolved UniqueViolationError on setup_completed config by handling database NULLs | [Foundation_Setup_Wizard_Conflict_Fix_Walkthrough_v3.31.3.md](./foundation/Foundation_Setup_Wizard_Conflict_Fix_Walkthrough_v3.31.3.md) | — | Completed |
+| 2026-07-19 | pos | POS Shift Open & Proxy Redirect Fixes v3.31.4 — Resolved Vite proxy redirects, trailing slashes, and POS shift open payload mismatch | [POS_Shift_Open_And_Proxy_Redirect_v3.31.4.md](./pos/POS_Shift_Open_And_Proxy_Redirect_v3.31.4.md) | — | Completed |
+
 
 
 
