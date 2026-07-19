@@ -1,4 +1,4 @@
-# """add_print_templates_and_profiles
+﻿# """add_print_templates_and_profiles
 # 
 # Revision ID: 3432279dcfb9
 # Revises: 51ed6197a1e1
@@ -9,7 +9,7 @@
 # Project      : SMRITI Retail OS
 # Author       : Jawahar Ramkripal Mallah
 # Email        : support@smritibooks.com
-# Websites     : smritibooks.com | erpnbook.com | aitdl.com
+# Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 # Version      : 3.16.0
 # Created      : 2026-07-13
 # Modified     : 2026-07-13

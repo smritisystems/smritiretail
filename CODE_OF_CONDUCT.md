@@ -1,4 +1,4 @@
-<!--
+﻿<!--
   Project      : SMRITI Retail OS
   Repository   : SMRITIRetailNX
   Organization : AITDL NETWORKS
@@ -14,7 +14,7 @@
     * Founder, Chief Executive Officer (CEO) & Chief Software Architect
     * Email: founder@aitdl.com
 
-  * Websites: aitdl.com | erpnbook.com | smritibooks.com
+  * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
 
   * Version    : 2.1.1
   * Created    : 2026-07-10
@@ -102,7 +102,7 @@ Contributors are expected to:
 - Keep pull requests focused.
 - Report bugs responsibly.
 - Protect user privacy and security.
-- **Not introduce direct `frappe.*` calls outside `smriti_retail_os/core/platform/`.** All platform access must route through the SMRITI Core Framework. Use `from smriti_retail_os import smriti` in business code. See `ARCHITECTURE.md §15` for the canonical patterns.
+- **Not bypass the SMRITI Platform Abstraction Layer (PAL).** All platform and data access must route through the SMRITI Core Framework (`from smriti_retail_os import smriti`). Direct low-level adapter calls are permitted only within `core/platform/`. See `ARCHITECTURE.md §15` for the canonical patterns.
 
 ---
 

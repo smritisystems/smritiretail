@@ -1,34 +1,33 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.24.0
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version      : 3.25.0
 Created      : 2026-07-18
-Modified     : 2026-07-18
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-import pytest
-from httpx import AsyncClient, ASGITransport
+import asyncio
 import uuid
+
+import pytest
 from sqlalchemy import text
 
-from app.main import app
 from app.models.auth import User, UserRole
 from app.models.security import (
-    SMRITIRole,
+    PermissionType,
+    SMRITIMenu,
     SMRITIPermission,
     SMRITIPolicy,
-    SMRITIRolePolicy,
     SMRITIPolicyPermission,
+    SMRITIRole,
+    SMRITIRolePolicy,
     SMRITIUserRole,
-    SMRITIMenu,
-    PermissionType
 )
 from app.services.security import SecurityService, clear_all_permissions_cache
-
 
 _SECURITY_TEST_TABLES = [
     "smriti_security_audits",
@@ -45,14 +44,14 @@ _SECURITY_TEST_TABLES = [
 @pytest.fixture(autouse=True)
 async def clean_security_tables(db_session):
     """Clear all security test tables and test user before each test."""
-    clear_all_permissions_cache()
+    await clear_all_permissions_cache()
     for table in _SECURITY_TEST_TABLES:
         await db_session.execute(text(f"DELETE FROM {table}"))
     # Remove only the test-specific user created by _setup_test_environment
     await db_session.execute(text("DELETE FROM users WHERE id = 'usr-test-subject'"))
     await db_session.commit()
     yield
-    clear_all_permissions_cache()
+    await clear_all_permissions_cache()
 
 
 async def _setup_test_environment(db):
@@ -208,7 +207,7 @@ async def test_permissions_resolution_precedence(db_session):
     await db_session.commit()
 
     # Clear cache and resolve
-    clear_all_permissions_cache()
+    await clear_all_permissions_cache()
     resolved_perms = await service.resolve_user_permissions(user.id)
 
     # SALES.CREATE should now be denied, but SALES.APPROVE remains allowed
@@ -256,10 +255,188 @@ async def test_dynamic_menu_presentation_filtering(db_session):
     await db_session.commit()
 
     # Subject user (with manager role) can access Sales (SALES.CREATE) and Approve Desk (SALES.APPROVE)
-    clear_all_permissions_cache()
+    await clear_all_permissions_cache()
     menus = await service.get_visible_menus(user.id)
     titles = {m["title"] for m in menus}
 
     assert "Sales Workspace" in titles
     assert "Approve Desk" in titles
     assert "System Admin Settings" not in titles
+
+
+@pytest.mark.asyncio
+async def test_memory_permission_cache_ttl_and_metrics():
+    """
+    Verify that MemoryPermissionCache respects TTL, handles evictions, and increments metrics.
+    """
+    from app.services.cache import MemoryPermissionCache
+    cache = MemoryPermissionCache(default_ttl=1)  # 1 second TTL
+    user_id = "test-user-ttl"
+    perms = {"SALES.CREATE", "INVENTORY.VIEW"}
+
+    # Initially empty
+    assert await cache.get(user_id) is None
+
+    # Set and get immediately
+    await cache.set(user_id, perms)
+    assert await cache.get(user_id) == perms
+
+    # Check metrics (1 hit, 1 miss)
+    metrics = await cache.get_metrics()
+    assert metrics["hits"] == 1
+    assert metrics["misses"] == 1
+    assert metrics["evictions"] == 0
+
+    # Wait for TTL to expire
+    await asyncio.sleep(1.1)
+
+    # Should expire and return None
+    assert await cache.get(user_id) is None
+
+    # Check metrics after eviction
+    metrics = await cache.get_metrics()
+    assert metrics["misses"] == 2
+    assert metrics["evictions"] == 1
+
+
+@pytest.mark.asyncio
+async def test_redis_permission_cache_failover():
+    """
+    Verify that RedisPermissionCache logs connection failures and fails over to MemoryPermissionCache.
+    """
+    from app.services.cache import RedisPermissionCache
+    # Create Redis cache pointing to an invalid/non-existent port
+    cache = RedisPermissionCache(
+        redis_url="redis://127.0.0.1:9999/0",
+        default_ttl=60,
+        prefix="smriti_test",
+        version=1,
+        failover_to_memory=True
+    )
+    user_id = "test-user-failover"
+    perms = {"SALES.VIEW"}
+
+    # Set should fallback to memory cache and complete without throwing exception
+    await cache.set(user_id, perms)
+
+    # Get should successfully return the permissions from memory cache fallback
+    resolved = await cache.get(user_id)
+    assert resolved == perms
+
+    # Verify metrics show error and fallback usage
+    metrics = await cache.get_metrics()
+    assert metrics["redis_errors"] > 0
+    assert metrics["redis_using_fallback"] == 1
+    assert metrics["memory_hits"] == 1
+
+
+@pytest.mark.asyncio
+async def test_sysadmin_bypass(db_session):
+    """
+    Verify that SYSADMIN user role bypasses all permission verification.
+    """
+    from app.services.security import SecurityService
+    service = SecurityService(db_session)
+    # usr-super is seeded as SYSADMIN role
+    is_allowed = await service.verify_user_permission("usr-super", "ANY.RANDOM.PERMISSION")
+    assert is_allowed is True
+
+
+@pytest.mark.asyncio
+async def test_multi_policy_aggregation(db_session):
+    """
+    Verify that multiple policies mapped to a user aggregate allowed permissions.
+    """
+    import uuid
+
+    from app.services.security import SecurityService
+
+    service = SecurityService(db_session)
+    await _setup_test_environment(db_session)
+
+    # 1. Create a subject role
+    role_id = f"role-test-{uuid.uuid4().hex[:6]}"
+    await db_session.execute(
+        text("INSERT INTO smriti_roles (id, uuid, code, name, description, is_system_role, is_active, is_deleted, created_at, modified_at) "
+             "VALUES (:id, :uuid, :code, :name, 'desc', false, true, false, now(), now())"),
+        {"id": role_id, "uuid": str(uuid.uuid4()), "code": "TEST_ROLE", "name": "Test Role"}
+    )
+
+    # 2. Map test user 'usr-test-subject' to this role
+    await db_session.execute(
+        text("INSERT INTO smriti_user_roles (id, uuid, user_id, role_id, is_active, is_deleted, created_at, modified_at) "
+             "VALUES (:id, :uuid, 'usr-test-subject', :role_id, true, false, now(), now())"),
+        {"id": f"ur-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "role_id": role_id}
+    )
+
+    # 3. Create two policies
+    pol_id_1 = f"pol-{uuid.uuid4().hex[:6]}"
+    pol_id_2 = f"pol-{uuid.uuid4().hex[:6]}"
+    await db_session.execute(
+        text("INSERT INTO smriti_policies (id, uuid, code, name, description, is_active, is_deleted, created_at, modified_at) "
+             "VALUES (:id, :uuid, :code, :name, 'desc', true, false, now(), now())"),
+        {"id": pol_id_1, "uuid": str(uuid.uuid4()), "code": "POL_TEST_1", "name": "Policy 1"}
+    )
+    await db_session.execute(
+        text("INSERT INTO smriti_policies (id, uuid, code, name, description, is_active, is_deleted, created_at, modified_at) "
+             "VALUES (:id, :uuid, :code, :name, 'desc', true, false, now(), now())"),
+        {"id": pol_id_2, "uuid": str(uuid.uuid4()), "code": "POL_TEST_2", "name": "Policy 2"}
+    )
+
+    # 4. Map policies to role
+    await db_session.execute(
+        text("INSERT INTO smriti_role_policies (id, uuid, role_id, policy_id, created_at, modified_at) "
+             "VALUES (:id, :uuid, :role_id, :policy_id, now(), now())"),
+        {"id": f"rp-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "role_id": role_id, "policy_id": pol_id_1}
+    )
+    await db_session.execute(
+        text("INSERT INTO smriti_role_policies (id, uuid, role_id, policy_id, created_at, modified_at) "
+             "VALUES (:id, :uuid, :role_id, :policy_id, now(), now())"),
+        {"id": f"rp-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "role_id": role_id, "policy_id": pol_id_2}
+    )
+
+    # 5. Map permissions to policies
+    perm_create_id = await db_session.scalar(text("SELECT id FROM smriti_permissions WHERE code = 'SALES.CREATE'"))
+    perm_approve_id = await db_session.scalar(text("SELECT id FROM smriti_permissions WHERE code = 'SALES.APPROVE'"))
+
+    await db_session.execute(
+        text("INSERT INTO smriti_policy_permissions (id, uuid, policy_id, permission_id, permission_type, created_at, modified_at) "
+             "VALUES (:id, :uuid, :policy_id, :perm_id, 'ALLOW', now(), now())"),
+        {"id": f"pp-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "policy_id": pol_id_1, "perm_id": perm_create_id}
+    )
+    await db_session.execute(
+        text("INSERT INTO smriti_policy_permissions (id, uuid, policy_id, permission_id, permission_type, created_at, modified_at) "
+             "VALUES (:id, :uuid, :policy_id, :perm_id, 'ALLOW', now(), now())"),
+        {"id": f"pp-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "policy_id": pol_id_2, "perm_id": perm_approve_id}
+    )
+
+    await db_session.commit()
+
+    # Clear cache and resolve
+    await clear_all_permissions_cache()
+    resolved_perms = await service.resolve_user_permissions("usr-test-subject")
+
+    assert "SALES.CREATE" in resolved_perms
+    assert "SALES.APPROVE" in resolved_perms
+
+
+@pytest.mark.asyncio
+async def test_cache_invalidation_after_policy_change(db_session):
+    """
+    Verify that cache is successfully invalidated when permissions/policy changes.
+    """
+    from app.services.cache import PermissionCacheFactory
+    from app.services.security import invalidate_user_permission_cache
+    provider = PermissionCacheFactory.get_provider()
+
+    # 1. Warm cache
+    await provider.set("usr-test-subject", {"SALES.CREATE"})
+    assert await provider.get("usr-test-subject") == {"SALES.CREATE"}
+
+    # 2. Invalidate cache for this user
+    await invalidate_user_permission_cache("usr-test-subject")
+
+    # 3. Cache should be None
+    assert await provider.get("usr-test-subject") is None
+
+

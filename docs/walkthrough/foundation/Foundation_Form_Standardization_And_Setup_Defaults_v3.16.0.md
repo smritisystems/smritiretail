@@ -1,9 +1,9 @@
-<!--
+﻿<!--
   Project      : SMRITI Retail OS
   Author       : Jawahar Ramkripal Mallah
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
-  Websites     : smritibooks.com | erpnbook.com | aitdl.com
+  Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
   Version      : 3.16.0
   Created      : 2026-07-12
   Modified     : 2026-07-12
@@ -119,7 +119,7 @@ index 0000000..c361aa1
 + * Project      : SMRITI Retail OS
 + * Author       : Jawahar Ramkripal Mallah
 + * Email        : support@smritibooks.com
-+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
++ * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 + * Version      : 3.16.0
 + * Created      : 2026-07-12
 + * Modified     : 2026-07-12
@@ -186,7 +186,7 @@ index 0000000..9011cd1
 + * Project      : SMRITI Retail OS
 + * Author       : Jawahar Ramkripal Mallah
 + * Email        : support@smritibooks.com
-+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
++ * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 + * Version      : 3.16.0
 + * Created      : 2026-07-12
 + * Modified     : 2026-07-12
@@ -240,7 +240,7 @@ index 0000000..e4e0345
 + * Project      : SMRITI Retail OS
 + * Author       : Jawahar Ramkripal Mallah
 + * Email        : support@smritibooks.com
-+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
++ * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 + * Version      : 3.16.0
 + * Created      : 2026-07-12
 + * Modified     : 2026-07-12
@@ -318,7 +318,7 @@ index 1289d00..2ca8abe 100644
 +++ b/src/types.ts
 @@ -16,9 +16,9 @@
   *
-  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
+  * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
   *
 - * * Version    : 2.1.2
 + * * Version    : 3.16.0

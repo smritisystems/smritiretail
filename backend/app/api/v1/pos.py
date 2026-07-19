@@ -1,33 +1,33 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
-Repository   : SMRITIRetailNX
-Organization : AITDL NETWORKS
-
-Founders
-
-* Pushpa Devi Jawahar Mallah — Founder & Chairperson
-* Jawahar Ramkripal Mallah  — Founder, CEO & Chief Software Architect
-* Websites: aitdl.com | erpnbook.com | smritibooks.com
-
-* Version    : 3.17.1 (Phase 1 — POS Checkout)
-* Created    : 2026-07-11
-* Modified   : 2026-07-15 (Phase 1 — POS Checkout migration)
-* Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
-* License    : Proprietary Commercial Software
+Author       : Jawahar Ramkripal Mallah
+Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version      : 3.25.3
+Created      : 2026-07-11
+Modified     : 2026-07-19
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
+License      : Proprietary Commercial Software
+Classification: Internal
 """
 
 
-from typing import List, Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_tenant_context, require_role, TenantContext, get_current_user
-from ...models.auth import UserRole, User
+from ...api.deps import TenantContext, get_current_user, get_db, get_tenant_context, require_permission
+from ...models.auth import User
 from ...schemas.pos import (
-    CashRegisterCreate, CashRegisterResponse,
-    POSProfileCreate, POSProfileResponse,
-    ShiftOpen, ShiftClose, ShiftResponse,
-    POSCheckoutRequest, POSCheckoutResponse,
+    CashRegisterCreate,
+    CashRegisterResponse,
+    POSCheckoutRequest,
+    POSCheckoutResponse,
+    POSProfileCreate,
+    POSProfileResponse,
+    ShiftClose,
+    ShiftOpen,
+    ShiftResponse,
 )
 from ...services.pos import POSService
 
@@ -39,7 +39,7 @@ router = APIRouter()
     "/registers/",
     response_model=CashRegisterResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SYSTEM.CONFIG"))],
 )
 async def create_register(
     req: CashRegisterCreate,
@@ -50,7 +50,11 @@ async def create_register(
     return await POSService(db, tenant).create_register(req)
 
 
-@router.get("/registers/", response_model=List[CashRegisterResponse])
+@router.get(
+    "/registers/",
+    response_model=list[CashRegisterResponse],
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
+)
 async def list_registers(
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_db),
@@ -59,7 +63,11 @@ async def list_registers(
     return await POSService(db, tenant).list_registers()
 
 
-@router.get("/registers/{register_id}", response_model=CashRegisterResponse)
+@router.get(
+    "/registers/{register_id}",
+    response_model=CashRegisterResponse,
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
+)
 async def get_register(
     register_id: str,
     tenant: TenantContext = Depends(get_tenant_context),
@@ -79,6 +87,7 @@ async def get_register(
     response_model=ShiftResponse,
     status_code=201,
     summary="Open Shift (Contract URL)",
+    dependencies=[Depends(require_permission("POS.OPEN_SHIFT"))],
 )
 async def open_shift_contract(
     req: ShiftOpen,
@@ -94,6 +103,7 @@ async def open_shift_contract(
     "/pos/shifts/close/{shift_id}",
     response_model=ShiftResponse,
     summary="Close Shift (Contract URL)",
+    dependencies=[Depends(require_permission("POS.CLOSE_SHIFT"))],
 )
 async def close_shift_contract(
     shift_id: str,
@@ -111,6 +121,7 @@ async def close_shift_contract(
     response_model=ShiftResponse,
     summary="Get Active Shift",
     description="Returns the currently OPEN shift for the given register. 404 if none.",
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
 )
 async def get_active_shift(
     register_id: str,
@@ -127,6 +138,7 @@ async def get_active_shift(
     "/pos/checkout",
     response_model=POSCheckoutResponse,
     status_code=200,
+    dependencies=[Depends(require_permission("POS.CHECKOUT"))],
 )
 async def pos_checkout(
     req: POSCheckoutRequest,
@@ -165,6 +177,7 @@ async def pos_checkout(
     response_model=POSProfileResponse,
     status_code=201,
     summary="Create POS Profile",
+    dependencies=[Depends(require_permission("SYSTEM.CONFIG"))],
 )
 async def create_pos_profile(
     req: POSProfileCreate,
@@ -178,8 +191,9 @@ async def create_pos_profile(
 
 @router.get(
     "/pos/profiles/",
-    response_model=List[POSProfileResponse],
+    response_model=list[POSProfileResponse],
     summary="List POS Profiles",
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
 )
 async def list_pos_profiles(
     tenant: TenantContext = Depends(get_tenant_context),
@@ -195,6 +209,7 @@ async def list_pos_profiles(
     response_model=POSProfileResponse,
     status_code=201,
     summary="Clone POS Profile",
+    dependencies=[Depends(require_permission("SYSTEM.CONFIG"))],
 )
 async def clone_pos_profile(
     profile_id: str,
@@ -210,6 +225,7 @@ async def clone_pos_profile(
     "/pos/profiles/{profile_id}/archive",
     response_model=POSProfileResponse,
     summary="Archive POS Profile",
+    dependencies=[Depends(require_permission("SYSTEM.CONFIG"))],
 )
 async def archive_pos_profile(
     profile_id: str,
@@ -225,6 +241,7 @@ async def archive_pos_profile(
     "/pos/profiles/{profile_id}/toggle-lock",
     response_model=POSProfileResponse,
     summary="Toggle Lock POS Profile",
+    dependencies=[Depends(require_permission("SYSTEM.CONFIG"))],
 )
 async def toggle_lock_pos_profile(
     profile_id: str,
@@ -240,9 +257,10 @@ async def toggle_lock_pos_profile(
 
 @router.get(
     "/pos/shifts/",
-    response_model=List[ShiftResponse],
+    response_model=list[ShiftResponse],
     summary="List All Shifts",
     description="List the 100 most recent shifts for this tenant.",
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
 )
 async def list_shifts(
     tenant: TenantContext = Depends(get_tenant_context),

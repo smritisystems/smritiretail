@@ -1,22 +1,23 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.16.0
 Created      : 2026-07-11
-Modified     : 2026-07-18
+Modified     : 2026-07-19
 Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-import os
-import json
-import socket
 import asyncio
+import json
+import os
+import socket
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
+
 from pydantic_settings import BaseSettings
 
 
@@ -136,6 +137,14 @@ class Settings(BaseSettings):
     USE_FASTAPI_PURCHASE: bool = False
     USE_FASTAPI_POS: bool = False
 
+    # Cache Settings
+    USE_REDIS_CACHE: bool = False
+    REDIS_URL: str = "redis://localhost:6379/0"
+    PERMISSION_CACHE_TTL: int = 300
+    CACHE_PREFIX: str = "smriti"
+    CACHE_VERSION: int = 1
+    CACHE_FAILOVER_TO_MEMORY: bool = True
+
     model_config = {
         "env_file": ".env",
         "case_sensitive": True,
@@ -154,7 +163,7 @@ def load_settings() -> Settings:
     json_data = {}
     if config_json_path.exists():
         try:
-            with open(config_json_path, "r", encoding="utf-8") as f:
+            with open(config_json_path, encoding="utf-8") as f:
                 json_data = json.load(f)
         except Exception as e:
             print(f"[SDIC Settings] Failed to parse smriti-config.json: {e}")

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -14,7 +14,7 @@
  *   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
  *   * Email: founder@aitdl.com
  *
- * * Websites: aitdl.com | erpnbook.com | smritibooks.com
+ * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  *
  * * Version    : 3.16.0
  * * Created    : 2026-07-10
@@ -282,7 +282,7 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
       name: newStaffName,
       username,
       role: newStaffRole,
-      email: newStaffEmail || `${username}@smritibooks.com`
+      email: newStaffEmail || `${username}@smritisys.com`
     };
     setStaffList([...staffList, newStaff]);
     setNewStaffName("");
@@ -442,7 +442,7 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
         Project    : SMRITI Retail OS
         Author     : Jawahar Ramkripal Mallah
         Email      : support@smritibooks.com
-        Websites   : smritibooks.com | erpnbook.com | aitdl.com
+        Websites   : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
         Version    : 2.1.2
         Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
       </div>

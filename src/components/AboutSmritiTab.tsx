@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
- * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.16.1
  * Created      : 2026-07-10
  * Modified     : 2026-07-14
@@ -406,7 +406,7 @@ export const AboutSmritiTab: React.FC = () => {
                     <div>
                       <span className="block text-[10px] text-theme-muted font-mono uppercase">Official Sites</span>
                       <span className="font-mono text-xs text-blue-400 break-all">
-                        aitdl.com | erpnbook.com | smritibooks.com
+                        smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
                       </span>
                     </div>
                   </div>
@@ -470,7 +470,7 @@ export const AboutSmritiTab: React.FC = () => {
                     <div className="border-t border-theme-divider/60 pt-3 text-xs space-y-1.5">
                       <div className="flex justify-between">
                         <span className="text-theme-muted font-mono">Websites:</span>
-                        <span className="font-semibold text-theme-body">smritibooks.com</span>
+                        <span className="font-semibold text-theme-body">smritisys.com | smritibooks.com</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-theme-muted font-mono">Email:</span>
@@ -873,7 +873,7 @@ export const AboutSmritiTab: React.FC = () => {
                     </div>
                     <div>
                       <span className="block text-[10px] text-theme-muted font-mono uppercase">Official Sites</span>
-                      <span className="font-semibold text-white font-mono">aitdl.com | erpnbook.com | smritibooks.com</span>
+                      <span className="font-semibold text-white font-mono">smritisys.com | aitdl.com | erpnbook.com | smritibooks.com</span>
                     </div>
                   </div>
                   

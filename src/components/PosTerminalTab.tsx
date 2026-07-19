@@ -1,8 +1,8 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
- * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 2.1.3
  * Created      : 2026-07-10
  * Modified     : 2026-07-16

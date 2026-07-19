@@ -1,4 +1,4 @@
-<!--
+﻿<!--
   Project      : SMRITI Retail OS
   Repository   : SMRITIRetailNX
   Organization : AITDL NETWORKS
@@ -14,7 +14,7 @@
     * Founder, Chief Executive Officer (CEO) & Chief Software Architect
     * Email: founder@aitdl.com
 
-  * Websites: aitdl.com | erpnbook.com | smritibooks.com
+  * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
 
   * Version    : 2.1.1
   * Created    : 2026-07-10
@@ -42,10 +42,10 @@ This file currently documents the adapter rules for the existing hybrid platform
 ---
 
 ## 1. Current Platform Adapter Stack
-* **Underlying Framework:** Frappe Framework v16 & ERPNext
-* **Underlying Database:** MariaDB / PostgreSQL
-* **Underlying Cache:** Redis
-* **Client UI Runtime:** Vue / React / Tailwind
+* **Application Backend:** FastAPI + Python 3.11
+* **Underlying Database:** PostgreSQL (via SQLAlchemy 2.x + Alembic)
+* **Underlying Cache:** In-memory (Redis roadmap)
+* **Client UI Runtime:** React 18 / TypeScript / Tailwind CSS
 
 ---
 
@@ -53,19 +53,11 @@ This file currently documents the adapter rules for the existing hybrid platform
 
 All direct calls to the underlying framework APIs are strictly prohibited in business logic services, studios, APIs, or data models. They are allowed ONLY within the platform adapter implementation (`core/platform/`).
 
-### Forbidden direct framework imports and calls in business services:
+### Forbidden — bypassing the PAL in business services:
 ```python
-import frappe
-
-# VIOLATIONS:
-frappe.get_doc(...)
-frappe.new_doc(...)
-frappe.db.get_value(...)
-frappe.db.set_value(...)
-frappe.db.sql(...)
-frappe.enqueue(...)
-frappe.publish_realtime(...)
-frappe.cache().get_value()
+# VIOLATION: Do not call the database, ORM, or cache layer directly
+# from any business service, studio, or API module.
+# All access must route through smriti.documents, smriti.db, smriti.cache, etc.
 ```
 
 ### Approved PAL wrappers (SMRITI Platform Abstraction Layer):
@@ -89,15 +81,11 @@ smriti.permissions.require("Customer", "read")
 
 Client applications must communicate with server-side endpoints exclusively using the SMRITI JavaScript SDK. Direct framework-specific requests or message publishers are forbidden outside the SDK.
 
-### Forbidden direct client framework calls:
+### Forbidden — bypassing the SMRITI SDK in client code:
 ```javascript
-// VIOLATIONS:
-frappe.call({ method: "...", ... });
-frappe.show_alert(...);
-frappe.msgprint(...);
-frappe.set_route(...);
-frappe.confirm(...);
-frappe.realtime.on(...);
+// VIOLATION: Do not make direct backend calls or use low-level platform APIs
+// outside the SMRITI JavaScript SDK. All API communication must
+// route through smriti.api.*, smriti.notify.*, smriti.navigation.*, etc.
 ```
 
 ### Approved SMRITI JavaScript SDK usages:

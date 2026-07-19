@@ -3,7 +3,7 @@
   Author       : Jawahar Ramkripal Mallah
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
-  Websites     : smritibooks.com | erpnbook.com | aitdl.com
+  Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
   Version      : 3.22.0
   Created      : 2026-07-16
   Modified     : 2026-07-16

@@ -3,7 +3,7 @@
   Author       : Jawahar Ramkripal Mallah
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
-  Websites     : smritibooks.com | erpnbook.com | aitdl.com
+  Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
   Version      : 3.15.0
   Created      : 2026-07-09
   Modified     : 2026-07-12
@@ -17,8 +17,6 @@ This document registers and documents the licenses of upstream systems, framewor
 
 | Component | Version | License | Website | Notes |
 |---|---|---|---|---|
-| Frappe Framework | v16.19.1 | MIT | https://github.com/frappe/frappe | App framework |
-| ERPNext | v16.19.1 | GPL-3.0-only | https://github.com/frappe/erpnext | Core business logic |
 | India Compliance | Latest | GPL-3.0-only | https://github.com/resilient-tech/india-compliance | Regional localization |
 | Redis | 6.2-alpine | BSD-3-Clause | https://redis.io | Cache / Queue store |
 

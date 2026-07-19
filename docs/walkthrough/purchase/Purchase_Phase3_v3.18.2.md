@@ -1,9 +1,9 @@
-<!--
+﻿<!--
   Project      : SMRITI Retail OS
   Author       : Jawahar Ramkripal Mallah
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
-  Websites     : smritibooks.com | erpnbook.com | aitdl.com
+  Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
   Version      : 3.18.2
   Created      : 2026-07-15
   Modified     : 2026-07-15

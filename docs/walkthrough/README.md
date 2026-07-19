@@ -1,4 +1,4 @@
-<!--
+﻿<!--
   Project      : SMRITI Retail OS
   Repository   : SMRITIRetailNX
   Organization : AITDL NETWORKS
@@ -14,7 +14,7 @@
     * Founder, Chief Executive Officer (CEO) & Chief Software Architect
     * Email: founder@aitdl.com
 
-  * Websites: aitdl.com | erpnbook.com | smritibooks.com
+  * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
 
   * Version    : 3.31.4
   * Created    : 2026-07-11
@@ -119,6 +119,13 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-19 | foundation | Database Seeding Fix v3.31.2 — Fixed UndefinedColumnError in database seeds due to non-existent uuid column | [Foundation_Database_Seed_Fix_Walkthrough_v3.31.2.md](./foundation/Foundation_Database_Seed_Fix_Walkthrough_v3.31.2.md) | — | Completed |
 | 2026-07-19 | foundation | Setup Wizard Conflict Fix v3.31.3 — Resolved UniqueViolationError on setup_completed config by handling database NULLs | [Foundation_Setup_Wizard_Conflict_Fix_Walkthrough_v3.31.3.md](./foundation/Foundation_Setup_Wizard_Conflict_Fix_Walkthrough_v3.31.3.md) | — | Completed |
 | 2026-07-19 | pos | POS Shift Open & Proxy Redirect Fixes v3.31.4 — Resolved Vite proxy redirects, trailing slashes, and POS shift open payload mismatch | [POS_Shift_Open_And_Proxy_Redirect_v3.31.4.md](./pos/POS_Shift_Open_And_Proxy_Redirect_v3.31.4.md) | — | Completed |
+| 2026-07-19 | foundation | Cache Provider Abstraction v3.25.0 — Abstract base permission caches, MemoryCache/RedisCache, metrics, TTL, auto-failover | [Foundation_Cache_Provider_Abstraction_Walkthrough_v3.25.0.md](./foundation/Foundation_Cache_Provider_Abstraction_Walkthrough_v3.25.0.md) | [Plan](../implementation/foundation/SSACF_Phase2_Roadmap_v3.25.0.md) | Completed |
+| 2026-07-19 | foundation | Permission Catalog & Policy Seeding v3.25.0 — Centralized permission manifest, functional policy composition, risk-phased endpoint migrations, and SSACF Security Constitution (Phase 2.2.1) | [Security_SSACF_Permission_Catalog_And_Policy_Seeding_Walkthrough_v3.25.0.md](./foundation/Security_SSACF_Permission_Catalog_And_Policy_Seeding_Walkthrough_v3.25.0.md) | [Plan](../implementation/foundation/SSACF_Phase2_Roadmap_v3.25.0.md) | Completed |
+| 2026-07-19 | foundation | CRM & Inventory Endpoint Migration v3.25.2 — Migrated CRM, Inventory, Barcode, and Attribute endpoints to namespaced permission guards and fixed dictionary exception formatting | [Security_SSACF_CRM_And_Inventory_Endpoint_Migration_v3.25.2.md](./foundation/Security_SSACF_CRM_And_Inventory_Endpoint_Migration_v3.25.2.md) | [Plan](../implementation/foundation/SSACF_Phase2_Roadmap_v3.25.0.md) | Completed |
+| 2026-07-19 | foundation | Sales, POS & Purchase Endpoint Migration v3.25.3 — Migrated Sales, POS, and Purchase endpoints to namespaced permission guards and verified with 22 assertions in integration tests | [Security_SSACF_Sales_POS_Purchase_Endpoint_Migration_v3.25.3.md](./foundation/Security_SSACF_Sales_POS_Purchase_Endpoint_Migration_v3.25.3.md) | [Plan](../implementation/foundation/SSACF_Phase2_4_Sales_POS_Purchase_Migration_Plan_v3.25.3.md) | Completed |
+
+
+
 
 
 

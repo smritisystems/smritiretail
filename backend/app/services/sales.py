@@ -1,9 +1,9 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.26.0 (Phase 3 — PricingGroup Price Engine)
 Created      : 2026-07-11
 Modified     : 2026-07-18 (Phase 3)

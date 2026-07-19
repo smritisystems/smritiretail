@@ -1,4 +1,4 @@
-<!--
+﻿<!--
   Project      : SMRITI Retail OS
   Repository   : SMRITIRetailNX
   Organization : AITDL NETWORKS
@@ -7,7 +7,7 @@
 
   * Pushpa Devi Jawahar Mallah — Founder & Chairperson
   * Jawahar Ramkripal Mallah  — Founder, CEO & Chief Software Architect
-  * Websites: aitdl.com | erpnbook.com | smritibooks.com
+  * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
 
   * Version    : 3.13.0
   * Created    : 2026-07-11

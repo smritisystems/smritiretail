@@ -1,33 +1,41 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.17.0
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version      : 3.25.0
 Created      : 2026-07-12
-Modified     : 2026-07-14
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from typing import List, Any
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import UTC, datetime
+from typing import Any
 
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user, require_role
-from ...models.auth import User, UserRole
-from ...models.tenant import Company, Branch
+from ...api.deps import get_current_user, get_db, require_permission
+from ...models.auth import User
 from ...models.inventory import Store, Warehouse
+from ...models.tenant import Branch, Company
 from ...schemas.masters_tier2 import (
-    CompanyCreate, CompanyUpdate, CompanyResponse,
-    BranchCreate, BranchUpdate, BranchResponse,
-    StoreCreate, StoreUpdate, StoreResponse,
-    WarehouseCreate, WarehouseUpdate, WarehouseResponse
+    BranchCreate,
+    BranchResponse,
+    BranchUpdate,
+    CompanyCreate,
+    CompanyResponse,
+    CompanyUpdate,
+    StoreCreate,
+    StoreResponse,
+    StoreUpdate,
+    WarehouseCreate,
+    WarehouseResponse,
+    WarehouseUpdate,
 )
 
 router = APIRouter()
@@ -48,12 +56,13 @@ def normalize_type(et: str) -> str:
 
 @router.get(
     "/{entity_type}",
+    dependencies=[Depends(require_permission("REPORT.VIEW"))]
 )
 async def list_masters(
     entity_type: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> List[Any]:
+) -> list[Any]:
     """
     List all master entities of a given type.
     """
@@ -85,7 +94,7 @@ async def list_masters(
 @router.post(
     "/{entity_type}",
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SYSTEM.CONFIG"))],
 )
 async def create_master(
     entity_type: str,
@@ -97,17 +106,17 @@ async def create_master(
     Create a new organizational master entity record.
     """
     norm_type = normalize_type(entity_type)
-    timestamp_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    timestamp_ms = int(datetime.now(UTC).timestamp() * 1000)
 
     if norm_type == "company":
         req_company = CompanyCreate(**payload)
         new_id = f"comp-{timestamp_ms}"
         item_company = Company()
-        setattr(item_company, "id", new_id)
-        setattr(item_company, "name", req_company.name)
-        setattr(item_company, "gst_number", req_company.gstNumber)
-        setattr(item_company, "is_active", req_company.status == "Active" if req_company.status else True)
-        setattr(item_company, "is_deleted", False)
+        item_company.id = new_id
+        item_company.name = req_company.name
+        item_company.gst_number = req_company.gstNumber
+        item_company.is_active = req_company.status == "Active" if req_company.status else True
+        item_company.is_deleted = False
         db.add(item_company)
         await db.commit()
         await db.refresh(item_company)
@@ -125,12 +134,12 @@ async def create_master(
 
         new_id = f"br-{timestamp_ms}"
         item_branch = Branch()
-        setattr(item_branch, "id", new_id)
-        setattr(item_branch, "company_id", req_branch.company)
-        setattr(item_branch, "name", req_branch.name)
-        setattr(item_branch, "code", req_branch.code)
-        setattr(item_branch, "is_active", True)
-        setattr(item_branch, "is_deleted", False)
+        item_branch.id = new_id
+        item_branch.company_id = req_branch.company
+        item_branch.name = req_branch.name
+        item_branch.code = req_branch.code
+        item_branch.is_active = True
+        item_branch.is_deleted = False
         db.add(item_branch)
         await db.commit()
         await db.refresh(item_branch)
@@ -148,16 +157,16 @@ async def create_master(
 
         new_id = f"store-{timestamp_ms}"
         item_store = Store()
-        setattr(item_store, "id", new_id)
-        setattr(item_store, "code", req_store.code)
-        setattr(item_store, "name", req_store.name)
-        setattr(item_store, "branch_id", req_store.branch)
-        setattr(item_store, "store_type", req_store.store_type)
-        setattr(item_store, "address", req_store.address)
-        setattr(item_store, "is_active", req_store.status == "Active" if req_store.status else True)
-        setattr(item_store, "is_deleted", False)
-        setattr(item_store, "created_by", current_user.username)
-        setattr(item_store, "updated_by", current_user.username)
+        item_store.id = new_id
+        item_store.code = req_store.code
+        item_store.name = req_store.name
+        item_store.branch_id = req_store.branch
+        item_store.store_type = req_store.store_type
+        item_store.address = req_store.address
+        item_store.is_active = req_store.status == "Active" if req_store.status else True
+        item_store.is_deleted = False
+        item_store.created_by = current_user.username
+        item_store.updated_by = current_user.username
         db.add(item_store)
         await db.commit()
         await db.refresh(item_store)
@@ -176,16 +185,16 @@ async def create_master(
 
         new_id = f"wh-{timestamp_ms}"
         item_warehouse = Warehouse()
-        setattr(item_warehouse, "id", new_id)
-        setattr(item_warehouse, "code", req_warehouse.code)
-        setattr(item_warehouse, "name", req_warehouse.name)
-        setattr(item_warehouse, "branch_id", req_warehouse.branch)
-        setattr(item_warehouse, "is_transit", req_warehouse.is_transit or False)
-        setattr(item_warehouse, "address", req_warehouse.address)
-        setattr(item_warehouse, "is_active", req_warehouse.status == "Active" if req_warehouse.status else True)
-        setattr(item_warehouse, "is_deleted", False)
-        setattr(item_warehouse, "created_by", current_user.username)
-        setattr(item_warehouse, "updated_by", current_user.username)
+        item_warehouse.id = new_id
+        item_warehouse.code = req_warehouse.code
+        item_warehouse.name = req_warehouse.name
+        item_warehouse.branch_id = req_warehouse.branch
+        item_warehouse.is_transit = req_warehouse.is_transit or False
+        item_warehouse.address = req_warehouse.address
+        item_warehouse.is_active = req_warehouse.status == "Active" if req_warehouse.status else True
+        item_warehouse.is_deleted = False
+        item_warehouse.created_by = current_user.username
+        item_warehouse.updated_by = current_user.username
         db.add(item_warehouse)
         await db.commit()
         await db.refresh(item_warehouse)
@@ -196,7 +205,7 @@ async def create_master(
 
 @router.put(
     "/{entity_type}/{id}",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SYSTEM.CONFIG"))],
 )
 async def update_master(
     entity_type: str,
@@ -217,11 +226,11 @@ async def update_master(
             raise HTTPException(status_code=404, detail="Company not found.")
         
         if req_company.name is not None:
-            setattr(item_company, "name", req_company.name)
+            item_company.name = req_company.name
         if req_company.gstNumber is not None:
-            setattr(item_company, "gst_number", req_company.gstNumber)
+            item_company.gst_number = req_company.gstNumber
         if req_company.status is not None:
-            setattr(item_company, "is_active", req_company.status == "Active")
+            item_company.is_active = req_company.status == "Active"
         
         await db.commit()
         await db.refresh(item_company)
@@ -240,12 +249,12 @@ async def update_master(
                     status_code=400,
                     detail=f"Referential Integrity Error: Company ID '{req_branch.company}' does not exist."
                 )
-            setattr(item_branch, "company_id", req_branch.company)
+            item_branch.company_id = req_branch.company
         
         if req_branch.name is not None:
-            setattr(item_branch, "name", req_branch.name)
+            item_branch.name = req_branch.name
         if req_branch.code is not None:
-            setattr(item_branch, "code", req_branch.code)
+            item_branch.code = req_branch.code
             
         await db.commit()
         await db.refresh(item_branch)
@@ -264,21 +273,21 @@ async def update_master(
                     status_code=400,
                     detail=f"Referential Integrity Error: Branch ID '{req_store.branch}' does not exist."
                 )
-            setattr(item_store, "branch_id", req_store.branch)
+            item_store.branch_id = req_store.branch
 
         if req_store.name is not None:
-            setattr(item_store, "name", req_store.name)
+            item_store.name = req_store.name
         if req_store.code is not None:
-            setattr(item_store, "code", req_store.code)
+            item_store.code = req_store.code
         if req_store.store_type is not None:
-            setattr(item_store, "store_type", req_store.store_type)
+            item_store.store_type = req_store.store_type
         if req_store.address is not None:
-            setattr(item_store, "address", req_store.address)
+            item_store.address = req_store.address
         if req_store.status is not None:
-            setattr(item_store, "is_active", req_store.status == "Active")
+            item_store.is_active = req_store.status == "Active"
             
-        setattr(item_store, "updated_by", current_user.username)
-        setattr(item_store, "modified_at", datetime.now(timezone.utc))
+        item_store.updated_by = current_user.username
+        item_store.modified_at = datetime.now(UTC)
         await db.commit()
         await db.refresh(item_store)
         return StoreResponse.from_orm_model(item_store)
@@ -296,21 +305,21 @@ async def update_master(
                     status_code=400,
                     detail=f"Referential Integrity Error: Branch ID '{req_warehouse.branch}' does not exist."
                 )
-            setattr(item_warehouse, "branch_id", req_warehouse.branch)
+            item_warehouse.branch_id = req_warehouse.branch
 
         if req_warehouse.name is not None:
-            setattr(item_warehouse, "name", req_warehouse.name)
+            item_warehouse.name = req_warehouse.name
         if req_warehouse.code is not None:
-            setattr(item_warehouse, "code", req_warehouse.code)
+            item_warehouse.code = req_warehouse.code
         if req_warehouse.is_transit is not None:
-            setattr(item_warehouse, "is_transit", req_warehouse.is_transit)
+            item_warehouse.is_transit = req_warehouse.is_transit
         if req_warehouse.address is not None:
-            setattr(item_warehouse, "address", req_warehouse.address)
+            item_warehouse.address = req_warehouse.address
         if req_warehouse.status is not None:
-            setattr(item_warehouse, "is_active", req_warehouse.status == "Active")
+            item_warehouse.is_active = req_warehouse.status == "Active"
             
-        setattr(item_warehouse, "updated_by", current_user.username)
-        setattr(item_warehouse, "modified_at", datetime.now(timezone.utc))
+        item_warehouse.updated_by = current_user.username
+        item_warehouse.modified_at = datetime.now(UTC)
         await db.commit()
         await db.refresh(item_warehouse)
         return WarehouseResponse.from_orm_model(item_warehouse)
@@ -320,7 +329,7 @@ async def update_master(
 
 @router.delete(
     "/{entity_type}/{id}",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SYSTEM.CONFIG"))],
 )
 async def delete_master(
     entity_type: str,
@@ -337,8 +346,8 @@ async def delete_master(
         item_company = await db.get(Company, id)
         if not item_company or item_company.is_deleted:
             raise HTTPException(status_code=404, detail="Company not found.")
-        setattr(item_company, "is_deleted", True)
-        setattr(item_company, "modified_at", datetime.now(timezone.utc))
+        item_company.is_deleted = True
+        item_company.modified_at = datetime.now(UTC)
         await db.commit()
         return {"success": True, "deletedId": id}
 
@@ -346,8 +355,8 @@ async def delete_master(
         item_branch = await db.get(Branch, id)
         if not item_branch or item_branch.is_deleted:
             raise HTTPException(status_code=404, detail="Branch not found.")
-        setattr(item_branch, "is_deleted", True)
-        setattr(item_branch, "modified_at", datetime.now(timezone.utc))
+        item_branch.is_deleted = True
+        item_branch.modified_at = datetime.now(UTC)
         await db.commit()
         return {"success": True, "deletedId": id}
 
@@ -355,9 +364,9 @@ async def delete_master(
         item_store = await db.get(Store, id)
         if not item_store or item_store.is_deleted:
             raise HTTPException(status_code=404, detail="Store not found.")
-        setattr(item_store, "is_deleted", True)
-        setattr(item_store, "deleted_at", datetime.now(timezone.utc))
-        setattr(item_store, "deleted_by", current_user.username)
+        item_store.is_deleted = True
+        item_store.deleted_at = datetime.now(UTC)
+        item_store.deleted_by = current_user.username
         await db.commit()
         return {"success": True, "deletedId": id}
 
@@ -365,9 +374,9 @@ async def delete_master(
         item_warehouse = await db.get(Warehouse, id)
         if not item_warehouse or item_warehouse.is_deleted:
             raise HTTPException(status_code=404, detail="Warehouse not found.")
-        setattr(item_warehouse, "is_deleted", True)
-        setattr(item_warehouse, "deleted_at", datetime.now(timezone.utc))
-        setattr(item_warehouse, "deleted_by", current_user.username)
+        item_warehouse.is_deleted = True
+        item_warehouse.deleted_at = datetime.now(UTC)
+        item_warehouse.deleted_by = current_user.username
         await db.commit()
         return {"success": True, "deletedId": id}
 

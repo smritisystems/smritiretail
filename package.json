@@ -2,6 +2,12 @@
   "name": "smriti-retail-os",
   "version": "3.16.0",
   "description": "Enterprise Retail Experience & Intelligence Layer",
+  "homepage": "https://smritisys.com",
+  "author": {
+    "name": "Jawahar Ramkripal Mallah",
+    "email": "support@smritisys.com",
+    "url": "https://smritisys.com"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

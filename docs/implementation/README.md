@@ -1,9 +1,9 @@
-<!--
+﻿<!--
   Project      : SMRITI Retail OS
   Author       : Jawahar Ramkripal Mallah
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
-  Websites     : smritibooks.com | erpnbook.com | aitdl.com
+  Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
   Version      : 3.31.3
   Created      : 2026-07-11
   Modified     : 2026-07-19
@@ -53,10 +53,11 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-17 | v3.18.0 | [Modular Microservices Roadmap](./PLATFORM_MICROSERVICES_ROADMAP.md) | `/docs/architecture/PLATFORM_MICROSERVICES_ROADMAP.md` | Draft | — |
 | 2026-07-18 | v3.23.0 | [Test Database Isolation & Onboarding Fixes](./foundation/Test_Database_Isolation_Plan_v3.23.0.md) | `/backend/app/tests/conftest.py`, `/backend/app/api/v1/system.py`, `/backend/app/tests/test_api_v1_migration.py` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_Test_Database_Isolation_And_Setup_Fixes_v3.17.1.md) |
 | 2026-07-18 | v3.24.0 | [Role & Menu Security Engine (SSACF)](./foundation/Role_And_Menu_Security_Engine_v3.24.0.md) | `/backend/app/models/security.py`, `/backend/app/api/v1/security.py`, `/backend/app/db/seed.py` | Completed | [Walkthrough](../walkthrough/foundation/Security_SSACF_Role_And_Menu_Engine_v3.24.0.md) |
-| 2026-07-18 | v3.25.0 | [SSACF Phase 2 — Cache Abstraction, Cycle Detection & Scoped Permissions](./foundation/SSACF_Phase2_Roadmap_v3.25.0.md) | TBD | Draft | — |
+| 2026-07-18 | v3.25.0 | [SSACF Phase 2 — Cache Abstraction, Cycle Detection & Scoped Permissions](./foundation/SSACF_Phase2_Roadmap_v3.25.0.md) | `/backend/app/services/cache.py`, `/backend/app/core/permissions.py`, `/backend/app/db/seed.py` | In Progress | [Walkthrough 2.1](../walkthrough/foundation/Foundation_Cache_Provider_Abstraction_Walkthrough_v3.25.0.md) \| [Walkthrough 2.2](../walkthrough/foundation/Security_SSACF_Permission_Catalog_And_Policy_Seeding_Walkthrough_v3.25.0.md) \| [Walkthrough 2.3](../walkthrough/foundation/Security_SSACF_CRM_And_Inventory_Endpoint_Migration_v3.25.2.md) |
 | 2026-07-19 | v3.28.0 | [Consignment & Sale on Approval GST Engine Refinement](./foundation/Consignment_Approval_GST_Engine_Plan_v3.28.0.md) | `/backend/app/models/dispatch.py`, `/backend/app/services/dispatch_service.py` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_Stock_Dispatch_Engine_Walkthrough_v3.28.0.md) |
 | 2026-07-19 | v3.29.0 | [SMRITI Regulatory Engine (SRE)](./foundation/SRE_Engine_Implementation_Plan_v3.29.0.md) | `/backend/app/models/sre.py`, `/backend/app/services/sre/sre_service.py` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_SMRITI_Regulatory_Engine_Walkthrough_v3.29.0.md) |
 | 2026-07-19 | v3.31.0 | [SaaS Tenant Isolation & Data Security](./foundation/Tenant_Isolation_SaaS_Plan_v3.31.0.md) | `/backend/app/models/base.py`, `/backend/app/api/deps.py` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_SaaS_Tenant_Isolation_Walkthrough_v3.31.0.md) |
+| 2026-07-19 | v3.25.3 | [SSACF Phase 2.4 — Sales, POS, & Purchase Endpoint Migration](./foundation/SSACF_Phase2_4_Sales_POS_Purchase_Migration_Plan_v3.25.3.md) | `/backend/app/api/v1/sales.py`, `/backend/app/api/v1/pos.py`, `/backend/app/api/v1/purchase.py` | Completed | [Walkthrough](../walkthrough/foundation/Security_SSACF_Sales_POS_Purchase_Endpoint_Migration_v3.25.3.md) |
 
 
 

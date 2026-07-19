@@ -1,9 +1,9 @@
-<!--
+﻿<!--
   Project      : SMRITI Retail OS
   Author       : Jawahar Ramkripal Mallah
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
-  Websites     : smritibooks.com | erpnbook.com | aitdl.com
+  Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
   Version      : 3.15.0
   Created      : 2026-07-12
   Modified     : 2026-07-12
@@ -24,14 +24,14 @@ Unifying reporting data on PostgreSQL guarantees consistent metrics across the U
 - **FastAPI Backend Verification:** Verify that python-core health check returns database connected (Status: OPERATIONAL).
 - **Frontend Reports Migration:** Refactor `QuickReportsWidget.tsx` and `ReportDesignerTab.tsx` to dynamically fetch figures for stock valuation, daily sales, supplier ledgers, and purchase summaries from FastAPI endpoints via `apiFetchV1` instead of mock variables.
 - **Express Feature Freeze:** Enforce a freeze on Express route modifications. Do not add or edit routes in `server.ts` or `src/routes/*.ts` except for strict security/compilation hotfixes.
-- **Governance Alignment:** Update `.agents/AGENTS.md` to retire the stale Frappe-based PAL section and record the FastAPI backend system-of-record policy.
+- **Governance Alignment:** Update `.agents/AGENTS.md` to retire stale legacy PAL sections and record the FastAPI backend system-of-record policy.
 
 ## 4. Current State
 - **Verified:** FastAPI core `/health` is fully operational and reports `database: connected`, `status: healthy`.
 - **Verified:** Backend reports endpoints (`/api/v1/reports/stock-valuation`, `/api/v1/reports/daily-sales`, `/api/v1/reports/supplier-ledger/{id}`, `/api/v1/reports/purchase-summary`) are fully operational and successfully queried via JWT, returning verified JSON payloads.
 - `QuickReportsWidget.tsx` uses hardcoded math modifiers (e.g. `Math.round(125000 * scaleFactor)`) and static lists to render reporting values.
 - `ReportDesignerTab.tsx` uses static lists for categories (Apparel, Footwear, Accessories) and hardcoded purchase order arrays.
-- `.agents/AGENTS.md` references the deprecated Frappe framework document API (`from smriti_retail_os import smriti`) and MARIA/Redis mappings.
+- `.agents/AGENTS.md` references deprecated legacy framework document API patterns and old MARIA/Redis mappings.
 
 ## 5. Gap Analysis
 - Frontend reports render mock numbers, hiding true database state.
@@ -70,7 +70,7 @@ No open questions.
 
 #### [MODIFY] [.agents/AGENTS.md](file:///d:/IMP/GitHub/SMRITRretailNX/.agents/AGENTS.md)
 - Add "SMRITI Backend System-of-Record Policy" section declaring the FastAPI+Postgres system of record, strangler-fig migration paths, and the Express route freeze.
-- Rewrite the Platform Abstraction Layer (PAL) section to match the current Express + FastAPI/Postgres architecture, removing mariadb, redis, and Frappe references.
+- Rewrite the Platform Abstraction Layer (PAL) section to match the current Express + FastAPI/Postgres architecture, removing mariadb and redis legacy references.
 - Bump the version header to `3.15.0` and update modified date to `2026-07-12` (UADHP).
 
 ### Frontend Components

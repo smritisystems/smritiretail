@@ -1,4 +1,4 @@
-<!--
+﻿<!--
   Project      : SMRITI Retail OS
   Repository   : SMRITIRetailNX
   Organization : AITDL NETWORKS
@@ -14,11 +14,11 @@
     * Founder, Chief Executive Officer (CEO) & Chief Software Architect
     * Email: founder@aitdl.com
 
-  * Websites: aitdl.com | erpnbook.com | smritibooks.com
+  * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.25.0
+  * Version    : 3.25.3
   * Created    : 2026-07-11
-  * Modified   : 2026-07-18
+  * Modified   : 2026-07-19
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -27,6 +27,35 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+---
+
+## [3.25.3] — 2026-07-19
+
+### Added
+
+- **Integration Security Tests**: Created `backend/app/tests/test_sales_pos_purchase_security.py` verifying namespaced permission rules, dynamic cashier limits, supervisor shifts, tenant & branch boundaries isolation, and SYSADMIN god mode bypass.
+
+### Changed
+
+- **Sales Endpoint Security Migration**: Migrated core endpoints in `sales.py` from role-based checks to namespaced permission checks (`SALES.CREATE`, `SALES.VIEW`, `SALES.UPDATE`, `SALES.DELETE`).
+- **POS Endpoint Security Migration**: Migrated registers, profile configurations, and cashier checkouts in `pos.py` to dynamic checks (`SYSTEM.CONFIG`, `SALES.CREATE`, `SALES.VIEW`).
+- **Purchase Endpoint Security Migration**: Refactored supplier and purchase order endpoints in `purchase.py` to require `SUPPLIER.MANAGE`, `PURCHASE.CREATE`, `PURCHASE.APPROVE`, and `PURCHASE.DELETE`.
+
+---
+
+## [3.25.2] — 2026-07-19
+
+### Added
+
+- **Integration Security Tests**: Implemented `backend/app/tests/test_crm_inventory_security.py` verifying namespaced permission rules, dynamic cashier policy checks, and SYSADMIN bypass functionality.
+
+### Changed
+
+- **CRM Endpoint Security Migration**: Migrated all endpoints in `crm.py` from role-based constraints to dynamic namespaced `require_permission("CRM.MANAGE_CUSTOMERS")` checks.
+- **Inventory Endpoint Security Migration**: Migrated all endpoints in `inventory.py` to `require_permission` guards matching `ITEM.CREATE`, `ITEM.UPDATE`, and `ITEM.DELETE`.
+- **Barcode & Attribute Security Migration**: Migrated printer configuration, label layouts, and variant definitions endpoints to namespaced permission codes (`ITEM.UPDATE`, `SYSTEM.CONFIG`, `ITEM.CREATE`).
+- **HTTPException Parser Refactoring**: Patched `http_exception_handler` in `error_handlers.py` to support dictionary payload details natively, preventing crash regressions due to type mismatches.
 
 ---
 

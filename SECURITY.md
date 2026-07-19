@@ -14,7 +14,8 @@
     * Founder, Chief Executive Officer (CEO) & Chief Software Architect
     * Email: founder@aitdl.com
 
-  * Websites: aitdl.com | erpnbook.com | smritibooks.com
+  * Primary Website: https://smritisys.com
+  * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
 
   * Version    : 2.1.1
   * Created    : 2026-07-10
@@ -39,7 +40,7 @@ SMRITI Retail OS only supports the current minor version branch with security up
 
 If you discover a security vulnerability in SMRITI Retail OS, please do **not** open a public GitHub issue. Instead, report it privately to our security team:
 
-1. Email the details to: **support@smritibooks.com** and **support@erpnbook.com**
+1. Email the details to: **security@smritisys.com** (primary) or **support@smritibooks.com** and **support@erpnbook.com**
 2. Include a detailed description of the vulnerability, steps to reproduce, and any potential exploit or impact details.
 
 We will acknowledge receipt of your vulnerability report within 48 hours and provide a resolved update/patch within 10 business days for accepted security issues.

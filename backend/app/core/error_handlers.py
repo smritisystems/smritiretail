@@ -1,18 +1,17 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.16.0
 Created      : 2026-07-11
-Modified     : 2026-07-12
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 import datetime
-from datetime import timezone
 import traceback
 from pathlib import Path
 
@@ -43,7 +42,7 @@ def build_enhanced_json(status_code: int, response_model: SmritiErrorResponse) -
             "suggested_action": response_model.error.suggested_action,
             "error_code": response_model.error.error_code,
             "reference_id": response_model.error.reference_id,
-            "timestamp": datetime.datetime.now(timezone.utc).isoformat() + "Z",
+            "timestamp": datetime.datetime.now(datetime.UTC).isoformat() + "Z",
             "documentation": "/docs",
         }
     )
@@ -66,7 +65,7 @@ def dispatch_response(
             )
 
         request_id = getattr(request.state, "request_id", None)
-        timestamp = datetime.datetime.now(timezone.utc).strftime(
+        timestamp = datetime.datetime.now(datetime.UTC).strftime(
             "%Y-%m-%d %H:%M:%S UTC"
         )
 
@@ -141,9 +140,18 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         code = "SMRITI-SYS-001"
         title = None  # Use dictionary default
 
+    explanation = exc.detail
+    suggested_action = None
+    if isinstance(exc.detail, dict):
+        explanation = exc.detail.get("explanation") or exc.detail.get("detail")
+        suggested_action = exc.detail.get("suggested_action")
+        if exc.detail.get("title"):
+            title = exc.detail.get("title")
+
     res = build_error_response(
         error_code=code,
-        custom_explanation=exc.detail,
+        custom_explanation=explanation,
+        custom_action=suggested_action,
         reference_msg=str(exc.detail),
         custom_title=title,
     )

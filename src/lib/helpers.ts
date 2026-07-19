@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file src/lib/helpers.ts
  * @description Common utility and helper functions for SMRITI Retail OS.
  * @module src/lib/helpers
@@ -7,7 +7,7 @@
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
- * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.16.0
  * Created      : 2026-07-12
  * Modified     : 2026-07-12

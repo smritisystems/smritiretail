@@ -1,12 +1,12 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.16.0
 Created      : 2026-07-12
-Modified     : 2026-07-13
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -19,8 +19,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user, require_role
-from ...models.auth import User, UserRole
+from ...api.deps import get_db, get_current_user, require_permission
+from ...models.auth import User
 from ...models.attributes import (
     AttributeDefinition, AttributeGroup, VariantTemplate, CategoryAttributeGroupMapping
 )
@@ -80,7 +80,7 @@ async def list_definitions(
     "/definitions",
     response_model=AttributeDefinitionResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.CREATE"))],
 )
 async def create_definition(
     req: AttributeDefinitionCreate,
@@ -117,7 +117,7 @@ async def create_definition(
 @router.put(
     "/definitions/{id}",
     response_model=AttributeDefinitionResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def update_definition(
     id: str,
@@ -155,7 +155,7 @@ async def update_definition(
 
 @router.delete(
     "/definitions/{id}",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def delete_definition(
     id: str,
@@ -201,7 +201,7 @@ async def list_groups(
     "/groups",
     response_model=AttributeGroupResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.CREATE"))],
 )
 async def create_group(
     req: AttributeGroupCreate,
@@ -225,7 +225,7 @@ async def create_group(
 @router.put(
     "/groups/{id}",
     response_model=AttributeGroupResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def update_group(
     id: str,
@@ -249,7 +249,7 @@ async def update_group(
 
 @router.delete(
     "/groups/{id}",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def delete_group(
     id: str,
@@ -302,7 +302,7 @@ async def list_templates(
     "/templates",
     response_model=VariantTemplateResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.CREATE"))],
 )
 async def create_template(
     req: VariantTemplateCreate,
@@ -333,7 +333,7 @@ async def create_template(
 @router.put(
     "/templates/{id}",
     response_model=VariantTemplateResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def update_template(
     id: str,
@@ -364,7 +364,7 @@ async def update_template(
 
 @router.delete(
     "/templates/{id}",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def delete_template(
     id: str,
@@ -509,7 +509,7 @@ async def list_category_mappings(
 @router.post(
     "/category-mappings",
     response_model=CategoryMappingResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def save_category_mapping(
     req: CategoryMappingCreate,
@@ -788,7 +788,7 @@ async def stock_by_attribute(
 @router.post(
     "/load-template",
     status_code=200,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def load_template(
     industry: str = Body(..., embed=True),

@@ -14,7 +14,7 @@ REM * Jawahar Ramkripal Mallah
 REM   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
 REM   * Email: founder@aitdl.com
 REM 
-REM * Websites: aitdl.com | erpnbook.com | smritibooks.com
+REM * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
 REM 
 REM * Version    : 3.1.0
 REM * Created    : 2026-07-11

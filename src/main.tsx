@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -10,7 +10,7 @@
  * * Jawahar Ramkripal Mallah
  *   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
  *   * Email: founder@aitdl.com
- * * Websites: aitdl.com | erpnbook.com | smritibooks.com
+ * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  * Version      : 3.27.0
  * Created      : 2026-07-10
  * Modified     : 2026-07-19

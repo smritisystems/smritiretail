@@ -1,12 +1,12 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.16.0
 Created      : 2026-07-12
-Modified     : 2026-07-13
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -19,8 +19,8 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user, require_role
-from ...models.auth import User, UserRole
+from ...api.deps import get_db, get_current_user, require_permission
+from ...models.auth import User
 from ...models.barcode import BarcodeLayout, PrintHistory
 from ...models.system import SystemConfig
 from ...schemas.barcode import (
@@ -77,7 +77,7 @@ async def list_layouts(
     "/layouts",
     response_model=BarcodeLayoutResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def create_layout(
     req: BarcodeLayoutCreate,
@@ -121,7 +121,7 @@ async def create_layout(
 @router.put(
     "/layouts/{id}",
     response_model=BarcodeLayoutResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def update_layout(
     id: str,
@@ -181,7 +181,7 @@ async def update_layout(
 
 @router.delete(
     "/layouts/{id}",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def delete_layout(
     id: str,
@@ -601,7 +601,7 @@ async def get_printer_settings(
 
 @router.post(
     "/printer-settings",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SYSTEM.CONFIG"))],
 )
 async def save_printer_settings(
     req: PrinterSettingsRequest,

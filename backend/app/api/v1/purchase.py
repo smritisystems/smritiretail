@@ -1,42 +1,36 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
-Repository   : SMRITIRetailNX
-Organization : AITDL NETWORKS
-
-Founders
-
-* Pushpa Devi Jawahar Mallah
-  * Founder & Chairperson
-  * Phone: +91 9324117007
-  * Email: founder@aitdl.com
-
-* Jawahar Ramkripal Mallah
-  * Founder, Chief Executive Officer (CEO) & Chief Software Architect
-  * Email: founder@aitdl.com
-
-* Websites: aitdl.com | erpnbook.com | smritibooks.com
-
-* Version    : 3.18.0
-* Created    : 2026-07-11
-* Modified   : 2026-07-14
-* Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
-* License    : Proprietary Commercial Software
+Author       : Jawahar Ramkripal Mallah
+Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version      : 3.25.3
+Created      : 2026-07-11
+Modified     : 2026-07-19
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
+License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_tenant_context, require_role, TenantContext
-from ...models.auth import UserRole
+from ...api.deps import TenantContext, get_db, get_tenant_context, require_permission
 from ...schemas.purchase import (
-    SupplierCreate, SupplierUpdate, SupplierResponse,
-    PurchaseOrderCreate, PurchaseOrderResponse, PurchaseOrderItemResponse,
-    PurchaseOrderCancelRequest, PurchaseOrderAmendRequest,
-    PurchaseReceiptCreate, PurchaseReceiptResponse, PurchaseReceiptItemResponse,
-    PurchaseJurisdictionConfigCreate, PurchaseJurisdictionConfigResponse,
-    PurchaseConfigJurisdictionRequest, PurchaseReorderConvertRequest,
+    PurchaseConfigJurisdictionRequest,
+    PurchaseJurisdictionConfigCreate,
+    PurchaseOrderAmendRequest,
+    PurchaseOrderCancelRequest,
+    PurchaseOrderCreate,
+    PurchaseOrderItemResponse,
+    PurchaseOrderResponse,
+    PurchaseReceiptCreate,
+    PurchaseReceiptItemResponse,
+    PurchaseReceiptResponse,
+    PurchaseReorderConvertRequest,
+    SupplierCreate,
+    SupplierResponse,
+    SupplierUpdate,
 )
 from ...services.purchase import PurchaseService
 
@@ -48,7 +42,7 @@ router = APIRouter()
     "/suppliers/",
     response_model=SupplierResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SUPPLIER.MANAGE"))],
 )
 async def create_supplier(
     req: SupplierCreate,
@@ -62,7 +56,8 @@ async def create_supplier(
 
 @router.get(
     "/suppliers/",
-    response_model=List[SupplierResponse],
+    response_model=list[SupplierResponse],
+    dependencies=[Depends(require_permission("PURCHASE.VIEW"))],
 )
 async def list_suppliers(
     tenant: TenantContext = Depends(get_tenant_context),
@@ -76,6 +71,7 @@ async def list_suppliers(
 @router.get(
     "/suppliers/{supplier_id}",
     response_model=SupplierResponse,
+    dependencies=[Depends(require_permission("PURCHASE.VIEW"))],
 )
 async def get_supplier(
     supplier_id: str,
@@ -92,7 +88,12 @@ async def get_supplier(
 # Contract URLs: when mounted at /api/v1/purchase, /orders/ resolves to /api/v1/purchase/orders/
 # Legacy /purchase-orders/ routes remain for backward compatibility (deprecated at v3.20.0).
 
-@router.get("/orders/", response_model=List[PurchaseOrderResponse], summary="List Purchase Orders (Contract URL)")
+@router.get(
+    "/orders/",
+    response_model=list[PurchaseOrderResponse],
+    summary="List Purchase Orders (Contract URL)",
+    dependencies=[Depends(require_permission("PURCHASE.VIEW"))],
+)
 async def list_purchase_orders_contract(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -101,9 +102,13 @@ async def list_purchase_orders_contract(
     return await PurchaseService(db, tenant_ctx).list_purchase_orders()
 
 
-@router.post("/orders/", response_model=PurchaseOrderResponse, status_code=201,
-             summary="Create Purchase Order (Contract URL)",
-             dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))])
+@router.post(
+    "/orders/",
+    response_model=PurchaseOrderResponse,
+    status_code=201,
+    summary="Create Purchase Order (Contract URL)",
+    dependencies=[Depends(require_permission("PURCHASE.CREATE"))],
+)
 async def create_purchase_order_contract(
     order_in: PurchaseOrderCreate,
     db: AsyncSession = Depends(get_db),
@@ -113,7 +118,12 @@ async def create_purchase_order_contract(
     return await PurchaseService(db, tenant_ctx).create_purchase_order(order_in)
 
 
-@router.get("/orders/{order_id}", response_model=PurchaseOrderResponse, summary="Get Purchase Order (Contract URL)")
+@router.get(
+    "/orders/{order_id}",
+    response_model=PurchaseOrderResponse,
+    summary="Get Purchase Order (Contract URL)",
+    dependencies=[Depends(require_permission("PURCHASE.VIEW"))],
+)
 async def get_purchase_order_contract(
     order_id: str,
     db: AsyncSession = Depends(get_db),
@@ -123,9 +133,13 @@ async def get_purchase_order_contract(
     return await PurchaseService(db, tenant_ctx).get_purchase_order(order_id)
 
 
-@router.post("/orders/{order_id}/cancel", response_model=dict, status_code=200,
-             summary="Cancel Purchase Order (Contract URL)",
-             dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))])
+@router.post(
+    "/orders/{order_id}/cancel",
+    response_model=dict,
+    status_code=200,
+    summary="Cancel Purchase Order (Contract URL)",
+    dependencies=[Depends(require_permission("PURCHASE.APPROVE"))],
+)
 async def cancel_purchase_order_contract(
     order_id: str,
     req: PurchaseOrderCancelRequest,
@@ -136,9 +150,13 @@ async def cancel_purchase_order_contract(
     return await PurchaseService(db, tenant_ctx).cancel_purchase_order(order_id, req.reason)
 
 
-@router.post("/orders/{order_id}/amend", response_model=PurchaseOrderResponse, status_code=201,
-             summary="Amend Purchase Order (Contract URL)",
-             dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))])
+@router.post(
+    "/orders/{order_id}/amend",
+    response_model=PurchaseOrderResponse,
+    status_code=201,
+    summary="Amend Purchase Order (Contract URL)",
+    dependencies=[Depends(require_permission("PURCHASE.APPROVE"))],
+)
 async def amend_purchase_order_contract(
     order_id: str,
     req: PurchaseOrderAmendRequest,
@@ -156,7 +174,7 @@ async def amend_purchase_order_contract(
     "/purchase-receipts/",
     response_model=PurchaseReceiptResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("PURCHASE.CREATE"))],
 )
 async def create_purchase_receipt(
     req: PurchaseReceiptCreate,
@@ -177,7 +195,8 @@ async def create_purchase_receipt(
 
 @router.get(
     "/purchase-receipts/",
-    response_model=List[PurchaseReceiptResponse],
+    response_model=list[PurchaseReceiptResponse],
+    dependencies=[Depends(require_permission("PURCHASE.VIEW"))],
 )
 async def list_purchase_receipts(
     tenant: TenantContext = Depends(get_tenant_context),
@@ -191,6 +210,7 @@ async def list_purchase_receipts(
 @router.get(
     "/purchase-receipts/{receipt_id}",
     response_model=PurchaseReceiptResponse,
+    dependencies=[Depends(require_permission("PURCHASE.VIEW"))],
 )
 async def get_purchase_receipt(
     receipt_id: str,
@@ -211,7 +231,7 @@ async def get_purchase_receipt(
 @router.put(
     "/suppliers/{supplier_id}",
     response_model=SupplierResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SUPPLIER.MANAGE"))],
 )
 async def update_supplier(
     supplier_id: str,
@@ -227,7 +247,7 @@ async def update_supplier(
 @router.delete(
     "/suppliers/{supplier_id}",
     status_code=204,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SUPPLIER.MANAGE"))],
 )
 async def delete_supplier(
     supplier_id: str,
@@ -244,7 +264,7 @@ async def delete_supplier(
 
 @router.post(
     "/purchase-orders/{order_id}/cancel",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("PURCHASE.APPROVE"))],
 )
 async def cancel_purchase_order(
     order_id: str,
@@ -265,7 +285,7 @@ async def cancel_purchase_order(
     "/purchase-orders/{order_id}/amend",
     response_model=PurchaseOrderResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("PURCHASE.APPROVE"))],
 )
 async def amend_purchase_order(
     order_id: str,
@@ -290,10 +310,11 @@ async def amend_purchase_order(
 
 @router.get(
     "/reorder-suggestions",
-    response_model=List[dict],
+    response_model=list[dict],
+    dependencies=[Depends(require_permission("PURCHASE.VIEW"))],
 )
 async def list_reorder_suggestions(
-    supplier_id: Optional[str] = Query(None),
+    supplier_id: str | None = Query(None),
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_db),
 ):
@@ -307,6 +328,7 @@ async def list_reorder_suggestions(
 @router.get(
     "/jurisdiction",
     response_model=str,
+    dependencies=[Depends(require_permission("PURCHASE.VIEW"))],
 )
 async def get_jurisdiction(
     tenant: TenantContext = Depends(get_tenant_context),
@@ -320,7 +342,7 @@ async def get_jurisdiction(
 @router.post(
     "/jurisdiction",
     response_model=str,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SYSTEM.CONFIG"))],
 )
 async def set_jurisdiction(
     req: PurchaseJurisdictionConfigCreate,
@@ -335,7 +357,11 @@ async def set_jurisdiction(
 # ─────────────────────────── Phase 4B: Settings Alias (AD-1 resolved) ─────────
 # /purchase/settings is an alias for /purchase/jurisdiction (already implemented).
 
-@router.get("/settings", summary="Purchase Settings — company jurisdiction (AD-1)")
+@router.get(
+    "/settings",
+    summary="Purchase Settings — company jurisdiction (AD-1)",
+    dependencies=[Depends(require_permission("PURCHASE.VIEW"))],
+)
 async def get_purchase_settings(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -348,7 +374,7 @@ async def get_purchase_settings(
 
 @router.post(
     "/settings/jurisdiction",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SYSTEM.CONFIG"))],
     summary="Update company jurisdiction (AD-1)",
 )
 async def update_purchase_jurisdiction(
@@ -364,7 +390,11 @@ async def update_purchase_jurisdiction(
 
 # ─────────────────────────── Legacy Purchase Config Aliases ─────────────────────────
 
-@router.get("/config", summary="Purchase Config Legacy Alias")
+@router.get(
+    "/config",
+    summary="Purchase Config Legacy Alias",
+    dependencies=[Depends(require_permission("PURCHASE.VIEW"))],
+)
 async def get_purchase_config(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -377,7 +407,7 @@ async def get_purchase_config(
 
 @router.post(
     "/config/jurisdiction",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SYSTEM.CONFIG"))],
     summary="Legacy Purchase Config Jurisdiction Alias",
 )
 async def update_purchase_config_jurisdiction(
@@ -396,7 +426,7 @@ async def update_purchase_config_jurisdiction(
 
 @router.post(
     "/reorder-suggestions/convert",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("PURCHASE.CREATE"))],
     summary="Legacy Purchase Reorder Suggestions Convert Alias",
 )
 async def convert_reorder_suggestions(
@@ -418,7 +448,7 @@ async def convert_reorder_suggestions(
     "/orders/{order_id}/submit",
     response_model=dict,
     summary="Submit Purchase Order (DRAFT → CONFIRMED)",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("PURCHASE.APPROVE"))],
 )
 async def submit_purchase_order(
     order_id: str,
@@ -431,7 +461,11 @@ async def submit_purchase_order(
 
 # ─────────────────────────── Phase 4B: Reports ────────────────────────────────
 
-@router.get("/reports/outstanding", summary="Supplier Outstanding Report")
+@router.get(
+    "/reports/outstanding",
+    summary="Supplier Outstanding Report",
+    dependencies=[Depends(require_permission("REPORT.VIEW"))],
+)
 async def get_outstanding_report(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -440,7 +474,11 @@ async def get_outstanding_report(
     return await PurchaseService(db, tenant_ctx).get_outstanding_suppliers()
 
 
-@router.get("/reports/pending-delivery", summary="Pending Delivery Report")
+@router.get(
+    "/reports/pending-delivery",
+    summary="Pending Delivery Report",
+    dependencies=[Depends(require_permission("REPORT.VIEW"))],
+)
 async def get_pending_delivery_report(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -454,6 +492,7 @@ async def get_pending_delivery_report(
 @router.get(
     "/suppliers/{supplier_id}/default-rate",
     summary="Supplier Default Cost Rate for a Product (AD-2)",
+    dependencies=[Depends(require_permission("PURCHASE.VIEW"))],
 )
 async def get_supplier_default_rate(
     supplier_id: str,

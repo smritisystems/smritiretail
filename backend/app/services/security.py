@@ -1,57 +1,55 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.24.0
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version      : 3.25.0
 Created      : 2026-07-18
-Modified     : 2026-07-18
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import List, Set, Dict, Any, Optional
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from ..models.security import (
-    SMRITIRole,
-    SMRITIPermission,
-    SMRITIPolicy,
-    SMRITIRolePolicy,
-    SMRITIPolicyPermission,
-    SMRITIUserRole,
-    SMRITIMenu,
-    SMRITISecurityAudit,
-    PermissionType
-)
 from ..models.auth import User
+from ..models.security import (
+    PermissionType,
+    SMRITIMenu,
+    SMRITIPolicyPermission,
+    SMRITIRole,
+    SMRITIRolePolicy,
+    SMRITISecurityAudit,
+    SMRITIUserRole,
+)
+from .cache import PermissionCacheFactory
 
-# In-memory permissions cache: user_id -> set of allowed permission codes
-_permissions_cache: Dict[str, Set[str]] = {}
 
-
-def invalidate_user_permission_cache(user_id: str):
+async def invalidate_user_permission_cache(user_id: str):
     """
     Clear resolved permissions cache for a specific user.
     """
-    if user_id in _permissions_cache:
-        del _permissions_cache[user_id]
+    provider = PermissionCacheFactory.get_provider()
+    await provider.invalidate(user_id)
 
 
-def clear_all_permissions_cache():
+async def clear_all_permissions_cache():
     """
     Clear all cached permissions globally.
     """
-    _permissions_cache.clear()
+    provider = PermissionCacheFactory.get_provider()
+    await provider.clear()
 
 
 class SecurityService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_effective_roles(self, user_id: str) -> List[SMRITIRole]:
+    async def get_effective_roles(self, user_id: str) -> list[SMRITIRole]:
         """
         Traverse the user's role inheritance hierarchy and resolve all effective roles.
         """
@@ -86,13 +84,16 @@ class SecurityService:
 
         return resolved_roles
 
-    async def resolve_user_permissions(self, user_id: str, bypass_cache: bool = False) -> Set[str]:
+    async def resolve_user_permissions(self, user_id: str, bypass_cache: bool = False) -> set[str]:
         """
         Compile the dynamic list of allowed permission codes for a user.
         Precedence: Explicit Deny -> Explicit Allow -> Inherited Allow -> Default Deny
         """
-        if not bypass_cache and user_id in _permissions_cache:
-            return _permissions_cache[user_id]
+        provider = PermissionCacheFactory.get_provider()
+        if not bypass_cache:
+            cached_perms = await provider.get(user_id)
+            if cached_perms is not None:
+                return cached_perms
 
         effective_roles = await self.get_effective_roles(user_id)
         if not effective_roles:
@@ -130,7 +131,7 @@ class SecurityService:
 
         # Resolve final permission codes
         resolved = allowed_permissions - denied_permissions
-        _permissions_cache[user_id] = resolved
+        await provider.set(user_id, resolved)
         return resolved
 
     async def verify_user_permission(self, user_id: str, permission_code: str) -> bool:
@@ -147,12 +148,12 @@ class SecurityService:
         permissions = await self.resolve_user_permissions(user_id)
         return permission_code in permissions
 
-    async def get_visible_menus(self, user_id: str) -> List[Dict[str, Any]]:
+    async def get_visible_menus(self, user_id: str) -> list[dict[str, Any]]:
         """
         Resolve the hierarchy of dynamic menus the user is authorized to view.
         """
         # Fetch all active menus
-        menu_stmt = select(SMRITIMenu).where(SMRITIMenu.is_active == True).order_by(
+        menu_stmt = select(SMRITIMenu).where(SMRITIMenu.is_active).order_by(
             SMRITIMenu.sequence.asc()
         )
         menu_res = await self.db.execute(menu_stmt)
@@ -191,11 +192,11 @@ class SecurityService:
         executor_user_id: str,
         executor_username: str,
         action: str,
-        old_value: Optional[str] = None,
-        new_value: Optional[str] = None,
-        reason: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        device_info: Optional[str] = None,
+        old_value: str | None = None,
+        new_value: str | None = None,
+        reason: str | None = None,
+        ip_address: str | None = None,
+        device_info: str | None = None,
     ):
         """
         Create a secure audit trail log for configuration or permission modifications.

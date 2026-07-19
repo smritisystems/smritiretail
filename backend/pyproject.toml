@@ -1,7 +1,7 @@
 # Project      : SMRITI Retail OS
 # Author       : Jawahar Ramkripal Mallah
 # Email        : support@smritibooks.com
-# Websites     : smritibooks.com | erpnbook.com | aitdl.com
+# Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 # Version      : 3.16.0
 # Created      : 2026-07-11
 # Modified     : 2026-07-18
@@ -13,7 +13,8 @@
 name = "smriti-retail-os-backend"
 version = "3.17.0"
 description = "SMRITI Retail OS FastAPI Python core backend service."
-authors = ["Jawahar Ramkripal Mallah <support@smritibooks.com>"]
+homepage = "https://smritisys.com"
+authors = ["Jawahar Ramkripal Mallah <support@smritibooks.com>", "SMRITI Support <support@smritisys.com>"]
 readme = "README.md"
 package-mode = false
 

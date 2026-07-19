@@ -9,26 +9,26 @@ Founders
 * Jawahar Ramkripal Mallah  — Founder, CEO & Chief Software Architect
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.21.0
+* Version    : 3.25.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-16
+* Modified   : 2026-07-19
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
 
 from datetime import date
-from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_tenant_context, get_current_user, TenantContext
-from ...schemas.reports import (
-    StockValuationReport,
-    DailySalesSummary,
-    SupplierLedger,
-    PurchaseSummaryLine,
-)
+from ...api.deps import TenantContext, get_db, get_tenant_context, require_permission
 from ...schemas.report_schedule import ReportScheduleCreate, ReportScheduleResponse
+from ...schemas.reports import (
+    DailySalesSummary,
+    PurchaseSummaryLine,
+    StockValuationReport,
+    SupplierLedger,
+)
 from ...services.reports import ReportsService
 
 router = APIRouter(prefix="/reports")
@@ -70,7 +70,7 @@ SMRITI_STUDIOS = {
 }
 
 
-@router.get("/stock-valuation", response_model=StockValuationReport)
+@router.get("/stock-valuation", response_model=StockValuationReport, dependencies=[Depends(require_permission("REPORT.VIEW"))])
 async def stock_valuation_report(
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_db),
@@ -84,7 +84,7 @@ async def stock_valuation_report(
     return await ReportsService(db, tenant).stock_valuation()
 
 
-@router.get("/daily-sales", response_model=DailySalesSummary)
+@router.get("/daily-sales", response_model=DailySalesSummary, dependencies=[Depends(require_permission("REPORT.VIEW"))])
 async def daily_sales_report(
     report_date: date = Query(description="Date to report (YYYY-MM-DD)"),
     tenant: TenantContext = Depends(get_tenant_context),
@@ -99,7 +99,7 @@ async def daily_sales_report(
     return await ReportsService(db, tenant).daily_sales(report_date)
 
 
-@router.get("/supplier-ledger/{supplier_id}", response_model=SupplierLedger)
+@router.get("/supplier-ledger/{supplier_id}", response_model=SupplierLedger, dependencies=[Depends(require_permission("REPORT.VIEW"))])
 async def supplier_ledger(
     supplier_id: str,
     tenant: TenantContext = Depends(get_tenant_context),
@@ -114,10 +114,10 @@ async def supplier_ledger(
     return await ReportsService(db, tenant).supplier_ledger(supplier_id)
 
 
-@router.get("/purchase-summary", response_model=List[PurchaseSummaryLine])
+@router.get("/purchase-summary", response_model=list[PurchaseSummaryLine], dependencies=[Depends(require_permission("REPORT.VIEW"))])
 async def purchase_summary(
-    from_date: Optional[date] = Query(default=None, description="Start date (YYYY-MM-DD)"),
-    to_date:   Optional[date] = Query(default=None, description="End date (YYYY-MM-DD)"),
+    from_date: date | None = Query(default=None, description="Start date (YYYY-MM-DD)"),
+    to_date:   date | None = Query(default=None, description="End date (YYYY-MM-DD)"),
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_db),
 ):
@@ -134,16 +134,13 @@ async def purchase_summary(
 # Studios Catalog
 # ─────────────────────────────────────────────────────────────────────────────
 
-@router.get("/studios")
-async def list_studios(
-    current_user=Depends(get_current_user),
-):
+@router.get("/studios", dependencies=[Depends(require_permission("REPORT.VIEW"))])
+async def list_studios():
     """
     Report Studios Catalog.
 
     Returns all available report studios and their report definitions.
     The studios catalog is system metadata — static Python dict per approved architecture.
-    Visible to all authenticated users regardless of role.
     """
     return {
         "studios": SMRITI_STUDIOS,
@@ -155,18 +152,15 @@ async def list_studios(
 # Report Schedule CRUD
 # ─────────────────────────────────────────────────────────────────────────────
 
-@router.get("/schedules", response_model=List[ReportScheduleResponse])
+@router.get("/schedules", response_model=list[ReportScheduleResponse], dependencies=[Depends(require_permission("REPORT.VIEW"))])
 async def list_report_schedules(
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
 ):
     """
     List all report schedules for the current tenant.
     Returns only non-deleted schedules, newest first.
     """
-    if current_user.role not in ("SYSADMIN", "ADMIN", "MANAGER", "Report User"):
-        raise HTTPException(status_code=403, detail="Access Denied: Insufficient role to view report schedules.")
     return await ReportsService(db, tenant).list_schedules()
 
 
@@ -175,20 +169,11 @@ async def create_report_schedule(
     payload: ReportScheduleCreate,
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_permission("REPORT.EXPORT")),
 ):
     """
     Create a new report schedule.
-    Report User role is blocked from write operations (preserves legacy Express behavior).
-    MANAGER+ only.
     """
-    if current_user.role == "Report User":
-        raise HTTPException(
-            status_code=403,
-            detail="Access Denied: Operating under a Read-Only Report User role. Write operations are prohibited.",
-        )
-    if current_user.role not in ("SYSADMIN", "ADMIN", "MANAGER"):
-        raise HTTPException(status_code=403, detail="Access Denied: MANAGER role or above required.")
     return await ReportsService(db, tenant).create_schedule(payload, created_by_id=current_user.id)
 
 
@@ -197,12 +182,9 @@ async def delete_report_schedule(
     schedule_id: str,
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_permission("REPORT.EXPORT")),
 ):
     """
     Soft-delete a report schedule. Tenant-scoped: cannot delete another tenant's schedule.
-    MANAGER role required.
     """
-    if current_user.role not in ("SYSADMIN", "ADMIN", "MANAGER"):
-        raise HTTPException(status_code=403, detail="Access Denied: MANAGER role or above required.")
     await ReportsService(db, tenant).delete_schedule(schedule_id)

@@ -14,7 +14,7 @@
 #   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
 #   * Email: founder@aitdl.com
 # 
-# * Websites: aitdl.com | erpnbook.com | smritibooks.com
+# * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
 # 
 # * Version    : 3.1.0
 # * Created    : 2026-07-11

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Repository   : SMRITIRetailNX
 Organization : AITDL NETWORKS
@@ -6,7 +6,7 @@ Organization : AITDL NETWORKS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 Version      : 1.0.0
 Created      : 2026-07-18
 Modified     : 2026-07-18

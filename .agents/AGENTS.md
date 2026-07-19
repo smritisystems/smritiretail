@@ -1,9 +1,9 @@
-<!--
+﻿<!--
   Project      : SMRITI Retail OS
   Author       : Jawahar Ramkripal Mallah
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
-  Websites     : smritibooks.com | erpnbook.com | aitdl.com
+  Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
   Version      : 3.29.0
   Created      : 2026-07-06
   Modified     : 2026-07-19
@@ -510,7 +510,7 @@ Use a block comment at the very top of the file:
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
- * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
  * Version      : <current codebase version e.g. 2.1.3>
  * Created      : <YYYY-MM-DD — preserve original; use today only on new files>
  * Modified     : <YYYY-MM-DD — always update to today on every edit>
@@ -528,7 +528,7 @@ Use an HTML comment block at the very top of the file:
   Project      : SMRITI Retail OS
   Author       : Jawahar Ramkripal Mallah
   Email        : support@smritibooks.com
-  Websites     : smritibooks.com | erpnbook.com | aitdl.com
+  Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
   Version      : <current codebase version e.g. 2.1.3>
   Created      : <YYYY-MM-DD — preserve original; use today only on new files>
   Modified     : <YYYY-MM-DD — always update to today on every edit>
@@ -965,7 +965,7 @@ When any agent edits an existing file that is missing its author details block, 
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
- * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 2.1.3
  * Created      : 2026-07-11
  * Modified     : 2026-07-11
@@ -980,7 +980,7 @@ When any agent edits an existing file that is missing its author details block, 
   Project      : SMRITI Retail OS
   Author       : Jawahar Ramkripal Mallah
   Email        : support@smritibooks.com
-  Websites     : smritibooks.com | erpnbook.com | aitdl.com
+  Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
   Version      : 2.1.3
   Created      : 2026-07-11
   Modified     : 2026-07-11

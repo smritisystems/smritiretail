@@ -1,12 +1,12 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.16.0
 Created      : 2026-07-11
-Modified     : 2026-07-13
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -19,8 +19,8 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import TenantContext, get_db, get_tenant_context, require_role, verify_internal_service_key
-from ...models.auth import User, UserRole
+from ...api.deps import TenantContext, get_db, get_tenant_context, require_permission, get_current_user, verify_internal_service_key
+from ...models.auth import User
 from ...models.inventory import Product, StockMovement
 from ...repositories.product import ProductRepository
 from ...schemas.inventory import (
@@ -40,7 +40,7 @@ router = APIRouter()
     "/",
     response_model=ProductResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.CREATE"))],
 )
 async def create_product(
     product_in: ProductCreate,
@@ -169,7 +169,7 @@ async def get_product(
 @router.put(
     "/{product_id}",
     response_model=ProductResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def update_product(
     product_id: str,
@@ -189,13 +189,13 @@ async def update_product(
 
 @router.delete(
     "/{product_id}",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.DELETE"))],
 )
 async def delete_product(
     product_id: str,
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
-    current_user: User = Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN)),
+    current_user: User = Depends(get_current_user),
 ):
     """Soft delete a product by setting its is_deleted flag."""
     repo = ProductRepository(db, tenant_ctx)
@@ -210,7 +210,7 @@ async def delete_product(
 @router.post(
     "/{product_id}/barcodes",
     response_model=ProductResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def add_secondary_barcode(
     product_id: str,
@@ -243,7 +243,7 @@ async def add_secondary_barcode(
 @router.delete(
     "/{product_id}/barcodes/{value}",
     response_model=ProductResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def delete_secondary_barcode(
     product_id: str,
@@ -267,7 +267,7 @@ async def delete_secondary_barcode(
 @router.post(
     "/{product_id}/image",
     response_model=ProductResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def upload_product_image(
     product_id: str,
@@ -302,7 +302,7 @@ async def upload_product_image(
 @router.delete(
     "/{product_id}/image",
     response_model=ProductResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def delete_product_image(
     product_id: str,
@@ -325,7 +325,7 @@ async def delete_product_image(
 @router.post(
     "/{product_id}/gallery",
     response_model=ProductResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def add_gallery_image(
     product_id: str,
@@ -358,7 +358,7 @@ async def add_gallery_image(
 @router.delete(
     "/{product_id}/gallery/{filename}",
     response_model=ProductResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("ITEM.UPDATE"))],
 )
 async def delete_gallery_image(
     product_id: str,

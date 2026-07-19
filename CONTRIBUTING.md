@@ -14,7 +14,8 @@
     * Founder, Chief Executive Officer (CEO) & Chief Software Architect
     * Email: founder@aitdl.com
 
-  * Websites: aitdl.com | erpnbook.com | smritibooks.com
+  * Primary Website: https://smritisys.com
+  * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
 
   * Version    : 2.1.1
   * Created    : 2026-07-10
@@ -219,9 +220,9 @@ Contributors should preserve:
 
 | Layer | Allowed | Forbidden |
 |---|---|---|
-| Business service / studio / API | `from smriti_retail_os import smriti` | `import frappe` for ORM calls |
-| `core/platform/` only | `frappe.get_doc(...)`, `frappe.db.*`, etc. | — (this is the only permitted location) |
-| Repository layer | Delegates to `smriti.core.platform` | Direct `frappe.*` for new code |
+| Business service / studio / API | `from smriti_retail_os import smriti` | Direct ORM calls outside the PAL |
+| `core/platform/` only | Low-level adapter implementations | — (this is the only permitted location) |
+| Repository layer | Delegates to `smriti.core.platform` | Bypassing the PAL for new code |
 
 **Correct pattern in a business service:**
 ```python
@@ -235,8 +236,8 @@ smriti.errors.raise_validation("Supplier Required", "Please select a supplier.")
 
 **Forbidden in a business service:**
 ```python
-import frappe
-doc = frappe.get_doc("Customer", name)   # VIOLATION — Guard 6 will flag this
+# VIOLATION — do not access the database or ORM layer directly from business services.
+# All data access must go through smriti.documents, smriti.db, or smriti.cache.
 ```
 
 ### Adding a new SMRITI model
@@ -259,10 +260,8 @@ smriti.api.call("smriti_retail_os.my_api.method", { arg })
 
 smriti.navigation.go(smriti.navigation.routes.customers);
 
-// Forbidden
-frappe.call({ method: "...", ... });   // VIOLATION
-frappe.show_alert(...);               // VIOLATION
-frappe.set_route(...);               // VIOLATION
+// Forbidden — do not make direct platform calls outside the SMRITI SDK.
+// All API communication must route through smriti.api.*
 ```
 
 Reference: `ARCHITECTURE.md §15`, `docs/implementation/foundation/SMRITI_Core_Framework_v1.0.md`

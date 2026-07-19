@@ -14,7 +14,8 @@
     * Founder, Chief Executive Officer (CEO) & Chief Software Architect
     * Email: founder@aitdl.com
 
-  * Websites: aitdl.com | erpnbook.com | smritibooks.com
+  * Primary Website: https://smritisys.com
+  * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
 
   * Version    : 2.1.1
   * Created    : 2026-07-10
@@ -25,6 +26,9 @@
 
 # SMRITI Retail OS (React + FastAPI Full Stack)
 
+**Official Website:** https://smritisys.com
+**Documentation:** https://smritisys.com/docs
+
 This repository contains the React frontend and FastAPI backend for **SMRITI Retail OS v5.0**, built as a modular monolith with an enterprise-grade open-source stack.
 
 ## Overview
@@ -32,7 +36,7 @@ This repo includes:
 - a React + TypeScript + Tailwind CSS frontend served via Vite
 - a FastAPI backend using SQLAlchemy, Alembic, and PostgreSQL
 - JWT-based auth, API-first design, and Docker development support
-- a modern standalone architecture that avoids legacy Express/Frappe coupling
+- a modern standalone architecture built on React + FastAPI + PostgreSQL
 
 ## Stack
 - **React 18**
@@ -88,4 +92,4 @@ This configuration behavior is an implementation detail. It does not modify the 
 Future changes affecting metadata ownership, runtime metadata, or architecture must follow the governance process documented in `docs/governance/GOVERNANCE_FREEZE_CHECKLIST.md`.
 
 ## Note
-This repository now contains a full-stack React frontend and FastAPI backend for SMRITI Retail OS v5.0. Legacy Express/Frappe proxy code has been removed from the active stack.
+This repository contains a full-stack React frontend and FastAPI backend for SMRITI Retail OS v5.0. It is a standalone modular architecture built independently on React, FastAPI, and PostgreSQL.

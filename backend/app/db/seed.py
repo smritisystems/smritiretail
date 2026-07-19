@@ -1,9 +1,9 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.24.0
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version      : 3.25.3
 Created      : 2026-07-18
 Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -12,9 +12,10 @@ Classification: Internal
 """
 
 import asyncio
-import uuid
 import json
 import sys
+import uuid
+
 sys.path.insert(0, ".")
 
 from app.core.config import settings
@@ -137,7 +138,13 @@ async def seed_default_users():
         # 6. Seed Dynamic Roles (SSACF)
         roles_to_seed = [
             {"id": "role-sysadmin", "code": "SYSADMIN", "name": "System Administrator", "description": "Global administrator with root system access", "is_system_role": True},
+            {"id": "role-administrator", "code": "ADMINISTRATOR", "name": "Platform Administrator", "description": "Platform admin managing system, security and roles", "is_system_role": True},
+            {"id": "role-owner", "code": "OWNER", "name": "Business Owner", "description": "Ultimate business owner with full company rights", "is_system_role": True},
+            {"id": "role-company-admin", "code": "COMPANY_ADMIN", "name": "Company Administrator", "description": "Administrator scoped to entire company operations", "is_system_role": True},
+            {"id": "role-branch-admin", "code": "BRANCH_ADMIN", "name": "Branch Administrator", "description": "Administrator scoped to branch level operations", "is_system_role": True},
             {"id": "role-manager", "code": "MANAGER", "name": "Store Manager", "description": "Full business manager role scoped to company and branch", "is_system_role": True},
+            {"id": "role-supervisor", "code": "SUPERVISOR", "name": "Shift Supervisor", "description": "Supervisor managing shift and cashier operations", "is_system_role": True},
+            {"id": "role-staff", "code": "STAFF", "name": "General Staff", "description": "General store staff with catalog and sales view access", "is_system_role": True},
             {"id": "role-cashier", "code": "CASHIER", "name": "Cashier Operator", "description": "Point-of-Sale checkout terminal operator", "is_system_role": True},
             {"id": "role-reporter", "code": "REPORT_USER", "name": "Report Viewer", "description": "Read-only auditor with report generation access", "is_system_role": True},
             {"id": "role-viewer", "code": "VIEWER", "name": "System Viewer", "description": "Read-only guest viewer", "is_system_role": True}
@@ -153,24 +160,100 @@ async def seed_default_users():
                     role["id"], str(uuid.uuid4()), role["code"], role["name"], role["description"], role["is_system_role"]
                 )
 
-        # 7. Seed Dynamic Permissions
-        permissions_to_seed = [
-            {"id": "perm-sales-create", "code": "SALES.CREATE", "resource": "Invoice", "action": "Create", "scope": "OWN_BRANCH", "module": "Sales", "description": "Allows creating sales invoices"},
-            {"id": "perm-sales-approve", "code": "SALES.APPROVE", "resource": "Invoice", "action": "Approve", "scope": "OWN_BRANCH", "module": "Sales", "description": "Allows approving sales invoices"},
-            {"id": "perm-report-view", "code": "REPORT.VIEW", "resource": "Report", "action": "View", "scope": "OWN_BRANCH", "module": "Reports", "description": "Allows viewing business reports"},
-            {"id": "perm-inventory-create", "code": "ITEM.CREATE", "resource": "Product", "action": "Create", "scope": "ALL_BRANCHES", "module": "Inventory", "description": "Allows creating item catalog records"},
-            {"id": "perm-inventory-delete", "code": "ITEM.DELETE", "resource": "Product", "action": "Delete", "scope": "ALL_BRANCHES", "module": "Inventory", "description": "Allows deleting item catalog records"}
-        ]
-
-        for perm in permissions_to_seed:
-            exists = await conn.fetchval("SELECT COUNT(*) FROM smriti_permissions WHERE code = $1", perm["code"])
+        # 7. Seed Dynamic Permissions from Manifest
+        from app.core.permissions import MANIFEST
+        for perm in MANIFEST:
+            exists = await conn.fetchval("SELECT COUNT(*) FROM smriti_permissions WHERE code = $1", perm.code)
             if not exists:
-                print(f"[SMRITI DB SEED] Seeding dynamic permission '{perm['code']}'...")
+                print(f"[SMRITI DB SEED] Seeding dynamic permission '{perm.code}'...")
                 await conn.execute(
                     "INSERT INTO smriti_permissions (id, uuid, code, resource, action, scope, module, description, is_active, is_deleted, created_at, modified_at) "
                     "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, false, now(), now())",
-                    perm["id"], str(uuid.uuid4()), perm["code"], perm["resource"], perm["action"], perm["scope"], perm["module"], perm["description"]
+                    f"perm-{perm.code.lower().replace('.', '-')}", str(uuid.uuid4()), perm.code, perm.resource, perm.action, perm.scope, perm.module, perm.description
                 )
+
+        # 7.5 Seed Decoupled Functional Policies
+        policies_to_seed = [
+            {"id": "pol-sales-mgmt", "code": "POL-SALES-MGMT", "name": "Sales Management Policy"},
+            {"id": "pol-inventory-mgmt", "code": "POL-INVENTORY-MGMT", "name": "Inventory Management Policy"},
+            {"id": "pol-crm-mgmt", "code": "POL-CRM-MGMT", "name": "CRM Management Policy"},
+            {"id": "pol-purchase-mgmt", "code": "POL-PURCHASE-MGMT", "name": "Purchase Management Policy"},
+            {"id": "pol-reporting", "code": "POL-REPORTING", "name": "Reporting Policy"},
+            {"id": "pol-security-admin", "code": "POL-SECURITY-ADMIN", "name": "Security Administration Policy"},
+            {"id": "pol-core-view", "code": "POL-CORE-VIEW", "name": "Core View Policy"}
+        ]
+        for pol in policies_to_seed:
+            exists = await conn.fetchval("SELECT COUNT(*) FROM smriti_policies WHERE code = $1", pol["code"])
+            if not exists:
+                print(f"[SMRITI DB SEED] Seeding policy '{pol['code']}'...")
+                await conn.execute(
+                    "INSERT INTO smriti_policies (id, uuid, code, name, description, is_active, is_deleted, created_at, modified_at) "
+                    "VALUES ($1, $2, $3, $4, $5, true, false, now(), now())",
+                    pol["id"], str(uuid.uuid4()), pol["code"], pol["name"], pol["name"]
+                )
+
+        # 7.6 Map Permissions to Policies
+        policy_perm_mappings = {
+            "POL-SALES-MGMT": ["SALES.CREATE", "SALES.UPDATE", "SALES.APPROVE", "SALES.VIEW", "SALES.DELETE", "POS.CHECKOUT", "POS.OPEN_SHIFT", "POS.CLOSE_SHIFT"],
+            "POL-INVENTORY-MGMT": ["ITEM.CREATE", "ITEM.VIEW", "ITEM.UPDATE", "ITEM.DELETE"],
+            "POL-CRM-MGMT": ["CRM.MANAGE_CUSTOMERS", "CRM.VIEW_LOYALTY"],
+            "POL-PURCHASE-MGMT": ["PURCHASE.CREATE", "PURCHASE.UPDATE", "PURCHASE.APPROVE", "PURCHASE.VIEW", "PURCHASE.DELETE", "SUPPLIER.MANAGE"],
+            "POL-REPORTING": ["REPORT.VIEW", "REPORT.EXPORT"],
+            "POL-SECURITY-ADMIN": ["SECURITY.MANAGE_ROLES", "SECURITY.MANAGE_POLICIES", "SECURITY.VIEW_SETTINGS", "SYSTEM.CONFIG"],
+            "POL-CORE-VIEW": ["SALES.VIEW", "ITEM.VIEW", "REPORT.VIEW"]
+        }
+
+        for policy_code, perm_codes in policy_perm_mappings.items():
+            policy_id = await conn.fetchval("SELECT id FROM smriti_policies WHERE code = $1", policy_code)
+            if not policy_id:
+                continue
+            for p_code in perm_codes:
+                perm_id = await conn.fetchval("SELECT id FROM smriti_permissions WHERE code = $1", p_code)
+                if not perm_id:
+                    continue
+                mapping_exists = await conn.fetchval(
+                    "SELECT COUNT(*) FROM smriti_policy_permissions WHERE policy_id = $1 AND permission_id = $2",
+                    policy_id, perm_id
+                )
+                if not mapping_exists:
+                    await conn.execute(
+                        "INSERT INTO smriti_policy_permissions (id, uuid, policy_id, permission_id, permission_type, created_at, modified_at) "
+                        "VALUES ($1, $2, $3, $4, 'ALLOW', now(), now())",
+                        str(uuid.uuid4()), str(uuid.uuid4()), policy_id, perm_id
+                    )
+
+        # 7.7 Map Policies to Roles
+        role_policy_mappings = {
+            "ADMINISTRATOR": ["POL-SALES-MGMT", "POL-INVENTORY-MGMT", "POL-CRM-MGMT", "POL-PURCHASE-MGMT", "POL-REPORTING", "POL-SECURITY-ADMIN"],
+            "OWNER": ["POL-SALES-MGMT", "POL-INVENTORY-MGMT", "POL-CRM-MGMT", "POL-PURCHASE-MGMT", "POL-REPORTING"],
+            "COMPANY_ADMIN": ["POL-SALES-MGMT", "POL-INVENTORY-MGMT", "POL-CRM-MGMT", "POL-PURCHASE-MGMT", "POL-REPORTING"],
+            "BRANCH_ADMIN": ["POL-SALES-MGMT", "POL-INVENTORY-MGMT", "POL-CRM-MGMT", "POL-PURCHASE-MGMT", "POL-REPORTING"],
+            "MANAGER": ["POL-SALES-MGMT", "POL-INVENTORY-MGMT", "POL-CRM-MGMT", "POL-PURCHASE-MGMT", "POL-REPORTING"],
+            "SUPERVISOR": ["POL-SALES-MGMT", "POL-INVENTORY-MGMT"],
+            "STAFF": ["POL-CORE-VIEW"],
+            "CASHIER": ["POL-SALES-MGMT", "POL-CRM-MGMT"],
+            "REPORT_USER": ["POL-REPORTING"],
+            "VIEWER": ["POL-CORE-VIEW"]
+        }
+
+        for role_code, policy_codes in role_policy_mappings.items():
+            role_id = await conn.fetchval("SELECT id FROM smriti_roles WHERE code = $1", role_code)
+            if not role_id:
+                continue
+            for pol_code in policy_codes:
+                policy_id = await conn.fetchval("SELECT id FROM smriti_policies WHERE code = $1", pol_code)
+                if not policy_id:
+                    continue
+                mapping_exists = await conn.fetchval(
+                    "SELECT COUNT(*) FROM smriti_role_policies WHERE role_id = $1 AND policy_id = $2",
+                    role_id, policy_id
+                )
+                if not mapping_exists:
+                    await conn.execute(
+                        "INSERT INTO smriti_role_policies (id, uuid, role_id, policy_id, created_at, modified_at) "
+                        "VALUES ($1, $2, $3, $4, now(), now())",
+                        str(uuid.uuid4()), str(uuid.uuid4()), role_id, policy_id
+                    )
 
         # 8. Seed Default Dynamic Menus
         menus_to_seed = [

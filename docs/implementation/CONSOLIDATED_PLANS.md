@@ -1,4 +1,4 @@
-<!--
+﻿<!--
   Project      : SMRITI Retail OS
   Repository   : SMRITIRetailNX
   Organization : AITDL NETWORKS
@@ -14,7 +14,7 @@
     * Founder, Chief Executive Officer (CEO) & Chief Software Architect
     * Email: founder@aitdl.com
 
-  * Websites: aitdl.com | erpnbook.com | smritibooks.com
+  * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
 
   * Version    : 2.1.2
   * Created    : 2026-07-11
@@ -415,7 +415,7 @@ Branding, ownership, and copyright attributions must be uniform across all sourc
  *   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
  *   * Email: founder@aitdl.com
  *
- * * Websites: aitdl.com | erpnbook.com | smritibooks.com
+ * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  *
  * * Version    : {Version}
  * * Created    : {Created}
@@ -469,7 +469,7 @@ Branding, ownership, and copyright attributions must be uniform across all sourc
     * Founder, Chief Executive Officer (CEO) & Chief Software Architect
     * Email: founder@aitdl.com
 
-  * Websites: aitdl.com | erpnbook.com | smritibooks.com
+  * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
 
   * Version    : {Version}
   * Created    : {Created}

@@ -1,30 +1,39 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.18.1 (Phase 2 — Sales UPDATE/DELETE/CANCEL)
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version      : 3.25.3
 Created      : 2026-07-11
-Modified     : 2026-07-15 (Phase 2)
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from typing import List, Optional
-from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...api.deps import get_db, get_tenant_context, TenantContext, require_role
-from ...models.auth import UserRole
-from ...schemas.sales import (
-    SalesInvoiceCreate, SalesInvoiceUpdate, SalesInvoiceResponse,
-    SalesQuotationCreate, SalesQuotationUpdate, SalesQuotationResponse, SalesQuotationItemResponse,
-    SalesOrderCreate, SalesOrderUpdate, SalesOrderResponse, SalesOrderItemResponse,
-    SalesReturnCreate, SalesReturnUpdate, SalesReturnResponse, SalesReturnItemResponse,
-)
+
+from ...api.deps import TenantContext, get_db, get_tenant_context, require_permission
 from ...repositories.sales import SalesInvoiceRepository
+from ...schemas.sales import (
+    SalesInvoiceCreate,
+    SalesInvoiceResponse,
+    SalesInvoiceUpdate,
+    SalesOrderCreate,
+    SalesOrderItemResponse,
+    SalesOrderResponse,
+    SalesOrderUpdate,
+    SalesQuotationCreate,
+    SalesQuotationItemResponse,
+    SalesQuotationResponse,
+    SalesQuotationUpdate,
+    SalesReturnCreate,
+    SalesReturnItemResponse,
+    SalesReturnResponse,
+    SalesReturnUpdate,
+)
 from ...services.sales import SalesService
 
 router = APIRouter()
@@ -40,7 +49,7 @@ router = APIRouter()
     response_model=SalesInvoiceResponse,
     status_code=201,
     summary="Create Sales Invoice (Contract URL)",
-    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.CREATE"))],
 )
 async def create_sales_invoice_contract(
     invoice_in: SalesInvoiceCreate,
@@ -51,7 +60,12 @@ async def create_sales_invoice_contract(
     return await SalesService(db, tenant_ctx).create_sales_invoice(invoice_in)
 
 
-@router.get("/invoices", response_model=List[SalesInvoiceResponse], summary="List Sales Invoices (Contract URL)")
+@router.get(
+    "/invoices",
+    response_model=list[SalesInvoiceResponse],
+    summary="List Sales Invoices (Contract URL)",
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
+)
 async def list_sales_invoices_contract(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
@@ -63,7 +77,12 @@ async def list_sales_invoices_contract(
     return await repo.get_all(skip=skip, limit=limit)
 
 
-@router.get("/invoices/{invoice_id}", response_model=SalesInvoiceResponse, summary="Get Sales Invoice (Contract URL)")
+@router.get(
+    "/invoices/{invoice_id}",
+    response_model=SalesInvoiceResponse,
+    summary="Get Sales Invoice (Contract URL)",
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
+)
 async def get_sales_invoice_contract(
     invoice_id: str,
     db: AsyncSession = Depends(get_db),
@@ -81,13 +100,13 @@ async def get_sales_invoice_contract(
     "/quotations",
     response_model=SalesQuotationResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.CREATE"))],
 )
 @router.post(
     "/quotations/",
     response_model=SalesQuotationResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.CREATE"))],
 )
 async def create_sales_quotation(
     q_in: SalesQuotationCreate,
@@ -97,8 +116,16 @@ async def create_sales_quotation(
     return await SalesService(db, tenant_ctx).create_sales_quotation(q_in)
 
 
-@router.get("/quotations", response_model=List[SalesQuotationResponse])
-@router.get("/quotations/", response_model=List[SalesQuotationResponse])
+@router.get(
+    "/quotations",
+    response_model=list[SalesQuotationResponse],
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
+)
+@router.get(
+    "/quotations/",
+    response_model=list[SalesQuotationResponse],
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
+)
 async def list_sales_quotations(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -106,7 +133,11 @@ async def list_sales_quotations(
     return await SalesService(db, tenant_ctx).list_sales_quotations()
 
 
-@router.get("/quotations/{quotation_id}", response_model=SalesQuotationResponse)
+@router.get(
+    "/quotations/{quotation_id}",
+    response_model=SalesQuotationResponse,
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
+)
 async def get_sales_quotation(
     quotation_id: str,
     db: AsyncSession = Depends(get_db),
@@ -122,7 +153,7 @@ async def get_sales_quotation(
 @router.put(
     "/quotations/{quotation_id}",
     response_model=SalesQuotationResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.UPDATE"))],
 )
 async def update_sales_quotation(
     quotation_id: str,
@@ -137,7 +168,7 @@ async def update_sales_quotation(
 @router.delete(
     "/quotations/{quotation_id}",
     status_code=204,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.DELETE"))],
 )
 async def delete_sales_quotation(
     quotation_id: str,
@@ -155,13 +186,13 @@ async def delete_sales_quotation(
     "/orders",
     response_model=SalesOrderResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.CREATE"))],
 )
 @router.post(
     "/orders/",
     response_model=SalesOrderResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.CREATE"))],
 )
 async def create_sales_order(
     so_in: SalesOrderCreate,
@@ -171,8 +202,16 @@ async def create_sales_order(
     return await SalesService(db, tenant_ctx).create_sales_order(so_in)
 
 
-@router.get("/orders", response_model=List[SalesOrderResponse])
-@router.get("/orders/", response_model=List[SalesOrderResponse])
+@router.get(
+    "/orders",
+    response_model=list[SalesOrderResponse],
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
+)
+@router.get(
+    "/orders/",
+    response_model=list[SalesOrderResponse],
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
+)
 async def list_sales_orders(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -180,7 +219,11 @@ async def list_sales_orders(
     return await SalesService(db, tenant_ctx).list_sales_orders()
 
 
-@router.get("/orders/{order_id}", response_model=SalesOrderResponse)
+@router.get(
+    "/orders/{order_id}",
+    response_model=SalesOrderResponse,
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
+)
 async def get_sales_order(
     order_id: str,
     db: AsyncSession = Depends(get_db),
@@ -196,7 +239,7 @@ async def get_sales_order(
 @router.put(
     "/orders/{order_id}",
     response_model=SalesOrderResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.UPDATE"))],
 )
 async def update_sales_order(
     order_id: str,
@@ -211,7 +254,7 @@ async def update_sales_order(
 @router.delete(
     "/orders/{order_id}",
     status_code=204,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.DELETE"))],
 )
 async def delete_sales_order(
     order_id: str,
@@ -229,13 +272,13 @@ async def delete_sales_order(
     "/returns",
     response_model=SalesReturnResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.CREATE"))],
 )
 @router.post(
     "/returns/",
     response_model=SalesReturnResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.CREATE"))],
 )
 async def create_sales_return(
     sr_in: SalesReturnCreate,
@@ -245,8 +288,16 @@ async def create_sales_return(
     return await SalesService(db, tenant_ctx).create_sales_return(sr_in)
 
 
-@router.get("/returns", response_model=List[SalesReturnResponse])
-@router.get("/returns/", response_model=List[SalesReturnResponse])
+@router.get(
+    "/returns",
+    response_model=list[SalesReturnResponse],
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
+)
+@router.get(
+    "/returns/",
+    response_model=list[SalesReturnResponse],
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
+)
 async def list_sales_returns(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
@@ -254,7 +305,11 @@ async def list_sales_returns(
     return await SalesService(db, tenant_ctx).list_sales_returns()
 
 
-@router.get("/returns/{return_id}", response_model=SalesReturnResponse)
+@router.get(
+    "/returns/{return_id}",
+    response_model=SalesReturnResponse,
+    dependencies=[Depends(require_permission("SALES.VIEW"))],
+)
 async def get_sales_return(
     return_id: str,
     db: AsyncSession = Depends(get_db),
@@ -270,7 +325,7 @@ async def get_sales_return(
 @router.put(
     "/returns/{return_id}",
     response_model=SalesReturnResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.UPDATE"))],
 )
 async def update_sales_return(
     return_id: str,
@@ -285,7 +340,7 @@ async def update_sales_return(
 @router.delete(
     "/returns/{return_id}",
     status_code=204,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.DELETE"))],
 )
 async def delete_sales_return(
     return_id: str,
@@ -302,7 +357,7 @@ async def delete_sales_return(
 @router.put(
     "/{invoice_id}",
     response_model=SalesInvoiceResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.UPDATE"))],
 )
 async def update_sales_invoice(
     invoice_id: str,
@@ -322,7 +377,7 @@ async def update_sales_invoice(
 @router.delete(
     "/{invoice_id}",
     status_code=200,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.DELETE"))],
 )
 async def cancel_sales_invoice(
     invoice_id: str,
@@ -344,7 +399,7 @@ async def cancel_sales_invoice(
     "/quotations/convert/{quotation_id}",
     status_code=201,
     summary="Convert Quotation to Invoice",
-    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SALES.CREATE"))],
 )
 async def convert_quotation_to_invoice(
     quotation_id: str,
