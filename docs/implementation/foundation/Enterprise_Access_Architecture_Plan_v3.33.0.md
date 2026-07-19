@@ -13,7 +13,7 @@
 
 # Implementation Plan: SMRITI Enterprise Access Architecture Upgrade — v3.33.0
 
-This plan outlines the updated architecture and phased migration roadmap for the enterprise-grade permissions, roles, and scope control system in SMRITI Retail OS.
+This plan outlines the canonical architecture, design principles, and phased migration roadmap for the enterprise-grade permissions, roles, and scope control system in SMRITI Retail OS.
 
 ---
 
@@ -22,8 +22,17 @@ Refactor the existing user identity, authentication, and authorization systems t
 
 ---
 
-## 2. Business Motivation
-Provide modern retail enterprises with the operational granularity required to manage diverse staff roles across complex multi-branch, multi-warehouse, and multi-department corporate structures while maintaining strict data isolation and auditability.
+## 2. Architecture Principles
+- **Authentication** determines identity.
+- **Authorization** determines permitted actions.
+- **Roles** represent business responsibilities.
+- **Permission Groups** represent reusable capabilities.
+- **Permissions** are the smallest unit of authorization.
+- **Scopes** define where permissions apply.
+- **Approval Workflows** are independent of authorization.
+- **Record-Level Security** is enforced after authorization.
+- Every access decision must be auditable.
+- **Deny by default.**
 
 ---
 
@@ -36,6 +45,8 @@ Provide modern retail enterprises with the operational granularity required to m
   - Format: `module.resource.action` (e.g., `inventory.item.create`, `sales.invoice.cancel`, `system.settings.edit`).
 - **Record-Level Security Scopes:**
   - `SELF` (own records), `TEAM` (group/department), `BRANCH` (current location), `COMPANY` (legal entity), `ALL` (global platform).
+- **System Accounts:**
+  - Platform Admin, API Service, Scheduler, Background Worker, Integration Service, Migration Service, Backup Service.
 
 ---
 
@@ -62,31 +73,63 @@ Provide modern retail enterprises with the operational granularity required to m
 
 ## 7. Proposed Design
 
-### A. Role & Permission Separation
+### A. Authorization Pipeline Flow
+Every API request executes down this canonical path:
+```text
+Request
+   │
+Authentication
+   │
+User Active Check
+   │
+Platform Admin? ➔ YES ➔ Bypass to Audit
+   │
+Permission Groups Evaluation
+   │
+Permission Verification (module.resource.action)
+   │
+Scope Validation (SELF / TEAM / BRANCH / COMPANY / ALL)
+   │
+Record-Level Security Filters
+   │
+Approval Policy Enforcement
+   │
+Business Rules Check
+   │
+Audit Log Generation
+   │
+Allow / Deny Response
+```
+
+### B. Role & Permission Separation
 Implement a decoupled relationship model:
 ```text
 User ➔ User Roles ➔ Role ➔ Permission Groups ➔ Permissions
 ```
 
-### B. User Multi-Scope Assignment Tables
-Introduce relational association tables supporting cross-branch and cross-company assignments:
-- `user_company`: Scopes company-level access.
-- `user_branch`: Scopes location-level access.
-- `user_department`: Scopes division-level access.
-- `user_warehouse` / `user_cost_center`: Scopes operational resources.
+### C. Standardized Actions Vocabulary
+To keep permissions predictable, actions are constrained to:
+`view`, `list`, `create`, `edit`, `delete`, `approve`, `cancel`, `print`, `export`, `import`, `assign`, `close`, `reopen`, `archive`, `restore`.
 
-### C. Record-Level Security Ownership
-Map users to data access tiers:
-- `Sales Executive` ➔ View: `SELF`
-- `Branch Manager` ➔ View: `BRANCH`
-- `Company Owner` ➔ View: `COMPANY`
-- `SYSADMIN` ➔ View: `ALL`
+### D. Permission Registry
+Permissions are registered and managed as versioned metadata:
+- **Code:** Unique identifier (e.g., `inventory.item.create`)
+- **Module:** Primary domain module
+- **Description:** Plain business summary
+- **Deprecated:** Boolean flag
+- **Version Introduced:** Codebase release tags
 
-### D. Decoupled Approval Engine
-Differentiate between resource access (e.g., creating a purchase order) and validation workflow (e.g., signing off or approving a purchase order based on financial limits).
+### E. Feature Flags Evaluation
+The authorization engine enforces feature licensing limits before evaluating permissions:
+```text
+License Active? ➔ Feature Enabled? ➔ Permission Group Allowed? ➔ Scope Validated?
+```
 
-### E. Service Account API Keys
-Add support for non-human `API Key` tokens mapped directly to scoped permissions (e.g. `inventory.*` read-only) to allow automated third-party integrations.
+### F. Delegation & Temporary Authority
+Supports delegating access credentials during leave:
+- `Delegate User ID`
+- `Start Date` / `End Date`
+- `Inherited Permissions` (auto-expires)
 
 ---
 
@@ -151,15 +194,26 @@ Update System Architecture and Developer API Guides.
 
 ---
 
-## 17. Status
-Draft.
+## 17. Security Completion Checklist
+- [ ] Deny-by-default policy verified.
+- [ ] Complete audit logging active on all resource updates.
+- [ ] Zero hardcoded usernames/roles in business logic.
+- [ ] Zero hardcoded permission strings outside registry.
+- [ ] Cache invalidation active on permission modifications.
+- [ ] Session revocation active after role updates.
+- [ ] Row-level security enforced in all repositories.
 
 ---
 
-## 18. Related ADRs
+## 18. Status
+Architecture Review.
+
+---
+
+## 19. Related ADRs
 - **ADR-004:** Scoped Security Configuration.
 
 ---
 
-## 19. Related Walkthroughs
+## 20. Related Walkthroughs
 - **Walkthrough-v3.25.0:** Cache Provider Abstraction.
