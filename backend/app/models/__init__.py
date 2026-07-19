@@ -52,5 +52,12 @@ from .sre import (
 from .dispatch import (
     StockDispatch, StockDispatchLine, DispatchApprovalEvent
 )
+from .approval import (
+    ApprovalStrategy, ApprovalRequestStatus,
+    SMRITIApprovalPolicy, SMRITIApprovalMatrix, SMRITIApprovalStep,
+    SMRITIApprovalCondition, SMRITIApprovalAssignment, SMRITIApprovalRequest,
+    SMRITIApprovalAction, SMRITIApprovalHistory, SMRITIApprovalDelegation,
+    SMRITIApprovalEscalation, SMRITIApprovalComment, SMRITIApprovalOutbox
+)
 
 
