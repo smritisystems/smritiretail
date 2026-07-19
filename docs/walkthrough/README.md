@@ -127,6 +127,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-19 | v3.32.2 | SDIC Deprecation Phase 1 | [Walkthrough](./foundation/Foundation_SDIC_Deprecation_Phase1_v3.32.2.md) | [Plan](../governance/SDIC_DEPRECATION_REVIEW_v1.0.md) | Completed |
 | 2026-07-19 | v3.32.3 | SDIC Docker scan pathing and routes resolution fix | [Walkthrough](./foundation/Foundation_SDIC_Docker_Scanner_Fix_v3.32.3.md) | — | Completed |
 | 2026-07-20 | v3.33.0 | SMRITI Enterprise Access Architecture Upgrade | [Walkthrough](./foundation/Foundation_Security_Enterprise_Access_Architecture_Upgrade_v3.33.0.md) | [Plan](../implementation/foundation/Enterprise_Access_Architecture_Plan_v3.33.0.md) | Completed |
+| 2026-07-20 | v3.34.0 | Phase 6: Multi-Level Approval Engine | [Walkthrough](./foundation/Foundation_Security_Enterprise_Access_Architecture_Upgrade_v3.33.0.md) | [Plan](../implementation/foundation/Phase6_Enterprise_MultiLevel_Approval_Engine_v3.34.0.md) | Completed |
+| 2026-07-20 | v3.35.0 | Phase 7: Scoped Service Account API Keys | [Walkthrough](./foundation/Foundation_Security_Enterprise_Access_Architecture_Upgrade_v3.33.0.md) | [Plan](../implementation/foundation/Phase7_Enterprise_Scoped_API_Keys_v3.35.0.md) | Completed |
 
 
 
