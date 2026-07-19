@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -13,7 +13,8 @@
 import React, { useState } from "react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
-import { Plus, Trash2, Edit3, Settings, ShieldAlert, FileText, ChevronRight, Users, CheckCircle2, Copy, AlertCircle, Save } from "lucide-react";
+import { ApiKeyManagementSection } from "./ApiKeyManagementSection.tsx";
+import { Plus, Trash2, Edit3, Settings, ShieldAlert, FileText, ChevronRight, Users, CheckCircle2, Copy, AlertCircle, Save, Key } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNotifications } from "../notifications/notification_store.tsx";
 
@@ -70,7 +71,7 @@ const MOCK_MATRICES: ApprovalMatrix[] = [
 ];
 
 export const ApprovalMatrixTab: React.FC = () => {
-  const [activeView, setActiveView] = useState<"dashboard" | "configuration">("dashboard");
+  const [activeView, setActiveView] = useState<"dashboard" | "configuration" | "api_keys">("dashboard");
   const [pendingDocs, setPendingDocs] = useState<any[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
 
@@ -83,22 +84,35 @@ export const ApprovalMatrixTab: React.FC = () => {
   const fetchPendingApprovals = async () => {
     setLoadingDocs(true);
     try {
-      // Migrated: Express purchase/sales fetches (unmounted routes) → apiFetchV1
-      const [poData, qData, soData] = await Promise.all([
-        apiFetchV1('/purchase/orders/'),
-        apiFetchV1('/sales/quotations/'),
-        apiFetchV1('/sales/orders/')
-      ]);
+      // Fetch real Phase 6 pending approval requests
+      const approvalData = await apiFetchV1('/approvals/pending');
+      if (Array.isArray(approvalData) && approvalData.length > 0) {
+        setPendingDocs(approvalData.map((d: any) => ({
+          id: d.id,
+          docType: d.document_type,
+          status: d.status,
+          _title: `${d.document_type} #${d.document_id}`,
+          _desc: `Awaiting Step ${d.current_step_order} Approval`,
+          grandTotal: d.payload?.amount || 0,
+        })));
+      } else {
+        // Fallback to purchase/sales queries
+        const [poData, qData, soData] = await Promise.all([
+          apiFetchV1('/purchase/orders/'),
+          apiFetchV1('/sales/quotations/'),
+          apiFetchV1('/sales/orders/')
+        ]);
 
-      const pos = poData?.orders ?? poData ?? [];
-      const qs = qData?.quotations ?? qData ?? [];
-      const sos = soData?.orders ?? soData ?? [];
+        const pos = poData?.orders ?? poData ?? [];
+        const qs = qData?.quotations ?? qData ?? [];
+        const sos = soData?.orders ?? soData ?? [];
 
-      const filteredPos = pos.filter((d: any) => d.status === 'Submitted').map((d: any) => ({ ...d, docType: 'PurchaseOrder', _title: d.orderNo, _desc: d.supplierName }));
-      const filteredQs = qs.filter((d: any) => d.status === 'Submitted').map((d: any) => ({ ...d, docType: 'Quotation', _title: d.quotationNo, _desc: d.customerName }));
-      const filteredSos = sos.filter((d: any) => d.status === 'Submitted').map((d: any) => ({ ...d, docType: 'SalesOrder', _title: d.orderNo, _desc: d.customerName }));
+        const filteredPos = pos.filter((d: any) => d.status === 'Submitted').map((d: any) => ({ ...d, docType: 'PurchaseOrder', _title: d.orderNo, _desc: d.supplierName }));
+        const filteredQs = qs.filter((d: any) => d.status === 'Submitted').map((d: any) => ({ ...d, docType: 'Quotation', _title: d.quotationNo, _desc: d.customerName }));
+        const filteredSos = sos.filter((d: any) => d.status === 'Submitted').map((d: any) => ({ ...d, docType: 'SalesOrder', _title: d.orderNo, _desc: d.customerName }));
 
-      setPendingDocs([...filteredPos, ...filteredQs, ...filteredSos]);
+        setPendingDocs([...filteredPos, ...filteredQs, ...filteredSos]);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -165,6 +179,12 @@ export const ApprovalMatrixTab: React.FC = () => {
         >
           Matrix Configuration
         </button>
+        <button 
+          onClick={() => setActiveView("api_keys")}
+          className={`px-4 py-2 text-sm font-bold font-display rounded-lg transition-colors flex items-center gap-1.5 ${activeView === "api_keys" ? "bg-emerald-600 text-white" : "text-theme-muted hover:bg-theme-surface-2"}`}
+        >
+          <Key size={14} /> Service Accounts & API Keys
+        </button>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
@@ -228,7 +248,7 @@ export const ApprovalMatrixTab: React.FC = () => {
               )}
             </SmritiScrollArea>
           </div>
-        ) : (
+        ) : activeView === "configuration" ? (
           <>
             {/* Sidebar - List of Matrices */}
 
@@ -481,7 +501,11 @@ export const ApprovalMatrixTab: React.FC = () => {
         )}
             </div>
           </>
-        )}
+        ) : activeView === "api_keys" ? (
+          <div className="flex-1 p-6 overflow-auto">
+            <ApiKeyManagementSection />
+          </div>
+        ) : null}
       </div>
     </div>
   );

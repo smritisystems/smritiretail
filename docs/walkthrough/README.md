@@ -129,6 +129,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-20 | v3.33.0 | SMRITI Enterprise Access Architecture Upgrade | [Walkthrough](./foundation/Foundation_Security_Enterprise_Access_Architecture_Upgrade_v3.33.0.md) | [Plan](../implementation/foundation/Enterprise_Access_Architecture_Plan_v3.33.0.md) | Completed |
 | 2026-07-20 | v3.34.0 | Phase 6: Multi-Level Approval Engine | [Walkthrough](./foundation/Foundation_Security_Enterprise_Access_Architecture_Upgrade_v3.33.0.md) | [Plan](../implementation/foundation/Phase6_Enterprise_MultiLevel_Approval_Engine_v3.34.0.md) | Completed |
 | 2026-07-20 | v3.35.0 | Phase 7: Scoped Service Account API Keys | [Walkthrough](./foundation/Foundation_Security_Enterprise_Access_Architecture_Upgrade_v3.33.0.md) | [Plan](../implementation/foundation/Phase7_Enterprise_Scoped_API_Keys_v3.35.0.md) | Completed |
+| 2026-07-20 | v3.36.0 | Phase 8: Security-Aware Menu & API Keys UI | [Walkthrough](./foundation/Foundation_Security_Enterprise_Access_Architecture_Upgrade_v3.33.0.md) | [Plan](../implementation/foundation/Phase8_UI_Security_Approval_And_APIKey_Studio_v3.36.0.md) | Completed |
 
 
 
