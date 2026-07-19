@@ -111,40 +111,50 @@ def apply_rls_filter(execute_state):
         ctx = active_security_context.get()
         print(f"DEBUG RLS INTERCEPTOR: ctx={ctx}", flush=True)
         if ctx and not ctx.platform_admin:
-            from ..db.base import BaseEntity
+            from ..db.base import RowSecuredMixin
             scope = ctx.record_scope
 
             if scope == "ALL":
                 # No RLS filter required, can view all companies/branches in the tenant
                 return
 
-            # Disable compiled cache to bypass Python 3.14 lambda caching issues
-            execute_state.execution_options = execute_state.execution_options.union({"compiled_cache": None})
+            user_id = str(ctx.user_id) if ctx.user_id else ""
+            branch_ids = tuple(ctx.branch_ids) if ctx.branch_ids else ()
+            company_ids = tuple(ctx.company_ids) if ctx.company_ids else ()
+            department_ids = tuple(ctx.department_ids) if ctx.department_ids else ()
 
-            if scope == "SELF":
-                execute_state.statement = execute_state.statement.options(
-                    with_loader_criteria(
-                        BaseEntity,
-                        lambda cls: cls.created_by == get_current_user_id() if hasattr(cls, "_is_row_secured") else True
-                    )
-                )
-            elif scope == "TEAM":
-                # placeholder for future models with department_id, currently no RowSecuredMixin has department_id
-                pass
-            elif scope == "BRANCH":
-                execute_state.statement = execute_state.statement.options(
-                    with_loader_criteria(
-                        BaseEntity,
-                        lambda cls: cls.branch_id.in_(get_current_branch_ids()) if hasattr(cls, "_is_row_secured") else True
-                    )
-                )
-            elif scope == "COMPANY":
-                execute_state.statement = execute_state.statement.options(
-                    with_loader_criteria(
-                        BaseEntity,
-                        lambda cls: cls.company_id.in_(get_current_company_ids()) if hasattr(cls, "_is_row_secured") else True
-                    )
-                )
+            for mapper in execute_state.all_mappers:
+                target_cls = mapper.class_
+                if issubclass(target_cls, RowSecuredMixin):
+                    if scope == "SELF":
+                        execute_state.statement = execute_state.statement.options(
+                            with_loader_criteria(
+                                target_cls,
+                                lambda cls, uid=user_id: cls.created_by == uid
+                            )
+                        )
+                    elif scope == "TEAM":
+                        if hasattr(target_cls, "department_id"):
+                            execute_state.statement = execute_state.statement.options(
+                                with_loader_criteria(
+                                    target_cls,
+                                    lambda cls, dids=department_ids: cls.department_id.in_(dids)
+                                )
+                            )
+                    elif scope == "BRANCH":
+                        execute_state.statement = execute_state.statement.options(
+                            with_loader_criteria(
+                                target_cls,
+                                lambda cls, bids=branch_ids: cls.branch_id.in_(bids)
+                            )
+                        )
+                    elif scope == "COMPANY":
+                        execute_state.statement = execute_state.statement.options(
+                            with_loader_criteria(
+                                target_cls,
+                                lambda cls, cids=company_ids: cls.company_id.in_(cids)
+                            )
+                        )
 
 # Async Generator dependency to provide DB sessions to routes
 async def get_db():
