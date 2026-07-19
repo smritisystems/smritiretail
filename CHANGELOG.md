@@ -30,6 +30,17 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ---
 
+## [3.38.0] — 2026-07-20
+
+### Added
+- **Multi-Level Approval Engine (Phase 6)**: 12 ORM entities (`backend/app/models/approval.py`), AST DSL safe evaluator (`ASTSafeEvaluator`), FSM state machine (`ApprovalFSM`), and REST API router `/api/v1/approvals`.
+- **Scoped Service Account API Keys (Phase 7)**: 4 ORM entities (`backend/app/models/api_key.py`), HMAC-SHA256 secret hashing (`APIKeyService`), IP CIDR containment checks, sliding rate limiting, and REST API router `/api/v1/api-keys`.
+- **Security-Aware Studio UI (Phase 8)**: React component `ApiKeyManagementSection.tsx` and updated `ApprovalMatrixTab.tsx` with real-time approval queue fetching, single-view secret copy modals, key revocation, and audit logs drawer.
+- **High-Concurrency Stress Testing (Phase 9)**: Test suite `backend/app/tests/test_enterprise_stress_and_concurrency.py` verifying 50 concurrent API Key authentications, optimistic concurrency locking (`ValueError("Concurrency conflict...")`), and AST DSL performance (<0.1s over 100 evaluations).
+- **Governance Release & Synchronization (Phase 10)**: Updated master implementation plan index, master walkthrough index, IPGP plans, and WGP documentation.
+
+---
+
 ## [3.33.0] — 2026-07-20
 
 ### Added
