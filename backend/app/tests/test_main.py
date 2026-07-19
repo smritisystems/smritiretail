@@ -60,6 +60,8 @@ def test_changelog_api():
 def test_dev_tracker_api():
     response = client.get("/api/v1/dev-tracker")
     assert response.status_code == 200
+    assert "warning" in response.headers
+    assert "deprecated" in response.headers["warning"].lower()
     data = response.json()
     assert "gitInfo" in data
     assert "releaseScores" in data
