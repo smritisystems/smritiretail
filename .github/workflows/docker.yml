@@ -1,0 +1,49 @@
+# Project         : SMRITI Retail OS
+# Organization    : SmritiSys
+#
+# Founders
+# • Pushpa Devi Jawahar Mallah
+#   Founder & Chairperson
+#
+# • Jawahar Ramkripal Mallah
+#   Founder, Chief Executive Officer (CEO) &
+#   Chief Systems Architect
+#
+# Email           : support@smritisys.com
+# Website         : https://smritisys.com
+# Other Domains   : smritibooks.com | erpnbook.com | aitdl.com
+#
+# Version         : 3.32.0
+# Created         : 2026-07-19
+# Modified         : 2026-07-19
+#
+# Copyright       : © SmritiSys. All Rights Reserved.
+# License         : Proprietary Commercial Software
+# Classification  : Internal
+
+name: Docker Build & Compose Verify
+
+on:
+  push:
+    branches: [ main, develop, smritiNX ]
+  pull_request:
+    branches: [ main, develop, smritiNX ]
+
+jobs:
+  docker-validation:
+    name: Docker Setup Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Validate Docker Compose Configurations
+        run: |
+          docker compose -f docker-compose.yml config > /dev/null
+          echo "docker-compose.yml config validated successfully."
+
+      - name: Verify Frontend Container Build
+        run: docker build -t smriti-frontend:test -f Dockerfile .
+
+      - name: Verify Backend Container Build
+        run: docker build -t smriti-backend:test -f backend/Dockerfile backend/
