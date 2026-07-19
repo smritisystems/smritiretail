@@ -11,10 +11,10 @@
   Classification: Internal
 -->
 
-# Implementation Plan: Phase 6 Enterprise Multi-Level Approval Engine — v3.34.0 (10/10)
+# Implementation Plan: Phase 6 Enterprise Multi-Level Approval Engine Specification v1.0 — v3.34.0 (10/10)
 
 ## 1. Objective
-Transform `ApprovalService` from a basic stub into an Enterprise-Grade Multi-Level Approval Engine supporting multi-condition matrix policies, SLA escalation, date-bound delegation, parallel/sequential step execution, document payload hashing, rule versioning, and event-driven decoupling.
+Transform `ApprovalService` from a basic stub into an Enterprise-Grade Multi-Level Approval Engine Specification v1.0 supporting an Approval Resolver Layer, Outbox-based Event Delivery, explicit Finite State Machine (FSM), Policy In-Memory Caching (>95% hit rate), AST Safe DSL Expression Evaluator, Effective Date Validity (`valid_from`/`valid_to`), Optimistic Request Locking, and Execution Context Auditing.
 
 ---
 
@@ -24,21 +24,24 @@ Large retail chains (D-Mart, Reliance Retail, Metro, multi-store franchises) req
 ---
 
 ## 3. Scope
-- 11 normalized database entities under `smriti_approval_*`.
-- Multi-condition policy engine evaluating Amount, Margin %, Discount %, Supplier Category, Store Zone, and Payment Type.
+- 12 normalized database entities under `smriti_approval_*`.
+- Approval Resolver Layer decoupling data resolution from FSM execution.
+- AST Safe DSL Expression Evaluator (`Amount > 50000 AND Supplier.Category == 'IMPORTED' AND Margin < 0.08`).
+- Effective Date Range (`valid_from`, `valid_to`) for policy scheduling.
 - Workflow execution strategies (`Sequential`, `Parallel`, `Hybrid`).
 - Date-bound delegation and temporary acting manager support.
 - SLA timeout tracking and auto-escalation.
 - Cryptographic SHA-256 payload hashing for document tamper-proofing.
 - Rule snapshot versioning per request.
-- Event bus integration publishing `approval.*` lifecycle events.
+- Transactional Outbox Pattern publishing `approval.*` lifecycle events.
+- Optimistic concurrency control (`version` column) preventing race conditions.
 - Approver Dashboard & timeline APIs.
 
 ---
 
 ## 4. Current State
 - `ApprovalService` in `backend/app/services/approval.py` is a stub that logs intent and auto-approves all requests.
-- No database tables exist to persist approval policies, matrices, requests, or delegation rules.
+- No database tables exist to persist approval policies, matrices, requests, outbox events, or delegation rules.
 
 ---
 
@@ -47,48 +50,63 @@ Large retail chains (D-Mart, Reliance Retail, Metro, multi-store franchises) req
 | :--- | :--- | :--- |
 | Approval Engine | Single stub function returning `approved: True` | Multi-condition matrix policy engine |
 | Strategy | Single amount threshold | Sequential, Parallel, Hybrid approval steps |
-| Auditability | Unpersisted log | Versioned rule snapshots & SHA-256 payload hashing |
+| Auditability | Unpersisted log | Versioned rule snapshots, execution context & SHA-256 payload hashing |
+| Concurrency Control | None | Optimistic locking (`version` column) |
+| Event Architecture | None | Transactional Outbox Pattern (`smriti_approval_outbox`) |
 | SLA & Escalation | None | Configurable SLA timeouts & auto-escalation |
 | Delegation | None | Date-bound delegation & acting manager support |
-| Decoupling | Direct calls | Event-driven event bus architecture |
+| Policy Caching | None | In-memory policy cache (>95% hit rate) |
 
 ---
 
 ## 6. Architecture Impact
 - **Architecture Principle:** Permission (`require_permission`) $\neq$ Approval (`ApprovalService`).
-- **Dependencies:** Points inward from API routes $\rightarrow$ Approval Engine $\rightarrow$ Event Bus $\rightarrow$ Postgres.
-- **Event Bus:** Emits decoupled events (`approval.requested`, `approval.completed`, `approval.rejected`).
+- **Dependencies:** Points inward: API Routes $\rightarrow$ FSM Service $\rightarrow$ Approval Resolver $\rightarrow$ Event Outbox $\rightarrow$ Postgres.
+- **Outbox Pattern:** Event records written to `smriti_approval_outbox` table within the active DB transaction.
 
 ---
 
 ## 7. Proposed Design
 
 ### Database Entities
-1. `SMRITIApprovalPolicy` (id, version, document_type, priority, is_active)
+1. `SMRITIApprovalPolicy` (id, version, document_type, scope_type, scope_id, valid_from, valid_to, priority, is_active)
 2. `SMRITIApprovalMatrix` (id, policy_id, matrix_name, min_amount, max_amount)
-3. `SMRITIApprovalStep` (id, matrix_id, step_number, strategy, sla_hours)
-4. `SMRITIApprovalCondition` (id, step_id, field_name, operator, target_value)
+3. `SMRITIApprovalStep` (id, matrix_id, step_number, strategy, sla_hours, auto_escalate_role_id)
+4. `SMRITIApprovalCondition` (id, step_id, expression_dsl)
 5. `SMRITIApprovalAssignment` (id, step_id, role_id, user_id)
-6. `SMRITIApprovalRequest` (id, document_type, document_id, document_hash, policy_version, current_step, status)
-7. `SMRITIApprovalAction` (id, request_id, step_id, action, action_by, remarks, timestamp)
+6. `SMRITIApprovalRequest` (id, document_type, document_id, document_hash, policy_version, current_step, status, version)
+7. `SMRITIApprovalAction` (id, request_id, step_id, action, action_by, remarks, ip_address, user_agent, correlation_id, timestamp)
 8. `SMRITIApprovalHistory` (id, request_id, state_from, state_to, transition_at)
 9. `SMRITIApprovalDelegation` (id, delegator_id, delegate_id, start_date, end_date, is_active)
 10. `SMRITIApprovalEscalation` (id, request_id, step_id, escalated_from_role, escalated_to_role, trigger_at)
 11. `SMRITIApprovalComment` (id, request_id, user_id, comment, attachments_json)
+12. `SMRITIApprovalOutbox` (id, event_type, payload_json, status, created_at, processed_at)
 
 ---
 
-## 8. Files Created
+## 8. Performance SLA Targets
+| Metric | SLA Target |
+| :--- | :--- |
+| Policy evaluation time | $< 50\text{ ms}$ |
+| Approval action execution | $< 100\text{ ms}$ |
+| Pending dashboard query | $< 200\text{ ms}$ |
+| Event outbox write | $< 20\text{ ms}$ |
+| Policy cache hit rate | $> 95\%$ |
+
+---
+
+## 9. Files Created
 - `backend/app/models/approval.py`
-- `backend/app/services/approval_engine.py`
+- `backend/app/services/approval_resolver.py`
+- `backend/app/services/approval_fsm.py`
 - `backend/app/services/approval_events.py`
 - `backend/app/api/v1/approvals.py`
-- `backend/alembic/versions/add_enterprise_approval_engine_v3_34.py`
+- `backend/alembic/versions/add_approval_engine_v3_34.py`
 - `backend/app/tests/test_enterprise_approval_engine.py`
 
 ---
 
-## 9. Files Modified
+## 10. Files Modified
 - `backend/app/models/__init__.py`
 - `backend/app/services/approval.py`
 - `backend/app/main.py`
@@ -97,57 +115,55 @@ Large retail chains (D-Mart, Reliance Retail, Metro, multi-store franchises) req
 
 ---
 
-## 10. Dependencies
+## 11. Dependencies
 - FastAPI, SQLAlchemy 2.0 (Async), Alembic, Pydantic V2.
 
 ---
 
-## 11. Risks
-- Performance overhead during query execution. *Mitigation:* Cache compiled active policy trees in memory; refresh on policy update.
+## 12. Risks & Mitigations
+- *Risk:* Performance overhead during query execution.
+- *Mitigation:* Policy Cache Layer in memory with TTL and automatic invalidation on policy updates (>95% hit rate).
 
 ---
 
-## 12. Rollback Strategy
-- Alembic downgrade script `downgrade()` drops the 11 `smriti_approval_*` tables.
+## 13. Rollback Strategy
+- Alembic downgrade script `downgrade()` drops the 12 `smriti_approval_*` tables.
 - Revert `ApprovalService` to stub mode.
 
 ---
 
-## 13. Verification Plan
+## 14. Verification Plan
 - `python -m pytest app/tests/test_enterprise_approval_engine.py`
 
 ---
 
-## 14. Test Plan
-- Unit tests for condition evaluation algorithms.
-- Integration tests for Parallel vs Sequential step resolution.
+## 15. Test Plan
+- Unit tests for AST DSL expression evaluator.
+- Integration tests for Parallel vs Sequential step resolution and FSM state transitions.
+- Concurrency test for optimistic locking.
 - End-to-end API contract tests via `/api/v1/approvals/*`.
 
 ---
 
-## 15. Documentation Impact
+## 16. Documentation Impact
 - Update Walkthrough `Foundation_Security_Enterprise_Access_Architecture_Upgrade_v3.33.0.md`.
 - Update Master Walkthrough Index and Implementation Index.
 
 ---
 
-## 16. Deployment Plan
-1. Run Alembic migration `add_enterprise_approval_engine_v3_34`.
+## 17. Deployment Plan
+1. Run Alembic migration `add_approval_engine_v3_34`.
 2. Seed default system approval policies.
 3. Restart FastAPI container.
 
 ---
 
-## 17. Status
+## 18. Status
 Approved
 
 ---
 
-## 18. Related ADRs
+## 19. Related ADRs & RFCs
 - **ADR-004:** Scoped Security Configuration.
-- **ADR-015:** Enterprise Approval Engine Decoupling.
-
----
-
-## 19. Related Walkthroughs
-- `Foundation_Security_Enterprise_Access_Architecture_Upgrade_v3.33.0.md`
+- **ADR-015:** Enterprise Approval Engine Decoupling & Outbox Pattern.
+- **RFC-009:** Approval Engine Specification v1.0.
