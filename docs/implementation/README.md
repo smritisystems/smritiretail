@@ -59,7 +59,7 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-19 | v3.31.0 | [SaaS Tenant Isolation & Data Security](./foundation/Tenant_Isolation_SaaS_Plan_v3.31.0.md) | `/backend/app/models/base.py`, `/backend/app/api/deps.py` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_SaaS_Tenant_Isolation_Walkthrough_v3.31.0.md) |
 | 2026-07-19 | v3.25.3 | [SSACF Phase 2.4 — Sales, POS, & Purchase Endpoint Migration](./foundation/SSACF_Phase2_4_Sales_POS_Purchase_Migration_Plan_v3.25.3.md) | `/backend/app/api/v1/sales.py`, `/backend/app/api/v1/pos.py`, `/backend/app/api/v1/purchase.py` | Completed | [Walkthrough](../walkthrough/foundation/Security_SSACF_Sales_POS_Purchase_Endpoint_Migration_v3.25.3.md) |
 | 2026-07-19 | v3.32.2 | [SDIC Deprecation Phase 1](../governance/SDIC_DEPRECATION_REVIEW_v1.0.md) | `/backend/app/api/v1/dev_tracker.py` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_SDIC_Deprecation_Phase1_v3.32.2.md) |
-| 2026-07-19 | v3.33.0 | [SMRITI Enterprise Access Architecture Upgrade](./foundation/Enterprise_Access_Architecture_Plan_v3.33.0.md) | `/backend/app/models/auth.py`, `/backend/app/services/security.py` | Architecture Review | — |
+| 2026-07-19 | v3.33.0 | [SMRITI Enterprise Access Architecture Upgrade](./foundation/Enterprise_Access_Architecture_Plan_v3.33.0.md) | `/backend/app/models/auth.py`, `/backend/app/services/security.py` | Frozen | — |
 
 
 
