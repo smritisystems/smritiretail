@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Enterprise Support
+    url: https://smritisys.com
+    about: Get priority support for commercial installations.
+  - name: Security Reporting
+    url: mailto:security@smritisys.com
+    about: Report vulnerabilities privately.

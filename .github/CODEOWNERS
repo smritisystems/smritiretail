@@ -1,0 +1,16 @@
+# Project         : SMRITI Retail OS
+# Organization    : SmritiSys
+# Version         : 3.32.0
+# Modified        : 2026-07-19
+# Copyright       : © SmritiSys. All Rights Reserved.
+
+# Default owner for the entire repository
+* @smritisys
+
+# Core Protected Architecture Modules (Architect / DBA / Owner approval required)
+/backend/app/core/ @smritisys
+/backend/app/db/ @smritisys
+/backend/app/compliance/ @smritisys
+/docs/architecture/ @smritisys
+/.agents/ @smritisys
+/REPOSITORY_CONSTITUTION.md @smritisys

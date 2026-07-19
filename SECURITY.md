@@ -1,27 +1,26 @@
 <!--
-  Project      : SMRITI Retail OS
-  Repository   : SMRITIRetailNX
-  Organization : AITDL NETWORKS
+  Project         : SMRITI Retail OS
+  Organization    : SmritiSys
 
   Founders
+  • Pushpa Devi Jawahar Mallah
+    Founder & Chairperson
 
-  * Pushpa Devi Jawahar Mallah
-    * Founder & Chairperson
-    * Phone: +91 9324117007
-    * Email: founder@aitdl.com
+  • Jawahar Ramkripal Mallah
+    Founder, Chief Executive Officer (CEO) &
+    Chief Systems Architect
 
-  * Jawahar Ramkripal Mallah
-    * Founder, Chief Executive Officer (CEO) & Chief Software Architect
-    * Email: founder@aitdl.com
+  Email           : support@smritisys.com
+  Website         : https://smritisys.com
+  Other Domains   : smritibooks.com | erpnbook.com | aitdl.com
 
-  * Primary Website: https://smritisys.com
-  * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
+  Version         : 3.32.0
+  Created         : 2026-07-10
+  Modified         : 2026-07-19
 
-  * Version    : 2.1.1
-  * Created    : 2026-07-10
-  * Modified   : 2026-07-11
-  * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
-  * License    : Proprietary Commercial Software
+  Copyright       : © SmritiSys. All Rights Reserved.
+  License         : Proprietary Commercial Software
+  Classification  : Internal
 -->
 
 # Security Policy — SMRITI Retail OS
@@ -32,15 +31,15 @@ SMRITI Retail OS only supports the current minor version branch with security up
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 2.1.x   | :white_check_mark: |
-| 2.0.x   | :x:                |
+| 3.16.x  | :white_check_mark: |
+| 2.x.x   | :x:                |
 | < 2.0   | :x:                |
 
 ## Reporting a Vulnerability
 
 If you discover a security vulnerability in SMRITI Retail OS, please do **not** open a public GitHub issue. Instead, report it privately to our security team:
 
-1. Email the details to: **security@smritisys.com** (primary) or **support@smritibooks.com** and **support@erpnbook.com**
+1. Email the details to: **security@smritisys.com** (primary) or **support@smritisys.com**
 2. Include a detailed description of the vulnerability, steps to reproduce, and any potential exploit or impact details.
 
 We will acknowledge receipt of your vulnerability report within 48 hours and provide a resolved update/patch within 10 business days for accepted security issues.

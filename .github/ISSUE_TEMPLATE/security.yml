@@ -1,0 +1,18 @@
+name: Security Vulnerability
+description: Report a security issue (DO NOT open public issues)
+title: "[SECURITY]: "
+labels: ["security"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### 🚨 DO NOT SUBMIT SECURITY ISSUES PUBLICLY 🚨
+
+        If you have identified a security vulnerability, please do not use this issue tracker. Doing so exposes the vulnerability to the public before a patch is ready.
+
+        Please report all security vulnerabilities privately to:
+        * **security@smritisys.com** (primary)
+        * **support@smritisys.com** (secondary)
+
+        Our security team will acknowledge your report within 48 hours and work with you to triage and patch the issue in a coordinated disclosure.

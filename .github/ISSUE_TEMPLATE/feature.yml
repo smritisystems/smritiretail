@@ -1,0 +1,31 @@
+name: Feature Request
+description: Propose a new feature or enhancement for SMRITI Retail OS
+title: "[FEATURE]: "
+labels: ["feature"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Propose a new feature. Enterprise retail features must align with the SMRITI vision.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What business problem does this solve?
+      placeholder: Describe the problem or challenge this feature addresses.
+    validations:
+      required: true
+  - type: textarea
+    id: value
+    attributes:
+      label: What is the expected business value?
+      placeholder: Who benefits from this, and how does it save time or reduce errors?
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Proposed Workflow & Details
+      placeholder: Outline how this feature should work from a user or API perspective.
+    validations:
+      required: true

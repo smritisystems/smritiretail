@@ -1,0 +1,31 @@
+name: Governance Change Proposal
+description: Propose changes to repository constitution, rules, or standards
+title: "[GOVERNANCE]: "
+labels: ["governance"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Proposed governance updates are subject to Section 2 of the Constitution and require formal GRB review.
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Governance Change
+      placeholder: Describe the rule, policy, or constitutional section you wish to add, modify, or remove.
+    validations:
+      required: true
+  - type: textarea
+    id: justification
+    attributes:
+      label: Rationale & Justification
+      placeholder: Why is this change necessary? What risk does it mitigate or what workflow does it optimize?
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: System & Process Impact
+      placeholder: Detail the impact on developers, CI pipelines, and release workflows.
+    validations:
+      required: true
