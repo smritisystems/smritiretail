@@ -69,7 +69,7 @@ layout_preferences: Dict[str, Any] = DEFAULT_LAYOUT_PREFERENCES.copy()
 
 
 async def get_system_config(db: AsyncSession, key: str) -> Optional[SystemConfig]:
-    q = select(SystemConfig).where(SystemConfig.key == key, SystemConfig.is_deleted == False)
+    q = select(SystemConfig).where(SystemConfig.key == key, SystemConfig.is_deleted.is_not(True))
     res = await db.execute(q)
     return res.scalars().first()
 

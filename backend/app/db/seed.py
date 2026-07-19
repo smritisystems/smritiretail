@@ -56,9 +56,15 @@ async def seed_default_users():
         if not setup_config_exists:
             print("[SMRITI DB SEED] Seeding setup_completed system configuration...")
             await conn.execute(
-                "INSERT INTO system_configs (id, uuid, key, value, category, created_at, modified_at) "
-                "VALUES ('sys-setup-completed', $1, 'setup_completed', 'true', 'Setup', now(), now())",
+                "INSERT INTO system_configs (id, uuid, key, value, category, is_active, is_deleted, created_at, modified_at) "
+                "VALUES ('sys-setup-completed', $1, 'setup_completed', 'true', 'Setup', true, false, now(), now())",
                 str(uuid.uuid4())
+            )
+        else:
+            # Clean up existing NULL values if they exist
+            await conn.execute(
+                "UPDATE system_configs SET is_active = true, is_deleted = false "
+                "WHERE key = 'setup_completed' AND (is_active IS NULL OR is_deleted IS NULL)"
             )
 
         # 4. Seed Generalized Master Lookup Types

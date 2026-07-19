@@ -34,31 +34,42 @@ templates = Jinja2Templates(directory=str(templates_dir))
 def build_enhanced_json(status_code: int, response_model: SmritiErrorResponse) -> dict:
     """Helper to build enhanced, backward-compatible SMRITI HREP JSON object."""
     content = response_model.model_dump()
-    content.update({
-        "success": False,
-        "status": status_code,
-        "title": response_model.error.title,
-        "message": response_model.error.explanation,
-        "suggested_action": response_model.error.suggested_action,
-        "error_code": response_model.error.error_code,
-        "reference_id": response_model.error.reference_id,
-        "timestamp": datetime.datetime.now(timezone.utc).isoformat() + "Z",
-        "documentation": "/docs"
-    })
+    content.update(
+        {
+            "success": False,
+            "status": status_code,
+            "title": response_model.error.title,
+            "message": response_model.error.explanation,
+            "suggested_action": response_model.error.suggested_action,
+            "error_code": response_model.error.error_code,
+            "reference_id": response_model.error.reference_id,
+            "timestamp": datetime.datetime.now(timezone.utc).isoformat() + "Z",
+            "documentation": "/docs",
+        }
+    )
     return content
 
 
-def dispatch_response(request: Request, exc: Exception | None, status_code: int, response_model: SmritiErrorResponse):
+def dispatch_response(
+    request: Request,
+    exc: Exception | None,
+    status_code: int,
+    response_model: SmritiErrorResponse,
+):
     """Dynamically route the exception to HTML page or JSON object based on content negotiation."""
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
         stack_trace = ""
         if settings.ENVIRONMENT == "development" and exc:
-            stack_trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-            
+            stack_trace = "".join(
+                traceback.format_exception(type(exc), exc, exc.__traceback__)
+            )
+
         request_id = getattr(request.state, "request_id", None)
-        timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        
+        timestamp = datetime.datetime.now(timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S UTC"
+        )
+
         return templates.TemplateResponse(
             request=request,
             name="errors/error.html",
@@ -75,10 +86,13 @@ def dispatch_response(request: Request, exc: Exception | None, status_code: int,
                 "exception_type": type(exc).__name__ if exc else "N/A",
                 "stack_trace": stack_trace,
             },
-            status_code=status_code
+            status_code=status_code,
         )
-        
-    return JSONResponse(status_code=status_code, content=build_enhanced_json(status_code, response_model))
+
+    return JSONResponse(
+        status_code=status_code,
+        content=build_enhanced_json(status_code, response_model),
+    )
 
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -87,12 +101,12 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         loc = " -> ".join(str(loc_val) for loc_val in err.get("loc", []))
         msg = err.get("msg", "Invalid value")
         errors.append(f"{loc}: {msg}")
-    
+
     explanation = "The input data provided was invalid. Details: " + "; ".join(errors)
     res = build_error_response(
         error_code="SMRITI-VAL-001",
         custom_explanation=explanation,
-        reference_msg=str(exc)
+        reference_msg=str(exc),
     )
     return dispatch_response(request, exc, 422, res)
 
@@ -126,21 +140,25 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     else:
         code = "SMRITI-SYS-001"
         title = None  # Use dictionary default
-        
+
     res = build_error_response(
         error_code=code,
         custom_explanation=exc.detail,
         reference_msg=str(exc.detail),
-        custom_title=title
+        custom_title=title,
     )
     return dispatch_response(request, exc, exc.status_code, res)
 
 
 async def db_exception_handler(request: Request, exc: SQLAlchemyError):
+    import logging
+
+    logger = logging.getLogger("smriti-core")
+    logger.exception("--- SQLAlchemyException occurred ---", exc_info=exc)
     res = build_error_response(
         error_code="SMRITI-DATA-001",
         custom_explanation="A database operations conflict occurred or referential integrity check failed.",
-        reference_msg=str(exc)
+        reference_msg=str(exc),
     )
     return dispatch_response(request, exc, 400, res)
 
@@ -149,7 +167,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
     res = build_error_response(
         error_code="SMRITI-SYS-001",
         custom_explanation="An internal server error occurred while processing the request.",
-        reference_msg=str(exc)
+        reference_msg=str(exc),
     )
     return dispatch_response(request, exc, 500, res)
 
