@@ -89,10 +89,23 @@ STARTUP_TIME = time.time()
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """SMRITI startup: log banner. Yield for request handling. Shutdown is a no-op."""
+    """SMRITI startup: log banner, auto-seed DB, then yield for request handling."""
     print(SMRITI_BANNER)
     logger.info(f"[SMRITI] Starting FastAPI Python Core on port {settings.PORT}...")
     logger.info(f"[SMRITI] Mode: {settings.EDITION} | Version: {settings.VERSION}")
+
+    # Auto-seed default users, roles, permissions and master data on every startup.
+    # seed_default_users() is fully idempotent — safe to call repeatedly.
+    # Wrapped in try/except so a cold-start before DB is ready doesn't abort the server.
+    try:
+        from app.db.seed import seed_default_users
+        await seed_default_users()
+        logger.info("[SMRITI] Database auto-seed completed successfully.")
+    except Exception as _seed_err:
+        logger.warning(
+            f"[SMRITI] DB auto-seed skipped (DB may not be ready yet): {_seed_err}"
+        )
+
     yield
 
 # Initialize FastAPI instance

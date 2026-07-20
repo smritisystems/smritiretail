@@ -48,6 +48,29 @@ SMRITI Retail OS acts as a centralized retail system-of-record. It enables high-
 
 ---
 
+## 3. Default Login Accounts (Seed Credentials)
+
+After a fresh installation, the following default accounts are automatically created by the database seed.
+
+> [!WARNING]
+> **Change all default passwords immediately** after first login in any production or staging environment.
+
+| Username  | Password       | Role             | Scope                                   |
+|-----------|----------------|------------------|-----------------------------------------|
+| `super`   | `Smriti@1234`  | System Admin     | Platform-wide root access               |
+| `manager` | `Password@123` | Store Manager    | All modules for `Default Branch`        |
+| `cashier` | `Cashier@1234` | Cashier Operator | POS billing and sales for `Default Branch` |
+
+### How Seeding Works
+
+- **Docker startup (`startup.bat` / `docker compose up`):** Seeds run automatically via `entrypoint.sh`.
+- **Local development (`npm run start:fastapi`):** Seeds run automatically on FastAPI startup via the `lifespan` hook.
+- **Manual seed:** `python -m app.db.seed` (from `backend/` with `.venv` activated).
+
+All seed functions are **idempotent** — safe to run multiple times without creating duplicates.
+
+---
+
 ## 3. Architecture Overview
 
 SMRITI Retail OS follows an inward-pointing dependency architecture:

@@ -173,11 +173,42 @@ try {
     Write-Host "  [FAIL] Failed to configure Explorer folder icon." -ForegroundColor Red
 }
 
-Write-Host "=====================================================================" -ForegroundColor Green
+Write-Host "======================================================================" -ForegroundColor Green
 Write-Host " SMRITI Retail OS installation complete!" -ForegroundColor Green
-Write-Host "=====================================================================" -ForegroundColor Green
+Write-Host "======================================================================" -ForegroundColor Green
+
+# 6. Run Database Migrations & Seed Default Data
+Write-Host "[6/6] Running database migrations and seeding default accounts..." -ForegroundColor Yellow
+Write-Host "  NOTE: PostgreSQL must be running for this step to succeed." -ForegroundColor Gray
+Write-Host "        If PostgreSQL is not running, skip this and run manually later:" -ForegroundColor Gray
+Write-Host "        .venv\Scripts\python.exe -m alembic upgrade head" -ForegroundColor Gray
+Write-Host "        .venv\Scripts\python.exe -m app.db.seed" -ForegroundColor Gray
+
+if (Test-Path ".venv\Scripts\python.exe") {
+    try {
+        Set-Location backend
+        & ..\\.venv\Scripts\python.exe -m alembic upgrade head
+        & ..\\.venv\Scripts\python.exe -m app.db.seed
+        Set-Location ..
+        Write-Host "  [OK] Database migrations and seed completed successfully." -ForegroundColor Green
+        Write-Host "" -ForegroundColor Green
+        Write-Host "  Default login accounts created:" -ForegroundColor Cyan
+        Write-Host "    Username: super     Password: Smriti@1234   Role: System Admin" -ForegroundColor Cyan
+        Write-Host "    Username: manager   Password: Password@123  Role: Store Manager" -ForegroundColor Cyan
+        Write-Host "    Username: cashier   Password: Cashier@1234  Role: POS Cashier" -ForegroundColor Cyan
+    } catch {
+        Set-Location ..
+        Write-Host "  [SKIP] Database seed could not run — PostgreSQL may not be running." -ForegroundColor Yellow
+        Write-Host "         Run manually after starting PostgreSQL:" -ForegroundColor Yellow
+        Write-Host "         cd backend && ..\\.venv\Scripts\python.exe -m alembic upgrade head && ..\\.venv\Scripts\python.exe -m app.db.seed" -ForegroundColor Gray
+    }
+} else {
+    Write-Host "  [SKIP] Python venv not found. Run seed manually after setup." -ForegroundColor Yellow
+}
+
+Write-Host "" -ForegroundColor Green
 Write-Host "To launch SMRITI Retail OS:" -ForegroundColor Yellow
-Write-Host "  Run: .\startup.bat (or docker compose up -d)" -ForegroundColor Gray
+Write-Host "  Run: .\\startup.bat (or docker compose up -d)" -ForegroundColor Gray
 Write-Host "  Access Frontend : http://localhost:3000" -ForegroundColor Gray
 Write-Host "  Access Backend  : http://localhost:8000" -ForegroundColor Gray
-Write-Host "=====================================================================" -ForegroundColor Green
+Write-Host "======================================================================" -ForegroundColor Green
