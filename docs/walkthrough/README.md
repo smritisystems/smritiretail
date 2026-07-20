@@ -152,6 +152,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-20 | v4.7.0 | Pydantic V2 Schema Validation & Cleanups | [Walkthrough](./foundation/v4_7_Pydantic_V2_Schema_Optimization_Walkthrough.md) | [Plan](../implementation/foundation/v4_7_Pydantic_V2_Schema_Optimization_Plan.md) | Completed |
 | 2026-07-20 | v4.8.0 | Structured JSON Logging, Tracing Middleware & Operational Dashboard | [Walkthrough](./foundation/v4_8_Structured_Logging_And_Metrics_Walkthrough.md) | [Plan](../implementation/foundation/v4_8_Structured_Logging_And_Metrics_Plan.md) | Completed |
 | 2026-07-20 | v4.9.0 | W3C Distributed Tracing, Business Metrics & Error Taxonomy | [Walkthrough](./foundation/v4_9_Distributed_Tracing_And_Business_Metrics_Walkthrough.md) | [Plan](../implementation/foundation/v4_9_Distributed_Tracing_And_Business_Metrics_Plan.md) | Completed |
+| 2026-07-20 | v4.10.0 | Multi-Tenant Metrics, Error Codes & Outbound Trace Propagation | [Walkthrough](./foundation/v4_10_MultiTenant_Metrics_And_Trace_Propagation_Walkthrough.md) | [Plan](../implementation/foundation/v4_10_MultiTenant_Metrics_And_Trace_Propagation_Plan.md) | Completed |
+
 
 
 

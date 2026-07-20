@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -23,6 +23,15 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
   }
   if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
+  }
+  if (!headers.has("traceparent")) {
+    const traceId = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const spanId = Array.from(crypto.getRandomValues(new Uint8Array(8)))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    headers.set("traceparent", `00-${traceId}-${spanId}-01`);
   }
 
   const response = await fetch(`/api/v1${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`, {

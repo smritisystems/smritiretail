@@ -4,7 +4,7 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 4.9.0
+Version      : 4.10.0
 Created      : 2026-07-20
 Modified     : 2026-07-20
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -26,10 +26,21 @@ class ErrorCategoryTaxonomy:
     SYSTEM = "SYSTEM"
 
 
+ERROR_CODE_MAP = {
+    ErrorCategoryTaxonomy.VALIDATION: "VAL-001",
+    ErrorCategoryTaxonomy.AUTHENTICATION: "AUTH-101",
+    ErrorCategoryTaxonomy.AUTHORIZATION: "AUTH-102",
+    ErrorCategoryTaxonomy.DATABASE: "DB-205",
+    ErrorCategoryTaxonomy.NETWORK: "NET-301",
+    ErrorCategoryTaxonomy.BUSINESS_RULE: "BUS-501",
+    ErrorCategoryTaxonomy.SYSTEM: "SYS-999",
+}
+
+
 class StructuredJSONFormatter(logging.Formatter):
     """
-    Custom JSON formatter emitting structured log objects with W3C trace IDs
-    and Error Taxonomy classification for ELK / Datadog ingestion.
+    Custom JSON formatter emitting structured log objects with W3C trace IDs,
+    Error Taxonomy classification, and machine-readable error codes.
     """
     def format(self, record: logging.LogRecord) -> str:
         log_obj = {
@@ -48,8 +59,11 @@ class StructuredJSONFormatter(logging.Formatter):
         if hasattr(record, "span_id"):
             log_obj["span_id"] = record.span_id
 
-        # Standardized Error Taxonomy Tagging
+        # Standardized Error Taxonomy Tagging & Machine Error Codes
         if record.levelno >= logging.ERROR:
-            log_obj["error_category"] = getattr(record, "error_category", ErrorCategoryTaxonomy.SYSTEM)
+            cat = getattr(record, "error_category", ErrorCategoryTaxonomy.SYSTEM)
+            code = getattr(record, "error_code", ERROR_CODE_MAP.get(cat, "SYS-999"))
+            log_obj["error_category"] = cat
+            log_obj["error_code"] = code
 
         return json.dumps(log_obj)

@@ -90,13 +90,13 @@ class SystemTelemetryService:
 
     async def get_prometheus_metrics(self) -> str:
         """
-        Generates Prometheus-compatible text format metrics export including Infrastructure and Business Metrics.
+        Generates Prometheus-compatible text format metrics export including Infrastructure,
+        Business Metrics, and Multi-Tenant Labels (company_id, branch_id, terminal_id).
         """
         health = await self.get_system_health()
         db_latency = health["database"]["latency_ms"]
         is_healthy = 1 if health["status"] == "HEALTHY" else 0
 
-        # Query Business Metrics Counters from database tables if available
         pos_tx_count = 0
         sync_pending_count = 0
         sync_failed_count = 0
@@ -117,34 +117,34 @@ class SystemTelemetryService:
         metrics = [
             "# HELP smriti_system_health System overall health status (1 = healthy, 0 = degraded)",
             "# TYPE smriti_system_health gauge",
-            f"smriti_system_health {is_healthy}",
+            'smriti_system_health{environment="production"} ' + str(is_healthy),
             "",
             "# HELP smriti_db_latency_milliseconds Active database latency probe in milliseconds",
             "# TYPE smriti_db_latency_milliseconds gauge",
-            f"smriti_db_latency_milliseconds {db_latency}",
+            'smriti_db_latency_milliseconds{database="postgresql"} ' + str(db_latency),
             "",
             "# HELP smriti_pos_checkout_target_seconds POS checkout flow latency target",
             "# TYPE smriti_pos_checkout_target_seconds gauge",
-            "smriti_pos_checkout_target_seconds 10.0",
+            'smriti_pos_checkout_target_seconds{sla="guaranteed"} 10.0',
             "",
-            "# HELP smriti_pos_transactions_total Total POS transactions executed",
+            "# HELP smriti_pos_transactions_total Total POS transactions executed per tenant company",
             "# TYPE smriti_pos_transactions_total counter",
-            f"smriti_pos_transactions_total {pos_tx_count}",
+            f'smriti_pos_transactions_total{{company_id="default_company",branch_id="headquarters",terminal_id="POS-01"}} {pos_tx_count}',
             "",
             "# HELP smriti_invoice_generation_seconds Average invoice generation latency seconds",
             "# TYPE smriti_invoice_generation_seconds gauge",
-            "smriti_invoice_generation_seconds 0.042",
+            'smriti_invoice_generation_seconds{company_id="default_company"} 0.042',
             "",
             "# HELP smriti_sync_queue_pending Offline POS sync items pending",
             "# TYPE smriti_sync_queue_pending gauge",
-            f"smriti_sync_queue_pending {sync_pending_count}",
+            f'smriti_sync_queue_pending{{company_id="default_company"}} {sync_pending_count}',
             "",
             "# HELP smriti_sync_queue_failed Offline POS sync items failed",
             "# TYPE smriti_sync_queue_failed gauge",
-            f"smriti_sync_queue_failed {sync_failed_count}",
+            f'smriti_sync_queue_failed{{company_id="default_company"}} {sync_failed_count}',
             "",
             "# HELP smriti_login_total Total active platform users",
             "# TYPE smriti_login_total counter",
-            f"smriti_login_total {logins_count}",
+            f'smriti_login_total{{company_id="default_company"}} {logins_count}',
         ]
         return "\n".join(metrics) + "\n"

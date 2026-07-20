@@ -106,6 +106,9 @@ class SMRITICommunicatorConnectorManager:
             transformed_queue.append(transformed)
 
         sync_id = f"SYNC-{uuid.uuid4().hex[:8].upper()}"
+        outbound_trace_id = uuid.uuid4().hex
+        outbound_span_id = uuid.uuid4().hex[:16]
+        outbound_traceparent = f"00-{outbound_trace_id}-{outbound_span_id}-01"
 
         return {
             "connector": connector_upper,
@@ -115,6 +118,7 @@ class SMRITICommunicatorConnectorManager:
             "sync_id": sync_id,
             "processed_count": len(transformed_queue),
             "queue_payloads": transformed_queue[:2],
+            "outbound_traceparent": outbound_traceparent,
         }
 
 

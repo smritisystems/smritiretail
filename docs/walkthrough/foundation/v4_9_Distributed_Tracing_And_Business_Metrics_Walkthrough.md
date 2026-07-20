@@ -68,7 +68,8 @@ app/tests/test_v4_9_distributed_tracing_and_business_metrics.py::test_error_taxo
 ```
 
 ## 10. Known Limitations
-- None.
+- **External Integration Boundaries**: Distributed tracing currently covers internal application services and the SMRITI Communicator pipeline gateway; legacy third-party HTTP endpoints (e.g. legacy Tally/Busy on-prem agents) require custom proxy adapters to forward W3C traceparent context.
+- **Metrics Retention**: Prometheus metrics exposition provides real-time gauges and counters; long-term time-series retention and historical alerting depend on the deployed monitoring infrastructure (e.g. Prometheus Server / Grafana Cloud / Datadog).
 
 ## 11. Future Work
 - OpenTelemetry Collector agent exporter integration.
