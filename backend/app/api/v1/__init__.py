@@ -46,4 +46,5 @@ from . import (
     sip,
     communicator,
     screen_studio,
+    offline_sync,
 )

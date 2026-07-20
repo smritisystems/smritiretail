@@ -72,6 +72,7 @@ from .api.v1 import (
     sip,
     communicator,
     screen_studio,
+    offline_sync,
 )
 
 from .core.config import settings
@@ -157,6 +158,7 @@ app.include_router(transfers.router,         prefix=settings.API_V1_STR,        
 app.include_router(sip.router,               prefix=settings.API_V1_STR,                    tags=["SMRITI Identity Platform (SIP)"])
 app.include_router(communicator.router,      prefix=settings.API_V1_STR,                    tags=["SMRITI Communicator Sync Gateway"])
 app.include_router(screen_studio.router,     prefix=settings.API_V1_STR,                    tags=["SMRITI Screen Studio Metadata Engine"])
+app.include_router(offline_sync.router,      prefix=settings.API_V1_STR,                    tags=["Offline POS Queue Sync Engine"])
 
 
 

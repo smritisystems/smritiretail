@@ -144,6 +144,9 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-20 | v3.48.0 | SGIP Phase 4: Direct Portal Auto-Pull Sync & GSTR Filing Engine | [Walkthrough](./foundation/Foundation_SGIP_Phase4_AutoPull_And_GSTR_Filing_v3.48.0.md) | [Plan](../implementation/foundation/SGIP_Phase4_AutoPull_And_GSTR_Filing_Worker_Plan_v3.48.0.md) | Completed |
 | 2026-07-20 | v4.0.0 | SMRITI Retail OS v4.0 Master Architecture Evolution & Adaptive Workspace | [Walkthrough](./foundation/v4_0_Master_Architecture_Assessment_And_Evolution_Walkthrough.md) | [Plan](../implementation/foundation/v4_0_Master_Architecture_Assessment_And_Evolution_Plan.md) | Completed |
 | 2026-07-20 | v4.1.0 | SMRITI Adaptive Experience Framework (SAEF) & Communicator Pipeline | [Walkthrough](./foundation/v4_1_SAEF_Adaptive_Experience_Framework_Walkthrough.md) | [Plan](../implementation/foundation/SAEF_Adaptive_Experience_Framework_Plan_v4.1.0.md) | Completed |
+| 2026-07-20 | v4.2.0 | Screen Studio Metadata Visual Editor & Dynamic Layout Customizer | [Walkthrough](./foundation/v4_2_Screen_Studio_Metadata_Editor_Walkthrough.md) | [Plan](../implementation/foundation/v4_2_Screen_Studio_Metadata_Editor_Plan.md) | Completed |
+| 2026-07-20 | v4.3.0 | High-Speed Billing Terminal & Offline Queue Engine | [Walkthrough](./foundation/v4_3_High_Speed_Billing_And_Offline_Sync_Walkthrough.md) | [Plan](../implementation/foundation/v4_3_High_Speed_Billing_And_Offline_Sync_Plan.md) | Completed |
+
 
 
 
