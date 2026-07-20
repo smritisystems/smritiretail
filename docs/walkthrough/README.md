@@ -156,6 +156,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-20 | v4.11.0 | Machine Error Catalog, Probabilistic Sampling & Capability Matrix | [Walkthrough](./foundation/v4_11_Error_Catalog_And_Sampling_Walkthrough.md) | [Plan](../implementation/foundation/v4_11_Error_Catalog_And_Sampling_Plan.md) | Completed |
 | 2026-07-20 | v4.12.0 | Indian Retail Market Hardening Suite (ICCL) | [Walkthrough](./foundation/v4_12_Indian_Market_Hardening_Walkthrough.md) | [Plan](../implementation/foundation/v4_12_Indian_Market_Hardening_Plan.md) | Completed |
 | 2026-07-20 | v4.13.0 | Indian Compliance Intelligence Suite | [Walkthrough](./foundation/v4_13_Indian_Compliance_Intelligence_Walkthrough.md) | [Plan](../implementation/foundation/v4_13_Indian_Compliance_Intelligence_Plan.md) | Completed |
+| 2026-07-20 | v4.14.0 | Indian Payments & Bank Reconciliation Suite | [Walkthrough](./foundation/v4_14_Indian_Payments_And_Bank_Reconciliation_Walkthrough.md) | [Plan](../implementation/foundation/v4_14_Indian_Payments_And_Bank_Reconciliation_Plan.md) | Completed |
 
 
 
