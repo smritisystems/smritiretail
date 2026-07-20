@@ -146,6 +146,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-20 | v4.1.0 | SMRITI Adaptive Experience Framework (SAEF) & Communicator Pipeline | [Walkthrough](./foundation/v4_1_SAEF_Adaptive_Experience_Framework_Walkthrough.md) | [Plan](../implementation/foundation/SAEF_Adaptive_Experience_Framework_Plan_v4.1.0.md) | Completed |
 | 2026-07-20 | v4.2.0 | Screen Studio Metadata Visual Editor & Dynamic Layout Customizer | [Walkthrough](./foundation/v4_2_Screen_Studio_Metadata_Editor_Walkthrough.md) | [Plan](../implementation/foundation/v4_2_Screen_Studio_Metadata_Editor_Plan.md) | Completed |
 | 2026-07-20 | v4.3.0 | High-Speed Billing Terminal & Offline Queue Engine | [Walkthrough](./foundation/v4_3_High_Speed_Billing_And_Offline_Sync_Walkthrough.md) | [Plan](../implementation/foundation/v4_3_High_Speed_Billing_And_Offline_Sync_Plan.md) | Completed |
+| 2026-07-20 | v4.4.0 | SMRITI Retail OS v4.4 Master Release Integration Suite | [Walkthrough](./foundation/v4_4_Master_Release_Integration_Suite_Walkthrough.md) | [Plan](../implementation/foundation/v4_4_Master_Release_Integration_Suite_Plan.md) | Completed |
+
 
 
 
