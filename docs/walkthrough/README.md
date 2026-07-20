@@ -153,6 +153,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-20 | v4.8.0 | Structured JSON Logging, Tracing Middleware & Operational Dashboard | [Walkthrough](./foundation/v4_8_Structured_Logging_And_Metrics_Walkthrough.md) | [Plan](../implementation/foundation/v4_8_Structured_Logging_And_Metrics_Plan.md) | Completed |
 | 2026-07-20 | v4.9.0 | W3C Distributed Tracing, Business Metrics & Error Taxonomy | [Walkthrough](./foundation/v4_9_Distributed_Tracing_And_Business_Metrics_Walkthrough.md) | [Plan](../implementation/foundation/v4_9_Distributed_Tracing_And_Business_Metrics_Plan.md) | Completed |
 | 2026-07-20 | v4.10.0 | Multi-Tenant Metrics, Error Codes & Outbound Trace Propagation | [Walkthrough](./foundation/v4_10_MultiTenant_Metrics_And_Trace_Propagation_Walkthrough.md) | [Plan](../implementation/foundation/v4_10_MultiTenant_Metrics_And_Trace_Propagation_Plan.md) | Completed |
+| 2026-07-20 | v4.11.0 | Machine Error Catalog, Probabilistic Sampling & Capability Matrix | [Walkthrough](./foundation/v4_11_Error_Catalog_And_Sampling_Walkthrough.md) | [Plan](../implementation/foundation/v4_11_Error_Catalog_And_Sampling_Plan.md) | Completed |
+
 
 
 

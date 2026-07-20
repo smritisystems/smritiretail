@@ -152,3 +152,42 @@ class SMRITICommunicatorService:
     ) -> Dict[str, Any]:
         mgr = SMRITICommunicatorConnectorManager()
         return await mgr.execute_connector_pipeline(connector_type, records)
+
+    async def get_connector_capabilities(self) -> List[Dict[str, Any]]:
+        """
+        Returns the Observability & Integration capability matrix for all SMRITI outbound connectors.
+        """
+        return [
+            {
+                "connector": "TALLY_PRIME",
+                "protocol": "XML",
+                "trace_propagation": "Proxy Required",
+                "metrics": True,
+                "retry": True,
+                "status": "PARTIAL",
+            },
+            {
+                "connector": "BUSY",
+                "protocol": "JSON",
+                "trace_propagation": "Native",
+                "metrics": True,
+                "retry": True,
+                "status": "FULL",
+            },
+            {
+                "connector": "MARG",
+                "protocol": "JSON",
+                "trace_propagation": "Native",
+                "metrics": True,
+                "retry": True,
+                "status": "FULL",
+            },
+            {
+                "connector": "ZOHO",
+                "protocol": "JSON",
+                "trace_propagation": "Native",
+                "metrics": True,
+                "retry": True,
+                "status": "FULL",
+            },
+        ]
