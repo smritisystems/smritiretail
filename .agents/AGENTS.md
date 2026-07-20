@@ -1,4 +1,4 @@
-﻿<!--
+<!--
   Project      : SMRITI Retail OS
   Author       : Jawahar Ramkripal Mallah
   Designation  : Chief Systems Architect & Creator
@@ -217,9 +217,18 @@ License changes are governance changes. Any modification to licensing, copyright
 - Knowledge Base update
 - CHANGELOG entry
 
+# AI Optionality Principle (AOP-001)
+
+**Policy ID:** AOP-001  
+**Status:** MANDATORY — PERMANENT — ALL agents, ALL sessions, ALL modules  
+**Effective:** 2026-07-20
+
+Artificial Intelligence services shall never be mandatory for any core business transaction. All AI capabilities must operate as optional advisory services. The absence, failure, or disablement of AI must not impact the correctness, availability, performance, or completion of any core workflow.
+
 ---
 
 # SMRITI Implementation Plan Governance Policy (IPGP)
+
 
 ## 1. Mandatory Implementation Plan (Rules 1-2)
 Before implementing any significant feature, enhancement, optimization, migration, refactoring, framework, SDK component, studio, API, security improvement, or infrastructure change, the AI must create or update an Implementation Plan.
