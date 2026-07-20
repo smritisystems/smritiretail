@@ -157,6 +157,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-20 | v4.12.0 | Indian Retail Market Hardening Suite (ICCL) | [Walkthrough](./foundation/v4_12_Indian_Market_Hardening_Walkthrough.md) | [Plan](../implementation/foundation/v4_12_Indian_Market_Hardening_Plan.md) | Completed |
 | 2026-07-20 | v4.13.0 | Indian Compliance Intelligence Suite | [Walkthrough](./foundation/v4_13_Indian_Compliance_Intelligence_Walkthrough.md) | [Plan](../implementation/foundation/v4_13_Indian_Compliance_Intelligence_Plan.md) | Completed |
 | 2026-07-20 | v4.14.0 | Indian Payments & Bank Reconciliation Suite | [Walkthrough](./foundation/v4_14_Indian_Payments_And_Bank_Reconciliation_Walkthrough.md) | [Plan](../implementation/foundation/v4_14_Indian_Payments_And_Bank_Reconciliation_Plan.md) | Completed |
+| 2026-07-20 | v4.15.0 | GA Certification & Hardening | [Walkthrough](./foundation/v4_15_GA_Certification_And_Hardening_Walkthrough.md) | [Plan](../implementation/foundation/v4_15_GA_Certification_And_Hardening_Plan.md) | Completed |
 
 
 
