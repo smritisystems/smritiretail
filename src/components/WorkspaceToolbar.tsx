@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -42,6 +42,7 @@ import {
 import { useWorkspace } from "../contexts/WorkspaceContext.tsx";
 import { useLayoutEngine } from "../layout_engine/layout_store.tsx";
 import { useShortcuts } from "../contexts/ShortcutContext.tsx";
+import { AdaptiveWorkspaceHeader } from "./common/AdaptiveWorkspaceHeader.tsx";
 
 interface WorkspaceToolbarProps {
   currentTabId: string;
@@ -133,13 +134,12 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
           {title}
         </h2>
         
-        {/* Status Indicators */}
-        <div className="flex items-center space-x-1.5 ml-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="text-[9px] font-mono text-theme-muted uppercase tracking-wider">
-            {isFloating ? "Pop-out Space" : "Active Dock"}
-          </span>
-        </div>
+        {/* Adaptive Workspace Mode Switcher (Simple / Hybrid / Advanced) */}
+        {!isFloating && (
+          <div className="ml-3">
+            <AdaptiveWorkspaceHeader />
+          </div>
+        )}
       </div>
 
       {/* Control Actions Panel */}

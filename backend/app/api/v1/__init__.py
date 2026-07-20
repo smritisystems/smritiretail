@@ -44,4 +44,5 @@ from . import (
     dispatch,
     identity,
     sip,
+    communicator,
 )

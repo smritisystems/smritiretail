@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -33,6 +33,7 @@ import {
 import { useLayoutEngine, WorkspaceConfig, DockPosition } from "./layout_store.js";
 import { SmritiScrollArea } from "../components/SmritiScrollArea.tsx";
 import { useWorkspace } from "../contexts/WorkspaceContext.tsx";
+import { useAdaptiveWorkspace } from "./adaptive_workspace_store.ts";
 
 interface NavigationRendererProps {
   activeTab: string;
@@ -116,10 +117,14 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
   // Group workspaces by category
   const categories = Array.from(new Set(registeredWorkspaces.map(w => w.category)));
 
-  // Filter workspaces by search term
+  const { isTabAllowed } = useAdaptiveWorkspace();
+
+  // Filter workspaces by search term and Adaptive Workspace Mode
   const filteredWorkspaces = registeredWorkspaces.filter(w => 
-    w.label.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    w.category.toLowerCase().includes(searchTerm.toLowerCase())
+    isTabAllowed(w.id) && (
+      w.label.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      w.category.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   );
 
   const isFavorited = (id: string) => preferences.favorites.includes(id);
