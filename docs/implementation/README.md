@@ -80,6 +80,8 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-20 | v4.2.0 | [Screen Studio Metadata Visual Editor](./foundation/v4_2_Screen_Studio_Metadata_Editor_Plan.md) | `/backend/app/models/screen_studio.py`, `/src/components/ScreenStudioTab.tsx` | Completed | [Walkthrough](../walkthrough/foundation/v4_2_Screen_Studio_Metadata_Editor_Walkthrough.md) |
 | 2026-07-20 | v4.3.0 | [High-Speed Billing & Offline Queue Engine](./foundation/v4_3_High_Speed_Billing_And_Offline_Sync_Plan.md) | `/src/layout_engine/offline_pos_queue.ts`, `/backend/app/api/v1/offline_sync.py` | Completed | [Walkthrough](../walkthrough/foundation/v4_3_High_Speed_Billing_And_Offline_Sync_Walkthrough.md) |
 | 2026-07-20 | v4.4.0 | [Master Release Integration Suite](./foundation/v4_4_Master_Release_Integration_Suite_Plan.md) | `/backend/app/tests/test_v4_4_master_release_suite.py` | Completed | [Walkthrough](../walkthrough/foundation/v4_4_Master_Release_Integration_Suite_Walkthrough.md) |
+| 2026-07-20 | v4.5.0 | [Enterprise GA Certification Suite](./foundation/v4_5_Enterprise_GA_Certification_Suite_Plan.md) | `/backend/app/tests/test_v4_5_ga_certification_suite.py` | Completed | [Walkthrough](../walkthrough/foundation/v4_5_Enterprise_GA_Certification_Suite_Walkthrough.md) |
+
 
 
 
