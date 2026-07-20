@@ -43,4 +43,5 @@ from . import (
     sre,
     dispatch,
     identity,
+    sip,
 )

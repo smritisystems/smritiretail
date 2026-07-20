@@ -69,6 +69,7 @@ from .api.v1 import (
     sre,
     dispatch,
     transfers,
+    sip,
 )
 
 from .core.config import settings
@@ -151,6 +152,7 @@ app.include_router(consignment.router,       prefix=settings.API_V1_STR + "/cons
 app.include_router(sre.router,               prefix=settings.API_V1_STR + "/sre",         tags=["SMRITI Regulatory Engine"])
 app.include_router(dispatch.router,          prefix=settings.API_V1_STR + "/dispatch",    tags=["Stock Dispatch Engine"])
 app.include_router(transfers.router,         prefix=settings.API_V1_STR,                    tags=["Stock Transfers & Rebalancing"])
+app.include_router(sip.router,               prefix=settings.API_V1_STR,                    tags=["SMRITI Identity Platform (SIP)"])
 
 
 
