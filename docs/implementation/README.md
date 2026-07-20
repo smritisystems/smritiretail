@@ -82,6 +82,10 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-20 | v4.4.0 | [Master Release Integration Suite](./foundation/v4_4_Master_Release_Integration_Suite_Plan.md) | `/backend/app/tests/test_v4_4_master_release_suite.py` | Completed | [Walkthrough](../walkthrough/foundation/v4_4_Master_Release_Integration_Suite_Walkthrough.md) |
 | 2026-07-20 | v4.5.0 | [Enterprise GA Certification Suite](./foundation/v4_5_Enterprise_GA_Certification_Suite_Plan.md) | `/backend/app/tests/test_v4_5_ga_certification_suite.py` | Completed | [Walkthrough](../walkthrough/foundation/v4_5_Enterprise_GA_Certification_Suite_Walkthrough.md) |
 | 2026-07-20 | v4.6.0 | [Operational Excellence & System Telemetry Engine](./foundation/v4_6_Operational_Excellence_And_Telemetry_Plan.md) | `/backend/app/services/telemetry_service.py`, `/backend/app/api/v1/diagnostics.py` | Completed | [Walkthrough](../walkthrough/foundation/v4_6_Operational_Excellence_And_Telemetry_Walkthrough.md) |
+| 2026-07-20 | v4.7.0 | [Pydantic V2 Schema Validation & Cleanups](./foundation/v4_7_Pydantic_V2_Schema_Optimization_Plan.md) | `/backend/app/schemas/dispatch.py`, `/backend/app/compliance/schemas/nic.py` | Completed | [Walkthrough](../walkthrough/foundation/v4_7_Pydantic_V2_Schema_Optimization_Walkthrough.md) |
+| 2026-07-20 | v4.8.0 | [Structured JSON Logging, Tracing Middleware & Dashboard](./foundation/v4_8_Structured_Logging_And_Metrics_Plan.md) | `/backend/app/middleware/request_context.py`, `/src/components/OperationalHealthDashboard.tsx` | Completed | [Walkthrough](../walkthrough/foundation/v4_8_Structured_Logging_And_Metrics_Walkthrough.md) |
+
+
 
 
 

@@ -82,6 +82,7 @@ from .core.error_handlers import register_error_handlers
 from .core.logging import logger
 from .db.session import verify_db_connectivity
 from .middleware.request_logger import RequestLoggerMiddleware
+from .middleware.request_context import RequestContextMiddleware
 
 STARTUP_TIME = time.time()
 
@@ -103,6 +104,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Register RequestContextMiddleware for X-Request-ID tracing
+app.add_middleware(RequestContextMiddleware)
 
 # Register HREP error handlers
 register_error_handlers(app)

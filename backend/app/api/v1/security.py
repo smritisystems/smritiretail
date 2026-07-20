@@ -103,7 +103,7 @@ async def list_permission_sets(
 
 @router.get("/field-rules")
 async def get_field_rules(
-    resource: str = Query(..., example="Item"),
+    resource: str = Query(..., openapi_examples={"default": {"value": "Item"}}),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):

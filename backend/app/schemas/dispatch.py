@@ -1,14 +1,14 @@
 # Project      : SMRITI Retail OS
 # Author       : Jawahar Ramkripal Mallah
 # Email        : support@smritibooks.com
-# Version      : 3.31.0
-# Modified     : 2026-07-19
+# Version      : 4.7.0
+# Modified     : 2026-07-20
 # Copyright    : © SMRITIBooks.com. All Rights Reserved.
 
 from typing import List, Optional
 from decimal import Decimal
 from datetime import date, datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 # --- StockDispatchLine Schemas ---
@@ -36,8 +36,7 @@ class StockDispatchLineResponse(StockDispatchLineBase):
     total_amount: Decimal
     tenant_id: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # --- StockDispatch Schemas ---
@@ -63,8 +62,7 @@ class StockDispatchResponse(StockDispatchBase):
     tenant_id: str
     items: List[StockDispatchLineResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # --- DispatchApprovalEvent Schemas ---
@@ -83,5 +81,4 @@ class DispatchApprovalEventResponse(DispatchApprovalEventBase):
     created_at: datetime
     tenant_id: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

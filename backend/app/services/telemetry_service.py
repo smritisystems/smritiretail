@@ -87,3 +87,26 @@ class SystemTelemetryService:
             "restoration_test": "PASSED",
             "integrity_hash": "SHA256-BACKUP-VERIFIED-4.6.0",
         }
+
+    async def get_prometheus_metrics(self) -> str:
+        """
+        Generates Prometheus-compatible text format metrics export.
+        """
+        health = await self.get_system_health()
+        db_latency = health["database"]["latency_ms"]
+        is_healthy = 1 if health["status"] == "HEALTHY" else 0
+
+        metrics = [
+            "# HELP smriti_system_health System overall health status (1 = healthy, 0 = degraded)",
+            "# TYPE smriti_system_health gauge",
+            f"smriti_system_health {is_healthy}",
+            "",
+            "# HELP smriti_db_latency_milliseconds Active database latency probe in milliseconds",
+            "# TYPE smriti_db_latency_milliseconds gauge",
+            f"smriti_db_latency_milliseconds {db_latency}",
+            "",
+            "# HELP smriti_pos_checkout_target_seconds POS checkout flow latency target",
+            "# TYPE smriti_pos_checkout_target_seconds gauge",
+            "smriti_pos_checkout_target_seconds 10.0",
+        ]
+        return "\n".join(metrics) + "\n"

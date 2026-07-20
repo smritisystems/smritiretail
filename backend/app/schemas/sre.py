@@ -1,14 +1,14 @@
 # Project      : SMRITI Retail OS
 # Author       : Jawahar Ramkripal Mallah
 # Email        : support@smritibooks.com
-# Version      : 3.31.0
-# Modified     : 2026-07-19
+# Version      : 4.7.0
+# Modified     : 2026-07-20
 # Copyright    : © SMRITIBooks.com. All Rights Reserved.
 
 from typing import Optional, List
 from decimal import Decimal
 from datetime import date, datetime
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from app.core.gstin import validate_gstin_format
 
 
@@ -49,8 +49,7 @@ class CorporateGstinRegistryResponse(CorporateGstinRegistryBase):
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # --- SreRuleEngine Schemas ---
@@ -79,8 +78,7 @@ class SreRuleEngineResponse(SreRuleEngineBase):
     uuid: str
     tenant_id: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # --- SreStatutoryLedger Schemas ---
@@ -117,8 +115,7 @@ class SreStatutoryLedgerResponse(SreStatutoryLedgerBase):
     uuid: str
     tenant_id: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # --- SreComplianceDecision Schemas ---
@@ -137,5 +134,4 @@ class SreComplianceDecisionResponse(SreComplianceDecisionBase):
     uuid: str
     tenant_id: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
