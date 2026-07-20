@@ -14,7 +14,7 @@ License      : Proprietary Commercial Software
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -34,16 +34,24 @@ fsm = ApprovalFSM()
 
 # Schema definitions
 class ApprovalSubmissionRequest(BaseModel):
-    document_type: str = Field(..., example="PurchaseOrder")
-    document_id: str = Field(..., example="po-101")
-    payload: Dict[str, Any] = Field(..., example={"amount": 75000.00, "supplier_id": "sup-01"})
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_schema_extra={"example": {"document_type": "PurchaseOrder", "document_id": "po-101", "payload": {"amount": 75000.00, "supplier_id": "sup-01"}}}
+    )
+    document_type: str = Field(...)
+    document_id: str = Field(...)
+    payload: Dict[str, Any] = Field(...)
 
 
 class ApprovalActionExecuteRequest(BaseModel):
-    action: str = Field(..., example="APPROVE")  # APPROVE, REJECT, OVERRIDE
-    expected_version: int = Field(..., example=1)
-    payload: Dict[str, Any] = Field(..., example={"amount": 75000.00, "supplier_id": "sup-01"})
-    remarks: Optional[str] = Field(None, example="Approved as per threshold limit")
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_schema_extra={"example": {"action": "APPROVE", "expected_version": 1, "payload": {"amount": 75000.00}, "remarks": "Approved as per threshold limit"}}
+    )
+    action: str = Field(...)  # APPROVE, REJECT, OVERRIDE
+    expected_version: int = Field(...)
+    payload: Dict[str, Any] = Field(...)
+    remarks: Optional[str] = Field(None)
 
 
 class DelegationCreateRequest(BaseModel):

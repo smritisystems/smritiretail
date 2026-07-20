@@ -30,7 +30,7 @@ alembic = "^1.13.1"
 python-dotenv = "^1.0.1"
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 passlib = {extras = ["bcrypt", "argon2"], version = "^1.7.5"}
-bcrypt = ">=3.2.2,<4.0"  # passlib 1.7.4/1.7.5 incompatible with bcrypt>=4.0
+bcrypt = ">=3.2.2,<4.0"  # PINNED: passlib 1.7.x incompatible with bcrypt>=4.0 (bcrypt 4.x+ removed __about__, 5.x adds 72-byte ValueError in wrap-bug-detect). DO NOT upgrade without replacing passlib.
 gunicorn = "^22.0.0"
 
 [tool.poetry.group.dev.dependencies]

@@ -13,7 +13,7 @@ License      : Proprietary Commercial Software
 
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -25,12 +25,20 @@ router = APIRouter(prefix="/transfers", tags=["Stock Transfers & Rebalancing"])
 
 
 class CalculateRebalanceRequest(BaseModel):
-    source_branch_id: str = Field(..., example="br-main-hub")
-    target_branch_id: str = Field(..., example="br-spoke-outlet")
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_schema_extra={"example": {"source_branch_id": "br-main-hub", "target_branch_id": "br-spoke-outlet"}}
+    )
+    source_branch_id: str = Field(...)
+    target_branch_id: str = Field(...)
 
 
 class ActionTransferRequest(BaseModel):
-    user_id: str = Field(..., example="usr-manager-01")
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_schema_extra={"example": {"user_id": "usr-manager-01"}}
+    )
+    user_id: str = Field(...)
 
 
 @router.post(
