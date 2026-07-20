@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -194,8 +194,10 @@ class SalesService:
                 status_code=400,
                 detail="Sales invoice with this invoice number already exists"
             )
-        await self.db.refresh(db_invoice)
-        return db_invoice
+        from sqlalchemy.orm import selectinload
+        stmt = select(SalesInvoice).options(selectinload(SalesInvoice.items)).filter(SalesInvoice.id == db_invoice.id)
+        res = await self.db.execute(stmt)
+        return res.scalars().first()
 
     async def get_sales_invoice(self, invoice_id: str) -> tuple[SalesInvoice, List[SalesInvoiceItem]]:
         res = await self.db.execute(

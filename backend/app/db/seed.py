@@ -194,7 +194,14 @@ async def seed_default_users():
 
         # 7.6 Map Permissions to Permission Sets
         permission_set_perm_mappings = {
-            "POL-SALES-MGMT": ["SALES.CREATE", "SALES.UPDATE", "SALES.APPROVE", "SALES.VIEW", "SALES.DELETE", "POS.CHECKOUT", "POS.OPEN_SHIFT", "POS.CLOSE_SHIFT"],
+            "POL-SALES-MGMT": [
+                "SALES.CREATE", "SALES.UPDATE", "SALES.APPROVE", "SALES.VIEW", "SALES.DELETE", 
+                "POS.CHECKOUT", "POS.OPEN_SHIFT", "POS.CLOSE_SHIFT",
+                "billing.pos", "billing.tax", "billing.return", "billing.void", 
+                "billing.import", "billing.recall", "billing.discount", "billing.override", 
+                "billing.reprint", "billing.salesperson.view", "billing.salesperson.assign", 
+                "billing.salesperson.override"
+            ],
             "POL-INVENTORY-MGMT": ["ITEM.CREATE", "ITEM.VIEW", "ITEM.UPDATE", "ITEM.DELETE"],
             "POL-CRM-MGMT": ["CRM.MANAGE_CUSTOMERS", "CRM.VIEW_LOYALTY"],
             "POL-PURCHASE-MGMT": ["PURCHASE.CREATE", "PURCHASE.UPDATE", "PURCHASE.APPROVE", "PURCHASE.VIEW", "PURCHASE.DELETE", "SUPPLIER.MANAGE"],

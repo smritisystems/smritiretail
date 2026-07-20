@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -57,6 +57,16 @@ async def create_sales_invoice_contract(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Create a sales invoice — canonical contract URL."""
+    updates = {}
+    if not invoice_in.id:
+        import uuid
+        updates["id"] = f"inv-{uuid.uuid4().hex[:8]}"
+    if not invoice_in.invoice_no:
+        import uuid
+        from datetime import datetime
+        updates["invoice_no"] = f"INV-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+    if updates:
+        invoice_in = invoice_in.model_copy(update=updates)
     return await SalesService(db, tenant_ctx).create_sales_invoice(invoice_in)
 
 

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -17,6 +17,7 @@ import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { getCustomers, getCustomerGroups, updateCustomerOutstanding } from "../services/customerStore.ts";
 import { checkCreditStatus } from "../services/customerPolicyEngine.ts";
 import { apiFetchV1 } from "../lib/apiFetchV1";
+import { useTerminalShortcuts } from "./terminal/KeyboardEngine";
 
 // Types for Advanced Billing
 export interface AdvancedCustomer {
@@ -148,9 +149,34 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
   });
 
   // Salesperson & Terminal Metadata
-  const [globalSalespersonId, setGlobalSalespersonId] = useState<string>("");
+  const [globalSalespersonId, setGlobalSalespersonId] = useState<string>("emp-101");
   const [isTaxInclusiveGlobal, setIsTaxInclusiveGlobal] = useState<boolean>(true);
   const [invoiceRemarks, setInvoiceRemarks] = useState<string>("");
+
+  // B2B & Logistics Transporter Details State
+  const [transporterName, setTransporterName] = useState("");
+  const [vehicleNo, setVehicleNo] = useState("");
+  const [lrNumber, setLrNumber] = useState("");
+  const [ewayBillNumber, setEwayBillNumber] = useState("");
+  const [placeOfSupply, setPlaceOfSupply] = useState("27");
+  const [paymentTerms, setPaymentTerms] = useState("Net 30");
+  const [salesExecutiveId, setSalesExecutiveId] = useState("emp-101");
+
+  // TCS / TDS Calculations
+  const [tcsRate, setTcsRate] = useState<number>(0);
+  const [gstinValidState, setGstinValidState] = useState<"unchecked" | "valid" | "invalid">("unchecked");
+
+  const handleValidateGstin = () => {
+    const cleanGst = customer.gstin.trim();
+    const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+    if (gstRegex.test(cleanGst)) {
+      setGstinValidState("valid");
+      onNotification("GSTIN Valid", `GSTIN ${cleanGst} format check passed successfully.`, "success");
+    } else {
+      setGstinValidState("invalid");
+      onNotification("GSTIN Invalid", "Format check failed. GSTIN must be a 15-character alphanumeric ID.", "error");
+    }
+  };
 
   // Print Mode
   const [selectedPrintLayout, setSelectedPrintLayout] = useState<"A4" | "80mm" | "58mm">("A4");
@@ -159,6 +185,13 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
 
   // Active edit item-level discount modal
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
+
+  // Keyboard shortcuts register via KeyboardEngine
+  useTerminalShortcuts({
+    "ESC": () => {
+      onClose();
+    }
+  });
 
   // Synchronize cart with internal editable itemDetailsList
   useEffect(() => {
@@ -369,12 +402,16 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     const roundedGrandTotal = Math.round(netAmountCalculated);
     const roundOff = roundedGrandTotal - netAmountCalculated;
 
+    // TCS (Tax Collected at Source) Calculation
+    const tcsAmount = Math.round(roundedGrandTotal * tcsRate * 100) / 100;
+    const finalGrandTotal = roundedGrandTotal + tcsAmount;
+
     // Gift Card Redemption
-    const finalGiftCardValue = Math.min(giftCardRedemption, roundedGrandTotal);
-    const balancePayable = Math.max(0, roundedGrandTotal - finalGiftCardValue);
+    const finalGiftCardValue = Math.min(giftCardRedemption, finalGrandTotal);
+    const balancePayable = Math.max(0, finalGrandTotal - finalGiftCardValue);
 
     // Points earned on current bill
-    const loyaltyPointsEarned = Math.floor(roundedGrandTotal / 100); // 1 point per ₹100
+    const loyaltyPointsEarned = Math.floor(finalGrandTotal / 100); // 1 point per ₹100
 
     return {
       grossAmount,
@@ -391,7 +428,8 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       sgstTotal,
       igstTotal,
       roundOff,
-      grandTotal: roundedGrandTotal,
+      tcsAmount,
+      grandTotal: finalGrandTotal,
       giftCardRedemptionValue: finalGiftCardValue,
       balancePayable,
       loyaltyPointsEarned,
@@ -488,6 +526,19 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       companyName: customer.companyName,
       billingAddress: customer.billingAddress,
       shippingAddress: customer.isShippingDifferent ? customer.shippingAddress : customer.billingAddress,
+      transporter: {
+        name: transporterName,
+        vehicleNo: vehicleNo,
+        lrNumber: lrNumber,
+        ewayBillNumber: ewayBillNumber,
+        placeOfSupply: placeOfSupply,
+        paymentTerms: paymentTerms
+      },
+      salesExecutiveId: salesExecutiveId,
+      tcs: {
+        rate: tcsRate,
+        amount: totals.tcsAmount
+      },
       taxBreakdown: {
         taxable: totals.totalTaxableAmount,
         cgst: totals.cgstTotal,
@@ -678,13 +729,28 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                     <>
                       <div>
                         <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">GSTIN (Indian GSTIN)</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. 27AAAAA1111A1Z1"
-                          value={customer.gstin}
-                          onChange={(e) => setCustomer(prev => ({ ...prev, gstin: e.target.value.toUpperCase() }))}
-                          className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none focus:border-blue-500 text-theme-body font-mono"
-                        />
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="e.g. 27AAAAA1111A1Z1"
+                            value={customer.gstin}
+                            onChange={(e) => {
+                              setCustomer(prev => ({ ...prev, gstin: e.target.value.toUpperCase() }));
+                              setGstinValidState("unchecked");
+                            }}
+                            className="flex-1 bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none focus:border-blue-500 text-theme-body font-mono"
+                          />
+                          <button
+                            onClick={handleValidateGstin}
+                            className={`px-3 py-1.5 rounded text-xs font-semibold font-mono transition-all ${
+                              gstinValidState === "valid" ? "bg-emerald-600 text-white" :
+                              gstinValidState === "invalid" ? "bg-rose-600 text-white" :
+                              "bg-slate-700 hover:bg-slate-600 text-gray-200"
+                            }`}
+                          >
+                            {gstinValidState === "valid" ? "Verified" : gstinValidState === "invalid" ? "Failed" : "Verify"}
+                          </button>
+                        </div>
                       </div>
                       <div>
                         <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Company Registered Name</label>
@@ -889,6 +955,114 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                         className="flex-1 bg-theme-surface-1 border border-theme-divider rounded px-3 py-1 text-xs text-theme-body font-mono focus:outline-none"
                       />
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2.5: LOGISTICS, TRANSPORTER & TCS/TDS CONFIG */}
+              <div className="bg-theme-surface-2/50 border border-theme-divider p-5 rounded-xl space-y-4">
+                <h4 className="font-semibold text-theme-body text-sm border-b border-theme-divider/60 pb-3 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-blue-400 text-lg">local_shipping</span>
+                  Logistics, Transporter & TCS/TDS Configuration
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Transporter Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. VRL Logistics, SafeExpress"
+                      value={transporterName}
+                      onChange={(e) => setTransporterName(e.target.value)}
+                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Vehicle Number</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. MH-12-GQ-5432"
+                      value={vehicleNo}
+                      onChange={(e) => setVehicleNo(e.target.value)}
+                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">LR / GR Number</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. LR-9876543"
+                      value={lrNumber}
+                      onChange={(e) => setLrNumber(e.target.value)}
+                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">E-Way Bill Number</label>
+                    <input
+                      type="text"
+                      placeholder="12-digit E-Way Bill No."
+                      value={ewayBillNumber}
+                      onChange={(e) => setEwayBillNumber(e.target.value)}
+                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Place of Supply State</label>
+                    <select
+                      value={placeOfSupply}
+                      onChange={(e) => setPlaceOfSupply(e.target.value)}
+                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body"
+                    >
+                      <option value="27">Maharashtra (27)</option>
+                      <option value="29">Karnataka (29)</option>
+                      <option value="33">Tamil Nadu (33)</option>
+                      <option value="07">Delhi (07)</option>
+                      <option value="09">Uttar Pradesh (09)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Credit Payment Terms</label>
+                    <select
+                      value={paymentTerms}
+                      onChange={(e) => setPaymentTerms(e.target.value)}
+                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body"
+                    >
+                      <option value="COD">Cash on Delivery (COD)</option>
+                      <option value="Net 15">Net 15 Days</option>
+                      <option value="Net 30">Net 30 Days</option>
+                      <option value="Net 60">Net 60 Days</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Territory / Account Manager</label>
+                    <select
+                      value={salesExecutiveId}
+                      onChange={(e) => setSalesExecutiveId(e.target.value)}
+                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body"
+                    >
+                      {SALESPERSONS.map(s => (
+                        <option key={s.id} value={s.id}>{s.name} (Manager)</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Statutory TCS Rate</label>
+                    <select
+                      value={tcsRate}
+                      onChange={(e) => setTcsRate(parseFloat(e.target.value))}
+                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body"
+                    >
+                      <option value="0">None (0.00%)</option>
+                      <option value="0.001">0.1% (Sales exceeding ₹50 Lakhs u/s 206C(1H))</option>
+                      <option value="0.01">1.0% (TCS on E-commerce/Motor Vehicles)</option>
+                    </select>
                   </div>
                 </div>
               </div>

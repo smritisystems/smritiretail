@@ -28,6 +28,18 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [5.0.0] — 2026-07-20
+
+### Added
+- **Enterprise Billing Terminal Framework Refactoring (SMRITI Retail OS v5.0 Master Release)**:
+  - Decoupled POS Terminal (`PosTerminalTab`) and B2B Tax Invoice Terminal (`AdvancedBillingEngine`) from the administrative Sales Studio into true standalone fullscreen layouts.
+  - Implemented standalone fullscreen routing triggers in `App.tsx` utilizing `?terminal=pos` and `?terminal=tax` search parameters to bypass outer layout wrappers.
+  - Created global Keyboard Override Engine React hook `useTerminalShortcuts` to capture cashier F-keys (F2, F3, F12, Esc) and suppress native browser event defaults.
+  - Implemented **Salesperson & Commission Engine** in POS and Tax Invoice systems, supporting both "single salesperson per bill" and "line-level salesperson" assignment models mapped to Employee Masters.
+  - Configured Logistics & Transporter details input manager (E-Way bill number, vehicle number, LR/GR numbers, payment terms) and B2B Account/Sales Managers maps.
+  - Automated Statutory TCS (Tax Collected at Source) rate calculations and nearest rupee rounding.
+  - Added 12 fine-grained security permissions (`billing.pos`, `billing.tax`, `billing.return`, `billing.void`, `billing.import`, `billing.recall`, `billing.discount`, `billing.override`, `billing.reprint`, `billing.salesperson.view`, `billing.salesperson.assign`, `billing.salesperson.override`) to permissions registry manifest and seeded them automatically.
+
 ---
 
 ## [3.39.0] — 2026-07-20

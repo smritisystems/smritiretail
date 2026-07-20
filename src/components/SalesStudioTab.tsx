@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -967,41 +967,62 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       </div>
 
       {/* Sub Tabs */}
-      <div className="flex items-center px-6 bg-theme-surface-2 border-b border-theme-divider gap-2 overflow-x-auto">
-        {(["quotations", "orders", "invoices", "returns", "customers"] as const).map((tab) => (
+      <div className="flex items-center justify-between px-6 bg-theme-surface-2 border-b border-theme-divider gap-2 overflow-x-auto">
+        <div className="flex items-center gap-2">
+          {(["quotations", "orders", "invoices", "returns", "customers"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => { 
+                setSubView(tab); 
+                setSelectedIds(new Set()); 
+                setSelectedQuotation(null); 
+                setSelectedOrder(null); 
+                setSelectedInvoice(null);
+                setSelectedReturn(null);
+                setSelectedCustomer(null);
+                setIsCreatingQuotation(false);
+                setIsCreatingInvoice(false);
+                setIsCreatingReturn(false);
+                setIsImportingCustomers(false);
+                if (tab === "quotations") fetchQuotations(activeFilters);
+                else if (tab === "orders") fetchSalesOrders(activeFilters);
+                else if (tab === "invoices") fetchSalesInvoices(activeFilters);
+                else if (tab === "returns") fetchSalesReturns(activeFilters);
+                else if (tab === "customers") fetchCustomers();
+              }}
+              className={`px-4 py-3 text-xs font-bold uppercase tracking-wider font-mono border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+                subView === tab
+                  ? "border-blue-500 text-blue-400 bg-theme-surface-3"
+                  : "border-transparent text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
+              }`}
+            >
+              {tab === "quotations" && "Quotations"}
+              {tab === "orders" && "Sales Orders"}
+              {tab === "invoices" && "Sales Invoices"}
+              {tab === "returns" && "Sales Returns"}
+              {tab === "customers" && "Customers"}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center space-x-2 shrink-0 py-2 pr-2">
           <button
-            key={tab}
-            onClick={() => { 
-              setSubView(tab); 
-              setSelectedIds(new Set()); 
-              setSelectedQuotation(null); 
-              setSelectedOrder(null); 
-              setSelectedInvoice(null);
-              setSelectedReturn(null);
-              setSelectedCustomer(null);
-              setIsCreatingQuotation(false);
-              setIsCreatingInvoice(false);
-              setIsCreatingReturn(false);
-              setIsImportingCustomers(false);
-              if (tab === "quotations") fetchQuotations(activeFilters);
-              else if (tab === "orders") fetchSalesOrders(activeFilters);
-              else if (tab === "invoices") fetchSalesInvoices(activeFilters);
-              else if (tab === "returns") fetchSalesReturns(activeFilters);
-              else if (tab === "customers") fetchCustomers();
-            }}
-            className={`px-4 py-3 text-xs font-bold uppercase tracking-wider font-mono border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
-              subView === tab
-                ? "border-blue-500 text-blue-400 bg-theme-surface-3"
-                : "border-transparent text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
-            }`}
+            onClick={() => window.open("/?terminal=pos", "_blank", "fullscreen=yes,scrollbars=yes")}
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-xs font-bold font-mono text-emerald-400 rounded-lg shadow-sm transition-all"
+            title="Launch POS terminal in new window"
           >
-            {tab === "quotations" && "Quotations"}
-            {tab === "orders" && "Sales Orders"}
-            {tab === "invoices" && "Sales Invoices"}
-            {tab === "returns" && "Sales Returns"}
-            {tab === "customers" && "Customers"}
+            <span className="material-symbols-outlined text-sm">point_of_sale</span>
+            <span>POS Lane</span>
           </button>
-        ))}
+          <button
+            onClick={() => window.open("/?terminal=tax", "_blank", "fullscreen=yes,scrollbars=yes")}
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-xs font-bold font-mono text-indigo-400 rounded-lg shadow-sm transition-all"
+            title="Launch GST Tax Invoice terminal in new window"
+          >
+            <span className="material-symbols-outlined text-sm">receipt_long</span>
+            <span>B2B Terminal</span>
+          </button>
+        </div>
       </div>
 
       {/* Content Area */}

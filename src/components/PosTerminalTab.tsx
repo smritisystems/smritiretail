@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
@@ -16,6 +16,7 @@ import { Product, POSProfile, Shift, Bill } from "../types";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { AdvancedBillingEngine } from "./AdvancedBillingEngine.tsx";
 import { getCustomers } from "../services/customerStore.ts";
+import { useTerminalShortcuts } from "./terminal/KeyboardEngine";
 
 interface PosTerminalTabProps {
   products: Product[];
@@ -24,6 +25,13 @@ interface PosTerminalTabProps {
   onRefreshData: () => void;
   onNotification: (title: string, msg: string, type: "success" | "error") => void;
 }
+
+const SALESPERSONS = [
+  { id: "emp-101", name: "Rajesh Kumar", code: "EMP101" },
+  { id: "emp-102", name: "Anjali Sharma", code: "EMP102" },
+  { id: "emp-103", name: "Amit Patel", code: "EMP103" },
+  { id: "emp-104", name: "Pooja Roy", code: "EMP104" }
+];
 
 export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
   products,
@@ -36,8 +44,12 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
   const [openingBalance, setOpeningBalance] = useState("5000");
   const [activeShift, setActiveShift] = useState<Shift | null>(null);
 
+  // Salesperson & Commission Engine State
+  const [salespersonMode, setSalespersonMode] = useState<"single" | "line">("single");
+  const [selectedSalespersonId, setSelectedSalespersonId] = useState<string>("emp-101");
+
   // POS State
-  const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
+  const [cart, setCart] = useState<{ product: Product; quantity: number; salespersonId?: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -102,8 +114,12 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
         }
         return prev.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity: 1, salespersonId: selectedSalespersonId }];
     });
+  };
+
+  const updateLineSalesperson = (productId: string, salespersonId: string) => {
+    setCart(prev => prev.map(item => item.product.id === productId ? { ...item, salespersonId } : item));
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -147,46 +163,26 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
     onNotification("Bill Recalled", `Slot ${held.id} loaded back to terminal`, "success");
   }, [onNotification]);
 
-  // Keyboard Shortcuts for POS operations register
-  useEffect(() => {
-    if (!activeShift) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Esc -> Void / Clear Cart
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setCart([]);
-        onNotification("Cart Cleared", "Active shopping cart was cleared.", "success");
+  // Keyboard Shortcuts for POS operations register via KeyboardEngine hook
+  useTerminalShortcuts({
+    "ESC": () => {
+      setCart([]);
+      onNotification("Cart Cleared", "Active shopping cart was cleared.", "success");
+    },
+    "F2": () => {
+      handleHoldBill();
+    },
+    "F3": () => {
+      if (cart.length > 0) {
+        setShowAdvancedBilling(true);
       }
-      
-      // F2 -> Hold Bill
-      if (e.key === "F2") {
-        e.preventDefault();
-        handleHoldBill();
+    },
+    "F12": () => {
+      if (cart.length > 0) {
+        handleCheckout();
       }
-
-      // F3 -> Show Advanced Billing
-      if (e.key === "F3") {
-        e.preventDefault();
-        if (cart.length > 0) {
-          setShowAdvancedBilling(true);
-        }
-      }
-
-      // F12 -> Trigger Standard Checkout
-      if (e.key === "F12") {
-        e.preventDefault();
-        if (cart.length > 0) {
-          handleCheckout();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [activeShift, cart, customerName, handleHoldBill]);
+    }
+  });
 
   // Memoized product filter with debounced search
   const filteredProducts = useMemo(() => {
@@ -247,9 +243,13 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
         method: "POST",
         body: JSON.stringify({
           shiftId: activeShift.id,
-          items: cart,
+          items: cart.map(item => ({
+            ...item,
+            salespersonId: item.salespersonId || selectedSalespersonId
+          })),
           total: totalCartValue,
-          customerName
+          customerName,
+          salespersonId: selectedSalespersonId
         })
       });
       onNotification("Success", "Bill successfully paid, printed to lane queue, and recorded.", "success");
@@ -294,6 +294,34 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                   <option key={p.id} value={p.id}>{p.name} ({p.cashier})</option>
                 ))}
               </select>
+            </div>
+
+            {/* Salesperson & Commission Config */}
+            <div className="flex items-center space-x-2 border-l border-theme-divider pl-4">
+              <label className="text-xs font-semibold text-theme-muted uppercase font-display">Salesperson:</label>
+              {salespersonMode === "single" ? (
+                <select
+                  value={selectedSalespersonId}
+                  onChange={(e) => setSelectedSalespersonId(e.target.value)}
+                  className="bg-theme-surface-3 border border-theme-divider text-theme-body text-xs rounded px-2.5 py-1.5 focus:outline-none"
+                >
+                  {SALESPERSONS.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-xs text-amber-400 font-mono font-semibold bg-amber-950 bg-opacity-30 border border-amber-900 border-opacity-40 px-2 py-1 rounded">
+                  Line-Level Assigned
+                </span>
+              )}
+              
+              <button
+                onClick={() => setSalespersonMode(prev => prev === "single" ? "line" : "single")}
+                className="bg-theme-surface-3 border border-theme-divider hover:bg-theme-surface-2 text-theme-body text-[10px] font-bold uppercase px-2 py-1.5 rounded transition-all ml-1"
+                title="Toggle single salesperson vs line-level salesperson tracking"
+              >
+                Mode: {salespersonMode.toUpperCase()}
+              </button>
             </div>
 
             {/* Shift Indicators */}
@@ -468,6 +496,20 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                         <div className="flex-1 min-w-0 pr-3">
                           <h5 className="font-semibold text-theme-body text-xs truncate">{item.product.name}</h5>
                           <p className="text-[10px] text-theme-muted font-mono">â‚¹{item.product.price} / unit</p>
+                          {salespersonMode === "line" && (
+                            <div className="mt-1 flex items-center space-x-1">
+                              <span className="text-[9px] text-theme-muted font-semibold uppercase">Staff:</span>
+                              <select
+                                value={item.salespersonId || selectedSalespersonId}
+                                onChange={(e) => updateLineSalesperson(item.product.id, e.target.value)}
+                                className="bg-theme-surface-1 border border-theme-divider text-theme-body text-[10px] rounded px-1.5 py-0.5 focus:outline-none"
+                              >
+                                {SALESPERSONS.map(s => (
+                                  <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center space-x-3 shrink-0">
                           <div className="flex items-center bg-theme-surface-1 rounded border border-theme-divider">

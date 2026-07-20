@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -36,6 +36,8 @@ import { FieldExplorerTab } from "./components/FieldExplorerTab.tsx";
 import { FormulaRegistryTab } from "./components/FormulaRegistryTab.tsx";
 import { PsvTab } from "./components/PsvTab.tsx";
 import { PosProfilesTab } from "./components/PosProfilesTab.tsx";
+import { SharedTerminalFramework } from "./components/terminal/SharedTerminalFramework.tsx";
+import { AdvancedBillingEngine } from "./components/AdvancedBillingEngine.tsx";
 import { SalesStudioTab } from "./components/SalesStudioTab.tsx";
 import { ItemMasterTab } from "./components/ItemMasterTab.tsx";
 import { WikiTab } from "./components/WikiTab.tsx";
@@ -102,6 +104,14 @@ const AppContent: React.FC = () => {
   
   const [currentUser, setCurrentUser] = useState<{ role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string } | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [terminalParam, setTerminalParam] = useState<string | null>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("terminal");
+    } catch {
+      return null;
+    }
+  });
 
   const checkAuth = async () => {
     try {
@@ -539,6 +549,62 @@ const AppContent: React.FC = () => {
           setActiveTab("dashboard");
         }}
       />
+    );
+  }
+
+  if (terminalParam === "pos" || terminalParam === "tax") {
+    return (
+      <SharedTerminalFramework
+        terminalMode={terminalParam as "pos" | "tax"}
+        currentUser={currentUser}
+        profiles={profiles}
+        shifts={shifts}
+        onRefreshData={fetchSystemState}
+        onNotification={addNotification}
+        onClose={() => {
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("terminal");
+            window.history.replaceState({}, "", url.toString());
+          } catch (e) {
+            console.error(e);
+          }
+          setTerminalParam(null);
+        }}
+      >
+        {terminalParam === "pos" ? (
+          <div className="w-full h-full p-6 overflow-auto">
+            <PosTerminalTab
+              products={products}
+              profiles={profiles}
+              shifts={shifts}
+              onRefreshData={fetchSystemState}
+              onNotification={addNotification}
+            />
+          </div>
+        ) : (
+          <div className="w-full h-full p-6 overflow-auto">
+            <AdvancedBillingEngine
+              cart={[]}
+              onClearCart={() => {}}
+              activeShift={shifts.find(s => s.status === "Open") || null}
+              activeProfile={profiles.find(p => p.id === profiles[0]?.id) || null}
+              onCheckoutSuccess={() => fetchSystemState()}
+              onNotification={addNotification}
+              onClose={() => {
+                try {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete("terminal");
+                  window.history.replaceState({}, "", url.toString());
+                } catch (e) {
+                  console.error(e);
+                }
+                setTerminalParam(null);
+              }}
+            />
+          </div>
+        )}
+      </SharedTerminalFramework>
     );
   }
 

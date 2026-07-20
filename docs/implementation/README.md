@@ -91,6 +91,7 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-20 | v4.13.0 | [Indian Compliance Intelligence Suite](./foundation/v4_13_Indian_Compliance_Intelligence_Plan.md) | `/backend/app/core/compliance_rate_registry.py`, `/backend/app/services/gstr2b_reconciliation.py`, `/backend/app/core/gst_interest_calculator.py`, `/backend/app/core/msme_compliance.py`, `/backend/app/core/gs1_barcode_parser.py`, `/backend/app/services/indian_gst_reports.py` | Completed | [Walkthrough](../walkthrough/foundation/v4_13_Indian_Compliance_Intelligence_Walkthrough.md) |
 | 2026-07-20 | v4.14.0 | [Indian Payments & Bank Reconciliation Suite](./foundation/v4_14_Indian_Payments_And_Bank_Reconciliation_Plan.md) | `/backend/app/core/pg_gateway.py`, `/backend/app/services/wallet_reconciler.py`, `/backend/app/services/bank_reconciler.py` | Completed | [Walkthrough](../walkthrough/foundation/v4_14_Indian_Payments_And_Bank_Reconciliation_Walkthrough.md) |
 | 2026-07-20 | v4.15.0 | [GA Certification & Hardening](./foundation/v4_15_GA_Certification_And_Hardening_Plan.md) | `/backend/app/tests/test_v4_15_ga_hardening.py` | Completed | [Walkthrough](../walkthrough/foundation/v4_15_GA_Certification_And_Hardening_Walkthrough.md) |
+| 2026-07-20 | v5.0.0 | [Enterprise Billing Terminal Framework](./sales/Billing_Terminal_Framework_Plan_v5.0.0.md) | `/src/App.tsx`, `/src/components/terminal/`, `/backend/app/db/seed.py` | Completed | [Walkthrough](../walkthrough/sales/Sales_Billing_Terminal_Framework_v5.0.0.md) |
 
 
 
