@@ -148,6 +148,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-20 | v4.3.0 | High-Speed Billing Terminal & Offline Queue Engine | [Walkthrough](./foundation/v4_3_High_Speed_Billing_And_Offline_Sync_Walkthrough.md) | [Plan](../implementation/foundation/v4_3_High_Speed_Billing_And_Offline_Sync_Plan.md) | Completed |
 | 2026-07-20 | v4.4.0 | SMRITI Retail OS v4.4 Master Release Integration Suite | [Walkthrough](./foundation/v4_4_Master_Release_Integration_Suite_Walkthrough.md) | [Plan](../implementation/foundation/v4_4_Master_Release_Integration_Suite_Plan.md) | Completed |
 | 2026-07-20 | v4.5.0 | SMRITI Retail OS v4.5 Enterprise GA Certification Suite | [Walkthrough](./foundation/v4_5_Enterprise_GA_Certification_Suite_Walkthrough.md) | [Plan](../implementation/foundation/v4_5_Enterprise_GA_Certification_Suite_Plan.md) | Completed |
+| 2026-07-20 | v4.6.0 | SMRITI Retail OS v4.6 Operational Excellence & System Telemetry Engine | [Walkthrough](./foundation/v4_6_Operational_Excellence_And_Telemetry_Walkthrough.md) | [Plan](../implementation/foundation/v4_6_Operational_Excellence_And_Telemetry_Plan.md) | Completed |
+
 
 
 

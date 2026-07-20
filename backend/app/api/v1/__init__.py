@@ -47,4 +47,5 @@ from . import (
     communicator,
     screen_studio,
     offline_sync,
+    diagnostics,
 )
