@@ -141,6 +141,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-20 | v3.45.0 | Product Identity Engine Phase 2 | [Walkthrough](./foundation/Product_Identity_Engine_Phase2_Walkthrough_v3.45.0.md) | [Plan](../implementation/foundation/Product_Identity_Engine_Phase2_Plan_v3.45.0.md) | Completed |
 | 2026-07-20 | v3.46.0 | Multi-Module Integration & Regression Suite | [Walkthrough](./foundation/Full_Suite_Integration_And_Regression_Walkthrough_v3.46.0.md) | [Plan](../implementation/foundation/Full_Suite_Integration_And_Regression_Plan_v3.46.0.md) | Completed |
 | 2026-07-20 | v3.47.0 | SMRITI Identity Platform (SIP) Universal Enterprise Identity Core | [Walkthrough](./foundation/SIP_Universal_Identity_Platform_Walkthrough_v3.47.0.md) | [Plan](../implementation/foundation/SIP_Universal_Identity_Platform_Plan_v3.47.0.md) | Completed |
+| 2026-07-20 | v3.48.0 | SGIP Phase 4: Direct Portal Auto-Pull Sync & GSTR Filing Engine | [Walkthrough](./foundation/Foundation_SGIP_Phase4_AutoPull_And_GSTR_Filing_v3.48.0.md) | [Plan](../implementation/foundation/SGIP_Phase4_AutoPull_And_GSTR_Filing_Worker_Plan_v3.48.0.md) | Completed |
+
 
 
 

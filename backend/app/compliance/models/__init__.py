@@ -19,6 +19,7 @@ from .compliance import (
     GovernmentService,
 )
 from .reconciliation import GSTReconciliationRecord
+from .filing import GSTRFilingRecord, GSTROutboxLog
 
 __all__ = [
     "ComplianceAuditLog",
@@ -26,4 +27,6 @@ __all__ = [
     "ComplianceOutbox",
     "GovernmentService",
     "GSTReconciliationRecord",
+    "GSTRFilingRecord",
+    "GSTROutboxLog",
 ]

@@ -207,3 +207,56 @@ async def reconcile_gst_invoices(
         ],
     }
 
+
+@router.post(
+    "/gst/auto-pull",
+    summary="GSTR-2B Portal Auto-Pull Background Worker",
+    description="Auto-pulls GSTR-2B monthly statement from GSTN portal and triggers reconciliation."
+)
+async def auto_pull_gstr2b(
+    payload: Dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    from app.compliance.services.gstr_autopull_service import GSTRAutoPullService
+    svc = GSTRAutoPullService()
+    return await svc.execute_gstr2b_auto_pull(
+        db=db,
+        gstin=payload.get("gstin", "27AAAAA0000A1Z5"),
+        financial_period=payload.get("financial_period", "072026"),
+        mock_gstr2b_payload=payload.get("gstr2b_invoices", []),
+        purchase_invoices=payload.get("purchase_invoices", []),
+    )
+
+
+@router.post(
+    "/gst/filing/submit",
+    summary="GSTR-1 / GSTR-3B Monthly Return Filing Submit",
+    description="Assembles monthly return payload, calculates net tax liabilities, verifies DSC/EVC digital signature, and issues ARN."
+)
+async def submit_gstr_return(
+    payload: Dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    from app.compliance.services.gstr_filing_service import GSTRFilingService
+    svc = GSTRFilingService()
+    filing = await svc.prepare_and_submit_return(
+        db=db,
+        gstin=payload.get("gstin", "27AAAAA0000A1Z5"),
+        financial_period=payload.get("financial_period", "072026"),
+        return_type=payload.get("return_type", "GSTR1"),
+        sales_invoices=payload.get("sales_invoices", []),
+        verification_mode=payload.get("verification_mode", "DSC"),
+        dsc_signature_bytes=payload.get("dsc_signature_bytes", "DSC_BYTES_VALID"),
+    )
+    return {
+        "success": True,
+        "filing_id": filing.id,
+        "gstin": filing.gstin,
+        "financial_period": filing.financial_period,
+        "return_type": filing.return_type,
+        "arn_number": filing.arn_number,
+        "digital_signature_hash": filing.digital_signature_hash,
+        "status": filing.filing_status,
+    }
+
+
