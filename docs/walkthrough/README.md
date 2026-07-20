@@ -133,6 +133,18 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-20 | v3.37.0 | Phase 9: High-Concurrency Stress Testing | [Walkthrough](./foundation/Foundation_Enterprise_Security_And_Approval_Engine_v3.38.0.md) | [Plan](../implementation/foundation/Phase9_Stress_Testing_And_Concurrency_v3.37.0.md) | Completed |
 | 2026-07-20 | v3.38.0 | Phase 10: Governance Release & Documentation | [Walkthrough](./foundation/Foundation_Enterprise_Security_And_Approval_Engine_v3.38.0.md) | [Plan](../implementation/foundation/Phase10_Governance_Release_And_Documentation_v3.38.0.md) | Completed |
 | 2026-07-20 | v3.39.0 | SGIP Phase 2: E-Way Bill & E-Invoice Gateway | [Walkthrough](./foundation/Foundation_SGIP_Phase2_EWayBill_EInvoice_v3.39.0.md) | [Plan](../implementation/foundation/SGIP_Phase2_EWayBill_EInvoice_Gateway_Plan_v3.39.0.md) | Completed |
+| 2026-07-20 | v3.40.0 | Multi-Store Stock Rebalancing & Transfer Order Engine | [Walkthrough](./foundation/Foundation_MultiStore_Stock_Rebalancing_v3.40.0.md) | [Plan](../implementation/foundation/MultiStore_Stock_Rebalancing_And_Transfer_Order_Plan_v3.40.0.md) | Completed |
+| 2026-07-20 | v3.41.0 | SSACF Role Cycle Detection & Scoped Permissions | [Walkthrough](./foundation/Security_SSACF_Role_Cycle_Detection_And_Scoped_Permissions_Walkthrough_v3.41.0.md) | [Plan](../implementation/foundation/SSACF_Role_Cycle_Detection_And_Scoped_Permissions_Plan_v3.41.0.md) | Completed |
+| 2026-07-20 | v3.42.0 | SGIP Phase 3: Automated GST Reconciliation | [Walkthrough](./foundation/Foundation_SGIP_Phase3_GST_Reconciliation_v3.42.0.md) | [Plan](../implementation/foundation/SGIP_Phase3_Automated_GST_Reconciliation_And_GSTR_Filing_Plan_v3.42.0.md) | Completed |
+| 2026-07-20 | v3.43.0 | Product Identity Engine Phase 1 | [Walkthrough](./foundation/Product_Identity_Engine_Phase1_Walkthrough_v3.43.0.md) | [Plan](../implementation/foundation/Product_Identity_Engine_Phase1_Plan_v3.43.0.md) | Completed |
+| 2026-07-20 | v3.44.0 | Strangler-Fig Migration Cutover Gateway | [Walkthrough](./foundation/Strangler_Fig_Cutover_Gateway_Walkthrough_v3.44.0.md) | [Plan](../implementation/foundation/Strangler_Fig_Cutover_Gateway_Plan_v3.44.0.md) | Completed |
+| 2026-07-20 | v3.45.0 | Product Identity Engine Phase 2 | [Walkthrough](./foundation/Product_Identity_Engine_Phase2_Walkthrough_v3.45.0.md) | [Plan](../implementation/foundation/Product_Identity_Engine_Phase2_Plan_v3.45.0.md) | Completed |
+| 2026-07-20 | v3.46.0 | Multi-Module Integration & Regression Suite | [Walkthrough](./foundation/Full_Suite_Integration_And_Regression_Walkthrough_v3.46.0.md) | [Plan](../implementation/foundation/Full_Suite_Integration_And_Regression_Plan_v3.46.0.md) | Completed |
+
+
+
+
+
 
 
 

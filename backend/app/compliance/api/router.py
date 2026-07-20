@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 
-from typing import Any
+from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
@@ -172,3 +172,38 @@ async def process_queue(
     from app.compliance.services.queue_engine import ComplianceQueueEngine
     engine = ComplianceQueueEngine(db)
     return await engine.process_pending_outbox(limit=limit)
+
+
+@router.post(
+    "/gst/reconcile",
+    summary="Execute GST GSTR-2B ITC Reconciliation",
+    description="Automate matching of Purchase Register entries against GSTR-2B statements."
+)
+async def reconcile_gst_invoices(
+    payload: Dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    from app.compliance.services.gst_recon_service import GSTReconciliationService
+    svc = GSTReconciliationService()
+    recs = await svc.reconcile_gstr2b(
+        db=db,
+        gstin=payload.get("gstin", "27AAAAA0000A1Z5"),
+        financial_period=payload.get("financial_period", "072026"),
+        purchase_invoices=payload.get("purchase_invoices", []),
+        gstr2b_invoices=payload.get("gstr2b_invoices", []),
+    )
+    return {
+        "success": True,
+        "total_processed": len(recs),
+        "records": [
+            {
+                "id": r.id,
+                "supplier_gstin": r.supplier_gstin,
+                "invoice_number": r.invoice_number,
+                "status": r.reconciliation_status,
+                "variance": float(r.variance_amount),
+            }
+            for r in recs
+        ],
+    }
+

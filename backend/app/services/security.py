@@ -90,11 +90,14 @@ class SecurityService:
             
             next_to_resolve = []
             for r in roles:
-                if r.id not in visited_role_ids:
-                    visited_role_ids.add(r.id)
-                    resolved_roles.append(r)
-                    if r.parent_role_id and r.parent_role_id not in visited_role_ids:
-                        next_to_resolve.append(r.parent_role_id)
+                if r.id in visited_role_ids:
+                    continue
+                visited_role_ids.add(r.id)
+                resolved_roles.append(r)
+                if r.parent_role_id:
+                    if r.parent_role_id in visited_role_ids:
+                        raise ValueError(f"Circular role inheritance detected: role '{r.code}' refers back to parent '{r.parent_role_id}'")
+                    next_to_resolve.append(r.parent_role_id)
             
             to_resolve = next_to_resolve
 
@@ -230,3 +233,44 @@ class SecurityService:
         )
         self.db.add(audit)
         await self.db.commit()
+
+    async def get_effective_permission_scopes(self, user_id: str) -> dict[str, str]:
+        """
+        Resolves scope level (OWN_DOCUMENT, OWN_BRANCH, ALL_BRANCHES, GLOBAL) for user's permissions.
+        """
+        user_perms = await self.resolve_user_permissions(user_id)
+        user_stmt = select(User).where(User.id == user_id)
+        user = (await self.db.execute(user_stmt)).scalar_one_or_none()
+
+        scopes = {}
+        is_global = user and user.is_platform_admin
+        for code in user_perms:
+            if is_global:
+                scopes[code] = "GLOBAL"
+            else:
+                scopes[code] = "OWN_BRANCH"
+        return scopes
+
+    async def get_field_rules(self, resource: str, user_id: str) -> dict[str, dict[str, str]]:
+        """
+        Resolves field-level visibility (VISIBLE/HIDDEN) and editability (EDITABLE/READ_ONLY) rules per resource.
+        """
+        user_stmt = select(User).where(User.id == user_id)
+        user = (await self.db.execute(user_stmt)).scalar_one_or_none()
+
+        if user and user.is_platform_admin:
+            return {
+                "*": {"visibility": "VISIBLE", "editability": "EDITABLE"}
+            }
+
+        # Default rules for standard users
+        if resource.lower() in ["item", "product"]:
+            return {
+                "cost_price": {"visibility": "HIDDEN", "editability": "READ_ONLY"},
+                "price": {"visibility": "VISIBLE", "editability": "EDITABLE"},
+                "*": {"visibility": "VISIBLE", "editability": "EDITABLE"}
+            }
+        return {
+            "*": {"visibility": "VISIBLE", "editability": "EDITABLE"}
+        }
+

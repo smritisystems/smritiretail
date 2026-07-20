@@ -66,6 +66,18 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-20 | v3.37.0 | [Phase 9: Stress Testing & Concurrency](./foundation/Phase9_Stress_Testing_And_Concurrency_v3.37.0.md) | `/backend/app/tests/test_enterprise_stress_and_concurrency.py` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_Enterprise_Security_And_Approval_Engine_v3.38.0.md) |
 | 2026-07-20 | v3.38.0 | [Phase 10: Governance Release & Documentation](./foundation/Phase10_Governance_Release_And_Documentation_v3.38.0.md) | `/docs/` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_Enterprise_Security_And_Approval_Engine_v3.38.0.md) |
 | 2026-07-20 | v3.39.0 | [SGIP Phase 2: E-Way Bill & E-Invoice Gateway](./foundation/SGIP_Phase2_EWayBill_EInvoice_Gateway_Plan_v3.39.0.md) | `/backend/app/compliance/` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_SGIP_Phase2_EWayBill_EInvoice_v3.39.0.md) |
+| 2026-07-20 | v3.40.0 | [Multi-Store Stock Rebalancing & Transfer Engine](./foundation/MultiStore_Stock_Rebalancing_And_Transfer_Order_Plan_v3.40.0.md) | `/backend/app/models/transfer.py`, `/backend/app/api/v1/transfers.py` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_MultiStore_Stock_Rebalancing_v3.40.0.md) |
+| 2026-07-20 | v3.41.0 | [SSACF Role Cycle Detection & Scoped Permissions](./foundation/SSACF_Role_Cycle_Detection_And_Scoped_Permissions_Plan_v3.41.0.md) | `/backend/app/services/security.py`, `/backend/app/api/v1/security.py` | Completed | [Walkthrough](../walkthrough/foundation/Security_SSACF_Role_Cycle_Detection_And_Scoped_Permissions_Walkthrough_v3.41.0.md) |
+| 2026-07-20 | v3.42.0 | [SGIP Phase 3: Automated GST Reconciliation](./foundation/SGIP_Phase3_Automated_GST_Reconciliation_And_GSTR_Filing_Plan_v3.42.0.md) | `/backend/app/compliance/` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_SGIP_Phase3_GST_Reconciliation_v3.42.0.md) |
+| 2026-07-20 | v3.43.0 | [Product Identity Engine Phase 1](./foundation/Product_Identity_Engine_Phase1_Plan_v3.43.0.md) | `/backend/app/services/identity_service.py`, `/backend/app/api/v1/identity.py` | Completed | [Walkthrough](../walkthrough/foundation/Product_Identity_Engine_Phase1_Walkthrough_v3.43.0.md) |
+| 2026-07-20 | v3.44.0 | [Strangler-Fig Migration Cutover Gateway](./foundation/Strangler_Fig_Cutover_Gateway_Plan_v3.44.0.md) | `/backend/app/api/v1/health_flags.py` | Completed | [Walkthrough](../walkthrough/foundation/Strangler_Fig_Cutover_Gateway_Walkthrough_v3.44.0.md) |
+| 2026-07-20 | v3.45.0 | [Product Identity Engine Phase 2](./foundation/Product_Identity_Engine_Phase2_Plan_v3.45.0.md) | `/backend/app/services/identity_service.py`, `/backend/app/api/v1/identity.py` | Completed | [Walkthrough](../walkthrough/foundation/Product_Identity_Engine_Phase2_Walkthrough_v3.45.0.md) |
+| 2026-07-20 | v3.46.0 | [Multi-Module Integration & Regression Suite](./foundation/Full_Suite_Integration_And_Regression_Plan_v3.46.0.md) | `/backend/app/tests/test_v3_46_full_suite_regression.py` | Completed | [Walkthrough](../walkthrough/foundation/Full_Suite_Integration_And_Regression_Walkthrough_v3.46.0.md) |
+
+
+
+
+
 
 
 

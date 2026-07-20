@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from ...api.deps import get_db, get_current_user, require_permission, get_tenant_context, TenantContext
+from ...models.auth import User
 from ...models.approval import (
     SMRITIApprovalRequest,
     SMRITIApprovalAction,

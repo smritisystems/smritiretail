@@ -100,3 +100,29 @@ async def list_permission_sets(
     res = await db.execute(stmt)
     return list(res.scalars().all())
 
+
+@router.get("/field-rules")
+async def get_field_rules(
+    resource: str = Query(..., example="Item"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieve field-level security visibility and editability rules for a target resource entity.
+    """
+    service = SecurityService(db)
+    return await service.get_field_rules(resource=resource, user_id=current_user.id)
+
+
+@router.get("/scopes")
+async def get_permission_scopes(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieve user authorization scope levels per permission code.
+    """
+    service = SecurityService(db)
+    return await service.get_effective_permission_scopes(user_id=current_user.id)
+
+
