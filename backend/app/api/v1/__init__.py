@@ -45,4 +45,5 @@ from . import (
     identity,
     sip,
     communicator,
+    screen_studio,
 )

@@ -104,7 +104,7 @@ async def clear_db(db_session: AsyncSession):
         "stock_transfer_order_items", "stock_transfer_orders", "stock_rebalancing_recommendations",
         "gst_reconciliation_records", "product_identities", "barcode_providers", "identity_rules",
         "smriti_universal_identities", "smriti_identity_rules", "smriti_identity_rule_versions", "smriti_identity_outbox",
-        "gstr_filing_records", "gstr_outbox_logs"
+        "gstr_filing_records", "gstr_outbox_logs", "screen_layout_templates"
     }
 
     # Verify which of the tables actually exist in postgres currently

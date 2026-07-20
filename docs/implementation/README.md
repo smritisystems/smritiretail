@@ -77,6 +77,8 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-20 | v3.48.0 | [SGIP Phase 4: Auto-Pull & GSTR Filing Engine](./foundation/SGIP_Phase4_AutoPull_And_GSTR_Filing_Worker_Plan_v3.48.0.md) | `/backend/app/compliance/models/filing.py`, `/backend/app/compliance/services/` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_SGIP_Phase4_AutoPull_And_GSTR_Filing_v3.48.0.md) |
 | 2026-07-20 | v4.0.0 | [SMRITI Retail OS v4.0 Master Architecture Evolution](./foundation/v4_0_Master_Architecture_Assessment_And_Evolution_Plan.md) | `/src/layout_engine/adaptive_workspace_store.ts`, `/backend/app/api/v1/communicator.py` | Completed | [Walkthrough](../walkthrough/foundation/v4_0_Master_Architecture_Assessment_And_Evolution_Walkthrough.md) |
 | 2026-07-20 | v4.1.0 | [SMRITI Adaptive Experience Framework (SAEF)](./foundation/SAEF_Adaptive_Experience_Framework_Plan_v4.1.0.md) | `/src/layout_engine/saef_experience_store.ts`, `/backend/app/services/communicator_service.py` | Completed | [Walkthrough](../walkthrough/foundation/v4_1_SAEF_Adaptive_Experience_Framework_Walkthrough.md) |
+| 2026-07-20 | v4.2.0 | [Screen Studio Metadata Visual Editor](./foundation/v4_2_Screen_Studio_Metadata_Editor_Plan.md) | `/backend/app/models/screen_studio.py`, `/src/components/ScreenStudioTab.tsx` | Completed | [Walkthrough](../walkthrough/foundation/v4_2_Screen_Studio_Metadata_Editor_Walkthrough.md) |
+
 
 
 

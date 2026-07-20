@@ -25,6 +25,7 @@ from .purchase import (
 from .pos import CashRegister, Shift
 from .product_identity import BarcodeProvider, IdentityRule, ProductIdentity
 from .sip import UniversalIdentityRegistry, SIPIdentityRule, SIPIdentityRuleVersion, SIPIdentityOutbox
+from .screen_studio import ScreenLayoutTemplate
 from .user_assignment import UserCompanyAssignment, UserBranchAssignment, UserStoreAssignment
 from .workflow import WorkflowEvent
 from .supplier_payment import SupplierPayment

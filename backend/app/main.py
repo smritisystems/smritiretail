@@ -71,6 +71,7 @@ from .api.v1 import (
     transfers,
     sip,
     communicator,
+    screen_studio,
 )
 
 from .core.config import settings
@@ -155,6 +156,7 @@ app.include_router(dispatch.router,          prefix=settings.API_V1_STR + "/disp
 app.include_router(transfers.router,         prefix=settings.API_V1_STR,                    tags=["Stock Transfers & Rebalancing"])
 app.include_router(sip.router,               prefix=settings.API_V1_STR,                    tags=["SMRITI Identity Platform (SIP)"])
 app.include_router(communicator.router,      prefix=settings.API_V1_STR,                    tags=["SMRITI Communicator Sync Gateway"])
+app.include_router(screen_studio.router,     prefix=settings.API_V1_STR,                    tags=["SMRITI Screen Studio Metadata Engine"])
 
 
 
