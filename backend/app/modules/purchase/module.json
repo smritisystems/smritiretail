@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "module_version": "13.0.0",
+  "id": "purchase",
+  "uuid": "10000000-0000-0000-0000-000000000005",
+  "name": "Purchase & Procurement",
+  "display_name": "Purchase Order & Landed Cost Procurement",
+  "category": "Procurement & Supply Chain",
+  "module_type": "OPTIONAL",
+  "version": "13.0.0",
+  "stability": "STABLE",
+  "trust_tier": "FIRST_PARTY",
+  "license_tier": "Community",
+  "critical": false,
+  "min_platform": "12.1.0",
+  "max_platform": "13.x",
+  "depends_on": [],
+  "conflicts_with": [],
+  "permissions": ["purchase.view", "purchase.create", "purchase.approve"],
+  "menus": [
+    { "id": "menu_purchase_orders", "label": "Purchase Orders", "path": "/purchase/orders" },
+    { "id": "menu_goods_receipt", "label": "Goods Receipt (GRN)", "path": "/purchase/grn" }
+  ],
+  "routes": [
+    "/api/v1/purchase",
+    "/api/v1/purchase/orders",
+    "/api/v1/purchase/grn"
+  ],
+  "event_contracts": ["Purchase.Receipt.Received:v1"]
+}

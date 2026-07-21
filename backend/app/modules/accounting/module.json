@@ -5,7 +5,7 @@
   "display_name": "General Ledger & Double-Entry Accounting",
   "category": "Financial",
   "module_type": "OPTIONAL",
-  "version": "12.1.0",
+  "version": "13.0.0",
   "stability": "STABLE",
   "trust_tier": "FIRST_PARTY",
   "license_tier": "Enterprise",

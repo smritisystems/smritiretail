@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "module_version": "13.0.0",
+  "id": "pos",
+  "uuid": "10000000-0000-0000-0000-000000000002",
+  "name": "POS Checkout",
+  "display_name": "Unified Counter POS & Cash Drawer Checkout",
+  "category": "Core Retail",
+  "module_type": "CORE",
+  "version": "13.0.0",
+  "stability": "STABLE",
+  "trust_tier": "FIRST_PARTY",
+  "license_tier": "Community",
+  "critical": true,
+  "min_platform": "12.1.0",
+  "max_platform": "13.x",
+  "depends_on": [],
+  "conflicts_with": [],
+  "permissions": ["pos.checkout", "pos.shift", "pos.drawer"],
+  "menus": [
+    { "id": "menu_pos_billing", "label": "POS Counter", "path": "/pos/billing" },
+    { "id": "menu_pos_shift", "label": "Cash Shift Session", "path": "/pos/shift" }
+  ],
+  "routes": [
+    "/api/v1/pos",
+    "/api/v1/pos/billing",
+    "/api/v1/pos/shift"
+  ],
+  "event_contracts": ["Sales.Invoice.Posted:v1"]
+}

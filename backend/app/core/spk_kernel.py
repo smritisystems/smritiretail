@@ -226,13 +226,13 @@ class SPKKernel:
                 display_name="Outbound Sales Order & Billing",
                 category="Core Retail",
                 module_type=ModuleType.CORE,
-                version="12.1.0",
+                version="13.0.0",
                 stability="STABLE",
                 trust_tier=TrustTier.FIRST_PARTY,
                 license_tier="Community",
                 critical=True,
                 min_platform="12.1.0",
-                max_platform="12.x",
+                max_platform="13.x",
                 status=ModuleState.ENABLED
             ),
             CapabilityManifest(
@@ -242,13 +242,13 @@ class SPKKernel:
                 display_name="Unified POS Counter Checkout",
                 category="Core Retail",
                 module_type=ModuleType.CORE,
-                version="12.1.0",
+                version="13.0.0",
                 stability="STABLE",
                 trust_tier=TrustTier.FIRST_PARTY,
                 license_tier="Community",
                 critical=True,
                 min_platform="12.1.0",
-                max_platform="12.x",
+                max_platform="13.x",
                 status=ModuleState.ENABLED
             ),
             CapabilityManifest(
@@ -258,13 +258,13 @@ class SPKKernel:
                 display_name="Stock Audit & Multi-Warehouse Stock",
                 category="Core Retail",
                 module_type=ModuleType.CORE,
-                version="12.1.0",
+                version="13.0.0",
                 stability="STABLE",
                 trust_tier=TrustTier.FIRST_PARTY,
                 license_tier="Community",
                 critical=True,
                 min_platform="12.1.0",
-                max_platform="12.x",
+                max_platform="13.x",
                 status=ModuleState.ENABLED
             ),
             CapabilityManifest(
@@ -274,13 +274,13 @@ class SPKKernel:
                 display_name="Cash Book, Receipts & Payments",
                 category="Financial",
                 module_type=ModuleType.OPTIONAL,
-                version="12.1.0",
+                version="13.0.0",
                 stability="STABLE",
                 trust_tier=TrustTier.FIRST_PARTY,
                 license_tier="Professional",
                 critical=False,
                 min_platform="12.1.0",
-                max_platform="12.x",
+                max_platform="13.x",
                 status=ModuleState.DISABLED
             ),
             CapabilityManifest(
@@ -290,14 +290,15 @@ class SPKKernel:
                 display_name="General Ledger & Double-Entry Accounting",
                 category="Financial",
                 module_type=ModuleType.OPTIONAL,
-                version="12.1.0",
+                version="13.0.0",
                 stability="STABLE",
                 trust_tier=TrustTier.FIRST_PARTY,
                 license_tier="Enterprise",
                 critical=False,
                 min_platform="12.1.0",
-                max_platform="12.x",
+                max_platform="13.x",
                 depends_on=["basic_accounting"],
+
                 routes=[
                     "/api/v1/accounting/settings",
                     "/api/v1/accounting/accounts",
@@ -313,6 +314,55 @@ class SPKKernel:
         for m in core_modules:
             self.manifests[m.id] = m
             self.states[m.id] = m.status
+
+        # Dynamic Auto-Discovery of backend/app/modules/*/module.json
+        modules_dir = Path(__file__).resolve().parent.parent / "modules"
+        if modules_dir.exists():
+            for m_dir in modules_dir.iterdir():
+                if m_dir.is_dir():
+                    manifest_file = m_dir / "module.json"
+                    if manifest_file.exists():
+                        try:
+                            with open(manifest_file, "r", encoding="utf-8") as f:
+                                data = json.load(f)
+
+                            # Check for duplicate UUIDs
+                            m_uuid = data.get("uuid", str(uuid.uuid4()))
+                            m_id = data.get("id")
+                            if not m_id:
+                                continue
+
+                            for existing_id, existing_m in self.manifests.items():
+                                if existing_m.uuid == m_uuid and existing_id != m_id:
+                                    logger.error("[SPK Kernel] Duplicate UUID '%s' detected between '%s' and '%s'", m_uuid, existing_id, m_id)
+
+                            manifest = CapabilityManifest(
+                                id=m_id,
+                                uuid=m_uuid,
+                                name=data.get("name", m_id.capitalize()),
+                                display_name=data.get("display_name", data.get("name", m_id)),
+                                category=data.get("category", "Core Retail"),
+                                module_type=ModuleType(data.get("module_type", "OPTIONAL")),
+                                version=data.get("version", "13.0.0"),
+                                stability=data.get("stability", "STABLE"),
+                                trust_tier=TrustTier(data.get("trust_tier", "FIRST_PARTY")),
+                                license_tier=data.get("license_tier", "Community"),
+                                critical=data.get("critical", False),
+                                min_platform=data.get("min_platform", "12.1.0"),
+                                max_platform=data.get("max_platform", "13.x"),
+                                depends_on=data.get("depends_on", []),
+                                permissions=data.get("permissions", []),
+                                menus=data.get("menus", []),
+                                routes=data.get("routes", []),
+                                event_contracts=data.get("event_contracts", []),
+                                status=ModuleState.ENABLED if data.get("critical", False) else ModuleState.DISABLED
+                            )
+                            self.manifests[m_id] = manifest
+                            if m_id not in self.states:
+                                self.states[m_id] = manifest.status
+                        except Exception as e:
+                            logger.error("[SPK Kernel] Failed to load module manifest from %s: %s", manifest_file, e)
+
 
     def _load_installation_state(self):
         """Loads state from smriti-installation-state.json dev file or DB."""

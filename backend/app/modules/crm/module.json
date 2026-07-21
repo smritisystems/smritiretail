@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "module_version": "13.0.0",
+  "id": "crm",
+  "uuid": "10000000-0000-0000-0000-000000000006",
+  "name": "CRM & Loyalty",
+  "display_name": "Customer Relationship & Loyalty Rewards",
+  "category": "CRM & Customer Experience",
+  "module_type": "OPTIONAL",
+  "version": "13.0.0",
+  "stability": "STABLE",
+  "trust_tier": "FIRST_PARTY",
+  "license_tier": "Community",
+  "critical": false,
+  "min_platform": "12.1.0",
+  "max_platform": "13.x",
+  "depends_on": [],
+  "conflicts_with": [],
+  "permissions": ["crm.view", "crm.create", "loyalty.manage"],
+  "menus": [
+    { "id": "menu_customers", "label": "Customer Directory", "path": "/crm/customers" },
+    { "id": "menu_loyalty", "label": "Loyalty Rewards", "path": "/crm/loyalty" }
+  ],
+  "routes": [
+    "/api/v1/crm",
+    "/api/v1/crm/customers",
+    "/api/v1/crm/loyalty"
+  ],
+  "event_contracts": ["Customer.Created:v1"]
+}
