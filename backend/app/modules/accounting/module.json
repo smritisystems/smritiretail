@@ -1,0 +1,34 @@
+{
+  "id": "accounting",
+  "uuid": "8f8b89e0-5928-4e4b-9706-5a4112e4f012",
+  "name": "Financial Accounting",
+  "display_name": "General Ledger & Double-Entry Accounting",
+  "category": "Financial",
+  "module_type": "OPTIONAL",
+  "version": "12.1.0",
+  "stability": "STABLE",
+  "trust_tier": "FIRST_PARTY",
+  "license_tier": "Enterprise",
+  "critical": false,
+  "min_platform": "12.1.0",
+  "max_platform": "12.x",
+  "depends_on": [],
+  "conflicts_with": [],
+  "permissions": ["account.view", "account.manage", "journal.post", "financial.report"],
+  "menus": [
+    { "id": "menu_chart_of_accounts", "label": "Chart of Accounts", "path": "/accounting/accounts" },
+    { "id": "menu_journal_vouchers", "label": "Journal Vouchers", "path": "/accounting/vouchers" },
+    { "id": "menu_trial_balance", "label": "Trial Balance", "path": "/accounting/reports/trial-balance" },
+    { "id": "menu_profit_loss", "label": "Profit & Loss", "path": "/accounting/reports/profit-loss" },
+    { "id": "menu_balance_sheet", "label": "Balance Sheet", "path": "/accounting/reports/balance-sheet" }
+  ],
+  "routes": [
+    "/api/v1/accounting/settings",
+    "/api/v1/accounting/accounts",
+    "/api/v1/accounting/vouchers",
+    "/api/v1/accounting/reports/trial-balance",
+    "/api/v1/accounting/reports/profit-loss",
+    "/api/v1/accounting/reports/balance-sheet"
+  ],
+  "event_contracts": ["Sales.Invoice.Posted:v1", "Purchase.Receipt.Received:v1"]
+}

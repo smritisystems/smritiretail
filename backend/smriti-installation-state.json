@@ -1,0 +1,7 @@
+{
+  "sales": "ENABLED",
+  "pos": "ENABLED",
+  "inventory": "ENABLED",
+  "basic_accounting": "DISABLED",
+  "advanced_accounting": "DISABLED"
+}

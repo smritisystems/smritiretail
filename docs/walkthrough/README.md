@@ -186,6 +186,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-21 | v10.0.0 | Unified POS Checkout, Cash Drawer Session & Offline Sync Queue Engine | [Walkthrough](./pos/POS_Checkout_Cash_Drawer_Offline_Sync_v10.0.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
 | 2026-07-21 | v11.0.0 | GST Tax Settlement, Outward/Inward Return Filing DTO & E-Way Bill Integration Engine | [Walkthrough](./tax/GST_Tax_Settlement_EWay_Bill_v11.0.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
 | 2026-07-21 | v12.0.0 | General Ledger & Double-Entry Accounting Engine (Plug-in Architecture) | [Walkthrough](./foundation/Accounting_General_Ledger_Double_Entry_v12.0.0.md) | [Plan](../implementation/accounting/General_Ledger_Double_Entry_Accounting_Plan_v12.0.0.md) | Completed |
+| 2026-07-21 | v12.1.0 | SMRITI Modular Platform (SMP-001 v1.0 Specification) & SPK Kernel | [Walkthrough](./foundation/SMRITI_Capability_Platform_Plugin_Architecture_v12.1.0.md) | [Plan](../implementation/foundation/SMRITI_Capability_Platform_Plugin_Architecture_Plan_v12.1.0.md) | Completed |
+
 
 
 

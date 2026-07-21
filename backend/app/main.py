@@ -91,6 +91,7 @@ from .api.v1 import (
     offline_sync,
     diagnostics,
     accounting,
+    capabilities,
 )
 
 from .core.config import settings
@@ -212,6 +213,8 @@ app.include_router(offline_sync.router,      prefix=settings.API_V1_STR,        
 app.include_router(diagnostics.router,       prefix=settings.API_V1_STR,                    tags=["SMRITI Operational Observability & Telemetry Engine"])
 app.include_router(validation_policy.router, prefix=settings.API_V1_STR,                    tags=["Platform Validation Engine (PVE)"])
 app.include_router(accounting.router,        prefix=settings.API_V1_STR,                    tags=["General Ledger & Financial Accounting"])
+app.include_router(capabilities.router,        prefix=settings.API_V1_STR,                    tags=["SMRITI Modular Platform (SMP-001) Capabilities"])
+
 
 
 
