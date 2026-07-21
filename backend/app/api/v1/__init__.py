@@ -56,7 +56,9 @@ from . import (
     accounting,
     marketplace,
     operations,
+    ai_advisory,
 )
+
 
 
 

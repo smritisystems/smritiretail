@@ -94,7 +94,9 @@ from .api.v1 import (
     capabilities,
     marketplace,
     operations,
+    ai_advisory,
 )
+
 
 
 
@@ -220,6 +222,8 @@ app.include_router(accounting.router,        prefix=settings.API_V1_STR,        
 app.include_router(capabilities.router,        prefix=settings.API_V1_STR,                    tags=["SMRITI Modular Platform (SMP-001) Capabilities"])
 app.include_router(marketplace.router,         prefix=settings.API_V1_STR,                    tags=["SMRITI Marketplace Ecosystem (Layer 4)"])
 app.include_router(operations.router,          prefix=settings.API_V1_STR,                    tags=["SMRITI Enterprise Operations (Layer 5)"])
+app.include_router(ai_advisory.router,          prefix=settings.API_V1_STR,                    tags=["SMRITI AI & Intelligent Automation (Layer 6)"])
+
 
 
 
