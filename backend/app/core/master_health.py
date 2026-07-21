@@ -35,8 +35,10 @@ class MasterHealthChecker:
             "pharma_healthcare_v24.0",
             "apparel_matrix_v25.0",
             "nic_gst_v26.0",
-            "ecosystem_hub_v27.0"
+            "ecosystem_hub_v27.0",
+            "official_website_v28.0"
         ]
+
 
 
 

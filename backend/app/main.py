@@ -110,6 +110,8 @@ from .api.v1 import (
 from app.api.v1.customer import dashboard as customer_dashboard
 from app.api.v1.academy import courses as academy_courses
 from app.api.v1.search import global_search as global_search
+from app.api.v1.website import marketing as website_marketing
+
 
 
 
@@ -263,6 +265,8 @@ app.include_router(ecosystem.router,            prefix=settings.API_V1_STR,     
 app.include_router(customer_dashboard.router,   prefix=settings.API_V1_STR,                    tags=["Customer Portal Workspace & Licenses"])
 app.include_router(academy_courses.router,      prefix=settings.API_V1_STR,                    tags=["SMRITI Academy LMS & Certifications"])
 app.include_router(global_search.router,        prefix=settings.API_V1_STR,                    tags=["Global Unified Search Service"])
+app.include_router(website_marketing.router,    prefix=settings.API_V1_STR,                    tags=["Official Product Website & Marketing"])
+
 
 
 

@@ -18,14 +18,14 @@ from typing import Dict, Any
 class MasterReleaseManifest:
     """Master Release Manifest for SMRITI Retail OS v23.0.0."""
 
-    MASTER_VERSION = "27.0.0"
+    MASTER_VERSION = "28.0.0"
     FOUNDATION_BASELINE = "PAR-001 v1.0 Baseline"
     SPK_KERNEL_VERSION = "12.1.0"
     CMP_GOVERNANCE_POLICY = "CMP-001 v1.0"
     GCR_ENGINEERING_STANDARD = "GCR-001 v1.0"
 
     PLATFORM_LAYERS = {
-        "Layer 1": "Platform Governance (SMP-001..014, GCR-001, CMP-001, AOP-001)",
+        "Layer 1": "Platform Governance (SMP-001..014, GCR-001, CMP-001, AOP-001, SIP-001, DPF-001)",
         "Layer 2": "SPK Kernel Runtime Engine (v12.1.0)",
         "Layer 3": "Core Subsystems & First-Party Extension SDK (v13.0.0)",
         "Layer 4": "Marketplace Ecosystem Engine (v14.0.0)",
@@ -43,8 +43,10 @@ class MasterReleaseManifest:
         "Phase 30": "Pharma & Healthcare Retail Engine (v24.0.0)",
         "Phase 31": "Apparel & Fashion 3D Matrix Engine (v25.0.0)",
         "Phase 32": "NIC GSTN E-Way Bill & E-Invoice Gateway (v26.0.0)",
-        "Phase 33": "SMRITI Digital Platform Ecosystem Hub (v27.0.0)"
+        "Phase 33": "SMRITI Digital Platform Ecosystem Hub (v27.0.0)",
+        "Phase 34": "Official Product Website & Public Marketing Portal (v28.0.0)"
     }
+
 
 
 
