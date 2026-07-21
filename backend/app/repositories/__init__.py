@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -15,5 +15,5 @@ License      : Proprietary Commercial Software
 from .product import ProductRepository
 from .customer import CustomerRepository, CustomerGroupRepository, PricingGroupRepository
 from .sales import SalesInvoiceRepository
-from .pos import CashRegisterRepository, ShiftRepository
+from .pos import PosSessionRepository
 

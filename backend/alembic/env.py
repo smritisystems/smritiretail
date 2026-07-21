@@ -37,7 +37,7 @@ from app.models.purchase import (
     PurchaseReceipt, PurchaseReceiptItem,
     PurchaseReorderConfig, PurchaseJurisdictionConfig,
 )
-from app.models.pos import CashRegister, Shift
+from app.models.pos import PosSession, PosTransaction, PosTransactionItem, PosOfflineSyncQueue
 from app.models.supplier_payment import SupplierPayment
 from app.compliance.models import (
     GovernmentService,

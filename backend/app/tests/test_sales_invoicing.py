@@ -44,7 +44,7 @@ async def _setup_inv_tenant(db):
     branch_id = f"br-inv-{uuid.uuid4().hex[:8]}"
 
     company = Company(id=company_id, uuid=str(uuid.uuid4()), name="Invoice Test Co", is_active=True)
-    branch = Branch(id=branch_id, uuid=str(uuid.uuid4()), company_id=company_id, name="Invoice HQ", code=f"IHQ{uuid.uuid4().hex[:4].upper()}", is_active=True)
+    branch = Branch(id=branch_id, uuid=str(uuid.uuid4()), company_id=company_id, name="Invoice HQ", code=f"IHQ{uuid.uuid4().hex[:8].upper()}", is_active=True)
     db.add_all([company, branch])
     await db.flush()
 

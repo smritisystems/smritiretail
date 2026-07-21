@@ -39,7 +39,7 @@ async def _setup_product_vendor_tenant(db_session: AsyncSession) -> TenantContex
     branch_id = f"br-{uuid.uuid4().hex[:8]}"
 
     comp = Company(id=company_id, uuid=str(uuid.uuid4()), name="Test Product Vendor Company", is_active=True)
-    branch = Branch(id=branch_id, uuid=str(uuid.uuid4()), company_id=company_id, name="Main Branch", code=f"BR-{uuid.uuid4().hex[:4]}", is_active=True)
+    branch = Branch(id=branch_id, uuid=str(uuid.uuid4()), company_id=company_id, name="Main Branch", code=f"BR-{uuid.uuid4().hex[:8].upper()}", is_active=True)
     db_session.add_all([comp, branch])
     await db_session.commit()
 

@@ -183,6 +183,10 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-21 | v8.0.0 | Inventory Physical Stock Audit & Cycle Counting Engine | [Walkthrough](./inventory/Inventory_Stock_Audit_Cycle_Counting_v8.0.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
 | 2026-07-21 | v8.1.0 | Stock Movement & Inter-Branch Transfer Order Engine | [Walkthrough](./inventory/Inventory_Stock_Transfer_Inter_Branch_v8.1.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
 | 2026-07-21 | v9.0.0 | Automated Warehouse Replenishment & Reorder Suggestions Engine | [Walkthrough](./inventory/Inventory_Replenishment_Reorder_v9.0.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+| 2026-07-21 | v10.0.0 | Unified POS Checkout, Cash Drawer Session & Offline Sync Queue Engine | [Walkthrough](./pos/POS_Checkout_Cash_Drawer_Offline_Sync_v10.0.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+| 2026-07-21 | v11.0.0 | GST Tax Settlement, Outward/Inward Return Filing DTO & E-Way Bill Integration Engine | [Walkthrough](./tax/GST_Tax_Settlement_EWay_Bill_v11.0.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+
+
 
 
 

@@ -22,7 +22,8 @@ from .purchase import (
     PurchaseOrder, PurchaseOrderItem,
     PurchaseReceipt, PurchaseReceiptItem,
 )
-from .pos import CashRegister, Shift
+from .pos import PosSession, PosTransaction, PosTransactionItem, PosOfflineSyncQueue
+from .tax import GstTaxSettlement, GstReturnFiling, EWayBill
 from .product_identity import BarcodeProvider, IdentityRule, ProductIdentity
 from .sip import UniversalIdentityRegistry, SIPIdentityRule, SIPIdentityRuleVersion, SIPIdentityOutbox
 from .screen_studio import ScreenLayoutTemplate
