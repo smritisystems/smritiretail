@@ -286,6 +286,7 @@ class PurchaseReceipt(BaseEntity):
     subtotal    = Column(Numeric(15, 2), nullable=False, default=0.00)
     tax_total   = Column(Numeric(15, 2), nullable=False, default=0.00)
     grand_total = Column(Numeric(15, 2), nullable=False, default=0.00)
+    qc_status   = Column(String(30), nullable=False, default="PendingInspection")
 
 
 class PurchaseReceiptItem(BaseEntity):
