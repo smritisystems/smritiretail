@@ -24,43 +24,234 @@ Founders
 Classification: Internal
 """
 
+import re
 from decimal import Decimal
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
-# ─────────────────────────── Supplier ───────────────────────────
+# ─────────────────────────── Supplier Sub-Entities ───────────────────────────
+
+class SupplierTaxProfileCreate(BaseModel):
+    pan_number: Optional[str] = None
+    gstin: Optional[str] = None
+    gst_registration_type_id: Optional[str] = None
+    is_tds_applicable: bool = False
+    tds_section_id: Optional[str] = None
+    tds_rate: Decimal = Decimal("0.00")
+    is_tcs_applicable: bool = False
+
+    @field_validator("pan_number")
+    @classmethod
+    def validate_pan(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v != "":
+            pattern = r"^[A-Z]{5}[0-9]{4}[A-Z]{1}$"
+            if not re.match(pattern, v.upper()):
+                raise ValueError("Invalid Indian PAN format (expected e.g. ABCDE1234F)")
+            return v.upper()
+        return v
+
+    @field_validator("gstin")
+    @classmethod
+    def validate_gstin(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v != "":
+            pattern = r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$"
+            if not re.match(pattern, v.upper()):
+                raise ValueError("Invalid Indian GSTIN format (expected 15 alphanumeric characters e.g. 27ABCDE1234F1Z5)")
+            return v.upper()
+        return v
+
+
+class SupplierTaxProfileResponse(SupplierTaxProfileCreate):
+    id: str
+    supplier_id: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SupplierComplianceProfileCreate(BaseModel):
+    msme_category: Optional[str] = None
+    msme_number: Optional[str] = None
+    fssai_license_no: Optional[str] = None
+    drug_license_no: Optional[str] = None
+    iec_code: Optional[str] = None
+    valid_from: Optional[datetime] = None
+    expiry_date: Optional[datetime] = None
+    verification_status: str = "Unverified"
+
+
+class SupplierComplianceProfileResponse(SupplierComplianceProfileCreate):
+    id: str
+    supplier_id: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SupplierPaymentProfileCreate(BaseModel):
+    payment_terms_id: Optional[str] = None
+    payment_mode_id: Optional[str] = None
+    currency_id: str = "INR"
+    payment_cycle: Optional[str] = None
+
+
+class SupplierPaymentProfileResponse(SupplierPaymentProfileCreate):
+    id: str
+    supplier_id: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SupplierCreditProfileCreate(BaseModel):
+    credit_limit: Decimal = Decimal("0.00")
+    credit_days: int = 0
+    opening_balance: Decimal = Decimal("0.00")
+    opening_balance_type: str = "Cr"
+
+
+class SupplierCreditProfileResponse(SupplierCreditProfileCreate):
+    id: str
+    supplier_id: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SupplierBankDetailsCreate(BaseModel):
+    bank_name: str
+    branch_name: Optional[str] = None
+    account_name: str
+    account_number: str
+    ifsc_code: str
+    upi_id: Optional[str] = None
+    is_primary: bool = False
+
+    @field_validator("ifsc_code")
+    @classmethod
+    def validate_ifsc(cls, v: str) -> str:
+        if v:
+            pattern = r"^[A-Z]{4}0[A-Z0-9]{6}$"
+            if not re.match(pattern, v.upper()):
+                raise ValueError("Invalid Indian IFSC Code format (expected e.g. SBIN0001234)")
+            return v.upper()
+        return v
+
+
+class SupplierBankDetailsResponse(SupplierBankDetailsCreate):
+    id: str
+    supplier_id: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SupplierAddressCreate(BaseModel):
+    address_type_id: str = "Billing"
+    house_no: Optional[str] = None
+    building_name: Optional[str] = None
+    street: Optional[str] = None
+    area: Optional[str] = None
+    landmark: Optional[str] = None
+    city: Optional[str] = None
+    district: Optional[str] = None
+    state: Optional[str] = None
+    country: str = "India"
+    pincode: Optional[str] = None
+    is_primary: bool = False
+
+
+class SupplierAddressResponse(SupplierAddressCreate):
+    id: str
+    supplier_id: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SupplierContactCreate(BaseModel):
+    contact_type_id: str = "Primary"
+    name: str
+    designation: Optional[str] = None
+    mobile: Optional[str] = None
+    email: Optional[str] = None
+    is_primary: bool = False
+
+
+class SupplierContactResponse(SupplierContactCreate):
+    id: str
+    supplier_id: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ─────────────────────────── Supplier Aggregate Root ───────────────────────────
 
 class SupplierCreate(BaseModel):
-    id:          str
-    name:        str
-    code:        str
-    gst_number:  Optional[str] = None
-    mobile:      Optional[str] = None
-    email:       Optional[str] = None
-    address:     Optional[str] = None
-    city:        Optional[str] = None
-    state:       Optional[str] = None
-    pincode:     Optional[str] = None
+    name: str
+    code: Optional[str] = None
+    trade_name: Optional[str] = None
+    supplier_type_id: Optional[str] = None
+    supplier_group_id: Optional[str] = None
+    gst_number: Optional[str] = None
+    mobile: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    lifecycle_stage: str = "Active"
+    account_status: str = "Active"
+    custom_attributes: Optional[dict] = None
+
+    tax_profile: Optional[SupplierTaxProfileCreate] = None
+    compliance_profile: Optional[SupplierComplianceProfileCreate] = None
+    payment_profile: Optional[SupplierPaymentProfileCreate] = None
+    credit_profile: Optional[SupplierCreditProfileCreate] = None
+    bank_details: Optional[List[SupplierBankDetailsCreate]] = None
+    addresses: Optional[List[SupplierAddressCreate]] = None
+    contacts: Optional[List[SupplierContactCreate]] = None
+
+
+class SupplierUpdate(BaseModel):
+    name: Optional[str] = None
+    trade_name: Optional[str] = None
+    supplier_type_id: Optional[str] = None
+    supplier_group_id: Optional[str] = None
+    gst_number: Optional[str] = None
+    mobile: Optional[str] = None
+    email: Optional[str] = None
+    lifecycle_stage: Optional[str] = None
+    account_status: Optional[str] = None
+    custom_attributes: Optional[dict] = None
+
+    tax_profile: Optional[SupplierTaxProfileCreate] = None
+    compliance_profile: Optional[SupplierComplianceProfileCreate] = None
+    payment_profile: Optional[SupplierPaymentProfileCreate] = None
+    credit_profile: Optional[SupplierCreditProfileCreate] = None
+    bank_details: Optional[List[SupplierBankDetailsCreate]] = None
+    addresses: Optional[List[SupplierAddressCreate]] = None
+    contacts: Optional[List[SupplierContactCreate]] = None
 
 
 class SupplierResponse(BaseModel):
-    id:          str
-    name:        str
-    code:        str
-    gst_number:  Optional[str] = None
-    mobile:      Optional[str] = None
-    email:       Optional[str] = None
-    address:     Optional[str] = None
-    city:        Optional[str] = None
-    state:       Optional[str] = None
-    pincode:     Optional[str] = None
+    id: str
+    code: str
+    name: str
+    trade_name: Optional[str] = None
+    supplier_type_id: Optional[str] = None
+    supplier_group_id: Optional[str] = None
+    gst_number: Optional[str] = None
+    mobile: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
     outstanding: Decimal
-    company_id:  Optional[str] = None
-    branch_id:   Optional[str] = None
+    lifecycle_stage: str
+    account_status: str
+    company_id: Optional[str] = None
+    branch_id: Optional[str] = None
 
-    model_config = {"from_attributes": True}
+    tax_profile: Optional[SupplierTaxProfileResponse] = None
+    compliance_profile: Optional[SupplierComplianceProfileResponse] = None
+    payment_profile: Optional[SupplierPaymentProfileResponse] = None
+    credit_profile: Optional[SupplierCreditProfileResponse] = None
+    bank_details: List[SupplierBankDetailsResponse] = []
+    addresses: List[SupplierAddressResponse] = []
+    contacts: List[SupplierContactResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 

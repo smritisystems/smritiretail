@@ -24,28 +24,148 @@ Founders
 Classification: Internal
 """
 
-from sqlalchemy import Column, String, Numeric, Integer, ForeignKey, Text
+from sqlalchemy import Column, String, Numeric, Integer, ForeignKey, Text, Boolean, DateTime, JSON
+from sqlalchemy.orm import relationship
 from ..db.base import BaseEntity, RowSecuredMixin
 
 
 class Supplier(RowSecuredMixin, BaseEntity):
     """
-    Supplier master — a business entity from whom goods are procured.
+    Supplier Master — Aggregate Root for procurement entities.
     Tenant-scoped (company + branch) per BaseEntity.
     """
     __tablename__ = "suppliers"
 
-    name       = Column(String(255), nullable=False)
-    code       = Column(String(50),  nullable=False)
-    gst_number = Column(String(20),  nullable=True)
-    mobile     = Column(String(20),  nullable=True)
-    email      = Column(String(255), nullable=True)
-    address    = Column(Text,        nullable=True)
-    city       = Column(String(100), nullable=True)
-    state      = Column(String(100), nullable=True)
-    pincode    = Column(String(10),  nullable=True)
-    # Cumulative liability owed to this supplier
-    outstanding = Column(Numeric(15, 2), nullable=False, default=0.00)
+    code               = Column(String(50),  nullable=False)
+    name               = Column(String(255), nullable=False)
+    trade_name         = Column(String(255), nullable=True)
+    supplier_type_id   = Column(String(50),  nullable=True)
+    supplier_group_id  = Column(String(50),  nullable=True)
+    gst_number         = Column(String(20),  nullable=True)
+    mobile             = Column(String(20),  nullable=True)
+    email              = Column(String(255), nullable=True)
+    address            = Column(Text,        nullable=True)
+    city               = Column(String(100), nullable=True)
+    state              = Column(String(100), nullable=True)
+    pincode            = Column(String(10),  nullable=True)
+    outstanding        = Column(Numeric(15, 2), nullable=False, default=0.00)
+    lifecycle_stage    = Column(String(30), nullable=False, default="Active")
+    account_status     = Column(String(20), nullable=False, default="Active")
+    custom_attributes  = Column(JSON, nullable=True, default=dict)
+
+    # Relationships to aggregate child entities
+    tax_profile        = relationship("SupplierTaxProfile", back_populates="supplier", uselist=False, cascade="all, delete-orphan")
+    compliance_profile = relationship("SupplierComplianceProfile", back_populates="supplier", uselist=False, cascade="all, delete-orphan")
+    payment_profile    = relationship("SupplierPaymentProfile", back_populates="supplier", uselist=False, cascade="all, delete-orphan")
+    credit_profile     = relationship("SupplierCreditProfile", back_populates="supplier", uselist=False, cascade="all, delete-orphan")
+    bank_details       = relationship("SupplierBankDetails", back_populates="supplier", cascade="all, delete-orphan")
+    addresses          = relationship("SupplierAddress", back_populates="supplier", cascade="all, delete-orphan")
+    contacts           = relationship("SupplierContact", back_populates="supplier", cascade="all, delete-orphan")
+
+
+class SupplierTaxProfile(RowSecuredMixin, BaseEntity):
+    __tablename__ = "supplier_tax_profiles"
+
+    supplier_id              = Column(String(50), ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False, unique=True)
+    pan_number               = Column(String(10), nullable=True)
+    gstin                    = Column(String(15), nullable=True)
+    gst_registration_type_id = Column(String(50), nullable=True)
+    is_tds_applicable        = Column(Boolean, nullable=False, default=False)
+    tds_section_id           = Column(String(50), nullable=True)
+    tds_rate                 = Column(Numeric(5, 2), nullable=False, default=0.00)
+    is_tcs_applicable        = Column(Boolean, nullable=False, default=False)
+
+    supplier = relationship("Supplier", back_populates="tax_profile")
+
+
+class SupplierComplianceProfile(RowSecuredMixin, BaseEntity):
+    __tablename__ = "supplier_compliance_profiles"
+
+    supplier_id         = Column(String(50), ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False, unique=True)
+    msme_category       = Column(String(30), nullable=True)
+    msme_number         = Column(String(50), nullable=True)
+    fssai_license_no    = Column(String(50), nullable=True)
+    drug_license_no     = Column(String(50), nullable=True)
+    iec_code            = Column(String(50), nullable=True)
+    valid_from          = Column(DateTime(timezone=True), nullable=True)
+    expiry_date         = Column(DateTime(timezone=True), nullable=True)
+    verification_status = Column(String(30), nullable=False, default="Unverified")
+
+    supplier = relationship("Supplier", back_populates="compliance_profile")
+
+
+class SupplierPaymentProfile(RowSecuredMixin, BaseEntity):
+    __tablename__ = "supplier_payment_profiles"
+
+    supplier_id      = Column(String(50), ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False, unique=True)
+    payment_terms_id = Column(String(50), nullable=True)
+    payment_mode_id  = Column(String(50), nullable=True)
+    currency_id      = Column(String(10), nullable=False, default="INR")
+    payment_cycle    = Column(String(50), nullable=True)
+
+    supplier = relationship("Supplier", back_populates="payment_profile")
+
+
+class SupplierCreditProfile(RowSecuredMixin, BaseEntity):
+    __tablename__ = "supplier_credit_profiles"
+
+    supplier_id          = Column(String(50), ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False, unique=True)
+    credit_limit         = Column(Numeric(15, 2), nullable=False, default=0.00)
+    credit_days          = Column(Integer, nullable=False, default=0)
+    opening_balance      = Column(Numeric(15, 2), nullable=False, default=0.00)
+    opening_balance_type = Column(String(10), nullable=False, default="Cr")
+
+    supplier = relationship("Supplier", back_populates="credit_profile")
+
+
+class SupplierBankDetails(RowSecuredMixin, BaseEntity):
+    __tablename__ = "supplier_bank_details"
+
+    supplier_id    = Column(String(50), ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False)
+    bank_name      = Column(String(150), nullable=False)
+    branch_name    = Column(String(150), nullable=True)
+    account_name   = Column(String(150), nullable=False)
+    account_number = Column(String(50), nullable=False)
+    ifsc_code      = Column(String(20), nullable=False)
+    upi_id         = Column(String(100), nullable=True)
+    is_primary     = Column(Boolean, nullable=False, default=False)
+
+    supplier = relationship("Supplier", back_populates="bank_details")
+
+
+class SupplierAddress(RowSecuredMixin, BaseEntity):
+    __tablename__ = "supplier_addresses"
+
+    supplier_id     = Column(String(50), ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False)
+    address_type_id = Column(String(50), nullable=False, default="Billing")
+    house_no        = Column(String(100), nullable=True)
+    building_name   = Column(String(150), nullable=True)
+    street          = Column(String(255), nullable=True)
+    area            = Column(String(150), nullable=True)
+    landmark        = Column(String(150), nullable=True)
+    city            = Column(String(100), nullable=True)
+    district        = Column(String(100), nullable=True)
+    state           = Column(String(100), nullable=True)
+    country         = Column(String(100), nullable=False, default="India")
+    pincode         = Column(String(10), nullable=True)
+    is_primary      = Column(Boolean, nullable=False, default=False)
+
+    supplier = relationship("Supplier", back_populates="addresses")
+
+
+class SupplierContact(RowSecuredMixin, BaseEntity):
+    __tablename__ = "supplier_contacts"
+
+    supplier_id     = Column(String(50), ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False)
+    contact_type_id = Column(String(50), nullable=False, default="Primary")
+    name            = Column(String(150), nullable=False)
+    designation     = Column(String(100), nullable=True)
+    mobile          = Column(String(20), nullable=True)
+    email           = Column(String(255), nullable=True)
+    is_primary      = Column(Boolean, nullable=False, default=False)
+
+    supplier = relationship("Supplier", back_populates="contacts")
+
 
 
 class PurchaseOrder(RowSecuredMixin, BaseEntity):
