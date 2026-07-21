@@ -21,22 +21,6 @@ const DB_FILE = path.join(process.cwd(), "db_store.json");
 
 // Define state arrays
 
-// TODO: migrate to DB in Phase 2b
-export let tallyExportQueue: any[] = [];
-
-
-
-// TODO: migrate to DB in Phase 2b
-
-
-// TODO: migrate to DB in Phase 2b
-export let partnersList: any[] = [];
-
-// TODO: migrate to DB in Phase 2b
-export let transformationMappings: any[] = [];
-
-// TODO: migrate to DB in Phase 2b
-export let exchangeLogs: any[] = [];
 
 export let ledgerEntries: any[] = [];
 export let stockLedger: any[] = [];
@@ -51,17 +35,6 @@ export let salesOrders: SalesOrder[] = [];
 export let salesInvoices: SalesInvoice[] = [...initialSalesInvoices];
 export let salesReturns: SalesReturn[] = [...initialSalesReturns];
 
-// TODO: migrate to DB in Phase 2b
-export let fields: FieldInfo[] = [];
-
-// TODO: migrate to DB in Phase 2b
-export let formulas: Formula[] = [];
-
-// TODO: migrate to DB in Phase 2b
-export let psvParties: PSVParty[] = [];
-
-// TODO: migrate to DB in Phase 2b
-export let companyState: string | null = "DL";
 
 export let suppliers: any[] = [];
 export let purchaseOrders: any[] = [];
@@ -98,10 +71,6 @@ export const sessions: Record<string, {
 export function saveDb() {
   try {
     const data = {
-      tallyExportQueue,
-      partnersList,
-      transformationMappings,
-      exchangeLogs,
       ledgerEntries,
       auditLogs,
       profiles,
@@ -111,10 +80,6 @@ export function saveDb() {
       salesOrders,
       salesInvoices,
       salesReturns,
-      fields,
-      formulas,
-      psvParties,
-      companyState,
       goodsReceipts,
       attributeDefinitions,
       attributeGroups,
@@ -135,14 +100,6 @@ export function loadDb() {
     if (fs.existsSync(DB_FILE)) {
       const raw = fs.readFileSync(DB_FILE, "utf8");
       const data = JSON.parse(raw);
-      if (data.tallyExportQueue) tallyExportQueue = data.tallyExportQueue;
-
-      if (data.partnersList) partnersList = data.partnersList;
-      if (data.transformationMappings) {
-        transformationMappings.length = 0;
-        transformationMappings.push(...data.transformationMappings);
-      }
-      if (data.exchangeLogs) exchangeLogs = data.exchangeLogs;
       if (data.ledgerEntries) ledgerEntries = data.ledgerEntries;
       if (data.auditLogs) auditLogs = data.auditLogs;
       if (data.profiles) profiles = data.profiles;
@@ -152,10 +109,6 @@ export function loadDb() {
       if (data.salesOrders) salesOrders = data.salesOrders;
       if (data.salesInvoices) salesInvoices = data.salesInvoices;
       if (data.salesReturns) salesReturns = data.salesReturns;
-      if (data.fields) fields = data.fields;
-      if (data.formulas) formulas = data.formulas;
-      if (data.psvParties) psvParties = data.psvParties;
-      if (data.companyState !== undefined) companyState = data.companyState;
       if (data.goodsReceipts) goodsReceipts = data.goodsReceipts;
       if (data.attributeDefinitions) attributeDefinitions = data.attributeDefinitions;
       if (data.attributeGroups) attributeGroups = data.attributeGroups;

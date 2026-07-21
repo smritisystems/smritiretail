@@ -196,3 +196,19 @@ async def test_resolve_effective_gst_percentage(db_session):
     resolved_rate = await inv_service.resolve_effective_gst_percentage(p1)
     assert resolved_rate == 12.0
 
+
+def test_build_sku_helper():
+    from types import SimpleNamespace
+    from app.services.inventory import _build_sku
+
+    p1 = SimpleNamespace(sku=None, style_code="CH-02-A", color="Red", size="XXL")
+    p2 = SimpleNamespace(sku="", style_code="CH-02-A", color=None, size="M")
+    p3 = SimpleNamespace(sku="MANUAL-001", style_code="CH-02-A", color="Blue", size="L")
+    p4 = SimpleNamespace(sku=None, style_code=None, color=None, size=None)
+
+    assert _build_sku(p1) == "CH-02-A-Red-XXL"
+    assert _build_sku(p2) == "CH-02-A-M"
+    assert _build_sku(p3) == "MANUAL-001"
+    assert _build_sku(p4) == ""
+
+
