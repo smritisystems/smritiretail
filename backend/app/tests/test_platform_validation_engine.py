@@ -313,3 +313,35 @@ async def test_validation_policy_api_endpoints(db_session):
         res_reset = await ac.post("/api/v1/validation-policies/product/reset", headers=headers)
         assert res_reset.status_code == 200
         assert res_reset.json()["fields"]["color"]["mode"] == "STRICT"
+
+
+@pytest.mark.asyncio
+async def test_pve_batch_validation(db_session):
+    comp1, br1, user1 = await _setup_tenant_and_user(db_session, "batch_pve")
+    mtype = await _seed_master_type(db_session, "product_color", "Product Color")
+    c1 = MasterValue(id=uuid.uuid4(), master_type_id=mtype.id, code="NAVY", name="Navy Blue", is_system=True, active=True)
+    stype = await _seed_master_type(db_session, "product_size", "Product Size")
+    s1 = MasterValue(id=uuid.uuid4(), master_type_id=stype.id, code="SZ_L", name="L", is_system=True, active=True)
+    s2 = MasterValue(id=uuid.uuid4(), master_type_id=stype.id, code="SZ_M", name="M", is_system=True, active=True)
+    ctype = await _seed_master_type(db_session, "product_category", "Product Category")
+    cat1 = MasterValue(id=uuid.uuid4(), master_type_id=ctype.id, code="APP", name="Apparel", is_system=True, active=True)
+    db_session.add_all([c1, s1, s2, cat1])
+    await db_session.commit()
+
+    engine = PlatformValidationEngine()
+    engine.invalidate_policy_cache()
+
+    items = [
+        {"color": "navy blue", "size": "l", "category": "apparel"},
+        {"color": "navy blue", "size": "m", "category": "apparel"}
+    ]
+    results = await engine.validate_batch(db_session, "product", items, tenant_id=comp1.id)
+    assert len(results) == 2
+    assert results[0].valid is True
+    assert results[0].normalized_data["color"] == "Navy Blue"
+    assert results[0].normalized_data["size"] == "L"
+    assert results[0].normalized_data["category"] == "Apparel"
+    assert results[1].valid is True
+    assert results[1].normalized_data["color"] == "Navy Blue"
+    assert results[1].normalized_data["size"] == "M"
+    assert results[1].normalized_data["category"] == "Apparel"

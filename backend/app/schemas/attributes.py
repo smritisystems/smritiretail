@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -11,6 +11,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+from decimal import Decimal
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -129,9 +130,9 @@ class VariantTemplateCreate(BaseModel):
     brand: Optional[str] = "SMRITI"
     category: Optional[str] = "General"
     hsnCode: Optional[str] = "61091000"
-    basePrice: Optional[float] = Field(0.0, alias="basePrice")
-    baseMrp: Optional[float] = Field(0.0, alias="baseMrp")
-    gstPercentage: Optional[float] = Field(18.0, alias="gstPercentage")
+    basePrice: Optional[Decimal] = Field(Decimal("0.00"), alias="basePrice")
+    baseMrp: Optional[Decimal] = Field(Decimal("0.00"), alias="baseMrp")
+    gstPercentage: Optional[Decimal] = Field(None, alias="gstPercentage")
     attributeGroupId: str = Field(..., alias="attributeGroupId")
     pricingMode: Optional[str] = Field("Fixed", alias="pricingMode")
     trackingMode: Optional[str] = Field("Standard", alias="trackingMode")
@@ -145,9 +146,9 @@ class VariantTemplateUpdate(BaseModel):
     brand: Optional[str] = None
     category: Optional[str] = None
     hsnCode: Optional[str] = None
-    basePrice: Optional[float] = Field(None, alias="basePrice")
-    baseMrp: Optional[float] = Field(None, alias="baseMrp")
-    gstPercentage: Optional[float] = Field(None, alias="gstPercentage")
+    basePrice: Optional[Decimal] = Field(None, alias="basePrice")
+    baseMrp: Optional[Decimal] = Field(None, alias="baseMrp")
+    gstPercentage: Optional[Decimal] = Field(None, alias="gstPercentage")
     attributeGroupId: Optional[str] = Field(None, alias="attributeGroupId")
     pricingMode: Optional[str] = Field(None, alias="pricingMode")
     trackingMode: Optional[str] = Field(None, alias="trackingMode")
@@ -162,9 +163,9 @@ class VariantTemplateResponse(BaseModel):
     brand: str
     category: str
     hsnCode: str = Field(..., serialization_alias="hsnCode")
-    basePrice: float = Field(..., serialization_alias="basePrice")
-    baseMrp: float = Field(..., serialization_alias="baseMrp")
-    gstPercentage: float = Field(..., serialization_alias="gstPercentage")
+    basePrice: Decimal = Field(..., serialization_alias="basePrice")
+    baseMrp: Decimal = Field(..., serialization_alias="baseMrp")
+    gstPercentage: Optional[Decimal] = Field(None, serialization_alias="gstPercentage")
     attributeGroupId: str = Field(..., serialization_alias="attributeGroupId")
     pricingMode: str = Field(..., serialization_alias="pricingMode")
     trackingMode: str = Field(..., serialization_alias="trackingMode")

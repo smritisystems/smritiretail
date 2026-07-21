@@ -13,10 +13,10 @@ Classification: Internal
 """
 
 from datetime import datetime
+from ..db.base import BaseEntity, RowSecuredMixin
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from sqlalchemy.orm import relationship
-from ..db.base import BaseEntity, RowSecuredMixin
+from sqlalchemy.orm import relationship, foreign
 
 class Product(RowSecuredMixin, BaseEntity):
     __tablename__ = "products"
@@ -39,7 +39,7 @@ class Product(RowSecuredMixin, BaseEntity):
     hsn_code = Column(String(15))
     pricing_mode = Column(String(30), default="Fixed")
     tracking_mode = Column(String(30), default="Standard")
-    variant_template_id = Column(String(50))
+    variant_template_id = Column(String(50), nullable=True, index=True)
     weight_grams = Column(Numeric(10, 2), default=0.00)
     attributes = Column(JSONB, server_default="'{}'::jsonb", default=dict)
     primary_image_url = Column(String(512))
@@ -47,6 +47,7 @@ class Product(RowSecuredMixin, BaseEntity):
 
     # Relationships
     barcodes = relationship("ProductBarcode", back_populates="product", cascade="all, delete-orphan")
+    variant_template = relationship("VariantTemplate", primaryjoin="foreign(Product.variant_template_id) == VariantTemplate.id", backref="products")
 
     @property
     def secondary_barcodes(self) -> list[str]:

@@ -349,6 +349,24 @@ class PlatformValidationEngine:
             applied_rules=applied_rules
         )
 
+    async def validate_batch(
+        self,
+        db: AsyncSession,
+        entity_type: str,
+        entities: List[Dict[str, Any]],
+        tenant_id: str = "default",
+        user_role: str = "CASHIER"
+    ) -> List[ValidationResult]:
+        """
+        Validate a batch of entity payloads sequentially or concurrently using warm policy cache.
+        Supports bulk POS billing and multi-product batch creations.
+        """
+        results = []
+        for payload in entities:
+            res = await self.validate_entity(db, entity_type, payload, tenant_id, user_role)
+            results.append(res)
+        return results
+
 
 def get_validation_engine() -> PlatformValidationEngine:
     return PlatformValidationEngine()

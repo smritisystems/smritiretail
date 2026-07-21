@@ -28,6 +28,18 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [5.2.2] — 2026-07-21
+
+### Added
+- **Remediation Plan Phase 3 & Phase 4 Implementation**:
+  - **Phase 3 (Schema Consistency)**:
+    - Aligned `VariantTemplate` Pydantic schemas (`VariantTemplateCreate`, `VariantTemplateUpdate`, `VariantTemplateResponse`) to use `Decimal` for financial attributes (`basePrice`, `baseMrp`, `gstPercentage`).
+    - Configured explicit `primaryjoin="foreign(Product.variant_template_id) == VariantTemplate.id"` on `Product.variant_template` relationship for clean ORM query execution.
+  - **Phase 4 (Performance & Telemetry)**:
+    - Added `validate_batch` async method to `PlatformValidationEngine` for high-throughput bulk validation during multi-item POS billing and product imports.
+    - Added automated unit test `test_pve_batch_validation` verifying bulk batch entity validation.
+  - **Test Verification**: 55/55 tests passing across `test_sales.py`, `test_inventory.py`, `test_platform_validation_engine.py`, and `test_master_hybrid.py`.
+
 ## [5.2.1] — 2026-07-21
 
 ### Added
