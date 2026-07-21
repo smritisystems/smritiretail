@@ -165,6 +165,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-21 | v5.1.0 | SMRITI In-Memory Array Strangler-Fig Migration (Sprints 1-5) | [Walkthrough](./foundation/MLF_Phase2B_Architecture_Compliance_Report_v5.1.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/4b8dd084-268b-458d-b862-97f26e60fc87/implementation_plan.md) | Completed |
 | 2026-07-21 | v5.1.0 | Hybrid Master Values System & Item Master Field Validation | [Walkthrough](./foundation/Master_Hybrid_Values_And_Item_Validation_v5.1.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
 | 2026-07-21 | v5.2.0 | SMRITI Universal Platform Validation Engine (PVE) | [Walkthrough](./foundation/Platform_Validation_Engine_PVE_v5.2.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+| 2026-07-21 | v5.2.1 | Remediation Plan Phase 1 & Phase 2 Implementation | [Walkthrough](./foundation/Remediation_Phase1_And_Phase2_v5.2.1.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
 
 
 

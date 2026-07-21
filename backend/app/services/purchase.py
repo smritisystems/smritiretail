@@ -575,7 +575,8 @@ class PurchaseService:
 
             quantity = Decimal(str(suggestion["suggestedQty"]))
             cost_price = Decimal(str(suggestion["lastPurchaseRate"]))
-            gst_rate = Decimal(str(product.gst_percentage or 18))
+            effective_gst = await self.inventory_service.resolve_effective_gst_percentage(product)
+            gst_rate = Decimal(str(effective_gst))
             tax_amount = (cost_price * quantity * gst_rate / Decimal("100.00")).quantize(Decimal("0.01"))
             line_total = (cost_price * quantity + tax_amount).quantize(Decimal("0.01"))
 

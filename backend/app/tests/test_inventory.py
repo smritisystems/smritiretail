@@ -13,8 +13,8 @@ Classification: Internal
 """
 
 import uuid
-
 import pytest
+from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
 
 from app.api.deps import TenantContext, get_db, get_tenant_context
@@ -23,6 +23,8 @@ from app.main import app
 from app.models.auth import User, UserRole
 from app.models.inventory import Product
 from app.models.tenant import Branch, Company
+from app.services.inventory import InventoryService
+from app.schemas.inventory import ProductCreate
 from app.tests.conftest import clear_db
 
 
@@ -210,5 +212,46 @@ def test_build_sku_helper():
     assert _build_sku(p2) == "CH-02-A-M"
     assert _build_sku(p3) == "MANUAL-001"
     assert _build_sku(p4) == ""
+
+
+@pytest.mark.asyncio
+async def test_create_product_barcode_cross_table_collision(db_session):
+    s = uuid.uuid4().hex[:6]
+    comp = Company(id=f"comp-bc-{s}", name=f"Comp BC {s}", gst_number="27ABCDE1234F1Z5", is_active=True)
+    br = Branch(id=f"br-bc-{s}", company_id=comp.id, name=f"Branch BC {s}", code=f"BR-{s}", is_active=True)
+    db_session.add_all([comp, br])
+    await db_session.commit()
+
+    tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
+    inv_service = InventoryService(db_session, tenant_ctx)
+
+    # Product 1 with secondary barcode 'SEC-8901'
+    p1_in = ProductCreate(
+        id=f"prod-bc1-{s}",
+        code=f"P-BC1-{s}",
+        name="Product Primary One",
+        price=100.00,
+        stock=10,
+        category="General",
+        barcode=f"PRI-8901-{s}",
+        secondary_barcodes=[f"SEC-8901-{s}"]
+    )
+    await inv_service.create_product(p1_in)
+
+    # Product 2 attempting to use Product 1's secondary barcode as its primary barcode
+    p2_in = ProductCreate(
+        id=f"prod-bc2-{s}",
+        code=f"P-BC2-{s}",
+        name="Product Collision Secondary to Primary",
+        price=150.00,
+        stock=5,
+        category="General",
+        barcode=f"SEC-8901-{s}"  # Collision!
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        await inv_service.create_product(p2_in)
+
+    assert exc_info.value.status_code == 400
+    assert "already exists" in exc_info.value.detail or "Secondary barcode" in exc_info.value.detail
 
 

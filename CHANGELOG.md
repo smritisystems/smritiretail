@@ -28,6 +28,19 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [5.2.1] — 2026-07-21
+
+### Added
+- **Remediation Plan Phase 1 & Phase 2 Implementation**:
+  - **Phase 1 (Data Integrity)**:
+    - Canonical GST recalculation in Sales Billing using `InventoryService.resolve_effective_gst_percentage(product)`.
+    - Unified primary and secondary barcode uniqueness validation across `Product.barcode` and `ProductBarcode.barcode`.
+    - Eager loading (`selectinload(SalesInvoice.payments)`) in sales invoice queries.
+  - **Phase 2 (Tax & Transaction Validation)**:
+    - Made `gst_percentage` in Product Master nullable (`Numeric(5, 2), nullable=True`).
+    - Aligned GST resolution in Purchase Service with Product Master default rate.
+    - Added SQLAlchemy 2.0 query compilation cache isolation (`track_closure_variables=True`) for dynamic tenant RLS filtering.
+
 ## [5.2.0] — 2026-07-21
 
 ### Added

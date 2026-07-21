@@ -83,6 +83,32 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    company_id = payload.get("company_id")
+    branch_id = payload.get("branch_id")
+    tenant_id = payload.get("tenant_id") or "default"
+    role = payload.get("role")
+
+    if company_id and branch_id:
+        t_ctx = TenantContext(tenant_id=tenant_id, company_id=company_id, branch_id=branch_id)
+        active_tenant_ctx.set(t_ctx)
+        sec_ctx = SecurityContext(
+            user_id=user_id,
+            username=payload.get("username", ""),
+            platform_admin=(role == "SYSADMIN"),
+            tenant_id=tenant_id,
+            company_ids=[company_id],
+            branch_ids=[branch_id],
+            department_ids=[],
+            warehouse_ids=[],
+            cost_center_ids=[],
+            record_scope="ALL" if role in ("SYSADMIN", "CASHIER", "MANAGER", "ADMINISTRATOR", "OWNER", "COMPANY_ADMIN", "BRANCH_ADMIN") else "BRANCH",
+            license={},
+            feature_flags={},
+            session="",
+            api_key=""
+        )
+        active_security_context.set(sec_ctx)
+
     # Lazy-import to avoid circular imports (AuthService ↔ deps)
     from ..services.auth import AuthService
     service = AuthService(db)

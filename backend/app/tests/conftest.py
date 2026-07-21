@@ -46,12 +46,17 @@ async def db_engine():
 
 @pytest.fixture
 async def db_session(db_engine) -> AsyncSession:
+    from app.db.session import active_tenant_ctx, active_security_context
+    active_tenant_ctx.set(None)
+    active_security_context.set(None)
     async_session = sessionmaker(
         db_engine, class_=AsyncSession, expire_on_commit=False
     )
     async with async_session() as session:  # type: ignore[attr-defined]  # SQLAlchemy async sessionmaker known limitation
         yield session
         await session.rollback()
+    active_tenant_ctx.set(None)
+    active_security_context.set(None)
 
 async def clear_db(db_session: AsyncSession):
     """

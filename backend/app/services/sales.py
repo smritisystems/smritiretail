@@ -109,7 +109,21 @@ class SalesService:
                 price = (base_price / 10).quantize(Decimal("1")) * 10
             else:
                 price = base_price.quantize(Decimal("0.01"))
-            gst_rate = item.gst_rate
+            # Fetch product to resolve canonical backend GST rate
+            product_stmt = select(Product).filter(
+                Product.id == item.product_id,
+                Product.is_deleted == False,
+                Product.company_id == self.tenant_ctx.company_id,
+                Product.branch_id == self.tenant_ctx.branch_id
+            )
+            prod_res = await self.db.execute(product_stmt)
+            prod_obj = prod_res.scalars().first()
+
+            if prod_obj:
+                effective_rate = await self.inventory_service.resolve_effective_gst_percentage(prod_obj)
+                gst_rate = Decimal(str(effective_rate))
+            else:
+                gst_rate = item.gst_rate
 
             # Tax amount = quantity * effective_price * (gst_rate / 100)
             item_tax   = (quantity * price * (gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
@@ -257,7 +271,7 @@ class SalesService:
                 status_code=400,
                 detail="Sales invoice with this invoice number already exists"
             )
-        stmt = select(SalesInvoice).options(selectinload(SalesInvoice.items)).filter(SalesInvoice.id == db_invoice.id)
+        stmt = select(SalesInvoice).options(selectinload(SalesInvoice.items), selectinload(SalesInvoice.payments)).filter(SalesInvoice.id == db_invoice.id)
         res = await self.db.execute(stmt)
         return res.scalars().first()
 
@@ -735,6 +749,9 @@ class SalesService:
                     quantity=item.quantity, price=item.price,
                     hsn_code=item.hsn_code, gst_rate=item.gst_rate,
                     tax_amount=item_tax, total_amount=item_total,
+                    tenant_id=self.tenant_ctx.tenant_id,
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
                 ))
             invoice.items       = new_items  # orphans scheduled for DELETE, new for INSERT
             invoice.tax_total   = tax_total
@@ -749,7 +766,7 @@ class SalesService:
 
         result = await self.db.execute(
             select(SalesInvoice)
-            .options(selectinload(SalesInvoice.items))
+            .options(selectinload(SalesInvoice.items), selectinload(SalesInvoice.payments))
             .where(SalesInvoice.id == invoice.id)
         )
         return result.scalars().first()
@@ -824,6 +841,9 @@ class SalesService:
                     quantity=item.quantity, price=item.price,
                     hsn_code=item.hsn_code, gst_rate=item.gst_rate,
                     tax_amount=item_tax, total_amount=item_total,
+                    tenant_id=self.tenant_ctx.tenant_id,
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
                 ))
             q.tax_total   = tax_total
             q.grand_total = grand_total
@@ -903,6 +923,9 @@ class SalesService:
                     quantity=item.quantity, price=item.price,
                     hsn_code=item.hsn_code, gst_rate=item.gst_rate,
                     tax_amount=item_tax, total_amount=item_total,
+                    tenant_id=self.tenant_ctx.tenant_id,
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
                 ))
             so.tax_total   = tax_total
             so.grand_total = grand_total
@@ -983,6 +1006,9 @@ class SalesService:
                     quantity=item.quantity, price=item.price,
                     gst_rate=item.gst_rate,
                     tax_amount=item_tax, total_amount=item_total,
+                    tenant_id=self.tenant_ctx.tenant_id,
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
                 ))
             sr.tax_total   = tax_total
             sr.grand_total = grand_total

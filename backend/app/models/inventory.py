@@ -32,7 +32,7 @@ class Product(RowSecuredMixin, BaseEntity):
     color = Column(String(50))
     size = Column(String(50))
     mrp = Column(Numeric(15, 2))
-    gst_percentage = Column(Numeric(5, 2), default=18.00)
+    gst_percentage = Column(Numeric(5, 2), nullable=True)
     style_code = Column(String(100))
     cost_price = Column(Numeric(15, 2))
     sku = Column(String(100), unique=True)

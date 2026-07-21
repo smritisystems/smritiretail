@@ -54,8 +54,13 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         # Probabilistic Tracing Decider
         sampled = random.random() < self.TRACE_SAMPLE_RATE
 
+        from ..db.session import active_tenant_ctx, active_security_context
         start_time = time.time()
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        finally:
+            active_tenant_ctx.set(None)
+            active_security_context.set(None)
         duration_ms = round((time.time() - start_time) * 1000, 2)
 
         # 100% error sample policy: Force tracing on HTTP errors (>= 500)

@@ -11,13 +11,14 @@ Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+import uuid
 from typing import Optional
 from sqlalchemy import func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
-from ..models.inventory import Product, StockMovement
+from ..models.inventory import Product, StockMovement, ProductBarcode
 from ..models.master_lookup import MasterType, MasterValue
 from ..schemas.inventory import ProductCreate
 from ..api.deps import TenantContext
@@ -190,17 +191,34 @@ class InventoryService:
         if existing_code.scalars().first():
             raise HTTPException(status_code=400, detail="Product with this code already exists")
 
-        # Check for duplicate barcode
-        existing_barcode = await self.db.execute(
-            select(Product).filter(
-                Product.barcode == product_in.barcode,
-                Product.is_deleted == False,
-                Product.company_id == self.tenant_ctx.company_id,
-                Product.branch_id == self.tenant_ctx.branch_id
+        # Check for duplicate barcode across primary and secondary barcode tables
+        barcodes_to_check = [product_in.barcode] + (product_in.secondary_barcodes or [])
+        for bc in barcodes_to_check:
+            if not bc or not str(bc).strip():
+                continue
+            bc_str = str(bc).strip()
+            # Primary check
+            p_exist = await self.db.execute(
+                select(Product).filter(
+                    Product.barcode == bc_str,
+                    Product.is_deleted == False,
+                    Product.company_id == self.tenant_ctx.company_id,
+                    Product.branch_id == self.tenant_ctx.branch_id
+                )
             )
-        )
-        if existing_barcode.scalars().first():
-            raise HTTPException(status_code=400, detail="Product with this barcode already exists")
+            if p_exist.scalars().first():
+                raise HTTPException(status_code=400, detail=f"Product with barcode '{bc_str}' already exists")
+
+            # Secondary check
+            sec_exist = await self.db.execute(
+                select(ProductBarcode).filter(
+                    ProductBarcode.barcode == bc_str,
+                    ProductBarcode.company_id == self.tenant_ctx.company_id,
+                    ProductBarcode.branch_id == self.tenant_ctx.branch_id
+                )
+            )
+            if sec_exist.scalars().first():
+                raise HTTPException(status_code=400, detail=f"Secondary barcode '{bc_str}' is already assigned to another product")
 
         tenant_id = getattr(self.tenant_ctx, "tenant_id", None) or getattr(self.tenant_ctx, "company_id", None)
 
@@ -214,6 +232,7 @@ class InventoryService:
             user_role=getattr(self.tenant_ctx, "role", "MANAGER")
         )
         product_data = val_res.normalized_data
+        sec_barcodes = product_data.pop("secondary_barcodes", None) or product_in.secondary_barcodes or []
 
         db_product = Product(
             **product_data,
@@ -221,6 +240,21 @@ class InventoryService:
             branch_id=self.tenant_ctx.branch_id
         )
         self.db.add(db_product)
+
+        for sbc in sec_barcodes:
+            if sbc and str(sbc).strip():
+                bc_obj = ProductBarcode(
+                    id=f"BC-{uuid.uuid4().hex[:8]}",
+                    uuid=str(uuid.uuid4()),
+                    product_id=db_product.id,
+                    barcode=str(sbc).strip(),
+                    is_primary=False,
+                    tenant_id=tenant_id,
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id
+                )
+                self.db.add(bc_obj)
+
         try:
             await self.db.commit()
         except IntegrityError:

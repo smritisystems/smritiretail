@@ -26,7 +26,7 @@ Founders
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
-from sqlalchemy import event
+from sqlalchemy import event, bindparam
 from sqlalchemy.orm import with_loader_criteria, Session
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from ..core.config import settings
@@ -101,6 +101,10 @@ def get_current_company_ids() -> tuple:
     ctx = active_security_context.get()
     return tuple(ctx.company_ids) if (ctx and ctx.company_ids) else ()
 
+def get_current_department_ids() -> tuple:
+    ctx = active_security_context.get()
+    return tuple(ctx.department_ids) if (ctx and ctx.department_ids) else ()
+
 @event.listens_for(Session, "do_orm_execute")
 def apply_rls_filter(execute_state):
     """
@@ -127,34 +131,45 @@ def apply_rls_filter(execute_state):
                 target_cls = mapper.class_
                 if issubclass(target_cls, RowSecuredMixin):
                     if scope == "SELF":
-                        execute_state.statement = execute_state.statement.options(
-                            with_loader_criteria(
-                                target_cls,
-                                lambda cls, uid=user_id: cls.created_by == uid
-                            )
-                        )
-                    elif scope == "TEAM":
-                        if hasattr(target_cls, "department_id"):
+                        uid = get_current_user_id()
+                        if uid:
                             execute_state.statement = execute_state.statement.options(
                                 with_loader_criteria(
                                     target_cls,
-                                    lambda cls, dids=department_ids: cls.department_id.in_(dids)
+                                    lambda cls: cls.created_by == uid,
+                                    track_closure_variables=True
+                                )
+                            )
+                    elif scope == "TEAM":
+                        dids = get_current_department_ids()
+                        if dids and hasattr(target_cls, "department_id"):
+                            execute_state.statement = execute_state.statement.options(
+                                with_loader_criteria(
+                                    target_cls,
+                                    lambda cls: cls.department_id.in_(dids),
+                                    track_closure_variables=True
                                 )
                             )
                     elif scope == "BRANCH":
-                        execute_state.statement = execute_state.statement.options(
-                            with_loader_criteria(
-                                target_cls,
-                                lambda cls, bids=branch_ids: cls.branch_id.in_(bids)
+                        bids = get_current_branch_ids()
+                        if bids:
+                            execute_state.statement = execute_state.statement.options(
+                                with_loader_criteria(
+                                    target_cls,
+                                    lambda cls: cls.branch_id.in_(bids),
+                                    track_closure_variables=True
+                                )
                             )
-                        )
                     elif scope == "COMPANY":
-                        execute_state.statement = execute_state.statement.options(
-                            with_loader_criteria(
-                                target_cls,
-                                lambda cls, cids=company_ids: cls.company_id.in_(cids)
+                        cids = get_current_company_ids()
+                        if cids:
+                            execute_state.statement = execute_state.statement.options(
+                                with_loader_criteria(
+                                    target_cls,
+                                    lambda cls: cls.company_id.in_(cids),
+                                    track_closure_variables=True
+                                )
                             )
-                        )
 
 # Async Generator dependency to provide DB sessions to routes
 async def get_db():
