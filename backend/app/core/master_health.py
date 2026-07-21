@@ -37,8 +37,10 @@ class MasterHealthChecker:
             "nic_gst_v26.0",
             "ecosystem_hub_v27.0",
             "official_website_v28.0",
-            "live_documentation_v29.0"
+            "live_documentation_v29.0",
+            "customer_workspace_v30.0"
         ]
+
 
 
 

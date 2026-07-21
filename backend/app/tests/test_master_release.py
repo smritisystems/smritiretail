@@ -22,9 +22,9 @@ from app.core.master_health import MasterHealthChecker
 
 @pytest.mark.asyncio
 async def test_master_release_manifest_verification():
-    """Verify MasterReleaseManifest contains certified version telemetry for v29.0.0."""
+    """Verify MasterReleaseManifest contains certified version telemetry for v30.0.0."""
     manifest = MasterReleaseManifest.get_manifest()
-    assert manifest["master_version"] == "29.0.0"
+    assert manifest["master_version"] == "30.0.0"
     assert manifest["system_status"] == "PRODUCTION_READY_CERTIFIED"
     assert manifest["foundation_baseline"] == "PAR-001 v1.0 Baseline"
     assert manifest["cmp_governance_policy"] == "CMP-001 v1.0"
@@ -33,10 +33,10 @@ async def test_master_release_manifest_verification():
     # Verify all 7 Platform Foundation Layers registered
     assert len(manifest["platform_layers"]) == 7
 
-    # Verify domain releases registered (including Phase 35)
-    assert len(manifest["domain_releases"]) >= 11
+    # Verify domain releases registered (including Phase 36)
+    assert len(manifest["domain_releases"]) >= 12
     assert "Phase 24" in manifest["domain_releases"]
-    assert "Phase 35" in manifest["domain_releases"]
+    assert "Phase 36" in manifest["domain_releases"]
 
 
 @pytest.mark.asyncio
@@ -44,9 +44,10 @@ async def test_master_health_probes_pass():
     """Verify MasterHealthChecker diagnostic probes report 100% HEALTHY."""
     res = MasterHealthChecker.run_health_checks()
     assert res["status"] == "HEALTHY"
-    assert res["subsystems_checked"] == 17
-    assert res["passed_subsystems"] == 17
+    assert res["subsystems_checked"] == 18
+    assert res["passed_subsystems"] == 18
     assert all(v == "HEALTHY" for v in res["health_metrics"].values())
+
 
 
 
