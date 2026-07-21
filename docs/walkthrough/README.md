@@ -195,6 +195,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-21 | v18.0.0 | Enterprise Warehouse Management & Multi-Bin Location Engine | [Walkthrough](./wms/WMS_Multi_Bin_Location_v18.0.0.md) | [Plan](../implementation/wms/WMS_Multi_Bin_Location_Plan_v18.0.0.md) | Completed |
 | 2026-07-21 | v19.0.0 | E-Commerce Multi-Channel Sync & Omnichannel Fulfillment Engine | [Walkthrough](./ecommerce/Ecommerce_MultiChannel_Sync_v19.0.0.md) | [Plan](../implementation/ecommerce/Ecommerce_MultiChannel_Sync_Plan_v19.0.0.md) | Completed |
 | 2026-07-21 | v20.0.0 | Financial Analytics & Business Intelligence Engine | [Walkthrough](./analytics/Financial_Analytics_BI_v20.0.0.md) | [Plan](../implementation/analytics/Financial_Analytics_BI_Plan_v20.0.0.md) | Completed |
+| 2026-07-21 | v21.0.0 | Multi-Store Enterprise Franchise & Royalty Engine | [Walkthrough](./franchise/Franchise_Royalty_Engine_v21.0.0.md) | [Plan](../implementation/franchise/Franchise_Royalty_Engine_Plan_v21.0.0.md) | Completed |
+
 
 
 

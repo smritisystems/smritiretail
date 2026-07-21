@@ -61,7 +61,9 @@ from . import (
     wms,
     ecommerce,
     analytics,
+    franchise,
 )
+
 
 
 
