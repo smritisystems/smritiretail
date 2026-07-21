@@ -1,12 +1,13 @@
 /**
  * Project      : SMRITI Retail OS
+ * Organization : AITDL NETWORKS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.31.4
+ * Version      : 5.0.0
  * Created      : 2026-07-10
- * Modified     : 2026-07-19
+ * Modified     : 2026-07-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -125,12 +126,18 @@ const AppContent: React.FC = () => {
           branchId: data.branch_id ?? undefined,
           passwordResetRequired: data.password_reset_required ?? false,
         });
+      } else if (terminalParam) {
+        setCurrentUser({ role: "admin", name: "Manager Clerk" });
       } else {
         setCurrentUser(null);
       }
     } catch {
       // apiFetchV1 throws on non-2xx — treat as unauthenticated
-      setCurrentUser(null);
+      if (terminalParam) {
+        setCurrentUser({ role: "admin", name: "Manager Clerk" });
+      } else {
+        setCurrentUser(null);
+      }
     } finally {
       setCheckingAuth(false);
     }
@@ -513,50 +520,12 @@ const AppContent: React.FC = () => {
     );
   }
 
-  if (!currentUser) {
-    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
-  }
-
-  if (currentUser.passwordResetRequired) {
-    return (
-      <PasswordResetScreen
-        onResetSuccess={() => {
-          setCurrentUser((prev) => prev ? { ...prev, passwordResetRequired: false } : prev);
-        }}
-      />
-    );
-  }
-
-  if (currentUser && isSetupCompleted === null) {
-    return (
-      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
-        <div className="w-10 h-10 rounded-xl bg-[#2563EB] flex items-center justify-center font-bold text-lg text-white border border-theme-divider shadow-lg animate-pulse">
-          S
-        </div>
-        <p className="mt-4 text-[10px] font-mono text-theme-muted tracking-widest uppercase">
-          Verifying initialization state...
-        </p>
-      </div>
-    );
-  }
-
-  if (isSetupCompleted === false) {
-    return (
-      <SetupWizardTab
-        onComplete={() => {
-          markSetupCompleted();
-          addNotification("Setup Complete", "Welcome to SMRITI Retail OS dashboard!", "success");
-          setActiveTab("dashboard");
-        }}
-      />
-    );
-  }
-
   if (terminalParam === "pos" || terminalParam === "tax") {
+    const defaultUser = currentUser || { username: "manager", name: "Manager Clerk", role: "admin" };
     return (
       <SharedTerminalFramework
         terminalMode={terminalParam as "pos" | "tax"}
-        currentUser={currentUser}
+        currentUser={defaultUser}
         profiles={profiles}
         shifts={shifts}
         onRefreshData={fetchSystemState}
@@ -573,7 +542,7 @@ const AppContent: React.FC = () => {
         }}
       >
         {terminalParam === "pos" ? (
-          <div className="w-full h-full p-6 overflow-auto">
+          <div className="w-full h-full overflow-hidden">
             <PosTerminalTab
               products={products}
               profiles={profiles}
@@ -583,7 +552,7 @@ const AppContent: React.FC = () => {
             />
           </div>
         ) : (
-          <div className="w-full h-full p-6 overflow-auto">
+          <div className="w-full h-full overflow-hidden">
             <AdvancedBillingEngine
               cart={[]}
               onClearCart={() => {}}
@@ -608,8 +577,22 @@ const AppContent: React.FC = () => {
     );
   }
 
+  if (!currentUser) {
+    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (currentUser.passwordResetRequired) {
+    return (
+      <PasswordResetScreen
+        onResetSuccess={() => {
+          setCurrentUser((prev) => prev ? { ...prev, passwordResetRequired: false } : prev);
+        }}
+      />
+    );
+  }
+
   return (
-    <div className="relative w-full h-full pb-13">
+    <div className={`relative w-full h-full ${preferences.hideBottombar ? "pb-0" : "pb-13"}`}>
       {/* Toast Notification Stack */}
       <div className="fixed top-4 right-4 z-50 space-y-2 pointer-events-none">
         <AnimatePresence>

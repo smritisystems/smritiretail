@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.18.0
+Version      : 5.1.3
 Created      : 2026-07-11
-Modified     : 2026-07-14
+Modified     : 2026-07-21
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -29,11 +29,16 @@ class SalesInvoice(RowSecuredMixin, BaseEntity):
     is_interstate = Column(Boolean, default=False)
     # eway_bill_no represents the manually-entered Indian E-way bill number.
     eway_bill_no = Column(String(50), doc="Stores the E-Way Bill number entered by the user. SMRITI Retail OS does not generate E-Way Bills via NIC APIs in this release. Automatic generation is tracked separately.")
-    payment_mode = Column(String(20), default="CASH")  # CASH | CARD | UPI | CREDIT
+    payment_mode = Column(String(20), default="CASH")  # CASH | CARD | UPI | CREDIT | MIXED
     status       = Column(String(20), default="Draft")
+    place_of_supply = Column(String(2), nullable=True)  # Stage A: nullable=True, Stage C: nullable=False
+    cgst_total   = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    sgst_total   = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    igst_total   = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
 
     # Relationships
     items = relationship("SalesInvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
+    payments = relationship("SalesInvoicePayment", back_populates="invoice", cascade="all, delete-orphan")
 
 
 class SalesInvoiceItem(Base):
@@ -50,9 +55,27 @@ class SalesInvoiceItem(Base):
     gst_rate = Column(Numeric(5, 2), default=18.00)
     tax_amount = Column(Numeric(15, 2), default=0.00)
     total_amount = Column(Numeric(15, 2), nullable=False)
+    tenant_id = Column(String(50), nullable=True, index=True)
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True)
+    branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True)
+    cgst_amount = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    sgst_amount = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    igst_amount = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
 
     # Relationships
     invoice = relationship("SalesInvoice", back_populates="items")
+
+
+class SalesInvoicePayment(RowSecuredMixin, BaseEntity):
+    __tablename__ = "sales_invoice_payments"
+
+    invoice_id = Column(String(50), ForeignKey("sales_invoices.id", ondelete="RESTRICT"), nullable=False, index=True)
+    payment_mode = Column(String(20), nullable=False)  # Constrained Enum Check (CASH, CARD, UPI, CREDIT)
+    amount = Column(Numeric(15, 2), nullable=False)
+    transaction_no = Column(String(100), nullable=True)
+
+    # Relationships
+    invoice = relationship("SalesInvoice", back_populates="payments")
 
 
 class SalesQuotation(BaseEntity):
@@ -65,6 +88,9 @@ class SalesQuotation(BaseEntity):
     grand_total   = Column(Numeric(15, 2), nullable=False, default=0.00)
     status        = Column(String(20), default="Draft")  # Draft | Submitted | Approved | Rejected | Cancelled | Converted
     sales_order_id = Column(String(50), nullable=True)
+    cgst_total    = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    sgst_total    = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    igst_total    = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
 
     # Relationships
     items = relationship("SalesQuotationItem", back_populates="quotation", cascade="all, delete-orphan")
@@ -84,6 +110,12 @@ class SalesQuotationItem(Base):
     gst_rate     = Column(Numeric(5, 2), default=18.00)
     tax_amount   = Column(Numeric(15, 2), default=0.00)
     total_amount = Column(Numeric(15, 2), nullable=False)
+    tenant_id    = Column(String(50), nullable=True, index=True)
+    company_id   = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True)
+    branch_id    = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True)
+    cgst_amount  = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    sgst_amount  = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    igst_amount  = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
 
     # Relationships
     quotation = relationship("SalesQuotation", back_populates="items")
@@ -99,6 +131,9 @@ class SalesOrder(BaseEntity):
     grand_total        = Column(Numeric(15, 2), nullable=False, default=0.00)
     status             = Column(String(20), default="Draft")  # Draft | Submitted | Approved | Rejected | Confirmed | Shipped | Cancelled
     source_quotation_id = Column(String(50), nullable=True)
+    cgst_total         = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    sgst_total         = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    igst_total         = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
 
     # Relationships
     items = relationship("SalesOrderItem", back_populates="order", cascade="all, delete-orphan")
@@ -118,6 +153,12 @@ class SalesOrderItem(Base):
     gst_rate     = Column(Numeric(5, 2), default=18.00)
     tax_amount   = Column(Numeric(15, 2), default=0.00)
     total_amount = Column(Numeric(15, 2), nullable=False)
+    tenant_id    = Column(String(50), nullable=True, index=True)
+    company_id   = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True)
+    branch_id    = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True)
+    cgst_amount  = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    sgst_amount  = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    igst_amount  = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
 
     # Relationships
     order = relationship("SalesOrder", back_populates="items")
@@ -135,6 +176,9 @@ class SalesReturn(BaseEntity):
     grand_total        = Column(Numeric(15, 2), nullable=False, default=0.00)
     is_interstate      = Column(Boolean, default=False)
     status             = Column(String(20), default="Draft")  # Draft | Submitted | Approved | Cancelled
+    cgst_total         = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    sgst_total         = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    igst_total         = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
 
     # Relationships
     items = relationship("SalesReturnItem", back_populates="sales_return", cascade="all, delete-orphan")
@@ -153,6 +197,12 @@ class SalesReturnItem(Base):
     gst_rate     = Column(Numeric(5, 2), default=18.00)
     tax_amount   = Column(Numeric(15, 2), default=0.00)
     total_amount = Column(Numeric(15, 2), nullable=False)
+    tenant_id    = Column(String(50), nullable=True, index=True)
+    company_id   = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True)
+    branch_id    = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True)
+    cgst_amount  = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    sgst_amount  = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    igst_amount  = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
 
     # Relationships
     sales_return = relationship("SalesReturn", back_populates="items")

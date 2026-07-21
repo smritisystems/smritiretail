@@ -160,6 +160,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-20 | v4.15.0 | GA Certification & Hardening | [Walkthrough](./foundation/v4_15_GA_Certification_And_Hardening_Walkthrough.md) | [Plan](../implementation/foundation/v4_15_GA_Certification_And_Hardening_Plan.md) | Completed |
 | 2026-07-20 | v4.15.1 | Sales Invoice API Validation and Serialization Hotfix | [Walkthrough](./sales/Sales_Invoice_Hotfix_v4.15.1.md) | — | Completed |
 | 2026-07-20 | v5.0.0 | Enterprise Billing Terminal Framework Refactoring | [Walkthrough](./sales/Sales_Billing_Terminal_Framework_v5.0.0.md) | [Plan](../implementation/sales/Billing_Terminal_Framework_Plan_v5.0.0.md) | Completed |
+| 2026-07-20 | v5.0.0 | SMRITI Retail Terminal Framework v1.0 & UX Refactoring | [Walkthrough](./foundation/Foundation_Terminal_Framework_UX_Refactoring_v5.0.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/dcf5ec5e-2602-4c77-8d95-6b562dc30a6d/implementation_plan.md) | Completed |
 
 
 

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -56,7 +56,7 @@ export const WorkspaceTaskbar: React.FC = () => {
     toggleFocusMode
   } = useWorkspace();
 
-  const { registeredWorkspaces, addToRecentlyUsed } = useLayoutEngine();
+  const { registeredWorkspaces, addToRecentlyUsed, preferences, toggleBottombar } = useLayoutEngine();
 
   // Taskbar general preferences
   const [autoHide, setAutoHide] = useState<boolean>(() => {
@@ -232,17 +232,30 @@ export const WorkspaceTaskbar: React.FC = () => {
 
   return (
     <>
+      {/* Floating Unhide Bottombar Trigger */}
+      {preferences.hideBottombar && (
+        <button
+          onClick={toggleBottombar}
+          className="fixed bottom-2 left-1/2 -translate-x-1/2 z-[9990] px-3 py-1 bg-theme-surface-2/90 hover:bg-indigo-600 text-xs font-semibold text-white rounded-t-lg shadow-xl border border-b-0 border-theme-divider flex items-center space-x-1.5 transition-all opacity-70 hover:opacity-100 cursor-pointer"
+          title="Unhide Bottom Taskbar (Alt+Shift+B)"
+        >
+          <span className="material-symbols-outlined text-sm">view_stream</span>
+          <span>Show Bottombar</span>
+        </button>
+      )}
+
       {/* Taskbar Frame */}
-      <div
-        ref={taskbarRef}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        className={`fixed bottom-0 left-0 right-0 z-[9990] transition-all duration-300 font-sans border-t border-theme-divider/70 bg-theme-surface-1 shadow-[0_-4px_24px_rgba(0,0,0,0.7)] ${
-          autoHide && !isHovered && floatingWindows.length > 0 && !isWorkspaceManagerOpen && !contextMenuWinId
-            ? "translate-y-[calc(100%-4px)] h-12 opacity-40 hover:opacity-100 hover:translate-y-0"
-            : "translate-y-0 h-13"
-        }`}
-      >
+      {!preferences.hideBottombar && (
+        <div
+          ref={taskbarRef}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          className={`fixed bottom-0 left-0 right-0 z-[9990] transition-all duration-300 font-sans border-t border-theme-divider/70 bg-theme-surface-1 shadow-[0_-4px_24px_rgba(0,0,0,0.7)] ${
+            autoHide && !isHovered && floatingWindows.length > 0 && !isWorkspaceManagerOpen && !contextMenuWinId
+              ? "translate-y-[calc(100%-4px)] h-12 opacity-40 hover:opacity-100 hover:translate-y-0"
+              : "translate-y-0 h-13"
+          }`}
+        >
         <div className="w-full h-full flex items-center justify-between px-3 md:px-4 gap-3 relative select-none">
           
           {/* Quick Launcher & Controls Section */}
@@ -464,6 +477,15 @@ export const WorkspaceTaskbar: React.FC = () => {
               {autoHide ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>
 
+            {/* Hide Bottombar completely button */}
+            <button
+              onClick={toggleBottombar}
+              className="p-1.5 rounded-lg bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider/80 text-theme-muted hover:text-rose-400 text-xs font-semibold transition-all flex items-center space-x-1"
+              title="Hide Bottom Taskbar (Alt+Shift+B)"
+            >
+              <span className="material-symbols-outlined text-[14px]">visibility_off</span>
+            </button>
+
             {/* Performance Indicators (CPU/Memory Simulation for power-users) */}
             <div className="hidden lg:flex items-center space-x-2.5 px-2.5 py-1.5 rounded-lg bg-theme-surface-2/50 border border-theme-divider/40 text-[10px] text-theme-muted font-mono">
               <div className="flex items-center space-x-1">
@@ -650,6 +672,7 @@ export const WorkspaceTaskbar: React.FC = () => {
           )}
         </AnimatePresence>
       </div>
+      )}
 
       {/* Fullscreen Bento Grid Workspace Manager Overlay */}
       <AnimatePresence>

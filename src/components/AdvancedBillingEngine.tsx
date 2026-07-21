@@ -1,16 +1,17 @@
 /**
  * Project      : SMRITI Retail OS
+ * Organization : AITDL NETWORKS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 2.1.3
+ * Version      : 5.0.0
  * Created      : 2026-07-10
- * Modified     : 2026-07-16
+ * Modified     : 2026-07-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Product, POSProfile, Shift, Bill, Customer, CustomerGroup } from "../types";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
@@ -18,6 +19,10 @@ import { getCustomers, getCustomerGroups, updateCustomerOutstanding } from "../s
 import { checkCreditStatus } from "../services/customerPolicyEngine.ts";
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { useTerminalShortcuts } from "./terminal/KeyboardEngine";
+import { SMRITIGrid } from "./terminal/SMRITIGrid";
+import { StandardDocumentToolbar } from "./terminal/StandardDocumentToolbar";
+import { RightDrawerHost } from "./terminal/RightDrawerHost";
+import { UniversalSearchModal } from "./terminal/UniversalSearchModal";
 
 // Types for Advanced Billing
 export interface AdvancedCustomer {
@@ -75,6 +80,82 @@ const GIFT_CARDS_DB: Record<string, number> = {
   "GC-FESTIVE-GIFT": 1500
 };
 
+// Demo Catalog Products for Tax Invoice Billing
+const DEMO_TAX_PRODUCTS: Product[] = [
+  {
+    id: "prod-101",
+    code: "SKU-TXT-001",
+    name: "Men's Cotton Executive Oxford Shirt",
+    price: 1850,
+    mrp: 2499,
+    stock: 45,
+    category: "Apparel & Textiles",
+    barcode: "8901234567890",
+    gstPercentage: 5,
+    hsnCode: "61091000"
+  },
+  {
+    id: "prod-102",
+    code: "SKU-TXT-002",
+    name: "Slim Fit Stretch Denim Trousers",
+    price: 2450,
+    mrp: 3299,
+    stock: 30,
+    category: "Apparel & Textiles",
+    barcode: "8901234567891",
+    gstPercentage: 5,
+    hsnCode: "61091000"
+  },
+  {
+    id: "prod-103",
+    code: "SKU-ACC-003",
+    name: "Genuine Italian Leather Belt",
+    price: 1290,
+    mrp: 1799,
+    stock: 60,
+    category: "Accessories",
+    barcode: "8901234567892",
+    gstPercentage: 18,
+    hsnCode: "91011100"
+  },
+  {
+    id: "prod-104",
+    code: "SKU-TXT-004",
+    name: "Pure Kanjeevaram Silk Saree (Gold Zari)",
+    price: 14500,
+    mrp: 18999,
+    stock: 12,
+    category: "Apparel & Textiles",
+    barcode: "8901234567893",
+    gstPercentage: 12,
+    hsnCode: "50072010"
+  },
+  {
+    id: "prod-105",
+    code: "SKU-HOM-005",
+    name: "Egyptian Cotton Bath Towel Set (Pack of 2)",
+    price: 1690,
+    mrp: 2299,
+    stock: 80,
+    category: "Home & Living",
+    barcode: "8901234567894",
+    gstPercentage: 12,
+    hsnCode: "63026000"
+  },
+  {
+    id: "prod-106",
+    code: "SKU-ELE-006",
+    name: "Wireless Optical Ergonomic Mouse",
+    price: 890,
+    mrp: 1299,
+    stock: 50,
+    category: "Electronics & Tech",
+    barcode: "8901234567895",
+    gstPercentage: 18,
+    hsnCode: "84716060"
+  }
+];
+
 const SALESPERSONS = [
   { id: "emp-101", name: "Rajesh Kumar", code: "EMP101" },
   { id: "emp-102", name: "Anjali Sharma", code: "EMP102" },
@@ -101,7 +182,65 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     policy: "Returns accepted within 7 days on clothing and accessories only if tags are intact."
   };
 
-  // State Variables
+  // Local Cart State when cart prop is empty
+  const [localCart, setLocalCart] = useState<{ product: Product; quantity: number }[]>([
+    { product: DEMO_TAX_PRODUCTS[0], quantity: 2 },
+    { product: DEMO_TAX_PRODUCTS[1], quantity: 1 }
+  ]);
+  const [scanInput, setScanInput] = useState("");
+
+  const activeCart = useMemo(() => {
+    return cart.length > 0 ? cart : localCart;
+  }, [cart, localCart]);
+
+  const handleAddToCart = (product: Product, qty = 1) => {
+    setLocalCart(prev => {
+      const idx = prev.findIndex(item => item.product.id === product.id);
+      if (idx >= 0) {
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx], quantity: updated[idx].quantity + qty };
+        return updated;
+      }
+      return [...prev, { product, quantity: qty }];
+    });
+    onNotification("Item Added", `${product.name} added to Tax Invoice bill.`, "success");
+  };
+
+  const handleRemoveItem = (productId: string) => {
+    setLocalCart(prev => prev.filter(item => item.product.id !== productId));
+  };
+
+  const handleUpdateQuantity = (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      handleRemoveItem(productId);
+      return;
+    }
+    setLocalCart(prev => prev.map(item => item.product.id === productId ? { ...item, quantity } : item));
+  };
+
+  const handleClearLocalCart = () => {
+    setLocalCart([]);
+    onClearCart();
+  };
+
+  const handleScanSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const q = scanInput.trim().toLowerCase();
+    if (!q) return;
+
+    const found = DEMO_TAX_PRODUCTS.find(
+      p => p.barcode === q || p.code.toLowerCase() === q || p.name.toLowerCase().includes(q)
+    );
+
+    if (found) {
+      handleAddToCart(found, 1);
+      setScanInput("");
+    } else {
+      onNotification("SKU Not Found", `No product matches "${scanInput}". Use Quick Catalog or Search (Ctrl+K).`, "error");
+    }
+  };
+
+  // Customer State & Modal Control
   const [customer, setCustomer] = useState<AdvancedCustomer>({
     type: "Unregistered",
     name: "Walk-In Customer",
@@ -111,9 +250,12 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     companyName: "",
     membershipId: "",
     billingAddress: "Mumbai, Maharashtra, India",
-    shippingAddress: "",
+    shippingAddress: "Mumbai, Maharashtra, India",
     isShippingDifferent: false
   });
+
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [tempCustomer, setTempCustomer] = useState<AdvancedCustomer>(customer);
 
   const [matchedCustomer, setMatchedCustomer] = useState<Customer | null>(null);
 
@@ -162,6 +304,10 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
   const [paymentTerms, setPaymentTerms] = useState("Net 30");
   const [salesExecutiveId, setSalesExecutiveId] = useState("emp-101");
 
+  // Drawer Host & Universal Search state
+  const [activeDrawerId, setActiveDrawerId] = useState<string | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
   // TCS / TDS Calculations
   const [tcsRate, setTcsRate] = useState<number>(0);
   const [gstinValidState, setGstinValidState] = useState<"unchecked" | "valid" | "invalid">("unchecked");
@@ -193,9 +339,9 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     }
   });
 
-  // Synchronize cart with internal editable itemDetailsList
+  // Synchronize activeCart with internal editable itemDetailsList
   useEffect(() => {
-    const newList = cart.map(item => {
+    const newList = activeCart.map(item => {
       // Check if item already exists in local list to preserve customizations
       const existing = itemDetailsList.find(i => i.product.id === item.product.id);
       if (existing) {
@@ -240,7 +386,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       };
     });
     setItemDetailsList(newList);
-  }, [cart, globalSalespersonId, isTaxInclusiveGlobal]);
+  }, [activeCart, globalSalespersonId, isTaxInclusiveGlobal]);
 
   // Sync Loyalty and Real Customer based on mobile
   useEffect(() => {
@@ -427,6 +573,8 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       cgstTotal,
       sgstTotal,
       igstTotal,
+      totalGstTax: cgstTotal + sgstTotal + igstTotal,
+      totalQty: itemDetailsList.reduce((acc, item) => acc + item.quantity, 0),
       roundOff,
       tcsAmount,
       grandTotal: finalGrandTotal,
@@ -605,736 +753,207 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-[#0b1329] border border-theme-divider rounded-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden text-gray-200">
-        
-        {/* Header bar */}
-        <div className="px-6 py-4 border-b border-theme-divider bg-theme-surface-2 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <span className="material-symbols-outlined text-blue-500 text-3xl">receipt_long</span>
-            <div>
-              <h3 className="text-lg font-bold text-theme-body font-display">Advanced GST Tax Invoicing</h3>
-              <p className="text-xs text-blue-400 font-mono">Terminal: {activeProfile?.name} • Operator: {activeProfile?.cashier}</p>
-            </div>
+    <div className="w-full h-full flex flex-col bg-[#0b1329] text-gray-200 overflow-hidden font-sans select-none relative">
+      {/* SHOPER 9 HEADER BAR (TOP CONTROL ROW) */}
+      <div className="px-4 py-2 bg-[#0f172a] border-b border-slate-700/80 flex items-center justify-between text-xs font-mono">
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <span className="text-slate-400 font-bold">Bill Type:</span>
+            <span className="bg-blue-600/30 text-blue-300 px-2 py-0.5 rounded border border-blue-500/40 font-bold uppercase">Tax Invoice</span>
           </div>
-          <button 
-            onClick={onClose}
-            className="text-gray-400 hover:text-theme-body transition-colors p-1.5 rounded-lg hover:bg-white/5"
-          >
-            <span className="material-symbols-outlined text-xl">close</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <span className="text-slate-400 font-bold">Type:</span>
+            <span className="bg-emerald-600/30 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/40 font-bold">{paymentMode === "Single" ? primaryPaymentMethod.toUpperCase() : "SPLIT"}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-slate-400 font-bold">Customer:</span>
+            <button
+              onClick={() => {
+                setTempCustomer(customer);
+                setIsCustomerModalOpen(true);
+              }}
+              className="text-amber-300 hover:text-amber-200 font-bold underline cursor-pointer flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
+              title="Click to Edit Customer & B2B GSTIN Details"
+            >
+              <span className="material-symbols-outlined text-xs">person_add</span>
+              <span>{customer.name} ({customer.type === "Registered" ? customer.gstin || "B2B" : "B2C"})</span>
+            </button>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-slate-400 font-bold">Sales Staff:</span>
+            <span className="text-slate-200">{SALESPERSONS.find(s => s.id === globalSalespersonId)?.name || "Counter Clerk"}</span>
+          </div>
         </div>
 
-        {/* Workspace Body */}
-        {!showInvoicePreview ? (
-          <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-            
-            {/* Left side settings configuration panel */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
-              
-              {/* SECTION 1: CUSTOMER SEGMENT */}
-              <div className="bg-theme-surface-2/50 border border-theme-divider p-5 rounded-xl space-y-4">
-                <div className="flex items-center justify-between border-b border-theme-divider/60 pb-3">
-                  <h4 className="font-semibold text-theme-body text-sm flex items-center gap-2">
-                    <span className="material-symbols-outlined text-blue-400 text-lg">person</span>
-                    Customer Segment & Addresses
-                  </h4>
-                  <div className="flex items-center bg-theme-surface-3 p-1 rounded-lg border border-theme-divider">
-                    <button
-                      onClick={() => setCustomer(prev => ({ ...prev, type: "Unregistered", gstin: "", companyName: "" }))}
-                      className={`px-3 py-1 text-xs rounded-md font-semibold transition-all ${customer.type === "Unregistered" ? "bg-[#2563EB] text-theme-body" : "text-gray-400"}`}
-                    >
-                      B2C Consumer
-                    </button>
-                    <button
-                      onClick={() => setCustomer(prev => ({ ...prev, type: "Registered" }))}
-                      className={`px-3 py-1 text-xs rounded-md font-semibold transition-all ${customer.type === "Registered" ? "bg-[#2563EB] text-theme-body" : "text-gray-400"}`}
-                    >
-                      B2B Registered
-                    </button>
-                  </div>
-                </div>
+        <div className="flex items-center space-x-3">
+          <span className="text-slate-400">Shift: <strong className="text-white">{activeShift?.id || "SHIFT-01"}</strong></span>
+          <span className="text-slate-400">Desk: <strong className="text-white">{activeProfile?.name || "LANE-01"}</strong></span>
+          <button 
+            onClick={onClose}
+            className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition-colors"
+          >
+            <span className="material-symbols-outlined text-lg">close</span>
+          </button>
+        </div>
+      </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2 bg-slate-900/30 p-2.5 rounded-lg border border-theme-divider/40">
-                    <label className="block text-[10px] text-blue-400 font-mono uppercase mb-1">Quick Match Partner / Customer</label>
-                    <select
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val) {
-                          const allCusts = getCustomers();
-                          const found = allCusts.find(c => c.id === val);
-                          if (found) {
-                            setCustomer({
-                              type: found.gstNumber ? "Registered" : "Unregistered",
-                              name: found.name,
-                              mobile: found.mobile,
-                              email: found.email || "",
-                              gstin: found.gstNumber || "",
-                              companyName: found.gstNumber ? found.name : "",
-                              membershipId: `MEM-${found.id.slice(-4)}`,
-                              billingAddress: found.gstNumber ? "Registered GST Address" : "Mumbai, Maharashtra, India",
-                              shippingAddress: "",
-                              isShippingDifferent: false
-                            });
-                          }
-                        } else {
-                          setCustomer({
-                            type: "Unregistered",
-                            name: "Walk-In Customer",
-                            mobile: "",
-                            email: "",
-                            gstin: "",
-                            companyName: "",
-                            membershipId: "",
-                            billingAddress: "Mumbai, Maharashtra, India",
-                            shippingAddress: "",
-                            isShippingDifferent: false
-                          });
-                        }
-                      }}
-                      className="w-full bg-slate-950 border border-theme-divider/60 rounded px-2.5 py-2 text-xs focus:outline-none focus:border-blue-500 text-blue-300 font-semibold"
-                    >
-                      <option value="">-- Walk-In Customer --</option>
-                      {getCustomers().map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.mobile}) - Outstanding: ₹{c.outstanding.toLocaleString("en-IN")}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+      {/* Standardized Operational Toolbar with Drawer Triggers */}
+      <StandardDocumentToolbar
+        onNew={handleClearLocalCart}
+        onSearchClick={() => setIsSearchOpen(true)}
+        onToggleDrawer={(id) => setActiveDrawerId(prev => prev === id ? null : id)}
+        activeDrawerId={activeDrawerId}
+        canCheckout={activeCart.length > 0}
+        onCheckout={handleFinalCheckout}
+      />
 
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Customer Mobile</label>
-                    <input
-                      type="text"
-                      placeholder="Enter 10-digit mobile..."
-                      value={customer.mobile}
-                      onChange={(e) => setCustomer(prev => ({ ...prev, mobile: e.target.value }))}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none focus:border-blue-500 text-theme-body"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Customer Name</label>
-                    <input
-                      type="text"
-                      placeholder="Walk-In Customer"
-                      value={customer.name}
-                      onChange={(e) => setCustomer(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none focus:border-blue-500 text-theme-body"
-                    />
-                  </div>
+      {/* Workspace Body */}
+      {!showInvoicePreview ? (
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+          
+          {/* LEFT COLUMN: SHOPER 9 DETAIL SECTION (SMRITI ITEM GRID - 75% WIDTH) */}
+          <div className="flex-1 flex flex-col overflow-hidden border-r border-slate-800 p-4 space-y-3">
+            {/* Quick Barcode Scanner / SKU Search Bar */}
+            <form onSubmit={handleScanSubmit} className="flex items-center gap-3 bg-[#1e293b] p-2.5 rounded-lg border border-slate-700">
+              <span className="material-symbols-outlined text-blue-400 text-xl">qr_code_scanner</span>
+              <input
+                type="text"
+                value={scanInput}
+                onChange={(e) => setScanInput(e.target.value)}
+                placeholder="Scan barcode or type SKU / Item Name (e.g. 8901234567890, Shirt, Denim, Belt) & press Enter..."
+                className="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-blue-500"
+              />
+              <button
+                type="submit"
+                className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1 font-mono cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-sm">add_shopping_cart</span>
+                Add Item
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSearchOpen(true)}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1 font-mono border border-slate-700 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-sm">search</span>
+                Catalog (Ctrl+K)
+              </button>
+            </form>
 
-                  {customer.type === "Registered" && (
-                    <>
-                      <div>
-                        <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">GSTIN (Indian GSTIN)</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            placeholder="e.g. 27AAAAA1111A1Z1"
-                            value={customer.gstin}
-                            onChange={(e) => {
-                              setCustomer(prev => ({ ...prev, gstin: e.target.value.toUpperCase() }));
-                              setGstinValidState("unchecked");
-                            }}
-                            className="flex-1 bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none focus:border-blue-500 text-theme-body font-mono"
-                          />
-                          <button
-                            onClick={handleValidateGstin}
-                            className={`px-3 py-1.5 rounded text-xs font-semibold font-mono transition-all ${
-                              gstinValidState === "valid" ? "bg-emerald-600 text-white" :
-                              gstinValidState === "invalid" ? "bg-rose-600 text-white" :
-                              "bg-slate-700 hover:bg-slate-600 text-gray-200"
-                            }`}
-                          >
-                            {gstinValidState === "valid" ? "Verified" : gstinValidState === "invalid" ? "Failed" : "Verify"}
-                          </button>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Company Registered Name</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Acme Retail Pvt Ltd"
-                          value={customer.companyName}
-                          onChange={(prev) => setCustomer(p => ({ ...p, companyName: prev.target.value }))}
-                          className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none focus:border-blue-500 text-theme-body"
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Loyalty Membership ID</label>
-                    <input
-                      type="text"
-                      placeholder="Loyalty Member Account"
-                      value={customer.membershipId}
-                      readOnly
-                      className="w-full bg-[#101930] border border-theme-divider rounded px-3 py-2 text-xs text-gray-400 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Customer Email</label>
-                    <input
-                      type="email"
-                      placeholder="customer@domain.com"
-                      value={customer.email}
-                      onChange={(e) => setCustomer(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none focus:border-blue-500 text-theme-body"
-                    />
-                  </div>
-                </div>
-
-                {/* Billing and Shipping Address fields */}
-                <div className="space-y-3 pt-2">
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Billing Address</label>
-                    <textarea
-                      rows={2}
-                      placeholder="Enter billing address for GST Invoice details..."
-                      value={customer.billingAddress}
-                      onChange={(e) => setCustomer(prev => ({ ...prev, billingAddress: e.target.value }))}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none focus:border-blue-500 text-theme-body"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="ship-diff"
-                      checked={customer.isShippingDifferent}
-                      onChange={(e) => setCustomer(prev => ({ ...prev, isShippingDifferent: e.target.checked }))}
-                      className="rounded text-blue-600 bg-theme-surface-1 border-theme-divider"
-                    />
-                    <label htmlFor="ship-diff" className="text-xs text-gray-300">Deliver to different shipping address</label>
-                  </div>
-
-                  {customer.isShippingDifferent && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                    >
-                      <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Shipping Address</label>
-                      <textarea
-                        rows={2}
-                        placeholder="Enter full shipping delivery address..."
-                        value={customer.shippingAddress}
-                        onChange={(e) => setCustomer(prev => ({ ...prev, shippingAddress: e.target.value }))}
-                        className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none focus:border-blue-500 text-theme-body"
-                      />
-                    </motion.div>
-                  )}
-                </div>
-              </div>
-
-              {/* SECTION 2: PROMOTIONS, COUPONS & GIFT CARDS */}
-              <div className="bg-theme-surface-2/50 border border-theme-divider p-5 rounded-xl space-y-4">
-                <h4 className="font-semibold text-theme-body text-sm border-b border-theme-divider/60 pb-3 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-blue-400 text-lg">local_offer</span>
-                  Promotions, Coupons & Gift Cards
-                </h4>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Coupon Redemption */}
-                  <div className="space-y-3">
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase">Apply Coupon Code</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="e.g. SMRITI10, SAVE500"
-                        value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value)}
-                        className="flex-1 bg-theme-surface-1 border border-theme-divider rounded px-3 py-1.5 text-xs text-theme-body uppercase font-mono"
-                      />
-                      <button
-                        onClick={handleApplyCoupon}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-semibold transition-colors"
-                      >
-                        Apply
-                      </button>
-                    </div>
-                    {appliedCoupon && (
-                      <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/30 p-2 rounded text-xs text-emerald-400">
-                        <span>Coupon Active: <strong>{appliedCoupon.code}</strong></span>
-                        <button onClick={() => setAppliedCoupon(null)} className="text-gray-400 hover:text-theme-body">✕</button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Gift Card Redemption */}
-                  <div className="space-y-3">
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase">Redeem Gift Card</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Card Number"
-                        value={giftCardNo}
-                        onChange={(e) => setGiftCardNo(e.target.value)}
-                        className="flex-1 bg-theme-surface-1 border border-theme-divider rounded px-3 py-1.5 text-xs text-theme-body font-mono"
-                      />
-                      <button
-                        onClick={handleApplyGiftCard}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-semibold transition-colors"
-                      >
-                        Check
-                      </button>
-                    </div>
-                    {giftCardBalance !== null && (
-                      <div className="bg-theme-surface-3 p-3 rounded border border-theme-divider space-y-2 text-xs">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Card Balance:</span>
-                          <span className="font-bold text-theme-body">₹{giftCardBalance}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-400">Redeem:</span>
-                          <input
-                            type="number"
-                            value={giftCardRedemption}
-                            onChange={(e) => setGiftCardRedemption(Math.min(parseFloat(e.target.value) || 0, giftCardBalance, totals.grandTotal))}
-                            className="bg-theme-surface-1 border border-theme-divider text-theme-body text-xs rounded px-2 py-0.5 w-20 text-right font-mono"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Loyalty Point Redemption */}
-                {openingLoyaltyPoints > 0 && (
-                  <div className="bg-blue-500/5 border border-blue-500/20 p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                      <h5 className="font-semibold text-theme-body text-xs">SMRITI Loyalty Rewards</h5>
-                      <p className="text-[11px] text-gray-400">Available rewards wallet points balance: <strong>{openingLoyaltyPoints} pts</strong> (1 Point = ₹1)</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <label className="text-xs text-gray-300">Redeem points:</label>
-                      <input
-                        type="number"
-                        value={loyaltyRedeemPoints}
-                        onChange={(e) => setLoyaltyRedeemPoints(Math.min(parseInt(e.target.value) || 0, openingLoyaltyPoints, totals.grandTotal))}
-                        className="bg-theme-surface-1 border border-theme-divider text-theme-body text-xs rounded px-3 py-1 w-24 text-right font-mono focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Bill-Level Offers */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Promotional Scheme</label>
-                    <select
-                      value={activePromoOffer}
-                      onChange={(e) => setActivePromoOffer(e.target.value)}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body"
-                    >
-                      <option value="None">None / standard pricing</option>
-                      <option value="Happy Hour">Happy Hour Special (₹150 Flat Off)</option>
-                      <option value="Festival Offer">Festive Sale Scheme (5% Off Bill)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Overall Adjustments</label>
-                    <div className="flex gap-2">
-                      <select
-                        value={billDiscountType}
-                        onChange={(e) => setBillDiscountType(e.target.value as any)}
-                        className="bg-theme-surface-1 border border-theme-divider rounded px-2 py-1 text-xs text-theme-body"
-                      >
-                        <option value="flat">₹ Flat</option>
-                        <option value="percentage">% Percent</option>
-                      </select>
-                      <input
-                        type="number"
-                        value={billDiscountVal}
-                        onChange={(e) => setBillDiscountVal(parseFloat(e.target.value) || 0)}
-                        placeholder="0"
-                        className="flex-1 bg-theme-surface-1 border border-theme-divider rounded px-3 py-1 text-xs text-theme-body font-mono focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 2.5: LOGISTICS, TRANSPORTER & TCS/TDS CONFIG */}
-              <div className="bg-theme-surface-2/50 border border-theme-divider p-5 rounded-xl space-y-4">
-                <h4 className="font-semibold text-theme-body text-sm border-b border-theme-divider/60 pb-3 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-blue-400 text-lg">local_shipping</span>
-                  Logistics, Transporter & TCS/TDS Configuration
-                </h4>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Transporter Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. VRL Logistics, SafeExpress"
-                      value={transporterName}
-                      onChange={(e) => setTransporterName(e.target.value)}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Vehicle Number</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. MH-12-GQ-5432"
-                      value={vehicleNo}
-                      onChange={(e) => setVehicleNo(e.target.value)}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">LR / GR Number</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. LR-9876543"
-                      value={lrNumber}
-                      onChange={(e) => setLrNumber(e.target.value)}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">E-Way Bill Number</label>
-                    <input
-                      type="text"
-                      placeholder="12-digit E-Way Bill No."
-                      value={ewayBillNumber}
-                      onChange={(e) => setEwayBillNumber(e.target.value)}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Place of Supply State</label>
-                    <select
-                      value={placeOfSupply}
-                      onChange={(e) => setPlaceOfSupply(e.target.value)}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body"
-                    >
-                      <option value="27">Maharashtra (27)</option>
-                      <option value="29">Karnataka (29)</option>
-                      <option value="33">Tamil Nadu (33)</option>
-                      <option value="07">Delhi (07)</option>
-                      <option value="09">Uttar Pradesh (09)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Credit Payment Terms</label>
-                    <select
-                      value={paymentTerms}
-                      onChange={(e) => setPaymentTerms(e.target.value)}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body"
-                    >
-                      <option value="COD">Cash on Delivery (COD)</option>
-                      <option value="Net 15">Net 15 Days</option>
-                      <option value="Net 30">Net 30 Days</option>
-                      <option value="Net 60">Net 60 Days</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Territory / Account Manager</label>
-                    <select
-                      value={salesExecutiveId}
-                      onChange={(e) => setSalesExecutiveId(e.target.value)}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body"
-                    >
-                      {SALESPERSONS.map(s => (
-                        <option key={s.id} value={s.id}>{s.name} (Manager)</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Statutory TCS Rate</label>
-                    <select
-                      value={tcsRate}
-                      onChange={(e) => setTcsRate(parseFloat(e.target.value))}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body"
-                    >
-                      <option value="0">None (0.00%)</option>
-                      <option value="0.001">0.1% (Sales exceeding ₹50 Lakhs u/s 206C(1H))</option>
-                      <option value="0.01">1.0% (TCS on E-commerce/Motor Vehicles)</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 3: SALESPERSON & PAYMENTS */}
-              <div className="bg-theme-surface-2/50 border border-theme-divider p-5 rounded-xl space-y-4">
-                <h4 className="font-semibold text-theme-body text-sm border-b border-theme-divider/60 pb-3 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-blue-400 text-lg">payment</span>
-                  Salesperson & Payment Breakup
-                </h4>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Commission Salesperson</label>
-                    <select
-                      value={globalSalespersonId}
-                      onChange={(e) => setGlobalSalespersonId(e.target.value)}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body"
-                    >
-                      <option value="">Clerk Default (Terminal Front)</option>
-                      {SALESPERSONS.map(s => (
-                        <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Pricing Tax Mode</label>
-                    <div className="flex items-center gap-2 mt-2">
-                      <input
-                        type="checkbox"
-                        id="tax-inc-global"
-                        checked={isTaxInclusiveGlobal}
-                        onChange={(e) => setIsTaxInclusiveGlobal(e.target.checked)}
-                        className="rounded text-blue-600 bg-theme-surface-1 border-theme-divider"
-                      />
-                      <label htmlFor="tax-inc-global" className="text-xs text-gray-300">Catalog pricing is GST-Inclusive</label>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase">Payment Structure Mode</label>
-                    <div className="flex items-center bg-theme-surface-3 p-0.5 rounded border border-theme-divider">
-                      <button
-                        onClick={() => setPaymentMode("Single")}
-                        className={`px-3 py-0.5 text-xs rounded transition-all ${paymentMode === "Single" ? "bg-[#2563EB] text-theme-body" : "text-gray-400"}`}
-                      >
-                        Single Method
-                      </button>
-                      <button
-                        onClick={() => setPaymentMode("Split")}
-                        className={`px-3 py-0.5 text-xs rounded transition-all ${paymentMode === "Split" ? "bg-[#2563EB] text-theme-body" : "text-gray-400"}`}
-                      >
-                        Split Payment
-                      </button>
-                    </div>
-                  </div>
-
-                  {paymentMode === "Single" ? (
-                    <div>
-                      <select
-                        value={primaryPaymentMethod}
-                        onChange={(e) => setPrimaryPaymentMethod(e.target.value)}
-                        className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs focus:outline-none text-theme-body font-semibold"
-                      >
-                        <option value="Cash">💵 CASH PAY</option>
-                        <option value="UPI">📱 UPI INSTANT OVERLAY</option>
-                        <option value="Card">💳 CREDIT / DEBIT CHIP CARD</option>
-                        <option value="Wallet">🛍️ BRAND DIGITAL WALLET</option>
-                        <option value="CreditSale">🏛️ DEFERRED CREDIT SALE (A/R Ledger)</option>
-                      </select>
-                    </div>
-                  ) : (
-                    <div className="bg-[#101930] p-4 rounded-xl border border-theme-divider space-y-3">
-                      <div className="flex justify-between border-b border-theme-divider/40 pb-2 mb-2 text-xs">
-                        <span className="text-gray-400 font-display">PAYMENT LEDGER ROUTING</span>
-                        <span className={`font-mono font-bold ${splitUnderpaid === 0 ? "text-emerald-400" : "text-rose-400 animate-pulse"}`}>
-                          {splitUnderpaid === 0 ? "Balanced" : `Unbalanced: ₹${splitUnderpaid.toFixed(2)}`}
-                        </span>
-                      </div>
-
-                      {["Cash", "UPI", "Card", "Wallet"].map(method => {
-                        const isChecked = splitAmounts[method] > 0;
-                        return (
-                          <div key={method} className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                id={`split-chk-${method}`}
-                                checked={isChecked}
-                                onChange={(e) => handlePaymentCheckbox(method, e.target.checked)}
-                                className="rounded text-blue-600 bg-theme-surface-1 border-theme-divider"
-                              />
-                              <label htmlFor={`split-chk-${method}`} className="text-xs text-theme-body font-medium w-20">{method}</label>
-                            </div>
-                            {isChecked && (
-                              <input
-                                type="number"
-                                value={splitAmounts[method]}
-                                onChange={(e) => handleSplitAmountChange(method, parseFloat(e.target.value) || 0)}
-                                className="bg-theme-surface-1 border border-theme-divider text-theme-body text-xs rounded px-2.5 py-1 text-right w-28 font-mono"
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Invoice Memo / Remarks</label>
-                  <input
-                    type="text"
-                    placeholder="Enter special shipping directions, billing footnotes, e.g. PO No."
-                    value={invoiceRemarks}
-                    onChange={(e) => setInvoiceRemarks(e.target.value)}
-                    className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-2 text-xs text-theme-body focus:outline-none"
-                  />
-                </div>
-              </div>
-
-            </div>
-
-            {/* Right side interactive item list and instant live total calculation preview */}
-            <div className="w-full lg:w-[420px] bg-theme-surface-2 border-t lg:border-t-0 lg:border-l border-theme-divider flex flex-col overflow-hidden">
-              
-              <div className="p-4 border-b border-theme-divider bg-theme-surface-3/50">
-                <h4 className="font-semibold text-theme-body text-xs uppercase tracking-wide">Live GST Calculation Sheet</h4>
-              </div>
-
-              {/* Cart List inside custom premium scroll */}
-              <SmritiScrollArea className="flex-1 min-h-[150px]" fadeColorClass="from-[#121c35]">
-                <div className="p-4 space-y-3">
-                  {itemDetailsList.map((item, idx) => {
-                    const share = totals.items[idx];
-                    if (!share) return null;
-
-                    return (
-                      <div 
-                        key={item.product.id}
-                        className="bg-theme-surface-3 border border-theme-divider rounded-lg p-3 space-y-2 relative group/item"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h5 className="font-semibold text-theme-body text-xs leading-snug">{item.product.name}</h5>
-                            <span className="text-[9px] text-blue-400 font-mono font-bold bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/15">
-                              HSN: {item.hsnCode}
-                            </span>
-                          </div>
-                          <span className="text-theme-body text-xs font-bold font-mono">x{item.quantity}</span>
-                        </div>
-
-                        {/* Calculations summary row */}
-                        <div className="grid grid-cols-3 gap-2 text-[10px] text-gray-400 border-t border-theme-divider/40 pt-2 font-mono">
-                          <div>
-                            <span>Rate:</span>
-                            <p className="text-theme-body font-medium">₹{item.product.price}</p>
-                          </div>
-                          <div>
-                            <span>Taxable:</span>
-                            <p className="text-emerald-400 font-semibold">₹{share.taxableValue.toFixed(2)}</p>
-                          </div>
-                          <div>
-                            <span>GST ({item.gstRate}%):</span>
-                            <p className="text-blue-400 font-semibold">₹{share.taxAmount.toFixed(2)}</p>
-                          </div>
-                        </div>
-
-                        {/* Interactive discount tags row */}
-                        <div className="flex flex-wrap gap-1 items-center pt-1.5">
-                          {Object.entries(item.discounts).map(([k, v]) => {
-                            if (v === 0) return null;
-                            return (
-                              <span 
-                                key={k}
-                                className="text-[9px] bg-rose-500/10 text-rose-400 border border-rose-500/25 px-1 py-0.5 rounded flex items-center gap-1 cursor-pointer hover:bg-rose-500/20"
-                                onClick={() => setEditingItemIdx(idx)}
-                              >
-                                {k}: {v}{k === "percentage" ? "%" : "₹"}
-                              </span>
-                            );
-                          })}
-                          <button
-                            onClick={() => setEditingItemIdx(idx)}
-                            className="text-[10px] text-blue-400 hover:text-theme-body flex items-center gap-0.5"
-                          >
-                            <span className="material-symbols-outlined text-xs">edit_note</span>
-                            Add Discount
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </SmritiScrollArea>
-
-              {/* Aggregated Totals Block */}
-              <div className="p-4 bg-theme-surface-3/70 border-t border-theme-divider space-y-2.5 text-xs">
-                <div className="flex justify-between text-gray-400">
-                  <span>Gross Value:</span>
-                  <span className="font-mono">₹{totals.grossAmount.toFixed(2)}</span>
-                </div>
-                {totals.itemDiscountsTotal > 0 && (
-                  <div className="flex justify-between text-rose-400">
-                    <span>Line Level Discounts:</span>
-                    <span className="font-mono">-₹{totals.itemDiscountsTotal.toFixed(2)}</span>
-                  </div>
-                )}
-                {totals.totalBillDiscounts > 0 && (
-                  <div className="flex justify-between text-rose-400">
-                    <span>Bill Offers / Loyalty:</span>
-                    <span className="font-mono">-₹{totals.totalBillDiscounts.toFixed(2)}</span>
-                  </div>
-                )}
-                
-                <div className="flex justify-between text-gray-400 border-t border-theme-divider/40 pt-2">
-                  <span>Taxable Base Value:</span>
-                  <span className="font-mono font-medium text-theme-body">₹{totals.totalTaxableAmount.toFixed(2)}</span>
-                </div>
-
-                {!totals.isInterstate ? (
-                  <>
-                    <div className="flex justify-between text-gray-400">
-                      <span>CGST Total:</span>
-                      <span className="font-mono">₹{totals.cgstTotal.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-gray-400">
-                      <span>SGST Total:</span>
-                      <span className="font-mono">₹{totals.sgstTotal.toFixed(2)}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex justify-between text-gray-400">
-                    <span>IGST (Interstate) Total:</span>
-                    <span className="font-mono">₹{totals.igstTotal.toFixed(2)}</span>
-                  </div>
-                )}
-
-                <div className="flex justify-between text-gray-400">
-                  <span>Round Off:</span>
-                  <span className="font-mono text-[11px]">{totals.roundOff >= 0 ? "+" : ""}₹{totals.roundOff.toFixed(2)}</span>
-                </div>
-
-                <div className="flex justify-between items-center border-t border-theme-divider pt-3 text-theme-body">
-                  <span className="font-display font-semibold text-sm">Grand Total (Net Payable):</span>
-                  <span className="font-mono font-bold text-lg text-emerald-400">₹{totals.grandTotal}</span>
-                </div>
-
-                {totals.giftCardRedemptionValue > 0 && (
-                  <div className="flex justify-between text-blue-400">
-                    <span>Gift Card Redeemed:</span>
-                    <span className="font-mono">-₹{totals.giftCardRedemptionValue}</span>
-                  </div>
-                )}
-
+            {/* Quick Catalog Chips Bar for Instant 1-Click Item Additions */}
+            <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1 text-[11px] font-mono">
+              <span className="text-slate-400 font-bold flex items-center gap-1 shrink-0">
+                <span className="material-symbols-outlined text-xs text-emerald-400">add_circle</span>
+                Quick Add Items:
+              </span>
+              {DEMO_TAX_PRODUCTS.map(p => (
                 <button
-                  onClick={handleFinalCheckout}
-                  disabled={cart.length === 0 || (paymentMode === "Split" && totals.balancePayable > 0 && Math.abs(splitUnderpaid) > 1)}
-                  className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center space-x-2 shadow-lg shadow-emerald-950/25 cursor-pointer"
+                  key={p.id}
+                  onClick={() => handleAddToCart(p, 1)}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-2.5 py-1 rounded border border-slate-700 hover:border-slate-500 font-semibold transition-all shrink-0 flex items-center gap-1 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-lg">verified</span>
-                  <span>Register & Print Invoice (₹{totals.balancePayable})</span>
+                  <span>+ {p.name.split(" ")[0]}</span>
+                  <span className="text-emerald-400 font-bold">₹{p.price}</span>
                 </button>
-              </div>
-
+              ))}
             </div>
 
+            {/* SMRITI High-Speed Item Details Grid */}
+            <div className="flex-1 overflow-hidden">
+              <SMRITIGrid
+                cart={activeCart}
+                onUpdateQuantity={handleUpdateQuantity}
+                onRemoveItem={handleRemoveItem}
+              />
+            </div>
           </div>
-        ) : (
+
+          {/* RIGHT COLUMN: SHOPER 9 FOOTER NET VALUES BREAKDOWN (25% WIDTH) */}
+          <div className="w-full lg:w-80 bg-[#0f172a] border-l border-slate-800 flex flex-col p-4 space-y-4 font-mono">
+            <div className="border-b border-slate-700 pb-2 flex items-center justify-between">
+              <h4 className="font-bold text-slate-200 text-xs uppercase tracking-wide font-display">Net Values Sheet</h4>
+              <span className="text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 font-bold">GST Live</span>
+            </div>
+
+            <div className="flex-1 space-y-2.5 text-xs overflow-y-auto custom-scrollbar">
+              <div className="flex justify-between text-slate-400">
+                <span>Gross Sales:</span>
+                <span className="font-bold text-slate-200">₹{(Number(totals.grossAmount) || 0).toFixed(2)}</span>
+              </div>
+
+              {(totals.itemDiscountsTotal || 0) > 0 && (
+                <div className="flex justify-between text-amber-400">
+                  <span>Item Discounts:</span>
+                  <span className="font-bold">-₹{(Number(totals.itemDiscountsTotal) || 0).toFixed(2)}</span>
+                </div>
+              )}
+
+              {(totals.totalBillDiscounts || 0) > 0 && (
+                <div className="flex justify-between text-amber-400">
+                  <span>Bill Discounts & Promo:</span>
+                  <span className="font-bold">-₹{(Number(totals.totalBillDiscounts) || 0).toFixed(2)}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between text-slate-300 border-t border-slate-800 pt-2 font-bold">
+                <span>Taxable Base Value:</span>
+                <span className="text-white">₹{(Number(totals.totalTaxableAmount) || 0).toFixed(2)}</span>
+              </div>
+
+              {!totals.isInterstate ? (
+                <>
+                  <div className="flex justify-between text-slate-400 pl-2 text-[11px]">
+                    <span>Sales Tax (CGST):</span>
+                    <span className="text-blue-400 font-bold">₹{(Number(totals.cgstTotal) || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400 pl-2 text-[11px]">
+                    <span>Sales Tax (SGST):</span>
+                    <span className="text-blue-400 font-bold">₹{(Number(totals.sgstTotal) || 0).toFixed(2)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between text-slate-400 pl-2 text-[11px]">
+                  <span>Sales Tax (IGST):</span>
+                  <span className="text-blue-400 font-bold">₹{(Number(totals.igstTotal) || 0).toFixed(2)}</span>
+                </div>
+              )}
+
+              {(totals.tcsAmount || 0) > 0 && (
+                <div className="flex justify-between text-purple-400 pl-2 text-[11px]">
+                  <span>Statutory TCS:</span>
+                  <span className="font-bold">+₹{(Number(totals.tcsAmount) || 0).toFixed(2)}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between text-slate-400 border-t border-slate-800 pt-2 text-[11px]">
+                <span>Round Off:</span>
+                <span className="text-slate-300 font-bold">{(totals.roundOff || 0) >= 0 ? `+₹${(Number(totals.roundOff) || 0).toFixed(2)}` : `-₹${Math.abs(Number(totals.roundOff) || 0).toFixed(2)}`}</span>
+              </div>
+
+              <div className="bg-emerald-950/60 border border-emerald-500/50 p-3.5 rounded-xl space-y-1 text-center mt-3 shadow-lg">
+                <span className="text-[10px] text-emerald-400 uppercase tracking-widest font-bold">Net Amount Payable</span>
+                <p className="text-2xl font-bold text-emerald-300 font-mono">
+                  ₹{(Number(totals.grandTotal) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleFinalCheckout}
+              disabled={cart.length === 0}
+              className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider font-display transition-all flex items-center justify-center gap-2 ${
+                cart.length > 0
+                  ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 cursor-pointer"
+                  : "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">task_alt</span>
+              Register & Print Invoice (F4)
+            </button>
+          </div>
+
+        </div>
+      ) : (
           /* SECTION 4: INTERACTIVE PRINT TEMPLATE VIEWER */
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-slate-900">
             
@@ -1823,7 +1442,253 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
           )}
         </AnimatePresence>
 
-      </div>
+      {/* SHOPER 9 BOTTOM SUMMARY BAR (FOOTER SECTION) */}
+      <footer className="h-10 bg-[#1e293b] border-t border-slate-700 px-4 flex items-center justify-between font-mono text-xs text-slate-300">
+        <div className="flex items-center space-x-6">
+          <div>Total Items: <span className="text-white font-bold">{cart.length}</span></div>
+          <div>Total Qty: <span className="text-white font-bold">{totals.totalQty || 0}</span></div>
+          <div>Sales Value: <span className="text-white font-bold">₹{(Number(totals.grossAmount) || 0).toFixed(2)}</span></div>
+          <div>Item Disc: <span className="text-amber-400 font-bold">₹{(Number(totals.itemDiscountsTotal) || 0).toFixed(2)}</span></div>
+          <div>Bill Disc: <span className="text-amber-400 font-bold">₹{(Number(totals.totalBillDiscounts) || 0).toFixed(2)}</span></div>
+          <div>Total Tax: <span className="text-blue-400 font-bold">₹{(Number(totals.totalGstTax) || 0).toFixed(2)}</span></div>
+        </div>
+        <div className="bg-emerald-600/20 px-3 py-1 rounded border border-emerald-500/40 text-emerald-300 font-bold text-sm">
+          Net Amount: ₹{(Number(totals.grandTotal) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+        </div>
+      </footer>
+
+      <RightDrawerHost
+        activeDrawerId={activeDrawerId}
+        onSave={() => setActiveDrawerId(null)}
+        onClose={() => setActiveDrawerId(null)}
+      />
+
+      <UniversalSearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        products={DEMO_TAX_PRODUCTS}
+        onSelectProduct={(p) => {
+          handleAddToCart(p, 1);
+          setIsSearchOpen(false);
+        }}
+      />
+
+      {/* Customer Master Details Modal */}
+      {isCustomerModalOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0f172a] border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl font-sans text-xs">
+            {/* Modal Header */}
+            <div className="px-5 py-4 border-b border-slate-700 flex items-center justify-between bg-[#1e293b] rounded-t-2xl">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-amber-400 text-xl">person_add</span>
+                <div>
+                  <h3 className="font-bold text-white text-sm font-display uppercase tracking-wide">Customer & B2B GSTIN Master Details</h3>
+                  <p className="text-[11px] text-slate-400">Configure tax classification, GSTIN, place of supply, and billing addresses.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCustomerModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-700 transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            {/* Quick Preset Buttons */}
+            <div className="px-5 py-2.5 bg-slate-900 border-b border-slate-800 flex items-center gap-2 font-mono text-[11px] overflow-x-auto">
+              <span className="text-slate-400 font-bold shrink-0">Quick Presets:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setTempCustomer({
+                    type: "Registered",
+                    name: "Super Textiles Ltd",
+                    companyName: "Super Textiles Private Limited",
+                    gstin: "27AAACS1094J1Z3",
+                    mobile: "9820098200",
+                    email: "accounts@supertextiles.in",
+                    billingAddress: "Unit 102, Textile Hub, Bhiwandi, Maharashtra - 421302",
+                    shippingAddress: "Unit 102, Textile Hub, Bhiwandi, Maharashtra - 421302",
+                    isShippingDifferent: false,
+                    membershipId: "B2B-GOLD-99"
+                  });
+                }}
+                className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30 cursor-pointer font-bold shrink-0"
+              >
+                + Super Textiles (B2B Maharashtra)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTempCustomer({
+                    type: "Registered",
+                    name: "Apex Electronics Delhi",
+                    companyName: "Apex Electronics Pvt Ltd",
+                    gstin: "07AAAAA0000A1Z5",
+                    mobile: "9811198111",
+                    email: "billing@apexelectronics.com",
+                    billingAddress: "Nehru Place Commercial Complex, New Delhi - 110019",
+                    shippingAddress: "Nehru Place Commercial Complex, New Delhi - 110019",
+                    isShippingDifferent: false,
+                    membershipId: "B2B-INTERSTATE-07"
+                  });
+                }}
+                className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded border border-blue-500/30 cursor-pointer font-bold shrink-0"
+              >
+                + Apex Electronics (B2B Delhi IGST)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTempCustomer({
+                    type: "Unregistered",
+                    name: "Walk-In Customer",
+                    companyName: "",
+                    gstin: "",
+                    mobile: "",
+                    email: "",
+                    billingAddress: "Mumbai, Maharashtra, India",
+                    shippingAddress: "Mumbai, Maharashtra, India",
+                    isShippingDifferent: false,
+                    membershipId: ""
+                  });
+                }}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded border border-slate-700 cursor-pointer shrink-0"
+              >
+                Reset B2C Walk-In
+              </button>
+            </div>
+
+            {/* Modal Form Body */}
+            <div className="p-5 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Customer Type / Category</label>
+                  <select
+                    value={tempCustomer.type}
+                    onChange={(e) => setTempCustomer({ ...tempCustomer, type: e.target.value as "Unregistered" | "Registered" })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="Unregistered">Unregistered Retail (B2C)</option>
+                    <option value="Registered">Registered Commercial Business (B2B)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Full Name / Customer Name *</label>
+                  <input
+                    type="text"
+                    value={tempCustomer.name}
+                    onChange={(e) => setTempCustomer({ ...tempCustomer, name: e.target.value })}
+                    placeholder="e.g. Walk-In Customer / Rajesh Sharma"
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white font-semibold text-xs focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Mobile Number</label>
+                  <input
+                    type="text"
+                    value={tempCustomer.mobile}
+                    onChange={(e) => setTempCustomer({ ...tempCustomer, mobile: e.target.value })}
+                    placeholder="e.g. 9820098200"
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Email Address</label>
+                  <input
+                    type="email"
+                    value={tempCustomer.email}
+                    onChange={(e) => setTempCustomer({ ...tempCustomer, email: e.target.value })}
+                    placeholder="e.g. customer@example.com"
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {tempCustomer.type === "Registered" && (
+                <div className="p-3.5 bg-blue-950/40 border border-blue-500/30 rounded-xl space-y-3">
+                  <span className="text-[10px] font-mono text-blue-300 font-bold uppercase tracking-wider block">B2B GSTIN & Corporate Credentials</span>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">15-Digit GSTIN Number</label>
+                      <input
+                        type="text"
+                        value={tempCustomer.gstin}
+                        onChange={(e) => setTempCustomer({ ...tempCustomer, gstin: e.target.value.toUpperCase() })}
+                        placeholder="e.g. 27AAACS1094J1Z3"
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-amber-300 font-mono text-xs font-bold focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">Company / Legal Business Name</label>
+                      <input
+                        type="text"
+                        value={tempCustomer.companyName}
+                        onChange={(e) => setTempCustomer({ ...tempCustomer, companyName: e.target.value })}
+                        placeholder="e.g. Super Textiles Private Limited"
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Billing Address</label>
+                <textarea
+                  rows={2}
+                  value={tempCustomer.billingAddress}
+                  onChange={(e) => setTempCustomer({ ...tempCustomer, billingAddress: e.target.value })}
+                  placeholder="Street address, City, State, Pincode..."
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Shipping Address</label>
+                <textarea
+                  rows={2}
+                  value={tempCustomer.shippingAddress || tempCustomer.billingAddress}
+                  onChange={(e) => setTempCustomer({ ...tempCustomer, shippingAddress: e.target.value })}
+                  placeholder="Shipping address..."
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="px-5 py-3 border-t border-slate-700 flex items-center justify-between bg-[#1e293b] rounded-b-2xl">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Tax Taxability: <strong className="text-emerald-400">{tempCustomer.gstin && !tempCustomer.gstin.startsWith("27") ? "Interstate (IGST 18%)" : "Intrastate (CGST 9% + SGST 9%)"}</strong>
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCustomerModalOpen(false)}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomer(tempCustomer);
+                    setIsCustomerModalOpen(false);
+                    onNotification("Customer Updated", `Customer updated to ${tempCustomer.name} (${tempCustomer.type}).`, "success");
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-lg font-bold shadow-lg shadow-emerald-950/40 cursor-pointer flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-base">check_circle</span>
+                  <span>Save & Apply Customer</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

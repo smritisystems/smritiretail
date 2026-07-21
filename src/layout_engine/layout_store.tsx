@@ -1,12 +1,13 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
+ * Organization : AITDL NETWORKS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.16.1
+ * Version      : 5.0.0
  * Created      : 2026-07-10
- * Modified     : 2026-07-14
+ * Modified     : 2026-07-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -31,6 +32,9 @@ export interface LayoutPreferences {
   lastWorkspace: string;
   collapsedGroups: string[];
   favorites: string[];
+  hideNavbar: boolean;
+  hideSidebar: boolean;
+  hideBottombar: boolean;
 }
 
 interface LayoutStoreContextType {
@@ -41,6 +45,12 @@ interface LayoutStoreContextType {
   setLayout: (position: DockPosition) => void;
   getLayout: () => LayoutPreferences;
   toggleSidebar: () => void;
+  toggleNavbar: () => void;
+  toggleSidebarVisibility: () => void;
+  toggleBottombar: () => void;
+  setNavbarHidden: (hidden: boolean) => void;
+  setSidebarHidden: (hidden: boolean) => void;
+  setBottombarHidden: (hidden: boolean) => void;
   setCollapsed: (state: boolean) => void;
   setIconOnly: (state: boolean) => void;
   setSidebarWidth: (width: number) => void;
@@ -66,6 +76,9 @@ const DEFAULT_PREFERENCES: LayoutPreferences = {
   lastWorkspace: "dashboard",
   collapsedGroups: [],
   favorites: ["pos", "sales"],
+  hideNavbar: false,
+  hideSidebar: false,
+  hideBottombar: false,
 };
 
 const LayoutStoreContext = createContext<LayoutStoreContextType | undefined>(
@@ -359,6 +372,36 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
     savePreferences({ collapsed: !preferences.collapsed });
   };
 
+  const toggleNavbar = () => {
+    savePreferences({ hideNavbar: !preferences.hideNavbar });
+    window.dispatchEvent(new Event("resize"));
+  };
+
+  const toggleSidebarVisibility = () => {
+    savePreferences({ hideSidebar: !preferences.hideSidebar });
+    window.dispatchEvent(new Event("resize"));
+  };
+
+  const toggleBottombar = () => {
+    savePreferences({ hideBottombar: !preferences.hideBottombar });
+    window.dispatchEvent(new Event("resize"));
+  };
+
+  const setNavbarHidden = (hidden: boolean) => {
+    savePreferences({ hideNavbar: hidden });
+    window.dispatchEvent(new Event("resize"));
+  };
+
+  const setSidebarHidden = (hidden: boolean) => {
+    savePreferences({ hideSidebar: hidden });
+    window.dispatchEvent(new Event("resize"));
+  };
+
+  const setBottombarHidden = (hidden: boolean) => {
+    savePreferences({ hideBottombar: hidden });
+    window.dispatchEvent(new Event("resize"));
+  };
+
   const setCollapsed = (state: boolean) => {
     savePreferences({ collapsed: state });
   };
@@ -423,6 +466,12 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
         setLayout,
         getLayout,
         toggleSidebar,
+        toggleNavbar,
+        toggleSidebarVisibility,
+        toggleBottombar,
+        setNavbarHidden,
+        setSidebarHidden,
+        setBottombarHidden,
         setCollapsed,
         setIconOnly,
         setSidebarWidth,

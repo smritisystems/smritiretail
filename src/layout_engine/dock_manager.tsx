@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -46,7 +46,7 @@ export const DockManager: React.FC<DockManagerProps> = ({
   searchTerm,
   onSearchChange
 }) => {
-  const { preferences, setSidebarWidth } = useLayoutEngine();
+  const { preferences, setSidebarWidth, toggleSidebarVisibility } = useLayoutEngine();
   const { effectivePosition } = useResponsiveLayout(preferences.position);
   const { focusMode } = useWorkspace();
   
@@ -104,12 +104,40 @@ export const DockManager: React.FC<DockManagerProps> = ({
   const isCollapsed = preferences.collapsed || preferences.iconOnly;
   const currentWidth = isCollapsed ? 72 : localWidth;
 
+  const showNavigation = !focusMode && !preferences.hideSidebar;
+
+  // Floating trigger button when sidebar is hidden
+  const renderSidebarUnhideTrigger = () => {
+    if (focusMode || !preferences.hideSidebar) return null;
+    const isHorizontal = effectivePosition === "top" || effectivePosition === "bottom";
+    const posClass =
+      effectivePosition === "right"
+        ? "right-2 top-1/2 -translate-y-1/2"
+        : effectivePosition === "top"
+        ? "top-2 left-1/2 -translate-x-1/2"
+        : effectivePosition === "bottom"
+        ? "bottom-2 left-1/2 -translate-x-1/2"
+        : "left-2 top-1/2 -translate-y-1/2";
+
+    return (
+      <button
+        onClick={toggleSidebarVisibility}
+        className={`fixed z-30 px-2.5 py-1 bg-theme-surface-2/90 hover:bg-indigo-600 text-xs font-semibold text-white rounded-lg shadow-xl border border-theme-divider flex items-center space-x-1.5 transition-all opacity-70 hover:opacity-100 cursor-pointer ${posClass}`}
+        title="Unhide Sidebar Navigation (Alt+Shift+S)"
+      >
+        <span className="material-symbols-outlined text-sm">dock_to_right</span>
+        <span>Show Sidebar</span>
+      </button>
+    );
+  };
+
   // Render Left Dock Layout
   const renderLeftDockLayout = () => {
     return (
       <div ref={containerRef} className="flex-1 flex overflow-hidden relative">
+        {renderSidebarUnhideTrigger()}
         {/* Navigation Panel */}
-        {!focusMode && (
+        {showNavigation && (
           <div 
             style={{ width: `${currentWidth}px` }} 
             className="h-full flex-shrink-0 transition-all duration-200 ease-in-out select-none relative z-10 animate-fade-in"
@@ -146,6 +174,7 @@ export const DockManager: React.FC<DockManagerProps> = ({
   const renderRightDockLayout = () => {
     return (
       <div ref={containerRef} className="flex-1 flex overflow-hidden relative">
+        {renderSidebarUnhideTrigger()}
         {/* Workspace content (first) */}
         <SmritiScrollArea className="flex-1 bg-theme-base select-text h-full relative flex flex-col" fadeColorClass="from-[#1A2B5C]">
           <WorkspaceToolbar currentTabId={activeTab} />
@@ -155,7 +184,7 @@ export const DockManager: React.FC<DockManagerProps> = ({
         </SmritiScrollArea>
 
         {/* Navigation Panel (second) */}
-        {!focusMode && (
+        {showNavigation && (
           <div 
             style={{ width: `${currentWidth}px` }} 
             className="h-full flex-shrink-0 transition-all duration-200 ease-in-out select-none relative z-10 animate-fade-in"
@@ -183,9 +212,10 @@ export const DockManager: React.FC<DockManagerProps> = ({
   // Render Top Dock Layout
   const renderTopDockLayout = () => {
     return (
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {renderSidebarUnhideTrigger()}
         {/* Navigation Panel */}
-        {!focusMode && (
+        {showNavigation && (
           <NavigationRenderer 
             activeTab={activeTab} 
             onTabSelect={onTabSelect} 
@@ -208,7 +238,8 @@ export const DockManager: React.FC<DockManagerProps> = ({
   // Render Bottom Dock Layout
   const renderBottomDockLayout = () => {
     return (
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {renderSidebarUnhideTrigger()}
         {/* Workspace Content */}
         <SmritiScrollArea className="flex-1 bg-theme-base select-text h-full relative flex flex-col" fadeColorClass="from-[#1A2B5C]">
           <WorkspaceToolbar currentTabId={activeTab} />
@@ -218,7 +249,7 @@ export const DockManager: React.FC<DockManagerProps> = ({
         </SmritiScrollArea>
 
         {/* Navigation Panel */}
-        {!focusMode && (
+        {showNavigation && (
           <NavigationRenderer 
             activeTab={activeTab} 
             onTabSelect={onTabSelect} 

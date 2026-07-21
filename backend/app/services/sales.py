@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.26.0 (Phase 3 — PricingGroup Price Engine)
+Version      : 5.1.3
 Created      : 2026-07-11
-Modified     : 2026-07-18 (Phase 3)
+Modified     : 2026-07-21
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -23,7 +23,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from ..models.sales import (
-    SalesInvoice, SalesInvoiceItem,
+    SalesInvoice, SalesInvoiceItem, SalesInvoicePayment,
     SalesQuotation, SalesQuotationItem,
     SalesOrder, SalesOrderItem,
     SalesReturn, SalesReturnItem,
@@ -73,16 +73,20 @@ class SalesService:
             raise HTTPException(status_code=400, detail="Sales invoice with this invoice number already exists")
 
         # 1. Resolve customer pricing group → price engine parameters
-        # This must happen BEFORE the item loop so the same policy applies to all lines.
         pricing_params = await self.crm_service.resolve_customer_pricing(invoice_in.customer_id)
-        pg_discount    = Decimal(str(pricing_params["discount_percent"]))    # e.g. 5.00
-        pg_adjustment  = Decimal(str(pricing_params["price_adjustment"]))    # absolute ±
-        rounding_rule  = pricing_params["rounding_rule"]                     # e.g. "Nearest1"
+        pg_discount    = Decimal(str(pricing_params["discount_percent"]))
+        pg_adjustment  = Decimal(str(pricing_params["price_adjustment"]))
+        rounding_rule  = pricing_params["rounding_rule"]
 
         # 2. Validate items and calculate totals
         calculated_tax_total = Decimal("0.00")
         calculated_grand_total = Decimal("0.00")
+        calculated_cgst_total = Decimal("0.00")
+        calculated_sgst_total = Decimal("0.00")
+        calculated_igst_total = Decimal("0.00")
         invoice_items = []
+
+        invoice_id = invoice_in.id or f"SINV-{_uid()}"
 
         for item in invoice_in.items:
             # Check stock
@@ -91,10 +95,6 @@ class SalesService:
                 raise HTTPException(status_code=400, detail=f"Insufficient stock for product ID: {item.product_id}")
 
             quantity = item.quantity
-            # --- Price Engine: apply PricingGroup discount + adjustment ---
-            # item.price is the base selling price supplied by the frontend.
-            # The PricingGroup can reduce it by discount_percent and then
-            # shift it by an absolute price_adjustment (markup +ve / markdown -ve).
             base_price = item.price
             if pg_discount > Decimal("0"):
                 base_price = base_price * (1 - pg_discount / Decimal("100"))
@@ -115,8 +115,21 @@ class SalesService:
             item_tax   = (quantity * price * (gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
             item_total = (quantity * price + item_tax).quantize(Decimal("0.01"))
 
+            # Calculate CGST/SGST/IGST tax splits
+            if invoice_in.is_interstate:
+                cgst_amount = Decimal("0.00")
+                sgst_amount = Decimal("0.00")
+                igst_amount = item_tax
+            else:
+                cgst_amount = (item_tax / 2).quantize(Decimal("0.01"))
+                sgst_amount = item_tax - cgst_amount
+                igst_amount = Decimal("0.00")
+
             calculated_tax_total   += item_tax
             calculated_grand_total += item_total
+            calculated_cgst_total   += cgst_amount
+            calculated_sgst_total   += sgst_amount
+            calculated_igst_total   += igst_amount
 
             db_item = SalesInvoiceItem(
                 product_id=item.product_id,
@@ -127,16 +140,61 @@ class SalesService:
                 hsn_code=item.hsn_code,
                 gst_rate=gst_rate,
                 tax_amount=item_tax,
-                total_amount=item_total
+                total_amount=item_total,
+                cgst_amount=cgst_amount,
+                sgst_amount=sgst_amount,
+                igst_amount=igst_amount,
+                tenant_id=self.tenant_ctx.tenant_id,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id
             )
             invoice_items.append(db_item)
 
-        # 2. Check customer credit limit
+        # 3. Check customer credit limit
         await self.crm_service.check_credit_limit(invoice_in.customer_id, float(calculated_grand_total))
 
-        # 3. Save Sales Invoice & items
+        # 4. Save Invoice Payments & compute cached payment_mode
+        payment_modes = set()
+        db_payments = []
+        for p_in in invoice_in.payments:
+            pay_id = f"PMT-{_uid()}"
+            db_pmt = SalesInvoicePayment(
+                id=pay_id,
+                uuid=str(uuid.uuid4()),
+                invoice_id=invoice_id,
+                payment_mode=p_in.payment_mode,
+                amount=p_in.amount,
+                transaction_no=p_in.transaction_no,
+                tenant_id=self.tenant_ctx.tenant_id,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id
+            )
+            db_payments.append(db_pmt)
+            payment_modes.add(p_in.payment_mode)
+
+        if not db_payments:
+            pay_id = f"PMT-{_uid()}"
+            # Fallback: schema may not have a flat payment_mode field (normalised payments model)
+            _fallback_mode = getattr(invoice_in, 'payment_mode', None) or "CASH"
+            db_pmt = SalesInvoicePayment(
+                id=pay_id,
+                uuid=str(uuid.uuid4()),
+                invoice_id=invoice_id,
+                payment_mode=_fallback_mode,
+                amount=calculated_grand_total,
+                transaction_no=None,
+                tenant_id=self.tenant_ctx.tenant_id,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id
+            )
+            db_payments.append(db_pmt)
+            cached_payment_mode = _fallback_mode
+        else:
+            cached_payment_mode = "MIXED" if len(payment_modes) > 1 else list(payment_modes)[0]
+
+        # 5. Save Sales Invoice & items
         db_invoice = SalesInvoice(
-            id=invoice_in.id,
+            id=invoice_id,
             invoice_no=invoice_in.invoice_no,
             date=invoice_in.date,
             customer_id=invoice_in.customer_id,
@@ -146,11 +204,16 @@ class SalesService:
             eway_bill_no=invoice_in.eway_bill_no,
             status=invoice_in.status,
             items=invoice_items,
+            place_of_supply=invoice_in.place_of_supply or "27",
+            cgst_total=calculated_cgst_total,
+            sgst_total=calculated_sgst_total,
+            igst_total=calculated_igst_total,
+            payment_mode=cached_payment_mode,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id
         )
 
-        # Deduct stock of products and record stock movements
+        # Record stock movements (app-level product.stock modifications removed under Ledger trigger cutover)
         for item in invoice_in.items:
             product_stmt = select(Product).filter(
                 Product.id == item.product_id,
@@ -161,9 +224,6 @@ class SalesService:
             product_res = await self.db.execute(product_stmt)
             product = product_res.scalars().first()
             if product and product.tracking_mode != "No-stock":
-                product.stock -= int(item.quantity)
-                self.db.add(product)
-
                 # Record StockMovement
                 movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
                 db_movement = StockMovement(
@@ -186,6 +246,9 @@ class SalesService:
                 self.db.add(db_movement)
 
         self.db.add(db_invoice)
+        for pmt in db_payments:
+            self.db.add(pmt)
+
         try:
             await self.db.commit()
         except IntegrityError:
@@ -194,7 +257,6 @@ class SalesService:
                 status_code=400,
                 detail="Sales invoice with this invoice number already exists"
             )
-        from sqlalchemy.orm import selectinload
         stmt = select(SalesInvoice).options(selectinload(SalesInvoice.items)).filter(SalesInvoice.id == db_invoice.id)
         res = await self.db.execute(stmt)
         return res.scalars().first()
@@ -233,13 +295,25 @@ class SalesService:
 
         tax_total = Decimal("0.00")
         grand_total = Decimal("0.00")
+        cgst_total = Decimal("0.00")
+        sgst_total = Decimal("0.00")
+        igst_total = Decimal("0.00")
         q_items = []
 
         for item in q_in.items:
             item_tax = (item.quantity * item.price * (item.gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
             item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
+
+            # Intrastate fallback splits for quotation
+            cgst_amount = (item_tax / 2).quantize(Decimal("0.01"))
+            sgst_amount = item_tax - cgst_amount
+            igst_amount = Decimal("0.00")
+
             tax_total += item_tax
             grand_total += item_total
+            cgst_total += cgst_amount
+            sgst_total += sgst_amount
+            igst_total += igst_amount
 
             q_items.append(SalesQuotationItem(
                 product_id=item.product_id,
@@ -250,7 +324,13 @@ class SalesService:
                 hsn_code=item.hsn_code,
                 gst_rate=item.gst_rate,
                 tax_amount=item_tax,
-                total_amount=item_total
+                total_amount=item_total,
+                cgst_amount=cgst_amount,
+                sgst_amount=sgst_amount,
+                igst_amount=igst_amount,
+                tenant_id=self.tenant_ctx.tenant_id,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id
             ))
 
         db_q = SalesQuotation(
@@ -260,6 +340,9 @@ class SalesService:
             customer_name=q_in.customer_name,
             tax_total=tax_total,
             grand_total=grand_total,
+            cgst_total=cgst_total,
+            sgst_total=sgst_total,
+            igst_total=igst_total,
             status=q_in.status,
             sales_order_id=q_in.sales_order_id,
             items=q_items,
@@ -328,13 +411,25 @@ class SalesService:
 
         tax_total = Decimal("0.00")
         grand_total = Decimal("0.00")
+        cgst_total = Decimal("0.00")
+        sgst_total = Decimal("0.00")
+        igst_total = Decimal("0.00")
         so_items = []
 
         for item in so_in.items:
             item_tax = (item.quantity * item.price * (item.gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
             item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
+
+            # Intrastate fallback splits for order
+            cgst_amount = (item_tax / 2).quantize(Decimal("0.01"))
+            sgst_amount = item_tax - cgst_amount
+            igst_amount = Decimal("0.00")
+
             tax_total += item_tax
             grand_total += item_total
+            cgst_total += cgst_amount
+            sgst_total += sgst_amount
+            igst_total += igst_amount
 
             so_items.append(SalesOrderItem(
                 product_id=item.product_id,
@@ -345,7 +440,13 @@ class SalesService:
                 hsn_code=item.hsn_code,
                 gst_rate=item.gst_rate,
                 tax_amount=item_tax,
-                total_amount=item_total
+                total_amount=item_total,
+                cgst_amount=cgst_amount,
+                sgst_amount=sgst_amount,
+                igst_amount=igst_amount,
+                tenant_id=self.tenant_ctx.tenant_id,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id
             ))
 
         db_so = SalesOrder(
@@ -355,6 +456,9 @@ class SalesService:
             customer_name=so_in.customer_name,
             tax_total=tax_total,
             grand_total=grand_total,
+            cgst_total=cgst_total,
+            sgst_total=sgst_total,
+            igst_total=igst_total,
             status=so_in.status,
             source_quotation_id=so_in.source_quotation_id,
             items=so_items,
@@ -435,6 +539,9 @@ class SalesService:
 
         tax_total = Decimal("0.00")
         grand_total = Decimal("0.00")
+        cgst_total = Decimal("0.00")
+        sgst_total = Decimal("0.00")
+        igst_total = Decimal("0.00")
         sr_items = []
         product_stock_updates = []
 
@@ -454,8 +561,22 @@ class SalesService:
 
             item_tax = (item.quantity * item.price * (item.gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
             item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
+
+            # Calculate CGST/SGST/IGST tax splits
+            if sr_in.is_interstate:
+                cgst_amount = Decimal("0.00")
+                sgst_amount = Decimal("0.00")
+                igst_amount = item_tax
+            else:
+                cgst_amount = (item_tax / 2).quantize(Decimal("0.01"))
+                sgst_amount = item_tax - cgst_amount
+                igst_amount = Decimal("0.00")
+
             tax_total += item_tax
             grand_total += item_total
+            cgst_total += cgst_amount
+            sgst_total += sgst_amount
+            igst_total += igst_amount
 
             sr_items.append(SalesReturnItem(
                 product_id=item.product_id,
@@ -465,7 +586,13 @@ class SalesService:
                 price=item.price,
                 gst_rate=item.gst_rate,
                 tax_amount=item_tax,
-                total_amount=item_total
+                total_amount=item_total,
+                cgst_amount=cgst_amount,
+                sgst_amount=sgst_amount,
+                igst_amount=igst_amount,
+                tenant_id=self.tenant_ctx.tenant_id,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id
             ))
             product_stock_updates.append((product, item.quantity))
 
@@ -478,6 +605,9 @@ class SalesService:
             reason=sr_in.reason,
             tax_total=tax_total,
             grand_total=grand_total,
+            cgst_total=cgst_total,
+            sgst_total=sgst_total,
+            igst_total=igst_total,
             is_interstate=sr_in.is_interstate,
             status=sr_in.status,
             items=sr_items,
@@ -488,10 +618,6 @@ class SalesService:
         # Apply stock increments (returned items add back to stock) and record stock movements
         for product, qty in product_stock_updates:
             if product.tracking_mode != "No-stock":
-                product.stock += int(qty)
-                product.modified_at = datetime.now(timezone.utc)
-                self.db.add(product)
-
                 # Record StockMovement
                 movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
                 db_movement = StockMovement(

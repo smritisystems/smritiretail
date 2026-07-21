@@ -1,0 +1,212 @@
+================================================================================
+Project      : SMRITI Retail OS
+Organization : AITDL NETWORKS
+Author       : Jawahar Ramkripal Mallah
+Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version      : 5.0.0
+Created      : 2026-07-21
+Modified     : 2026-07-21
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
+License      : Proprietary Commercial Software
+================================================================================
+
+DATABASE SCHEMAS REFERENCE SPECIFICATION (PORT 5432 - POSTGRESQL)
+DB Name: smriti_retail_db
+
+--------------------------------------------------------------------------------
+1. TABLE: sales_invoices
+--------------------------------------------------------------------------------
+id              : character varying(50)    NOT NULL (PK)
+invoice_no      : character varying(100)   NOT NULL (Unique)
+date            : date                     NOT NULL (Default: CURRENT_DATE)
+customer_id     : character varying(50)    NULL (FK -> customers.id)
+tax_total       : numeric(15,2)            NULL (Default: 0.00)
+grand_total     : numeric(15,2)            NOT NULL (Default: 0.00)
+is_interstate   : boolean                  NULL (Default: false)
+eway_bill_no    : character varying(50)    NULL
+status          : character varying(20)    NULL (Default: 'Draft')
+created_at      : timestamp with time zone NULL (Default: CURRENT_TIMESTAMP)
+modified_at     : timestamp with time zone NULL (Default: CURRENT_TIMESTAMP)
+uuid            : character varying(36)    NOT NULL (Unique, Default: uuid_generate_v4())
+company_id      : character varying(50)    NULL (FK -> companies.id)
+branch_id       : character varying(50)    NULL (FK -> branches.id)
+created_by      : character varying(100)   NULL
+updated_by      : character varying(100)   NULL
+is_active       : boolean                  NULL
+is_deleted      : boolean                  NULL
+deleted_at      : timestamp with time zone NULL
+deleted_by      : character varying(100)   NULL
+version         : integer                  NULL
+shift_id        : character varying(50)    NULL (FK -> shifts.id)
+payment_mode    : character varying(20)    NULL (Default: 'CASH')
+workflow_status : character varying(30)    NULL
+document_number : character varying(80)    NULL
+tenant_id       : character varying(50)    NULL
+
+--------------------------------------------------------------------------------
+2. TABLE: sales_invoice_items
+--------------------------------------------------------------------------------
+id              : integer                  NOT NULL (PK Sequence)
+invoice_id      : character varying(50)    NOT NULL (FK -> sales_invoices.id, CASCADE)
+product_id      : character varying(50)    NULL (FK -> products.id, RESTRICT)
+code            : character varying(50)    NOT NULL
+name            : character varying(255)   NOT NULL
+quantity        : numeric(12,4)            NOT NULL (Default: 1.00)
+price           : numeric(15,2)            NOT NULL
+hsn_code        : character varying(15)    NULL
+gst_rate        : numeric(5,2)             NULL (Default: 18.00)
+tax_amount      : numeric(15,2)            NULL (Default: 0.00)
+total_amount    : numeric(15,2)            NOT NULL
+
+--------------------------------------------------------------------------------
+3. TABLE: products
+--------------------------------------------------------------------------------
+id                  : character varying(50)    NOT NULL (PK)
+code                : character varying(50)    NOT NULL (Unique)
+name                : character varying(255)   NOT NULL
+price               : numeric(15,2)            NOT NULL (Default: 0.00)
+stock               : integer                  NOT NULL (Default: 0)
+category            : character varying(100)   NOT NULL
+is_favorite         : boolean                  NULL (Default: false)
+barcode             : character varying(100)   NOT NULL (Unique)
+secondary_barcodes  : character varying[]      NULL (Default: '{}'::text[])
+brand               : character varying(100)   NULL
+color               : character varying(50)    NULL
+size                : character varying(50)    NULL
+mrp                 : numeric(15,2)            NULL
+gst_percentage      : numeric(5,2)             NULL (Default: 18.00)
+style_code          : character varying(100)   NULL
+cost_price          : numeric(15,2)            NULL
+sku                 : character varying(100)   NULL (Unique)
+hsn_code            : character varying(15)    NULL
+pricing_mode        : character varying(30)    NULL (Default: 'Fixed')
+tracking_mode       : character varying(30)    NULL (Default: 'Standard')
+variant_template_id : character varying(50)    NULL
+weight_grams        : numeric(10,2)            NULL (Default: 0.00)
+attributes          : jsonb                    NULL (Default: '{}'::jsonb, GIN Indexed)
+created_at          : timestamp with time zone NULL (Default: CURRENT_TIMESTAMP)
+modified_at         : timestamp with time zone NULL (Default: CURRENT_TIMESTAMP)
+uuid                : character varying(36)    NOT NULL (Unique, Default: uuid_generate_v4())
+company_id          : character varying(50)    NULL (FK -> companies.id)
+branch_id           : character varying(50)    NULL (FK -> branches.id)
+created_by          : character varying(100)   NULL
+updated_by          : character varying(100)   NULL
+is_active           : boolean                  NULL
+is_deleted          : boolean                  NULL
+deleted_at          : timestamp with time zone NULL
+deleted_by          : character varying(100)   NULL
+version             : integer                  NULL
+primary_image_url   : character varying(512)   NULL
+gallery_images      : character varying[]      NULL (Default: '{}')
+workflow_status     : character varying(30)    NULL
+document_number     : character varying(80)    NULL
+tenant_id           : character varying(50)    NULL
+
+--------------------------------------------------------------------------------
+4. TABLE: stock_movements
+--------------------------------------------------------------------------------
+id                 : character varying(50)    NOT NULL (PK)
+product_id         : character varying(50)    NOT NULL (FK -> products.id, RESTRICT)
+product_name       : character varying(255)   NOT NULL
+sku                : character varying(50)    NOT NULL
+quantity           : numeric(10,2)            NOT NULL
+movement_type      : character varying(20)    NOT NULL (e.g. 'SALE', 'PURCHASE')
+reference_doc_type : character varying(50)    NULL
+reference_doc_id   : character varying(50)    NULL
+warehouse          : character varying(100)   NULL
+bin                : character varying(50)    NULL
+batch              : character varying(50)    NULL
+serial             : character varying(50)    NULL
+unit_cost          : numeric(15,2)            NULL
+remarks            : text                     NULL
+user               : character varying(100)   NULL
+device             : character varying(100)   NULL
+branch             : character varying(100)   NULL
+source_module      : character varying(50)    NULL
+approval           : character varying(50)    NULL
+uuid               : character varying(36)    NOT NULL (Unique)
+company_id         : character varying(50)    NULL (FK -> companies.id)
+branch_id          : character varying(50)    NULL (FK -> branches.id)
+created_at         : timestamp with time zone NULL
+modified_at        : timestamp with time zone NULL
+created_by         : character varying(100)   NULL
+updated_by         : character varying(100)   NULL
+is_active          : boolean                  NULL
+is_deleted         : boolean                  NULL
+deleted_at         : timestamp with time zone NULL
+deleted_by         : character varying(100)   NULL
+version            : integer                  NULL
+workflow_status    : character varying(30)    NULL
+document_number    : character varying(80)    NULL
+tenant_id          : character varying(50)    NULL
+
+--------------------------------------------------------------------------------
+5. TABLE: customers
+--------------------------------------------------------------------------------
+id                       : character varying(50)    NOT NULL (PK)
+customer_group_id        : character varying(50)    NULL (FK -> customer_groups.id)
+name                     : character varying(255)   NOT NULL
+mobile                   : character varying(20)    NULL
+email                    : character varying(255)   NULL
+gst_number               : character varying(15)    NULL
+outstanding              : numeric(15,2)            NULL (Default: 0.00)
+status                   : character varying(20)    NULL (Default: 'Active')
+created_date             : date                     NULL (Default: CURRENT_DATE)
+tags                     : character varying[]      NULL
+created_at               : timestamp with time zone NULL (Default: CURRENT_TIMESTAMP)
+modified_at              : timestamp with time zone NULL (Default: CURRENT_TIMESTAMP)
+uuid                     : character varying(36)    NOT NULL (Unique)
+company_id               : character varying(50)    NULL
+branch_id                : character varying(50)    NULL
+created_by               : character varying(100)   NULL
+updated_by               : character varying(100)   NULL
+is_active                : boolean                  NULL
+is_deleted               : boolean                  NULL
+deleted_at               : timestamp with time zone NULL
+deleted_by               : character varying(100)   NULL
+version                  : integer                  NULL
+pricing_group_id         : character varying(50)    NULL
+workflow_status          : character varying(30)    NULL
+document_number          : character varying(80)    NULL
+billing_address_line1    : character varying(255)   NULL
+billing_address_line2    : character varying(255)   NULL
+billing_city             : character varying(100)   NULL
+billing_state            : character varying(100)   NULL
+billing_country          : character varying(100)   NULL (Default: 'India')
+billing_pincode          : character varying(10)    NULL
+shipping_same_as_billing : boolean                  NULL (Default: true)
+shipping_address_line1   : character varying(255)   NULL
+shipping_address_line2   : character varying(255)   NULL
+shipping_city            : character varying(100)   NULL
+shipping_state           : character varying(100)   NULL
+shipping_country         : character varying(100)   NULL
+shipping_pincode         : character varying(10)    NULL
+additional_addresses     : jsonb                    NULL (Default: '[]')
+tenant_id                : character varying(50)    NULL
+
+--------------------------------------------------------------------------------
+6. TABLE: users
+--------------------------------------------------------------------------------
+id                       : character varying(50)    NOT NULL (PK)
+username                 : character varying(100)   NOT NULL (Unique)
+email                    : character varying(255)   NOT NULL (Unique)
+password_hash            : character varying(255)   NOT NULL
+role                     : character varying(50)    NOT NULL
+is_active                : boolean                  NOT NULL (Default: true)
+full_name                : character varying(255)   NOT NULL
+mobile                   : character varying(20)    NULL
+company_id               : character varying(50)    NULL (FK -> companies.id)
+branch_id                : character varying(50)    NULL (FK -> branches.id)
+created_at               : timestamp with time zone NULL (Default: CURRENT_TIMESTAMP)
+modified_at              : timestamp with time zone NULL (Default: CURRENT_TIMESTAMP)
+uuid                     : character varying(36)    NOT NULL (Unique)
+gender                   : character varying(20)    NULL
+city                     : character varying(100)   NULL
+state                    : character varying(100)   NULL
+country                  : character varying(50)    NOT NULL
+pin_code                 : character varying(10)    NULL
+allowed_branches         : text                     NULL
+tenant_id                : character varying(50)    NULL
+is_platform_admin        : boolean                  NOT NULL (Default: false)

@@ -39,6 +39,16 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Configured Logistics & Transporter details input manager (E-Way bill number, vehicle number, LR/GR numbers, payment terms) and B2B Account/Sales Managers maps.
   - Automated Statutory TCS (Tax Collected at Source) rate calculations and nearest rupee rounding.
   - Added 12 fine-grained security permissions (`billing.pos`, `billing.tax`, `billing.return`, `billing.void`, `billing.import`, `billing.recall`, `billing.discount`, `billing.override`, `billing.reprint`, `billing.salesperson.view`, `billing.salesperson.assign`, `billing.salesperson.override`) to permissions registry manifest and seeded them automatically.
+  - Implemented **Hideable Navigation & UI Panels**:
+    - Independent visibility state controls for top Navbar, side Navigation Sidebar, and bottom Workspace Taskbar in `layout_store.tsx`.
+    - Added floating edge unhide trigger buttons (`Show Navbar`, `Show Sidebar`, `Show Bottombar`) when any panel is hidden.
+    - Added global hotkeys (`Alt+Shift+N` for Navbar, `Alt+Shift+S` for Sidebar, `Alt+Shift+B` for Bottombar) and controls in the Layout Configuration dropdown.
+
+### Fixed
+- **Advanced Billing Engine & Terminal Grid Fixes**:
+  - Resolved `ReferenceError: useMemo is not defined` inside `AdvancedBillingEngine.tsx` by importing `useMemo` from React.
+  - Added missing `totalQty` and `totalGstTax` properties to the returned totals object in `calculateInvoiceTotals` to resolve TypeScript compilation errors in the footer of `AdvancedBillingEngine.tsx`.
+  - Corrected `gst_percentage` to `gstPercentage` in `SMRITIGrid.tsx` to align with the `Product` type definition and resolve compiler errors.
 
 ---
 

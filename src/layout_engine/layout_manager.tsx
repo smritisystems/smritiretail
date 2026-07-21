@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -63,7 +63,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
   currentUser,
   onLogout,
 }) => {
-  const { preferences, setLayout, toggleSidebar } = useLayoutEngine();
+  const { preferences, setLayout, toggleSidebar, toggleNavbar, toggleSidebarVisibility, toggleBottombar } = useLayoutEngine();
   const { theme, toggleTheme } = useTheme();
   const { focusMode, toggleFocusMode } = useWorkspace();
   const [searchTerm, setSearchTerm] = useState("");
@@ -85,9 +85,21 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-theme-base text-theme-primary font-sans antialiased select-none">
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-theme-base text-theme-primary font-sans antialiased select-none relative">
+      {/* Top Floating Unhide Navbar Trigger (When Navbar is hidden) */}
+      {!focusMode && preferences.hideNavbar && (
+        <button
+          onClick={toggleNavbar}
+          className="fixed top-2 left-1/2 -translate-x-1/2 z-40 px-3 py-1 bg-theme-surface-2/90 hover:bg-indigo-600 text-xs font-semibold text-white rounded-b-lg shadow-lg border border-t-0 border-theme-divider flex items-center space-x-1.5 transition-all opacity-70 hover:opacity-100 cursor-pointer"
+          title="Unhide Application Navbar (Alt+Shift+N)"
+        >
+          <span className="material-symbols-outlined text-sm">visibility</span>
+          <span>Show Navbar</span>
+        </button>
+      )}
+
       {/* 1. FIXED APPLICATION HEADER (Satisfies Application Header requirement) */}
-      {!focusMode && (
+      {!focusMode && !preferences.hideNavbar && (
         <header className="bg-theme-surface-1 border-b border-theme-divider px-6 h-[72px] flex-shrink-0 flex items-center justify-between z-30 shadow-md">
           {/* Brand Logo & Info */}
           <div className="flex items-center space-x-3.5">
@@ -159,7 +171,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
                     className="fixed inset-0 z-30"
                     onClick={() => setShowLayoutConfig(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-56 rounded-xl bg-theme-surface-2 border border-theme-divider shadow-2xl p-4 space-y-3 z-40 animate-in fade-in slide-in-from-top-2 duration-150 text-left">
+                  <div className="absolute right-0 mt-2 w-64 rounded-xl bg-theme-surface-2 border border-theme-divider shadow-2xl p-4 space-y-3 z-40 animate-in fade-in slide-in-from-top-2 duration-150 text-left">
                     <span className="text-[10px] font-mono text-theme-muted font-bold uppercase tracking-wider block">
                       Dock Layout Options
                     </span>
@@ -181,12 +193,63 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
                       )}
                     </div>
                     <div className="h-px bg-[#2a3a5c]/50 my-1" />
+                    <span className="text-[10px] font-mono text-theme-muted font-bold uppercase tracking-wider block">
+                      Hideable Bars & Panels
+                    </span>
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => {
+                          toggleNavbar();
+                          setShowLayoutConfig(false);
+                        }}
+                        className="w-full text-left py-1.5 px-2 rounded hover:bg-theme-surface-3 text-xs font-medium text-theme-muted hover:text-theme-body flex items-center justify-between cursor-pointer"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <span className="material-symbols-outlined text-sm">web_asset</span>
+                          <span>Navbar</span>
+                        </div>
+                        <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${preferences.hideNavbar ? "bg-rose-500/20 text-rose-300" : "bg-emerald-500/20 text-emerald-300"}`}>
+                          {preferences.hideNavbar ? "Hidden" : "Visible"}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          toggleSidebarVisibility();
+                          setShowLayoutConfig(false);
+                        }}
+                        className="w-full text-left py-1.5 px-2 rounded hover:bg-theme-surface-3 text-xs font-medium text-theme-muted hover:text-theme-body flex items-center justify-between cursor-pointer"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <span className="material-symbols-outlined text-sm">dock_to_right</span>
+                          <span>Sidebar</span>
+                        </div>
+                        <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${preferences.hideSidebar ? "bg-rose-500/20 text-rose-300" : "bg-emerald-500/20 text-emerald-300"}`}>
+                          {preferences.hideSidebar ? "Hidden" : "Visible"}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          toggleBottombar();
+                          setShowLayoutConfig(false);
+                        }}
+                        className="w-full text-left py-1.5 px-2 rounded hover:bg-theme-surface-3 text-xs font-medium text-theme-muted hover:text-theme-body flex items-center justify-between cursor-pointer"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <span className="material-symbols-outlined text-sm">view_stream</span>
+                          <span>Bottombar (Taskbar)</span>
+                        </div>
+                        <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${preferences.hideBottombar ? "bg-rose-500/20 text-rose-300" : "bg-emerald-500/20 text-emerald-300"}`}>
+                          {preferences.hideBottombar ? "Hidden" : "Visible"}
+                        </span>
+                      </button>
+                    </div>
+                    <div className="h-px bg-[#2a3a5c]/50 my-1" />
                     <button
                       onClick={() => {
                         toggleSidebar();
                         setShowLayoutConfig(false);
                       }}
-                      className="w-full text-left py-1 text-xs font-medium text-theme-muted hover:text-theme-body flex items-center space-x-1.5"
+                      className="w-full text-left py-1 text-xs font-medium text-theme-muted hover:text-theme-body flex items-center space-x-1.5 cursor-pointer"
                     >
                       <ArrowLeftRight size={12} />
                       <span>Expand/Collapse Sidebar</span>

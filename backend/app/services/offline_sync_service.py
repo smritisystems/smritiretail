@@ -42,8 +42,8 @@ class OfflineSyncService:
             invoice_num = inv_data.get("invoice_number", f"INV-OFF-{uuid.uuid4().hex[:6].upper()}")
             grand_total = float(inv_data.get("grand_total", 0.0))
 
-            # Idempotency check by invoice_number
-            stmt = select(SalesInvoice).where(SalesInvoice.invoice_number == invoice_num)
+            # Idempotency check by invoice_no (the actual model column name)
+            stmt = select(SalesInvoice).where(SalesInvoice.invoice_no == invoice_num)
             res = await self.db.execute(stmt)
             existing = res.scalar_one_or_none()
 
@@ -53,16 +53,17 @@ class OfflineSyncService:
 
             invoice = SalesInvoice(
                 id=f"inv_{uuid.uuid4().hex[:12]}",
-                invoice_number=invoice_num,
+                uuid=str(uuid.uuid4()),
+                invoice_no=invoice_num,
                 grand_total=grand_total,
-                status="PAID",
-                payment_status="PAID",
-                notes=f"Synced from Offline POS Queue (Client ID: {client_id})",
+                status="Draft",
+                payment_mode="CASH",
             )
             self.db.add(invoice)
             synced_invoices.append(invoice_num)
 
         await self.db.commit()
+
 
         return {
             "status": "COMPLETED",

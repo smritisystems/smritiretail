@@ -4,16 +4,18 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 5.1.3
 Created      : 2026-07-11
-Modified     : 2026-07-13
+Modified     : 2026-07-21
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
+Classification: Internal
 """
 
 from datetime import datetime
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.orm import relationship
 from ..db.base import BaseEntity, RowSecuredMixin
 
 class Product(RowSecuredMixin, BaseEntity):
@@ -26,7 +28,6 @@ class Product(RowSecuredMixin, BaseEntity):
     category = Column(String(100), nullable=False, index=True)
     is_favorite = Column(Boolean, default=False)
     barcode = Column(String(100), nullable=False, unique=True, index=True)
-    secondary_barcodes = Column(ARRAY(String), server_default="{}")
     brand = Column(String(100))
     color = Column(String(50))
     size = Column(String(50))
@@ -44,9 +45,56 @@ class Product(RowSecuredMixin, BaseEntity):
     primary_image_url = Column(String(512))
     gallery_images = Column(ARRAY(String), server_default="{}")
 
+    # Relationships
+    barcodes = relationship("ProductBarcode", back_populates="product", cascade="all, delete-orphan")
+
+    @property
+    def secondary_barcodes(self) -> list[str]:
+        # Return only the non-primary barcodes
+        return [bc.barcode for bc in self.barcodes if not bc.is_primary]
+
+    @secondary_barcodes.setter
+    def secondary_barcodes(self, values: list[str]) -> None:
+        import uuid as uuid_pkg
+        # Re-sync secondary barcodes
+        existing_sec = [bc for bc in self.barcodes if not bc.is_primary]
+        existing_vals = {bc.barcode: bc for bc in existing_sec}
+        # Add new ones
+        for val in values:
+            if not val:
+                continue
+            if val not in existing_vals:
+                new_bc = ProductBarcode(
+                    id=f"BC-{uuid_pkg.uuid4().hex[:8]}",
+                    uuid=str(uuid_pkg.uuid4()),
+                    product_id=self.id,
+                    barcode=val,
+                    is_primary=False,
+                    tenant_id=self.tenant_id,
+                    company_id=self.company_id,
+                    branch_id=self.branch_id
+                )
+                self.barcodes.append(new_bc)
+        # Remove deleted ones
+        new_vals_set = set(values)
+        for bc in existing_sec:
+            if bc.barcode not in new_vals_set:
+                self.barcodes.remove(bc)
+
     __table_args__ = (
         Index("idx_products_attributes", "attributes", postgresql_using="gin"),
     )
+
+
+class ProductBarcode(BaseEntity):
+    __tablename__ = "product_barcodes"
+
+    product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    barcode = Column(String(100), nullable=False, unique=True, index=True)
+    is_primary = Column(Boolean, nullable=False, default=False)
+
+    # Relationships
+    product = relationship("Product", back_populates="barcodes")
 
 
 class StockMovement(BaseEntity):

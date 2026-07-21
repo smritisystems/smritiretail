@@ -1,7 +1,7 @@
 # SMRITI Development Status Dashboard
 
-*Generated: 20-Jul-26*
-*Branch: smritiNX | Last Commit: 7b7c630*
+*Generated: 21-Jul-26*
+*Branch: smritiNX | Last Commit: af3a7af*
 
 ## SMRITI Development Health Index (DHI)
 ```
@@ -18,6 +18,6 @@ Security: ██████████ 100%
 | Item Master | Inventory & Sourcing | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | 72% |
 | Purchase Studio | Inventory & Sourcing | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | 68% |
 | Sales Studio | Sales & POS | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | 76% |
-| Billing Desk | Sales & POS | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | 68% |
+| Billing Desk | Sales & POS | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | 64% |
 | CRM & Loyalty | Sales & POS | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | 44% |
 | About SMRITI | System | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 84% |
