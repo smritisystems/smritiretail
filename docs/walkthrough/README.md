@@ -192,6 +192,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-21 | v15.0.0 | Enterprise Operations, High Availability & Observability Engine | [Walkthrough](./foundation/Enterprise_Operations_HA_Observability_v15.0.0.md) | [Plan](../implementation/foundation/Enterprise_Operations_HA_Observability_Plan_v15.0.0.md) | Completed |
 | 2026-07-21 | v16.0.0 | AI & Intelligent Business Automation Subsystems | [Walkthrough](./foundation/AI_Intelligent_Automation_v16.0.0.md) | [Plan](../implementation/foundation/AI_Intelligent_Automation_Plan_v16.0.0.md) | Completed |
 | 2026-07-21 | v17.0.0 | Universal Document Management & Content Platform (SCDP / UDMS) | [Walkthrough](./foundation/Universal_Document_Management_v17.0.0.md) | [Plan](../implementation/foundation/Universal_Document_Management_Plan_v17.0.0.md) | Completed |
+| 2026-07-21 | v18.0.0 | Enterprise Warehouse Management & Multi-Bin Location Engine | [Walkthrough](./wms/WMS_Multi_Bin_Location_v18.0.0.md) | [Plan](../implementation/wms/WMS_Multi_Bin_Location_Plan_v18.0.0.md) | Completed |
+
 
 
 
