@@ -65,6 +65,7 @@ from .api.v1 import (
     terms,
     users,
     workflow,
+    validation_policy,
     consignment,
     sre,
     dispatch,
@@ -178,6 +179,7 @@ app.include_router(communicator.router,      prefix=settings.API_V1_STR,        
 app.include_router(screen_studio.router,     prefix=settings.API_V1_STR,                    tags=["SMRITI Screen Studio Metadata Engine"])
 app.include_router(offline_sync.router,      prefix=settings.API_V1_STR,                    tags=["Offline POS Queue Sync Engine"])
 app.include_router(diagnostics.router,       prefix=settings.API_V1_STR,                    tags=["SMRITI Operational Observability & Telemetry Engine"])
+app.include_router(validation_policy.router, prefix=settings.API_V1_STR,                    tags=["Platform Validation Engine (PVE)"])
 
 
 

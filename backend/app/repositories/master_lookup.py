@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from typing import Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.master_lookup import MasterType, MasterValue
@@ -77,7 +77,12 @@ class LookupRepository:
         result = await self.db.execute(stmt)
         return result.scalars().first()
 
-    async def get_values_by_type_code(self, type_code: str, active_only: bool = True) -> Sequence[MasterValue]:
+    async def get_values_by_type_code(
+        self,
+        type_code: str,
+        active_only: bool = True,
+        tenant_id: str | None = None
+    ) -> Sequence[MasterValue]:
         stmt = (
             select(MasterValue)
             .join(MasterType, MasterValue.master_type_id == MasterType.id)
@@ -87,6 +92,13 @@ class LookupRepository:
                 MasterValue.effective_to.is_(None)
             )
         )
+        if tenant_id is not None:
+            stmt = stmt.filter(
+                or_(
+                    MasterValue.is_system.is_(True),
+                    MasterValue.tenant_id == tenant_id
+                )
+            )
         if active_only:
             stmt = stmt.filter(MasterValue.active == True)
         stmt = stmt.order_by(MasterValue.sort_order, MasterValue.name)

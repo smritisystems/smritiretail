@@ -82,14 +82,14 @@ class LookupService:
             )
         return val
 
-    async def search_values(self, type_code: str, active_only: bool = True) -> list[MasterValue]:
+    async def search_values(self, type_code: str, active_only: bool = True, tenant_id: str | None = None) -> list[MasterValue]:
         mtype = await self.repo.get_type_by_code(type_code)
         if not mtype:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Master lookup type '{type_code}' not found."
             )
-        values = await self.repo.get_values_by_type_code(type_code, active_only=active_only)
+        values = await self.repo.get_values_by_type_code(type_code, active_only=active_only, tenant_id=tenant_id)
         return list(values)
 
     async def validate_value(self, type_code: str, code: str) -> bool:
@@ -140,7 +140,7 @@ class LookupService:
             else:
                 break
 
-    async def create_value(self, type_code: str, value_in: MasterValueCreate) -> MasterValue:
+    async def create_value(self, type_code: str, value_in: MasterValueCreate, tenant_id: str | None = None) -> MasterValue:
         mtype = await self.repo.get_type_by_code(type_code)
         if not mtype:
             raise HTTPException(
@@ -168,7 +168,9 @@ class LookupService:
             active=value_in.active if value_in.active is not None else True,
             sort_order=value_in.sort_order or 0,
             effective_from=datetime.now(timezone.utc),
-            effective_to=None
+            effective_to=None,
+            is_system=False,  # tenant values are never system
+            tenant_id=tenant_id,  # scope to this tenant
         )
 
         created = await self.repo.create_value(val_obj)
@@ -235,6 +237,23 @@ class LookupService:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Master lookup value '{value_id}' not found."
+            )
+
+        if getattr(val, "is_system", False):
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "title": "Cannot Delete System Value",
+                    "explanation": (
+                        f"'{val.name}' is a standard SMRITI value "
+                        f"and cannot be deleted."
+                    ),
+                    "suggested_action": (
+                        "You can deactivate it instead — it will be hidden "
+                        "from your dropdowns but the system record is preserved."
+                    ),
+                    "reference_id": "SMRITI-VAL-020"
+                }
             )
 
         mtype = await self.repo.get_type_by_id(val.master_type_id)

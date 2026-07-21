@@ -28,6 +28,34 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [5.2.0] — 2026-07-21
+
+### Added
+- **SMRITI Universal Platform Validation Engine (PVE v5.2.0)**:
+  - Created `backend/app/core/validation/` framework containing `schemas.py`, `rules.py`, and `engine.py`.
+  - Supports 4 validation modes (`NONE`, `WARNING`, `STRICT`, `AUTO_CREATE`) and casing normalization rules (`UPPER`, `LOWER`, `TITLE`, `NONE`).
+  - Implemented priority-based conditional rule evaluator (`RuleEvaluator`) resolving multi-field rule conflicts deterministically.
+  - Implemented low-latency `ValidationPolicyCache` with TTL invalidation to avoid DB overhead during high-speed POS checkouts.
+  - Added role-based governance guardrails (`auto_create_allowed_roles`) for `AUTO_CREATE` mode.
+  - Integrated PVE into `backend/app/services/inventory.py` product creation.
+  - Created policy configuration REST API endpoints (`/api/v1/validation-policies/{entity_type}`) for GET policy, PUT policy, and POST reset.
+  - Created 6 unit & integration tests in `backend/app/tests/test_platform_validation_engine.py` (16/16 total suite passed).
+
+## [5.1.0] — 2026-07-21
+
+### Added
+- **Hybrid Master Values System (`is_system`, `tenant_id`)**:
+  - Implemented Alembic revision `add_hybrid_master_values` adding `is_system` (`Boolean`, default `False`) and `tenant_id` (`String(50)`, nullable `True`) to `master_values`.
+  - Updated `seed_default_users` to seed standard reference values (`product_color`, `product_size`, `product_brand`, `product_category`) as system defaults (`is_system=True`, `tenant_id=NULL`).
+  - Added system deletion guard (`SMRITI-VAL-020`) and system edit guard (`SMRITI-VAL-021`) returning HTTP 403 Access Denied.
+  - Exposed `/lookup/{type_code}/values/{id}/toggle-active` endpoint allowing tenants to deactivate system values without deleting them.
+- **Item Master Field Validation Engine & SKU Auto-Generation**:
+  - Implemented `_build_sku(p)` in `backend/app/services/inventory.py` to auto-generate SKUs from `style_code`, `color`, and `size` when blank.
+  - Implemented `_validate_master_field` in `backend/app/services/inventory.py` to normalize casing (`product_size` → `UPPER()`, others → Title Case) and validate input against system/tenant lookup values.
+  - Returns structured HREP error `SMRITI-VAL-010` (HTTP 422) listing valid lookup options on validation failure.
+- **Automated Verification Suite**:
+  - Created 10-test suite in `backend/app/tests/test_master_hybrid.py` covering hybrid lookups, tenant isolation, system value protection, toggle-active, casing normalization, item validation, and SKU auto-generation (10/10 passed).
+
 ## [5.0.0] — 2026-07-20
 
 ### Added

@@ -162,6 +162,9 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-20 | v5.0.0 | Enterprise Billing Terminal Framework Refactoring | [Walkthrough](./sales/Sales_Billing_Terminal_Framework_v5.0.0.md) | [Plan](../implementation/sales/Billing_Terminal_Framework_Plan_v5.0.0.md) | Completed |
 | 2026-07-20 | v5.0.0 | SMRITI Retail Terminal Framework v1.0 & UX Refactoring | [Walkthrough](./foundation/Foundation_Terminal_Framework_UX_Refactoring_v5.0.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/dcf5ec5e-2602-4c77-8d95-6b562dc30a6d/implementation_plan.md) | Completed |
 | 2026-07-21 | v5.1.0 | SMRITI Master Lookup Framework (MLF) Phase 2B Implementation | [Walkthrough](./foundation/MLF_Phase2B_Architecture_Compliance_Report_v5.1.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/4b8dd084-268b-458d-b862-97f26e60fc87/implementation_plan.md) | Completed |
+| 2026-07-21 | v5.1.0 | SMRITI In-Memory Array Strangler-Fig Migration (Sprints 1-5) | [Walkthrough](./foundation/MLF_Phase2B_Architecture_Compliance_Report_v5.1.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/4b8dd084-268b-458d-b862-97f26e60fc87/implementation_plan.md) | Completed |
+| 2026-07-21 | v5.1.0 | Hybrid Master Values System & Item Master Field Validation | [Walkthrough](./foundation/Master_Hybrid_Values_And_Item_Validation_v5.1.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+| 2026-07-21 | v5.2.0 | SMRITI Universal Platform Validation Engine (PVE) | [Walkthrough](./foundation/Platform_Validation_Engine_PVE_v5.2.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
 
 
 

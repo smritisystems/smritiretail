@@ -84,6 +84,8 @@ class MasterValueResponse(BaseModel):
     data: dict[str, Any]
     active: bool
     sort_order: int
+    is_system: bool = False
+    tenant_id: str | None = None
     effective_from: datetime
     effective_to: datetime | None = None
     updated_at: datetime

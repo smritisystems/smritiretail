@@ -12,13 +12,16 @@ License      : Proprietary Commercial Software
 Classification: Internal Architecture Standard
 """
 
+from datetime import datetime, timezone
 from typing import List
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_db, get_current_user, require_permission
 from ...models.auth import User
+from ...models.master_lookup import MasterValue
 from ...repositories.master_lookup import LookupRepository
 from ...services.master_lookup import LookupService
 from ...schemas.master_lookup import (
@@ -97,7 +100,8 @@ async def list_lookup_values(
 ):
     """List lookup values for a given category."""
     service = LookupService(db)
-    return await service.search_values(type_code, active_only=active_only)
+    tenant_id = getattr(current_user, "tenant_id", None) or getattr(current_user, "company_id", None)
+    return await service.search_values(type_code, active_only=active_only, tenant_id=tenant_id)
 
 
 @router.get(
@@ -136,7 +140,8 @@ async def create_lookup_value(
 ):
     """Create a new lookup value in a given category."""
     service = LookupService(db)
-    return await service.create_value(type_code, payload)
+    tenant_id = getattr(current_user, "tenant_id", None) or getattr(current_user, "company_id", None)
+    return await service.create_value(type_code, payload, tenant_id=tenant_id)
 
 
 @router.patch(
@@ -157,6 +162,18 @@ async def update_lookup_value(
 ):
     """Update editable properties of a lookup value."""
     service = LookupService(db)
+    val = await service.repo.get_value_by_id(value_id)
+    if val and getattr(val, "is_system", False):
+        if payload.name is not None:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "title": "Cannot Edit System Value",
+                    "explanation": f"'{val.name}' is a SMRITI standard value. Code and name cannot be changed.",
+                    "suggested_action": "You can change sort_order or active status only.",
+                    "reference_id": "SMRITI-VAL-021"
+                }
+            )
     return await service.update_value(str(value_id), payload)
 
 
@@ -194,6 +211,28 @@ async def deactivate_lookup_value(
     """Deactivate a lookup value (protecting system codes)."""
     service = LookupService(db)
     return await service.deactivate_value(str(value_id))
+
+
+@router.patch("/lookup/{type_code}/values/{id}/toggle-active")
+async def toggle_lookup_value_active(
+    type_code: str,
+    id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Deactivate/reactivate a master value (works for system AND tenant values)."""
+    q = select(MasterValue).where(
+        MasterValue.id == id,
+        MasterValue.is_deleted.is_(False)
+    )
+    res = await db.execute(q)
+    item = res.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Value not found.")
+    setattr(item, "active", not item.active)
+    setattr(item, "updated_at", datetime.now(timezone.utc))
+    await db.commit()
+    return {"id": str(id), "active": item.active, "name": item.name}
 
 
 @router.get(

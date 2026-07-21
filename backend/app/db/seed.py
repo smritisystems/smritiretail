@@ -83,7 +83,11 @@ async def seed_default_users():
             {"code": "uom", "label": "Unit of Measure", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"abbr": {"type": "string"}}, "additionalProperties": False}},
             {"code": "payment_mode", "label": "Payment Mode", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"requires_reference": {"type": "boolean"}}, "additionalProperties": False}},
             {"code": "item_type", "label": "Item Operational Taxonomy", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"is_physical": {"type": "boolean"}}, "additionalProperties": False}},
-            {"code": "reason_code", "label": "Reason Code", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {"category": {"type": "string"}}, "additionalProperties": False}}
+            {"code": "reason_code", "label": "Reason Code", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {"category": {"type": "string"}}, "additionalProperties": False}},
+            {"code": "product_color", "label": "Product Color", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
+            {"code": "product_size", "label": "Product Size", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
+            {"code": "product_brand", "label": "Product Brand", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
+            {"code": "product_category", "label": "Product Category", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}}
         ]
 
         for mt in master_types_to_seed:
@@ -120,8 +124,8 @@ async def seed_default_users():
             if not exists:
                 print(f"[SMRITI DB SEED] Seeding department value '{dept['name']}'...")
                 await conn.execute(
-                    "INSERT INTO master_values (id, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted) "
-                    "VALUES ($1, $2, $3, $4, cast($5 as jsonb), true, 0, now(), false)",
+                    "INSERT INTO master_values (id, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted, is_system, tenant_id) "
+                    "VALUES ($1, $2, $3, $4, cast($5 as jsonb), true, 0, now(), false, true, NULL)",
                     str(uuid.uuid4()), dept_type_id, dept["code"], dept["name"], json.dumps(dept["data"])
                 )
 
@@ -137,12 +141,12 @@ async def seed_default_users():
             if not exists:
                 print(f"[SMRITI DB SEED] Seeding designation value '{desig['name']}'...")
                 await conn.execute(
-                    "INSERT INTO master_values (id, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted) "
-                    "VALUES ($1, $2, $3, $4, cast($5 as jsonb), true, 0, now(), false)",
+                    "INSERT INTO master_values (id, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted, is_system, tenant_id) "
+                    "VALUES ($1, $2, $3, $4, cast($5 as jsonb), true, 0, now(), false, true, NULL)",
                     str(uuid.uuid4()), desig_type_id, desig["code"], desig["name"], json.dumps(desig["data"])
                 )
 
-        # 5.1 Seed System Reference Master Values (Payment Modes, UOMs, Item Types, Tax Categories, Reason Codes)
+        # 5.1 Seed System Reference Master Values (Payment Modes, UOMs, Item Types, Tax Categories, Reason Codes, Product Colors, Sizes, Categories)
         system_values_to_seed = {
             "payment_mode": [
                 {"code": "CASH", "name": "Cash Payment", "data": {"requires_reference": False}},
@@ -176,6 +180,57 @@ async def seed_default_users():
                 {"code": "RETURN_EXCHANGE", "name": "Customer Size/Color Exchange", "data": {"category": "RETURN"}},
                 {"code": "STOCK_ADJUSTMENT", "name": "Physical Audit Count Variance", "data": {"category": "AUDIT"}},
                 {"code": "WASTAGE", "name": "Expired / Spoiled Inventory", "data": {"category": "LOSS"}}
+            ],
+            "product_color": [
+                {"code": "CLR-RED", "name": "Red", "data": {}},
+                {"code": "CLR-BLUE", "name": "Blue", "data": {}},
+                {"code": "CLR-BLACK", "name": "Black", "data": {}},
+                {"code": "CLR-WHITE", "name": "White", "data": {}},
+                {"code": "CLR-GREEN", "name": "Green", "data": {}},
+                {"code": "CLR-YELLOW", "name": "Yellow", "data": {}},
+                {"code": "CLR-PINK", "name": "Pink", "data": {}},
+                {"code": "CLR-NAVY", "name": "Navy", "data": {}},
+                {"code": "CLR-GREY", "name": "Grey", "data": {}},
+                {"code": "CLR-BROWN", "name": "Brown", "data": {}},
+                {"code": "CLR-MAROON", "name": "Maroon", "data": {}},
+                {"code": "CLR-ORANGE", "name": "Orange", "data": {}},
+                {"code": "CLR-PURPLE", "name": "Purple", "data": {}},
+                {"code": "CLR-BEIGE", "name": "Beige", "data": {}}
+            ],
+            "product_size": [
+                {"code": "SZ-XS", "name": "XS", "data": {}},
+                {"code": "SZ-S", "name": "S", "data": {}},
+                {"code": "SZ-M", "name": "M", "data": {}},
+                {"code": "SZ-L", "name": "L", "data": {}},
+                {"code": "SZ-XL", "name": "XL", "data": {}},
+                {"code": "SZ-XXL", "name": "XXL", "data": {}},
+                {"code": "SZ-XXXL", "name": "XXXL", "data": {}},
+                {"code": "SZ-28", "name": "28", "data": {}},
+                {"code": "SZ-30", "name": "30", "data": {}},
+                {"code": "SZ-32", "name": "32", "data": {}},
+                {"code": "SZ-34", "name": "34", "data": {}},
+                {"code": "SZ-36", "name": "36", "data": {}},
+                {"code": "SZ-38", "name": "38", "data": {}},
+                {"code": "SZ-40", "name": "40", "data": {}},
+                {"code": "SZ-FW-5", "name": "5", "data": {"category": "Footwear"}},
+                {"code": "SZ-FW-6", "name": "6", "data": {"category": "Footwear"}},
+                {"code": "SZ-FW-7", "name": "7", "data": {"category": "Footwear"}},
+                {"code": "SZ-FW-8", "name": "8", "data": {"category": "Footwear"}},
+                {"code": "SZ-FW-9", "name": "9", "data": {"category": "Footwear"}},
+                {"code": "SZ-FW-10", "name": "10", "data": {"category": "Footwear"}},
+                {"code": "SZ-FW-11", "name": "11", "data": {"category": "Footwear"}}
+            ],
+            "product_category": [
+                {"code": "CAT-SHIRTS", "name": "Shirts", "data": {}},
+                {"code": "CAT-TROUSERS", "name": "Trousers", "data": {}},
+                {"code": "CAT-JEANS", "name": "Jeans", "data": {}},
+                {"code": "CAT-TSHIRTS", "name": "T-Shirts", "data": {}},
+                {"code": "CAT-KURTA", "name": "Kurta", "data": {}},
+                {"code": "CAT-FOOTWEAR", "name": "Footwear", "data": {}},
+                {"code": "CAT-ACCESSORIES", "name": "Accessories", "data": {}},
+                {"code": "CAT-INNERWEAR", "name": "Innerwear", "data": {}},
+                {"code": "CAT-JACKETS", "name": "Jackets", "data": {}},
+                {"code": "CAT-SAREES", "name": "Sarees", "data": {}}
             ]
         }
 
@@ -191,8 +246,8 @@ async def seed_default_users():
                 if not exists:
                     print(f"[SMRITI DB SEED] Seeding {type_code} value '{val['code']}'...")
                     await conn.execute(
-                        "INSERT INTO master_values (id, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted) "
-                        "VALUES ($1, $2, $3, $4, cast($5 as jsonb), true, 0, now(), false)",
+                        "INSERT INTO master_values (id, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted, is_system, tenant_id) "
+                        "VALUES ($1, $2, $3, $4, cast($5 as jsonb), true, 0, now(), false, true, NULL)",
                         str(uuid.uuid4()), type_id, val["code"], val["name"], json.dumps(val["data"])
                     )
 
@@ -409,11 +464,11 @@ async def seed_default_users():
                     user["company_id"], user["branch_id"]
                 )
             else:
-                print(f"[SMRITI DB SEED] User '{user['username']}' already exists, skipping.")
-                # Resilient update for is_platform_admin for existing seed users
+                print(f"[SMRITI DB SEED] User '{user['username']}' exists. Syncing password hash...")
+                hashed = hash_password(user["plain_password"])
                 await conn.execute(
-                    "UPDATE users SET is_platform_admin = $1 WHERE username = $2",
-                    user.get("is_platform_admin", False), user["username"]
+                    "UPDATE users SET hashed_password = $1, is_platform_admin = $2 WHERE username = $3",
+                    hashed, user.get("is_platform_admin", False), user["username"]
                 )
 
             # Map user to dynamic SMRITI Role
