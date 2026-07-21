@@ -189,6 +189,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-21 | v12.1.0 | SMRITI Modular Platform (SMP-001 v1.0 Specification) & SPK Kernel | [Walkthrough](./foundation/SMRITI_Capability_Platform_Plugin_Architecture_v12.1.0.md) | [Plan](../implementation/foundation/SMRITI_Capability_Platform_Plugin_Architecture_Plan_v12.1.0.md) | Completed |
 | 2026-07-21 | v13.0.0 | First-Party Module Migration & Marketplace Extension SDK Engine | [Walkthrough](./foundation/First_Party_Module_Migration_Extension_SDK_v13.0.0.md) | [Plan](../implementation/foundation/First_Party_Module_Migration_Extension_SDK_Plan_v13.0.0.md) | Completed |
 | 2026-07-21 | v14.0.0 | SMRITI Marketplace & Extension Ecosystem Engine | [Walkthrough](./foundation/Marketplace_And_Extension_Ecosystem_v14.0.0.md) | [Plan](../implementation/foundation/Marketplace_And_Extension_Ecosystem_Plan_v14.0.0.md) | Completed |
+| 2026-07-21 | v15.0.0 | Enterprise Operations, High Availability & Observability Engine | [Walkthrough](./foundation/Enterprise_Operations_HA_Observability_v15.0.0.md) | [Plan](../implementation/foundation/Enterprise_Operations_HA_Observability_Plan_v15.0.0.md) | Completed |
+
 
 
 
