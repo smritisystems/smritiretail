@@ -53,6 +53,8 @@ class Supplier(RowSecuredMixin, BaseEntity):
     lifecycle_stage    = Column(String(30), nullable=False, default="Active")
     account_status     = Column(String(20), nullable=False, default="Active")
     custom_attributes  = Column(JSON, nullable=True, default=dict)
+    performance_rating  = Column(Numeric(5, 2), nullable=True)
+    tier_classification = Column(String(30), nullable=True)  # PREFERRED, APPROVED, CONDITIONAL, SUSPENDED
 
     # Relationships to aggregate child entities
     tax_profile        = relationship("SupplierTaxProfile", back_populates="supplier", uselist=False, cascade="all, delete-orphan")
@@ -645,5 +647,115 @@ class RequisitionApproval(BaseEntity):
     notes                  = Column(Text, nullable=True)
 
     requisition = relationship("PurchaseRequisition", back_populates="approvals")
+
+
+class QualityInspection(RowSecuredMixin, BaseEntity):
+    """
+    QualityInspection — Aggregate Root for Goods Receipt Note (GRN) Quality Control.
+    Tracks received, accepted, rejected, and quarantine quantities, inspector details, and overall QC status.
+    FSM Lifecycle: PendingInspection -> UnderInspection -> Passed -> PassedWithExceptions -> Failed.
+    """
+    __tablename__ = "quality_inspections"
+
+    inspection_no        = Column(String(100), nullable=False, unique=True)
+    receipt_id           = Column(String(50), ForeignKey("purchase_receipts.id", ondelete="CASCADE"), nullable=False)
+    supplier_id          = Column(String(50), ForeignKey("suppliers.id", ondelete="RESTRICT"), nullable=False)
+    inspector_id         = Column(String(50), nullable=True)
+    inspected_at         = Column(DateTime(timezone=True), nullable=True)
+    overall_status       = Column(String(30), nullable=False, default="PendingInspection")
+    total_received_qty   = Column(Numeric(10, 2), nullable=False, default=0.00)
+    total_accepted_qty   = Column(Numeric(10, 2), nullable=False, default=0.00)
+    total_rejected_qty   = Column(Numeric(10, 2), nullable=False, default=0.00)
+    total_quarantine_qty = Column(Numeric(10, 2), nullable=False, default=0.00)
+    debit_note_id        = Column(String(50), nullable=True)
+    remarks              = Column(Text, nullable=True)
+
+    supplier   = relationship("Supplier")
+    receipt    = relationship("PurchaseReceipt")
+    items      = relationship("QualityInspectionItem", back_populates="inspection", cascade="all, delete-orphan", lazy="selectin")
+
+
+class QualityInspectionItem(BaseEntity):
+    """
+    QualityInspectionItem — Per-line product inspection breakdown in a QualityInspection.
+    """
+    __tablename__ = "quality_inspection_items"
+
+    inspection_id       = Column(String(50), ForeignKey("quality_inspections.id", ondelete="CASCADE"), nullable=False)
+    product_id          = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
+    received_quantity   = Column(Numeric(10, 2), nullable=False)
+    inspected_quantity  = Column(Numeric(10, 2), nullable=False, default=0.00)
+    accepted_quantity   = Column(Numeric(10, 2), nullable=False, default=0.00)
+    rejected_quantity   = Column(Numeric(10, 2), nullable=False, default=0.00)
+    quarantine_quantity = Column(Numeric(10, 2), nullable=False, default=0.00)
+    defect_category     = Column(String(50), nullable=True)  # NONE, CRITICAL, MAJOR, MINOR
+    defect_reason       = Column(Text, nullable=True)
+
+    inspection = relationship("QualityInspection", back_populates="items")
+    product    = relationship("Product")
+
+
+class SupplierDebitNote(RowSecuredMixin, BaseEntity):
+    """
+    SupplierDebitNote — Financial claim aggregate for defective or rejected goods.
+    Generated automatically by QCInspectionEngine on rejected inspection items.
+    """
+    __tablename__ = "supplier_debit_notes"
+
+    debit_note_no      = Column(String(100), nullable=False, unique=True)
+    supplier_id        = Column(String(50), ForeignKey("suppliers.id", ondelete="RESTRICT"), nullable=False)
+    receipt_id         = Column(String(50), ForeignKey("purchase_receipts.id", ondelete="CASCADE"), nullable=False)
+    inspection_id      = Column(String(50), nullable=True)
+    claim_amount       = Column(Numeric(15, 2), nullable=False, default=0.00)
+    tax_amount         = Column(Numeric(15, 2), nullable=False, default=0.00)
+    total_debit_amount = Column(Numeric(15, 2), nullable=False, default=0.00)
+    status             = Column(String(30), nullable=False, default="DRAFT")  # DRAFT, ISSUED, SETTLED, CANCELLED
+    reason             = Column(Text, nullable=True)
+
+    supplier = relationship("Supplier")
+    receipt  = relationship("PurchaseReceipt")
+
+
+class SupplierScorecard(RowSecuredMixin, BaseEntity):
+    """
+    SupplierScorecard — Aggregate Root for historical supplier performance evaluation snapshots.
+    Aggregates OTIF, Quality Pass Rate, Price Variance Index, and RFQ Responsiveness.
+    Grades: A (>=90), B (75-89.9), C (60-74.9), F (<60).
+    Tiers: PREFERRED, APPROVED, CONDITIONAL, SUSPENDED.
+    """
+    __tablename__ = "supplier_scorecards"
+
+    supplier_id         = Column(String(50), ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False)
+    scorecard_no        = Column(String(100), nullable=False, unique=True)
+    evaluation_date     = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    days_window         = Column(Integer, nullable=False, default=90)
+    otif_score          = Column(Numeric(5, 2), nullable=False, default=0.00)
+    quality_score       = Column(Numeric(5, 2), nullable=False, default=0.00)
+    price_score         = Column(Numeric(5, 2), nullable=False, default=0.00)
+    rfq_score           = Column(Numeric(5, 2), nullable=False, default=0.00)
+    composite_score     = Column(Numeric(5, 2), nullable=False, default=0.00)
+    grade               = Column(String(5), nullable=False, default="F")
+    tier_classification = Column(String(30), nullable=False, default="APPROVED")
+
+    supplier = relationship("Supplier")
+    metrics  = relationship("SupplierScorecardMetric", back_populates="scorecard", cascade="all, delete-orphan", lazy="selectin")
+
+
+class SupplierScorecardMetric(BaseEntity):
+    """
+    SupplierScorecardMetric — Metric-level score breakdown in a SupplierScorecard.
+    """
+    __tablename__ = "supplier_scorecard_metrics"
+
+    scorecard_id   = Column(String(50), ForeignKey("supplier_scorecards.id", ondelete="CASCADE"), nullable=False)
+    metric_type    = Column(String(50), nullable=False)  # OTIF, QUALITY, PRICE, RFQ
+    raw_value      = Column(Numeric(10, 4), nullable=False)
+    weight         = Column(Numeric(5, 2), nullable=False)
+    weighted_score = Column(Numeric(5, 2), nullable=False)
+    details_json   = Column(JSON, nullable=True)
+
+    scorecard = relationship("SupplierScorecard", back_populates="metrics")
+
+
 
 

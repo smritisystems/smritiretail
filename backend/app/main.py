@@ -61,9 +61,14 @@ from .api.v1 import (
     procurement_rfq,
     procurement_bpa,
     procurement_requisition,
+    procurement_qc,
+    procurement_scorecard,
     reports,
     roles,
     sales,
+    sales_fulfillment,
+    sales_invoicing,
+    sales_return,
     security,
     supplier_payment,
     system,
@@ -153,6 +158,8 @@ app.include_router(users.router,     prefix=settings.API_V1_STR + "/users",     
 app.include_router(inventory.router, prefix=settings.API_V1_STR + "/inventory",      tags=["Inventory"])  # Canonical route
 app.include_router(crm.router,       prefix=settings.API_V1_STR,                    tags=["CRM"])
 app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Canonical route (Phase 4A)
+app.include_router(sales_fulfillment.router, prefix=settings.API_V1_STR,                 tags=["Sales Orders & Outbound Fulfillment"])
+app.include_router(sales_invoicing.router, prefix=settings.API_V1_STR,                    tags=["Sales Invoicing & Payment Settlement"])
 app.include_router(purchase.router,  prefix=settings.API_V1_STR,                    tags=["Purchase-Legacy"])  # Root mount: /api/v1/suppliers/, /api/v1/purchase-receipts/ — retain until test suite migrated to /api/v1/purchase/*
 app.include_router(purchase.router,  prefix=settings.API_V1_STR + "/purchase",      tags=["Purchase"])         # Canonical route (Phase 4A)
 app.include_router(purchase_contracts.router, prefix=settings.API_V1_STR,            tags=["Purchase Contracts"])
@@ -160,6 +167,8 @@ app.include_router(procurement_matching.router, prefix=settings.API_V1_STR,     
 app.include_router(procurement_rfq.router, prefix=settings.API_V1_STR,                tags=["Procurement RFQ & Bidding"])
 app.include_router(procurement_bpa.router, prefix=settings.API_V1_STR,                tags=["Procurement Blanket Purchase Agreements"])
 app.include_router(procurement_requisition.router, prefix=settings.API_V1_STR,        tags=["Procurement Purchase Requisitions"])
+app.include_router(procurement_qc.router, prefix=settings.API_V1_STR,                 tags=["Procurement Quality Control & Debit Notes"])
+app.include_router(procurement_scorecard.router, prefix=settings.API_V1_STR,          tags=["Procurement Supplier Performance Scorecards"])
 app.include_router(pos.router,              prefix=settings.API_V1_STR,                    tags=["POS Shift"])
 app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,                    tags=["Supplier Payments"])
 app.include_router(reports.router,          prefix=settings.API_V1_STR,                    tags=["Reports"])

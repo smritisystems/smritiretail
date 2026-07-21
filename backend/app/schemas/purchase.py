@@ -910,6 +910,116 @@ class ApprovalPolicyResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ──────────────────────────────────────────────────────────────
+# v6.2.0 Quality Control (QC) & Debit Note Schemas
+# ──────────────────────────────────────────────────────────────
+
+class QCItemEvaluationRequest(BaseModel):
+    product_id: str
+    accepted_quantity: Decimal = Decimal("0.00")
+    rejected_quantity: Decimal = Decimal("0.00")
+    quarantine_quantity: Decimal = Decimal("0.00")
+    defect_category: Optional[str] = "NONE"
+    defect_reason: Optional[str] = None
+
+
+class QCEvaluationRequest(BaseModel):
+    evaluations: List[QCItemEvaluationRequest]
+    remarks: Optional[str] = None
+
+
+class QCInspectionItemResponse(BaseModel):
+    id: str
+    inspection_id: str
+    product_id: str
+    received_quantity: Decimal
+    inspected_quantity: Decimal
+    accepted_quantity: Decimal
+    rejected_quantity: Decimal
+    quarantine_quantity: Decimal
+    defect_category: Optional[str] = None
+    defect_reason: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class QCInspectionResponse(BaseModel):
+    id: str
+    inspection_no: str
+    receipt_id: str
+    supplier_id: str
+    inspector_id: Optional[str] = None
+    inspected_at: Optional[datetime] = None
+    overall_status: str
+    total_received_qty: Decimal
+    total_accepted_qty: Decimal
+    total_rejected_qty: Decimal
+    total_quarantine_qty: Decimal
+    debit_note_id: Optional[str] = None
+    remarks: Optional[str] = None
+    created_at: datetime
+    items: List[QCInspectionItemResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SupplierDebitNoteResponse(BaseModel):
+    id: str
+    debit_note_no: str
+    supplier_id: str
+    receipt_id: str
+    inspection_id: Optional[str] = None
+    claim_amount: Decimal
+    tax_amount: Decimal
+    total_debit_amount: Decimal
+    status: str
+    reason: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ──────────────────────────────────────────────────────────────
+# v6.3.0 Supplier Performance & Scorecard Analytics Schemas
+# ──────────────────────────────────────────────────────────────
+
+class SupplierScorecardMetricResponse(BaseModel):
+    id: str
+    scorecard_id: str
+    metric_type: str
+    raw_value: Decimal
+    weight: Decimal
+    weighted_score: Decimal
+    details_json: Optional[Dict[str, Any]] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SupplierScorecardResponse(BaseModel):
+    id: str
+    supplier_id: str
+    scorecard_no: str
+    evaluation_date: datetime
+    days_window: int
+    otif_score: Decimal
+    quality_score: Decimal
+    price_score: Decimal
+    rfq_score: Decimal
+    composite_score: Decimal
+    grade: str
+    tier_classification: str
+    metrics: List[SupplierScorecardMetricResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ScorecardRecalculateRequest(BaseModel):
+    days_window: int = 90
+    supplier_id: Optional[str] = None
+
+
+
+
 
 
 

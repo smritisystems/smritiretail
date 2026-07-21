@@ -175,6 +175,14 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-21 | v5.9.0 | Request for Quotation (RFQ), Multi-Vendor Bidding & Quotation Comparison Engine | [Walkthrough](./procurement/Procurement_RFQ_Quotation_Comparison_v5.9.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
 | 2026-07-21 | v6.0.0 | Blanket Purchase Agreements (BPA) & Scheduled Delivery Releases | [Walkthrough](./procurement/Procurement_BlanketPurchaseAgreements_v6.0.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
 | 2026-07-21 | v6.1.0 | Purchase Requisition & Multi-Level Approval Workflow Engine | [Walkthrough](./procurement/Procurement_Requisition_Approval_v6.1.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+| 2026-07-21 | v6.2.0 | Warehouse Goods Receipt (GRN) & Quality Control (QC) Inspection Engine | [Walkthrough](./procurement/Procurement_Quality_Inspection_v6.2.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+| 2026-07-21 | v6.3.0 | Automated Supplier Performance Rating & Scorecard Analytics Engine | [Walkthrough](./procurement/Procurement_Supplier_Scorecard_v6.3.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+| 2026-07-21 | v7.0.0 | Outbound Sales Order & Wave Pick-Pack-Ship Fulfillment Engine | [Walkthrough](./sales/Sales_Fulfillment_Wave_v7.0.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+| 2026-07-21 | v7.1.0 | Outbound Customer Sales Invoicing & Multi-Channel Payment Settlement Engine | [Walkthrough](./sales/Sales_Invoicing_Payment_v7.1.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+
+
+
+
 
 
 

@@ -26,6 +26,7 @@ class Product(RowSecuredMixin, BaseEntity):
     name = Column(String(255), nullable=False)
     price = Column(Numeric(15, 2), nullable=False, default=0.00)
     stock = Column(Integer, nullable=False, default=0)
+    reserved_stock = Column(Numeric(12, 4), nullable=False, server_default="0.0000", default=0.00)
     category = Column(String(100), nullable=False, index=True)
     is_favorite = Column(Boolean, default=False)
     barcode = Column(String(100), nullable=False, unique=True, index=True)
