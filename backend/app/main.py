@@ -60,6 +60,7 @@ from .api.v1 import (
     procurement_matching,
     procurement_rfq,
     procurement_bpa,
+    procurement_requisition,
     reports,
     roles,
     sales,
@@ -158,6 +159,7 @@ app.include_router(purchase_contracts.router, prefix=settings.API_V1_STR,       
 app.include_router(procurement_matching.router, prefix=settings.API_V1_STR,           tags=["Procurement Matching & Valuation"])
 app.include_router(procurement_rfq.router, prefix=settings.API_V1_STR,                tags=["Procurement RFQ & Bidding"])
 app.include_router(procurement_bpa.router, prefix=settings.API_V1_STR,                tags=["Procurement Blanket Purchase Agreements"])
+app.include_router(procurement_requisition.router, prefix=settings.API_V1_STR,        tags=["Procurement Purchase Requisitions"])
 app.include_router(pos.router,              prefix=settings.API_V1_STR,                    tags=["POS Shift"])
 app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,                    tags=["Supplier Payments"])
 app.include_router(reports.router,          prefix=settings.API_V1_STR,                    tags=["Reports"])

@@ -806,5 +806,110 @@ class BPAReleaseRequest(BaseModel):
     items: List[BPAReleaseItemRequest]
 
 
+# ──────────────────────────────────────────────────────────────
+# v6.1.0 Purchase Requisition Schemas
+# ──────────────────────────────────────────────────────────────
+
+class RequisitionLineCreate(BaseModel):
+    product_id: str
+    requested_quantity: Decimal
+    estimated_unit_price: Decimal
+    preferred_supplier_id: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class RequisitionCreate(BaseModel):
+    requisition_no: str
+    title: str
+    requestor_id: Optional[str] = None
+    department: Optional[str] = None
+    cost_center: Optional[str] = None
+    required_by_date: Optional[datetime] = None
+    notes: Optional[str] = None
+    lines: List[RequisitionLineCreate] = []
+
+
+class RequisitionLineResponse(BaseModel):
+    id: str
+    requisition_id: str
+    product_id: str
+    requested_quantity: Decimal
+    estimated_unit_price: Decimal
+    line_total: Decimal
+    preferred_supplier_id: Optional[str] = None
+    notes: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RequisitionApprovalResponse(BaseModel):
+    id: str
+    requisition_id: str
+    stage_order: int
+    stage_name: str
+    required_approver_role: Optional[str] = None
+    approver_id: Optional[str] = None
+    decision: Optional[str] = None
+    decided_at: Optional[datetime] = None
+    notes: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RequisitionResponse(BaseModel):
+    id: str
+    requisition_no: str
+    title: str
+    requestor_id: Optional[str] = None
+    department: Optional[str] = None
+    cost_center: Optional[str] = None
+    required_by_date: Optional[datetime] = None
+    estimated_total: Decimal
+    notes: Optional[str] = None
+    status: str
+    current_approval_stage: Optional[int] = None
+    converted_doc_type: Optional[str] = None
+    converted_doc_id: Optional[str] = None
+    created_at: datetime
+    lines: List[RequisitionLineResponse] = []
+    approvals: List[RequisitionApprovalResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ApprovalDecisionRequest(BaseModel):
+    approver_id: str
+    decision: str  # APPROVED, REJECTED
+    notes: Optional[str] = None
+
+
+class RequisitionConvertRequest(BaseModel):
+    strategy: str  # DIRECT_PO, RFQ, BPA_RELEASE
+    supplier_id: Optional[str] = None
+    bpa_id: Optional[str] = None
+
+
+class ApprovalPolicyCreate(BaseModel):
+    policy_name: str
+    min_value: Decimal = Decimal("0.00")
+    max_value: Optional[Decimal] = None
+    required_approver_role: Optional[str] = None
+    stage_order: int = 1
+    auto_approve: bool = False
+
+
+class ApprovalPolicyResponse(BaseModel):
+    id: str
+    policy_name: str
+    min_value: Decimal
+    max_value: Optional[Decimal] = None
+    required_approver_role: Optional[str] = None
+    stage_order: int
+    auto_approve: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+
 
 

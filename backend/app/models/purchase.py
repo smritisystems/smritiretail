@@ -569,3 +569,80 @@ class BlanketPurchaseAgreementLine(BaseEntity):
     bpa     = relationship("BlanketPurchaseAgreement", back_populates="lines")
     product = relationship("Product")
 
+
+class RequisitionApprovalPolicy(RowSecuredMixin, BaseEntity):
+    """
+    RequisitionApprovalPolicy — Threshold configuration for multi-level requisition approvals.
+    Data-driven routing based on estimated total value.
+    """
+    __tablename__ = "requisition_approval_policies"
+
+    policy_name            = Column(String(100), nullable=False)
+    min_value              = Column(Numeric(15, 2), nullable=False, default=0.00)
+    max_value              = Column(Numeric(15, 2), nullable=True)
+    required_approver_role = Column(String(50), nullable=True)
+    stage_order            = Column(Integer, nullable=False, default=1)
+    auto_approve           = Column(Boolean, nullable=False, default=False)
+
+
+class PurchaseRequisition(RowSecuredMixin, BaseEntity):
+    """
+    PurchaseRequisition — Aggregate Root for internal demand requisitions.
+    FSM Lifecycle: Draft -> Submitted -> UnderApproval -> Approved -> Converted -> Rejected / Cancelled.
+    """
+    __tablename__ = "purchase_requisitions"
+
+    requisition_no         = Column(String(100), nullable=False, unique=True)
+    title                  = Column(String(255), nullable=False)
+    requestor_id           = Column(String(50), nullable=True)
+    department             = Column(String(100), nullable=True)
+    cost_center            = Column(String(100), nullable=True)
+    required_by_date       = Column(DateTime(timezone=True), nullable=True)
+    estimated_total        = Column(Numeric(15, 2), nullable=False, default=0.00)
+    notes                  = Column(Text, nullable=True)
+    status                 = Column(String(30), nullable=False, default="Draft")
+    current_approval_stage = Column(Integer, nullable=True)
+    converted_doc_type     = Column(String(50), nullable=True)  # PURCHASE_ORDER, RFQ, BPA_RELEASE
+    converted_doc_id       = Column(String(50), nullable=True)
+
+    lines     = relationship("PurchaseRequisitionLine", back_populates="requisition", cascade="all, delete-orphan")
+    approvals = relationship("RequisitionApproval", back_populates="requisition", cascade="all, delete-orphan")
+
+
+class PurchaseRequisitionLine(BaseEntity):
+    """
+    PurchaseRequisitionLine — Line item in a purchase requisition.
+    """
+    __tablename__ = "purchase_requisition_lines"
+
+    requisition_id        = Column(String(50), ForeignKey("purchase_requisitions.id", ondelete="CASCADE"), nullable=False)
+    product_id            = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
+    requested_quantity    = Column(Numeric(10, 2), nullable=False)
+    estimated_unit_price  = Column(Numeric(15, 2), nullable=False, default=0.00)
+    line_total            = Column(Numeric(15, 2), nullable=False, default=0.00)
+    preferred_supplier_id = Column(String(50), ForeignKey("suppliers.id", ondelete="SET NULL"), nullable=True)
+    notes                 = Column(Text, nullable=True)
+
+    requisition        = relationship("PurchaseRequisition", back_populates="lines")
+    product            = relationship("Product")
+    preferred_supplier = relationship("Supplier")
+
+
+class RequisitionApproval(BaseEntity):
+    """
+    RequisitionApproval — Immutable approval stage record for a purchase requisition.
+    """
+    __tablename__ = "requisition_approvals"
+
+    requisition_id         = Column(String(50), ForeignKey("purchase_requisitions.id", ondelete="CASCADE"), nullable=False)
+    stage_order            = Column(Integer, nullable=False)
+    stage_name             = Column(String(100), nullable=False)
+    required_approver_role = Column(String(50), nullable=True)
+    approver_id            = Column(String(50), nullable=True)
+    decision               = Column(String(20), nullable=True)  # PENDING, APPROVED, REJECTED
+    decided_at             = Column(DateTime(timezone=True), nullable=True)
+    notes                  = Column(Text, nullable=True)
+
+    requisition = relationship("PurchaseRequisition", back_populates="approvals")
+
+
