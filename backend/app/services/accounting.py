@@ -1,40 +1,40 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.27.0
+Version      : 12.0.0
 Created      : 2026-07-19
-Modified     : 2026-07-19
-Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
+Modified     : 2026-07-21
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 
-AccountingService -- Financial posting stub for SMRITI Retail OS.
-
-Architecture:
-  v3.27.0: Stub -- logs posting intent to audit trail. Returns mock voucher ID.
-            All modules call this service with real journal entry data.
-  v3.30.x: Full double-entry General Ledger implementation replaces the stub.
-            Zero module code changes required -- interface is stable.
-
-Every module that touches money MUST call accounting_service.post_journal().
-Never hardcode ledger logic inside business modules.
+AccountingService — Active General Ledger & Double-Entry Financial Engine for SMRITI Retail OS.
 """
 
 import logging
 import uuid
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+
+from ..models.accounting import ChartOfAccounts, JournalVoucherModel, JournalLedgerEntryModel
+from ..repositories.accounting import AccountingRepository
+from ..api.deps import TenantContext
+from fastapi import HTTPException
+
+from ..core.config import settings
 
 logger = logging.getLogger("smriti.accounting")
 
 
+
 # ---------------------------------------------------------------------------
-# Data classes (stable interface -- v3.30.x GL will use these unchanged)
+# Data classes (stable interface across modules)
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -61,7 +61,7 @@ class JournalVoucher:
     ref_document_type: str
     ref_document_id:   str
     ref_document_no:   str
-    entries:           list[JournalEntry] = field(default_factory=list)
+    entries:           List[JournalEntry] = field(default_factory=list)
     narration:         Optional[str] = None
     voucher_date:      Optional[str] = None   # ISO date string
     company_id:        Optional[str] = None
@@ -81,13 +81,14 @@ class JournalVoucher:
 
 
 # ---------------------------------------------------------------------------
-# Standard account codes (seed values, configurable in v3.30.x)
+# Standard account codes
 # ---------------------------------------------------------------------------
 
 class Accounts:
     SALES_REVENUE          = "4000-SALES"
     SALES_RETURNS          = "4010-SALES-RETURNS"
     ACCOUNTS_RECEIVABLE    = "1200-AR"
+    ACCOUNTS_PAYABLE       = "2200-AP"
     CASH                   = "1100-CASH"
     BANK                   = "1110-BANK"
     GST_OUTPUT_CGST        = "2210-GST-CGST"
@@ -98,117 +99,278 @@ class Accounts:
     CONSIGNMENT_STOCK      = "1310-CONSIGNMENT"
     MT_LISTING_FEES        = "6100-MT-LISTING"
     MT_MARKETING_SUPPORT   = "6110-MT-MARKETING"
-    ACCOUNTS_PAYABLE       = "2100-AP"
-    PURCHASE               = "5100-PURCHASE"
+    EQUITY_CAPITAL         = "3000-EQUITY"
+    GENERAL_EXPENSE        = "6000-EXPENSE"
+
+
+DEFAULT_COA = [
+    ("1100-CASH", "Cash in Hand", "ASSET", "DEBIT"),
+    ("1110-BANK", "Bank Account", "ASSET", "DEBIT"),
+    ("1200-AR", "Accounts Receivable", "ASSET", "DEBIT"),
+    ("1300-INVENTORY", "Inventory Asset", "ASSET", "DEBIT"),
+    ("1310-CONSIGNMENT", "Consignment Stock Asset", "ASSET", "DEBIT"),
+    ("2200-AP", "Accounts Payable", "LIABILITY", "CREDIT"),
+    ("2210-GST-CGST", "CGST Payable/ITC", "LIABILITY", "CREDIT"),
+    ("2220-GST-SGST", "SGST Payable/ITC", "LIABILITY", "CREDIT"),
+    ("2230-GST-IGST", "IGST Payable/ITC", "LIABILITY", "CREDIT"),
+    ("3000-EQUITY", "Owner Equity Capital", "EQUITY", "CREDIT"),
+    ("4000-SALES", "Sales Revenue", "REVENUE", "CREDIT"),
+    ("4010-SALES-RETURNS", "Sales Returns & Allowances", "REVENUE", "DEBIT"),
+    ("5000-COGS", "Cost of Goods Sold", "COGS", "DEBIT"),
+    ("6000-EXPENSE", "General Operating Expense", "EXPENSE", "DEBIT"),
+    ("6100-MT-LISTING", "Modern Trade Listing Fees", "EXPENSE", "DEBIT"),
+    ("6110-MT-MARKETING", "Modern Trade Marketing Support", "EXPENSE", "DEBIT"),
+]
 
 
 class AccountingService:
-    """
-    Financial posting service.
+    def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
+        self.db = db
+        self.tenant_ctx = tenant_ctx
+        self.repo = AccountingRepository(db, tenant_ctx)
 
-    v3.27.0: STUB -- logs entries, validates balance, returns mock voucher ID.
-    v3.30.x: FULL GL -- writes to general_ledger table, supports trial balance,
-             P&L, Balance Sheet, reversals, and period locking.
+    async def seed_chart_of_accounts(self) -> None:
+        """Seed default chart of accounts if not present."""
+        for code, name, ac_type, bal_type in DEFAULT_COA:
+            existing = await self.repo.get_account_by_code(code)
+            if not existing:
+                account = ChartOfAccounts(
+                    id=f"COA-{code}",
+                    uuid=str(uuid.uuid4()),
+                    tenant_id=self.tenant_ctx.tenant_id if self.tenant_ctx else "default",
+                    company_id=self.tenant_ctx.company_id if self.tenant_ctx else "comp-default",
+                    branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else "br-default",
+                    account_code=code,
+                    account_name=name,
+                    account_type=ac_type,
+                    balance_type=bal_type,
+                    current_balance=Decimal("0.00"),
+                    is_system=True
+                )
+                self.db.add(account)
+        await self.db.flush()
 
-    Usage:
-        voucher = JournalVoucher(
-            ref_document_type="SalesInvoice",
-            ref_document_id="INV-2026-000001",
-            ref_document_no="INV-2026-000001",
-            entries=[
-                JournalEntry("1200-AR", "Accounts Receivable", debit=Decimal("11800")),
-                JournalEntry("4000-SALES", "Sales Revenue", credit=Decimal("10000")),
-                JournalEntry("2210-GST-CGST", "CGST Payable", credit=Decimal("900")),
-                JournalEntry("2220-GST-SGST", "SGST Payable", credit=Decimal("900")),
-            ],
-        )
-        voucher_id = await accounting_service.post_journal(voucher, session)
-    """
-
-    async def post_journal(
-        self,
-        voucher: JournalVoucher,
-        session: AsyncSession,
-    ) -> str:
+    async def post_journal(self, voucher: JournalVoucher) -> str:
         """
-        Post a journal voucher.
-
-        v3.27.0: validates balance, logs to application logger, returns mock ID.
-        v3.30.x: writes to general_ledger table.
-
-        Returns:
-            Voucher ID string (mock in v3.27.0, real FK in v3.30.x)
-
-        Raises:
-            ValueError: If the voucher is unbalanced.
+        Post a double-entry journal voucher transactionally into PostgreSQL.
+        Respects ACCOUNTING_MODE ("DISABLED", "BASIC", "ADVANCED").
+        If DISABLED, logs posting intent to Financial Event Bus and returns dormant voucher ID.
         """
+        mode = getattr(settings, "ACCOUNTING_MODE", "DISABLED").upper()
+        if mode == "DISABLED":
+            logger.info("[Financial Event Bus] Accounting DISABLED. Bypassing GL posting for %s:%s", voucher.ref_document_type, voucher.ref_document_no)
+            return f"JV-DORMANT-{uuid.uuid4().hex[:8]}"
+
         if not voucher.is_balanced:
-            raise ValueError(
-                f"[SMRITI-ACC-001] Unbalanced journal voucher for "
-                f"{voucher.ref_document_type} '{voucher.ref_document_no}'. "
-                f"Debit={voucher.total_debit}, Credit={voucher.total_credit}"
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unbalanced Journal Voucher: Total Debit ({voucher.total_debit}) does not equal Total Credit ({voucher.total_credit})."
             )
 
-        voucher_id = f"JV-STUB-{uuid.uuid4().hex[:8].upper()}"
-        logger.info(
-            "AccountingService [STUB] | VoucherID=%s | Doc=%s %s | "
-            "Debit=%.2f Credit=%.2f | Entries=%d",
-            voucher_id,
-            voucher.ref_document_type,
-            voucher.ref_document_no,
-            voucher.total_debit,
-            voucher.total_credit,
-            len(voucher.entries),
+
+        if not voucher.entries or len(voucher.entries) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="A journal voucher must contain at least 2 entry lines."
+            )
+
+        await self.seed_chart_of_accounts()
+
+        v_id = f"JV-{uuid.uuid4().hex[:10]}"
+        v_no = f"JV-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+
+        model = JournalVoucherModel(
+            id=v_id,
+            uuid=str(uuid.uuid4()),
+            tenant_id=self.tenant_ctx.tenant_id if self.tenant_ctx else "default",
+            company_id=self.tenant_ctx.company_id if self.tenant_ctx else "comp-default",
+            branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else "br-default",
+            voucher_no=v_no,
+            ref_document_type=voucher.ref_document_type,
+            ref_document_id=voucher.ref_document_id,
+            ref_document_no=voucher.ref_document_no,
+            total_debit=voucher.total_debit,
+            total_credit=voucher.total_credit,
+            narration=voucher.narration,
+            status="POSTED"
         )
-        for entry in voucher.entries:
-            logger.debug(
-                "  [%s] %s | Dr=%.2f Cr=%.2f",
-                entry.account_code, entry.account_name,
-                entry.debit, entry.credit,
-            )
-        # v3.30.x: replace above with DB insert into general_ledger table
-        return voucher_id
+        self.db.add(model)
 
-    async def preview_journal(self, voucher: JournalVoucher) -> dict:
-        """
-        Return a preview of the journal entries without posting.
-        Used by UI to show proposed accounting impact before user confirms.
-        """
+        for entry in voucher.entries:
+            line_id = f"JVE-{uuid.uuid4().hex[:10]}"
+            line = JournalLedgerEntryModel(
+                id=line_id,
+                uuid=str(uuid.uuid4()),
+                tenant_id=self.tenant_ctx.tenant_id if self.tenant_ctx else "default",
+                company_id=self.tenant_ctx.company_id if self.tenant_ctx else "comp-default",
+                branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else "br-default",
+                voucher_id=v_id,
+                account_code=entry.account_code,
+                account_name=entry.account_name,
+                debit=entry.debit,
+                credit=entry.credit,
+                narration=entry.narration or voucher.narration,
+                cost_center=entry.cost_center,
+                project=entry.project
+            )
+            self.db.add(line)
+
+            # Update account ledger dynamic balance
+            ac = await self.repo.get_account_by_code(entry.account_code)
+            if ac:
+                if ac.balance_type == "DEBIT":
+                    ac.current_balance += (entry.debit - entry.credit)
+                else:
+                    ac.current_balance += (entry.credit - entry.debit)
+
+        await self.db.commit()
+        logger.info("Posted Journal Voucher %s for ref %s:%s", v_no, voucher.ref_document_type, voucher.ref_document_no)
+        return v_id
+
+    async def get_trial_balance(self, as_of_date: Optional[str] = None) -> dict:
+        """Calculate and return Trial Balance report."""
+        await self.seed_chart_of_accounts()
+        accounts = await self.repo.get_all_accounts()
+
+        tb_items = []
+        tot_debit = Decimal("0.00")
+        tot_credit = Decimal("0.00")
+
+        for ac in accounts:
+            entries = await self.repo.get_ledger_entries_for_account(ac.account_code)
+            deb_sum = sum(e.debit for e in entries)
+            cred_sum = sum(e.credit for e in entries)
+            net_bal = deb_sum - cred_sum if ac.balance_type == "DEBIT" else cred_sum - deb_sum
+
+            tot_debit += deb_sum
+            tot_credit += cred_sum
+
+            tb_items.append({
+                "account_code": ac.account_code,
+                "account_name": ac.account_name,
+                "account_type": ac.account_type,
+                "debit_total": float(deb_sum),
+                "credit_total": float(cred_sum),
+                "net_balance": float(net_bal)
+            })
+
         return {
-            "voucher_id": None,
-            "is_balanced": voucher.is_balanced,
-            "total_debit": str(voucher.total_debit),
-            "total_credit": str(voucher.total_credit),
-            "entries": [
-                {
-                    "account_code": e.account_code,
-                    "account_name": e.account_name,
-                    "debit": str(e.debit),
-                    "credit": str(e.credit),
-                    "narration": e.narration,
-                }
-                for e in voucher.entries
-            ],
+            "as_of_date": as_of_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "total_debit": float(tot_debit),
+            "total_credit": float(tot_credit),
+            "is_balanced": tot_debit == tot_credit,
+            "accounts": tb_items
         }
 
-    async def reverse_journal(
-        self,
-        original_voucher_id: str,
-        reason: str,
-        session: AsyncSession,
-    ) -> str:
-        """
-        Create a reversal voucher for a previously posted voucher.
-        v3.27.0: STUB -- logs only.
-        v3.30.x: writes mirror entries with negative amounts.
-        """
-        reversal_id = f"JV-REV-{uuid.uuid4().hex[:8].upper()}"
-        logger.info(
-            "AccountingService [STUB] Reversal | ReversalID=%s | OriginalID=%s | Reason=%s",
-            reversal_id, original_voucher_id, reason,
-        )
-        return reversal_id
+    async def get_profit_and_loss(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> dict:
+        """Calculate Profit & Loss (Income Statement)."""
+        await self.seed_chart_of_accounts()
+        accounts = await self.repo.get_all_accounts()
 
+        revenues = []
+        expenses = []
+        tot_rev = Decimal("0.00")
+        tot_cogs = Decimal("0.00")
+        tot_exp = Decimal("0.00")
 
-# Module-level singleton
-accounting_service = AccountingService()
+        for ac in accounts:
+            entries = await self.repo.get_ledger_entries_for_account(ac.account_code)
+            if not entries:
+                continue
+
+            deb_sum = sum(e.debit for e in entries)
+            cred_sum = sum(e.credit for e in entries)
+
+            if ac.account_type == "REVENUE":
+                amt = cred_sum - deb_sum
+                tot_rev += amt
+                revenues.append({"account_code": ac.account_code, "account_name": ac.account_name, "amount": float(amt)})
+            elif ac.account_type == "COGS":
+                amt = deb_sum - cred_sum
+                tot_cogs += amt
+                expenses.append({"account_code": ac.account_code, "account_name": ac.account_name, "amount": float(amt)})
+            elif ac.account_type == "EXPENSE":
+                amt = deb_sum - cred_sum
+                tot_exp += amt
+                expenses.append({"account_code": ac.account_code, "account_name": ac.account_name, "amount": float(amt)})
+
+        gross_profit = tot_rev - tot_cogs
+        net_profit = gross_profit - tot_exp
+
+        return {
+            "start_date": start_date or datetime.now(timezone.utc).strftime("%Y-%m-01"),
+            "end_date": end_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "total_revenue": float(tot_rev),
+            "total_cogs": float(tot_cogs),
+            "gross_profit": float(gross_profit),
+            "total_operating_expenses": float(tot_exp),
+            "net_profit": float(net_profit),
+            "revenues": revenues,
+            "expenses": expenses
+        }
+
+    async def get_balance_sheet(self, as_of_date: Optional[str] = None) -> dict:
+        """Calculate Balance Sheet Statement (Assets = Liabilities + Equity)."""
+        await self.seed_chart_of_accounts()
+        accounts = await self.repo.get_all_accounts()
+
+        assets = []
+        liabilities = []
+        equity = []
+        tot_assets = Decimal("0.00")
+        tot_liab = Decimal("0.00")
+        tot_eq = Decimal("0.00")
+
+        for ac in accounts:
+            entries = await self.repo.get_ledger_entries_for_account(ac.account_code)
+            deb_sum = sum(e.debit for e in entries)
+            cred_sum = sum(e.credit for e in entries)
+
+            if ac.account_type == "ASSET":
+                net = deb_sum - cred_sum
+                tot_assets += net
+                assets.append({
+                    "account_code": ac.account_code, "account_name": ac.account_name, "account_type": ac.account_type,
+                    "debit_total": float(deb_sum), "credit_total": float(cred_sum), "net_balance": float(net)
+                })
+            elif ac.account_type == "LIABILITY":
+                net = cred_sum - deb_sum
+                tot_liab += net
+                liabilities.append({
+                    "account_code": ac.account_code, "account_name": ac.account_name, "account_type": ac.account_type,
+                    "debit_total": float(deb_sum), "credit_total": float(cred_sum), "net_balance": float(net)
+                })
+            elif ac.account_type == "EQUITY":
+                net = cred_sum - deb_sum
+                tot_eq += net
+                equity.append({
+                    "account_code": ac.account_code, "account_name": ac.account_name, "account_type": ac.account_type,
+                    "debit_total": float(deb_sum), "credit_total": float(cred_sum), "net_balance": float(net)
+                })
+
+        pnl = await self.get_profit_and_loss(as_of_date=as_of_date)
+        retained_earnings = Decimal(str(pnl["net_profit"]))
+        tot_eq += retained_earnings
+
+        equity.append({
+            "account_code": "3900-RETAINED-EARNINGS",
+            "account_name": "Current Period Retained Net Earnings",
+            "account_type": "EQUITY",
+            "debit_total": 0.0,
+            "credit_total": float(retained_earnings),
+            "net_balance": float(retained_earnings)
+        })
+
+        tot_liab_eq = tot_liab + tot_eq
+
+        return {
+            "as_of_date": as_of_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "total_assets": float(tot_assets),
+            "total_liabilities": float(tot_liab),
+            "total_equity": float(tot_eq),
+            "total_liabilities_and_equity": float(tot_liab_eq),
+            "is_balanced": abs(tot_assets - tot_liab_eq) < Decimal("0.01"),
+            "assets": assets,
+            "liabilities": liabilities,
+            "equity": equity
+        }

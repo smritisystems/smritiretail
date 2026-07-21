@@ -24,6 +24,7 @@ from .purchase import (
 )
 from .pos import PosSession, PosTransaction, PosTransactionItem, PosOfflineSyncQueue
 from .tax import GstTaxSettlement, GstReturnFiling, EWayBill
+from .accounting import ChartOfAccounts, JournalVoucherModel, JournalLedgerEntryModel, FiscalPeriod
 from .product_identity import BarcodeProvider, IdentityRule, ProductIdentity
 from .sip import UniversalIdentityRegistry, SIPIdentityRule, SIPIdentityRuleVersion, SIPIdentityOutbox
 from .screen_studio import ScreenLayoutTemplate

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -136,6 +136,14 @@ class Settings(BaseSettings):
     USE_FASTAPI_SALES: bool = False
     USE_FASTAPI_PURCHASE: bool = False
     USE_FASTAPI_POS: bool = False
+
+    # Modular Financial & Enterprise Plug-ins (AOP-001 Architecture)
+    # ACCOUNTING_MODE: "DISABLED" (Retail Only - Default), "BASIC" (Cash Book), "ADVANCED" (Full GL Double Entry)
+    ACCOUNTING_MODE: str = "DISABLED"
+    ENABLE_MANUFACTURING: bool = False
+    ENABLE_PAYROLL: bool = False
+    ENABLE_ASSETS: bool = False
+
 
     # Cache Settings
     USE_REDIS_CACHE: bool = False

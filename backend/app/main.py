@@ -90,6 +90,7 @@ from .api.v1 import (
     screen_studio,
     offline_sync,
     diagnostics,
+    accounting,
 )
 
 from .core.config import settings
@@ -210,6 +211,8 @@ app.include_router(screen_studio.router,     prefix=settings.API_V1_STR,        
 app.include_router(offline_sync.router,      prefix=settings.API_V1_STR,                    tags=["Offline POS Queue Sync Engine"])
 app.include_router(diagnostics.router,       prefix=settings.API_V1_STR,                    tags=["SMRITI Operational Observability & Telemetry Engine"])
 app.include_router(validation_policy.router, prefix=settings.API_V1_STR,                    tags=["Platform Validation Engine (PVE)"])
+app.include_router(accounting.router,        prefix=settings.API_V1_STR,                    tags=["General Ledger & Financial Accounting"])
+
 
 
 

@@ -99,6 +99,8 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-21 | v5.5.0 | [Enterprise Size Scale Management Architecture](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | `/backend/app/models/inventory.py`, `/backend/app/schemas/inventory.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Size_Scale_Management_v5.5.0.md) |
 | 2026-07-21 | v5.6.0 | [Enterprise Product ↔ Supplier Vendor Catalog Architecture](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | `/backend/app/models/inventory.py`, `/backend/app/services/inventory.py` | Completed | [Walkthrough](../walkthrough/procurement/Procurement_ProductVendor_Catalog_v5.6.0.md) |
 | 2026-07-21 | v5.7.0 | [Commercial Vendor Contracts & Automated PO Sourcing](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | `/backend/app/models/purchase.py`, `/backend/app/services/purchase.py` | Completed | [Walkthrough](../walkthrough/procurement/Procurement_VendorContract_Master_v5.7.0.md) |
+| 2026-07-21 | v12.0.0 | [General Ledger & Double-Entry Accounting Engine](./accounting/General_Ledger_Double_Entry_Accounting_Plan_v12.0.0.md) | `/backend/app/models/accounting.py`, `/backend/app/services/accounting.py`, `/backend/app/api/v1/accounting.py` | Completed | [Walkthrough](../walkthrough/foundation/Accounting_General_Ledger_Double_Entry_v12.0.0.md) |
+
 
 
 
