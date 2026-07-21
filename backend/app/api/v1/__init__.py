@@ -62,7 +62,9 @@ from . import (
     ecommerce,
     analytics,
     franchise,
+    loyalty,
 )
+
 
 
 
