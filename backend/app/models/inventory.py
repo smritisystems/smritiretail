@@ -17,6 +17,7 @@ from ..db.base import BaseEntity, RowSecuredMixin
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import relationship, foreign
+from .attributes import VariantTemplate
 
 class Product(RowSecuredMixin, BaseEntity):
     __tablename__ = "products"

@@ -76,6 +76,8 @@ async def clear_db(db_session: AsyncSession):
         "product_identities", "barcode_providers", "identity_rules",
         "stock_movements", "products",
         "shifts", "cash_registers",
+        "customer_addresses", "customer_contacts", "customer_credit_profiles",
+        "customer_tax_profiles", "customer_channel_preferences",
         "customers", "customer_groups", "pricing_groups",
         "workflow_events",
         "refresh_token_blacklist",
