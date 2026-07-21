@@ -57,7 +57,9 @@ from . import (
     marketplace,
     operations,
     ai_advisory,
+    attachments,
 )
+
 
 
 
