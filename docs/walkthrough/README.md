@@ -179,6 +179,14 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-21 | v6.3.0 | Automated Supplier Performance Rating & Scorecard Analytics Engine | [Walkthrough](./procurement/Procurement_Supplier_Scorecard_v6.3.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
 | 2026-07-21 | v7.0.0 | Outbound Sales Order & Wave Pick-Pack-Ship Fulfillment Engine | [Walkthrough](./sales/Sales_Fulfillment_Wave_v7.0.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
 | 2026-07-21 | v7.1.0 | Outbound Customer Sales Invoicing & Multi-Channel Payment Settlement Engine | [Walkthrough](./sales/Sales_Invoicing_Payment_v7.1.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+| 2026-07-21 | v7.2.0 | Outbound Customer Sales Returns & Credit Note Engine | [Walkthrough](./sales/Sales_Return_Credit_Note_v7.2.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+| 2026-07-21 | v8.0.0 | Inventory Physical Stock Audit & Cycle Counting Engine | [Walkthrough](./inventory/Inventory_Stock_Audit_Cycle_Counting_v8.0.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+| 2026-07-21 | v8.1.0 | Stock Movement & Inter-Branch Transfer Order Engine | [Walkthrough](./inventory/Inventory_Stock_Transfer_Inter_Branch_v8.1.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+| 2026-07-21 | v9.0.0 | Automated Warehouse Replenishment & Reorder Suggestions Engine | [Walkthrough](./inventory/Inventory_Replenishment_Reorder_v9.0.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+
+
+
+
 
 
 

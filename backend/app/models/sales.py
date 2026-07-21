@@ -132,48 +132,71 @@ class SalesQuotationItem(Base):
 
 
 
-class SalesReturn(BaseEntity):
+class SalesReturn(RowSecuredMixin, BaseEntity):
+    """
+    SalesReturn — Outbound Customer Return request record.
+    """
     __tablename__ = "sales_returns"
 
-    return_no          = Column(String(100), nullable=False, unique=True)
-    original_invoice_id = Column(String(50), ForeignKey("sales_invoices.id", ondelete="RESTRICT"), nullable=False, index=True)
-    credit_note_number = Column(String(100), nullable=True)
-    date               = Column(Date, nullable=False, server_default=text("CURRENT_DATE"), default=lambda: datetime.now(timezone.utc).date())
-    reason             = Column(Text, nullable=True)
-    tax_total          = Column(Numeric(15, 2), default=0.00)
-    grand_total        = Column(Numeric(15, 2), nullable=False, default=0.00)
-    is_interstate      = Column(Boolean, default=False)
-    status             = Column(String(20), default="Draft")  # Draft | Submitted | Approved | Cancelled
-    cgst_total         = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
-    sgst_total         = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
-    igst_total         = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    return_no      = Column(String(100), nullable=False, unique=True)
+    invoice_id     = Column(String(50), ForeignKey("sales_invoices.id", ondelete="RESTRICT"), nullable=False)
+    customer_id    = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False)
+    return_date    = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    reason         = Column(Text, nullable=True)
+    status         = Column(String(30), nullable=False, default="Draft")  # Draft, Approved, Rejected
+    refund_amount  = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    credit_note_id = Column(String(50), nullable=True)
 
-    # Relationships
-    items = relationship("SalesReturnItem", back_populates="sales_return", cascade="all, delete-orphan")
+    invoice  = relationship("SalesInvoice")
+    customer = relationship("Customer")
+    items    = relationship("SalesReturnItem", back_populates="return_order", cascade="all, delete-orphan", lazy="selectin")
 
 
-class SalesReturnItem(Base):
+class SalesReturnItem(BaseEntity):
+    """
+    SalesReturnItem — Individual returned product item line.
+    """
     __tablename__ = "sales_return_items"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    return_id    = Column(String(50), ForeignKey("sales_returns.id", ondelete="CASCADE"), nullable=False, index=True)
-    product_id   = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"))
-    code         = Column(String(50), nullable=False)
-    name         = Column(String(255), nullable=False)
-    quantity     = Column(Numeric(12, 4), nullable=False, default=1.0000)
-    price        = Column(Numeric(15, 2), nullable=False)
-    gst_rate     = Column(Numeric(5, 2), default=18.00)
-    tax_amount   = Column(Numeric(15, 2), default=0.00)
-    total_amount = Column(Numeric(15, 2), nullable=False)
-    tenant_id    = Column(String(50), nullable=True, index=True)
-    company_id   = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True)
-    branch_id    = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True)
-    cgst_amount  = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
-    sgst_amount  = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
-    igst_amount  = Column(Numeric(15, 2), nullable=False, server_default="0.00", default=0.00)
+    return_id      = Column(String(50), ForeignKey("sales_returns.id", ondelete="CASCADE"), nullable=False)
+    product_id     = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
+    quantity       = Column(Numeric(12, 4), nullable=False)
+    unit_price     = Column(Numeric(15, 2), nullable=False)
+    condition      = Column(String(30), nullable=False, default="Restockable")  # Restockable, Damaged
+    gst_percentage = Column(Numeric(5, 2), nullable=False, default=Decimal("0.00"))
+    cgst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    sgst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    igst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    line_total     = Column(Numeric(15, 2), nullable=False)
 
-    # Relationships
-    sales_return = relationship("SalesReturn", back_populates="items")
+    return_order = relationship("SalesReturn", back_populates="items")
+    product      = relationship("Product")
+
+
+class CreditNote(RowSecuredMixin, BaseEntity):
+    """
+    CreditNote — Tax-compliant GST Credit Note document.
+    """
+    __tablename__ = "credit_notes"
+
+    credit_note_no = Column(String(100), nullable=False, unique=True)
+    return_id      = Column(String(50), ForeignKey("sales_returns.id", ondelete="RESTRICT"), nullable=False)
+    invoice_id     = Column(String(50), ForeignKey("sales_invoices.id", ondelete="RESTRICT"), nullable=False)
+    customer_id    = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False)
+    issue_date     = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    subtotal       = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    tax_amount     = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    cgst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    sgst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    igst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    grand_total    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    status         = Column(String(30), nullable=False, default="Issued")
+    notes          = Column(Text, nullable=True)
+
+    return_order = relationship("SalesReturn")
+    invoice      = relationship("SalesInvoice")
+    customer     = relationship("Customer")
+
 
 
 class SalesOrder(RowSecuredMixin, BaseEntity):
@@ -290,70 +313,7 @@ class ShipmentPackage(RowSecuredMixin, BaseEntity):
     order = relationship("SalesOrder")
 
 
-class SalesReturn(RowSecuredMixin, BaseEntity):
-    """
-    SalesReturn — Outbound Customer Return request record.
-    """
-    __tablename__ = "sales_returns"
 
-    return_no      = Column(String(100), nullable=False, unique=True)
-    invoice_id     = Column(String(50), ForeignKey("sales_invoices.id", ondelete="RESTRICT"), nullable=False)
-    customer_id    = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False)
-    return_date    = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
-    reason         = Column(Text, nullable=True)
-    status         = Column(String(30), nullable=False, default="Draft")  # Draft, Approved, Rejected
-    refund_amount  = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
-    credit_note_id = Column(String(50), nullable=True)
-
-    invoice  = relationship("SalesInvoice")
-    customer = relationship("Customer")
-    items    = relationship("SalesReturnItem", back_populates="return_order", cascade="all, delete-orphan", lazy="selectin")
-
-
-class SalesReturnItem(BaseEntity):
-    """
-    SalesReturnItem — Individual returned product item line.
-    """
-    __tablename__ = "sales_return_items"
-
-    return_id      = Column(String(50), ForeignKey("sales_returns.id", ondelete="CASCADE"), nullable=False)
-    product_id     = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
-    quantity       = Column(Numeric(12, 4), nullable=False)
-    unit_price     = Column(Numeric(15, 2), nullable=False)
-    condition      = Column(String(30), nullable=False, default="Restockable")  # Restockable, Damaged
-    gst_percentage = Column(Numeric(5, 2), nullable=False, default=Decimal("0.00"))
-    cgst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
-    sgst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
-    igst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
-    line_total     = Column(Numeric(15, 2), nullable=False)
-
-    return_order = relationship("SalesReturn", back_populates="items")
-    product      = relationship("Product")
-
-
-class CreditNote(RowSecuredMixin, BaseEntity):
-    """
-    CreditNote — Tax-compliant GST Credit Note document.
-    """
-    __tablename__ = "credit_notes"
-
-    credit_note_no = Column(String(100), nullable=False, unique=True)
-    return_id      = Column(String(50), ForeignKey("sales_returns.id", ondelete="RESTRICT"), nullable=False)
-    invoice_id     = Column(String(50), ForeignKey("sales_invoices.id", ondelete="RESTRICT"), nullable=False)
-    customer_id    = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False)
-    issue_date     = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
-    subtotal       = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
-    tax_amount     = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
-    cgst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
-    sgst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
-    igst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
-    grand_total    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
-    status         = Column(String(30), nullable=False, default="Issued")
-    notes          = Column(Text, nullable=True)
-
-    return_order = relationship("SalesReturn")
-    invoice      = relationship("SalesInvoice")
-    customer     = relationship("Customer")
 
 
 

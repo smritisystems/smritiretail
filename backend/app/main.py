@@ -63,6 +63,7 @@ from .api.v1 import (
     procurement_requisition,
     procurement_qc,
     procurement_scorecard,
+    replenishment,
     reports,
     roles,
     sales,
@@ -70,6 +71,8 @@ from .api.v1 import (
     sales_invoicing,
     sales_return,
     security,
+    stock_audit,
+    stock_transfer,
     supplier_payment,
     system,
     terms,
@@ -161,6 +164,9 @@ app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales",     
 app.include_router(sales_fulfillment.router, prefix=settings.API_V1_STR,                 tags=["Sales Orders & Outbound Fulfillment"])
 app.include_router(sales_invoicing.router, prefix=settings.API_V1_STR,                    tags=["Sales Invoicing & Payment Settlement"])
 app.include_router(sales_return.router, prefix=settings.API_V1_STR,                       tags=["Sales Returns & Credit Notes"])
+app.include_router(stock_audit.router, prefix=settings.API_V1_STR,                        tags=["Inventory Physical Audit & Cycle Counting"])
+app.include_router(stock_transfer.router, prefix=settings.API_V1_STR,                     tags=["Inter-Branch Stock Transfers"])
+app.include_router(replenishment.router, prefix=settings.API_V1_STR,                        tags=["Automated Warehouse Replenishment"])
 app.include_router(purchase.router,  prefix=settings.API_V1_STR,                    tags=["Purchase-Legacy"])  # Root mount: /api/v1/suppliers/, /api/v1/purchase-receipts/ — retain until test suite migrated to /api/v1/purchase/*
 app.include_router(purchase.router,  prefix=settings.API_V1_STR + "/purchase",      tags=["Purchase"])         # Canonical route (Phase 4A)
 app.include_router(purchase_contracts.router, prefix=settings.API_V1_STR,            tags=["Purchase Contracts"])
