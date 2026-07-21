@@ -214,10 +214,10 @@ def require_permission(permission_code: str) -> Callable:
         stmt = select(SMRITIPermission.scope).where(SMRITIPermission.code == permission_code)
         res = await db.execute(stmt)
         db_scope = res.scalar_one_or_none()
+        print(f"DEBUG PERMISSION SCOPE: permission_code={permission_code}, db_scope={db_scope}", flush=True)
         perm_scope = db_scope if db_scope else (perm_def.scope if perm_def else "OWN_BRANCH")
 
         # Map to RLS ResolvedScope (SELF, TEAM, BRANCH, COMPANY, ALL)
-        # NOTE: DEBUG print removed — was leaking permission_code + db_scope to stdout in production
         mapping = {
             "GLOBAL": "ALL",
             "OWN_BRANCH": "BRANCH",

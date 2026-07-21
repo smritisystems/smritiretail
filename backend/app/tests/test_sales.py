@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -1124,3 +1124,59 @@ async def test_convert_quotation_to_invoice(db_session):
     data = r.json()
     assert "id" in data
     assert data["status"] == "Draft"
+
+
+async def test_sales_invoice_credit_limit_exceeded(db_session):
+    """Test creating a sales invoice for a customer who has exceeded their credit limit."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, f"cred-{s}")
+    cashier = await _make_cashier(db_session, f"cred-{s}", comp.id, br.id)
+
+    group = CustomerGroup(
+        id=f"cg-{s}",
+        name=f"Credit Restricted Group {s}",
+        credit_limit=Decimal("500.00"),
+        unlimited_credit=False,
+        auto_block_sales=True,
+        credit_hold=False,
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    cust = Customer(
+        id=f"cust-{s}",
+        name=f"Credit Cust {s}",
+        customer_group_id=group.id,
+        outstanding=Decimal("450.00"),
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    product = await _make_product(db_session, f"cred-{s}", comp.id, br.id, stock=100)
+    db_session.add_all([group, cust])
+    await db_session.commit()
+
+    _set_tenant(comp.id, br.id)
+    payload = {
+        "invoice_no": f"INV-CRED-{s}",
+        "customer_id": cust.id,
+        "items": [
+            {
+                "product_id": product.id,
+                "code": product.code,
+                "name": product.name,
+                "quantity": 1,
+                "price": 100.00,
+                "gst_rate": 0.00,
+            }
+        ],
+        "payments": [],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            "/api/v1/sales/invoices",
+            json=payload,
+            headers=_bearer(cashier, comp.id, br.id),
+        )
+    assert r.status_code == 400
+    assert "Credit limit exceeded" in r.text or "credit" in r.text.lower()
+

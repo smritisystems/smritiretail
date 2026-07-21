@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -78,6 +78,8 @@ export let roles: { name: string; permissions: string[] }[] = [];
 export let companies: any[] = [];
 export let branches: any[] = [];
 
+// TODO: migrate to DB in Phase 2b
+export let reportSchedules: any[] = [];
 
 export let customers: Customer[] = [];
 export let customerGroups: CustomerGroup[] = [];
@@ -121,7 +123,8 @@ export function saveDb() {
       variantTemplates,
       categoryAttributeGroupMappings,
 
-      roles
+      roles,
+      reportSchedules
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf8");
   } catch (e) {
@@ -163,6 +166,7 @@ export function loadDb() {
       if (data.categoryAttributeGroupMappings) categoryAttributeGroupMappings = data.categoryAttributeGroupMappings;
 
       if (data.roles) roles = data.roles;
+      if (data.reportSchedules) reportSchedules = data.reportSchedules;
 
       saveDb();
       console.log("[Local DB] Loaded data successfully from disk!");
@@ -232,7 +236,7 @@ export function migrateUsersAndSeedOrganizationData() {
       userId: "usr-super",
       employeeId: "EMP-001",
       username: "super",
-      passwordHash: "pbkdf2$sha512$600000$1234567890abcdef1234567890abcdef$455fa4ca06fc17cfbc6a8ec2e1554a60462a4355fafe7c6d15f10d54407eab7364e8c3f170b9abed96b8d0325e1f1ff5247f562c2b09c44ea0a29e2d1fde4c3e",
+      passwordHash: "whynothing", // Will be hashed in the self-healing block below
       role: "Admin",
       status: "Active",
       photo: "",
@@ -277,7 +281,7 @@ export function migrateUsersAndSeedOrganizationData() {
       userId: "usr-manager",
       employeeId: "EMP-002",
       username: "manager",
-      passwordHash: "pbkdf2$sha512$600000$1234567890abcdef1234567890abcdef$88bbbd0e9aed95d4b72d5cbefdb424347c6e6ec65eedb91047690de2122d5590edf84dc2dd2ade345c2270dcc18a4f158348ccbd9717d4458ae8997cacb2c2eb",
+      passwordHash: "Password@123",
       role: "Store Manager",
       status: "Active",
       photo: "",
@@ -322,7 +326,7 @@ export function migrateUsersAndSeedOrganizationData() {
       userId: "usr-cashier",
       employeeId: "EMP-003",
       username: "cashier",
-      passwordHash: "pbkdf2$sha512$600000$1234567890abcdef1234567890abcdef$cda30bf70c6a5723656c5b09fe12d8afb07f45283b041258960ef2c932dbae3d454cc42ab140252bdddb9e906d6a072d4b6f536f601fbdb9f5d0fe3b1eb7fd9e",
+      passwordHash: "cashier123",
       role: "Cashier",
       status: "Active",
       photo: "",

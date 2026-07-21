@@ -70,19 +70,20 @@ async def seed_default_users():
 
         # 4. Seed Generalized Master Lookup Types
         master_types_to_seed = [
-            {"code": "department", "label": "Company Department", "field_schema": {"type": "object", "properties": {"description": {"type": "string"}}, "additionalProperties": False}},
-            {"code": "designation", "label": "Employee Designation", "field_schema": {"type": "object", "properties": {"level": {"type": "integer"}}, "additionalProperties": False}},
-            {"code": "gender", "label": "Gender", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
-            {"code": "country", "label": "Country", "field_schema": {"type": "object", "properties": {"iso_code": {"type": "string"}}, "additionalProperties": False}},
-            {"code": "state", "label": "State", "field_schema": {"type": "object", "properties": {"state_code": {"type": "string"}}, "additionalProperties": False}},
-            {"code": "city", "label": "City", "field_schema": {"type": "object", "properties": {"district": {"type": "string"}}, "additionalProperties": False}},
-            {"code": "blood_group", "label": "Blood Group", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
-            {"code": "gst_category", "label": "GST Category", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
-            {"code": "tax_class", "label": "Tax Class", "field_schema": {"type": "object", "properties": {"rate": {"type": "number"}}, "additionalProperties": False}},
-            {"code": "currency", "label": "Currency", "field_schema": {"type": "object", "properties": {"symbol": {"type": "string"}}, "additionalProperties": False}},
-            {"code": "unit", "label": "Unit of Measure", "field_schema": {"type": "object", "properties": {"abbr": {"type": "string"}}, "additionalProperties": False}},
-            {"code": "payment_mode", "label": "Payment Mode", "field_schema": {"type": "object", "properties": {"requires_reference": {"type": "boolean"}}, "additionalProperties": False}},
-            {"code": "reason_code", "label": "Reason Code", "field_schema": {"type": "object", "properties": {"category": {"type": "string"}}, "additionalProperties": False}}
+            {"code": "department", "label": "Company Department", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {"description": {"type": "string"}}, "additionalProperties": False}},
+            {"code": "designation", "label": "Employee Designation", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {"level": {"type": "integer"}}, "additionalProperties": False}},
+            {"code": "gender", "label": "Gender", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
+            {"code": "country", "label": "Country", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"iso_code": {"type": "string"}}, "additionalProperties": False}},
+            {"code": "state", "label": "State", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"state_code": {"type": "string"}}, "additionalProperties": False}},
+            {"code": "city", "label": "City", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"district": {"type": "string"}}, "additionalProperties": False}},
+            {"code": "blood_group", "label": "Blood Group", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
+            {"code": "gst_category", "label": "GST Category", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
+            {"code": "tax_category", "label": "Tax Category", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"rate": {"type": "number"}}, "additionalProperties": False}},
+            {"code": "currency", "label": "Currency", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"symbol": {"type": "string"}}, "additionalProperties": False}},
+            {"code": "uom", "label": "Unit of Measure", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"abbr": {"type": "string"}}, "additionalProperties": False}},
+            {"code": "payment_mode", "label": "Payment Mode", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"requires_reference": {"type": "boolean"}}, "additionalProperties": False}},
+            {"code": "item_type", "label": "Item Operational Taxonomy", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"is_physical": {"type": "boolean"}}, "additionalProperties": False}},
+            {"code": "reason_code", "label": "Reason Code", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {"category": {"type": "string"}}, "additionalProperties": False}}
         ]
 
         for mt in master_types_to_seed:
@@ -90,10 +91,16 @@ async def seed_default_users():
             if not mt_exists:
                 print(f"[SMRITI DB SEED] Seeding master lookup type '{mt['code']}'...")
                 await conn.execute(
-                    "INSERT INTO master_types (id, code, label, field_schema, ui_schema, version, evidence_level, created_at) "
-                    "VALUES ($1, $2, $3, cast($4 as jsonb), cast($5 as jsonb), 1, 'D', now())",
-                    str(uuid.uuid4()), mt["code"], mt["label"],
+                    "INSERT INTO master_types (id, code, label, category_type, is_system, field_schema, ui_schema, version, evidence_level, created_at) "
+                    "VALUES ($1, $2, $3, $4, true, cast($5 as jsonb), cast($6 as jsonb), 1, 'D', now())",
+                    str(uuid.uuid4()), mt["code"], mt["label"], mt["category_type"],
                     json.dumps(mt["field_schema"]), json.dumps({})
+                )
+            else:
+                # Update existing master_types with category_type if NULL/default
+                await conn.execute(
+                    "UPDATE master_types SET category_type = $1, is_system = true WHERE code = $2",
+                    mt["category_type"], mt["code"]
                 )
 
         # 5. Seed Default Master Values (Department and Designation)
@@ -134,6 +141,60 @@ async def seed_default_users():
                     "VALUES ($1, $2, $3, $4, cast($5 as jsonb), true, 0, now(), false)",
                     str(uuid.uuid4()), desig_type_id, desig["code"], desig["name"], json.dumps(desig["data"])
                 )
+
+        # 5.1 Seed System Reference Master Values (Payment Modes, UOMs, Item Types, Tax Categories, Reason Codes)
+        system_values_to_seed = {
+            "payment_mode": [
+                {"code": "CASH", "name": "Cash Payment", "data": {"requires_reference": False}},
+                {"code": "CARD", "name": "Credit/Debit Card", "data": {"requires_reference": True}},
+                {"code": "UPI", "name": "UPI / QR Code", "data": {"requires_reference": True}},
+                {"code": "NEFT", "name": "Bank Transfer / NEFT", "data": {"requires_reference": True}},
+                {"code": "WALLET", "name": "Digital Wallet", "data": {"requires_reference": True}}
+            ],
+            "uom": [
+                {"code": "PCS", "name": "Pieces", "data": {"abbr": "pcs"}},
+                {"code": "KG", "name": "Kilograms", "data": {"abbr": "kg"}},
+                {"code": "LTR", "name": "Liters", "data": {"abbr": "ltr"}},
+                {"code": "BOX", "name": "Box / Pack", "data": {"abbr": "box"}},
+                {"code": "MTR", "name": "Meters", "data": {"abbr": "mtr"}},
+                {"code": "PAIR", "name": "Pair", "data": {"abbr": "pr"}}
+            ],
+            "item_type": [
+                {"code": "STOCK", "name": "Stock Inventory Item", "data": {"is_physical": True}},
+                {"code": "SERVICE", "name": "Service / Labor Charge", "data": {"is_physical": False}},
+                {"code": "CONSIGNMENT", "name": "Consignment Inventory", "data": {"is_physical": True}},
+                {"code": "NON_STOCK", "name": "Non-Stock Consumable", "data": {"is_physical": True}}
+            ],
+            "tax_category": [
+                {"code": "GST_STANDARD", "name": "Standard GST Rate (18%)", "data": {"rate": 18.0}},
+                {"code": "GST_REDUCED", "name": "Reduced GST Rate (5%)", "data": {"rate": 5.0}},
+                {"code": "GST_SUPER", "name": "Super GST Rate (28%)", "data": {"rate": 28.0}},
+                {"code": "EXEMPT", "name": "Exempt / Zero Tax (0%)", "data": {"rate": 0.0}}
+            ],
+            "reason_code": [
+                {"code": "RETURN_DEFECT", "name": "Damaged / Defective Return", "data": {"category": "RETURN"}},
+                {"code": "RETURN_EXCHANGE", "name": "Customer Size/Color Exchange", "data": {"category": "RETURN"}},
+                {"code": "STOCK_ADJUSTMENT", "name": "Physical Audit Count Variance", "data": {"category": "AUDIT"}},
+                {"code": "WASTAGE", "name": "Expired / Spoiled Inventory", "data": {"category": "LOSS"}}
+            ]
+        }
+
+        for type_code, values in system_values_to_seed.items():
+            type_id = await conn.fetchval("SELECT id FROM master_types WHERE code = $1", type_code)
+            if not type_id:
+                continue
+            for val in values:
+                exists = await conn.fetchval(
+                    "SELECT COUNT(*) FROM master_values WHERE master_type_id = $1 AND code = $2",
+                    type_id, val["code"]
+                )
+                if not exists:
+                    print(f"[SMRITI DB SEED] Seeding {type_code} value '{val['code']}'...")
+                    await conn.execute(
+                        "INSERT INTO master_values (id, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted) "
+                        "VALUES ($1, $2, $3, $4, cast($5 as jsonb), true, 0, now(), false)",
+                        str(uuid.uuid4()), type_id, val["code"], val["name"], json.dumps(val["data"])
+                    )
 
         # 6. Seed Dynamic Roles (SSACF)
         roles_to_seed = [
@@ -448,7 +509,7 @@ async def seed_default_users():
 
         for pg in pricing_groups:
             exists = await conn.fetchval(
-                "SELECT COUNT(*) FROM pricing_groups WHERE id = $1", pg["id"]
+                "SELECT COUNT(*) FROM pricing_groups WHERE id = $1 OR name = $2", pg["id"], pg["name"]
             )
             if not exists:
                 print(f"[SMRITI DB SEED] Seeding PricingGroup '{pg['name']}'...")

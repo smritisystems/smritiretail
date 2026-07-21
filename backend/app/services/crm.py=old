@@ -1,4 +1,4 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -192,56 +192,6 @@ class CrmService:
             "min_order_value": float(pg.min_order_value),
         }
 
-    async def check_credit_limit(self, customer_id: Optional[str], new_invoice_amount: float) -> None:
-        """
-        Validates customer credit limits against CustomerGroup policy.
-        If credit_hold is True, or if auto_block_sales is True and
-        (outstanding + new_invoice_amount) > credit_limit (when not unlimited_credit and credit_limit > 0),
-        raises HTTP 400 exception.
-        """
-        if not customer_id:
-            return
-
-        res = await self.db.execute(
-            select(Customer).filter(
-                Customer.id == customer_id,
-                Customer.is_deleted == False,
-                Customer.company_id == self.tenant_ctx.company_id,
-                Customer.branch_id == self.tenant_ctx.branch_id,
-            )
-        )
-        customer = res.scalars().first()
-        if not customer or not customer.customer_group_id:
-            return
-
-        group_res = await self.db.execute(
-            select(CustomerGroup).filter(
-                CustomerGroup.id == customer.customer_group_id,
-                CustomerGroup.is_deleted == False,
-            )
-        )
-        group = group_res.scalars().first()
-        if not group:
-            return
-
-        if group.credit_hold:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Sales blocked for customer '{customer.name}': Account is on credit hold.",
-            )
-
-        if not group.unlimited_credit and group.auto_block_sales and group.credit_limit and float(group.credit_limit) > 0:
-            current_outstanding = float(customer.outstanding or 0.0)
-            limit = float(group.credit_limit)
-            if (current_outstanding + new_invoice_amount) > limit:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"Credit limit exceeded for customer '{customer.name}'. "
-                        f"Limit: {limit:.2f}, Outstanding: {current_outstanding:.2f}, New Invoice: {new_invoice_amount:.2f}"
-                    ),
-                )
-
     # ------------------------------------------------------------------
     # Customer
     # ------------------------------------------------------------------
@@ -328,36 +278,16 @@ class CrmService:
         if group.unlimited_credit:
             return True
 
-        # Resolve effective credit limit:
-        # customer.credit_limit_override takes precedence over group.credit_limit
-        raw_limit = getattr(customer, "credit_limit_override", None)
-        limit = float(raw_limit) if raw_limit is not None else float(group.credit_limit)
+        # Assert outstanding + new purchase is within limit
+        limit = float(group.credit_limit)
         current_outstanding = float(customer.outstanding)
-        projected_total = current_outstanding + new_amount
-
-        if projected_total > limit:
+        if current_outstanding + new_amount > limit:
             if group.auto_block_sales:
-                available = max(limit - current_outstanding, 0.0)
                 raise HTTPException(
                     status_code=400,
-                    detail={
-                        "title": "Credit Limit Reached",
-                        "explanation": (
-                            f"This sale cannot be completed because it would exceed "
-                            f"{customer.name}'s approved credit limit of "
-                            f"\u20b9{limit:,.2f}. "
-                            f"Current outstanding balance is \u20b9{current_outstanding:,.2f}, "
-                            f"leaving only \u20b9{available:,.2f} available."
-                        ),
-                        "suggested_action": (
-                            "Please collect a payment from this customer to reduce their outstanding "
-                            "balance before processing this sale, or contact your manager to request "
-                            "a temporary credit limit increase."
-                        ),
-                        "reference_id": "SMRITI-VAL-001",
-                    }
+                    detail=f"Credit limit exceeded. Limit: {limit}, Current Outstanding: {current_outstanding}"
                 )
-            return False  # Warning only — auto_block_sales is off for this group
+            return False  # Limit warning
         return True
 
 

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -155,3 +155,44 @@ async def test_soft_delete_product_unauthorized_role(db_session):
     await db_session.refresh(product)
     assert product.is_deleted is False
     assert product.deleted_by is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_effective_gst_percentage(db_session):
+    from app.models.attributes import VariantTemplate
+    from app.services.inventory import InventoryService
+
+    comp, br = await _make_tenant(db_session, "s3")
+    tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
+    inv_service = InventoryService(db_session, tenant_ctx)
+
+    # 1. Create VariantTemplate with 12% GST
+    vt = VariantTemplate(
+        id=f"vt-{uuid.uuid4().hex[:8]}",
+        style_code="STYLE-VT-12",
+        name="12% Tax Style Template",
+        gst_percentage=12,
+        attribute_group_id="ag-default"
+    )
+    db_session.add(vt)
+    await db_session.commit()
+
+    # 2. Product linked to VariantTemplate inherits 12% GST rate
+    p1 = Product(
+        id="prod-hsn-1",
+        code="PROD-HSN-1",
+        name="HSN Linked Product",
+        price=100.0,
+        variant_template_id=vt.id,
+        gst_percentage=18.0,  # SKU level default override ignored in favor of VariantTemplate Classification
+        category="Apparel",
+        barcode="890000000001",
+        company_id=comp.id,
+        branch_id=br.id
+    )
+    db_session.add(p1)
+    await db_session.commit()
+
+    resolved_rate = await inv_service.resolve_effective_gst_percentage(p1)
+    assert resolved_rate == 12.0
+

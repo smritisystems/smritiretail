@@ -14,7 +14,7 @@
 /**
  * Universal client fetch helper for FastAPI Core API (/api/v1/*)
  */
-export async function apiFetchV1(endpoint: string, options: RequestInit = {}): Promise<any> {
+export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
   
   const headers = new Headers(options.headers || {});
@@ -53,13 +53,13 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
   }
 
   if (response.status === 204 || response.headers.get("content-length") === "0") {
-    return null;
+    return null as unknown as T;
   }
 
   const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("text/plain")) {
-    return response.text();
+    return (await response.text()) as unknown as T;
   }
 
-  return response.json();
+  return (await response.json()) as unknown as T;
 }

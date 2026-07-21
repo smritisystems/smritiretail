@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -144,4 +144,28 @@ class InventoryService:
         if product.stock < quantity:
             return False
         return True
+
+    async def resolve_effective_gst_percentage(self, product: Product) -> float:
+        """
+        Resolves effective GST percentage for a product following v5.1.0 Architecture:
+        1. Item Classification / HSN Registry (VariantTemplate) [Single Source of Truth]
+        2. Legacy Product.gst_percentage [Legacy Transitional Fallback - Scheduled for Deprecation]
+        3. System Default (18.0) [Safety Net]
+        """
+        if product.variant_template_id:
+            from ..models.attributes import VariantTemplate
+            stmt = select(VariantTemplate).filter(
+                VariantTemplate.id == product.variant_template_id,
+                VariantTemplate.is_deleted == False
+            )
+            res = await self.db.execute(stmt)
+            vt = res.scalars().first()
+            if vt and vt.gst_percentage is not None:
+                return float(vt.gst_percentage)
+        
+        if product.gst_percentage is not None:
+            return float(product.gst_percentage)
+
+        return 18.0
+
 

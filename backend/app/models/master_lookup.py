@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -28,6 +28,8 @@ class MasterType(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     code = Column(String(50), nullable=False, unique=True)
     label = Column(String(100), nullable=False)
+    category_type = Column(String(20), default="SYSTEM", nullable=False)  # 'SYSTEM' | 'REFERENCE' | 'BUSINESS'
+    is_system = Column(Boolean, default=True, nullable=False)
     field_schema = Column(JSONB, nullable=False)
     ui_schema = Column(JSONB, nullable=True)
     used_in_modules = Column(ARRAY(String), nullable=True)
@@ -46,14 +48,20 @@ class MasterValue(Base):
     code = Column(String(50), nullable=False)
     name = Column(String(255), nullable=False)
     parent_value_id = Column(UUID(as_uuid=True), ForeignKey("master_values.id"), nullable=True)
+    supersedes_id = Column(UUID(as_uuid=True), ForeignKey("master_values.id"), nullable=True)
     data = Column(JSONB, default=dict, nullable=False)
     active = Column(Boolean, default=True, nullable=False)
     sort_order = Column(Integer, default=0, nullable=True)
+    effective_from = Column(TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False)
+    effective_to = Column(TIMESTAMP(timezone=True), nullable=True)
     updated_at = Column(TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False)
 
-    # Soft delete columns (added via migration)
+    # Soft delete columns
     is_deleted = Column(Boolean, default=False, nullable=True)
     deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
     deleted_by = Column(String(100), nullable=True)
 
     master_type = relationship("MasterType", backref="values")
+    parent_value = relationship("MasterValue", remote_side=[id], foreign_keys=[parent_value_id], backref="children")
+    supersedes = relationship("MasterValue", remote_side=[id], foreign_keys=[supersedes_id], backref="superseded_by")
+
