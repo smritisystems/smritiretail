@@ -101,7 +101,9 @@ from .api.v1 import (
     analytics,
     franchise,
     loyalty,
+    system_release,
 )
+
 
 
 
@@ -241,6 +243,8 @@ app.include_router(ecommerce.router,            prefix=settings.API_V1_STR,     
 app.include_router(analytics.router,            prefix=settings.API_V1_STR,                    tags=["Financial Analytics & BI Engine (v20.0.0)"])
 app.include_router(franchise.router,            prefix=settings.API_V1_STR,                    tags=["Multi-Store Franchise & Royalty Engine (v21.0.0)"])
 app.include_router(loyalty.router,              prefix=settings.API_V1_STR,                    tags=["Customer Loyalty & Promotional Rewards Engine (v22.0.0)"])
+app.include_router(system_release.router,       prefix=settings.API_V1_STR,                    tags=["Master Platform Baseline & Certified Telemetry (v23.0.0)"])
+
 
 
 

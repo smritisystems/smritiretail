@@ -63,7 +63,9 @@ from . import (
     analytics,
     franchise,
     loyalty,
+    system_release,
 )
+
 
 
 
