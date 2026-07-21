@@ -20,12 +20,12 @@
 
 ---
 
-## CONSTITUTIONAL PRECEPT
+## 1. CONSTITUTIONAL PRECEPT
 > **"Every line of code must improve the system without violating architecture, compatibility, security, performance, simplicity, or maintainability."**
 
 ---
 
-## THE 20 MANDATORY ENGINEERING RULES
+## 2. THE 20 MANDATORY ENGINEERING RULES
 
 1. **Architecture First:** Code follows approved architecture layer boundaries (`SMP-001`, `SPK Kernel`, `Business Modules`, `Marketplace Ecosystem`).
 2. **Single Responsibility:** Every module, service, and class has exactly one responsibility.
@@ -50,7 +50,29 @@
 
 ---
 
-## Golden Development Checklist
+## 3. COMPLIANCE VERIFICATION MATRIX
+
+| Rule Category | Verification Method | Enforcement Trigger |
+| :--- | :--- | :--- |
+| **Architecture & Layering** | Static import analysis & Kernel Purity check | Pre-commit git hook / CI pipeline |
+| **Code Quality & Typing** | `mypy`, `npx tsc --noEmit`, `ruff` static linting | Automated CI build stage |
+| **Testing & Coverage** | Pytest unit, integration, and regression suites | Mandatory 100% pass before merge |
+| **Security & Integrity** | Triad security validator & signature verifier | Package staging & PR gate |
+| **Performance SLA** | Latency benchmarks (<50 ms catalog / route SLA) | System telemetry diagnostic check |
+| **Documentation** | WGP / DGP checklist verification | Definition of Done audit |
+
+---
+
+## 4. AUTOMATED CI ENFORCEMENT POLICY
+
+1. **Kernel Purity Protection:** CI fails if `backend/app/core/spk_kernel.py` imports `backend/app/core/marketplace/`.
+2. **Type Safety Gate:** CI fails if `npx tsc --noEmit` returns non-zero status or Pydantic V2 DTO validation fails.
+3. **Regression Test Gate:** CI fails if any pytest assertion fails across platform test suites.
+4. **Documentation Gate:** CI fails if a pull request modifies code without updating corresponding walkthroughs and index tables.
+
+---
+
+## 5. Golden Development Checklist
 - [x] Architecture respected
 - [x] Single responsibility enforced
 - [x] No duplicate logic
