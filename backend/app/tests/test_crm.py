@@ -252,3 +252,56 @@ async def test_multi_tenant_isolation_prevents_cross_company_access(db_session):
     res_b = await repo_b.search(q="9900011122")
     assert len(res_b) == 0
 
+
+@pytest.mark.asyncio
+async def test_soft_delete_customer_hides_from_queries_and_preserves_audit(db_session):
+    tenant_ctx = await _setup_crm_tenant(db_session)
+    service = CrmService(db_session, tenant_ctx)
+    repo = CustomerRepository(db_session, tenant_ctx)
+
+    cust_in = CustomerCreate(
+        name="Soft Delete Test Corp",
+        mobile="9887766554"
+    )
+    created = await service.create_customer(cust_in)
+
+    # Soft delete customer via repository
+    cust_obj = await repo.get(created.id)
+    assert cust_obj is not None
+    deleted_cust = await repo.soft_delete(cust_obj, deleted_by="usr-test")
+    assert deleted_cust.is_deleted is True
+    assert deleted_cust.deleted_by == "usr-test"
+
+    # Active repository search must not return soft-deleted customer
+    search_res = await repo.search(q="9887766554")
+    assert len(search_res) == 0
+
+    # Direct database query confirms record exists with is_deleted=True for audit trail
+    stmt = select(Customer).filter(Customer.id == created.id)
+    raw_res = await db_session.execute(stmt)
+    raw_cust = raw_res.scalars().first()
+    assert raw_cust is not None
+    assert raw_cust.is_deleted is True
+
+
+@pytest.mark.asyncio
+async def test_atomic_rollback_on_invalid_child_reference(db_session):
+    tenant_ctx = await _setup_crm_tenant(db_session)
+    service = CrmService(db_session, tenant_ctx)
+
+    # Attempt to create customer with invalid non-existent customer group
+    cust_in = CustomerCreate(
+        name="Atomic Rollback Test Corp",
+        mobile="9776655443",
+        customer_group_id="invalid-non-existent-group-id"
+    )
+    with pytest.raises(HTTPException) as excinfo:
+        await service.create_customer(cust_in)
+    assert excinfo.value.status_code == 400
+
+    # Verify atomic rollback: Customer record must NOT exist in database
+    stmt = select(Customer).filter(Customer.mobile == "9776655443")
+    res = await db_session.execute(stmt)
+    assert res.scalars().first() is None
+
+
