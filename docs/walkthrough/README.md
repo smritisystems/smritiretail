@@ -172,6 +172,9 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-21 | v5.6.0 | Enterprise Product ↔ Supplier Vendor Catalog Architecture | [Walkthrough](./procurement/Procurement_ProductVendor_Catalog_v5.6.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
 | 2026-07-21 | v5.7.0 | Commercial Vendor Contracts Aggregate & Automated PO Sourcing Engine | [Walkthrough](./procurement/Procurement_VendorContract_Master_v5.7.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
 | 2026-07-21 | v5.8.0 | Automated 3-Way Matching Engine, Landed Cost Allocation & Multi-Level Tolerance Hierarchy | [Walkthrough](./procurement/Procurement_ThreeWayMatching_LandedCost_v5.8.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+| 2026-07-21 | v5.9.0 | Request for Quotation (RFQ), Multi-Vendor Bidding & Quotation Comparison Engine | [Walkthrough](./procurement/Procurement_RFQ_Quotation_Comparison_v5.9.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+| 2026-07-21 | v6.0.0 | Blanket Purchase Agreements (BPA) & Scheduled Delivery Releases | [Walkthrough](./procurement/Procurement_BlanketPurchaseAgreements_v6.0.0.md) | [Plan](../../C:/Users/netma/.gemini/antigravity-ide/brain/19008164-4f14-4de4-98fc-f707edf863ea/implementation_plan.md) | Completed |
+
 
 
 

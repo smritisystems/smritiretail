@@ -24,7 +24,8 @@ Founders
 Classification: Internal
 """
 
-from sqlalchemy import Column, String, Numeric, Integer, ForeignKey, Text, Boolean, DateTime, JSON
+from datetime import datetime, timezone
+from sqlalchemy import Column, String, Numeric, Integer, ForeignKey, Text, Boolean, DateTime, JSON, func
 from sqlalchemy.orm import relationship
 from ..db.base import BaseEntity, RowSecuredMixin
 
@@ -183,6 +184,10 @@ class PurchaseOrder(RowSecuredMixin, BaseEntity):
     subtotal    = Column(Numeric(15, 2), nullable=False, default=0.00)
     tax_total   = Column(Numeric(15, 2), nullable=False, default=0.00)
     grand_total = Column(Numeric(15, 2), nullable=False, default=0.00)
+
+    # Blanket Purchase Agreement (BPA) linkage
+    bpa_id         = Column(String(50), ForeignKey("blanket_purchase_agreements.id", ondelete="SET NULL"), nullable=True)
+    bpa_release_no = Column(Integer, nullable=True)
 
 
 class PurchaseOrderItem(BaseEntity):
@@ -429,7 +434,7 @@ class ProcurementRFQVendor(BaseEntity):
     rfq_id            = Column(String(50), ForeignKey("procurement_rfqs.id", ondelete="CASCADE"), nullable=False)
     supplier_id       = Column(String(50), ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False)
     invitation_status = Column(String(30), nullable=False, default="Invited")
-    invited_at        = Column(DateTime(timezone=True), nullable=False, default=func.now)
+    invited_at        = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
     rfq      = relationship("ProcurementRFQ", back_populates="invited_vendors")
     supplier = relationship("Supplier")
@@ -492,7 +497,7 @@ class QuotationEvaluation(RowSecuredMixin, BaseEntity):
     winning_score              = Column(Numeric(5, 2), nullable=False)
     comparison_matrix_snapshot = Column(JSON, nullable=False)
     awarded_by                 = Column(String(100), nullable=False)
-    awarded_at                 = Column(DateTime(timezone=True), nullable=False, default=func.now)
+    awarded_at                 = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     award_notes                = Column(Text, nullable=True)
     converted_doc_type         = Column(String(50), nullable=True)  # PURCHASE_ORDER, VENDOR_CONTRACT
     converted_doc_id           = Column(String(50), nullable=True)
@@ -522,3 +527,45 @@ class PurchaseJurisdictionConfig(BaseEntity):
     __tablename__ = "purchase_jurisdiction_configs"
 
     company_state = Column(String(10), nullable=False, default="DL")
+
+
+class BlanketPurchaseAgreement(RowSecuredMixin, BaseEntity):
+    """
+    BlanketPurchaseAgreement — Aggregate Root for long-term committed procurement agreements.
+    Tracks total commitment ceilings, released values, remaining commitment values, and status lifecycle.
+    Lifecycle states: Draft -> Active -> Exhausted -> Expired / Cancelled.
+    """
+    __tablename__ = "blanket_purchase_agreements"
+
+    bpa_code              = Column(String(100), nullable=False)
+    title                 = Column(String(255), nullable=False)
+    supplier_id           = Column(String(50), ForeignKey("suppliers.id", ondelete="RESTRICT"), nullable=False)
+    valid_from            = Column(DateTime(timezone=True), nullable=False)
+    valid_to              = Column(DateTime(timezone=True), nullable=False)
+    max_commitment_value  = Column(Numeric(15, 2), nullable=False, default=0.00)
+    released_value        = Column(Numeric(15, 2), nullable=False, default=0.00)
+    remaining_value       = Column(Numeric(15, 2), nullable=False, default=0.00)
+    terms_and_conditions  = Column(Text, nullable=True)
+    status                = Column(String(30), nullable=False, default="Draft")  # Draft, Active, Exhausted, Expired, Cancelled
+
+    supplier = relationship("Supplier")
+    lines    = relationship("BlanketPurchaseAgreementLine", back_populates="bpa", cascade="all, delete-orphan")
+
+
+class BlanketPurchaseAgreementLine(BaseEntity):
+    """
+    BlanketPurchaseAgreementLine — Product commitment line item in a BPA.
+    Tracks committed quantity, released quantity, and remaining quantity ceiling.
+    """
+    __tablename__ = "blanket_purchase_agreement_lines"
+
+    bpa_id             = Column(String(50), ForeignKey("blanket_purchase_agreements.id", ondelete="CASCADE"), nullable=False)
+    product_id         = Column(String(50), ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    agreed_unit_price  = Column(Numeric(15, 2), nullable=False)
+    committed_quantity = Column(Numeric(10, 2), nullable=False)
+    released_quantity  = Column(Numeric(10, 2), nullable=False, default=0.00)
+    remaining_quantity = Column(Numeric(10, 2), nullable=False)
+
+    bpa     = relationship("BlanketPurchaseAgreement", back_populates="lines")
+    product = relationship("Product")
+

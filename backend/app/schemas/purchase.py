@@ -621,3 +621,190 @@ class TolerancePolicyResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ──────────────────────────────────────────────────────────────
+# v5.9.0 Request for Quotation (RFQ) & Vendor Quotation Schemas
+# ──────────────────────────────────────────────────────────────
+
+class RFQItemCreate(BaseModel):
+    product_id: str
+    required_quantity: Decimal
+    target_unit_price: Optional[Decimal] = None
+    target_delivery_date: Optional[datetime] = None
+
+
+class RFQCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    submission_deadline: datetime
+    evaluation_profile: str = "RETAIL_DEFAULT"
+    items: List[RFQItemCreate] = []
+    invited_vendors: List[str] = []  # List of supplier_id strings
+
+
+class RFQItemResponse(BaseModel):
+    id: str
+    product_id: str
+    required_quantity: Decimal
+    target_unit_price: Optional[Decimal] = None
+    target_delivery_date: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RFQVendorResponse(BaseModel):
+    id: str
+    supplier_id: str
+    invitation_status: str
+    invited_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RFQResponse(BaseModel):
+    id: str
+    rfq_code: str
+    title: str
+    description: Optional[str] = None
+    submission_deadline: datetime
+    evaluation_profile: str
+    status: str
+    created_at: datetime
+    items: List[RFQItemResponse] = []
+    invited_vendors: List[RFQVendorResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class VendorQuotationItemCreate(BaseModel):
+    product_id: str
+    offered_quantity: Decimal
+    offered_unit_price: Decimal
+    discount_percentage: Decimal = Decimal("0.00")
+
+
+class VendorQuotationCreate(BaseModel):
+    quotation_code: str
+    currency_id: str = "INR"
+    offered_lead_time_days: int = 7
+    payment_terms: Optional[str] = None
+    quote_validity_date: datetime
+    items: List[VendorQuotationItemCreate] = []
+
+
+class VendorQuotationItemResponse(BaseModel):
+    id: str
+    product_id: str
+    offered_quantity: Decimal
+    offered_unit_price: Decimal
+    discount_percentage: Decimal
+    net_unit_price: Decimal
+    line_total: Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class VendorQuotationResponse(BaseModel):
+    id: str
+    rfq_id: str
+    supplier_id: str
+    quotation_code: str
+    version_number: int
+    currency_id: str
+    offered_lead_time_days: int
+    payment_terms: Optional[str] = None
+    quote_validity_date: datetime
+    total_quote_value: Decimal
+    score: Optional[Decimal] = None
+    rank: Optional[int] = None
+    status: str
+    created_at: datetime
+    items: List[VendorQuotationItemResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class QuotationAwardRequest(BaseModel):
+    quotation_id: str
+    awarded_by: str
+    award_notes: Optional[str] = ""
+    convert_to: str  # PURCHASE_ORDER or VENDOR_CONTRACT
+
+
+class QuotationEvaluationResponse(BaseModel):
+    id: str
+    rfq_id: str
+    winning_quotation_id: str
+    winning_supplier_id: str
+    evaluation_profile: str
+    winning_score: Decimal
+    comparison_matrix_snapshot: Dict[str, Any]
+    awarded_by: str
+    awarded_at: datetime
+    award_notes: Optional[str] = None
+    converted_doc_type: Optional[str] = None
+    converted_doc_id: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ──────────────────────────────────────────────────────────────
+# v6.0.0 Blanket Purchase Agreement (BPA) Schemas
+# ──────────────────────────────────────────────────────────────
+
+class BPALineCreate(BaseModel):
+    product_id: str
+    agreed_unit_price: Decimal
+    committed_quantity: Decimal
+
+
+class BPACreate(BaseModel):
+    bpa_code: str
+    title: str
+    supplier_id: str
+    valid_from: datetime
+    valid_to: datetime
+    max_commitment_value: Decimal
+    terms_and_conditions: Optional[str] = None
+    lines: List[BPALineCreate] = []
+
+
+class BPALineResponse(BaseModel):
+    id: str
+    bpa_id: str
+    product_id: str
+    agreed_unit_price: Decimal
+    committed_quantity: Decimal
+    released_quantity: Decimal
+    remaining_quantity: Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BPAResponse(BaseModel):
+    id: str
+    bpa_code: str
+    title: str
+    supplier_id: str
+    valid_from: datetime
+    valid_to: datetime
+    max_commitment_value: Decimal
+    released_value: Decimal
+    remaining_value: Decimal
+    status: str
+    created_at: datetime
+    lines: List[BPALineResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BPAReleaseItemRequest(BaseModel):
+    product_id: str
+    release_quantity: Decimal
+
+
+class BPAReleaseRequest(BaseModel):
+    items: List[BPAReleaseItemRequest]
+
+
+
+
