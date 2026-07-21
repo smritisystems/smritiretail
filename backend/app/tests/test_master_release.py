@@ -44,7 +44,8 @@ async def test_master_health_probes_pass():
     """Verify MasterHealthChecker diagnostic probes report 100% HEALTHY."""
     res = MasterHealthChecker.run_health_checks()
     assert res["status"] == "HEALTHY"
-    assert res["subsystems_checked"] == 12
-    assert res["passed_subsystems"] == 12
+    assert res["subsystems_checked"] == 13
+    assert res["passed_subsystems"] == 13
     assert all(v == "HEALTHY" for v in res["health_metrics"].values())
+
 

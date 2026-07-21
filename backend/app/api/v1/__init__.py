@@ -65,7 +65,9 @@ from . import (
     loyalty,
     system_release,
     pharma,
+    apparel,
 )
+
 
 
 

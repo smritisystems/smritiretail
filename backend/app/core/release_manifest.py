@@ -40,8 +40,10 @@ class MasterReleaseManifest:
         "Phase 26": "Financial Analytics & Business Intelligence Engine (v20.0.0)",
         "Phase 27": "Multi-Store Enterprise Franchise & Royalty Engine (v21.0.0)",
         "Phase 28": "Omnichannel Customer Loyalty & Promotional Rewards (v22.0.0)",
-        "Phase 30": "Pharma & Healthcare Retail Engine (v24.0.0)"
+        "Phase 30": "Pharma & Healthcare Retail Engine (v24.0.0)",
+        "Phase 31": "Apparel & Fashion 3D Matrix Engine (v25.0.0)"
     }
+
 
 
     @classmethod

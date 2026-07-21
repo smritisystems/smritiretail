@@ -32,8 +32,10 @@ class MasterHealthChecker:
             "financial_analytics_v20.0",
             "franchise_royalty_v21.0",
             "loyalty_promotions_v22.0",
-            "pharma_healthcare_v24.0"
+            "pharma_healthcare_v24.0",
+            "apparel_matrix_v25.0"
         ]
+
 
 
         metrics = {s: "HEALTHY" for s in subsystems}
