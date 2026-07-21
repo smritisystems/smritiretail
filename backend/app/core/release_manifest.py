@@ -18,7 +18,7 @@ from typing import Dict, Any
 class MasterReleaseManifest:
     """Master Release Manifest for SMRITI Retail OS v23.0.0."""
 
-    MASTER_VERSION = "23.0.0"
+    MASTER_VERSION = "27.0.0"
     FOUNDATION_BASELINE = "PAR-001 v1.0 Baseline"
     SPK_KERNEL_VERSION = "12.1.0"
     CMP_GOVERNANCE_POLICY = "CMP-001 v1.0"
@@ -42,8 +42,10 @@ class MasterReleaseManifest:
         "Phase 28": "Omnichannel Customer Loyalty & Promotional Rewards (v22.0.0)",
         "Phase 30": "Pharma & Healthcare Retail Engine (v24.0.0)",
         "Phase 31": "Apparel & Fashion 3D Matrix Engine (v25.0.0)",
-        "Phase 32": "NIC GSTN E-Way Bill & E-Invoice Gateway (v26.0.0)"
+        "Phase 32": "NIC GSTN E-Way Bill & E-Invoice Gateway (v26.0.0)",
+        "Phase 33": "SMRITI Digital Platform Ecosystem Hub (v27.0.0)"
     }
+
 
 
 

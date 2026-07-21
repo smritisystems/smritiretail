@@ -115,6 +115,8 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-21 | v24.0.0 | [Pharma & Healthcare Retail Engine](./pharma/Pharma_Healthcare_Plan_v24.0.0.md) | `/backend/app/core/pharma/`, `/backend/app/models/pharma.py`, `/backend/app/api/v1/pharma.py` | Completed | [Walkthrough](../walkthrough/pharma/Pharma_Healthcare_v24.0.0.md) |
 | 2026-07-21 | v25.0.0 | [Apparel & Fashion 3D Matrix Engine](./apparel/Apparel_Fashion_Matrix_Plan_v25.0.0.md) | `/backend/app/core/apparel/`, `/backend/app/models/apparel.py`, `/backend/app/api/v1/apparel.py` | Completed | [Walkthrough](../walkthrough/apparel/Apparel_Fashion_Matrix_v25.0.0.md) |
 | 2026-07-21 | v26.0.0 | [NIC GSTN E-Way Bill & E-Invoice Auto-Filing Gateway](./gst/NIC_GSTN_EInvoice_Plan_v26.0.0.md) | `/backend/app/core/nic_gst/`, `/backend/app/models/nic_gst.py`, `/backend/app/api/v1/nic_gst.py` | Completed | [Walkthrough](../walkthrough/gst/NIC_GSTN_EInvoice_v26.0.0.md) |
+| 2026-07-21 | v27.0.0 | [SMRITI Digital Platform Ecosystem Hub](./ecosystem/Smriti_Ecosystem_Platform_Plan_v27.0.0.md) | `/backend/app/core/ecosystem/`, `/backend/app/models/ecosystem.py`, `/backend/app/api/v1/ecosystem.py`, `/src/components/SmritiEcosystemHub.tsx` | Completed | [Walkthrough](../walkthrough/ecosystem/Smriti_Ecosystem_Platform_v27.0.0.md) |
+
 
 
 

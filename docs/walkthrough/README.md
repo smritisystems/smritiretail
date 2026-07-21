@@ -201,6 +201,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-21 | v24.0.0 | Pharma & Healthcare Retail Engine | [Walkthrough](./pharma/Pharma_Healthcare_v24.0.0.md) | [Plan](../implementation/pharma/Pharma_Healthcare_Plan_v24.0.0.md) | Completed |
 | 2026-07-21 | v25.0.0 | Apparel & Fashion 3D Matrix Engine | [Walkthrough](./apparel/Apparel_Fashion_Matrix_v25.0.0.md) | [Plan](../implementation/apparel/Apparel_Fashion_Matrix_Plan_v25.0.0.md) | Completed |
 | 2026-07-21 | v26.0.0 | NIC GSTN E-Way Bill & E-Invoice Auto-Filing Gateway | [Walkthrough](./gst/NIC_GSTN_EInvoice_v26.0.0.md) | [Plan](../implementation/gst/NIC_GSTN_EInvoice_Plan_v26.0.0.md) | Completed |
+| 2026-07-21 | v27.0.0 | SMRITI Digital Platform Ecosystem Hub | [Walkthrough](./ecosystem/Smriti_Ecosystem_Platform_v27.0.0.md) | [Plan](../implementation/ecosystem/Smriti_Ecosystem_Platform_Plan_v27.0.0.md) | Completed |
+
 
 
 
