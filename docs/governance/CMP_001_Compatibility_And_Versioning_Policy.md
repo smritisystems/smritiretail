@@ -22,7 +22,7 @@
 ---
 
 ## 1. Overview & Scope
-CMP-001 establishes the compatibility contracts, API stability levels, release compatibility manifests, and SemVer rules governing all domain releases building on top of the **SMRITI Platform Foundation Series (PAR-001 v1.0 Baseline)**.
+CMP-001 establishes the compatibility contracts, API stability levels, release compatibility manifests, public API registries, and SemVer rules governing all domain releases building on top of the **SMRITI Platform Foundation Series (PAR-001 v1.0 Baseline)**.
 
 ---
 
@@ -53,8 +53,27 @@ Every domain release (`v18.x`, `v19.x`, etc.) must explicitly state its compatib
 
 ---
 
-## 5. Automated CI Compatibility Gate
+## 5. Public API Registry Standard
+Every public REST endpoint must be declared in the Public API Registry metadata:
+- `endpoint` — Route URL pattern.
+- `status` — `STABLE`, `DEPRECATED`, or `REMOVED`.
+- `since_version` — Release version introduced.
+- `deprecated_since` — Release version deprecated (if applicable).
+- `target_removal_version` — Planned removal version.
+
+---
+
+## 6. Marketplace Package Compatibility Manifest
+Marketplace `.smx` package manifests (`package.json`) must explicitly declare:
+- `minimum_foundation` — Minimum required Foundation version (`v1.0`).
+- `maximum_foundation` — Maximum supported Foundation version.
+- `minimum_kernel` — Minimum required SPK Kernel version (`v12.1.0`).
+- `supported_api_version` — Target public API version.
+
+---
+
+## 7. Automated CI Compatibility Gate
 CI build pipelines automatically enforce:
 - Compatibility manifest presence.
-- Detection of unannounced public API removals.
+- Detection of unannounced public API removals against Public API Registry.
 - Verification of 2-release deprecation grace window.
