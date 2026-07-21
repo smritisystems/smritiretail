@@ -13,7 +13,10 @@ Classification: Internal Architecture Standard
 """
 
 import uuid
+import logging
 from typing import Optional, List
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
@@ -311,12 +314,19 @@ class CrmService:
 
         try:
             await self.db.commit()
-        except Exception as exc:
+        except IntegrityError as exc:
             await self.db.rollback()
-            print("CRM SERVICE COMMIT ERROR:", type(exc), exc)
+            logger.warning("Customer creation database constraint violation: %s", exc)
             raise HTTPException(
                 status_code=400,
-                detail=f"Customer creation failed due to exception: {type(exc)} {str(exc)}"
+                detail=f"Customer creation failed due to database constraint violation (duplicate record or invalid reference)."
+            )
+        except Exception as exc:
+            await self.db.rollback()
+            logger.exception("Unexpected error during customer aggregate creation")
+            raise HTTPException(
+                status_code=500,
+                detail="An unexpected internal error occurred while saving customer record."
             )
 
         # Fetch full aggregate graph with eager loaded child entities

@@ -207,3 +207,48 @@ async def test_credit_limit_check_enforces_limit_block(db_session):
         await service.check_credit_limit(created.id, 6000.00)
     assert excinfo.value.status_code == 400
     assert "Credit limit exceeded" in str(excinfo.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_duplicate_mobile_or_code_raises_http_400(db_session):
+    tenant_ctx = await _setup_crm_tenant(db_session)
+    service = CrmService(db_session, tenant_ctx)
+
+    cust1 = CustomerCreate(
+        name="Original Customer",
+        mobile="9876543210"
+    )
+    await service.create_customer(cust1)
+
+    # Attempting to create duplicate customer with same mobile under same company
+    cust2 = CustomerCreate(
+        name="Duplicate Mobile Customer",
+        mobile="9876543210"
+    )
+    with pytest.raises(HTTPException) as excinfo:
+        await service.create_customer(cust2)
+    assert excinfo.value.status_code == 400
+    assert "Customer with this mobile number already exists" in str(excinfo.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_multi_tenant_isolation_prevents_cross_company_access(db_session):
+    # Setup Tenant A
+    tenant_a = await _setup_crm_tenant(db_session)
+    service_a = CrmService(db_session, tenant_a)
+
+    # Setup Tenant B
+    tenant_b = await _setup_crm_tenant(db_session)
+    repo_b = CustomerRepository(db_session, tenant_b)
+
+    # Create Customer under Tenant A
+    cust_a_in = CustomerCreate(
+        name="Tenant A Confidential Customer",
+        mobile="9900011122"
+    )
+    created_a = await service_a.create_customer(cust_a_in)
+
+    # Tenant B searches for Tenant A's mobile number -> Must return empty list
+    res_b = await repo_b.search(q="9900011122")
+    assert len(res_b) == 0
+
