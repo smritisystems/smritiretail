@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Email        : support@smritibooks.com
@@ -38,11 +38,20 @@ def get_all_base_entity_tablenames() -> list:
     return [m.__tablename__ for m in BaseEntity.__subclasses__() if hasattr(m, '__tablename__')]
 
 
+from alembic import context
+
+
 def upgrade() -> None:
     """Upgrade schema by adding missing BaseEntity columns."""
-    bind = op.get_bind()
-    inspector = reflection.Inspector.from_engine(bind)
-    existing_tables = inspector.get_table_names()
+    if context.is_offline_mode():
+        return
+    try:
+        bind = op.get_bind()
+        inspector = sa.inspect(bind)
+        existing_tables = inspector.get_table_names()
+    except Exception:
+        return
+
     
     tables_to_migrate = get_all_base_entity_tablenames()
     

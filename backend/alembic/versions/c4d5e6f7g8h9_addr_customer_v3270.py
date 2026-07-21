@@ -22,11 +22,19 @@ down_revision: Union[str, Sequence[str], None] = "b3c4d5e6f7g8"
 branch_labels = None
 depends_on = None
 
+from alembic import context
+
 def column_exists(table_name: str, column_name: str) -> bool:
-    bind = op.get_bind()
-    inspector = sa.inspect(bind)
-    columns = [c["name"] for c in inspector.get_columns(table_name)]
-    return column_name in columns
+    if context.is_offline_mode():
+        return False
+    try:
+        bind = op.get_bind()
+        inspector = sa.inspect(bind)
+        columns = [c["name"] for c in inspector.get_columns(table_name)]
+        return column_name in columns
+    except Exception:
+        return False
+
 
 def upgrade() -> None:
     # Adding billing columns

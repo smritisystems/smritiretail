@@ -64,11 +64,19 @@ TABLES_TO_MIGRATE = [
     "integration_logs"
 ]
 
+from alembic import context
+
 def column_exists(table_name: str, column_name: str) -> bool:
-    bind = op.get_bind()
-    inspector = sa.inspect(bind)
-    columns = [c["name"] for c in inspector.get_columns(table_name)]
-    return column_name in columns
+    if context.is_offline_mode():
+        return False
+    try:
+        bind = op.get_bind()
+        inspector = sa.inspect(bind)
+        columns = [c["name"] for c in inspector.get_columns(table_name)]
+        return column_name in columns
+    except Exception:
+        return False
+
 
 def upgrade() -> None:
     for table_name in TABLES_TO_MIGRATE:
