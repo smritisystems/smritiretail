@@ -434,3 +434,104 @@ class PurchaseJurisdictionConfigResponse(BaseModel):
     is_active:     bool
 
     model_config = {"from_attributes": True}
+
+
+# ─────────────────────────── Vendor Contract Schemas ───────────────────────────
+
+class VendorContractTierCreate(BaseModel):
+    id: Optional[str] = None
+    product_id: str
+    purchase_uom_id: Optional[str] = None
+    currency_id: str = "INR"
+    min_quantity: Decimal = Decimal("1.00")
+    max_quantity: Optional[Decimal] = None
+    contract_unit_price: Decimal
+    discount_percentage: Decimal = Decimal("0.00")
+    bonus_quantity: Decimal = Decimal("0.00")
+    effective_from: Optional[datetime] = None
+    effective_to: Optional[datetime] = None
+
+    @field_validator("contract_unit_price")
+    @classmethod
+    def validate_price(cls, v: Decimal) -> Decimal:
+        if v < 0:
+            raise ValueError("Contract unit price cannot be negative")
+        return v
+
+
+class VendorContractTierResponse(VendorContractTierCreate):
+    id: str
+    contract_id: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class VendorContractCreate(BaseModel):
+    id: Optional[str] = None
+    supplier_id: str
+    contract_code: str
+    contract_title: str
+    valid_from: datetime
+    valid_to: datetime
+    currency_id: str = "INR"
+    payment_terms_id: Optional[str] = None
+    delivery_terms: Optional[str] = None
+    min_commitment_value: Decimal = Decimal("0.00")
+    terms_and_conditions: Optional[str] = None
+    attachment_url: Optional[str] = None
+    digital_signature_hash: Optional[str] = None
+    tiers: List[VendorContractTierCreate] = []
+
+
+class VendorContractUpdate(BaseModel):
+    contract_title: Optional[str] = None
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+    payment_terms_id: Optional[str] = None
+    delivery_terms: Optional[str] = None
+    min_commitment_value: Optional[Decimal] = None
+    terms_and_conditions: Optional[str] = None
+    attachment_url: Optional[str] = None
+    digital_signature_hash: Optional[str] = None
+
+
+class VendorContractResponse(BaseModel):
+    id: str
+    supplier_id: str
+    contract_code: str
+    contract_title: str
+    version_number: int
+    parent_contract_id: Optional[str] = None
+    valid_from: datetime
+    valid_to: datetime
+    currency_id: str
+    payment_terms_id: Optional[str] = None
+    delivery_terms: Optional[str] = None
+    min_commitment_value: Decimal
+    terms_and_conditions: Optional[str] = None
+    attachment_url: Optional[str] = None
+    digital_signature_hash: Optional[str] = None
+    approval_status: str
+    lifecycle_stage: str
+    created_at: datetime
+    modified_at: datetime
+    is_active: bool
+    tiers: List[VendorContractTierResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProcurementSourcingResolution(BaseModel):
+    vendor_id: Optional[str] = None
+    supplier_id: Optional[str] = None
+    supplier_name: Optional[str] = None
+    contract_id: Optional[str] = None
+    contract_code: Optional[str] = None
+    contract_version: Optional[int] = None
+    tier_id: Optional[str] = None
+    strategy_used: str
+    applied_price: float
+    applied_discount: float
+    reason: str
+    estimated_lead_time: int
+    resolution_trace: List[str] = []
+

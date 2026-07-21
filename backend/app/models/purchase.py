@@ -201,6 +201,69 @@ class PurchaseOrderItem(BaseEntity):
     tax_amount = Column(Numeric(15, 2), nullable=False, default=0.00)
     line_total = Column(Numeric(15, 2), nullable=False)  # qty × cost + tax
 
+    # Immutable Contract Audit Snapshot & Manual Override Audit
+    contract_id                  = Column(String(50), nullable=True)
+    contract_version              = Column(Integer, nullable=True)
+    applied_tier_id              = Column(String(50), nullable=True)
+    applied_unit_price           = Column(Numeric(15, 2), nullable=True)
+    applied_discount_percentage  = Column(Numeric(5, 2), nullable=True)
+    is_manually_overridden       = Column(Boolean, nullable=False, default=False)
+    override_reason              = Column(String(255), nullable=True)
+    overridden_by                = Column(String(100), nullable=True)
+    overridden_at                = Column(DateTime(timezone=True), nullable=True)
+
+
+class VendorContract(RowSecuredMixin, BaseEntity):
+    """
+    VendorContract — Commercial Agreement Aggregate Root.
+    Decoupled from operational ProductVendor catalog entity.
+    Supports contract versioning, dates, currency, and payment/incoterms.
+    """
+    __tablename__ = "vendor_contracts"
+
+    supplier_id            = Column(String(50), ForeignKey("suppliers.id", ondelete="RESTRICT"), nullable=False)
+    contract_code          = Column(String(100), nullable=False)
+    contract_title         = Column(String(255), nullable=False)
+    version_number         = Column(Integer, nullable=False, default=1)
+    parent_contract_id     = Column(String(50), ForeignKey("vendor_contracts.id", ondelete="SET NULL"), nullable=True)
+    valid_from             = Column(DateTime(timezone=True), nullable=False)
+    valid_to               = Column(DateTime(timezone=True), nullable=False)
+    currency_id            = Column(String(10), nullable=False, default="INR")
+    payment_terms_id       = Column(String(50), nullable=True)
+    delivery_terms         = Column(String(100), nullable=True)
+    min_commitment_value   = Column(Numeric(15, 2), nullable=False, default=0.00)
+    terms_and_conditions   = Column(Text, nullable=True)
+    attachment_url         = Column(String(500), nullable=True)
+    digital_signature_hash = Column(String(255), nullable=True)
+    approval_status        = Column(String(30), nullable=False, default="Draft")
+    lifecycle_stage        = Column(String(30), nullable=False, default="Draft")
+
+    supplier = relationship("Supplier", backref="contracts")
+    tiers    = relationship("VendorContractTier", back_populates="contract", cascade="all, delete-orphan")
+
+
+class VendorContractTier(BaseEntity):
+    """
+    VendorContractTier — Volume Discount & Product Pricing Line.
+    Supports min/max quantity slabs, tiered unit prices, discount %, and bonus (free) items.
+    """
+    __tablename__ = "vendor_contract_tiers"
+
+    contract_id            = Column(String(50), ForeignKey("vendor_contracts.id", ondelete="CASCADE"), nullable=False)
+    product_id             = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
+    purchase_uom_id        = Column(String(50), nullable=True)
+    currency_id            = Column(String(10), nullable=False, default="INR")
+    min_quantity           = Column(Numeric(10, 2), nullable=False, default=1.00)
+    max_quantity           = Column(Numeric(10, 2), nullable=True)
+    contract_unit_price    = Column(Numeric(15, 2), nullable=False)
+    discount_percentage    = Column(Numeric(5, 2), nullable=False, default=0.00)
+    bonus_quantity         = Column(Numeric(10, 2), nullable=False, default=0.00)
+    effective_from         = Column(DateTime(timezone=True), nullable=True)
+    effective_to           = Column(DateTime(timezone=True), nullable=True)
+
+    contract = relationship("VendorContract", back_populates="tiers")
+    product  = relationship("Product")
+
 
 class PurchaseReceipt(BaseEntity):
     """

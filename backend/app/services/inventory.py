@@ -463,25 +463,96 @@ class InventoryService:
         await self.db.refresh(new_pv)
         return new_pv
 
-    async def resolve_vendor(self, product_id: str, strategy: str = "PREFERRED") -> VendorResolutionResult:
+    async def resolve_vendor(self, product_id: str, strategy: str = "PREFERRED", order_qty: float = 1.0) -> VendorResolutionResult:
         """
         Pluggable Strategic Vendor Resolution Engine:
+        - CONTRACT_FIRST: Evaluate active commercial VendorContract & volume tiers first
         - PREFERRED: Preferred primary vendor
         - LOWEST_COST: Lowest net cost price
         - FASTEST_DELIVERY: Shortest lead time in days
-        - CONTRACT_FIRST: Active vendor contract price
         """
-        from dataclasses import dataclass
+        from dataclasses import dataclass, field
+        from datetime import datetime, timezone
+        from ..models.purchase import VendorContract, VendorContractTier
+
         @dataclass
         class VendorResolutionResult:
             vendor_id: Optional[str]
             supplier_id: Optional[str]
+            contract_id: Optional[str]
+            contract_code: Optional[str]
+            contract_version: Optional[int]
+            tier_id: Optional[str]
             strategy_used: str
             score: float
             reason: str
             estimated_cost: float
+            applied_discount: float
             estimated_lead_time: int
+            resolution_trace: List[str] = field(default_factory=list)
 
+        trace = []
+        trace.append(f"Initiating resolution for product_id='{product_id}', order_qty={order_qty}, strategy='{strategy}'")
+
+        strat_upper = strategy.upper()
+
+        # Step 1: Check CONTRACT_FIRST strategy if active contract tier exists
+        if strat_upper == "CONTRACT_FIRST" or strat_upper == "AUTO":
+            now = datetime.now(timezone.utc)
+            stmt_contract = select(VendorContractTier, VendorContract).join(
+                VendorContract, VendorContractTier.contract_id == VendorContract.id
+            ).filter(
+                VendorContractTier.product_id == product_id,
+                VendorContractTier.is_active == True,
+                VendorContractTier.is_deleted == False,
+                VendorContract.is_active == True,
+                VendorContract.is_deleted == False,
+                VendorContract.approval_status.in_(["Approved", "Active"]),
+                VendorContract.valid_from <= now,
+                VendorContract.valid_to >= now,
+                VendorContract.company_id == self.tenant_ctx.company_id
+            )
+            res_contract = await self.db.execute(stmt_contract)
+            contract_pairs = list(res_contract.all())
+
+            if contract_pairs:
+                trace.append(f"Step 1: Found {len(contract_pairs)} active contracts matching product '{product_id}'")
+                matching_tier_pair = None
+                for tier, contract in contract_pairs:
+                    min_q = float(tier.min_quantity)
+                    max_q = float(tier.max_quantity) if tier.max_quantity is not None else float("inf")
+                    if min_q <= order_qty <= max_q:
+                        matching_tier_pair = (tier, contract)
+                        break
+
+                if matching_tier_pair:
+                    tier, contract = matching_tier_pair
+                    price = float(tier.contract_unit_price)
+                    disc = float(tier.discount_percentage)
+                    net = round(price * (1.0 - disc / 100.0), 2)
+                    trace.append(f"Step 2: Matched Tier '{tier.id}' (min={tier.min_quantity}, max={tier.max_quantity}) under Contract '{contract.contract_code}' (v{contract.version_number})")
+                    trace.append(f"Step 3: Applied contract price ₹{net} (unit=₹{price}, disc={disc}%)")
+                    return VendorResolutionResult(
+                        vendor_id=None,
+                        supplier_id=contract.supplier_id,
+                        contract_id=contract.id,
+                        contract_code=contract.contract_code,
+                        contract_version=contract.version_number,
+                        tier_id=tier.id,
+                        strategy_used="CONTRACT_FIRST",
+                        score=100.0,
+                        reason=f"Resolved via active VendorContract '{contract.contract_code}' (v{contract.version_number}) Tier '{tier.id}'",
+                        estimated_cost=net,
+                        applied_discount=disc,
+                        estimated_lead_time=1,
+                        resolution_trace=trace
+                    )
+                else:
+                    trace.append(f"Step 2: No contract tier matched quantity slab ({order_qty}). Falling back to ProductVendor catalog.")
+            else:
+                trace.append("Step 1: No active date-effective contracts found. Falling back to ProductVendor catalog.")
+
+        # Step 2: ProductVendor catalog resolution fallback
         stmt = select(ProductVendor).filter(
             ProductVendor.product_id == product_id,
             ProductVendor.is_deleted == False,
@@ -492,51 +563,65 @@ class InventoryService:
         vendors = list(res.scalars().all())
 
         if not vendors:
+            trace.append("Step 2: No active vendors linked to product catalog.")
             return VendorResolutionResult(
                 vendor_id=None,
                 supplier_id=None,
+                contract_id=None,
+                contract_code=None,
+                contract_version=None,
+                tier_id=None,
                 strategy_used=strategy,
                 score=0.0,
                 reason="No active vendors linked to product",
                 estimated_cost=0.0,
-                estimated_lead_time=0
+                applied_discount=0.0,
+                estimated_lead_time=0,
+                resolution_trace=trace
             )
 
-        strat_upper = strategy.upper()
         selected: Optional[ProductVendor] = None
         reason = ""
 
         if strat_upper == "LOWEST_COST":
-            # Sort by net cost_price * (1 - discount_percentage/100)
             vendors.sort(key=lambda v: float(v.cost_price) * (1.0 - float(v.discount_percentage) / 100.0))
             selected = vendors[0]
             reason = f"Selected supplier '{selected.supplier_id}' with lowest net cost price ₹{selected.cost_price}"
+            trace.append(f"Step 2: LOWEST_COST evaluated {len(vendors)} vendors -> Selected '{selected.supplier_id}'")
 
         elif strat_upper == "FASTEST_DELIVERY":
             vendors.sort(key=lambda v: v.lead_time_days)
             selected = vendors[0]
             reason = f"Selected supplier '{selected.supplier_id}' with shortest lead time {selected.lead_time_days} days"
+            trace.append(f"Step 2: FASTEST_DELIVERY evaluated {len(vendors)} vendors -> Selected '{selected.supplier_id}'")
 
         else:
-            # Default PREFERRED
             preferred_list = [v for v in vendors if v.is_preferred]
             if preferred_list:
                 selected = preferred_list[0]
                 reason = f"Selected preferred supplier '{selected.supplier_id}'"
+                trace.append(f"Step 2: Selected preferred vendor '{selected.supplier_id}'")
             else:
                 vendors.sort(key=lambda v: v.priority)
                 selected = vendors[0]
                 reason = f"Selected top priority supplier '{selected.supplier_id}'"
+                trace.append(f"Step 2: Selected top priority vendor '{selected.supplier_id}'")
 
-        net_cost = float(selected.cost_price) * (1.0 - float(selected.discount_percentage) / 100.0)
+        net_cost = round(float(selected.cost_price) * (1.0 - float(selected.discount_percentage) / 100.0), 2)
         return VendorResolutionResult(
             vendor_id=selected.id,
             supplier_id=selected.supplier_id,
+            contract_id=None,
+            contract_code=None,
+            contract_version=None,
+            tier_id=None,
             strategy_used=strat_upper,
             score=100.0 if selected.is_preferred else 90.0,
             reason=reason,
             estimated_cost=net_cost,
-            estimated_lead_time=selected.lead_time_days
+            applied_discount=float(selected.discount_percentage),
+            estimated_lead_time=selected.lead_time_days,
+            resolution_trace=trace
         )
 
 
