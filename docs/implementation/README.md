@@ -117,6 +117,9 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-21 | v26.0.0 | [NIC GSTN E-Way Bill & E-Invoice Auto-Filing Gateway](./gst/NIC_GSTN_EInvoice_Plan_v26.0.0.md) | `/backend/app/core/nic_gst/`, `/backend/app/models/nic_gst.py`, `/backend/app/api/v1/nic_gst.py` | Completed | [Walkthrough](../walkthrough/gst/NIC_GSTN_EInvoice_v26.0.0.md) |
 | 2026-07-21 | v27.0.0 | [SMRITI Digital Platform Ecosystem Hub](./ecosystem/Smriti_Ecosystem_Platform_Plan_v27.0.0.md) | `/backend/app/core/ecosystem/`, `/backend/app/models/ecosystem.py`, `/backend/app/api/v1/ecosystem.py`, `/src/components/SmritiEcosystemHub.tsx` | Completed | [Walkthrough](../walkthrough/ecosystem/Smriti_Ecosystem_Platform_v27.0.0.md) |
 | 2026-07-22 | v28.0.0 | [Official Product Website & Public Marketing Portal](./website/Official_Product_Website_Plan_v28.0.0.md) | `/backend/app/core/website/`, `/backend/app/api/v1/website/`, `/src/components/website/` | Completed | [Walkthrough](../walkthrough/website/Official_Product_Website_v28.0.0.md) |
+| 2026-07-22 | v29.0.0 | [Live Documentation Portal & Knowledge Engine](./documentation/Live_Documentation_Portal_Plan_v29.0.0.md) | `/backend/app/core/documentation/`, `/backend/app/api/v1/documentation/`, `/src/components/documentation/` | Completed | [Walkthrough](../walkthrough/documentation/Live_Documentation_Portal_v29.0.0.md) |
+
+
 
 
 
