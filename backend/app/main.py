@@ -160,6 +160,7 @@ app.include_router(crm.router,       prefix=settings.API_V1_STR,                
 app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Canonical route (Phase 4A)
 app.include_router(sales_fulfillment.router, prefix=settings.API_V1_STR,                 tags=["Sales Orders & Outbound Fulfillment"])
 app.include_router(sales_invoicing.router, prefix=settings.API_V1_STR,                    tags=["Sales Invoicing & Payment Settlement"])
+app.include_router(sales_return.router, prefix=settings.API_V1_STR,                       tags=["Sales Returns & Credit Notes"])
 app.include_router(purchase.router,  prefix=settings.API_V1_STR,                    tags=["Purchase-Legacy"])  # Root mount: /api/v1/suppliers/, /api/v1/purchase-receipts/ — retain until test suite migrated to /api/v1/purchase/*
 app.include_router(purchase.router,  prefix=settings.API_V1_STR + "/purchase",      tags=["Purchase"])         # Canonical route (Phase 4A)
 app.include_router(purchase_contracts.router, prefix=settings.API_V1_STR,            tags=["Purchase Contracts"])
