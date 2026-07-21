@@ -6,5 +6,6 @@
   "advanced_accounting": "DISABLED",
   "accounting": "DISABLED",
   "crm": "DISABLED",
-  "purchase": "DISABLED"
+  "purchase": "DISABLED",
+  "test_pkg": "DISABLED"
 }

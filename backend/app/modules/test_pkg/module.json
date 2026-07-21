@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "module_version": "13.0.0",
+  "id": "test_pkg",
+  "uuid": "50ff8936-dd95-435d-98f1-3d08e394ff49",
+  "name": "Test Package",
+  "display_name": "Test Package Module",
+  "category": "Core Retail",
+  "module_type": "PLUGIN",
+  "version": "1.0.0",
+  "stability": "STABLE",
+  "trust_tier": "COMMUNITY",
+  "license_tier": "Community",
+  "critical": false,
+  "min_platform": "12.1.0",
+  "max_platform": "13.x",
+  "depends_on": [],
+  "conflicts_with": [],
+  "permissions": [
+    "test_pkg.view"
+  ],
+  "menus": [
+    {
+      "id": "menu_test_pkg",
+      "label": "Test Package",
+      "path": "/test_pkg"
+    }
+  ],
+  "routes": [
+    "/api/v1/test_pkg"
+  ],
+  "event_contracts": []
+}

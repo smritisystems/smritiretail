@@ -92,7 +92,9 @@ from .api.v1 import (
     diagnostics,
     accounting,
     capabilities,
+    marketplace,
 )
+
 
 from .core.config import settings
 from .core.constants import SMRITI_BANNER
@@ -214,6 +216,8 @@ app.include_router(diagnostics.router,       prefix=settings.API_V1_STR,        
 app.include_router(validation_policy.router, prefix=settings.API_V1_STR,                    tags=["Platform Validation Engine (PVE)"])
 app.include_router(accounting.router,        prefix=settings.API_V1_STR,                    tags=["General Ledger & Financial Accounting"])
 app.include_router(capabilities.router,        prefix=settings.API_V1_STR,                    tags=["SMRITI Modular Platform (SMP-001) Capabilities"])
+app.include_router(marketplace.router,         prefix=settings.API_V1_STR,                    tags=["SMRITI Marketplace Ecosystem (Layer 4)"])
+
 
 
 
