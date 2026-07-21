@@ -290,16 +290,216 @@ class PurchaseReceiptItem(BaseEntity):
     """
     __tablename__ = "purchase_receipt_items"
 
-    receipt_id         = Column(String(50),   ForeignKey("purchase_receipts.id", ondelete="CASCADE"), nullable=False)
-    product_id         = Column(String(50),   ForeignKey("products.id",          ondelete="RESTRICT"), nullable=False)
-    code               = Column(String(50),   nullable=False)
-    name               = Column(String(255),  nullable=False)
-    quantity_ordered   = Column(Numeric(10, 2), nullable=True)   # from PO (informational)
-    quantity_received  = Column(Numeric(10, 2), nullable=False)  # actual received — drives stock
-    cost_price         = Column(Numeric(15, 2), nullable=False)
-    gst_rate           = Column(Numeric(5, 2),  nullable=False, default=18.00)
-    tax_amount         = Column(Numeric(15, 2), nullable=False, default=0.00)
-    line_total         = Column(Numeric(15, 2), nullable=False)
+    receipt_id            = Column(String(50),   ForeignKey("purchase_receipts.id", ondelete="CASCADE"), nullable=False)
+    product_id            = Column(String(50),   ForeignKey("products.id",          ondelete="RESTRICT"), nullable=False)
+    code                  = Column(String(50),   nullable=False)
+    name                  = Column(String(255),  nullable=False)
+    quantity_ordered      = Column(Numeric(10, 2), nullable=True)   # from PO (informational)
+    quantity_received     = Column(Numeric(10, 2), nullable=False)  # actual received — drives stock
+    cost_price            = Column(Numeric(15, 2), nullable=False)
+    gst_rate              = Column(Numeric(5, 2),  nullable=False, default=18.00)
+    tax_amount            = Column(Numeric(15, 2), nullable=False, default=0.00)
+    line_total            = Column(Numeric(15, 2), nullable=False)
+
+    # v5.8.0 Landed Cost & Matching Columns
+    allocated_landed_cost = Column(Numeric(15, 2), nullable=False, default=0.00)
+    true_landed_unit_cost = Column(Numeric(15, 2), nullable=True)
+    match_status          = Column(String(30), nullable=False, default="Pending")
+
+
+class ThreeWayMatch(RowSecuredMixin, BaseEntity):
+    """
+    ThreeWayMatch — Aggregate Header for PO <-> GRN <-> Vendor Bill 3-Way Verification.
+    Tracks overall price variance, quantity variance, match status FSM, and supervisor approval logs.
+    """
+    __tablename__ = "three_way_matches"
+
+    po_id                  = Column(String(50), ForeignKey("purchase_orders.id", ondelete="CASCADE"), nullable=False)
+    grn_id                 = Column(String(50), ForeignKey("purchase_receipts.id", ondelete="CASCADE"), nullable=False)
+    vendor_bill_no         = Column(String(100), nullable=False)
+    vendor_bill_date       = Column(DateTime(timezone=True), nullable=True)
+    match_status           = Column(String(30), nullable=False, default="Pending")  # Pending, Matched, Warning, Blocked, Approved Override, Rejected
+    overall_price_variance = Column(Numeric(15, 2), nullable=False, default=0.00)
+    overall_qty_variance   = Column(Numeric(10, 2), nullable=False, default=0.00)
+    approved_by            = Column(String(100), nullable=True)
+    approved_at            = Column(DateTime(timezone=True), nullable=True)
+    approval_notes         = Column(String(500), nullable=True)
+
+    po    = relationship("PurchaseOrder")
+    grn   = relationship("PurchaseReceipt")
+    lines = relationship("ThreeWayMatchLine", back_populates="match", cascade="all, delete-orphan")
+
+
+class ThreeWayMatchLine(BaseEntity):
+    """
+    ThreeWayMatchLine — Line-by-line 3-way variance verification item.
+    Tracks ordered vs received vs billed quantities, prices, variances %, and resolution trace.
+    """
+    __tablename__ = "three_way_match_lines"
+
+    match_id           = Column(String(50), ForeignKey("three_way_matches.id", ondelete="CASCADE"), nullable=False)
+    product_id         = Column(String(50), ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    ordered_qty        = Column(Numeric(10, 2), nullable=False, default=0.00)
+    received_qty       = Column(Numeric(10, 2), nullable=False, default=0.00)
+    billed_qty         = Column(Numeric(10, 2), nullable=False, default=0.00)
+    po_unit_price      = Column(Numeric(15, 2), nullable=False, default=0.00)
+    billed_unit_price  = Column(Numeric(15, 2), nullable=False, default=0.00)
+    price_variance_pct = Column(Numeric(5, 2), nullable=False, default=0.00)
+    qty_variance_pct   = Column(Numeric(5, 2), nullable=False, default=0.00)
+    line_status        = Column(String(30), nullable=False, default="Matched")
+    resolution_trace   = Column(JSON, nullable=False, default=list)
+
+    match   = relationship("ThreeWayMatch", back_populates="lines")
+    product = relationship("Product")
+
+
+class LandedCostVoucher(RowSecuredMixin, BaseEntity):
+    """
+    LandedCostVoucher — Secondary landed cost charge voucher linked to a GRN shipment.
+    Charge types: Freight, Customs Duty, Marine Insurance, Local Handling.
+    Allocation Methods: VALUE, WEIGHT, VOLUME, QUANTITY, MANUAL.
+    """
+    __tablename__ = "landed_cost_vouchers"
+
+    grn_id            = Column(String(50), ForeignKey("purchase_receipts.id", ondelete="CASCADE"), nullable=False)
+    charge_type       = Column(String(100), nullable=False)
+    charge_amount     = Column(Numeric(15, 2), nullable=False)
+    currency_id       = Column(String(10), nullable=False, default="INR")
+    vendor_name       = Column(String(255), nullable=True)
+    allocation_method = Column(String(30), nullable=False, default="VALUE")
+
+    grn = relationship("PurchaseReceipt")
+
+
+class ProcurementTolerancePolicy(RowSecuredMixin, BaseEntity):
+    """
+    ProcurementTolerancePolicy — Multi-level tolerance rule configuration.
+    Hierarchy levels: SYSTEM -> COMPANY -> VENDOR -> PRODUCT.
+    """
+    __tablename__ = "procurement_tolerance_policies"
+
+    level                          = Column(String(30), nullable=False)  # SYSTEM, COMPANY, VENDOR, PRODUCT
+    target_id                      = Column(String(50), nullable=True)   # supplier_id or product_id if VENDOR/PRODUCT
+    allowed_price_variance_pct     = Column(Numeric(5, 2), nullable=False, default=2.00)
+    allowed_qty_variance_pct       = Column(Numeric(5, 2), nullable=False, default=0.00)
+    auto_approve_under_threshold   = Column(Boolean, nullable=False, default=True)
+
+
+class ProcurementRFQ(RowSecuredMixin, BaseEntity):
+    """
+    ProcurementRFQ — Request for Quotation Aggregate Root.
+    Manages multi-vendor bidding workflows, submission deadlines, and evaluation profiles.
+    """
+    __tablename__ = "procurement_rfqs"
+
+    rfq_code            = Column(String(100), nullable=False)
+    title               = Column(String(255), nullable=False)
+    description         = Column(Text, nullable=True)
+    submission_deadline = Column(DateTime(timezone=True), nullable=False)
+    evaluation_profile  = Column(String(50), nullable=False, default="RETAIL_DEFAULT")
+    status              = Column(String(30), nullable=False, default="Draft")  # Draft, Published, Bidding Open, Under Evaluation, Awarded, Closed, Cancelled
+
+    items               = relationship("ProcurementRFQItem", back_populates="rfq", cascade="all, delete-orphan")
+    invited_vendors     = relationship("ProcurementRFQVendor", back_populates="rfq", cascade="all, delete-orphan")
+    quotations          = relationship("VendorQuotation", back_populates="rfq", cascade="all, delete-orphan")
+
+
+class ProcurementRFQItem(BaseEntity):
+    """
+    ProcurementRFQItem — Product line item requirement on an RFQ.
+    """
+    __tablename__ = "procurement_rfq_items"
+
+    rfq_id               = Column(String(50), ForeignKey("procurement_rfqs.id", ondelete="CASCADE"), nullable=False)
+    product_id           = Column(String(50), ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    required_quantity    = Column(Numeric(10, 2), nullable=False)
+    target_unit_price    = Column(Numeric(15, 2), nullable=True)
+    target_delivery_date = Column(DateTime(timezone=True), nullable=True)
+
+    rfq     = relationship("ProcurementRFQ", back_populates="items")
+    product = relationship("Product")
+
+
+class ProcurementRFQVendor(BaseEntity):
+    """
+    ProcurementRFQVendor — Invited vendor link table for an RFQ.
+    """
+    __tablename__ = "procurement_rfq_vendors"
+
+    rfq_id            = Column(String(50), ForeignKey("procurement_rfqs.id", ondelete="CASCADE"), nullable=False)
+    supplier_id       = Column(String(50), ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False)
+    invitation_status = Column(String(30), nullable=False, default="Invited")
+    invited_at        = Column(DateTime(timezone=True), nullable=False, default=func.now)
+
+    rfq      = relationship("ProcurementRFQ", back_populates="invited_vendors")
+    supplier = relationship("Supplier")
+
+
+class VendorQuotation(RowSecuredMixin, BaseEntity):
+    """
+    VendorQuotation — Vendor Bidding Response Aggregate Root.
+    Supports quotation versioning (v1 -> v2) and evaluation scores.
+    """
+    __tablename__ = "vendor_quotations"
+
+    rfq_id                 = Column(String(50), ForeignKey("procurement_rfqs.id", ondelete="CASCADE"), nullable=False)
+    supplier_id            = Column(String(50), ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False)
+    quotation_code         = Column(String(100), nullable=False)
+    version_number         = Column(Integer, nullable=False, default=1)
+    parent_quotation_id    = Column(String(50), ForeignKey("vendor_quotations.id"), nullable=True)
+    currency_id            = Column(String(10), nullable=False, default="INR")
+    offered_lead_time_days = Column(Integer, nullable=False, default=7)
+    payment_terms          = Column(String(100), nullable=True)
+    quote_validity_date    = Column(DateTime(timezone=True), nullable=False)
+    total_quote_value      = Column(Numeric(15, 2), nullable=False, default=0.00)
+    score                  = Column(Numeric(5, 2), nullable=True)
+    rank                   = Column(Integer, nullable=True)
+    status                 = Column(String(30), nullable=False, default="Submitted")  # Submitted, Revised, Evaluated, Awarded, Rejected
+
+    rfq      = relationship("ProcurementRFQ", back_populates="quotations")
+    supplier = relationship("Supplier")
+    items    = relationship("VendorQuotationItem", back_populates="quotation", cascade="all, delete-orphan")
+
+
+class VendorQuotationItem(BaseEntity):
+    """
+    VendorQuotationItem — Line item pricing and offered quantities in a vendor quotation.
+    """
+    __tablename__ = "vendor_quotation_items"
+
+    quotation_id        = Column(String(50), ForeignKey("vendor_quotations.id", ondelete="CASCADE"), nullable=False)
+    product_id          = Column(String(50), ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    offered_quantity    = Column(Numeric(10, 2), nullable=False)
+    offered_unit_price  = Column(Numeric(15, 2), nullable=False)
+    discount_percentage = Column(Numeric(5, 2), nullable=False, default=0.00)
+    net_unit_price      = Column(Numeric(15, 2), nullable=False)
+    line_total          = Column(Numeric(15, 2), nullable=False)
+
+    quotation = relationship("VendorQuotation", back_populates="items")
+    product   = relationship("Product")
+
+
+class QuotationEvaluation(RowSecuredMixin, BaseEntity):
+    """
+    QuotationEvaluation — Immutable Award Audit Evidence & Comparison Matrix Snapshot.
+    """
+    __tablename__ = "quotation_evaluations"
+
+    rfq_id                     = Column(String(50), ForeignKey("procurement_rfqs.id", ondelete="CASCADE"), nullable=False)
+    winning_quotation_id       = Column(String(50), ForeignKey("vendor_quotations.id"), nullable=False)
+    winning_supplier_id        = Column(String(50), ForeignKey("suppliers.id"), nullable=False)
+    evaluation_profile         = Column(String(50), nullable=False)
+    winning_score              = Column(Numeric(5, 2), nullable=False)
+    comparison_matrix_snapshot = Column(JSON, nullable=False)
+    awarded_by                 = Column(String(100), nullable=False)
+    awarded_at                 = Column(DateTime(timezone=True), nullable=False, default=func.now)
+    award_notes                = Column(Text, nullable=True)
+    converted_doc_type         = Column(String(50), nullable=True)  # PURCHASE_ORDER, VENDOR_CONTRACT
+    converted_doc_id           = Column(String(50), nullable=True)
+
+    rfq               = relationship("ProcurementRFQ")
+    winning_quotation = relationship("VendorQuotation")
+    winning_supplier  = relationship("Supplier")
 
 
 class PurchaseReorderConfig(BaseEntity):

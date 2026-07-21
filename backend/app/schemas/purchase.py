@@ -535,3 +535,89 @@ class ProcurementSourcingResolution(BaseModel):
     estimated_lead_time: int
     resolution_trace: List[str] = []
 
+
+# ──────────────────────────────────────────────────────────────
+# v5.8.0 3-Way Matching, Landed Cost & Tolerance Policy Schemas
+# ──────────────────────────────────────────────────────────────
+
+class LandedCostVoucherCreate(BaseModel):
+    charge_type: str  # Freight, Customs, Insurance, Handling
+    charge_amount: Decimal
+    currency_id: str = "INR"
+    vendor_name: Optional[str] = None
+    allocation_method: str = "VALUE"  # VALUE, WEIGHT, VOLUME, QUANTITY, MANUAL
+
+
+class LandedCostAllocationRequest(BaseModel):
+    vouchers: List[LandedCostVoucherCreate]
+    manual_ratios: Optional[Dict[str, float]] = None
+
+
+class ThreeWayMatchLineResponse(BaseModel):
+    id: str
+    product_id: str
+    ordered_qty: Decimal
+    received_qty: Decimal
+    billed_qty: Decimal
+    po_unit_price: Decimal
+    billed_unit_price: Decimal
+    price_variance_pct: Decimal
+    qty_variance_pct: Decimal
+    line_status: str
+    resolution_trace: List[str] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BilledItemInput(BaseModel):
+    product_id: str
+    billed_qty: Decimal
+    billed_unit_price: Decimal
+
+
+class ThreeWayMatchRequest(BaseModel):
+    po_id: str
+    grn_id: str
+    vendor_bill_no: str
+    vendor_bill_date: Optional[datetime] = None
+    billed_items: List[BilledItemInput]
+
+
+class ThreeWayMatchResponse(BaseModel):
+    id: str
+    po_id: str
+    grn_id: str
+    vendor_bill_no: str
+    vendor_bill_date: Optional[datetime] = None
+    match_status: str
+    overall_price_variance: Decimal
+    overall_qty_variance: Decimal
+    approved_by: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    approval_notes: Optional[str] = None
+    created_at: datetime
+    lines: List[ThreeWayMatchLineResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TolerancePolicyCreate(BaseModel):
+    level: str  # SYSTEM, COMPANY, VENDOR, PRODUCT
+    target_id: Optional[str] = None
+    allowed_price_variance_pct: Decimal = Decimal("2.00")
+    allowed_qty_variance_pct: Decimal = Decimal("0.00")
+    auto_approve_under_threshold: bool = True
+
+
+class TolerancePolicyResponse(BaseModel):
+    id: str
+    level: str
+    target_id: Optional[str] = None
+    allowed_price_variance_pct: Decimal
+    allowed_qty_variance_pct: Decimal
+    auto_approve_under_threshold: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+

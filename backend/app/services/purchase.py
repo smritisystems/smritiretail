@@ -397,7 +397,8 @@ class PurchaseService:
             self.db.add(db_movement)
 
         supplier = await self._get_supplier(req.supplier_id)
-        supplier.outstanding = (supplier.outstanding + grand_total).quantize(Decimal("0.01"))
+        current_out = Decimal(str(supplier.outstanding or 0.0))
+        supplier.outstanding = float((current_out + grand_total).quantize(Decimal("0.01")))
         supplier.modified_at = datetime.now(timezone.utc)
 
         try:

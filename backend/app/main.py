@@ -57,6 +57,7 @@ from .api.v1 import (
     product_identity,
     purchase,
     purchase_contracts,
+    procurement_matching,
     reports,
     roles,
     sales,
@@ -152,6 +153,7 @@ app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales",     
 app.include_router(purchase.router,  prefix=settings.API_V1_STR,                    tags=["Purchase-Legacy"])  # Root mount: /api/v1/suppliers/, /api/v1/purchase-receipts/ — retain until test suite migrated to /api/v1/purchase/*
 app.include_router(purchase.router,  prefix=settings.API_V1_STR + "/purchase",      tags=["Purchase"])         # Canonical route (Phase 4A)
 app.include_router(purchase_contracts.router, prefix=settings.API_V1_STR,            tags=["Purchase Contracts"])
+app.include_router(procurement_matching.router, prefix=settings.API_V1_STR,           tags=["Procurement Matching & Valuation"])
 app.include_router(pos.router,              prefix=settings.API_V1_STR,                    tags=["POS Shift"])
 app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,                    tags=["Supplier Payments"])
 app.include_router(reports.router,          prefix=settings.API_V1_STR,                    tags=["Reports"])
