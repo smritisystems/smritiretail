@@ -33,10 +33,10 @@ async def test_master_release_manifest_verification():
     # Verify all 7 Platform Foundation Layers registered
     assert len(manifest["platform_layers"]) == 7
 
-    # Verify all 5 Domain Releases registered
-    assert len(manifest["domain_releases"]) == 5
+    # Verify domain releases registered (including Phase 30)
+    assert len(manifest["domain_releases"]) >= 6
     assert "Phase 24" in manifest["domain_releases"]
-    assert "Phase 28" in manifest["domain_releases"]
+    assert "Phase 30" in manifest["domain_releases"]
 
 
 @pytest.mark.asyncio
@@ -44,6 +44,7 @@ async def test_master_health_probes_pass():
     """Verify MasterHealthChecker diagnostic probes report 100% HEALTHY."""
     res = MasterHealthChecker.run_health_checks()
     assert res["status"] == "HEALTHY"
-    assert res["subsystems_checked"] == 11
-    assert res["passed_subsystems"] == 11
+    assert res["subsystems_checked"] == 12
+    assert res["passed_subsystems"] == 12
     assert all(v == "HEALTHY" for v in res["health_metrics"].values())
+

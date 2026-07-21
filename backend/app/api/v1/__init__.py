@@ -64,7 +64,9 @@ from . import (
     franchise,
     loyalty,
     system_release,
+    pharma,
 )
+
 
 
 
