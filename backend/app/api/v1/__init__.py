@@ -66,7 +66,9 @@ from . import (
     system_release,
     pharma,
     apparel,
+    nic_gst,
 )
+
 
 
 

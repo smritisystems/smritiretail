@@ -199,6 +199,9 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-21 | v22.0.0 | Omnichannel Customer Loyalty & Promotional Rewards Engine | [Walkthrough](./loyalty/Loyalty_Promotions_Engine_v22.0.0.md) | [Plan](../implementation/loyalty/Loyalty_Promotions_Engine_Plan_v22.0.0.md) | Completed |
 | 2026-07-21 | v23.0.0 | Final Master Integration, Release Readiness & Platform Baseline | [Walkthrough](./release/Master_Release_Readiness_v23.0.0.md) | [Plan](../implementation/release/Master_Release_Readiness_Plan_v23.0.0.md) | Completed |
 | 2026-07-21 | v24.0.0 | Pharma & Healthcare Retail Engine | [Walkthrough](./pharma/Pharma_Healthcare_v24.0.0.md) | [Plan](../implementation/pharma/Pharma_Healthcare_Plan_v24.0.0.md) | Completed |
+| 2026-07-21 | v25.0.0 | Apparel & Fashion 3D Matrix Engine | [Walkthrough](./apparel/Apparel_Fashion_Matrix_v25.0.0.md) | [Plan](../implementation/apparel/Apparel_Fashion_Matrix_Plan_v25.0.0.md) | Completed |
+| 2026-07-21 | v26.0.0 | NIC GSTN E-Way Bill & E-Invoice Auto-Filing Gateway | [Walkthrough](./gst/NIC_GSTN_EInvoice_v26.0.0.md) | [Plan](../implementation/gst/NIC_GSTN_EInvoice_Plan_v26.0.0.md) | Completed |
+
 
 
 

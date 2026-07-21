@@ -104,7 +104,9 @@ from .api.v1 import (
     system_release,
     pharma,
     apparel,
+    nic_gst,
 )
+
 
 
 
@@ -250,6 +252,8 @@ app.include_router(loyalty.router,              prefix=settings.API_V1_STR,     
 app.include_router(system_release.router,       prefix=settings.API_V1_STR,                    tags=["Master Platform Baseline & Certified Telemetry (v23.0.0)"])
 app.include_router(pharma.router,               prefix=settings.API_V1_STR,                    tags=["Pharma & Healthcare Retail Engine (v24.0.0)"])
 app.include_router(apparel.router,              prefix=settings.API_V1_STR,                    tags=["Apparel & Fashion 3D Matrix Engine (v25.0.0)"])
+app.include_router(nic_gst.router,              prefix=settings.API_V1_STR,                    tags=["NIC GSTN E-Way Bill & E-Invoice Gateway (v26.0.0)"])
+
 
 
 
