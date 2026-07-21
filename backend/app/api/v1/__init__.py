@@ -60,7 +60,9 @@ from . import (
     attachments,
     wms,
     ecommerce,
+    analytics,
 )
+
 
 
 

@@ -98,7 +98,9 @@ from .api.v1 import (
     attachments,
     wms,
     ecommerce,
+    analytics,
 )
+
 
 
 
@@ -232,6 +234,8 @@ app.include_router(ai_advisory.router,          prefix=settings.API_V1_STR,     
 app.include_router(attachments.router,          prefix=settings.API_V1_STR,                    tags=["SMRITI Content & Document Platform (Layer 7)"])
 app.include_router(wms.router,                  prefix=settings.API_V1_STR,                    tags=["Enterprise WMS & Multi-Bin Engine (v18.0.0)"])
 app.include_router(ecommerce.router,            prefix=settings.API_V1_STR,                    tags=["E-Commerce Sync & Omnichannel Engine (v19.0.0)"])
+app.include_router(analytics.router,            prefix=settings.API_V1_STR,                    tags=["Financial Analytics & BI Engine (v20.0.0)"])
+
 
 
 

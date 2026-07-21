@@ -108,6 +108,8 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-07-21 | v17.0.0 | [Universal Document Management & Content Platform (SCDP / UDMS)](./foundation/Universal_Document_Management_Plan_v17.0.0.md) | `/backend/app/core/documents/`, `/backend/app/models/attachment.py`, `/backend/app/api/v1/attachments.py` | Completed | [Walkthrough](../walkthrough/foundation/Universal_Document_Management_v17.0.0.md) |
 | 2026-07-21 | v18.0.0 | [Enterprise Warehouse Management & Multi-Bin Location Engine](./wms/WMS_Multi_Bin_Location_Plan_v18.0.0.md) | `/backend/app/core/wms/`, `/backend/app/models/wms.py`, `/backend/app/api/v1/wms.py` | Completed | [Walkthrough](../walkthrough/wms/WMS_Multi_Bin_Location_v18.0.0.md) |
 | 2026-07-21 | v19.0.0 | [E-Commerce Multi-Channel Sync & Omnichannel Fulfillment Engine](./ecommerce/Ecommerce_MultiChannel_Sync_Plan_v19.0.0.md) | `/backend/app/core/ecommerce/`, `/backend/app/models/ecommerce.py`, `/backend/app/api/v1/ecommerce.py` | Completed | [Walkthrough](../walkthrough/ecommerce/Ecommerce_MultiChannel_Sync_v19.0.0.md) |
+| 2026-07-21 | v20.0.0 | [Financial Analytics & Business Intelligence Engine](./analytics/Financial_Analytics_BI_Plan_v20.0.0.md) | `/backend/app/core/analytics/`, `/backend/app/models/analytics.py`, `/backend/app/api/v1/analytics.py` | Completed | [Walkthrough](../walkthrough/analytics/Financial_Analytics_BI_v20.0.0.md) |
+
 
 
 
