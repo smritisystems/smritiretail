@@ -166,3 +166,22 @@ class ProductBarcodeBase(BaseModel):
 class ProductBarcodeResponse(ProductBarcodeBase):
     id: str
     model_config = ConfigDict(from_attributes=True)
+
+
+class StockMovementBase(BaseModel):
+    product_id: str
+    quantity: float
+    movement_type: str = "IN"
+    reference_id: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class StockMovementCreate(StockMovementBase):
+    pass
+
+
+class StockMovementResponse(StockMovementBase):
+    id: str
+    created_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+

@@ -26,7 +26,7 @@ Classification: Internal
 
 import re
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, field_validator
 

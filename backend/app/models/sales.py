@@ -313,6 +313,11 @@ class ShipmentPackage(RowSecuredMixin, BaseEntity):
     order = relationship("SalesOrder")
 
 
+# Backward compatibility alias
+SalesInvoicePayment = SalesPayment
+
+
+
 
 
 

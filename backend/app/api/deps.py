@@ -161,6 +161,10 @@ async def get_tenant_context(
     return ctx
 
 
+get_current_tenant = get_tenant_context
+
+
+
 
 # ---------------------------------------------------------------------------
 # require_role — RBAC guard factory

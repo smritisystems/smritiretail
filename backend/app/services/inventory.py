@@ -12,7 +12,8 @@ License      : Proprietary Commercial Software
 """
 
 import uuid
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Optional, List
 from sqlalchemy import func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -22,6 +23,24 @@ from ..models.inventory import Product, StockMovement, ProductBarcode, ProductVe
 from ..models.master_lookup import MasterType, MasterValue
 from ..schemas.inventory import ProductCreate
 from ..api.deps import TenantContext
+
+
+@dataclass
+class VendorResolutionResult:
+    vendor_id: Optional[str]
+    supplier_id: Optional[str]
+    contract_id: Optional[str]
+    contract_code: Optional[str]
+    contract_version: Optional[int]
+    tier_id: Optional[str]
+    strategy_used: str
+    score: float
+    reason: str
+    estimated_cost: float
+    applied_discount: float
+    estimated_lead_time: int
+    resolution_trace: List[str] = field(default_factory=list)
+
 
 
 def _build_sku(p) -> str:
@@ -471,25 +490,8 @@ class InventoryService:
         - LOWEST_COST: Lowest net cost price
         - FASTEST_DELIVERY: Shortest lead time in days
         """
-        from dataclasses import dataclass, field
         from datetime import datetime, timezone
         from ..models.purchase import VendorContract, VendorContractTier
-
-        @dataclass
-        class VendorResolutionResult:
-            vendor_id: Optional[str]
-            supplier_id: Optional[str]
-            contract_id: Optional[str]
-            contract_code: Optional[str]
-            contract_version: Optional[int]
-            tier_id: Optional[str]
-            strategy_used: str
-            score: float
-            reason: str
-            estimated_cost: float
-            applied_discount: float
-            estimated_lead_time: int
-            resolution_trace: List[str] = field(default_factory=list)
 
         trace = []
         trace.append(f"Initiating resolution for product_id='{product_id}', order_qty={order_qty}, strategy='{strategy}'")
