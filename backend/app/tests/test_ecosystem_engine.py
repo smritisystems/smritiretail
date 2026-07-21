@@ -19,6 +19,8 @@ import pytest
 from app.core.ecosystem.portal_registry import PortalRegistry
 from app.core.ecosystem.customer_portal import CustomerWorkspaceEngine
 from app.core.ecosystem.academy_engine import AcademyLMSEngine
+from app.core.ecosystem.notifications.notification_service import PlatformNotificationEngine
+from app.core.ecosystem.search.global_search_service import GlobalUnifiedSearchEngine
 
 
 @pytest.mark.asyncio
@@ -45,6 +47,16 @@ async def test_portal_registry_filtering():
 
 
 @pytest.mark.asyncio
+async def test_portal_manifest_validation():
+    """Verify PortalRegistry validates Portal Manifest compatibility with CMP-001 baseline."""
+    res = PortalRegistry.validate_portal_manifest("academy")
+    assert res["valid"] is True
+    assert res["minimum_foundation"] == "v1.0"
+    assert res["minimum_kernel"] == "v12.1.0"
+    assert res["cmp_001_compliant"] is True
+
+
+@pytest.mark.asyncio
 async def test_customer_workspace_dashboard():
     """Verify CustomerWorkspaceEngine aggregates customer workspace metrics."""
     res = CustomerWorkspaceEngine.get_workspace_dashboard("CUST-001")
@@ -66,3 +78,27 @@ async def test_learning_academy_lms_courses():
     assert enroll_res["status"] == "ENROLLED"
     assert enroll_res["course_code"] == "SMRITI-101"
     assert enroll_res["certification_eligible"] is True
+
+
+@pytest.mark.asyncio
+async def test_platform_notification_dispatch():
+    """Verify PlatformNotificationEngine dispatches notifications across channels."""
+    res_email = PlatformNotificationEngine.send_notification("user@smritisys.com", "EMAIL", "Welcome to SMRITI", "Welcome aboard!")
+    assert res_email["status"] == "DISPATCHED"
+    assert res_email["channel"] == "EMAIL"
+
+    res_sms = PlatformNotificationEngine.send_notification("+919876543210", "SMS", "OTP", "Your code is 123456")
+    assert res_sms["status"] == "DISPATCHED"
+    assert res_sms["channel"] == "SMS"
+
+
+@pytest.mark.asyncio
+async def test_global_unified_search():
+    """Verify GlobalUnifiedSearchEngine queries across Docs, Academy, Marketplace, and APIs."""
+    res = GlobalUnifiedSearchEngine.query("Prescription")
+    assert res["results_count"] >= 1
+    assert res["results"][0]["category"] == "DOCS"
+
+    res_api = GlobalUnifiedSearchEngine.query("E-Invoice")
+    assert res_api["results_count"] >= 1
+    assert res_api["results"][0]["category"] == "DEVELOPER_APIS"
