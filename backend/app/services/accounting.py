@@ -124,10 +124,11 @@ DEFAULT_COA = [
 
 
 class AccountingService:
-    def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
+    def __init__(self, db: Optional[AsyncSession] = None, tenant_ctx: Optional[TenantContext] = None):
         self.db = db
         self.tenant_ctx = tenant_ctx
-        self.repo = AccountingRepository(db, tenant_ctx)
+        self.repo = AccountingRepository(db, tenant_ctx) if db else None
+
 
     async def seed_chart_of_accounts(self) -> None:
         """Seed default chart of accounts if not present."""
@@ -374,3 +375,7 @@ class AccountingService:
             "liabilities": liabilities,
             "equity": equity
         }
+
+
+accounting_service = AccountingService()
+
