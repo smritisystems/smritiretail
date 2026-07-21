@@ -78,7 +78,7 @@ async def clear_db(db_session: AsyncSession):
         "suppliers",
         "psv_sku_tracking", "psv_parties",
         "product_identities", "barcode_providers", "identity_rules",
-        "stock_movements", "products",
+        "stock_movements", "product_inventory_policies", "product_tax_profiles", "product_vendors", "products",
         "size_conversions", "size_values", "size_scales",
         "shifts", "cash_registers",
         "customer_addresses", "customer_contacts", "customer_credit_profiles",

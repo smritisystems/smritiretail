@@ -220,6 +220,12 @@ async def seed_default_users():
                 {"code": "SZ-FW-10", "name": "10", "data": {"category": "Footwear"}},
                 {"code": "SZ-FW-11", "name": "11", "data": {"category": "Footwear"}}
             ],
+            "product_brand": [
+                {"code": "BRD-GENERIC", "name": "Generic", "data": {}},
+                {"code": "BRD-NIKE", "name": "Nike", "data": {}},
+                {"code": "BRD-APPLE", "name": "Apple", "data": {}},
+                {"code": "BRD-LEVIS", "name": "Levi's", "data": {}}
+            ],
             "product_category": [
                 {"code": "CAT-SHIRTS", "name": "Shirts", "data": {}},
                 {"code": "CAT-TROUSERS", "name": "Trousers", "data": {}},

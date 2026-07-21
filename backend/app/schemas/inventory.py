@@ -4,17 +4,76 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 5.6.0
 Created      : 2026-07-11
-Modified     : 2026-07-13
+Modified     : 2026-07-21
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
+Classification: Internal Architecture Standard
 """
 
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class ProductVendorCreate(BaseModel):
+    supplier_id: str = Field(..., description="Supplier ID reference")
+    supplier_product_code: Optional[str] = Field(None, max_length=100)
+    supplier_barcode: Optional[str] = Field(None, max_length=100)
+    purchase_uom_id: Optional[str] = Field(None, max_length=50)
+    currency_id: str = "INR"
+    cost_price: Decimal = Decimal("0.00")
+    last_purchase_price: Decimal = Decimal("0.00")
+    last_purchase_date: Optional[datetime] = None
+    discount_percentage: Decimal = Decimal("0.00")
+    tax_inclusive: bool = False
+    minimum_order_qty: Decimal = Decimal("1.00")
+    maximum_order_qty: Optional[Decimal] = None
+    lead_time_days: int = 1
+    supplier_warranty_days: int = 0
+    priority: int = 1
+    is_preferred: bool = False
+    approval_status: str = "Approved"
+
+
+class ProductVendorResponse(ProductVendorCreate):
+    id: str
+    product_id: str
+    company_id: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProductTaxProfileCreate(BaseModel):
+    hsn_code: Optional[str] = Field(None, max_length=20)
+    gst_rate: Decimal = Decimal("18.00")
+    cess_rate: Decimal = Decimal("0.00")
+    is_inclusive_tax: bool = False
+    tax_group_id: Optional[str] = None
+    effective_from: datetime = Field(default_factory=datetime.utcnow)
+    effective_to: Optional[datetime] = None
+
+
+class ProductTaxProfileResponse(ProductTaxProfileCreate):
+    id: str
+    product_id: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProductInventoryPolicyCreate(BaseModel):
+    is_batch_tracked: bool = False
+    is_serial_tracked: bool = False
+    is_expiry_required: bool = False
+    is_qc_required: bool = False
+    allow_negative_stock: bool = False
+
+
+class ProductInventoryPolicyResponse(ProductInventoryPolicyCreate):
+    id: str
+    product_id: str
+    model_config = ConfigDict(from_attributes=True)
+
 
 class ProductBase(BaseModel):
     code: str = Field(..., max_length=50)
@@ -28,6 +87,8 @@ class ProductBase(BaseModel):
     brand: Optional[str] = Field(None, max_length=100)
     color: Optional[str] = Field(None, max_length=50)
     size: Optional[str] = Field(None, max_length=50)
+    size_scale_id: Optional[str] = Field(None, max_length=50)
+    sourcing_mode_override: Optional[str] = Field(None, max_length=30)
     mrp: Optional[Decimal] = None
     gst_percentage: Optional[Decimal] = None
     style_code: Optional[str] = Field(None, max_length=100)
@@ -41,9 +102,14 @@ class ProductBase(BaseModel):
     attributes: Dict[str, Any] = {}
     primary_image_url: Optional[str] = Field(None, max_length=512)
     gallery_images: List[str] = []
+    vendors: List[ProductVendorCreate] = []
+    tax_profiles: List[ProductTaxProfileCreate] = []
+    inventory_policy: Optional[ProductInventoryPolicyCreate] = None
+
 
 class ProductCreate(ProductBase):
     id: str = Field(..., max_length=50)
+
 
 class ProductUpdate(BaseModel):
     code: Optional[str] = None
@@ -57,6 +123,8 @@ class ProductUpdate(BaseModel):
     brand: Optional[str] = None
     color: Optional[str] = None
     size: Optional[str] = None
+    size_scale_id: Optional[str] = None
+    sourcing_mode_override: Optional[str] = None
     mrp: Optional[Decimal] = None
     gst_percentage: Optional[Decimal] = None
     style_code: Optional[str] = None
@@ -70,69 +138,31 @@ class ProductUpdate(BaseModel):
     attributes: Optional[Dict[str, Any]] = None
     primary_image_url: Optional[str] = None
     gallery_images: Optional[List[str]] = None
+    vendors: Optional[List[ProductVendorCreate]] = None
+    tax_profiles: Optional[List[ProductTaxProfileCreate]] = None
+    inventory_policy: Optional[ProductInventoryPolicyCreate] = None
+
 
 class ProductResponse(ProductBase):
     id: str
-    uuid: str
+    tenant_id: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
-    created_at: datetime
-    modified_at: datetime
-    is_active: bool
-    is_deleted: bool
-    version: int
+    created_at: Optional[datetime] = None
+    modified_at: Optional[datetime] = None
+    vendors: List[ProductVendorResponse] = []
+    tax_profiles: List[ProductTaxProfileResponse] = []
+    inventory_policy: Optional[ProductInventoryPolicyResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class StockMovementCreate(BaseModel):
-    product_id: str = Field(..., max_length=50)
-    product_name: str = Field(..., max_length=255)
-    sku: str = Field(..., max_length=50)
-    quantity: Decimal
-    movement_type: str = Field(..., max_length=20)
-    reference_doc_type: Optional[str] = Field(None, max_length=50)
-    reference_doc_id: Optional[str] = Field(None, max_length=50)
-    warehouse: Optional[str] = Field(None, max_length=100)
-    bin: Optional[str] = Field(None, max_length=50)
-    batch: Optional[str] = Field(None, max_length=50)
-    serial: Optional[str] = Field(None, max_length=50)
-    unit_cost: Optional[Decimal] = None
-    remarks: Optional[str] = None
-    user: Optional[str] = Field(None, max_length=100)
-    device: Optional[str] = Field(None, max_length=100)
-    branch: Optional[str] = Field(None, max_length=100)
-    source_module: Optional[str] = Field(None, max_length=50)
-    approval: Optional[str] = Field(None, max_length=50)
-    id: Optional[str] = Field(None, max_length=50)
-    company_id: Optional[str] = Field(None, max_length=50)
-    branch_id: Optional[str] = Field(None, max_length=50)
-
-
-class StockMovementResponse(BaseModel):
-    id: str
-    uuid: str
+class ProductBarcodeBase(BaseModel):
     product_id: str
-    product_name: str
-    sku: str
-    quantity: Decimal
-    movement_type: str
-    reference_doc_type: Optional[str] = None
-    reference_doc_id: Optional[str] = None
-    warehouse: Optional[str] = None
-    bin: Optional[str] = None
-    batch: Optional[str] = None
-    serial: Optional[str] = None
-    unit_cost: Optional[Decimal] = None
-    remarks: Optional[str] = None
-    user: Optional[str] = None
-    device: Optional[str] = None
-    branch: Optional[str] = None
-    source_module: Optional[str] = None
-    approval: Optional[str] = None
-    company_id: Optional[str] = None
-    branch_id: Optional[str] = None
-    created_at: datetime
-    modified_at: datetime
+    barcode: str
+    is_primary: bool = False
 
+
+class ProductBarcodeResponse(ProductBarcodeBase):
+    id: str
     model_config = ConfigDict(from_attributes=True)

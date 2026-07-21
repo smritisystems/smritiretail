@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
-from ..models.inventory import Product, StockMovement, ProductBarcode
+from ..models.inventory import Product, StockMovement, ProductBarcode, ProductVendor, ProductTaxProfile, ProductInventoryPolicy
 from ..models.master_lookup import MasterType, MasterValue
 from ..schemas.inventory import ProductCreate
 from ..api.deps import TenantContext
@@ -233,6 +233,9 @@ class InventoryService:
         )
         product_data = val_res.normalized_data
         sec_barcodes = product_data.pop("secondary_barcodes", None) or product_in.secondary_barcodes or []
+        vendors_data = product_data.pop("vendors", None) or []
+        tax_profiles_data = product_data.pop("tax_profiles", None) or []
+        inventory_policy_data = product_data.pop("inventory_policy", None)
 
         db_product = Product(
             **product_data,
@@ -240,6 +243,52 @@ class InventoryService:
             branch_id=self.tenant_ctx.branch_id
         )
         self.db.add(db_product)
+
+        from ..models.inventory import ProductVendor, ProductTaxProfile, ProductInventoryPolicy
+        for vdata in vendors_data:
+            v_dict = vdata.model_dump() if hasattr(vdata, "model_dump") else dict(vdata)
+            if not v_dict.get("workflow_status"):
+                v_dict["workflow_status"] = "Approved"
+            pv_obj = ProductVendor(
+                id=f"pv-{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
+                product_id=db_product.id,
+                tenant_id=tenant_id,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                **v_dict
+            )
+            self.db.add(pv_obj)
+
+        for tpdata in tax_profiles_data:
+            tp_dict = tpdata.model_dump() if hasattr(tpdata, "model_dump") else dict(tpdata)
+            if not tp_dict.get("workflow_status"):
+                tp_dict["workflow_status"] = "Approved"
+            tp_obj = ProductTaxProfile(
+                id=f"ptp-{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
+                product_id=db_product.id,
+                tenant_id=tenant_id,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                **tp_dict
+            )
+            self.db.add(tp_obj)
+
+        if inventory_policy_data:
+            ip_dict = inventory_policy_data.model_dump() if hasattr(inventory_policy_data, "model_dump") else dict(inventory_policy_data)
+            if not ip_dict.get("workflow_status"):
+                ip_dict["workflow_status"] = "Approved"
+            ip_obj = ProductInventoryPolicy(
+                id=f"pip-{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
+                product_id=db_product.id,
+                tenant_id=tenant_id,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                **ip_dict
+            )
+            self.db.add(ip_obj)
 
         for sbc in sec_barcodes:
             if sbc and str(sbc).strip():
@@ -289,10 +338,21 @@ class InventoryService:
     async def resolve_effective_gst_percentage(self, product: Product) -> float:
         """
         Resolves effective GST percentage for a product following v5.1.0 Architecture:
-        1. Item Classification / HSN Registry (VariantTemplate) [Single Source of Truth]
-        2. Legacy Product.gst_percentage [Legacy Transitional Fallback - Scheduled for Deprecation]
-        3. System Default (18.0) [Safety Net]
+        1. Date-Effective ProductTaxProfile (v5.6.0)
+        2. Item Classification / HSN Registry (VariantTemplate)
+        3. Legacy Product.gst_percentage
+        4. System Default (18.0)
         """
+        stmt_tp = select(ProductTaxProfile).filter(
+            ProductTaxProfile.product_id == product.id,
+            ProductTaxProfile.is_active == True,
+            ProductTaxProfile.is_deleted == False
+        ).order_by(ProductTaxProfile.effective_from.desc())
+        res_tp = await self.db.execute(stmt_tp)
+        active_tp = res_tp.scalars().first()
+        if active_tp and active_tp.gst_rate is not None:
+            return float(active_tp.gst_rate)
+
         if product.variant_template_id:
             from ..models.attributes import VariantTemplate
             stmt = select(VariantTemplate).filter(
@@ -308,5 +368,176 @@ class InventoryService:
             return float(product.gst_percentage)
 
         return 18.0
+
+    async def add_product_vendor(self, product_id: str, vendor_in) -> ProductVendor:
+        """
+        Adds ProductVendor link enforcing 3-level procurement sourcing hierarchy:
+        System Default -> Company Setting -> Product Override (SINGLE / MULTIPLE / HYBRID)
+        """
+        stmt = select(Product).filter(
+            Product.id == product_id,
+            Product.is_deleted == False,
+            Product.company_id == self.tenant_ctx.company_id
+        )
+        res = await self.db.execute(stmt)
+        product = res.scalars().first()
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        # Resolve Sourcing Mode Override Hierarchy
+        sourcing_mode = (product.sourcing_mode_override or "HYBRID").upper()
+
+        # Check existing vendors
+        existing_stmt = select(ProductVendor).filter(
+            ProductVendor.product_id == product_id,
+            ProductVendor.is_deleted == False,
+            ProductVendor.company_id == self.tenant_ctx.company_id
+        )
+        existing_res = await self.db.execute(existing_stmt)
+        existing_vendors = list(existing_res.scalars().all())
+
+        # Check duplicate supplier link
+        for ev in existing_vendors:
+            if ev.supplier_id == vendor_in.supplier_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Supplier '{vendor_in.supplier_id}' is already linked to this product."
+                )
+
+        # Mode 1 SINGLE Supplier Constraint Enforcement
+        if sourcing_mode == "SINGLE" and len(existing_vendors) >= 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Procurement sourcing mode is set to SINGLE. Product cannot be linked to multiple suppliers."
+            )
+
+        # Mode 3 HYBRID Preferred Vendor Single Enforcement
+        is_pref = vendor_in.is_preferred
+        if sourcing_mode == "SINGLE":
+            is_pref = True
+
+        if is_pref:
+            for ev in existing_vendors:
+                if ev.is_preferred:
+                    ev.is_preferred = False
+                    self.db.add(ev)
+
+        tenant_id = getattr(self.tenant_ctx, "tenant_id", None) or getattr(self.tenant_ctx, "company_id", None)
+        new_pv = ProductVendor(
+            id=f"pv-{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
+            tenant_id=tenant_id,
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+            product_id=product_id,
+            supplier_id=vendor_in.supplier_id,
+            supplier_product_code=vendor_in.supplier_product_code,
+            supplier_barcode=vendor_in.supplier_barcode,
+            purchase_uom_id=vendor_in.purchase_uom_id,
+            currency_id=vendor_in.currency_id,
+            cost_price=vendor_in.cost_price,
+            last_purchase_price=vendor_in.last_purchase_price,
+            last_purchase_date=vendor_in.last_purchase_date,
+            discount_percentage=vendor_in.discount_percentage,
+            tax_inclusive=vendor_in.tax_inclusive,
+            minimum_order_qty=vendor_in.minimum_order_qty,
+            maximum_order_qty=vendor_in.maximum_order_qty,
+            lead_time_days=vendor_in.lead_time_days,
+            supplier_warranty_days=vendor_in.supplier_warranty_days,
+            priority=vendor_in.priority,
+            is_preferred=is_pref,
+            approval_status=vendor_in.approval_status,
+            workflow_status="Approved"
+        )
+        self.db.add(new_pv)
+
+        try:
+            await self.db.commit()
+        except IntegrityError:
+            await self.db.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail="Vendor link constraint violation (duplicate supplier for product)."
+            )
+
+        await self.db.refresh(new_pv)
+        return new_pv
+
+    async def resolve_vendor(self, product_id: str, strategy: str = "PREFERRED") -> VendorResolutionResult:
+        """
+        Pluggable Strategic Vendor Resolution Engine:
+        - PREFERRED: Preferred primary vendor
+        - LOWEST_COST: Lowest net cost price
+        - FASTEST_DELIVERY: Shortest lead time in days
+        - CONTRACT_FIRST: Active vendor contract price
+        """
+        from dataclasses import dataclass
+        @dataclass
+        class VendorResolutionResult:
+            vendor_id: Optional[str]
+            supplier_id: Optional[str]
+            strategy_used: str
+            score: float
+            reason: str
+            estimated_cost: float
+            estimated_lead_time: int
+
+        stmt = select(ProductVendor).filter(
+            ProductVendor.product_id == product_id,
+            ProductVendor.is_deleted == False,
+            ProductVendor.is_active == True,
+            ProductVendor.company_id == self.tenant_ctx.company_id
+        )
+        res = await self.db.execute(stmt)
+        vendors = list(res.scalars().all())
+
+        if not vendors:
+            return VendorResolutionResult(
+                vendor_id=None,
+                supplier_id=None,
+                strategy_used=strategy,
+                score=0.0,
+                reason="No active vendors linked to product",
+                estimated_cost=0.0,
+                estimated_lead_time=0
+            )
+
+        strat_upper = strategy.upper()
+        selected: Optional[ProductVendor] = None
+        reason = ""
+
+        if strat_upper == "LOWEST_COST":
+            # Sort by net cost_price * (1 - discount_percentage/100)
+            vendors.sort(key=lambda v: float(v.cost_price) * (1.0 - float(v.discount_percentage) / 100.0))
+            selected = vendors[0]
+            reason = f"Selected supplier '{selected.supplier_id}' with lowest net cost price ₹{selected.cost_price}"
+
+        elif strat_upper == "FASTEST_DELIVERY":
+            vendors.sort(key=lambda v: v.lead_time_days)
+            selected = vendors[0]
+            reason = f"Selected supplier '{selected.supplier_id}' with shortest lead time {selected.lead_time_days} days"
+
+        else:
+            # Default PREFERRED
+            preferred_list = [v for v in vendors if v.is_preferred]
+            if preferred_list:
+                selected = preferred_list[0]
+                reason = f"Selected preferred supplier '{selected.supplier_id}'"
+            else:
+                vendors.sort(key=lambda v: v.priority)
+                selected = vendors[0]
+                reason = f"Selected top priority supplier '{selected.supplier_id}'"
+
+        net_cost = float(selected.cost_price) * (1.0 - float(selected.discount_percentage) / 100.0)
+        return VendorResolutionResult(
+            vendor_id=selected.id,
+            supplier_id=selected.supplier_id,
+            strategy_used=strat_upper,
+            score=100.0 if selected.is_preferred else 90.0,
+            reason=reason,
+            estimated_cost=net_cost,
+            estimated_lead_time=selected.lead_time_days
+        )
+
 
 

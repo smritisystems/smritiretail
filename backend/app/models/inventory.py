@@ -14,7 +14,7 @@ Classification: Internal
 
 from datetime import datetime
 from ..db.base import BaseEntity, RowSecuredMixin
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text, DateTime
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import relationship, foreign
 from .attributes import VariantTemplate
@@ -41,6 +41,8 @@ class Product(RowSecuredMixin, BaseEntity):
     pricing_mode = Column(String(30), default="Fixed")
     tracking_mode = Column(String(30), default="Standard")
     variant_template_id = Column(String(50), nullable=True, index=True)
+    size_scale_id = Column(String(50), nullable=True, index=True)
+    sourcing_mode_override = Column(String(30), nullable=True)
     weight_grams = Column(Numeric(10, 2), default=0.00)
     attributes = Column(JSONB, server_default="'{}'::jsonb", default=dict)
     primary_image_url = Column(String(512))
@@ -48,6 +50,9 @@ class Product(RowSecuredMixin, BaseEntity):
 
     # Relationships
     barcodes = relationship("ProductBarcode", back_populates="product", cascade="all, delete-orphan")
+    vendors = relationship("ProductVendor", back_populates="product", cascade="all, delete-orphan")
+    tax_profiles = relationship("ProductTaxProfile", back_populates="product", cascade="all, delete-orphan", order_by="desc(ProductTaxProfile.effective_from)")
+    inventory_policy = relationship("ProductInventoryPolicy", back_populates="product", uselist=False, cascade="all, delete-orphan")
     variant_template = relationship("VariantTemplate", primaryjoin="foreign(Product.variant_template_id) == VariantTemplate.id", backref="products")
 
     @property
@@ -138,4 +143,72 @@ class Warehouse(BaseEntity):
     name = Column(String(200), nullable=False)
     is_transit = Column(Boolean, default=False)
     address = Column(Text)
+
+
+class ProductVendor(RowSecuredMixin, BaseEntity):
+    """
+    Normalized Product-Vendor Catalog Bridge Entity (1:N per Product).
+    Connects Product to Supplier with vendor-specific pricing, MOQ, lead times, and contracts.
+    """
+    __tablename__ = "product_vendors"
+
+    product_id             = Column(String(50), ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    supplier_id            = Column(String(50), ForeignKey("suppliers.id", ondelete="RESTRICT"), nullable=False, index=True)
+    supplier_product_code  = Column(String(100), nullable=True)
+    supplier_barcode       = Column(String(100), nullable=True)
+    purchase_uom_id        = Column(String(50), nullable=True)
+    currency_id            = Column(String(10), nullable=False, default="INR")
+    cost_price             = Column(Numeric(15, 2), nullable=False, default=0.00)
+    last_purchase_price    = Column(Numeric(15, 2), nullable=False, default=0.00)
+    last_purchase_date     = Column(DateTime(timezone=True), nullable=True)
+    discount_percentage    = Column(Numeric(5, 2), nullable=False, default=0.00)
+    tax_inclusive          = Column(Boolean, nullable=False, default=False)
+    minimum_order_qty      = Column(Numeric(10, 2), nullable=False, default=1.00)
+    maximum_order_qty      = Column(Numeric(10, 2), nullable=True)
+    lead_time_days         = Column(Integer, nullable=False, default=1)
+    supplier_warranty_days = Column(Integer, nullable=False, default=0)
+    priority               = Column(Integer, nullable=False, default=1)
+    is_preferred           = Column(Boolean, nullable=False, default=False)
+    approval_status        = Column(String(30), nullable=False, default="Approved")
+
+    # Relationships
+    product                = relationship("Product", back_populates="vendors")
+    supplier               = relationship("Supplier", primaryjoin="foreign(ProductVendor.supplier_id) == Supplier.id")
+
+
+class ProductTaxProfile(RowSecuredMixin, BaseEntity):
+    """
+    Date-Effective Tax Configuration Profile (1:N per Product).
+    """
+    __tablename__ = "product_tax_profiles"
+
+    product_id       = Column(String(50), ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    hsn_code         = Column(String(20), nullable=True)
+    gst_rate         = Column(Numeric(5, 2), nullable=False, default=18.00)
+    cess_rate        = Column(Numeric(5, 2), nullable=False, default=0.00)
+    is_inclusive_tax = Column(Boolean, nullable=False, default=False)
+    tax_group_id     = Column(String(50), nullable=True)
+    effective_from   = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    effective_to     = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    product          = relationship("Product", back_populates="tax_profiles")
+
+
+class ProductInventoryPolicy(RowSecuredMixin, BaseEntity):
+    """
+    Inventory Control & Tracking Policy (1:1 per Product).
+    """
+    __tablename__ = "product_inventory_policies"
+
+    product_id           = Column(String(50), ForeignKey("products.id", ondelete="CASCADE"), nullable=False, unique=True)
+    is_batch_tracked     = Column(Boolean, nullable=False, default=False)
+    is_serial_tracked    = Column(Boolean, nullable=False, default=False)
+    is_expiry_required   = Column(Boolean, nullable=False, default=False)
+    is_qc_required       = Column(Boolean, nullable=False, default=False)
+    allow_negative_stock = Column(Boolean, nullable=False, default=False)
+
+    # Relationships
+    product              = relationship("Product", back_populates="inventory_policy")
+
 
