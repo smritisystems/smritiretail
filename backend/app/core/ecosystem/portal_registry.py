@@ -31,6 +31,7 @@ class PortalRegistry:
             "feature_flags": ["marketing_enabled"],
             "dependencies": ["content"],
             "version": "1.0.0",
+            "lifecycle_state": "GENERAL_AVAILABILITY",
             "enabled": True
         },
         {
@@ -45,6 +46,7 @@ class PortalRegistry:
             "feature_flags": ["customer_portal_enabled"],
             "dependencies": ["identity", "licenses", "notifications"],
             "version": "1.0.0",
+            "lifecycle_state": "GENERAL_AVAILABILITY",
             "enabled": True
         },
         {
@@ -59,6 +61,7 @@ class PortalRegistry:
             "feature_flags": ["docs_enabled"],
             "dependencies": ["search", "content"],
             "version": "1.0.0",
+            "lifecycle_state": "GENERAL_AVAILABILITY",
             "enabled": True
         },
         {
@@ -73,6 +76,7 @@ class PortalRegistry:
             "feature_flags": ["marketplace_enabled"],
             "dependencies": ["sdk", "security"],
             "version": "1.0.0",
+            "lifecycle_state": "GENERAL_AVAILABILITY",
             "enabled": True
         },
         {
@@ -87,6 +91,7 @@ class PortalRegistry:
             "feature_flags": ["dev_portal_enabled"],
             "dependencies": ["identity", "api_registry"],
             "version": "1.0.0",
+            "lifecycle_state": "GENERAL_AVAILABILITY",
             "enabled": True
         },
         {
@@ -101,6 +106,7 @@ class PortalRegistry:
             "feature_flags": ["partner_hub_enabled"],
             "dependencies": ["identity", "academy"],
             "version": "1.0.0",
+            "lifecycle_state": "GENERAL_AVAILABILITY",
             "enabled": True
         },
         {
@@ -115,6 +121,7 @@ class PortalRegistry:
             "feature_flags": ["community_enabled"],
             "dependencies": ["search"],
             "version": "1.0.0",
+            "lifecycle_state": "GENERAL_AVAILABILITY",
             "enabled": True
         },
         {
@@ -129,6 +136,7 @@ class PortalRegistry:
             "feature_flags": ["academy_enabled"],
             "dependencies": ["identity", "content", "notifications"],
             "version": "1.0.0",
+            "lifecycle_state": "GENERAL_AVAILABILITY",
             "enabled": True
         }
     ]
@@ -149,8 +157,11 @@ class PortalRegistry:
             "valid": True,
             "portal_id": portal["id"],
             "version": portal["version"],
+            "lifecycle_state": portal["lifecycle_state"],
             "minimum_foundation": "v1.0",
             "minimum_kernel": "v12.1.0",
             "dependencies_met": True,
-            "cmp_001_compliant": True
+            "cmp_001_compliant": True,
+            "dpf_001_compliant": True
         }
+

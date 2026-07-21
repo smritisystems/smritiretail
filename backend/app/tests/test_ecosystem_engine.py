@@ -17,10 +17,22 @@ test_ecosystem_engine.py — Integration test suite for Digital Platform Ecosyst
 import pytest
 
 from app.core.ecosystem.portal_registry import PortalRegistry
+from app.core.ecosystem.digital_platform_manifest import DigitalPlatformManifest
 from app.core.ecosystem.customer_portal import CustomerWorkspaceEngine
 from app.core.ecosystem.academy_engine import AcademyLMSEngine
 from app.core.ecosystem.notifications.notification_service import PlatformNotificationEngine
 from app.core.ecosystem.search.global_search_service import GlobalUnifiedSearchEngine
+
+
+@pytest.mark.asyncio
+async def test_digital_platform_manifest():
+    """Verify DigitalPlatformManifest returns DPF-001 master ecosystem manifest."""
+    manifest = DigitalPlatformManifest.get_manifest()
+    assert manifest["platform_version"] == "27.0.0"
+    assert manifest["foundation_baselines"]["DPF"] == "1.0"
+    assert manifest["registered_portals_count"] == 8
+    assert manifest["system_status"] == "PRODUCTION_READY_CERTIFIED"
+
 
 
 @pytest.mark.asyncio
