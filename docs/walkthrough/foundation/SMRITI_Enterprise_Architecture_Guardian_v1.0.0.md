@@ -11,15 +11,17 @@
   Classification: Architecture & Governance Walkthrough
 -->
 
-# Walkthrough - SMRITI 11/10 Enterprise Ecosystem Architecture Guardian & Separation Principles
+# Walkthrough - SMRITI Three-Tier Governance Hierarchy & Frozen Architecture Constitution
 
 ## 1. Purpose
-Establish the **SMRITI 11/10 Enterprise Ecosystem Architecture Guardian & Application Independence Policy (AOP-002 v5)**, defining strict product boundaries across **SMRITI Website (Marketing)**, **SMRITI Portal (Customer Self-Service)**, **SMRITI Workspace (Retail Operations App)**, and **SMRITI Platform API (Core System-of-Record Engine)**.
+Establish the **SMRITI Three-Tier Governance Hierarchy & Frozen Level 1 Architecture Constitution (AOP-001 through AOP-006)**, defining permanent product boundaries, contract stability, additive migration safety, authorization isolation, and distributed observability across **SMRITI Website (Marketing)**, **SMRITI Portal (Customer Self-Service)**, **SMRITI Workspace (Retail Operations App)**, and **SMRITI Platform API (Core Engine)**.
 
 ## 2. Scope
-- Governance policy update in `.agents/AGENTS.md`.
+- Three-Tier Governance Structure in `.agents/AGENTS.md`:
+  - **Level 1 — SMRITI Architecture Constitution (FROZEN — v1.0)**
+  - **Level 2 — Engineering Standards (Versioned Standards)**
+  - **Level 3 — Operational Procedures (Evolving Daily Workflows)**
 - Automated Architecture Guardian static analysis tool (`scripts/architecture_guardian.py`).
-- Ecosystem platform rules: SDK Layer, Event Bus, Plugin Registry, Domain Ownership, and Replaceable Applications.
 
 ## 3. Files Created
 - `scripts/architecture_guardian.py`
@@ -30,25 +32,24 @@ Establish the **SMRITI 11/10 Enterprise Ecosystem Architecture Guardian & Applic
 - `docs/walkthrough/README.md`
 
 ## 5. Architecture Decisions
-- **The 5 Golden Rules of Application Independence**:
-  - **Rule 1**: No application shall directly depend on another application. Every application communicates ONLY with the Platform API through published contracts.
-  - **Rule 2**: Every SMRITI application must be installable, deployable, upgradeable, and removable independently without affecting any other application.
-  - **Rule 3**: Platform owns business logic (GST, inventory valuation, accounting ledger). Applications own user experience (screens, themes, layouts).
-  - **Rule 4**: Each business domain has exactly one authoritative owner (Identity, License, Retail, Accounting, Workflow).
-  - **Rule 5**: Applications are replaceable. Platform services are reusable. Business data is permanent.
-- **Ecosystem Architecture Capabilities**:
-  - **SMRITI SDK Layer**: Centralized JWT auth, automatic retries, offline queues, and contract compatibility.
-  - **Event Bus Integration**: Asynchronous event-driven service coupling (`Invoice Created` → `Accounting` + `Notification` + `Audit` + `Analytics`).
-  - **Plugin Architecture & Registry**: Dynamic extension plugins (GST, POS, WhatsApp, Tally, Barcode, Payment Gateways, AI).
-- **Public vs. Internal API Gateways**:
-  - `/api/public/v1/*` (Consumed by Portal, Website, Mobile Apps, Partner/Vendor Portals).
-  - `/api/internal/v1/*` (Consumed strictly by SMRITI Workspace).
+- **Level 1 SMRITI Architecture Constitution (FROZEN — v1.0)**:
+  - **AOP-001**: AI Optionality Principle.
+  - **AOP-002**: Four-Tier Enterprise Architecture & Independence.
+    - Rule 1: No direct inter-app dependencies (`Workspace ──► Platform API ◄── Portal`).
+    - Rule 2: Independent deployment, installation, and removal of all 4 tiers.
+    - Rule 3: Platform owns business logic; presentation apps own user experience.
+    - Rule 4: Authoritative single-domain ownership.
+    - Rule 5: Applications are replaceable. Platform services are reusable. Business data is permanent.
+  - **AOP-003**: Backward Compatibility & Contract Binding Principle.
+  - **AOP-004**: Additive Schema Evolution & Data Safety Principle.
+  - **AOP-005**: Security & API Authorization Isolation (`/api/public/v1/*` vs `/api/internal/v1/*`).
+  - **AOP-006**: Distributed Observability (`Trace-ID`, `Correlation-ID`, `Span-ID`, `Audit-ID`).
 
 ## 6. Design Rationale
-Decoupling Website, Portal, Workspace, and Platform API prevents monolithic drift, isolates security footprints, and ensures future extensibility for Mobile Apps, Vendor Portals, and AI Assistants.
+Organizing governance into 3 tiers prevents policy clutter, giving developers a clear mental model while freezing permanent core architectural principles.
 
 ## 7. Implementation Summary
-- Locked Policy ID `AOP-002 v5` in `.agents/AGENTS.md`.
+- Locked Policy Level 1 Constitution (`AOP-001` to `AOP-006`) in `.agents/AGENTS.md`.
 - Updated static analysis script `scripts/architecture_guardian.py` for 4-tier module inventory scanning.
 
 ## 8. Tests Executed
@@ -66,7 +67,7 @@ Decoupling Website, Portal, Workspace, and Platform API prevents monolithic drif
 - Static analysis checks raw `fetch()` and DB engine creation; future iterations will include AST-based import graph parsing.
 
 ## 11. Future Work
-- Deploy dedicated container services (`smriti-website`, `smriti-portal`, `smriti-workspace`, `smriti-api`, `smriti-db`, `smriti-redis`, `smriti-worker`, `smriti-scheduler`, `smriti-nginx`).
+- Maintain Level 1 Constitution as permanently frozen; evolve Level 2 Standards and Level 3 Operations independently.
 
 ## 12. Related ADRs
 - ADR-001: Strangler-Fig Migration Strategy

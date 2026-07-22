@@ -113,73 +113,71 @@ This rule applies to ALL sessions, ALL agents, all tasks. No exceptions.
 
 ---
 
-# Four-Tier Enterprise Architecture & Independence Principle (AOP-002)
+# SMRITI Three-Tier Governance Hierarchy & Architecture Constitution
 
-**Policy ID:** AOP-002  
-**Status:** MANDATORY — PERMANENT — ALL agents, ALL sessions, ALL modules  
-**Effective:** 2026-07-22
-
-## 1. The Four Independent Tier Products
-
-1. **SMRITI Website (Marketing)**: Public website (`www.smritisys.com`), Pricing, Features, Blog, Contact, Public Documentation.
-   > **SMRITI Website is NOT a part of the Retail Platform. It is an independent marketing product.** It can be hosted on a completely different server, repository, technology stack, database, and deployment pipeline.
-2. **SMRITI Portal (Customer Self-Service)**: Customer Account Portal (`portal.smritisys.com`), Software Downloads, License Management, Subscriptions, Support Tickets, Device Activation, Billing. Consumes Platform API over published contracts.
-3. **SMRITI Workspace (Retail Operations App)**: Retail Operations App (`workspace.smritisys.com` / `localhost:3000`), POS, Inventory, Purchase, Sales, CRM, Accounting, Reports. Consumes Platform API over published contracts.
-4. **SMRITI Platform API (Core Engine)**: Headless backend system-of-record (`api.smritisys.com` / `backend/app/`), PostgreSQL Database.
-   - **Modular Platform Services**:
-     - `Identity Service` (Auth, RBAC, User Management)
-     - `License Service` (Licensing, Activation, Subscriptions)
-     - `Organization Service` (Companies, Branches, Stores)
-     - `Notification Service` (Email, SMS, Webhooks)
-     - `Integration Service` (GSTN, NIC, Payment Gateways)
-     - `Retail Service` (POS, Inventory, Purchase, Sales, CRM)
-     - `Accounting Service` (General Ledger, Double-Entry, Tax)
-     - `Workflow Service` (Approvals, Document Series, Audit)
-   - **Independent Service Evolution**: Each Platform Service is independently deployable. A service may evolve from an in-process module to an independent service without changing client contracts.
-   - **API Gateway Routing**:
-     - `/api/public/v1/*` (Consumed by Portal, Website, Mobile Apps, Partner/Vendor Portals)
-     - `/api/internal/v1/*` (Consumed strictly by SMRITI Workspace)
-
-## 2. The Golden Rules of Application Independence
-
-> **Rule 1: No application shall directly depend on another application. Every application communicates ONLY with the Platform API through published contracts.**
+**Status:** FROZEN — Level 1 SMRITI Architecture Constitution v1.0 (2026-07-22)
 
 ```text
-Workspace  ───► Platform API ◄─── Portal
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │ LEVEL 1: SMRITI ARCHITECTURE CONSTITUTION (FROZEN - PERMANENT RULES)   │
+ │  AOP-001 (AI Optionality) | AOP-002 (Four-Tier Apps) | AOP-003 (Contracts)│
+ │  AOP-004 (Additive DB)   | AOP-005 (Auth Isolation) | AOP-006 (Trace ID)  │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ LEVEL 2: ENGINEERING STANDARDS (VERSIONED STANDARDS)                   │
+ │  Verification Evidence (Rules 1-10) | DGP | WGP | IPGP | HREP | DEV/TEST│
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ LEVEL 3: OPERATIONAL PROCEDURES (EVOLVING DAILY WORKFLOWS)             │
+ │  Git Workflows | Docker Compose | Alembic Migrations | Vite Pipelines   │
+ └────────────────────────────────────────────────────────────────────────┘
 ```
-- **Prohibited**: Workspace → Portal, Portal → Workspace, Website → Workspace, Website → Platform DB.
 
-> **Rule 2: Every SMRITI application must be installable, deployable, upgradeable, and removable independently without affecting any other application.**
+---
 
-- **Website down** → Workspace billing runs 100% unaffected.
-- **Portal down or upgrading** → Retail store POS & inventory run 100% unaffected.
-- **Internet disconnected** → Workspace operates offline seamlessly.
-- **Portal / Website redesign** → Platform API remains untouched.
+# LEVEL 1: SMRITI ARCHITECTURE CONSTITUTION (FROZEN — PERMANENT)
 
-> **Rule 3: Platform owns business logic. Applications own user experience.**
+### AOP-001: AI Optionality Principle
+Artificial Intelligence services shall never be mandatory for any core business transaction. All AI capabilities must operate as optional advisory services. The absence, failure, or disablement of AI must not impact the correctness, availability, performance, or completion of any core workflow.
 
-- **Platform API**: GST calculations, stock balance valuation, ledger posting, approval workflows, compliance rules.
-- **Presentation Applications (Workspace, Portal, Website, Mobile)**: Screen layout, theme styling, dashboard components, user navigation.
+### AOP-002: Four-Tier Enterprise Architecture & Independence Principle
+1. **The Four Independent Tier Products**:
+   - **SMRITI Website (Marketing)**: Public website (`www.smritisys.com`), Pricing, Features, Blog, Contact, Public Documentation.
+     > **SMRITI Website is NOT a part of the Retail Platform. It is an independent marketing product.** It can be hosted on a completely different server, repository, technology stack, database, and deployment pipeline.
+   - **SMRITI Portal (Customer Self-Service)**: Customer Account Portal (`portal.smritisys.com`), Software Downloads, License Management, Subscriptions, Support Tickets, Device Activation, Billing. Consumes Platform API over published contracts.
+   - **SMRITI Workspace (Retail Operations App)**: Retail Operations App (`workspace.smritisys.com` / `localhost:3000`), POS, Inventory, Purchase, Sales, CRM, Accounting, Reports. Consumes Platform API over published contracts.
+   - **SMRITI Platform API (Core Engine)**: Headless backend system-of-record (`api.smritisys.com` / `backend/app/`), PostgreSQL Database.
+     - **Modular Platform Services**: Identity, License, Organization, Notification, Integration, Retail, Accounting, Workflow.
+     - **Independent Service Evolution**: Each Platform Service is independently deployable. A service may evolve from an in-process module to an independent service without changing client contracts.
+     - **API Gateway Routing**: `/api/public/v1/*` (Portal/Website/Mobile) and `/api/internal/v1/*` (Workspace).
 
-> **Rule 4: Each business domain has exactly one authoritative owner.**
+2. **The Golden Rules of Application Independence**:
+   - **Rule 1**: No application shall directly depend on another application. Every application communicates ONLY with the Platform API through published contracts (`Workspace ──► Platform API ◄── Portal`).
+   - **Rule 2**: Every SMRITI application must be installable, deployable, upgradeable, and removable independently without affecting any other application.
+   - **Rule 3**: Platform owns business logic. Applications own user experience.
+   - **Rule 4**: Each business domain has exactly one authoritative owner.
+   - **Rule 5**: Applications are replaceable. Platform services are reusable. Business data is permanent.
 
-- `Identity` → Identity Service
-- `License` → License Service
-- `Retail` → Retail Service
-- `Accounting` → Accounting Service
-- `Workflow` → Workflow Service
-- Zero duplicated business logic across domains.
+3. **Ecosystem Capabilities & Zero Database Cross-Contamination**:
+   - **SMRITI SDK**: Applications consume Platform API via `SMRITI SDK` handling JWT tokens, retries, offline queues, and contract compatibility.
+   - **Event Bus Integration**: Platform services communicate asynchronously via Event Bus (`Invoice Created` → `Accounting` + `Notification` + `Audit` + `Analytics`).
+   - **Plugin Architecture**: Extensions (GST, POS, WhatsApp, Tally, Barcode, Gateways, AI) register dynamically with the Platform API Plugin Registry.
+   - **Zero Cross-Contamination**: Website/Portal MUST NEVER access the Retail Application's database (`smriti-db`). Cloud/portal interactions operate strictly as optional advisory HTTP API calls.
 
-> **Rule 5: Applications are replaceable. Platform services are reusable. Business data is permanent.**
+### AOP-003: Backward Compatibility & Contract Binding Principle
+Platform APIs are binding contracts. Published APIs (`/api/public/v1/*` and `/api/internal/v1/*`) shall not introduce breaking payload changes within the same major version. Breaking changes require either a new major API version or an explicit 6-month deprecation lifecycle.
 
-## 3. Ecosystem Architecture: SDK, Event Bus & Plugin Registry
-1. **SDK Abstraction Layer**: Applications consume Platform API via `SMRITI SDK` handling JWT tokens, retries, offline queues, and API contract compatibility.
-2. **Event Bus Integration**: Platform services communicate asynchronously via Event Bus (`Invoice Created` → `Accounting` + `Notification` + `Audit` + `Analytics`).
-3. **Plugin Architecture & Registry**: Extensions (GST, POS, WhatsApp, Tally, Barcode, Payment Gateways, AI) register dynamically with the Platform API Plugin Registry.
+### AOP-004: Additive Schema Evolution & Data Safety Principle
+Database schema evolution shall be additive whenever possible (`ADD COLUMN IF NOT EXISTS`). Columns must be marked deprecated before removal. Any destructive migration requires a verified rollback plan and pre-migration backup assertion.
 
-## 4. Zero Database Cross-Contamination & Optional Advisory Calls
-- The Website/Portal MUST NEVER access the Retail Application's transactional database (`smriti-db`).
-- All cloud/portal interactions (License activation, Cloud backup, Update checks) must operate strictly as optional advisory HTTP API calls. If offline or disabled, core retail operations must remain 100% functional.
+### AOP-005: Security & API Authorization Isolation Principle
+- **Public API Gateway (`/api/public/v1/*`)**: Enforces OAuth2 / JWT authentication, IP rate limiting, CORS origin isolation, and granular token scopes.
+- **Internal API Gateway (`/api/internal/v1/*`)**: Enforces mutual service authentication (`X-Internal-Service-Key`), network isolation, and internal RBAC.
+
+### AOP-006: Distributed Observability & Tracing Principle
+Every API request across Platform Services, Workspace, and Portal MUST generate and propagate a unique `Trace-ID`, `Correlation-ID`, `Span-ID`, and `Audit-ID` in HTTP response headers and structured logs.
+
+---
+
+# LEVEL 2: ENGINEERING STANDARDS (VERSIONED STANDARDS)
 
 
 
