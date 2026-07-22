@@ -125,7 +125,19 @@ This rule applies to ALL sessions, ALL agents, all tasks. No exceptions.
    > **SMRITI Website is NOT a part of the Retail Platform. It is an independent marketing product.** It can be hosted on a completely different server, repository, technology stack, database, and deployment pipeline.
 2. **SMRITI Portal (Customer Self-Service)**: Customer Account Portal (`portal.smritisys.com`), Software Downloads, License Management, Subscriptions, Support Tickets, Device Activation, Billing. Consumes Platform API over published contracts.
 3. **SMRITI Workspace (Retail Operations App)**: Retail Operations App (`workspace.smritisys.com` / `localhost:3000`), POS, Inventory, Purchase, Sales, CRM, Accounting, Reports. Consumes Platform API over published contracts.
-4. **SMRITI Platform API (Core Engine)**: Headless backend system-of-record (`api.smritisys.com` / `backend/app/`), Auth, RBAC, License Engine, Workflow, Notification, Integration Gateways, PostgreSQL Database.
+4. **SMRITI Platform API (Core Engine)**: Headless backend system-of-record (`api.smritisys.com` / `backend/app/`), PostgreSQL Database.
+   - **Modular Platform Services**:
+     - `Identity Service` (Auth, RBAC, User Management)
+     - `License Service` (Licensing, Activation, Subscriptions)
+     - `Organization Service` (Companies, Branches, Stores)
+     - `Notification Service` (Email, SMS, Webhooks)
+     - `Integration Service` (GSTN, NIC, Payment Gateways)
+     - `Retail Service` (POS, Inventory, Purchase, Sales, CRM)
+     - `Accounting Service` (General Ledger, Double-Entry, Tax)
+     - `Workflow Service` (Approvals, Document Series, Audit)
+   - **API Gateway Routing**:
+     - `/api/public/v1/*` (Consumed by Portal, Website, Mobile Apps, Partner/Vendor Portals)
+     - `/api/internal/v1/*` (Consumed strictly by SMRITI Workspace)
 
 ## 2. The Golden Rules of Application Independence
 
@@ -143,9 +155,15 @@ Workspace  ───► Platform API ◄─── Portal
 - **Internet disconnected** → Workspace operates offline seamlessly.
 - **Portal / Website redesign** → Platform API remains untouched.
 
+> **Rule 3: Platform owns business logic. Applications own user experience.**
+
+- **Platform API**: GST calculations, stock balance valuation, ledger posting, approval workflows, compliance rules.
+- **Presentation Applications (Workspace, Portal, Website, Mobile)**: Screen layout, theme styling, dashboard components, user navigation.
+
 ## 3. Zero Database Cross-Contamination & Optional Advisory Calls
 - The Website/Portal MUST NEVER access the Retail Application's transactional database (`smriti-db`).
 - All cloud/portal interactions (License activation, Cloud backup, Update checks) must operate strictly as optional advisory HTTP API calls. If offline or disabled, core retail operations must remain 100% functional.
+
 
 
 
