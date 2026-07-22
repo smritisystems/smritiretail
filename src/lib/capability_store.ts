@@ -12,6 +12,8 @@
  * Classification: Frontend Capability Store Gateway
  */
 
+import { apiFetchV1 } from "./apiFetchV1";
+
 export interface ModuleManifestDTO {
   id: string;
   uuid: string;
@@ -77,11 +79,11 @@ class CapabilityStoreManager {
     this.state = { ...this.state, isLoading: true, error: null };
     this.notify();
     try {
-      const res = await fetch('/api/v1/capabilities');
+      const res = await apiFetchV1('capabilities');
       if (!res.ok) throw new Error('Failed to load capability matrix');
       const data = await res.json();
 
-      const perfRes = await fetch('/api/v1/capabilities/performance');
+      const perfRes = await apiFetchV1('capabilities/performance');
       const perfData = perfRes.ok ? await perfRes.json() : null;
 
       this.state = {
@@ -98,7 +100,7 @@ class CapabilityStoreManager {
 
   public async toggleModule(moduleId: string, enable: boolean): Promise<void> {
     try {
-      const res = await fetch(`/api/v1/capabilities/${moduleId}`, {
+      const res = await apiFetchV1(`capabilities/${moduleId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: enable }),
@@ -117,7 +119,7 @@ class CapabilityStoreManager {
 
   public async applyProfile(profileId: string): Promise<void> {
     try {
-      const res = await fetch(`/api/v1/capabilities/profiles/${profileId}`, {
+      const res = await apiFetchV1(`capabilities/profiles/${profileId}`, {
         method: 'POST',
       });
       if (!res.ok) throw new Error('Failed to apply profile');

@@ -14,6 +14,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Shield, User, Lock, ArrowRight, AlertTriangle, ChevronDown, ChevronUp, Terminal } from "lucide-react";
+import { apiFetchV1 } from "../lib/apiFetchV1";
 
 interface LoginScreenProps {
   onLoginSuccess: (user: { role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string }) => void;
@@ -51,7 +52,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         password,
       };
 
-      const res = await fetch("/api/v1/auth/login", {
+      const res = await apiFetchV1("auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(loginPayload),
