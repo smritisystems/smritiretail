@@ -10,7 +10,7 @@ Create Date: 2026-07-21
 from alembic import op
 import sqlalchemy as sa
 
-revision = 'v1200_general_ledger_double_entry_accounting'
+revision = 'v1200_general_ledger'
 down_revision = 'v1100_gst_tax_settlement_eway'
 branch_labels = None
 depends_on = None

@@ -285,7 +285,7 @@ class SPKKernel:
             ),
             CapabilityManifest(
                 id="advanced_accounting",
-                uuid="8f8b89e0-5928-4e4b-9706-5a4112e4f012",
+                uuid="8f8b89e0-5928-4e4b-9706-5a4112e4f099",
                 name="Advanced Accounting",
                 display_name="General Ledger & Double-Entry Accounting",
                 category="Financial",

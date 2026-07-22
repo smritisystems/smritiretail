@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -27,7 +27,9 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-const pythonCoreTarget = process.env.PYTHON_CORE_HOST
+const apiTarget = process.env.SMRITI_API_HOST
+  ? `http://${process.env.SMRITI_API_HOST}`
+  : process.env.PYTHON_CORE_HOST
   ? `http://${process.env.PYTHON_CORE_HOST}`
   : "http://127.0.0.1:8000";
 
@@ -38,14 +40,14 @@ export default defineConfig({
     port: 3000,
     proxy: {
       "/api/v1": {
-        target: pythonCoreTarget,
+        target: apiTarget,
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {
           proxy.on("proxyRes", (proxyRes, req, res) => {
             if (proxyRes.headers.location) {
               proxyRes.headers.location = proxyRes.headers.location.replace(
-                /https?:\/\/python-core:8000/,
+                /https?:\/\/(?:api|python-core):8000/,
                 ""
               );
             }
@@ -59,14 +61,14 @@ export default defineConfig({
     port: 3000,
     proxy: {
       "/api/v1": {
-        target: pythonCoreTarget,
+        target: apiTarget,
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {
           proxy.on("proxyRes", (proxyRes, req, res) => {
             if (proxyRes.headers.location) {
               proxyRes.headers.location = proxyRes.headers.location.replace(
-                /https?:\/\/python-core:8000/,
+                /https?:\/\/(?:api|python-core):8000/,
                 ""
               );
             }

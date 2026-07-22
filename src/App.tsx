@@ -86,8 +86,13 @@ import { WorkspaceTaskbar } from "./components/WorkspaceTaskbar.tsx";
 import { SetupWizardTab } from "./components/SetupWizard/SetupWizardTab.tsx";
 import { PasswordResetScreen } from "./components/PasswordResetScreen.tsx";
 import { PrintPreviewModal } from "./components/PrintPreviewModal.tsx";
+import { SmritiOfficialWebsite } from "./components/website/SmritiOfficialWebsite.tsx";
+import { SmritiLiveDocsPortal } from "./components/documentation/SmritiLiveDocsPortal.tsx";
+import { CustomerWorkspacePortal } from "./components/customer/CustomerWorkspacePortal.tsx";
+import { SmritiEcosystemHub } from "./components/SmritiEcosystemHub.tsx";
 import { LoginScreen } from "./components/LoginScreen.tsx";
 import { SmritiErrorBoundary } from "./components/SmritiErrorBoundary.tsx";
+
 
 interface AppNotification {
   id: string;
@@ -485,7 +490,16 @@ const AppContent: React.FC = () => {
         return <TermsEngineTab />;
       case "data-exchange":
         return <DataExchangeTab onNotification={addNotification} />;
+      case "website":
+        return <SmritiOfficialWebsite />;
+      case "live-docs":
+        return <SmritiLiveDocsPortal />;
+      case "customer-workspace":
+        return <CustomerWorkspacePortal />;
+      case "ecosystem-hub":
+        return <SmritiEcosystemHub />;
       case "company-setup":
+
         return (
           <SetupWizardTab 
             onComplete={() => {

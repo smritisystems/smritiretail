@@ -291,11 +291,36 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Data & Config",
     },
     {
+      id: "website",
+      label: "Official Product Website",
+      icon: "public",
+      category: "Digital Platform Ecosystem",
+    },
+    {
+      id: "live-docs",
+      label: "Live Documentation Portal",
+      icon: "menu_book",
+      category: "Digital Platform Ecosystem",
+    },
+    {
+      id: "customer-workspace",
+      label: "Customer Workspace Portal",
+      icon: "account_box",
+      category: "Digital Platform Ecosystem",
+    },
+    {
+      id: "ecosystem-hub",
+      label: "Digital Ecosystem Hub",
+      icon: "hub",
+      category: "Digital Platform Ecosystem",
+    },
+    {
       id: "about-smriti",
       label: "About SMRITI",
       icon: "info",
       category: "System",
     },
+
     {
       id: "dev-tracker",
       label: "Dev Intelligence Center",

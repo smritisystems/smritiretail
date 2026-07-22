@@ -28,19 +28,19 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # 1. Upgrade customers table
-    op.add_column('customers', sa.Column('code', sa.String(length=50), nullable=True))
-    op.add_column('customers', sa.Column('customer_type_id', sa.String(length=50), nullable=True))
-    op.add_column('customers', sa.Column('territory_id', sa.String(length=50), nullable=True))
-    op.add_column('customers', sa.Column('route_id', sa.String(length=50), nullable=True))
-    op.add_column('customers', sa.Column('preferred_language_id', sa.String(length=50), nullable=True))
-    op.add_column('customers', sa.Column('lifecycle_stage', sa.String(length=30), server_default='Customer', nullable=False))
-    op.add_column('customers', sa.Column('account_status', sa.String(length=20), server_default='Active', nullable=False))
-    op.add_column('customers', sa.Column('loyalty_tier', sa.String(length=30), server_default='Bronze', nullable=True))
-    op.add_column('customers', sa.Column('loyalty_points_balance', sa.Numeric(precision=15, scale=2), server_default='0.00', nullable=True))
-    op.add_column('customers', sa.Column('lifetime_points', sa.Numeric(precision=15, scale=2), server_default='0.00', nullable=True))
-    op.add_column('customers', sa.Column('custom_attributes', postgresql.JSONB(astext_type=sa.Text()), server_default=sa.text("'{}'::jsonb"), nullable=True))
-    op.add_column('customers', sa.Column('version', sa.Integer(), server_default='1', nullable=False))
+    # 1. Upgrade customers table (idempotent column addition)
+    op.execute("ALTER TABLE customers ADD COLUMN IF NOT EXISTS code VARCHAR(50)")
+    op.execute("ALTER TABLE customers ADD COLUMN IF NOT EXISTS customer_type_id VARCHAR(50)")
+    op.execute("ALTER TABLE customers ADD COLUMN IF NOT EXISTS territory_id VARCHAR(50)")
+    op.execute("ALTER TABLE customers ADD COLUMN IF NOT EXISTS route_id VARCHAR(50)")
+    op.execute("ALTER TABLE customers ADD COLUMN IF NOT EXISTS preferred_language_id VARCHAR(50)")
+    op.execute("ALTER TABLE customers ADD COLUMN IF NOT EXISTS lifecycle_stage VARCHAR(30) DEFAULT 'Customer'")
+    op.execute("ALTER TABLE customers ADD COLUMN IF NOT EXISTS account_status VARCHAR(20) DEFAULT 'Active'")
+    op.execute("ALTER TABLE customers ADD COLUMN IF NOT EXISTS loyalty_tier VARCHAR(30) DEFAULT 'Bronze'")
+    op.execute("ALTER TABLE customers ADD COLUMN IF NOT EXISTS loyalty_points_balance NUMERIC(15, 2) DEFAULT '0.00'")
+    op.execute("ALTER TABLE customers ADD COLUMN IF NOT EXISTS lifetime_points NUMERIC(15, 2) DEFAULT '0.00'")
+    op.execute("ALTER TABLE customers ADD COLUMN IF NOT EXISTS custom_attributes JSONB DEFAULT '{}'::jsonb")
+    op.execute("ALTER TABLE customers ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1")
 
     # Populate default codes for existing customers
     op.execute("UPDATE customers SET code = 'CUS-' || LEFT(id, 8) WHERE code IS NULL")

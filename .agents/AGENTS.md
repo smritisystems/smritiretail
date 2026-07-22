@@ -94,19 +94,20 @@ Before presenting a verification report, the agent should confirm:
 
 ---
 
-## Environment Rule: DEV vs TEST (MANDATORY â€” PERMANENT)
+## Environment Rule: DEV vs TEST (MANDATORY — PERMANENT)
 
-| Drive | Purpose | Rule |
+| Location / Path | Purpose | Rule |
 |---|---|---|
-| `D:\Smriti_Retail_OS` | **Development** â€” all code is written here | All edits, new files, git commits happen here |
-| `F:\Smriti9` | **Testing** â€” receives code via git pull only | Never write code directly here; always sync via `git pull` |
+| Development Workspace | **Development** — all code is written and committed here | All edits, new files, and git commits happen in the development workspace |
+| `F:\SMRITI9TEST` | **Testing** — receives code via git sync for testing only | ALWAYS use `F:\SMRITI9TEST` for testing. NEVER use the development/coding folder for testing execution |
 
 ### Workflow
 
-1. Write all code in `D:\Smriti_Retail_OS\apps\smriti_retail_os`
-2. Commit and push from `D:\Smriti_Retail_OS\apps\smriti_retail_os`
-3. Pull into `F:\Smriti9\apps\smriti_retail_os` to deploy to the test environment
-4. Never edit files directly in `F:\Smriti9`
+1. Write all code in the active Development repository workspace.
+2. Commit and push from Development workspace.
+3. Pull/sync into `F:\SMRITI9TEST` to deploy and execute tests in the dedicated test environment.
+4. NEVER perform testing execution inside the development/coding folder.
+5. NEVER write code directly in `F:\SMRITI9TEST`.
 
 This rule applies to ALL sessions, ALL agents, and ALL tasks. No exceptions.
 

@@ -29,11 +29,11 @@ services:
       retries: 5
       start_period: 10s
 
-  app:
+  workspace:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: smriti-api
+    container_name: smriti-workspace
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"
@@ -44,14 +44,15 @@ services:
       CACHE_PROVIDER: "memory"
       STORAGE_PROVIDER: "filesystem"
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
-      PYTHON_CORE_HOST: "python-core:8000"
+      PYTHON_CORE_HOST: "api:8000"
+      SMRITI_API_HOST: "api:8000"
       INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:-smriti_test_internal_key_do_not_use_in_production}"
     volumes:
       - ./.git:/usr/src/app/.git
     depends_on:
       db:
         condition: service_healthy
-      python-core:
+      api:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
@@ -60,11 +61,11 @@ services:
       retries: 3
       start_period: 20s
 
-  python-core:
+  api:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: smriti-python-core
+    container_name: smriti-api
     restart: unless-stopped
     ports:
       - "${BACKEND_API_PORT:-8000}:8000"
@@ -86,8 +87,8 @@ services:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
       interval: 15s
       timeout: 10s
-      retries: 3
-      start_period: 20s
+      retries: 5
+      start_period: 90s
 
 volumes:
   smriti_db_volume:
