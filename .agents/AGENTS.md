@@ -162,8 +162,9 @@ Artificial Intelligence services shall never be mandatory for any core business 
    - **Plugin Architecture**: Extensions (GST, POS, WhatsApp, Tally, Barcode, Gateways, AI) register dynamically with the Platform API Plugin Registry.
    - **Zero Cross-Contamination**: Website/Portal MUST NEVER access the Retail Application's database (`smriti-db`). Cloud/portal interactions operate strictly as optional advisory HTTP API calls.
 
-### AOP-003: Backward Compatibility & Contract Binding Principle
-Platform APIs are binding contracts. Published APIs (`/api/public/v1/*` and `/api/internal/v1/*`) shall not introduce breaking payload changes within the same major version. Breaking changes require either a new major API version or an explicit 6-month deprecation lifecycle.
+### AOP-003: Backward Compatibility & Deprecation Lifecycle Principle
+Platform APIs are binding contracts. Published APIs (`/api/public/v1/*` and `/api/internal/v1/*`) shall not introduce breaking payload changes within the same major version. All API endpoints, plugins, and SDK components MUST adhere to the formal 4-stage deprecation lifecycle:
+`Experimental` ──► `Supported` ──► `Deprecated` (6-month min. deprecation lifecycle) ──► `Removed`
 
 ### AOP-004: Additive Schema Evolution & Data Safety Principle
 Database schema evolution shall be additive whenever possible (`ADD COLUMN IF NOT EXISTS`). Columns must be marked deprecated before removal. Any destructive migration requires a verified rollback plan and pre-migration backup assertion.
@@ -175,9 +176,34 @@ Database schema evolution shall be additive whenever possible (`ADD COLUMN IF NO
 ### AOP-006: Distributed Observability & Tracing Principle
 Every API request across Platform Services, Workspace, and Portal MUST generate and propagate a unique `Trace-ID`, `Correlation-ID`, `Span-ID`, and `Audit-ID` in HTTP response headers and structured logs.
 
+### AOP-007: Mandatory Architecture Decision Record (ADR) Governance
+Any constitutional or fundamental architectural change (Level 1 modification) MUST be preceded by an approved Architecture Decision Record (`docs/adr/ADR-xxx.md`) detailing problem context, options considered, decisions made, and trade-offs accepted.
+
 ---
 
 # LEVEL 2: ENGINEERING STANDARDS (VERSIONED STANDARDS)
+
+## 1. Platform Capability & Plugin Registry Governance
+- **Capability Registry Metadata Schema**: Every Platform Service registers: `[Service ID, Version, Owner, Status, Public API Endpoints, Internal API Endpoints, Event Bus Subjects, Service Dependencies]`.
+- **Plugin Certification & Governance**: Every dynamic extension plugin MUST declare: `[Plugin ID, Version, Target API Version, Cryptographic Signature, Scoped Permissions, Certification Status]`.
+
+## 2. Standardized Ecosystem Terminology Governance
+- **Mandatory Terms**:
+  - ✅ **SMRITI Platform API** (Backend System-of-Record)
+  - ✅ **Platform Services** (Domain Modules)
+  - ✅ **System-of-Record** (Authoritative DB Engine)
+- **Prohibited Terms (Deprecated)**:
+  - ❌ `Core Engine` (Ambiguous; replace with **SMRITI Platform API**)
+  - ❌ `Python Core` (Implementation detail; replace with **Platform API**)
+
+## 3. Release Compatibility Matrix
+| Application / Tier | Current Version | Target Platform API | Contract Compatibility |
+| :--- | :--- | :--- | :--- |
+| **SMRITI Platform API** | v3.29.0 | v3.x | System-of-Record Core |
+| **SMRITI Workspace** | v3.29.0 | v3.x | `/api/internal/v1/*` |
+| **SMRITI Portal** | v2.9.0 | v3.x | `/api/public/v1/*` |
+| **SMRITI Website** | v1.0.0 | Independent | Marketing Product |
+| **SMRITI SDK** | v3.0.0 | v3.x | Public & Internal SDK |
 
 
 
