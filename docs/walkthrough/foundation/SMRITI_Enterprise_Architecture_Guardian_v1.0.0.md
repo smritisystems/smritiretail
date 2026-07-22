@@ -11,15 +11,15 @@
   Classification: Architecture & Governance Walkthrough
 -->
 
-# Walkthrough - SMRITI Four-Tier Enterprise Architecture Guardian & Separation Principles
+# Walkthrough - SMRITI 11/10 Enterprise Ecosystem Architecture Guardian & Separation Principles
 
 ## 1. Purpose
-Establish the **SMRITI Four-Tier Enterprise Architecture Guardian & Application Independence Policy (AOP-002 v4)**, defining strict product boundaries across **SMRITI Website (Marketing)**, **SMRITI Portal (Customer Self-Service)**, **SMRITI Workspace (Retail Operations App)**, and **SMRITI Platform API (Core System-of-Record Engine)**.
+Establish the **SMRITI 11/10 Enterprise Ecosystem Architecture Guardian & Application Independence Policy (AOP-002 v5)**, defining strict product boundaries across **SMRITI Website (Marketing)**, **SMRITI Portal (Customer Self-Service)**, **SMRITI Workspace (Retail Operations App)**, and **SMRITI Platform API (Core System-of-Record Engine)**.
 
 ## 2. Scope
 - Governance policy update in `.agents/AGENTS.md`.
 - Automated Architecture Guardian static analysis tool (`scripts/architecture_guardian.py`).
-- Four-tier product independence rules for Website (`www.smritisys.com`), Portal (`portal.smritisys.com`), Workspace (`workspace.smritisys.com`), and Platform API (`api.smritisys.com`).
+- Ecosystem platform rules: SDK Layer, Event Bus, Plugin Registry, Domain Ownership, and Replaceable Applications.
 
 ## 3. Files Created
 - `scripts/architecture_guardian.py`
@@ -30,22 +30,25 @@ Establish the **SMRITI Four-Tier Enterprise Architecture Guardian & Application 
 - `docs/walkthrough/README.md`
 
 ## 5. Architecture Decisions
-- **The Golden Rules of Application Independence**:
+- **The 5 Golden Rules of Application Independence**:
   - **Rule 1**: No application shall directly depend on another application. Every application communicates ONLY with the Platform API through published contracts.
   - **Rule 2**: Every SMRITI application must be installable, deployable, upgradeable, and removable independently without affecting any other application.
   - **Rule 3**: Platform owns business logic (GST, inventory valuation, accounting ledger). Applications own user experience (screens, themes, layouts).
+  - **Rule 4**: Each business domain has exactly one authoritative owner (Identity, License, Retail, Accounting, Workflow).
+  - **Rule 5**: Applications are replaceable. Platform services are reusable. Business data is permanent.
+- **Ecosystem Architecture Capabilities**:
+  - **SMRITI SDK Layer**: Centralized JWT auth, automatic retries, offline queues, and contract compatibility.
+  - **Event Bus Integration**: Asynchronous event-driven service coupling (`Invoice Created` → `Accounting` + `Notification` + `Audit` + `Analytics`).
+  - **Plugin Architecture & Registry**: Dynamic extension plugins (GST, POS, WhatsApp, Tally, Barcode, Payment Gateways, AI).
 - **Public vs. Internal API Gateways**:
-  - `/api/public/v1/*` (Consumed by Portal, Website, Mobile Apps, Vendor/Partner Portals).
+  - `/api/public/v1/*` (Consumed by Portal, Website, Mobile Apps, Partner/Vendor Portals).
   - `/api/internal/v1/*` (Consumed strictly by SMRITI Workspace).
-- **Modular Platform Services**:
-  - Identity, License, Organization, Notification, Integration, Retail, Accounting, and Workflow Services.
-- **Zero Database Cross-Contamination**: Marketing/Portal app operates on its own store; it must never directly query the Retail Application's transactional database.
 
 ## 6. Design Rationale
 Decoupling Website, Portal, Workspace, and Platform API prevents monolithic drift, isolates security footprints, and ensures future extensibility for Mobile Apps, Vendor Portals, and AI Assistants.
 
 ## 7. Implementation Summary
-- Locked Policy ID `AOP-002 v4` in `.agents/AGENTS.md`.
+- Locked Policy ID `AOP-002 v5` in `.agents/AGENTS.md`.
 - Updated static analysis script `scripts/architecture_guardian.py` for 4-tier module inventory scanning.
 
 ## 8. Tests Executed

@@ -135,6 +135,7 @@ This rule applies to ALL sessions, ALL agents, all tasks. No exceptions.
      - `Retail Service` (POS, Inventory, Purchase, Sales, CRM)
      - `Accounting Service` (General Ledger, Double-Entry, Tax)
      - `Workflow Service` (Approvals, Document Series, Audit)
+   - **Independent Service Evolution**: Each Platform Service is independently deployable. A service may evolve from an in-process module to an independent service without changing client contracts.
    - **API Gateway Routing**:
      - `/api/public/v1/*` (Consumed by Portal, Website, Mobile Apps, Partner/Vendor Portals)
      - `/api/internal/v1/*` (Consumed strictly by SMRITI Workspace)
@@ -160,9 +161,26 @@ Workspace  ───► Platform API ◄─── Portal
 - **Platform API**: GST calculations, stock balance valuation, ledger posting, approval workflows, compliance rules.
 - **Presentation Applications (Workspace, Portal, Website, Mobile)**: Screen layout, theme styling, dashboard components, user navigation.
 
-## 3. Zero Database Cross-Contamination & Optional Advisory Calls
+> **Rule 4: Each business domain has exactly one authoritative owner.**
+
+- `Identity` → Identity Service
+- `License` → License Service
+- `Retail` → Retail Service
+- `Accounting` → Accounting Service
+- `Workflow` → Workflow Service
+- Zero duplicated business logic across domains.
+
+> **Rule 5: Applications are replaceable. Platform services are reusable. Business data is permanent.**
+
+## 3. Ecosystem Architecture: SDK, Event Bus & Plugin Registry
+1. **SDK Abstraction Layer**: Applications consume Platform API via `SMRITI SDK` handling JWT tokens, retries, offline queues, and API contract compatibility.
+2. **Event Bus Integration**: Platform services communicate asynchronously via Event Bus (`Invoice Created` → `Accounting` + `Notification` + `Audit` + `Analytics`).
+3. **Plugin Architecture & Registry**: Extensions (GST, POS, WhatsApp, Tally, Barcode, Payment Gateways, AI) register dynamically with the Platform API Plugin Registry.
+
+## 4. Zero Database Cross-Contamination & Optional Advisory Calls
 - The Website/Portal MUST NEVER access the Retail Application's transactional database (`smriti-db`).
 - All cloud/portal interactions (License activation, Cloud backup, Update checks) must operate strictly as optional advisory HTTP API calls. If offline or disabled, core retail operations must remain 100% functional.
+
 
 
 
