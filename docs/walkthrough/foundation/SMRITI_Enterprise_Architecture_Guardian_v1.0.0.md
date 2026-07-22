@@ -11,15 +11,15 @@
   Classification: Architecture & Governance Walkthrough
 -->
 
-# Walkthrough - SMRITI Enterprise Architecture Guardian & Separation Principles
+# Walkthrough - SMRITI Four-Tier Enterprise Architecture Guardian & Separation Principles
 
 ## 1. Purpose
-Establish the **SMRITI Architecture Guardian & Application Independence Policy (AOP-002)**, defining strict architectural boundaries between **SMRITI Core Platform**, **SMRITI Workspace Application**, and **SMRITI Portal / Marketing Website**.
+Establish the **SMRITI Four-Tier Enterprise Architecture Guardian & Application Independence Policy (AOP-002)**, defining strict product boundaries across **SMRITI Website (Marketing)**, **SMRITI Portal (Customer Self-Service)**, **SMRITI Workspace (Retail Operations App)**, and **SMRITI Platform API (Core System-of-Record Engine)**.
 
 ## 2. Scope
 - Governance policy update in `.agents/AGENTS.md`.
 - Automated Architecture Guardian static analysis tool (`scripts/architecture_guardian.py`).
-- Separation rules for Core (FastAPI/Postgres), Workspace (Retail Operations), and Portal (Customer Self-Service & Marketing).
+- Four-tier product independence rules for Website (`www.smritisys.com`), Portal (`portal.smritisys.com`), Workspace (`workspace.smritisys.com`), and Platform API (`api.smritisys.com`).
 
 ## 3. Files Created
 - `scripts/architecture_guardian.py`
@@ -30,32 +30,38 @@ Establish the **SMRITI Architecture Guardian & Application Independence Policy (
 - `docs/walkthrough/README.md`
 
 ## 5. Architecture Decisions
-- **Independence Principle**: SMRITI Core Platform (FastAPI + Postgres) remains framework-independent and database-agnostic. Core API must never reference frontend UI or portal pages.
+- **The Golden Rule**: No application shall directly depend on another application. Every application communicates ONLY with the Platform API through published contracts.
+- **Four Independent Products**:
+  1. **Website**: Marketing, Pricing, Features, Blog, Public Documentation.
+  2. **Portal**: Customer Account Dashboard, Downloads, License Management, Subscriptions, Support, Activation.
+  3. **Workspace**: Retail POS, Inventory, Purchase, Sales, CRM, Accounting, Reports.
+  4. **Platform API**: Headless backend engine, Auth, RBAC, License Engine, Workflows, PostgreSQL System-of-Record.
 - **Zero Database Cross-Contamination**: Marketing/Portal app operates on its own store; it must never directly query the Retail Application's transactional database.
 - **Optional Advisory Cloud Integration**: License activation, cloud backup, and update checks communicate via advisory HTTP endpoints without blocking offline store operations.
 
 ## 6. Design Rationale
-Decoupling Portal and Workspace prevents distributed monolithic complexity, isolates security footprints, and ensures retail POS transactions run at maximum speed regardless of cloud or portal availability.
+Decoupling Website, Portal, Workspace, and Platform API prevents monolithic drift, isolates security footprints, and ensures future extensibility for Mobile Apps, Vendor Portals, and AI Assistants.
 
 ## 7. Implementation Summary
-- Added Policy ID `AOP-002` to `.agents/AGENTS.md`.
-- Created static analysis script `scripts/architecture_guardian.py` for module inventory scanning and boundary violation detection.
+- Updated Policy ID `AOP-002` in `.agents/AGENTS.md`.
+- Updated static analysis script `scripts/architecture_guardian.py` for 4-tier module inventory scanning.
 
 ## 8. Tests Executed
 - Module inventory scan via `scripts/architecture_guardian.py`.
 - Docker test environment verification in `F:\SMRITI9TEST`.
 
 ## 9. Verification Results
-- Core Platform Modules: 17 Directories / API Services
-- Workspace Modules: Active Retail Application Components
-- Portal Modules: Customer Self-Service & License Panels
+- 1. SMRITI Website Modules: Public Marketing & Docs Components
+- 2. SMRITI Portal Modules: Customer Self-Service & License Panels
+- 3. SMRITI Workspace Modules: Retail Operations Components
+- 4. SMRITI Platform API Modules: 17 Core Backend Service Directories
 - Boundary Violations: 0 Violations Detected
 
 ## 10. Known Limitations
 - Static analysis checks raw `fetch()` and DB engine creation; future iterations will include AST-based import graph parsing.
 
 ## 11. Future Work
-- Implement dedicated container stacks (`smriti-portal` vs `smriti-workspace`) for enterprise cloud deployments.
+- Deploy dedicated container services (`smriti-website`, `smriti-portal`, `smriti-workspace`, `smriti-api`, `smriti-db`, `smriti-redis`, `smriti-worker`, `smriti-scheduler`, `smriti-nginx`).
 
 ## 12. Related ADRs
 - ADR-001: Strangler-Fig Migration Strategy

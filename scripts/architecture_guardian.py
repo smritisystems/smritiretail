@@ -21,34 +21,38 @@ WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
 
 def run_architecture_audit():
     print("=" * 80)
-    print(" 🛡️  SMRITI ARCHITECTURE GUARDIAN AUDIT REPORT")
+    print(" [SMRITI ARCHITECTURE GUARDIAN AUDIT REPORT]")
     print("=" * 80)
 
-    # 1. Count Domain Modules
+    # 1. Count Domain Modules across 4 Tiers
     core_dir = WORKSPACE_ROOT / "backend" / "app"
     frontend_dir = WORKSPACE_ROOT / "src"
     
-    core_modules = 0
+    platform_api_modules = 0
     workspace_modules = 0
     portal_modules = 0
+    website_modules = 0
 
     if core_dir.exists():
         for item in core_dir.rglob("*.py"):
             if item.is_file() and not item.name.startswith("__"):
-                core_modules += 1
+                platform_api_modules += 1
 
     if frontend_dir.exists():
         for item in frontend_dir.rglob("*.tsx"):
             path_str = str(item).lower()
-            if "portal" in path_str or "license" in path_str or "customer" in path_str:
+            if "website" in path_str or "landing" in path_str:
+                website_modules += 1
+            elif "portal" in path_str or "license" in path_str:
                 portal_modules += 1
             else:
                 workspace_modules += 1
 
-    print(f"\n📊 Module Inventory Breakdown:")
-    print(f"  ✔ Core Platform Modules (Backend API & DB):  {core_modules}")
-    print(f"  ✔ Workspace App Modules (Retail Operations): {workspace_modules}")
-    print(f"  ✔ Portal App Modules (Customer Self-Service): {portal_modules}")
+    print(f"\nFour-Tier Module Inventory Breakdown:")
+    print(f"  [+] 1. SMRITI Website (Marketing & Docs):      {website_modules}")
+    print(f"  [+] 2. SMRITI Portal (Customer Self-Service):  {portal_modules}")
+    print(f"  [+] 3. SMRITI Workspace (Retail Operations):  {workspace_modules}")
+    print(f"  [+] 4. SMRITI Platform API (Core Engine):     {platform_api_modules}")
 
     issues = []
 
@@ -63,7 +67,7 @@ def run_architecture_audit():
                 matches = fetch_pattern.findall(content)
                 if matches:
                     rel_path = file.relative_to(WORKSPACE_ROOT)
-                    issues.append(f"❌ Raw `fetch()` detected in `{rel_path}` — MUST use `apiFetch.ts` or `apiFetchV1.ts`.")
+                    issues.append(f"[-] Raw `fetch()` detected in `{rel_path}` -- MUST use `apiFetch.ts` or `apiFetchV1.ts`.")
             except Exception:
                 pass
 
@@ -76,15 +80,15 @@ def run_architecture_audit():
                 content = file.read_text(encoding="utf-8", errors="ignore")
                 if "create_async_engine" in content and "sessionmaker" in content:
                     rel_path = file.relative_to(WORKSPACE_ROOT)
-                    issues.append(f"❌ Direct DB engine initialization in `{rel_path}` — MUST use `backend/app/db/session.py`.")
+                    issues.append(f"[-] Direct DB engine initialization in `{rel_path}` -- MUST use `backend/app/db/session.py`.")
             except Exception:
                 pass
 
-    print("\n🔍 Architecture Boundary Scan Results:")
+    print("\nArchitecture Boundary Scan Results:")
     if not issues:
-        print("  🎉 PERFECT ARCHITECTURE HEALTH — Zero boundary violations detected!")
+        print("  [+] PERFECT ARCHITECTURE HEALTH -- Zero boundary violations detected!")
     else:
-        print(f"  ⚠️ Found {len(issues)} issue(s):")
+        print(f"  [!] Found {len(issues)} issue(s):")
         for issue in issues:
             print(f"    {issue}")
 

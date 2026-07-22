@@ -113,25 +113,32 @@ This rule applies to ALL sessions, ALL agents, all tasks. No exceptions.
 
 ---
 
-# Enterprise Architecture Guardian & Independence Principle (AOP-002)
+# Four-Tier Enterprise Architecture & Independence Principle (AOP-002)
 
 **Policy ID:** AOP-002  
 **Status:** MANDATORY — PERMANENT — ALL agents, ALL sessions, ALL modules  
 **Effective:** 2026-07-22
 
-## The Golden Rules of Application Independence
+## 1. The Four Independent Tier Products
 
-1. **Independent Products & Repositories**:
-   - **SMRITI Core Platform**: System-of-record FastAPI + Postgres API Engine. Core shall NEVER contain or reference UI code, Portal pages, or Workspace layouts.
-   - **SMRITI Workspace Application**: Independent Retail Operations App (POS, Inventory, Purchase, Sales, CRM, Accounting, Reports).
-   - **SMRITI Portal / Marketing Website**: Independent Customer Self-Service & Marketing App (Product info, Downloads, Docs, License purchasing).
+1. **SMRITI Website (Marketing)**: Public website (`www.smritisys.com`), Pricing, Features, Blog, Contact, Public Documentation. Zero dependency on Retail OS or Platform API database.
+2. **SMRITI Portal (Customer Self-Service)**: Customer Account Portal (`portal.smritisys.com`), Software Downloads, License Management, Subscriptions, Support Tickets, Device Activation, Billing. Consumes Platform API over published contracts.
+3. **SMRITI Workspace (Retail Operations App)**: Retail Operations App (`workspace.smritisys.com` / `localhost:3000`), POS, Inventory, Purchase, Sales, CRM, Accounting, Reports. Consumes Platform API over published contracts.
+4. **SMRITI Platform API (Core Engine)**: Headless backend system-of-record (`api.smritisys.com` / `backend/app/`), Auth, RBAC, License Engine, Workflow, Notification, Integration Gateways, PostgreSQL Database.
 
-2. **Zero Database Cross-Contamination**:
-   - The Website/Portal MUST NEVER access the Retail Application's transactional database.
-   - The Retail Application MUST NEVER depend on Website/Portal code or database.
+## 2. The Golden Rule of Application Independence
 
-3. **Optional Service Consumption**:
-   - Communication between Workspace and Portal/Cloud services (License activation, Cloud backup, Update checks) must operate strictly as optional advisory HTTP API calls. If offline or disabled, core retail operations must remain 100% functional.
+> **No application shall directly depend on another application. Every application communicates ONLY with the Platform API through published contracts.**
+
+```text
+Workspace  ───► Platform API ◄─── Portal
+```
+- **Prohibited**: Workspace → Portal, Portal → Workspace, Website → Workspace, Website → Platform DB.
+
+## 3. Zero Database Cross-Contamination & Optional Advisory Calls
+- The Website/Portal MUST NEVER access the Retail Application's transactional database (`smriti-db`).
+- All cloud/portal interactions (License activation, Cloud backup, Update checks) must operate strictly as optional advisory HTTP API calls. If offline or disabled, core retail operations must remain 100% functional.
+
 
 
 # SMRITI Walkthrough Governance Policy (WGP) - Agent Rules
