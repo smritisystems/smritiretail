@@ -109,9 +109,30 @@ Before presenting a verification report, the agent should confirm:
 4. NEVER perform testing execution inside the development/coding folder.
 5. NEVER write code directly in `F:\SMRITI9TEST`.
 
-This rule applies to ALL sessions, ALL agents, and ALL tasks. No exceptions.
+This rule applies to ALL sessions, ALL agents, all tasks. No exceptions.
 
 ---
+
+# Enterprise Architecture Guardian & Independence Principle (AOP-002)
+
+**Policy ID:** AOP-002  
+**Status:** MANDATORY — PERMANENT — ALL agents, ALL sessions, ALL modules  
+**Effective:** 2026-07-22
+
+## The Golden Rules of Application Independence
+
+1. **Independent Products & Repositories**:
+   - **SMRITI Core Platform**: System-of-record FastAPI + Postgres API Engine. Core shall NEVER contain or reference UI code, Portal pages, or Workspace layouts.
+   - **SMRITI Workspace Application**: Independent Retail Operations App (POS, Inventory, Purchase, Sales, CRM, Accounting, Reports).
+   - **SMRITI Portal / Marketing Website**: Independent Customer Self-Service & Marketing App (Product info, Downloads, Docs, License purchasing).
+
+2. **Zero Database Cross-Contamination**:
+   - The Website/Portal MUST NEVER access the Retail Application's transactional database.
+   - The Retail Application MUST NEVER depend on Website/Portal code or database.
+
+3. **Optional Service Consumption**:
+   - Communication between Workspace and Portal/Cloud services (License activation, Cloud backup, Update checks) must operate strictly as optional advisory HTTP API calls. If offline or disabled, core retail operations must remain 100% functional.
+
 
 # SMRITI Walkthrough Governance Policy (WGP) - Agent Rules
 

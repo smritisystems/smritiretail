@@ -30,6 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-07-22 | v1.0.0 | SMRITI Enterprise Architecture Guardian | [Walkthrough](./foundation/SMRITI_Enterprise_Architecture_Guardian_v1.0.0.md) | [Plan](../implementation/foundation/SMRITI_Enterprise_Architecture_Guardian_v1.0.0.md) | Completed |
 | 2026-07-10 | v2.1.1 | Sales Studio Expansion | [Walkthrough](./sales/Sales_Studio_Expansion_Walkthrough_v2.1.1.md) \| [Consolidated](./CONSOLIDATED_WALKTHROUGHS.md#2026-07-10-v211--sales-studio-expansion) | [Plan](../implementation/sales/Sales_Studio_Expansion_Plan_v2.1.1.md) | Completed |
 | 2026-07-11 | v2.1.2 | CRM, Auditing, and POS Upgrades | [Walkthrough](./sales/Sales_CRM_Audit_And_POS_Upgrades_Walkthrough_v2.1.2.md) \| [Consolidated](./CONSOLIDATED_WALKTHROUGHS.md#2026-07-11-v212--crm-auditing-and-pos-upgrades) | [Plan](../implementation/sales/CRM_Audit_And_POS_Upgrades_Plan_v2.1.2.md) | Completed |
 | 2026-07-11 | v2.1.4 | PostgreSQL Standalone Connection & Seeding | [Walkthrough](./db/PostgreSQL_Initialization_Walkthrough_v2.1.4.md) \| [Consolidated](./CONSOLIDATED_WALKTHROUGHS.md#2026-07-11-v214--postgresql-standalone-connection--tables-seeding) | [Plan](../implementation/pos/POS_DeepReview_Fixes_Plan_v2.1.3.md) | Completed |
