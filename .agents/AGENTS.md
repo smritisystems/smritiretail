@@ -121,23 +121,32 @@ This rule applies to ALL sessions, ALL agents, all tasks. No exceptions.
 
 ## 1. The Four Independent Tier Products
 
-1. **SMRITI Website (Marketing)**: Public website (`www.smritisys.com`), Pricing, Features, Blog, Contact, Public Documentation. Zero dependency on Retail OS or Platform API database.
+1. **SMRITI Website (Marketing)**: Public website (`www.smritisys.com`), Pricing, Features, Blog, Contact, Public Documentation.
+   > **SMRITI Website is NOT a part of the Retail Platform. It is an independent marketing product.** It can be hosted on a completely different server, repository, technology stack, database, and deployment pipeline.
 2. **SMRITI Portal (Customer Self-Service)**: Customer Account Portal (`portal.smritisys.com`), Software Downloads, License Management, Subscriptions, Support Tickets, Device Activation, Billing. Consumes Platform API over published contracts.
 3. **SMRITI Workspace (Retail Operations App)**: Retail Operations App (`workspace.smritisys.com` / `localhost:3000`), POS, Inventory, Purchase, Sales, CRM, Accounting, Reports. Consumes Platform API over published contracts.
 4. **SMRITI Platform API (Core Engine)**: Headless backend system-of-record (`api.smritisys.com` / `backend/app/`), Auth, RBAC, License Engine, Workflow, Notification, Integration Gateways, PostgreSQL Database.
 
-## 2. The Golden Rule of Application Independence
+## 2. The Golden Rules of Application Independence
 
-> **No application shall directly depend on another application. Every application communicates ONLY with the Platform API through published contracts.**
+> **Rule 1: No application shall directly depend on another application. Every application communicates ONLY with the Platform API through published contracts.**
 
 ```text
 Workspace  ───► Platform API ◄─── Portal
 ```
 - **Prohibited**: Workspace → Portal, Portal → Workspace, Website → Workspace, Website → Platform DB.
 
+> **Rule 2: Every SMRITI application must be installable, deployable, upgradeable, and removable independently without affecting any other application.**
+
+- **Website down** → Workspace billing runs 100% unaffected.
+- **Portal down or upgrading** → Retail store POS & inventory run 100% unaffected.
+- **Internet disconnected** → Workspace operates offline seamlessly.
+- **Portal / Website redesign** → Platform API remains untouched.
+
 ## 3. Zero Database Cross-Contamination & Optional Advisory Calls
 - The Website/Portal MUST NEVER access the Retail Application's transactional database (`smriti-db`).
 - All cloud/portal interactions (License activation, Cloud backup, Update checks) must operate strictly as optional advisory HTTP API calls. If offline or disabled, core retail operations must remain 100% functional.
+
 
 
 

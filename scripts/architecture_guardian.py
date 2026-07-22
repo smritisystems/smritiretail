@@ -52,7 +52,7 @@ def run_architecture_audit():
     print(f"  [+] 1. SMRITI Website (Marketing & Docs):      {website_modules}")
     print(f"  [+] 2. SMRITI Portal (Customer Self-Service):  {portal_modules}")
     print(f"  [+] 3. SMRITI Workspace (Retail Operations):  {workspace_modules}")
-    print(f"  [+] 4. SMRITI Platform API (Core Engine):     {platform_api_modules}")
+    print(f"  [+] 4. SMRITI Platform API Engine (Headless): {platform_api_modules}")
 
     issues = []
 
