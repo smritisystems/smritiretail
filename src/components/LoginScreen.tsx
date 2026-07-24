@@ -70,10 +70,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           branchId: data.branch_id ?? user.branch_id,
         });
       } else {
-        setError("Authentication failed.");
+        setError("Authentication failed. Please verify credentials.");
       }
     } catch (err: any) {
-      const errMsg = err?.message || "Failed to connect to authentication server.";
+      let errMsg = typeof err === "string" ? err : err?.message || "";
+      if (!errMsg || errMsg === "Failed to fetch" || errMsg.includes("NetworkError") || errMsg.includes("fetch")) {
+        errMsg = "Unable to connect to SMRITI authentication server. Please check if backend API (port 8000) is running.";
+      }
       setError(errMsg);
     } finally {
       setLoading(false);
