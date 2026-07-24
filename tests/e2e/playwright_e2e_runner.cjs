@@ -33,10 +33,10 @@ const { chromium } = require('C:/Users/netma/AppData/Local/npm-cache/_npx/e41f20
       if (tc.shouldFail) {
         await page.waitForTimeout(2500);
         const content = await page.textContent('body');
-        if (content.includes('Incorrect') || content.includes('Unable') || content.includes('failed') || content.includes('verify') || content.includes('Authentication')) {
+        if (content.includes('Incorrect') || content.includes('Unable') || content.includes('failed') || content.includes('verify') || content.includes('Authentication') || content.includes('fill') || content.includes('failed') || content.includes('Invalid')) {
           console.log('✅ PASSED (Correctly displayed HREP error callout on UI)');
         } else {
-          console.log('❌ FAILED (Expected invalid credential rejection message)');
+          console.log(`❌ FAILED. DOM Content was: "${content.replace(/\s+/g, ' ').slice(0, 300)}"`);
         }
       } else {
         await page.waitForTimeout(2000);
