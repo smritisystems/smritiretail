@@ -29,17 +29,19 @@ const { chromium } = require('C:/Users/netma/AppData/Local/npm-cache/_npx/e41f20
 
       // Click submit
       await page.click('button[type="submit"]');
-      await page.waitForTimeout(1000);
-
-      const content = await page.textContent('body');
 
       if (tc.shouldFail) {
-        if (content.includes('Incorrect') || content.includes('Unable') || content.includes('failed') || content.includes('verify')) {
-          console.log('✅ PASSED (Correctly rejected invalid credentials with HREP message)');
+        // Wait for error callout element to appear on UI
+        await page.waitForSelector('.border-rose-500\\/30, .text-rose-300', { timeout: 10000 });
+        const content = await page.textContent('body');
+        if (content.includes('Incorrect') || content.includes('Unable') || content.includes('failed') || content.includes('verify') || content.includes('Authentication')) {
+          console.log('✅ PASSED (Correctly displayed HREP error callout on UI)');
         } else {
           console.log('❌ FAILED (Expected invalid credential rejection message)');
         }
       } else {
+        await page.waitForTimeout(2000);
+        const content = await page.textContent('body');
         if (content.includes('SMRITI') || content.includes('Dashboard') || content.includes('Retail')) {
           console.log(`✅ PASSED (Authenticated as ${tc.expectedRole} on Docker container)`);
         } else {
