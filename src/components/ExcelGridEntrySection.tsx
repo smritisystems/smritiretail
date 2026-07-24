@@ -866,6 +866,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
             Clear Grid
           </button>
         </div>
+      </div>
       {/* SMRITI SKU Code Generation Configurator & Engine Bar */}
       <div className="bg-theme-surface-1 p-4 rounded-2xl border border-indigo-500/30 space-y-3 shadow-lg">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-theme-divider/30 pb-2">
