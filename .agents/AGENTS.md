@@ -113,6 +113,9 @@ Before presenting a verification report, the agent should confirm:
 
 ## Environment Rule: Docker Execution Policy (MANDATORY — PERMANENT)
 
+> [!IMPORTANT]
+> **STRICT USER DIRECTIVE:** DO NOT start or use host Vite dev server under any circumstances until the user explicitly requests to use it. ALL frontend applications, backend services, and databases MUST execute exclusively inside Docker containers (`docker compose up`).
+
 | Service | Execution Mode | Rule |
 |---|---|---|
 | Workspace & Frontend | **Docker Container (`smriti-workspace`)** | ALWAYS run and serve frontend via Docker container (`docker compose up workspace`). NEVER use host Vite dev server. |
