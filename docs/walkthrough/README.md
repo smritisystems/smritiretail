@@ -207,6 +207,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-22 | v29.0.0 | Live Documentation Portal & Knowledge Engine | [Walkthrough](./documentation/Live_Documentation_Portal_v29.0.0.md) | [Plan](../implementation/documentation/Live_Documentation_Portal_Plan_v29.0.0.md) | Completed |
 | 2026-07-22 | v30.0.0 | Customer Workspace Portal & License Management System | [Walkthrough](./customer/Customer_Workspace_Portal_v29.0.0.md) | [Plan](../implementation/customer/Customer_Workspace_Portal_Plan_v30.0.0.md) | Completed |
 | 2026-07-24 | v4.0.0 | Phase 1 Platform Extension Models (Domains 17, 18, 20) | [Walkthrough](./foundation/Foundation_Phase1_Platform_Extension_Models_v4.0.0.md) | — | Completed |
+| 2026-07-25 | v3.16.0 | Frontend Authentication Error Handling & Connection Resilience | [Walkthrough](./foundation/Foundation_Login_Error_Handling_Fix_v3.16.0.md) | — | Completed |
 
 
 
