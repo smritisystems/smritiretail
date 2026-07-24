@@ -109,6 +109,16 @@ Before presenting a verification report, the agent should confirm:
 4. NEVER perform testing execution inside the development/coding folder.
 5. NEVER write code directly in `F:\SMRITI9TEST`.
 
+---
+
+## Environment Rule: Docker Execution Policy (MANDATORY — PERMANENT)
+
+| Service | Execution Mode | Rule |
+|---|---|---|
+| Workspace & Frontend | **Docker Container (`smriti-workspace`)** | ALWAYS run and serve frontend via Docker container (`docker compose up workspace`). NEVER use host Vite dev server. |
+| Core API | **Docker Container (`smriti-api`)** | ALWAYS run and serve backend API via Docker container (`docker compose up api`). |
+| Database | **Docker Container (`smriti-db`)** | ALWAYS run PostgreSQL database via Docker container (`docker compose up db`). |
+
 This rule applies to ALL sessions, ALL agents, all tasks. No exceptions.
 
 ---
