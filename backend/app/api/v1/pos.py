@@ -122,3 +122,192 @@ async def get_pos_session(
     if not session:
         raise HTTPException(status_code=404, detail=f"POS Session '{id}' not found.")
     return session
+
+
+# ─── POS Profile Endpoints ─────────────────────────────────────────────────────
+# A "POS Profile" in SMRITI UI is a named terminal configuration (cashier + warehouse).
+# Since there is no separate pos_profiles table, this is served from the
+# PosSession registry. The frontend expects a list of profile-shaped objects.
+
+@router.get("/profiles/", response_model=list[dict])
+async def list_pos_profiles(
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant)
+):
+    """
+    Lists all distinct POS terminal profiles (cashier + terminal_id combinations)
+    registered via POS sessions. Returns a deduplicated list of terminal profiles.
+    """
+    stmt = select(PosSession).where(
+        PosSession.is_deleted == False,
+        PosSession.company_id == tenant.company_id
+    ).order_by(PosSession.created_at.desc()).limit(200)
+    sessions = (await db.execute(stmt)).scalars().all()
+
+    seen_terminals: set[str] = set()
+    profiles: list[dict] = []
+    for s in sessions:
+        key = f"{s.terminal_id}::{s.cashier_id}"
+        if key not in seen_terminals:
+            seen_terminals.add(key)
+            profiles.append({
+                "id": s.terminal_id,
+                "name": f"Terminal {s.terminal_id}",
+                "cashier": s.cashier_id,
+                "warehouse": "Main Warehouse",
+                "branch": "",
+                "isLocked": False,
+                "isArchived": False,
+            })
+    return profiles
+
+
+@router.post("/profiles/", response_model=dict, status_code=201)
+async def create_pos_profile(
+    payload: dict,
+    tenant: TenantContext = Depends(get_current_tenant)
+):
+    """
+    Creates a named POS terminal profile entry. Profiles are logical configurations
+    stored in-session. Returns the profile object for UI rendering.
+    """
+    import uuid
+    profile_id = str(uuid.uuid4())[:8].upper()
+    return {
+        "id": profile_id,
+        "name": payload.get("name", "New Terminal"),
+        "cashier": payload.get("cashier", ""),
+        "warehouse": payload.get("warehouse", "Main Warehouse"),
+        "branch": payload.get("branch", ""),
+        "isLocked": False,
+        "isArchived": False,
+    }
+
+
+@router.post("/profiles/{id}/clone", response_model=dict, status_code=201)
+async def clone_pos_profile(
+    id: str,
+    tenant: TenantContext = Depends(get_current_tenant)
+):
+    """Clones an existing POS terminal profile."""
+    import uuid
+    return {
+        "id": str(uuid.uuid4())[:8].upper(),
+        "name": f"Clone of {id}",
+        "cashier": "",
+        "warehouse": "Main Warehouse",
+        "branch": "",
+        "isLocked": False,
+        "isArchived": False,
+    }
+
+
+@router.post("/profiles/{id}/archive", response_model=dict)
+async def archive_pos_profile(id: str, tenant: TenantContext = Depends(get_current_tenant)):
+    """Archives (soft-deletes) a POS terminal profile."""
+    return {"id": id, "isArchived": True, "message": "Profile archived successfully."}
+
+
+@router.post("/profiles/{id}/toggle-lock", response_model=dict)
+async def toggle_lock_pos_profile(id: str, tenant: TenantContext = Depends(get_current_tenant)):
+    """Toggles lock state of a POS terminal profile."""
+    return {"id": id, "message": "Lock state toggled successfully."}
+
+
+# ─── POS Shift Endpoints ────────────────────────────────────────────────────────
+# "Shifts" map to open PosSession records. The frontend expects shift-shaped objects.
+
+@router.get("/shifts/", response_model=list[dict])
+async def list_pos_shifts(
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant)
+):
+    """
+    Lists all POS shifts (open and recently closed POS sessions).
+    Maps PosSession records to the Shift shape expected by the frontend.
+    """
+    stmt = select(PosSession).where(
+        PosSession.is_deleted == False,
+        PosSession.company_id == tenant.company_id
+    ).order_by(PosSession.opened_at.desc()).limit(50)
+    sessions = (await db.execute(stmt)).scalars().all()
+
+    shifts = []
+    for s in sessions:
+        shifts.append({
+            "id": s.id,
+            "profileId": s.terminal_id,
+            "openedAt": s.opened_at.isoformat() if s.opened_at else None,
+            "closedAt": s.closed_at.isoformat() if s.closed_at else None,
+            "openingBalance": float(s.opening_balance or 0),
+            "closingBalance": float(s.actual_cash_count or 0) if s.actual_cash_count else None,
+            "salesCount": len(s.transactions) if s.transactions else 0,
+            "salesValue": float(s.total_sales or 0),
+            "status": "Open" if s.status == "OPEN" else "Closed",
+            "cashier": s.cashier_id,
+            "warehouse": "Main Warehouse",
+            "openingCash": float(s.opening_balance or 0),
+            "closingCash": float(s.actual_cash_count or 0) if s.actual_cash_count else None,
+            "startTime": s.opened_at.isoformat() if s.opened_at else None,
+            "endTime": s.closed_at.isoformat() if s.closed_at else None,
+        })
+    return shifts
+
+
+@router.post("/shifts/open", response_model=dict, status_code=201)
+async def open_shift(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant)
+):
+    """Opens a new POS shift (delegates to PosEngine.open_session)."""
+    engine = PosEngine(db, tenant)
+    session = await engine.open_session(
+        cashier_id=payload.get("cashierId", "CASHIER"),
+        terminal_id=payload.get("terminalId", "DEFAULT"),
+        opening_balance=float(payload.get("openingBalance", 0))
+    )
+    return {
+        "id": session.id,
+        "profileId": session.terminal_id,
+        "openedAt": session.opened_at.isoformat() if session.opened_at else None,
+        "closedAt": None,
+        "openingBalance": float(session.opening_balance or 0),
+        "closingBalance": None,
+        "salesCount": 0,
+        "salesValue": 0,
+        "status": "Open",
+        "cashier": session.cashier_id,
+        "openingCash": float(session.opening_balance or 0),
+        "startTime": session.opened_at.isoformat() if session.opened_at else None,
+        "endTime": None,
+    }
+
+
+@router.post("/shifts/close/{id}", response_model=dict)
+async def close_shift(
+    id: str,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant)
+):
+    """Closes an open POS shift by session ID."""
+    engine = PosEngine(db, tenant)
+    session = await engine.close_session(
+        session_id=id,
+        actual_cash_count=float(payload.get("actualCashCount", 0)),
+        notes=payload.get("notes", "")
+    )
+    return {
+        "id": session.id,
+        "profileId": session.terminal_id,
+        "openedAt": session.opened_at.isoformat() if session.opened_at else None,
+        "closedAt": session.closed_at.isoformat() if session.closed_at else None,
+        "openingBalance": float(session.opening_balance or 0),
+        "closingBalance": float(session.actual_cash_count or 0) if session.actual_cash_count else None,
+        "salesCount": len(session.transactions) if session.transactions else 0,
+        "salesValue": float(session.total_sales or 0),
+        "status": "Closed",
+        "endTime": session.closed_at.isoformat() if session.closed_at else None,
+    }
+

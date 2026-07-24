@@ -753,7 +753,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
           };
 
           try {
-            const response = await apiFetchV1("/products", {
+            const response = await apiFetchV1("/inventory/", {
               method: "POST",
               body: JSON.stringify(payload),
             });
