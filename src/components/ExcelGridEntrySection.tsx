@@ -937,7 +937,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
               </div>
             ) : skuFormatPattern === "CUSTOM" ? (
               <div>
-                <label className="text-[9px] font-mono text-theme-muted block mb-1">Custom Formula Template ({`{style}`}, {`{color}`}, {`{size}`})</label>
+                <label className="text-[9px] font-mono text-theme-muted block mb-1">Custom Formula Template ("{style}", "{color}", "{size}")</label>
                 <input
                   type="text"
                   value={customSkuTemplate}
@@ -948,7 +948,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
               </div>
             ) : (
               <div className="flex items-center text-[11px] text-indigo-300 font-mono pt-4">
-                <span>Active Formula: <strong className="text-white font-bold">{skuFormatPattern === "STYLE_COLOR_SIZE" ? "{StyleCode}-{Color}-{Size}" : skuFormatPattern === "STYLE_SIZE_COLOR" ? "{StyleCode}-{Size}-{Color}" : skuFormatPattern === "CAT_STYLE_COLOR_SIZE" ? "{Category}-{StyleCode}-{Color}-{Size}" : "{Brand}-{StyleCode}-{Color}-{Size}"}</strong></span>
+                <span>Active Formula: <strong className="text-white font-bold">{skuFormatPattern === "STYLE_COLOR_SIZE" ? "StyleCode-Color-Size" : skuFormatPattern === "STYLE_SIZE_COLOR" ? "StyleCode-Size-Color" : skuFormatPattern === "CAT_STYLE_COLOR_SIZE" ? "Category-StyleCode-Color-Size" : "Brand-StyleCode-Color-Size"}</strong></span>
               </div>
             )}
           </div>

@@ -1065,7 +1065,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                                   </div>
                                 ) : skuFormatPattern === "CUSTOM" ? (
                                   <div>
-                                    <label className="text-[9px] font-mono text-theme-muted block mb-1">Custom Formula Template ({`{style}`}, {`{color}`}, {`{size}`})</label>
+                                    <label className="text-[9px] font-mono text-theme-muted block mb-1">Custom Formula Template ("{style}", "{color}", "{size}")</label>
                                     <input
                                       type="text"
                                       value={customSkuTemplate}
