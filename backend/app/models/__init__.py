@@ -67,5 +67,14 @@ from .api_key import (
     SMRITIServiceAccount, SMRITIAPIKey,
     SMRITIAPIKeyPermissionSet, SMRITIAPIKeyLog
 )
+from .notification import (
+    NotificationTemplateModel, NotificationDispatchModel, InAppNotificationModel
+)
+from .integration_hub import (
+    WebhookSubscriptionModel, OutboundMessageQueueModel, ConnectorRegistryModel
+)
+from .analytics_bi import (
+    DashboardDefinitionModel, KPIMetricModel, ReportBuilderQueryModel
+)
 
 

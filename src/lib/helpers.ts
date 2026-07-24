@@ -108,19 +108,16 @@ export async function allocateVoucherNumber(docType: string, context?: { branch?
       fy: context?.fy || "26-27"
     };
 
-    const response = await apiFetchV1(`numbering/series/${seriesId}/allocate`, {
+    const data = await apiFetchV1<{ documentNo?: string }>(`numbering/series/${seriesId}/allocate`, {
       method: "POST",
       headers,
       body: JSON.stringify(payload)
     });
 
-    if (!response.ok) {
-      console.error(`[SMRITI] Upstream allocation failed with status ${response.status}: ${await response.text()}`);
-      return docType.substring(0, 3).toUpperCase() + "-" + Date.now();
+    if (data && data.documentNo) {
+      return data.documentNo;
     }
-
-    const data = await response.json();
-    return data.documentNo;
+    return docType.substring(0, 3).toUpperCase() + "-" + Date.now();
   } catch (err) {
     console.error("[SMRITI] Failed to allocate voucher number via python-core:", err);
     return docType.substring(0, 3).toUpperCase() + "-" + Date.now();

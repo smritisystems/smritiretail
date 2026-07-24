@@ -19,6 +19,8 @@ backend/app/__pycache__
 **/*.pyo
 **/*.pyd
 .pytest_cache
+**/.pytest_cache
+backend/.pytest_cache
 .coverage
 htmlcov
 .env
