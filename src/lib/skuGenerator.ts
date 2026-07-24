@@ -78,7 +78,7 @@ export function generateSkuCode(params: SkuGeneratorParams): string {
   const tokenStyle = sanitizeSkuToken(styleCode, 15) || "STL";
   const tokenColor = sanitizeSkuToken(color, 10);
   const tokenSize = sanitizeSkuToken(size, 8);
-  const tokenCategory = sanitizeSkuToken(category, 6);
+  const tokenCategory = sanitizeSkuToken(category, 10);
   const tokenBrand = sanitizeSkuToken(brand, 6);
   const tokenSeq = sequence ? String(sequence).padStart(4, "0") : "";
 
