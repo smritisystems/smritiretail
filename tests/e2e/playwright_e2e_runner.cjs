@@ -8,9 +8,6 @@ const { chromium } = require('C:/Users/netma/AppData/Local/npm-cache/_npx/e41f20
     headless: true
   });
 
-  const context = await browser.newContext();
-  const page = await context.newPage();
-
   const testCases = [
     { name: 'E2E-001: Store Manager Login', username: 'manager', password: 'Password@123', expectedRole: 'MANAGER' },
     { name: 'E2E-002: POS Cashier Login', username: 'cashier', password: 'Cashier@1234', expectedRole: 'CASHIER' },
@@ -20,8 +17,13 @@ const { chromium } = require('C:/Users/netma/AppData/Local/npm-cache/_npx/e41f20
 
   for (const tc of testCases) {
     process.stdout.write(`Running ${tc.name}... `);
+    const context = await browser.newContext();
+    const page = await context.newPage();
     try {
       await page.goto('http://localhost:3000', { waitUntil: 'domcontentloaded' });
+      await page.evaluate(() => localStorage.clear());
+      await page.reload({ waitUntil: 'domcontentloaded' });
+
       await page.waitForSelector('input[type="text"], input[name="username"]', { timeout: 5000 });
 
       await page.fill('input[type="text"], input[name="username"]', tc.username);
@@ -49,6 +51,8 @@ const { chromium } = require('C:/Users/netma/AppData/Local/npm-cache/_npx/e41f20
       }
     } catch (err) {
       console.log(`❌ ERROR: ${err.message}`);
+    } finally {
+      await context.close();
     }
   }
 
