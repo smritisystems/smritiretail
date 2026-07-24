@@ -52,34 +52,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         password,
       };
 
-      const res = await apiFetchV1("auth/login", {
+      const data = await apiFetchV1<{ access_token?: string; role?: string; user?: any; password_reset_required?: boolean; company_id?: string; branch_id?: string }>("auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(loginPayload),
       });
 
-      const data = await res.json();
-      if (res.ok && data.access_token) {
+      if (data && data.access_token) {
         localStorage.setItem("smriti_jwt_token", data.access_token);
         localStorage.removeItem("smriti_session_token"); // clear legacy token
         const user = data.user ?? {};
         onLoginSuccess({
-          role: user.role ?? "",
+          role: data.role || user.role || "",
           name: user.display_name || user.full_name || user.username || username,
           passwordResetRequired: data.password_reset_required ?? false,
           companyId: data.company_id ?? user.company_id,
           branchId: data.branch_id ?? user.branch_id,
         });
       } else {
-        const errMsg = typeof data.detail === "string"
-          ? data.detail
-          : Array.isArray(data.detail)
-          ? data.detail[0]?.msg ?? "Authentication failed."
-          : data.error || "Authentication failed.";
-        setError(errMsg);
+        setError("Authentication failed.");
       }
-    } catch (err) {
-      setError("Failed to connect to authentication server.");
+    } catch (err: any) {
+      const errMsg = err?.message || "Failed to connect to authentication server.";
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
