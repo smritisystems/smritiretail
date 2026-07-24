@@ -100,25 +100,25 @@ class PlatformValidationEngine:
                 fields={
                     "color": FieldValidationConfig(
                         mandatory=False,
-                        mode=ValidationMode.STRICT,
+                        mode=ValidationMode.AUTO_CREATE,
                         master_type="product_color",
                         casing=CasingRule.TITLE
                     ),
                     "size": FieldValidationConfig(
                         mandatory=False,
-                        mode=ValidationMode.STRICT,
+                        mode=ValidationMode.AUTO_CREATE,
                         master_type="product_size",
                         casing=CasingRule.UPPER
                     ),
                     "brand": FieldValidationConfig(
                         mandatory=False,
-                        mode=ValidationMode.STRICT,
+                        mode=ValidationMode.AUTO_CREATE,
                         master_type="product_brand",
                         casing=CasingRule.TITLE
                     ),
                     "category": FieldValidationConfig(
                         mandatory=True,
-                        mode=ValidationMode.STRICT,
+                        mode=ValidationMode.AUTO_CREATE,
                         master_type="product_category",
                         casing=CasingRule.TITLE
                     ),
