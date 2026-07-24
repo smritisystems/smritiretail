@@ -15,7 +15,7 @@ Classification: Database Models for SMRITI Digital Platform Ecosystem
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Boolean, Float, Integer, DateTime, Text, JSON
-from app.db.base_class import Base
+from app.db.base import Base
 
 
 class CustomerLicenseModel(Base):

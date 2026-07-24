@@ -15,7 +15,7 @@ Classification: Database Models for Enterprise WMS & Multi-Bin Location Engine
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Text
-from app.db.base_class import Base
+from app.db.base import Base
 
 
 class BinLocationModel(Base):

@@ -15,7 +15,7 @@ Classification: Database Models for NIC GSTN E-Way Bill & E-Invoice Gateway
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Float, DateTime, Text
-from app.db.base_class import Base
+from app.db.base import Base
 
 
 class EInvoiceIRNRecordModel(Base):

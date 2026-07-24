@@ -15,7 +15,7 @@ Classification: Database Models for E-Commerce Multi-Channel Sync Engine
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Integer, DateTime, Boolean, Text
-from app.db.base_class import Base
+from app.db.base import Base
 
 
 class SalesChannelModel(Base):

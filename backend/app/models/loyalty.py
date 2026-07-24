@@ -15,7 +15,7 @@ Classification: Database Models for Customer Loyalty & Promotions Engine
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Float, Integer, DateTime
-from app.db.base_class import Base
+from app.db.base import Base
 
 
 class CustomerLoyaltyModel(Base):

@@ -15,7 +15,7 @@ Classification: Database Models for Financial Analytics & BI Engine
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Float, DateTime
-from app.db.base_class import Base
+from app.db.base import Base
 
 
 class FinancialSnapshotModel(Base):
