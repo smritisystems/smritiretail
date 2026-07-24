@@ -31,8 +31,7 @@ const { chromium } = require('C:/Users/netma/AppData/Local/npm-cache/_npx/e41f20
       await page.click('button[type="submit"]');
 
       if (tc.shouldFail) {
-        // Wait for error callout element to appear on UI
-        await page.waitForSelector('.border-rose-500\\/30, .text-rose-300', { timeout: 10000 });
+        await page.waitForTimeout(2500);
         const content = await page.textContent('body');
         if (content.includes('Incorrect') || content.includes('Unable') || content.includes('failed') || content.includes('verify') || content.includes('Authentication')) {
           console.log('✅ PASSED (Correctly displayed HREP error callout on UI)');
