@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -45,6 +45,7 @@ import { ExcelGridEntrySection } from "./ExcelGridEntrySection.js";
 import { LabelPrintingSection } from "./LabelPrintingSection.js";
 import { ProductImage } from "./common/ProductImage.tsx";
 import { ImageDisplayPolicyModal, DisplayPolicy, DEFAULT_DISPLAY_POLICY } from "./common/ImageDisplayPolicyModal.tsx";
+import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
 
 
 interface ItemMasterTabProps {
@@ -117,8 +118,40 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   const [formCostPrice, setFormCostPrice] = useState<number>(0);
   const [formSku, setFormSku] = useState<string>("");
   
+  // Dynamic Configurable SKU Engine States
+  const [skuMode, setSkuMode] = useState<SkuMode>("auto");
+  const [skuFormatPattern, setSkuFormatPattern] = useState<SkuFormatPattern>("STYLE_COLOR_SIZE");
+  const [customSkuTemplate, setCustomSkuTemplate] = useState<string>("{style}-{color}-{size}");
+  const [hybridPrefix, setHybridPrefix] = useState<string>("");
+  
   // State for manual product custom attribute answers
   const [dynamicAttributes, setDynamicAttributes] = useState<Record<string, string>>({});
+
+  // Reactive SKU auto-generation hook when parameters or attributes update
+  useEffect(() => {
+    if (skuMode === "manual" || isEditing) return;
+
+    const colorVal = dynamicAttributes["Color"] || dynamicAttributes["color"] || dynamicAttributes["COLOR"] || "";
+    const sizeVal = dynamicAttributes["Size"] || dynamicAttributes["size"] || dynamicAttributes["SIZE"] || "";
+    const brandVal = dynamicAttributes["Brand"] || dynamicAttributes["brand"] || dynamicAttributes["BRAND"] || "";
+
+    const computed = generateSkuCode({
+      mode: skuMode,
+      hybridPrefix,
+      formatPattern: skuFormatPattern,
+      customTemplate: customSkuTemplate,
+      styleCode: formStyleCode || formName,
+      color: colorVal,
+      size: sizeVal,
+      category: formCategory,
+      brand: brandVal,
+    });
+
+    if (computed) {
+      setFormCode(computed);
+      setFormSku(computed);
+    }
+  }, [skuMode, skuFormatPattern, customSkuTemplate, hybridPrefix, formStyleCode, formName, formCategory, dynamicAttributes, isEditing]);
 
   // Selection & Search change audit logging
   useEffect(() => {
@@ -969,28 +1002,111 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                             </div>
                           )}
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                            <div>
-                              <label className="text-[9px] font-mono text-theme-muted block mb-1">Style Reference Code</label>
-                              <input
-                                type="text"
-                                value={formStyleCode}
-                                onChange={(e) => setFormStyleCode(e.target.value)}
-                                placeholder="Style Code"
-                                className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono uppercase"
-                              />
+                          {/* SMRITI SKU Code Generation Configurator & Engine */}
+                          <div className="bg-theme-surface-1 p-3.5 rounded-xl border border-indigo-500/20 space-y-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-theme-divider/30 pb-2">
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-400">
+                                SKU Generation Mode & Pattern Configurator
+                              </span>
+                              <div className="flex items-center space-x-1 font-mono text-[10px]">
+                                <span className="text-theme-muted mr-1">Mode:</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setSkuMode("manual")}
+                                  className={`px-2 py-0.5 rounded font-semibold transition-colors ${skuMode === "manual" ? "bg-indigo-600 text-white" : "bg-theme-surface-2 text-theme-muted hover:text-white"}`}
+                                >
+                                  Manual
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setSkuMode("hybrid")}
+                                  className={`px-2 py-0.5 rounded font-semibold transition-colors ${skuMode === "hybrid" ? "bg-indigo-600 text-white" : "bg-theme-surface-2 text-theme-muted hover:text-white"}`}
+                                >
+                                  Hybrid
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setSkuMode("auto")}
+                                  className={`px-2 py-0.5 rounded font-semibold transition-colors ${skuMode === "auto" ? "bg-indigo-600 text-white" : "bg-theme-surface-2 text-theme-muted hover:text-white"}`}
+                                >
+                                  Auto (Formula)
+                                </button>
+                              </div>
                             </div>
-                            <div>
-                              <label className="text-[9px] font-mono text-theme-muted block mb-1">SKU Unique Code *</label>
-                              <input
-                                type="text"
-                                required
-                                disabled={isEditing}
-                                value={formCode}
-                                onChange={(e) => setFormCode(e.target.value)}
-                                placeholder="SKU Code (e.g. TSH-COT-L)"
-                                className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono disabled:opacity-50"
-                              />
+
+                            {/* Pattern Selector for Auto and Hybrid Modes */}
+                            {skuMode !== "manual" && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="text-[9px] font-mono text-theme-muted block mb-1">SKU Formula Pattern Format</label>
+                                  <select
+                                    value={skuFormatPattern}
+                                    onChange={(e) => setSkuFormatPattern(e.target.value as SkuFormatPattern)}
+                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1 text-xs text-theme-body focus:outline-none focus:border-indigo-500 font-mono"
+                                  >
+                                    {PRESET_SKU_TEMPLATES.map(tmpl => (
+                                      <option key={tmpl.id} value={tmpl.id}>
+                                        {tmpl.label} ({tmpl.formula})
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {skuMode === "hybrid" ? (
+                                  <div>
+                                    <label className="text-[9px] font-mono text-theme-muted block mb-1">Hybrid Custom Prefix</label>
+                                    <input
+                                      type="text"
+                                      value={hybridPrefix}
+                                      onChange={(e) => setHybridPrefix(e.target.value)}
+                                      placeholder="e.g. PREFIX-101"
+                                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1 text-xs text-theme-body focus:outline-none focus:border-indigo-500 font-mono uppercase"
+                                    />
+                                  </div>
+                                ) : skuFormatPattern === "CUSTOM" ? (
+                                  <div>
+                                    <label className="text-[9px] font-mono text-theme-muted block mb-1">Custom Formula Template ({`{style}`}, {`{color}`}, {`{size}`})</label>
+                                    <input
+                                      type="text"
+                                      value={customSkuTemplate}
+                                      onChange={(e) => setCustomSkuTemplate(e.target.value)}
+                                      placeholder="{style}-{color}-{size}"
+                                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1 text-xs text-theme-body focus:outline-none focus:border-indigo-500 font-mono"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center text-[10px] text-indigo-300 font-mono pt-4">
+                                    <span>Formula preview: <strong className="text-white">{skuFormatPattern === "STYLE_COLOR_SIZE" ? "{StyleCode}-{Color}-{Size}" : skuFormatPattern === "STYLE_SIZE_COLOR" ? "{StyleCode}-{Size}-{Color}" : skuFormatPattern === "CAT_STYLE_COLOR_SIZE" ? "{Category}-{StyleCode}-{Color}-{Size}" : "{Brand}-{StyleCode}-{Color}-{Size}"}</strong></span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                              <div>
+                                <label className="text-[9px] font-mono text-theme-muted block mb-1">Style Reference Code</label>
+                                <input
+                                  type="text"
+                                  value={formStyleCode}
+                                  onChange={(e) => setFormStyleCode(e.target.value)}
+                                  placeholder="Style Code (e.g. STL-101)"
+                                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-indigo-500 font-mono uppercase"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] font-mono text-theme-muted block mb-1">
+                                  SKU Unique Code * <span className="text-[9px] text-indigo-400 font-normal">({skuMode.toUpperCase()})</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  required
+                                  disabled={isEditing || skuMode !== "manual"}
+                                  value={formCode}
+                                  onChange={(e) => setFormCode(e.target.value)}
+                                  placeholder="SKU Code"
+                                  className="w-full bg-theme-surface-2 border border-indigo-500/40 rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-indigo-500 font-mono font-bold disabled:opacity-75 disabled:bg-theme-surface-3"
+                                />
+                              </div>
                             </div>
                           </div>
 

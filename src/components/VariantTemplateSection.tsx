@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { VariantTemplate, AttributeGroup, AttributeDefinition, Product } from "../types.js";
+import { generateSkuCode, SkuFormatPattern } from "../lib/skuGenerator";
 
 interface VariantTemplateSectionProps {
   products: Product[];
@@ -104,8 +105,21 @@ export const VariantTemplateSection: React.FC<VariantTemplateSectionProps> = ({
       const initialCells: Record<string, { active: boolean; stock: number; price: number; mrp: number; costPrice: number; sku: string; barcode: string }> = {};
       rowAttr.validValues.forEach(rowVal => {
         colAttr.validValues.forEach(colVal => {
-          // Check if variant already exists in catalog
-          const constructedCode = `${selectedTemplate.styleCode}-${rowVal.toUpperCase()}-${colVal.toUpperCase()}`;
+          // Construct SKU dynamically using SMRITI SKU Generator Engine
+          const isRowColor = rowAttr.name.toLowerCase().includes("color");
+          const colorVal = isRowColor ? rowVal : colVal;
+          const sizeVal = isRowColor ? colVal : rowVal;
+
+          const constructedCode = generateSkuCode({
+            mode: "auto",
+            formatPattern: "STYLE_COLOR_SIZE",
+            styleCode: selectedTemplate.styleCode,
+            color: colorVal,
+            size: sizeVal,
+            category: selectedTemplate.category,
+            brand: selectedTemplate.brand,
+          }) || `${selectedTemplate.styleCode}-${rowVal.toUpperCase()}-${colVal.toUpperCase()}`;
+
           const existing = products.find(p => p.code === constructedCode);
 
           initialCells[`${rowVal}::${colVal}`] = {
