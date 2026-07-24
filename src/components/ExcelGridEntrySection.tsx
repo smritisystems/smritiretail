@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -18,6 +18,7 @@ import {
   ClipboardCopy, ChevronDown, ChevronUp, Info
 } from "lucide-react";
 import { AttributeGroup, AttributeDefinition } from "../types.js";
+import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
 
 interface ExcelGridEntrySectionProps {
   onRefreshProducts: () => Promise<void>;
@@ -230,6 +231,50 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
   const [showGuide, setShowGuide] = useState(false);
   const [fieldConfigs, setFieldConfigs] = useState<FieldConfig[]>(defaultFieldConfigs);
 
+  // Configurable SKU Engine states for Excel Grid Entry
+  const [skuMode, setSkuMode] = useState<SkuMode>("auto");
+  const [skuFormatPattern, setSkuFormatPattern] = useState<SkuFormatPattern>("STYLE_COLOR_SIZE");
+  const [customSkuTemplate, setCustomSkuTemplate] = useState<string>("{style}-{color}-{size}");
+  const [hybridPrefix, setHybridPrefix] = useState<string>("");
+
+  const applySkuGenerationToGrid = (targetRows: GridRow[]): GridRow[] => {
+    if (skuMode === "manual") return targetRows;
+
+    return targetRows.map(row => {
+      const isBlank = !row.name && !row.styleCode && !row.code && !row.category && Object.keys(row.attributes).length === 0;
+      if (isBlank) return row;
+
+      const colorVal = row.attributes["color"] || row.attributes["Color"] || row.attributes["COLOR"] || "";
+      const sizeVal = row.attributes["size"] || row.attributes["Size"] || row.attributes["SIZE"] || "";
+      const brandVal = row.brand || row.attributes["brand"] || row.attributes["Brand"] || "";
+
+      const computedSku = generateSkuCode({
+        mode: skuMode,
+        hybridPrefix,
+        formatPattern: skuFormatPattern,
+        customTemplate: customSkuTemplate,
+        styleCode: row.styleCode || row.code || row.name,
+        color: colorVal,
+        size: sizeVal,
+        category: row.category,
+        brand: brandVal,
+      });
+
+      const computedBarcode = row.barcode.trim() || `SMR-B${Math.floor(100000 + Math.random() * 900000)}`;
+
+      return {
+        ...row,
+        code: computedSku || row.code,
+        barcode: computedBarcode,
+      };
+    });
+  };
+
+  const handleApplySkuToAllRows = () => {
+    setRows(prev => applySkuGenerationToGrid(prev));
+    onNotification("SKU Auto-Generation Active", `Processed all rows using configured SKU mode: ${skuMode.toUpperCase()}.`, "success");
+  };
+
   const updateFieldConfig = (key: string, patch: Partial<FieldConfig>) => {
     const nextConfigs = fieldConfigs.map((config) =>
       config.key === key ? { ...config, ...patch } : config
@@ -341,24 +386,60 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
     setRows(prev => prev.filter((_, i) => i !== idx));
   };
 
+  // Auto-recalculate grid row SKUs whenever SKU mode or pattern changes
+  useEffect(() => {
+    if (skuMode === "manual") return;
+    setRows(prev => applySkuGenerationToGrid(prev));
+  }, [skuMode, skuFormatPattern, customSkuTemplate, hybridPrefix]);
+
   const handleCellChange = (rowIndex: number, field: string, val: string) => {
     setRows(prev => {
       const updated = prev.map((row, idx) => {
         if (idx !== rowIndex) return row;
+        let nextRow = { ...row };
         if (field.startsWith("attr_")) {
           const attrName = field.substring(5);
-          return {
+          nextRow = {
             ...row,
             attributes: {
               ...row.attributes,
               [attrName]: val
             }
           };
+        } else {
+          nextRow = {
+            ...row,
+            [field]: val
+          };
         }
-        return {
-          ...row,
-          [field]: val
-        };
+
+        // Auto-recalculate SKU Code & Barcode if skuMode is not manual
+        if (skuMode !== "manual" && (nextRow.styleCode || nextRow.name || Object.keys(nextRow.attributes).length > 0)) {
+          const colorVal = nextRow.attributes["color"] || nextRow.attributes["Color"] || nextRow.attributes["COLOR"] || "";
+          const sizeVal = nextRow.attributes["size"] || nextRow.attributes["Size"] || nextRow.attributes["SIZE"] || "";
+          const brandVal = nextRow.brand || nextRow.attributes["brand"] || nextRow.attributes["Brand"] || "";
+
+          const computedSku = generateSkuCode({
+            mode: skuMode,
+            hybridPrefix,
+            formatPattern: skuFormatPattern,
+            customTemplate: customSkuTemplate,
+            styleCode: nextRow.styleCode || nextRow.code || nextRow.name,
+            color: colorVal,
+            size: sizeVal,
+            category: nextRow.category,
+            brand: brandVal,
+          });
+
+          if (computedSku) {
+            nextRow.code = computedSku;
+          }
+          if (!nextRow.barcode) {
+            nextRow.barcode = `SMR-B${Math.floor(100000 + Math.random() * 900000)}`;
+          }
+        }
+
+        return nextRow;
       });
 
       // Auto-create row if typing in the last row
@@ -522,7 +603,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
           copy.push(createBlankRow());
         }
         
-        return copy;
+        return applySkuGenerationToGrid(copy);
       });
 
       onNotification("Header Paste Mapping Completed", `Mapped and pasted ${dataRows.length} rows using column headers.`, "success");
@@ -569,7 +650,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
         copy.push(createBlankRow());
       }
       
-      return copy;
+      return applySkuGenerationToGrid(copy);
     });
 
     onNotification("Grid Paste Completed", `Pasted ${pastedRows.length} rows from clipboard.`, "success");
@@ -785,6 +866,93 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
             Clear Grid
           </button>
         </div>
+      {/* SMRITI SKU Code Generation Configurator & Engine Bar */}
+      <div className="bg-theme-surface-1 p-4 rounded-2xl border border-indigo-500/30 space-y-3 shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-theme-divider/30 pb-2">
+          <div className="flex items-center space-x-2">
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-indigo-400">
+              Bulk Excel SKU Generation Mode:
+            </span>
+            <div className="flex items-center space-x-1 font-mono text-[11px]">
+              <button
+                type="button"
+                onClick={() => setSkuMode("manual")}
+                className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${skuMode === "manual" ? "bg-indigo-600 text-white" : "bg-theme-surface-2 text-theme-muted hover:text-white"}`}
+              >
+                Manual
+              </button>
+              <button
+                type="button"
+                onClick={() => setSkuMode("hybrid")}
+                className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${skuMode === "hybrid" ? "bg-indigo-600 text-white" : "bg-theme-surface-2 text-theme-muted hover:text-white"}`}
+              >
+                Hybrid
+              </button>
+              <button
+                type="button"
+                onClick={() => setSkuMode("auto")}
+                className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${skuMode === "auto" ? "bg-indigo-600 text-white" : "bg-theme-surface-2 text-theme-muted hover:text-white"}`}
+              >
+                Auto (Formula)
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleApplySkuToAllRows}
+            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold font-mono rounded-lg shadow-md transition-colors cursor-pointer flex items-center space-x-1.5"
+          >
+            <span>⚡ Apply SKU Engine to All Grid Rows</span>
+          </button>
+        </div>
+
+        {skuMode !== "manual" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+            <div>
+              <label className="text-[9px] font-mono text-theme-muted block mb-1">SKU Formula Pattern Format</label>
+              <select
+                value={skuFormatPattern}
+                onChange={(e) => setSkuFormatPattern(e.target.value as SkuFormatPattern)}
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-body focus:outline-none focus:border-indigo-500 font-mono"
+              >
+                {PRESET_SKU_TEMPLATES.map(tmpl => (
+                  <option key={tmpl.id} value={tmpl.id}>
+                    {tmpl.label} ({tmpl.formula})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {skuMode === "hybrid" ? (
+              <div>
+                <label className="text-[9px] font-mono text-theme-muted block mb-1">Hybrid Custom Prefix</label>
+                <input
+                  type="text"
+                  value={hybridPrefix}
+                  onChange={(e) => setHybridPrefix(e.target.value)}
+                  placeholder="e.g. PREFIX-101"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-body focus:outline-none focus:border-indigo-500 font-mono uppercase"
+                />
+              </div>
+            ) : skuFormatPattern === "CUSTOM" ? (
+              <div>
+                <label className="text-[9px] font-mono text-theme-muted block mb-1">Custom Formula Template ({`{style}`}, {`{color}`}, {`{size}`})</label>
+                <input
+                  type="text"
+                  value={customSkuTemplate}
+                  onChange={(e) => setCustomSkuTemplate(e.target.value)}
+                  placeholder="{style}-{color}-{size}"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-body focus:outline-none focus:border-indigo-500 font-mono"
+                />
+              </div>
+            ) : (
+              <div className="flex items-center text-[11px] text-indigo-300 font-mono pt-4">
+                <span>Active Formula: <strong className="text-white font-bold">{skuFormatPattern === "STYLE_COLOR_SIZE" ? "{StyleCode}-{Color}-{Size}" : skuFormatPattern === "STYLE_SIZE_COLOR" ? "{StyleCode}-{Size}-{Color}" : skuFormatPattern === "CAT_STYLE_COLOR_SIZE" ? "{Category}-{StyleCode}-{Color}-{Size}" : "{Brand}-{StyleCode}-{Color}-{Size}"}</strong></span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── How-to-Paste Guide (collapsible) ─────────────────────────────────── */}
