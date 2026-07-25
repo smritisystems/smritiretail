@@ -207,6 +207,12 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Inventory & Sourcing",
     },
     {
+      id: "universal-label-printer",
+      label: "Universal Label Printer",
+      icon: "print",
+      category: "Inventory & Sourcing",
+    },
+    {
       id: "stock-ledger",
       label: "Stock Ledger",
       icon: "inventory",
