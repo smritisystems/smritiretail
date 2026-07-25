@@ -12,7 +12,7 @@
     Designation  : Chief Systems Architect & Creator
     Email        : support@smritibooks.com
     Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-    Version      : 3.33.0
+    Version      : 3.34.0
 #>
 
 [CmdletBinding()]
@@ -32,11 +32,11 @@ function Write-Log {
     Add-Content -Path $LogFile -Value "[$Timestamp] [$Level] $Message" -ErrorAction SilentlyContinue
 
     switch ($Level) {
-        "SUCCESS" { Write-Host "[✓] $Message" -ForegroundColor Green }
-        "WARN"    { Write-Host "[⚠] $Message" -ForegroundColor Yellow }
-        "ERROR"   { Write-Host "[✗] $Message" -ForegroundColor Red }
-        "PROC"    { Write-Host "[→] $Message" -ForegroundColor Cyan }
-        Default   { Write-Host "    $Message" -ForegroundColor White }
+        "SUCCESS" { Write-Host "[OK] $Message" -ForegroundColor Green }
+        "WARN"    { Write-Host "[WARN] $Message" -ForegroundColor Yellow }
+        "ERROR"   { Write-Host "[FAIL] $Message" -ForegroundColor Red }
+        "PROC"    { Write-Host "[PROC] $Message" -ForegroundColor Cyan }
+        Default   { Write-Host "     $Message" -ForegroundColor White }
     }
 }
 

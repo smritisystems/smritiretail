@@ -14,7 +14,7 @@
     Designation  : Chief Systems Architect & Creator
     Email        : support@smritibooks.com
     Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-    Version      : 3.33.0
+    Version      : 3.34.0
     Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
     License      : Proprietary Commercial Software
 #>
@@ -65,11 +65,11 @@ function Write-Log {
     Add-Content -Path $LogFile -Value $LogMessage -ErrorAction SilentlyContinue
 
     switch ($Level) {
-        "SUCCESS" { Write-Host "[✓] $Message" -ForegroundColor Green }
-        "WARN"    { Write-Host "[⚠] $Message" -ForegroundColor Yellow }
-        "ERROR"   { Write-Host "[✗] $Message" -ForegroundColor Red }
-        "PROC"    { Write-Host "[→] $Message" -ForegroundColor Cyan }
-        Default   { Write-Host "    $Message" -ForegroundColor White }
+        "SUCCESS" { Write-Host "[OK] $Message" -ForegroundColor Green }
+        "WARN"    { Write-Host "[WARN] $Message" -ForegroundColor Yellow }
+        "ERROR"   { Write-Host "[FAIL] $Message" -ForegroundColor Red }
+        "PROC"    { Write-Host "[PROC] $Message" -ForegroundColor Cyan }
+        Default   { Write-Host "     $Message" -ForegroundColor White }
     }
 }
 
@@ -77,7 +77,7 @@ function Show-Header {
     Clear-Host
     Write-Host "=====================================================================" -ForegroundColor Green
     Write-Host "                SMRITI RETAIL OS ENTERPRISE INSTALLER                " -ForegroundColor Green
-    Write-Host "        One-Click Automated Docker Cluster Setup (v3.33.0)           " -ForegroundColor Green
+    Write-Host "        One-Click Automated Docker Cluster Setup (v3.34.0)           " -ForegroundColor Green
     Write-Host "=====================================================================" -ForegroundColor Green
     Write-Host ""
 }
@@ -98,7 +98,7 @@ function Test-Prerequisites {
     # Check OS
     $IsWindows = [System.Environment]::OSVersion.Platform -eq "Win32NT"
     if ($IsWindows) {
-        Write-Log "Operating System: Windows detected ([System.Environment]::OSVersion)" -Level "SUCCESS"
+        Write-Log "Operating System: Windows detected" -Level "SUCCESS"
     } else {
         Write-Log "Non-Windows environment detected. Installer optimized for Windows 10/11." -Level "WARN"
     }
@@ -148,18 +148,6 @@ function Test-Prerequisites {
         $FailedPrereqs += "Docker Daemon"
     }
 
-    # Check WSL2 / Virtualization
-    try {
-        $wslStatus = wsl --status 2>&1
-        if ($wslStatus -match "Default Version: 2" -or $wslStatus -match "Kernel") {
-            Write-Log "WSL2 Subsystem: Active and configured" -Level "SUCCESS"
-        } else {
-            Write-Log "WSL2 Subsystem active or default version check noted." -Level "SUCCESS"
-        }
-    } catch {
-        Write-Log "WSL2 status check skipped (Virtualization active under Hyper-V/Docker Engine)." -Level "WARN"
-    }
-
     if ($FailedPrereqs.Count -gt 0) {
         Write-Log "Prerequisite check failed! Missing components: $($FailedPrereqs -join ', ')" -Level "ERROR"
         Write-Log "Please resolve missing prerequisites listed above and re-run install.ps1" -Level "WARN"
@@ -194,7 +182,7 @@ POSTGRES_DB=smriti_retail_db
 DATABASE_PROVIDER=postgres
 SKIP_MIGRATIONS=false
 "@
-            Set-Content -Path $EnvFile -Value $DefaultEnv -Encoding UTF8
+            Set-Content -Path $EnvFile -Value $DefaultEnv -Encoding ASCII
             Write-Log "Generated default .env configuration" -Level "SUCCESS"
         }
     } else {
@@ -224,7 +212,7 @@ SKIP_MIGRATIONS=false
         Write-Log "Generated secure random INTERNAL_SERVICE_KEY" -Level "SUCCESS"
     }
 
-    Set-Content -Path $EnvFile -Value $EnvContent -Encoding UTF8
+    Set-Content -Path $EnvFile -Value $EnvContent -Encoding ASCII
 }
 
 # -----------------------------------------------------------------------------
@@ -370,24 +358,20 @@ try {
     Write-Host ""
     Write-Host " SMRITI Retail OS Cluster is live and operational:" -ForegroundColor White
     Write-Host ""
-    Write-Host "   • SMRITI Retail Operations Workspace : http://localhost:3000" -ForegroundColor Cyan
-    Write-Host "   • SMRITI Platform API Engine Core    : http://localhost:8000" -ForegroundColor Cyan
-    Write-Host "   • API Health Monitoring Status       : http://localhost:8000/health" -ForegroundColor Cyan
+    Write-Host "   - SMRITI Retail Operations Workspace : http://localhost:3000" -ForegroundColor Cyan
+    Write-Host "   - SMRITI Platform API Engine Core    : http://localhost:8000" -ForegroundColor Cyan
+    Write-Host "   - API Health Monitoring Status       : http://localhost:8000/health" -ForegroundColor Cyan
     Write-Host ""
     Write-Host " Default System Authentication Credentials:" -ForegroundColor Yellow
-    Write-Host "   ┌────────────────┬───────────────────┬────────────────────────┐" -ForegroundColor Gray
-    Write-Host "   │ Username       │ Password          │ System Role            │" -ForegroundColor Gray
-    Write-Host "   ├────────────────┼───────────────────┼────────────────────────┤" -ForegroundColor Gray
-    Write-Host "   │ super          │ Smriti@1234       │ System Admin           │" -ForegroundColor Green
-    Write-Host "   │ manager        │ Password@123      │ Store Manager          │" -ForegroundColor Green
-    Write-Host "   │ cashier        │ Cashier@1234      │ POS Cashier            │" -ForegroundColor Green
-    Write-Host "   └────────────────┴───────────────────┴────────────────────────┘" -ForegroundColor Gray
+    Write-Host "   Username: super     Password: Smriti@1234   Role: System Admin" -ForegroundColor Green
+    Write-Host "   Username: manager   Password: Password@123  Role: Store Manager" -ForegroundColor Green
+    Write-Host "   Username: cashier   Password: Cashier@1234  Role: POS Cashier" -ForegroundColor Green
     Write-Host ""
     Write-Host " Management Commands:" -ForegroundColor White
-    Write-Host "   • Stop Cluster   : powershell -File stop.ps1" -ForegroundColor Gray
-    Write-Host "   • Start Cluster  : powershell -File start.ps1" -ForegroundColor Gray
-    Write-Host "   • Status Dashboard: powershell -File status.ps1" -ForegroundColor Gray
-    Write-Host "   • Backup Database : powershell -File backup.ps1" -ForegroundColor Gray
+    Write-Host "   - Stop Cluster   : powershell -File stop.ps1" -ForegroundColor Gray
+    Write-Host "   - Start Cluster  : powershell -File start.ps1" -ForegroundColor Gray
+    Write-Host "   - Status Dashboard: powershell -File status.ps1" -ForegroundColor Gray
+    Write-Host "   - Backup Database : powershell -File backup.ps1" -ForegroundColor Gray
     Write-Host ""
 } catch {
     Write-Host ""
