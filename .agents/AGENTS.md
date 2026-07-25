@@ -77,6 +77,19 @@ Every verification report must structure its conclusions into three explicitly l
 ## 10. Evidence Policy (MANDATORY)
 Every completion claim must be backed by directly observable evidence. If evidence is unavailable, the agent must report the status as "claimed but unverified" rather than marking it complete.
 
+## 11. Workspace UI Navigation Governance (WNG-002)
+1. **Single Purpose Screens**:
+   - **Login**: Authenticates user identity.
+   - **Launchpad**: Renders ONLY authorized application domain tiles (Max 12 tiles).
+   - **Workspace**: Single-domain operational workspace.
+   - **Dashboard**: Analytic views shown ONLY when user explicitly enters that application.
+2. **Role-Based Dynamic Generation**:
+   - Launchpad tiles MUST be generated dynamically from backend RBAC permission scopes.
+   - Disabled/greyed-out application tiles MUST NOT be rendered.
+3. **Consistent UI Structure**:
+   - Master entities MUST implement the **Object Page Pattern** (Fixed summary header + horizontal tabs).
+   - Transaction domains MUST implement the **List Report Pattern** (Filter bar + Search + Actionable Data Table).
+
 ---
 
 
