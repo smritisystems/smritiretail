@@ -126,10 +126,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             </div>
             <div>
               <h2 className="font-display font-bold text-lg text-theme-body leading-none">
-                SMRITI Retail OS
+                SMRITI Business OS v2.0
               </h2>
               <p className="text-xs text-theme-muted mt-1">
-                Enterprise Experience &amp; Operations Login
+                Enterprise Business Platform &amp; Operations Login
               </p>
             </div>
           </div>
