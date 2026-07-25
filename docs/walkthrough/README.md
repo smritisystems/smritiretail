@@ -214,6 +214,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-24 | v4.0.0 | Phase 1 Platform Extension Models (Domains 17, 18, 20) | [Walkthrough](./foundation/Foundation_Phase1_Platform_Extension_Models_v4.0.0.md) | — | Completed |
 | 2026-07-25 | v3.16.0 | Frontend Authentication Error Handling & Connection Resilience | [Walkthrough](./foundation/Foundation_Login_Error_Handling_Fix_v3.16.0.md) | — | Completed |
 | 2026-07-25 | v4.0.0 | Configurable SKU Code Generation Engine (Manual, Hybrid & Auto Formula) | [Walkthrough](./inventory/Inventory_SKU_Code_Generation_Modes_And_Formula_v4.0.0.md) | — | Completed |
+| 2026-07-25 | v3.37.0 | Print Labels Studio & Tattly Threads PRN Integration | [Walkthrough](./inventory/Print_Labels_Enterprise_Studio_v3.37.0.md) | [Plan](../../brain/0baf8c8a-d81a-4554-8da9-eddd5f9cbb78/implementation_plan.md) | Completed |
 
 
 
