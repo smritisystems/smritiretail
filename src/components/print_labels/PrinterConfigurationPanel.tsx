@@ -28,6 +28,7 @@ export interface PrinterConfigurationPanelProps {
   printerProfiles: PrinterProfile[];
   onOpenConfigModal: () => void;
   onRefreshPrinters?: () => void;
+  onSelectPrinter?: (profile: PrinterProfile) => void;
 }
 
 export const PrinterConfigurationPanel: React.FC<PrinterConfigurationPanelProps> = ({
@@ -72,15 +73,29 @@ export const PrinterConfigurationPanel: React.FC<PrinterConfigurationPanelProps>
         </div>
       </div>
 
-      {/* Installed Active Printer Badge */}
-      <div className="bg-[#0a0c14] border border-slate-800 rounded-xl p-2.5 flex items-center justify-between font-mono text-xs">
-        <div>
-          <span className="text-[9px] text-slate-500 block font-bold uppercase">Active Printer Profile</span>
-          <span className="text-amber-300 font-bold">{activePrinter?.name || "Zebra ZD421 Standard"}</span>
+      {/* Installed Active Printer Dropdown & Badge */}
+      <div className="bg-[#0a0c14] border border-slate-800 rounded-xl p-2.5 space-y-1.5 font-mono text-xs">
+        <div className="flex justify-between items-center">
+          <span className="text-[9px] text-slate-500 font-bold uppercase">Select Barcode Printer (USB / TCP IP)</span>
+          <span className="text-[10px] bg-indigo-950/60 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800/40 font-bold">
+            {activePrinter?.dpi || 203} DPI • {activePrinter?.protocol || "ZPL"}
+          </span>
         </div>
-        <span className="text-[10px] bg-indigo-950/60 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800/40 font-bold">
-          {activePrinter?.dpi || 203} DPI • {activePrinter?.protocol || "ZPL"}
-        </span>
+
+        <select 
+          value={activePrinter?.id || ""} 
+          onChange={(e) => {
+            const chosen = printerProfiles.find(p => p.id === e.target.value);
+            if (chosen && onSelectPrinter) onSelectPrinter(chosen);
+          }}
+          className="w-full bg-[#141726] border border-amber-500/40 rounded-lg px-2.5 py-1.5 text-amber-300 font-bold outline-none"
+        >
+          {printerProfiles.map(p => (
+            <option key={p.id} value={p.id}>
+              {p.name} [{p.connectionType === "TCP/IP" ? `IP: ${p.ipAddress || "192.168.1.45"}:${p.port || 9100}` : `USB: ${p.usbPort || "USB001"}`}]
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Checkboxes: Port vs File */}

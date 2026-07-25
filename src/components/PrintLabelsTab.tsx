@@ -395,6 +395,7 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
                 onFilePathChange={setFileOutputPath}
                 activePrinter={activePrinter}
                 printerProfiles={printerProfiles}
+                onSelectPrinter={setActivePrinter}
                 onOpenConfigModal={() => setShowPrinterConfigModal(true)}
               />
 
