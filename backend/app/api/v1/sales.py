@@ -15,7 +15,8 @@ Classification: Internal
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import TenantContext, get_db, get_tenant_context, require_permission
+from ...api.deps import TenantContext, get_db, get_tenant_context, require_permission, require_role
+from ...models.auth import UserRole
 from ...repositories.sales import SalesInvoiceRepository
 from ...schemas.sales import (
     SalesInvoiceCreate,
@@ -102,6 +103,24 @@ async def get_sales_invoice_contract(
     service = SalesService(db, tenant_ctx)
     invoice, _ = await service.get_sales_invoice(invoice_id)
     return invoice
+
+
+@router.delete(
+    "/invoices/{invoice_id}",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+@router.delete(
+    "/{invoice_id}",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def delete_sales_invoice_contract(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Soft-delete a sales invoice. Requires Manager/Admin role."""
+    await SalesService(db, tenant_ctx).delete_sales_invoice(invoice_id)
+    return {"success": True, "invoice_id": invoice_id, "status": "Cancelled"}
 
 
 # ─────────────────────────── Sales Quotation ───────────────────────────

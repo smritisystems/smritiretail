@@ -47,21 +47,32 @@ class SalesInvoice(RowSecuredMixin, BaseEntity):
     payments = relationship("SalesPayment", back_populates="invoice", cascade="all, delete-orphan", lazy="selectin")
 
 
-class SalesInvoiceItem(BaseEntity):
+class SalesInvoiceItem(Base):
     """
     SalesInvoiceItem — Individual product line item in a SalesInvoice.
     """
     __tablename__ = "sales_invoice_items"
 
+    id = Column(Integer, primary_key=True, autoincrement=True)
     invoice_id     = Column(String(50), ForeignKey("sales_invoices.id", ondelete="CASCADE"), nullable=False)
     product_id     = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
-    quantity       = Column(Numeric(12, 4), nullable=False)
-    unit_price     = Column(Numeric(15, 2), nullable=False)
+    code           = Column(String(50), nullable=False, default="")
+    name           = Column(String(255), nullable=False, default="")
+    quantity       = Column(Numeric(12, 4), nullable=False, default=Decimal("1.0000"))
+    unit_price     = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    price          = Column(Numeric(15, 2), nullable=True)
+    hsn_code       = Column(String(15), nullable=True)
+    gst_rate       = Column(Numeric(5, 2), nullable=False, default=Decimal("0.00"))
     gst_percentage = Column(Numeric(5, 2), nullable=False, default=Decimal("0.00"))
+    tax_amount     = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
     cgst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
     sgst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
     igst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
-    line_total     = Column(Numeric(15, 2), nullable=False)
+    line_total     = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    total_amount   = Column(Numeric(15, 2), nullable=True)
+    tenant_id      = Column(String(50), nullable=True, index=True)
+    company_id     = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True)
+    branch_id      = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True)
 
     invoice = relationship("SalesInvoice", back_populates="items")
     product = relationship("Product")
@@ -158,12 +169,13 @@ class SalesReturn(RowSecuredMixin, BaseEntity):
     items    = relationship("SalesReturnItem", back_populates="return_order", cascade="all, delete-orphan", lazy="selectin")
 
 
-class SalesReturnItem(BaseEntity):
+class SalesReturnItem(Base):
     """
     SalesReturnItem — Individual returned product item line.
     """
     __tablename__ = "sales_return_items"
 
+    id = Column(Integer, primary_key=True, autoincrement=True)
     return_id      = Column(String(50), ForeignKey("sales_returns.id", ondelete="CASCADE"), nullable=False)
     product_id     = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
     code           = Column(String(50), nullable=False, default="")
@@ -171,13 +183,15 @@ class SalesReturnItem(BaseEntity):
     quantity       = Column(Numeric(12, 4), nullable=False, default=Decimal("1.0000"))
     price          = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
     gst_rate       = Column(Numeric(5, 2), nullable=False, default=Decimal("0.00"))
-    hsn_code       = Column(String(15), nullable=True)
     tax_amount     = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
     total_amount   = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
     cgst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
     sgst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
     igst_amount    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
     condition      = Column(String(30), nullable=False, default="Restockable")  # Restockable, Damaged
+    tenant_id      = Column(String(50), nullable=True, index=True)
+    company_id     = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True)
+    branch_id      = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True)
 
     return_order = relationship("SalesReturn", back_populates="items")
     product      = relationship("Product")

@@ -158,6 +158,7 @@ async def _make_customer(db_session, suffix: str, company_id: str, branch_id: st
 
     customer = Customer(
         id=f"cust-sal-{suffix}",
+        code=f"CUST-SAL-{suffix}",
         customer_group_id=group.id,
         name=f"Sales Customer {suffix}",
         outstanding=Decimal("0.00"),
@@ -1068,9 +1069,11 @@ async def test_workflow_approve_sales_invoice(db_session):
     s = _u.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, f"wf{s}")
     manager = await _make_manager(db_session, f"wfm{s}", comp.id, br.id)
+    cust = await _make_customer(db_session, f"wf{s}", comp.id, br.id)
     invoice = SalesInvoice(
         id=f"inv-wf-{s}", invoice_no=f"INV-WF-{s}",
-        payment_mode="Cash", status="Draft",
+        customer_id=cust.id,
+        status="Draft",
         tax_total="0", grand_total="100",
         company_id=comp.id, branch_id=br.id,
     )
@@ -1094,9 +1097,11 @@ async def test_workflow_cancel_sales_invoice(db_session):
     s = _u.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, f"wfc{s}")
     manager = await _make_manager(db_session, f"wfcm{s}", comp.id, br.id)
+    cust = await _make_customer(db_session, f"wfc{s}", comp.id, br.id)
     invoice = SalesInvoice(
         id=f"inv-wfc-{s}", invoice_no=f"INV-WFC-{s}",
-        payment_mode="Cash", status="Draft",
+        customer_id=cust.id,
+        status="Draft",
         tax_total="0", grand_total="50",
         company_id=comp.id, branch_id=br.id,
     )
@@ -1168,6 +1173,7 @@ async def test_sales_invoice_credit_limit_exceeded(db_session):
     )
     cust = Customer(
         id=f"cust-{s}",
+        code=f"CUST-{s}",
         name=f"Credit Cust {s}",
         customer_group_id=group.id,
         outstanding=Decimal("450.00"),

@@ -29,6 +29,7 @@ from ..models.sales import (
     SalesReturn, SalesReturnItem,
 )
 from ..models.inventory import Product, StockMovement
+from ..models.crm import Customer
 from ..schemas.sales import (
     SalesInvoiceCreate,
     SalesInvoiceUpdate,
@@ -172,13 +173,16 @@ class SalesService:
         db_payments = []
         for p_in in invoice_in.payments:
             pay_id = f"PMT-{_uid()}"
+            tx_no = getattr(p_in, "transaction_no", None) or getattr(p_in, "reference_no", None)
             db_pmt = SalesInvoicePayment(
                 id=pay_id,
                 uuid=str(uuid.uuid4()),
+                payment_no=f"PAY-{_uid()[:8].upper()}",
                 invoice_id=invoice_id,
+                customer_id=invoice_in.customer_id,
                 payment_mode=p_in.payment_mode,
                 amount=p_in.amount,
-                transaction_no=p_in.transaction_no,
+                reference_no=tx_no,
                 tenant_id=self.tenant_ctx.tenant_id,
                 company_id=self.tenant_ctx.company_id,
                 branch_id=self.tenant_ctx.branch_id
@@ -193,10 +197,12 @@ class SalesService:
             db_pmt = SalesInvoicePayment(
                 id=pay_id,
                 uuid=str(uuid.uuid4()),
+                payment_no=f"PAY-{_uid()[:8].upper()}",
                 invoice_id=invoice_id,
+                customer_id=invoice_in.customer_id,
                 payment_mode=_fallback_mode,
                 amount=calculated_grand_total,
-                transaction_no=None,
+                reference_no=None,
                 tenant_id=self.tenant_ctx.tenant_id,
                 company_id=self.tenant_ctx.company_id,
                 branch_id=self.tenant_ctx.branch_id
@@ -206,23 +212,18 @@ class SalesService:
         else:
             cached_payment_mode = "MIXED" if len(payment_modes) > 1 else list(payment_modes)[0]
 
-        # 5. Save Sales Invoice & items
         db_invoice = SalesInvoice(
             id=invoice_id,
             invoice_no=invoice_in.invoice_no,
-            date=invoice_in.date,
+            invoice_date=invoice_in.date or datetime.now(timezone.utc),
             customer_id=invoice_in.customer_id,
             tax_total=calculated_tax_total,
             grand_total=calculated_grand_total,
-            is_interstate=invoice_in.is_interstate,
-            eway_bill_no=invoice_in.eway_bill_no,
+            cgst_amount=calculated_cgst_total,
+            sgst_amount=calculated_sgst_total,
+            igst_amount=calculated_igst_total,
             status=invoice_in.status,
             items=invoice_items,
-            place_of_supply=invoice_in.place_of_supply or "27",
-            cgst_total=calculated_cgst_total,
-            sgst_total=calculated_sgst_total,
-            igst_total=calculated_igst_total,
-            payment_mode=cached_payment_mode,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id
         )
@@ -290,6 +291,22 @@ class SalesService:
         if not invoice:
             raise HTTPException(status_code=404, detail="Sales invoice not found")
         return invoice, invoice.items
+
+    async def delete_sales_invoice(self, invoice_id: str) -> None:
+        inv_res = await self.db.execute(
+            select(SalesInvoice).where(
+                SalesInvoice.id == invoice_id,
+                SalesInvoice.company_id == self.tenant_ctx.company_id,
+                SalesInvoice.branch_id == self.tenant_ctx.branch_id,
+                SalesInvoice.is_deleted == False
+            )
+        )
+        invoice = inv_res.scalars().first()
+        if not invoice:
+            raise HTTPException(status_code=404, detail="Sales invoice not found")
+        invoice.is_deleted = True
+        invoice.status = "Cancelled"
+        await self.db.commit()
 
     # ──────────────────────────────────────────────────────────────
     # Sales Quotation
@@ -1109,13 +1126,36 @@ class SalesService:
 
         # Build invoice from quotation
         invoice_id = _uid()
+        cust_id = getattr(quotation, "customer_id", None)
+        if not cust_id:
+            c_res = await self.db.execute(
+                select(Customer.id).where(
+                    Customer.company_id == self.tenant_ctx.company_id,
+                    Customer.branch_id == self.tenant_ctx.branch_id,
+                    Customer.is_deleted == False
+                )
+            )
+            cust_id = c_res.scalars().first()
+        if not cust_id:
+            cust_id = f"cust-walkin-{self.tenant_ctx.branch_id}"
+            new_cust = Customer(
+                id=cust_id,
+                code=f"CUST-WALKIN-{self.tenant_ctx.branch_id[:6]}",
+                name=getattr(quotation, "customer_name", None) or "Walk-in Customer",
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                tenant_id=self.tenant_ctx.tenant_id
+            )
+            self.db.add(new_cust)
+            await self.db.flush()
+
         invoice = SalesInvoice(
             id           = invoice_id,
             company_id   = self.tenant_ctx.company_id,
             branch_id    = self.tenant_ctx.branch_id,
+            customer_id  = cust_id,
             invoice_no   = f"INV-{invoice_id[:6].upper()}",
             status       = "Draft",
-            payment_mode = "Cash",
             tax_total    = Decimal("0.00"),
             grand_total  = quotation.grand_total or Decimal("0.00"),
         )

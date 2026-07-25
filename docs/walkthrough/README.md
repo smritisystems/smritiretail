@@ -30,6 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-07-26 | v3.29.0 | Sales & POS Verification Report | [Walkthrough](./sales/Sales_POS_Verification_v3.29.0.md) | [Plan](../../brain/8cff0196-7616-41be-a58d-dba8209ecbae/implementation_plan.md) | Completed |
 | 2026-07-26 | v3.37.0 | Full Module Task Completion & SMRITI v2.0 Compliance | [Walkthrough](./foundation/Full_Module_Task_Completion_v3.37.0.md) | [Plan](../../brain/8cff0196-7616-41be-a58d-dba8209ecbae/implementation_plan.md) | Completed |
 | 2026-07-25 | v3.36.0 | Dedicated Print Labels Sidebar Menu | [Walkthrough](./inventory/Print_Labels_Dedicated_Sidebar_Menu_v3.36.0.md) | [Plan](../../brain/0baf8c8a-d81a-4554-8da9-eddd5f9cbb78/implementation_plan.md) | Completed |
 | 2026-07-25 | v3.35.0 | Barcode Standard Printer USB & TCP/IP Config | [Walkthrough](./inventory/Barcode_Standard_Printer_USB_TCPIP_Config_v3.35.0.md) | [Plan](../../brain/0baf8c8a-d81a-4554-8da9-eddd5f9cbb78/implementation_plan.md) | Completed |
@@ -215,13 +216,6 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-24 | v4.0.0 | Phase 1 Platform Extension Models (Domains 17, 18, 20) | [Walkthrough](./foundation/Foundation_Phase1_Platform_Extension_Models_v4.0.0.md) | — | Completed |
 | 2026-07-25 | v3.16.0 | Frontend Authentication Error Handling & Connection Resilience | [Walkthrough](./foundation/Foundation_Login_Error_Handling_Fix_v3.16.0.md) | — | Completed |
 | 2026-07-25 | v4.0.0 | Configurable SKU Code Generation Engine (Manual, Hybrid & Auto Formula) | [Walkthrough](./inventory/Inventory_SKU_Code_Generation_Modes_And_Formula_v4.0.0.md) | — | Completed |
-| 2026-07-25 | v3.37.0 | Print Labels Studio & Tattly Threads PRN Integration | [Walkthrough](./inventory/Print_Labels_Enterprise_Studio_v3.37.0.md) | [Plan](../../brain/0baf8c8a-d81a-4554-8da9-eddd5f9cbb78/implementation_plan.md) | Completed |
-
-
-
-
-
-
 
 
 
