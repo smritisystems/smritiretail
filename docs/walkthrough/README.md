@@ -30,6 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-07-25 | v3.32.0 | Barcode Studio V2.4a Enterprise Spec | [Walkthrough](./inventory/Barcode_Studio_V2.4a_Upgrade_v3.32.0.md) | — | Completed |
 | 2026-07-25 | v3.31.5 | Inventory Data Grid Expand Cell | [Walkthrough](./inventory/Inventory_Expand_Cell_Capability_v3.31.5.md) | — | Completed |
 | 2026-07-22 | v1.0.0 | SMRITI Enterprise Architecture Guardian | [Walkthrough](./foundation/SMRITI_Enterprise_Architecture_Guardian_v1.0.0.md) | [Plan](../implementation/foundation/SMRITI_Enterprise_Architecture_Guardian_v1.0.0.md) | Completed |
 | 2026-07-10 | v2.1.1 | Sales Studio Expansion | [Walkthrough](./sales/Sales_Studio_Expansion_Walkthrough_v2.1.1.md) \| [Consolidated](./CONSOLIDATED_WALKTHROUGHS.md#2026-07-10-v211--sales-studio-expansion) | [Plan](../implementation/sales/Sales_Studio_Expansion_Plan_v2.1.1.md) | Completed |
