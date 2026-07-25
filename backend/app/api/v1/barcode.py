@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -642,3 +642,64 @@ async def save_printer_settings(
         "usb_target": req.usb_target
     }
 
+
+# ── Barcode Label Raw Print Dispatch Endpoint ─────────────────────────────────
+# Sends raw ZPL / TSPL / XPML script directly to a TCP/IP thermal printer
+# via Python raw socket on port 9100. No QZ Tray, no Windows driver needed.
+# Called by qzTrayService.ts Mode 1 (TCP/IP Network Printer).
+
+class RawPrintDispatchRequest:
+    """Inline schema — parsed manually from Body dict to avoid circular imports."""
+    pass
+
+@router.post("/dispatch")
+async def dispatch_raw_print_job(
+    request: dict = Body(...),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Dispatch raw ZPL/TSPL/XPML script to a TCP/IP thermal barcode printer.
+    Opens a direct raw socket connection to printer_ip:printer_port and streams
+    the raw_payload bytes. Works with Zebra, TSC, Godex, Brother, and any
+    RFC-2910 compatible thermal printer with Ethernet or Wi-Fi.
+    """
+    printer_ip: str = request.get("printer_ip", "")
+    printer_port: int = int(request.get("printer_port", 9100))
+    raw_payload: str = request.get("raw_payload", "")
+    copies: int = int(request.get("copies", 1))
+
+    if not printer_ip:
+        raise HTTPException(status_code=400, detail="printer_ip is required")
+    if not raw_payload:
+        raise HTTPException(status_code=400, detail="raw_payload is required")
+
+    errors = []
+    sent_bytes = 0
+
+    for copy_num in range(copies):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(5.0)
+                sock.connect((printer_ip, printer_port))
+                payload_bytes = raw_payload.encode("utf-8", errors="replace")
+                sock.sendall(payload_bytes)
+                sent_bytes += len(payload_bytes)
+        except socket.timeout:
+            errors.append(f"Copy {copy_num + 1}: Connection timed out to {printer_ip}:{printer_port}")
+        except ConnectionRefusedError:
+            errors.append(f"Copy {copy_num + 1}: Printer refused connection at {printer_ip}:{printer_port}")
+        except OSError as e:
+            errors.append(f"Copy {copy_num + 1}: Network error: {str(e)}")
+
+    if errors and sent_bytes == 0:
+        raise HTTPException(status_code=502, detail=f"Print dispatch failed: {'; '.join(errors)}")
+
+    return {
+        "success": True,
+        "printer_ip": printer_ip,
+        "printer_port": printer_port,
+        "copies_requested": copies,
+        "bytes_sent": sent_bytes,
+        "warnings": errors if errors else None,
+        "message": f"Dispatched {copies} label(s) to {printer_ip}:{printer_port} ({sent_bytes} bytes)"
+    }
