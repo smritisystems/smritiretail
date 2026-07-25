@@ -407,9 +407,11 @@ export function resolvePRNScriptForContainer(
       case "Department":
         if (rule.matchValue === "*" || (item.department && item.department.toLowerCase() === rule.matchValue.toLowerCase())) match = true;
         break;
-      case "Vendor":
-        if (rule.matchValue === "*" || ((item.vendor || item.supplier) && (item.vendor || item.supplier).toLowerCase() === rule.matchValue.toLowerCase())) match = true;
+      case "Vendor": {
+        const v = item.vendor || item.supplier;
+        if (rule.matchValue === "*" || (v && v.toLowerCase() === rule.matchValue.toLowerCase())) match = true;
         break;
+      }
       case "Company":
         match = true;
         break;
