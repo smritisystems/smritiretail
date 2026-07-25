@@ -10,7 +10,7 @@
  */
 
 import React from "react";
-import { Eye, FileCode, Printer } from "lucide-react";
+import { Eye, FileCode, Printer, Download, FolderOpen } from "lucide-react";
 import { UniversalLabelItem, PrinterProfile } from "../../services/universalLabelPrinterService.ts";
 import { BarcodeLabel } from "../../print_engine/templates/BarcodeLabel.tsx";
 
@@ -21,6 +21,8 @@ export interface SelectedItemPreviewProps {
   itemIndex: number;
   totalItems: number;
   onPrintSelected?: () => void;
+  onOpenPRNFile?: () => void;
+  onSavePRNFile?: () => void;
 }
 
 export const SelectedItemPreview: React.FC<SelectedItemPreviewProps> = ({
@@ -28,7 +30,10 @@ export const SelectedItemPreview: React.FC<SelectedItemPreviewProps> = ({
   activePrinter,
   evaluatedPRNPayload,
   itemIndex,
-  totalItems
+  totalItems,
+  onPrintSelected,
+  onOpenPRNFile,
+  onSavePRNFile
 }) => {
   return (
     <div className="bg-[#141726] border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl flex-1 flex flex-col font-mono text-xs">
@@ -88,6 +93,30 @@ export const SelectedItemPreview: React.FC<SelectedItemPreviewProps> = ({
               <pre className="text-amber-300 max-h-20 overflow-x-auto bg-black/60 p-2 rounded font-mono">
                 {evaluatedPRNPayload}
               </pre>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              {onOpenPRNFile && (
+                <button 
+                  type="button" 
+                  onClick={onOpenPRNFile}
+                  className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs border border-slate-700 shadow-md flex items-center justify-center gap-1.5"
+                  title="Open a PRN / ZPL file from computer"
+                >
+                  <FolderOpen size={14} className="text-amber-400" /> Open PRN File
+                </button>
+              )}
+
+              {onSavePRNFile && (
+                <button 
+                  type="button" 
+                  onClick={onSavePRNFile}
+                  className="flex-1 py-2 bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-200 font-bold rounded-xl text-xs border border-indigo-800/40 shadow-md flex items-center justify-center gap-1.5"
+                  title="Save evaluated PRN script to local file"
+                >
+                  <Download size={14} className="text-indigo-400" /> Save PRN File
+                </button>
+              )}
             </div>
 
             {onPrintSelected && (

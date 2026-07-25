@@ -9,10 +9,10 @@
  * License    : Proprietary Commercial Software
  */
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { 
   Printer, Tag, Sliders, GitMerge, QrCode, History, 
-  Folder, Layers, AlertTriangle, CheckCircle2, Play, RefreshCw, X
+  Folder, Layers, AlertTriangle, CheckCircle2, Play, RefreshCw, X, FolderOpen, Download 
 } from "lucide-react";
 import { 
   UniversalLabelItem, PrinterProfile, 
@@ -104,6 +104,8 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
 
   // Top Section: Template Script File & Multi-Track Roll Configuration
   const [scriptFileName, setScriptFileName] = useState<string>("C:\\smriti9\\templates\\tattly_threads_default.prn");
+  const [customPRNScript, setCustomPRNScript] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [labelsPerRow, setLabelsPerRow] = useState<number>(1);
 
   // Left Panel States
@@ -248,14 +250,11 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
     return filteredQueue.reduce((acc, i) => acc + ((i.label_copies || 1) * copiesMultiplier), 0);
   }, [filteredQueue, quantityStrategy, currentStockTotal, totalRecords, copiesMultiplier]);
 
-  // Evaluated PRN code: uses renderSLPEPRNScript with the actual matched rule
-  // templateScript body or the system default Tattly Threads PRN template.
+  // Evaluated PRN code: uses custom loaded PRN file, or matched rule templateScript, or default Tattly Threads template.
   const evaluatedPRNPayload = useMemo(() => {
     if (!activeSelectedItem) return "; Select an item to evaluate tag script";
     const resolved = resolvePRNMappingForRule(activeSelectedItem);
-    // BUG FIX: resolved returns { rule, matchedTier } — script is on rule.templateScript
-    // MASTER_PRN_SCRIPTS field is .prnScript, not .rawScript
-    const templateScript = resolved.rule.templateScript || MASTER_PRN_SCRIPTS[0]?.prnScript || "";
+    const templateScript = customPRNScript || resolved.rule.templateScript || MASTER_PRN_SCRIPTS[0]?.prnScript || "";
     if (!templateScript) {
       // Fallback: use driver stub for protocols with no raw PRN template
       const driver = PrinterDriverFactory.getDriver(activePrinter?.protocol || resolved.rule.protocol);
@@ -268,7 +267,7 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
       return result.rawPayload;
     }
     return renderSLPEPRNScript(templateScript, activeSelectedItem, copiesMultiplier, currentUser?.name || "System Clerk");
-  }, [activeSelectedItem, activePrinter, currentUser, copiesMultiplier]);
+  }, [activeSelectedItem, activePrinter, currentUser, copiesMultiplier, customPRNScript]);
 
   // Pre-Flight Readiness Report
   const preflightReport: LabelPreflightReport = useMemo(() => {
@@ -341,6 +340,49 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
     }
   };
 
+  const handleOpenPRNFileClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (text) {
+        setCustomPRNScript(text);
+        setScriptFileName(file.name);
+        if (onNotification) {
+          onNotification("File Loaded", `Successfully opened '${file.name}' (${text.length} bytes)`, "success");
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleSavePRNFile = () => {
+    if (!evaluatedPRNPayload) return;
+    const stockNo = activeSelectedItem?.stock_no || "000001";
+    const filename = `tag_${stockNo}_${new Date().toISOString().slice(0, 10)}.prn`;
+    const blob = new Blob([evaluatedPRNPayload], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    if (onNotification) {
+      onNotification("File Saved", `Downloaded label script file: ${filename}`, "success");
+    }
+  };
+
   const handleClear = () => {
     setCriteria({
       stockNoFrom: "", stockNoTo: "", barcodeFrom: "", barcodeTo: "", productFrom: "ALL", productTo: "ALL",
@@ -351,6 +393,7 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
       warehouseFrom: "", warehouseTo: "", locationFrom: "", locationTo: "", hsnFrom: "", hsnTo: ""
     });
     setActiveItemIndex(0);
+    setCustomPRNScript(null);
   };
 
   return (
@@ -401,8 +444,40 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Hidden File Input for Opening Custom .prn / .zpl Files */}
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileSelected} 
+            accept=".prn,.zpl,.txt,.blf" 
+            className="hidden" 
+          />
+
           <span className="text-[10px] text-slate-400 uppercase font-bold">Template Script:</span>
-          <input type="text" value={scriptFileName} onChange={e => setScriptFileName(e.target.value)} className="bg-[#0a0c14] border border-slate-800 rounded px-2 py-0.5 text-amber-300 text-[11px] w-48" />
+          <input 
+            type="text" 
+            value={scriptFileName} 
+            onChange={e => setScriptFileName(e.target.value)} 
+            className="bg-[#0a0c14] border border-slate-800 rounded px-2 py-0.5 text-amber-300 text-[11px] w-44 font-bold" 
+          />
+
+          <button 
+            type="button" 
+            onClick={handleOpenPRNFileClick}
+            className="px-2.5 py-1 bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 text-[11px] font-bold rounded border border-amber-800/40 flex items-center gap-1 shadow"
+            title="Open PRN / ZPL file from your computer"
+          >
+            <FolderOpen size={12} /> Open File
+          </button>
+
+          <button 
+            type="button" 
+            onClick={handleSavePRNFile}
+            className="px-2.5 py-1 bg-indigo-950/40 hover:bg-indigo-900/60 text-indigo-300 text-[11px] font-bold rounded border border-indigo-800/40 flex items-center gap-1 shadow"
+            title="Save evaluated PRN script to file"
+          >
+            <Download size={12} /> Save File
+          </button>
         </div>
       </div>
 
@@ -483,6 +558,8 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
                 itemIndex={activeItemIndex}
                 totalItems={filteredQueue.length}
                 onPrintSelected={handlePrintSelected}
+                onOpenPRNFile={handleOpenPRNFileClick}
+                onSavePRNFile={handleSavePRNFile}
               />
             </div>
           </div>
