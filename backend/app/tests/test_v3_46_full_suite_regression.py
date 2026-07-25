@@ -95,7 +95,7 @@ async def test_full_platform_v3_46_integrated_suite(db_session):
     assert reconciled[0].reconciliation_status == "MATCHED"
 
     # 4. PIE Barcode & SKU Assignment
-    prod_reg = Product(id="prod-reg-01", name="Regression Item", sku="SKU-REG-SUITE-001", price=Decimal("100.00"), is_active=True)
+    prod_reg = Product(id="prod-reg-01", code="PROD-REG-01", name="Regression Item", category="General", barcode="8901000999999", sku="SKU-REG-SUITE-001", price=Decimal("100.00"), is_active=True)
     db_session.add(prod_reg)
     await db_session.commit()
 
