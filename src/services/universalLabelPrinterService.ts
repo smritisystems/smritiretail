@@ -139,24 +139,108 @@ export interface PrinterProfile {
 export const MASTER_PRN_SCRIPTS: PRNScriptMaster[] = [
   {
     scriptCode: "ZPL001",
-    scriptName: "Zebra 50x25 Product Tag",
+    scriptName: "Tattly Threads Multi-Track Garment & Footwear Tag (50.7mm Pitch)",
     printerBrand: "Zebra",
-    printerModel: "ZD421 / ZT230",
+    printerModel: "ZD421 / ZT230 / Universal ZPL",
     scriptType: "ZPL",
-    paperSize: "50x25",
+    paperSize: "50.7mm Pitch Multi-Track",
     dpi: 203,
     orientation: "Landscape",
     active: true,
     isDefault: true,
-    version: "3.34.0",
-    prnScript: `^XA
-^FO30,20^A0N,24,24^FD{{Brand}} - {{Category}}^FS
-^FO30,50^A0N,20,20^FD{{ItemName}}^FS
-^FO30,80^BY2,2.0,50^BCN,50,Y,N,N^FD{{Barcode}}^FS
-^FO30,155^A0N,22,22^FDSell: RS.{{SellingPrice}}  MRP: RS.{{MRP}}^FS
-^FO30,185^A0N,18,18^FDSize: {{Size}} Color: {{Color}} HSN: {{HSN}}^FS
-^PQ{{Quantity}}
-^XZ`
+    version: "3.37.0",
+    prnScript: `<xpml><page quantity='0' pitch='50.7 mm'></xpml>^XA
+^SZ2^JMA
+^MCY^PMN
+^PW804
+^JZY
+^LH0,0^LRN
+^XZ
+<xpml></page></xpml><xpml><page quantity='1' pitch='50.7 mm'></xpml>^XA
+^FO346,305
+^BY2^BCN,66,N,N^FD{barcode}^FS
+^FT390,385
+^CI0
+^AAN,27,15^FD{barcode}^FS
+^FT772,357
+^A0B,34,46^FDTATTLY THREADS^FS
+^FT355,271
+^ADN,18,10^FD81,Umerkhadi,Mumbai,400003^FS
+^FT355,289
+^ADN,18,10^FDcare@tattlythreads.com^FS
+^FO627,62
+^GB70,67,67^FS
+^FT627,116
+^A0N,65,72^FR^FD{size}^FS
+^FT405,111
+^A0N,37,49^FD{color}^FS
+^FO416,15
+^GB284,47,47^FS
+^FT416,54
+^A0N,45,44^FR^FD{style}     ^FS
+^FO332,13
+^GB367,117,3^FS
+^FO334,57
+^GB337,0,3^FS
+^FT490,199
+^A0N,17,23^FD |(Incl of all taxes)^FS
+^FT488,175
+^A0N,42,56^FD{mrp}/-^FS
+^FT408,170
+^A0N,28,38^FDMRP:^FS
+^FT355,199
+^A0N,17,23^FDMFG.Dt.:{pkd_date}^FS
+^FT355,215
+^ABN,11,7^FDNET CONTENTS:1 Pair Footwear^FS
+^FT340,41
+^A0N,17,23^FDArt.No.^FS
+^FT340,103
+^A0N,17,23^FDColor:^FS
+^FO34,112
+^BY1^BCN,30,N,N^FD{barcode}^FS
+^FT26,165
+^A0N,25,34^FD{barcode}^FS
+^FO37,47
+^GB70,67,67^FS
+^FT37,101
+^A0N,65,72^FR^FD{size}^FS
+^FT116,63
+^A0N,28,38^FD{color}^FS
+^FT37,34
+^A0N,28,27^FD{style}^FS
+^FT17,146
+^ABB,11,7^FDTATTLY THREADS^FS
+^FT116,84
+^A0N,20,27^FDMRP:{mrp}/-^FS
+^FT116,101
+^A0N,17,23^FD(Incl of all taxes)^FS
+^FO33,338
+^BY1^BCN,30,N,N^FD{barcode}^FS
+^FT26,394
+^A0N,25,34^FD{barcode}^FS
+^FO33,274
+^GB70,67,67^FS
+^FT33,328
+^A0N,65,72^FR^FD{size}^FS
+^FT116,289
+^A0N,28,38^FD{color}^FS
+^FT33,260
+^A0N,28,27^FD{style}^FS
+^FT16,372
+^ABB,11,7^FDTATTLY THREADS^FS
+^FT116,310
+^A0N,20,27^FDMRP:{mrp}/-^FS
+^FT116,327
+^A0N,17,23^FD(Incl of all taxes)^FS
+^FO731,0
+^GB0,405,3^FS
+^FO324,236
+^GB407,0,3^FS
+^FT355,261
+^A0N,20,27^FDMKTD.By:Tattly Threads^FS
+^PQ{Quantity},0,1,Y
+^XZ
+<xpml></page></xpml><xpml><end/></xpml>`
   },
   {
     scriptCode: "TSPL002",
@@ -443,6 +527,7 @@ export function extractLabelTokens(item: UniversalLabelItem, qty: number = 1, co
     size: item.size || "M",
     MfgDate: item.mfg_date || now.toISOString().split("T")[0],
     mfg_date: item.mfg_date || now.toISOString().split("T")[0],
+    pkd_date: item.mfg_date || (item as any).pkd_date || now.toISOString().split("T")[0],
     ExpiryDate: item.expiry_date || "2028-12-31",
     expiry_date: item.expiry_date || "2028-12-31",
     StockQty: String(item.stock_qty || 0),
@@ -458,8 +543,23 @@ export function extractLabelTokens(item: UniversalLabelItem, qty: number = 1, co
     Customer: item.customer || "General Retail Customer",
     Quantity: String(qty),
     qty: String(qty),
+    COPIES: String(qty),
+    copies: String(qty),
     Style: styleVal || item.item_code || "STYLE-01",
     style: styleVal || item.item_code || "STYLE-01",
+    STYLE: styleVal || item.item_code || "STYLE-01",
+    Color: item.color || item.shade || "Standard",
+    color: item.color || item.shade || "Standard",
+    COLOR: item.color || item.shade || "Standard",
+    Shade: item.shade || item.color || "Standard",
+    shade: item.shade || item.color || "Standard",
+    SHADE: item.shade || item.color || "Standard",
+    Size: item.size || "M",
+    size: item.size || "M",
+    SIZE: item.size || "M",
+    Barcode: item.barcode || "8901234560000",
+    barcode: item.barcode || "8901234560000",
+    BARCODE: item.barcode || "8901234560000",
     Company: "SMRITI RETAIL ENTERPRISE",
     PrintDate: now.toLocaleDateString(),
     PrintedBy: contextUser,

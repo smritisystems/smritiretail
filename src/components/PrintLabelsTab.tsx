@@ -3,38 +3,44 @@
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
  *
- * Founders
- *
- * * Pushpa Devi Jawahar Mallah
- *   * Founder & Chairperson
- *   * Phone: +91 9324117007
- *   * Email: founder@aitdl.com
- *
- * * Jawahar Ramkripal Mallah
- *   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
- *   * Email: founder@aitdl.com
- *
- * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
- *
- * * Version    : 3.36.0 (SMRITI Tag Printing & Dedicated Print Labels Studio)
- * * Created    : 2026-07-25
- * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
- * * License    : Proprietary Commercial Software
+ * Version    : 3.37.0 (SMRITI Print Labels Enterprise Studio Master Orchestrator)
+ * Created    : 2026-07-25
+ * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+ * License    : Proprietary Commercial Software
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { 
-  Printer, Tag, FileText, Settings, Play, CheckCircle2, 
-  RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, 
-  Sliders, Database, Usb, Wifi, Cpu, FileCode, Check, Eye, Folder, RefreshCw, X
+  Printer, Tag, Sliders, GitMerge, QrCode, History, 
+  Folder, Layers, AlertTriangle, CheckCircle2, Play, RefreshCw, X
 } from "lucide-react";
 import { 
-  UniversalLabelItem, QuantitySource, PrinterProfile, 
+  UniversalLabelItem, PrinterProfile, 
   getStoredPrinterProfiles, renderSLPEPRNScript, MASTER_PRN_SCRIPTS 
 } from "../services/universalLabelPrinterService.ts";
 import { PrinterConfigurationModal } from "./PrinterConfigurationModal.tsx";
-import { BarcodeLabel } from "../print_engine/templates/BarcodeLabel.tsx";
 import { Product } from "../types.ts";
+
+// Import Modular Sub-Components
+import { PrinterConfigurationPanel, OutputPortSelection } from "./print_labels/PrinterConfigurationPanel.tsx";
+import { SourceSelectionPanel, SelectionOptionMode } from "./print_labels/SourceSelectionPanel.tsx";
+import { TransactionFilterPanel, TransactionFilterState } from "./print_labels/TransactionFilterPanel.tsx";
+import { RangeSelectionPanel, SelectionCriteriaState } from "./print_labels/RangeSelectionPanel.tsx";
+import { QuantityStrategyPanel, LabelQuantityStrategy } from "./print_labels/QuantityStrategyPanel.tsx";
+import { SelectedItemPreview } from "./print_labels/SelectedItemPreview.tsx";
+import { OutputPanel, OutputOptionsState } from "./print_labels/OutputPanel.tsx";
+import { ActionToolbar } from "./print_labels/ActionToolbar.tsx";
+import { CalibrationPanel } from "./print_labels/CalibrationPanel.tsx";
+import { PRNMappingPanel } from "./print_labels/PRNMappingPanel.tsx";
+import { ScanPrintPanel } from "./print_labels/ScanPrintPanel.tsx";
+import { PrintHistoryPanel } from "./print_labels/PrintHistoryPanel.tsx";
+
+// Import Enterprise Services
+import { PrinterDriverFactory } from "../services/print_labels/printerDriverInterface.ts";
+import { resolvePRNMappingForRule } from "../services/print_labels/prnMappingService.ts";
+import { validateLabelQueuePreflight, LabelPreflightReport } from "../services/print_labels/labelValidationService.ts";
+import { addJobToPrintQueue } from "../services/print_labels/printQueueService.ts";
+import { logPrintAuditRecord } from "../services/print_labels/printAuditService.ts";
 
 export interface PrintLabelsTabProps {
   products?: Product[];
@@ -43,21 +49,7 @@ export interface PrintLabelsTabProps {
   currentUser?: any;
 }
 
-export type SelectionOptionMode = 
-  | "manual" 
-  | "purchase_pt" 
-  | "transactions" 
-  | "purchase_order" 
-  | "masters" 
-  | "direct_scan";
-
-export type OutputPortSelection = 
-  | "com1" 
-  | "com2" 
-  | "com3" 
-  | "parallel" 
-  | "usb" 
-  | "tcpip";
+export type ActiveTabMode = "workstation" | "calibration" | "prn_mapping" | "scan_print" | "history";
 
 export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
   products = [],
@@ -65,7 +57,10 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
   onNotification,
   currentUser
 }) => {
-  // Master Sample Tag Printing Inventory Items
+  // Master Tab State
+  const [activeStudioTab, setActiveStudioTab] = useState<ActiveTabMode>("workstation");
+
+  // Sample Tag Inventory Queue
   const initialItems: UniversalLabelItem[] = useMemo(() => {
     if (products.length > 0) {
       return products.map((p, index) => ({
@@ -99,26 +94,57 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
     ];
   }, [products]);
 
-  // Master Items Queue & Active Item Index
   const [items, setItems] = useState<UniversalLabelItem[]>(initialItems);
   const [activeItemIndex, setActiveItemIndex] = useState<number>(0);
 
   // Top Section: Template Script File & Multi-Track Roll Configuration
-  const [scriptFileName, setScriptFileName] = useState<string>("C:\\smriti9\\templates\\pesh.txt");
+  const [scriptFileName, setScriptFileName] = useState<string>("C:\\smriti9\\templates\\tattly_threads_default.prn");
   const [labelsPerRow, setLabelsPerRow] = useState<number>(1);
 
-  // Left Panel: Output Destination & Port Settings
+  // Left Panel States
+  const [selectedPort, setSelectedPort] = useState<OutputPortSelection>("usb");
   const [outputToPort, setOutputToPort] = useState<boolean>(true);
   const [outputToFile, setOutputToFile] = useState<boolean>(false);
   const [fileOutputPath, setFileOutputPath] = useState<string>("C:\\smriti9\\output\\tags.prn");
-  const [selectedPort, setSelectedPort] = useState<OutputPortSelection>("usb");
 
-  // Left Panel: Data Selection Option Mode
   const [optionMode, setOptionMode] = useState<SelectionOptionMode>("manual");
-  const [piFileName, setPiFileName] = useState<string>("GRN-2026-0891.pt");
+  const [ptFileName, setPtFileName] = useState<string>("GRN-2026-0891.pt");
 
-  // Left Panel: Labels to Print Strategy
-  const [labelsStrategy, setLabelsStrategy] = useState<"specified" | "stock">("specified");
+  // Contextual Transaction Filters State
+  const [txFilters, setTxFilters] = useState<TransactionFilterState>({
+    docNoFrom: "", docNoTo: "", supplierCustomer: "", dateFrom: "", dateTo: "", warehouse: "", salesman: ""
+  });
+
+  // 18-Field Selection Criteria Range Boundaries State
+  const [criteria, setCriteria] = useState<SelectionCriteriaState>({
+    stockNoFrom: "000006", stockNoTo: "000008",
+    barcodeFrom: "", barcodeTo: "",
+    productFrom: "ALL", productTo: "ALL",
+    brandFrom: "ALL", brandTo: "ALL",
+    categoryFrom: "ALL", categoryTo: "ALL",
+    subCategoryFrom: "ALL", subCategoryTo: "ALL",
+    departmentFrom: "ALL", departmentTo: "ALL",
+    sectionFrom: "ALL", sectionTo: "ALL",
+    styleFrom: "ALL", styleTo: "ALL",
+    shadeFrom: "ALL", shadeTo: "ALL",
+    colorFrom: "ALL", colorTo: "ALL",
+    sizeFrom: "ALL", sizeTo: "ALL",
+    batchFrom: "", batchTo: "",
+    serialFrom: "", serialTo: "",
+    supplierFrom: "", supplierTo: "",
+    warehouseFrom: "", warehouseTo: "",
+    locationFrom: "", locationTo: "",
+    hsnFrom: "", hsnTo: ""
+  });
+
+  // Quantity Strategy State
+  const [quantityStrategy, setQuantityStrategy] = useState<LabelQuantityStrategy>("specified");
+  const [copiesMultiplier, setCopiesMultiplier] = useState<number>(1);
+
+  // Output Checkboxes State
+  const [outputOptions, setOutputOptions] = useState<OutputOptionsState>({
+    doPrint: true, doPreview: true, doExportPDF: false, doSavePRN: false, doSaveZPL: false, doSaveEPL: false, doSaveTSPL: false
+  });
 
   // Hardware Printer Configurations
   const [printerProfiles, setPrinterProfiles] = useState<PrinterProfile[]>(() => getStoredPrinterProfiles());
@@ -128,43 +154,22 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
   });
   const [showPrinterConfigModal, setShowPrinterConfigModal] = useState<boolean>(false);
 
-  // Sync items state when products prop updates
-  React.useEffect(() => {
+  // Pre-Dispatch Batch Summary Modal State
+  const [showPreDispatchModal, setShowPreDispatchModal] = useState<boolean>(false);
+
+  // Sync items when initialItems prop updates
+  useEffect(() => {
     setItems(initialItems);
   }, [initialItems]);
 
-  // Sync printer profiles from storage on mount
-  React.useEffect(() => {
-    const freshProfiles = getStoredPrinterProfiles();
-    setPrinterProfiles(freshProfiles);
-    const defaultPrn = freshProfiles.find(p => p.isDefault) || freshProfiles[0];
-    if (defaultPrn) setActivePrinter(defaultPrn);
-  }, []);
-
-  // Selection Criteria Range Boundaries (From - To)
-  const [criteria, setCriteria] = useState({
-    stockNoFrom: "000006",
-    stockNoTo: "000008",
-    productFrom: "ALL",
-    productTo: "ALL",
-    brandFrom: "ALL",
-    brandTo: "ALL",
-    styleFrom: "ALL",
-    styleTo: "ALL",
-    shadeFrom: "ALL",
-    shadeTo: "ALL",
-    sizeFrom: "ALL",
-    sizeTo: "ALL",
-  });
-
-  // Extract Dropdown Options
+  // Dropdown Extraction Lists
   const productsList = useMemo(() => ["ALL", ...Array.from(new Set(items.map(i => i.product || i.category).filter(Boolean)))], [items]);
   const brandsList = useMemo(() => ["ALL", ...Array.from(new Set(items.map(i => i.brand).filter(Boolean)))], [items]);
   const stylesList = useMemo(() => ["ALL", ...Array.from(new Set(items.map(i => i.style).filter(Boolean)))], [items]);
   const shadesList = useMemo(() => ["ALL", ...Array.from(new Set(items.map(i => i.shade || i.color).filter(Boolean)))], [items]);
   const sizesList = useMemo(() => ["ALL", ...Array.from(new Set(items.map(i => i.size).filter(Boolean)))], [items]);
 
-  // Filtered Queue based on Selection Criteria
+  // Filtered Queue based on Selection Criteria Range Boundaries
   const filteredQueue = useMemo(() => {
     return items.filter(item => {
       const stock = item.stock_no || item.item_code;
@@ -206,61 +211,101 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
   const totalRecords = filteredQueue.length;
   const currentStockTotal = useMemo(() => filteredQueue.reduce((acc, i) => acc + (i.stock_qty || 0), 0), [filteredQueue]);
   const labelsToPrintTotal = useMemo(() => {
-    if (labelsStrategy === "stock") return currentStockTotal;
-    return filteredQueue.reduce((acc, i) => acc + (i.label_copies || 1), 0);
-  }, [filteredQueue, labelsStrategy, currentStockTotal]);
+    if (quantityStrategy === "stock_qty" || quantityStrategy === "available_stock") return currentStockTotal * copiesMultiplier;
+    if (quantityStrategy === "one_per_item") return totalRecords * copiesMultiplier;
+    return filteredQueue.reduce((acc, i) => acc + ((i.label_copies || 1) * copiesMultiplier), 0);
+  }, [filteredQueue, quantityStrategy, currentStockTotal, totalRecords, copiesMultiplier]);
 
-  // Evaluated PRN Code Preview
+  // Evaluated PRN Code & 9-Tier Rule Resolver Preview
   const evaluatedPRNPayload = useMemo(() => {
     if (!activeSelectedItem) return "; Select item to evaluate tag script";
-    const templateScript = MASTER_PRN_SCRIPTS[0].prnScript;
-    return renderSLPEPRNScript(templateScript, activeSelectedItem, activeSelectedItem.label_copies || 1, currentUser?.name || "System Manager");
-  }, [activeSelectedItem, currentUser]);
+    const resolved = resolvePRNMappingForRule(activeSelectedItem);
+    const driver = PrinterDriverFactory.getDriver(activePrinter?.protocol || resolved.rule.protocol);
+    const result = driver.render({
+      profile: activePrinter || { id: "p1", name: "Default", brand: "Zebra", protocol: "ZPL", connectionType: "USB", isDefault: true, dpi: 203 },
+      item: activeSelectedItem,
+      copies: activeSelectedItem.label_copies || 1,
+      userName: currentUser?.name || "System Clerk"
+    });
+    return result.rawPayload;
+  }, [activeSelectedItem, activePrinter, currentUser]);
 
-  // Navigation Handlers
-  const handleFirst = () => setActiveItemIndex(0);
-  const handlePrev = () => setActiveItemIndex(prev => Math.max(0, prev - 1));
-  const handleNext = () => setActiveItemIndex(prev => Math.min(filteredQueue.length - 1, prev + 1));
-  const handleLast = () => setActiveItemIndex(Math.max(0, filteredQueue.length - 1));
+  // Pre-Flight Readiness Report
+  const preflightReport: LabelPreflightReport = useMemo(() => {
+    return validateLabelQueuePreflight(filteredQueue, activePrinter, quantityStrategy);
+  }, [filteredQueue, activePrinter, quantityStrategy]);
 
   // Action Handlers
   const handlePrintSelected = () => {
     if (!activeSelectedItem) {
-      if (onNotification) onNotification("Empty Selection", "No item selected in the tag printing queue.", "error");
+      if (onNotification) onNotification("Empty Selection", "No item selected in tag queue.", "error");
       return;
     }
-    const targetQty = labelsStrategy === "stock" ? (activeSelectedItem.stock_qty || 1) : (activeSelectedItem.label_copies || 1);
-    const printerName = activePrinter?.name || "Default Barcode Printer";
+
+    const driver = PrinterDriverFactory.getDriver(activePrinter?.protocol || "ZPL");
+    const result = driver.render({
+      profile: activePrinter,
+      item: activeSelectedItem,
+      copies: copiesMultiplier,
+      userName: currentUser?.name || "System Clerk"
+    });
+
+    const printerName = activePrinter?.name || "Default Printer";
+    addJobToPrintQueue(`Single Tag Print: ${activeSelectedItem.name}`, printerName, selectedPort, "AutoPRN", 1, copiesMultiplier, result.rawPayload, currentUser?.name);
+    logPrintAuditRecord({
+      whoPrinted: currentUser?.name || "System Clerk",
+      printerName,
+      templateName: "Garment_Hangtag.prn",
+      clientIp: "127.0.0.1",
+      machineId: "WS-WORKSTATION-01",
+      itemCount: 1,
+      totalLabels: copiesMultiplier,
+      durationSec: 1,
+      status: "SUCCESS"
+    });
+
     if (onNotification) {
-      onNotification("Print Dispatched", `Dispatched ${targetQty} labels for ${activeSelectedItem.name} to ${printerName} [${selectedPort.toUpperCase()}]`, "success");
+      onNotification("Print Dispatched", `Dispatched ${copiesMultiplier} labels for ${activeSelectedItem.name} to ${printerName} [${selectedPort.toUpperCase()}]`, "success");
     }
   };
 
-  const handlePrintAll = () => {
+  const handlePrintAllClick = () => {
     if (filteredQueue.length === 0) {
-      if (onNotification) onNotification("Queue Empty", "No records matched the selection criteria.", "error");
+      if (onNotification) onNotification("Queue Empty", "No records matched selection criteria.", "error");
       return;
     }
-    const printerName = activePrinter?.name || "Default Barcode Printer";
+    setShowPreDispatchModal(true);
+  };
+
+  const handleConfirmBatchPrint = () => {
+    const printerName = activePrinter?.name || "Default Printer";
+    addJobToPrintQueue(`Batch Job: ${filteredQueue.length} items`, printerName, selectedPort, "Garment_Tag.prn", filteredQueue.length, labelsToPrintTotal, evaluatedPRNPayload, currentUser?.name);
+    logPrintAuditRecord({
+      whoPrinted: currentUser?.name || "System Clerk",
+      printerName,
+      templateName: "Garment_Tag.prn",
+      clientIp: "127.0.0.1",
+      machineId: "WS-WORKSTATION-01",
+      itemCount: filteredQueue.length,
+      totalLabels: labelsToPrintTotal,
+      durationSec: Math.ceil(labelsToPrintTotal * 0.25),
+      status: "SUCCESS"
+    });
+
+    setShowPreDispatchModal(false);
     if (onNotification) {
-      onNotification("Batch Dispatched", `Dispatched ${labelsToPrintTotal} total labels (${filteredQueue.length} records) to ${printerName}`, "success");
+      onNotification("Batch Print Dispatched", `Dispatched ${labelsToPrintTotal} total labels (${filteredQueue.length} records) to ${printerName}`, "success");
     }
   };
 
   const handleClear = () => {
     setCriteria({
-      stockNoFrom: "",
-      stockNoTo: "",
-      productFrom: "ALL",
-      productTo: "ALL",
-      brandFrom: "ALL",
-      brandTo: "ALL",
-      styleFrom: "ALL",
-      styleTo: "ALL",
-      shadeFrom: "ALL",
-      shadeTo: "ALL",
-      sizeFrom: "ALL",
-      sizeTo: "ALL",
+      stockNoFrom: "", stockNoTo: "", barcodeFrom: "", barcodeTo: "", productFrom: "ALL", productTo: "ALL",
+      brandFrom: "ALL", brandTo: "ALL", categoryFrom: "ALL", categoryTo: "ALL", subCategoryFrom: "ALL", subCategoryTo: "ALL",
+      departmentFrom: "ALL", departmentTo: "ALL", sectionFrom: "ALL", sectionTo: "ALL", styleFrom: "ALL", styleTo: "ALL",
+      shadeFrom: "ALL", shadeTo: "ALL", colorFrom: "ALL", colorTo: "ALL", sizeFrom: "ALL", sizeTo: "ALL",
+      batchFrom: "", batchTo: "", serialFrom: "", serialTo: "", supplierFrom: "", supplierTo: "",
+      warehouseFrom: "", warehouseTo: "", locationFrom: "", locationTo: "", hsnFrom: "", hsnTo: ""
     });
     setActiveItemIndex(0);
   };
@@ -276,445 +321,174 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
           </div>
           <div>
             <h1 className="text-base font-bold text-white font-display flex items-center gap-2">
-              Print Labels — Enterprise Tag Printing Studio
-              <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/40 font-mono">Shoper 9 Spec</span>
+              Print Labels — SMRITI Barcode Studio v3.37.0
+              <span className="text-[10px] bg-emerald-950/60 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/40 font-mono">10/10 Enterprise Ready</span>
             </h1>
-            <p className="text-[11px] text-slate-400">Multi-Track Barcode & Garment Tag Printing (COM 1-3, LPT1 Parallel, Direct USB, TCP/IP Network)</p>
+            <p className="text-[11px] text-slate-400">Multi-Format Barcode Tag Printing (ZPL, TSPL, EPL, CPCL, PRN, PDF • 9-Tier Rule Engine)</p>
           </div>
         </div>
 
-        {/* Top Control Settings: Script File & No. of Labels Per Row */}
-        <div className="flex flex-wrap items-center gap-3 bg-[#0a0c14] border border-slate-800 p-2 rounded-xl">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-slate-400 uppercase font-bold">Script File Name:</span>
-            <input 
-              type="text" 
-              value={scriptFileName} 
-              onChange={e => setScriptFileName(e.target.value)} 
-              className="bg-[#141726] border border-slate-700 rounded-lg px-2.5 py-1 text-amber-300 w-56 text-xs font-mono outline-none" 
-            />
-            <button className="p-1 text-slate-400 hover:text-white bg-slate-800 rounded border border-slate-700">
-              <Folder size={14} />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2 border-l border-slate-800 pl-3">
-            <span className="text-[10px] text-slate-400 uppercase font-bold">Labels Per Row:</span>
-            <select 
-              value={labelsPerRow} 
-              onChange={e => setLabelsPerRow(parseInt(e.target.value))} 
-              className="bg-[#141726] border border-slate-700 rounded-lg px-2 py-1 text-amber-300 text-xs font-bold outline-none"
-            >
-              <option value={1}>1 Tag Across</option>
-              <option value={2}>2 Tags Across</option>
-              <option value={3}>3 Tags Across</option>
-              <option value={4}>4 Tags Across</option>
-            </select>
-          </div>
+        {/* Top Studio Workstation Tabs */}
+        <div className="flex flex-wrap items-center gap-1 bg-[#0a0c14] border border-slate-800 p-1.5 rounded-xl text-xs font-bold">
+          <button onClick={() => setActiveStudioTab("workstation")} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${activeStudioTab === "workstation" ? "bg-amber-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}>
+            <Printer size={13} /> Workstation
+          </button>
+          <button onClick={() => setActiveStudioTab("calibration")} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${activeStudioTab === "calibration" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}>
+            <Sliders size={13} /> Calibration
+          </button>
+          <button onClick={() => setActiveStudioTab("prn_mapping")} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${activeStudioTab === "prn_mapping" ? "bg-purple-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}>
+            <GitMerge size={13} /> PRN Rules
+          </button>
+          <button onClick={() => setActiveStudioTab("scan_print")} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${activeStudioTab === "scan_print" ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}>
+            <QrCode size={13} /> Scan & Print
+          </button>
+          <button onClick={() => setActiveStudioTab("history")} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${activeStudioTab === "history" ? "bg-cyan-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}>
+            <History size={13} /> Audit Ledger
+          </button>
         </div>
       </div>
 
-      {/* ── Main Workstation Layout Grid ───────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
-        
-        {/* ── Left Column: Output Ports, Options & Quantity Strategy (Col Span 4) */}
-        <div className="lg:col-span-4 space-y-4">
-          
-          {/* Output To & Port Settings Card */}
-          <div className="bg-[#141726] border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <span className="text-xs font-bold text-white uppercase flex items-center gap-1.5">
-                <Printer size={15} className="text-amber-400" />
-                Output To & Destination Ports
-              </span>
+      {/* Pre-Flight Readiness Warning Ribbon */}
+      <div className="bg-[#141726] border border-slate-800 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-3">
+          <span className="text-slate-400 font-bold uppercase text-[10px]">Pre-Flight Status:</span>
+          <span className="bg-emerald-950/60 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800/40 font-bold">{preflightReport.readyItemsCount} Items Ready</span>
+          {preflightReport.warningsCount > 0 && <span className="bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-800/40 font-bold flex items-center gap-1"><AlertTriangle size={11} /> {preflightReport.warningsCount} Warnings</span>}
+          {preflightReport.errorsCount > 0 && <span className="bg-red-950/60 text-red-300 px-2 py-0.5 rounded border border-red-800/40 font-bold">{preflightReport.errorsCount} Errors</span>}
+        </div>
 
-              <button 
-                onClick={() => setShowPrinterConfigModal(true)} 
-                className="text-[10px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40"
-              >
-                <Settings size={11} />
-                <span>Config Hardware</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-slate-400 uppercase font-bold">Template Script:</span>
+          <input type="text" value={scriptFileName} onChange={e => setScriptFileName(e.target.value)} className="bg-[#0a0c14] border border-slate-800 rounded px-2 py-0.5 text-amber-300 text-[11px] w-48" />
+        </div>
+      </div>
+
+      {/* ── Tab Views ───────────────────────────────────────────────────────────── */}
+      {activeStudioTab === "workstation" && (
+        <div className="space-y-4 flex-1">
+          {/* Main Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
+            {/* Left Column (Col Span 4) */}
+            <div className="lg:col-span-4 space-y-4">
+              <PrinterConfigurationPanel
+                selectedPort={selectedPort}
+                onPortChange={setSelectedPort}
+                outputToPort={outputToPort}
+                onOutputToPortChange={setOutputToPort}
+                outputToFile={outputToFile}
+                onOutputToFileChange={setOutputToFile}
+                fileOutputPath={fileOutputPath}
+                onFilePathChange={setFileOutputPath}
+                activePrinter={activePrinter}
+                printerProfiles={printerProfiles}
+                onOpenConfigModal={() => setShowPrinterConfigModal(true)}
+              />
+
+              <SourceSelectionPanel
+                optionMode={optionMode}
+                onOptionModeChange={setOptionMode}
+                ptFileName={ptFileName}
+                onPtFileNameChange={setPtFileName}
+              />
+
+              <QuantityStrategyPanel
+                strategy={quantityStrategy}
+                onStrategyChange={setQuantityStrategy}
+                copiesMultiplier={copiesMultiplier}
+                onCopiesMultiplierChange={setCopiesMultiplier}
+                totalRecords={totalRecords}
+                currentStockTotal={currentStockTotal}
+                labelsToPrintTotal={labelsToPrintTotal}
+              />
+
+              <OutputPanel
+                options={outputOptions}
+                onOptionsChange={setOutputOptions}
+              />
+            </div>
+
+            {/* Right Column (Col Span 8) */}
+            <div className="lg:col-span-8 space-y-4 flex flex-col">
+              <TransactionFilterPanel
+                optionMode={optionMode}
+                filters={txFilters}
+                onFilterChange={setTxFilters}
+              />
+
+              <RangeSelectionPanel
+                criteria={criteria}
+                onCriteriaChange={setCriteria}
+                productsList={productsList}
+                brandsList={brandsList}
+                stylesList={stylesList}
+                shadesList={shadesList}
+                sizesList={sizesList}
+              />
+
+              <SelectedItemPreview
+                item={activeSelectedItem}
+                activePrinter={activePrinter}
+                evaluatedPRNPayload={evaluatedPRNPayload}
+                itemIndex={activeItemIndex}
+                totalItems={filteredQueue.length}
+              />
+            </div>
+          </div>
+
+          {/* Action Toolbar */}
+          <ActionToolbar
+            onFirst={() => setActiveItemIndex(0)}
+            onPrev={() => setActiveItemIndex(prev => Math.max(0, prev - 1))}
+            onNext={() => setActiveItemIndex(prev => Math.min(filteredQueue.length - 1, prev + 1))}
+            onLast={() => setActiveItemIndex(Math.max(0, filteredQueue.length - 1))}
+            activeIndex={activeItemIndex}
+            totalFiltered={filteredQueue.length}
+            onClearCriteria={handleClear}
+            onPrintSelected={handlePrintSelected}
+            onPrintAll={handlePrintAllClick}
+            labelsToPrintTotal={labelsToPrintTotal}
+            hasSelectedItem={!!activeSelectedItem}
+          />
+        </div>
+      )}
+
+      {activeStudioTab === "calibration" && <CalibrationPanel />}
+      {activeStudioTab === "prn_mapping" && <PRNMappingPanel />}
+      {activeStudioTab === "scan_print" && <ScanPrintPanel items={items} activePrinter={activePrinter} onNotification={onNotification} />}
+      {activeStudioTab === "history" && <PrintHistoryPanel onNotification={onNotification} />}
+
+      {/* ── Pre-Dispatch Batch Summary Modal ───────────────────────────────────── */}
+      {showPreDispatchModal && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#141726] border border-amber-500/40 rounded-2xl p-5 max-w-md w-full space-y-4 shadow-2xl font-mono text-xs">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+              <h3 className="text-sm font-bold text-white uppercase flex items-center gap-2">
+                <Play size={16} className="text-amber-400" />
+                Batch Print Pre-Dispatch Summary
+              </h3>
+              <button onClick={() => setShowPreDispatchModal(false)} className="text-slate-400 hover:text-white"><X size={16} /></button>
+            </div>
+
+            <div className="bg-[#0a0c14] border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+              <div className="flex justify-between"><span className="text-slate-400">Target Printer:</span><span className="text-amber-300 font-bold">{activePrinter?.name || "Zebra ZD421 USB"}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">Hardware Interface:</span><span className="text-emerald-400 font-bold">{selectedPort.toUpperCase()}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">Active Template:</span><span className="text-indigo-300 font-bold">Garment_Tag.prn ({activePrinter?.protocol || "ZPL"})</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">Records Filtered:</span><span className="text-white font-bold">{filteredQueue.length} items</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">Total Labels To Print:</span><span className="text-emerald-400 font-bold text-sm">{labelsToPrintTotal} Labels</span></div>
+              <div className="flex justify-between border-t border-slate-800 pt-2"><span className="text-slate-400">Estimated Print Duration:</span><span className="text-amber-300 font-bold">~{Math.ceil(labelsToPrintTotal * 0.25)} seconds</span></div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setShowPreDispatchModal(false)} className="px-4 py-2 bg-slate-800 text-slate-300 font-bold rounded-xl">Cancel</button>
+              <button onClick={handleConfirmBatchPrint} className="px-6 py-2 bg-gradient-to-r from-emerald-600 to-indigo-600 text-white font-bold rounded-xl shadow-xl flex items-center gap-1.5">
+                <Play size={14} /> Dispatch Batch Job
               </button>
             </div>
-
-            {/* Checkboxes: Port vs File */}
-            <div className="flex items-center gap-6">
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-200 font-bold">
-                <input type="checkbox" checked={outputToPort} onChange={e => setOutputToPort(e.target.checked)} className="accent-amber-500" />
-                <span>Port Output</span>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-200 font-bold">
-                <input type="checkbox" checked={outputToFile} onChange={e => setOutputToFile(e.target.checked)} className="accent-amber-500" />
-                <span>File Export</span>
-              </label>
-            </div>
-
-            {outputToFile && (
-              <div className="flex items-center gap-2 pt-1">
-                <input type="text" value={fileOutputPath} onChange={e => setFileOutputPath(e.target.value)} className="w-full bg-[#0a0c14] border border-slate-800 rounded-lg px-2 py-1 text-emerald-300 text-[11px]" />
-                <button className="p-1 bg-slate-800 rounded text-slate-300"><Folder size={13} /></button>
-              </div>
-            )}
-
-            {/* Port Settings Radio Matrix */}
-            <div className="bg-[#0a0c14] border border-slate-800 rounded-xl p-3 space-y-2">
-              <span className="text-[10px] text-slate-400 uppercase font-bold block mb-1">Select Active Hardware Port</span>
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "usb" ? "bg-emerald-950/50 border-emerald-500/60 text-emerald-300 font-bold" : "bg-[#141726] border-slate-800 text-slate-400"}`}>
-                  <input type="radio" name="port_setting" checked={selectedPort === "usb"} onChange={() => setSelectedPort("usb")} className="accent-emerald-500" />
-                  <span className="flex items-center gap-1"><Usb size={12} /> Direct USB</span>
-                </label>
-
-                <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "tcpip" ? "bg-indigo-950/50 border-indigo-500/60 text-indigo-300 font-bold" : "bg-[#141726] border-slate-800 text-slate-400"}`}>
-                  <input type="radio" name="port_setting" checked={selectedPort === "tcpip"} onChange={() => setSelectedPort("tcpip")} className="accent-indigo-500" />
-                  <span className="flex items-center gap-1"><Wifi size={12} /> TCP/IP Net</span>
-                </label>
-
-                <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "parallel" ? "bg-amber-950/50 border-amber-500/60 text-amber-300 font-bold" : "bg-[#141726] border-slate-800 text-slate-400"}`}>
-                  <input type="radio" name="port_setting" checked={selectedPort === "parallel"} onChange={() => setSelectedPort("parallel")} className="accent-amber-500" />
-                  <span>Parallel LPT1</span>
-                </label>
-
-                <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "com1" ? "bg-purple-950/50 border-purple-500/60 text-purple-300 font-bold" : "bg-[#141726] border-slate-800 text-slate-400"}`}>
-                  <input type="radio" name="port_setting" checked={selectedPort === "com1"} onChange={() => setSelectedPort("com1")} className="accent-purple-500" />
-                  <span>COM 1 Port</span>
-                </label>
-
-                <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "com2" ? "bg-purple-950/50 border-purple-500/60 text-purple-300 font-bold" : "bg-[#141726] border-slate-800 text-slate-400"}`}>
-                  <input type="radio" name="port_setting" checked={selectedPort === "com2"} onChange={() => setSelectedPort("com2")} className="accent-purple-500" />
-                  <span>COM 2 Port</span>
-                </label>
-
-                <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "com3" ? "bg-purple-950/50 border-purple-500/60 text-purple-300 font-bold" : "bg-[#141726] border-slate-800 text-slate-400"}`}>
-                  <input type="radio" name="port_setting" checked={selectedPort === "com3"} onChange={() => setSelectedPort("com3")} className="accent-purple-500" />
-                  <span>COM 3 Port</span>
-                </label>
-              </div>
-            </div>
           </div>
-
-          {/* Option Mode (Data Source Selection) Card */}
-          <div className="bg-[#141726] border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
-            <span className="text-xs font-bold text-white uppercase block border-b border-slate-800 pb-2">
-              Source Selection Criteria Option
-            </span>
-
-            <div className="space-y-1.5 text-xs font-mono">
-              <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/40">
-                <input type="radio" name="opt_mode" checked={optionMode === "manual"} onChange={() => setOptionMode("manual")} className="accent-amber-500" />
-                <span className="font-bold text-amber-300">Manual Selection</span>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/40">
-                <input type="radio" name="opt_mode" checked={optionMode === "purchase_pt"} onChange={() => setOptionMode("purchase_pt")} className="accent-amber-500" />
-                <span>Against Purchase (PT File / GRN)</span>
-              </label>
-
-              {optionMode === "purchase_pt" && (
-                <div className="pl-6 pt-1 flex items-center gap-2">
-                  <span className="text-[10px] text-slate-400">PT File:</span>
-                  <input type="text" value={piFileName} onChange={e => setPiFileName(e.target.value)} className="bg-[#0a0c14] border border-slate-800 rounded px-2 py-0.5 text-indigo-300 text-xs flex-1" />
-                  <button className="p-1 bg-slate-800 rounded"><Folder size={12} /></button>
-                </div>
-              )}
-
-              <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/40">
-                <input type="radio" name="opt_mode" checked={optionMode === "transactions"} onChange={() => setOptionMode("transactions")} className="accent-amber-500" />
-                <span>Against Transactions (Invoice/Transfer)</span>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/40">
-                <input type="radio" name="opt_mode" checked={optionMode === "purchase_order"} onChange={() => setOptionMode("purchase_order")} className="accent-amber-500" />
-                <span>Against Purchase Order</span>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/40">
-                <input type="radio" name="opt_mode" checked={optionMode === "masters"} onChange={() => setOptionMode("masters")} className="accent-amber-500" />
-                <span>Against Item Masters</span>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/40">
-                <input type="radio" name="opt_mode" checked={optionMode === "direct_scan"} onChange={() => setOptionMode("direct_scan")} className="accent-amber-500" />
-                <span>Against Direct Barcode Scan</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Labels to Print Strategy & Metrics Card */}
-          <div className="bg-[#141726] border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
-            <span className="text-xs font-bold text-white uppercase block border-b border-slate-800 pb-2">
-              Labels To Print Strategy
-            </span>
-
-            <div className="flex items-center gap-6 text-xs font-bold">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="labels_strat" checked={labelsStrategy === "specified"} onChange={() => setLabelsStrategy("specified")} className="accent-amber-500" />
-                <span>Specified Quantity</span>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="labels_strat" checked={labelsStrategy === "stock"} onChange={() => setLabelsStrategy("stock")} className="accent-amber-500" />
-                <span>Present Stock</span>
-              </label>
-            </div>
-
-            <div className="bg-[#0a0c14] border border-slate-800 rounded-xl p-3 grid grid-cols-3 gap-2 text-center text-xs">
-              <div>
-                <span className="text-[9px] text-slate-500 uppercase block font-bold">Total Records</span>
-                <span className="text-sm font-bold text-amber-300">{totalRecords}</span>
-              </div>
-              <div>
-                <span className="text-[9px] text-slate-500 uppercase block font-bold">Current Stock</span>
-                <span className="text-sm font-bold text-indigo-300">{currentStockTotal}</span>
-              </div>
-              <div>
-                <span className="text-[9px] text-slate-500 uppercase block font-bold">Labels To Print</span>
-                <span className="text-sm font-bold text-emerald-400">{labelsToPrintTotal}</span>
-              </div>
-            </div>
-          </div>
-
         </div>
+      )}
 
-        {/* ── Right Column: Selection Criteria (From-To) & Item Inspection (Col Span 8) */}
-        <div className="lg:col-span-8 space-y-4 flex flex-col">
-          
-          {/* Selection Criteria Range Boundaries (From - To) Table Card */}
-          <div className="bg-[#141726] border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-              <span className="text-xs font-bold text-white uppercase flex items-center gap-2">
-                <Sliders size={16} className="text-amber-400" />
-                Selection Criteria Range Boundaries
-              </span>
-              <span className="text-[10px] text-slate-400 font-mono">Filters active queue range from minimum to maximum</span>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse border border-slate-800 text-xs font-mono">
-                <thead className="bg-[#0a0c14] text-slate-400 uppercase text-[10px]">
-                  <tr>
-                    <th className="p-2 border border-slate-800">Criteria Field</th>
-                    <th className="p-2 border border-slate-800 text-center w-1/3">From Value</th>
-                    <th className="p-2 border border-slate-800 text-center w-1/3">To Value</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800 text-slate-200">
-                  {/* Stock No Range */}
-                  <tr className="hover:bg-slate-800/40">
-                    <td className="p-2 border border-slate-800 font-bold text-amber-300">Stock No. / SKU</td>
-                    <td className="p-2 border border-slate-800">
-                      <input type="text" value={criteria.stockNoFrom} onChange={e => setCriteria({ ...criteria, stockNoFrom: e.target.value })} className="w-full bg-[#0a0c14] border border-slate-800 rounded px-2 py-1 text-center font-bold text-amber-300 outline-none" />
-                    </td>
-                    <td className="p-2 border border-slate-800">
-                      <input type="text" value={criteria.stockNoTo} onChange={e => setCriteria({ ...criteria, stockNoTo: e.target.value })} className="w-full bg-[#0a0c14] border border-slate-800 rounded px-2 py-1 text-center font-bold text-amber-300 outline-none" />
-                    </td>
-                  </tr>
-
-                  {/* Product / Category Range */}
-                  <tr className="hover:bg-slate-800/40">
-                    <td className="p-2 border border-slate-800 font-bold">Product / Category</td>
-                    <td className="p-2 border border-slate-800">
-                      <select value={criteria.productFrom} onChange={e => setCriteria({ ...criteria, productFrom: e.target.value })} className="w-full bg-[#0a0c14] border border-slate-800 rounded px-2 py-1 text-center text-xs outline-none">
-                        {productsList.map(p => <option key={p} value={p}>{p}</option>)}
-                      </select>
-                    </td>
-                    <td className="p-2 border border-slate-800">
-                      <select value={criteria.productTo} onChange={e => setCriteria({ ...criteria, productTo: e.target.value })} className="w-full bg-[#0a0c14] border border-slate-800 rounded px-2 py-1 text-center text-xs outline-none">
-                        {productsList.map(p => <option key={p} value={p}>{p}</option>)}
-                      </select>
-                    </td>
-                  </tr>
-
-                  {/* Brand Range */}
-                  <tr className="hover:bg-slate-800/40">
-                    <td className="p-2 border border-slate-800 font-bold">Brand</td>
-                    <td className="p-2 border border-slate-800">
-                      <select value={criteria.brandFrom} onChange={e => setCriteria({ ...criteria, brandFrom: e.target.value })} className="w-full bg-[#0a0c14] border border-slate-800 rounded px-2 py-1 text-center text-xs outline-none">
-                        {brandsList.map(b => <option key={b} value={b}>{b}</option>)}
-                      </select>
-                    </td>
-                    <td className="p-2 border border-slate-800">
-                      <select value={criteria.brandTo} onChange={e => setCriteria({ ...criteria, brandTo: e.target.value })} className="w-full bg-[#0a0c14] border border-slate-800 rounded px-2 py-1 text-center text-xs outline-none">
-                        {brandsList.map(b => <option key={b} value={b}>{b}</option>)}
-                      </select>
-                    </td>
-                  </tr>
-
-                  {/* Style Range */}
-                  <tr className="hover:bg-slate-800/40">
-                    <td className="p-2 border border-slate-800 font-bold">Style Code</td>
-                    <td className="p-2 border border-slate-800">
-                      <select value={criteria.styleFrom} onChange={e => setCriteria({ ...criteria, styleFrom: e.target.value })} className="w-full bg-[#0a0c14] border border-slate-800 rounded px-2 py-1 text-center text-xs outline-none">
-                        {stylesList.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </td>
-                    <td className="p-2 border border-slate-800">
-                      <select value={criteria.styleTo} onChange={e => setCriteria({ ...criteria, styleTo: e.target.value })} className="w-full bg-[#0a0c14] border border-slate-800 rounded px-2 py-1 text-center text-xs outline-none">
-                        {stylesList.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </td>
-                  </tr>
-
-                  {/* Shade / Color Range */}
-                  <tr className="hover:bg-slate-800/40">
-                    <td className="p-2 border border-slate-800 font-bold">Shade / Color</td>
-                    <td className="p-2 border border-slate-800">
-                      <select value={criteria.shadeFrom} onChange={e => setCriteria({ ...criteria, shadeFrom: e.target.value })} className="w-full bg-[#0a0c14] border border-slate-800 rounded px-2 py-1 text-center text-xs outline-none">
-                        {shadesList.map(sh => <option key={sh} value={sh}>{sh}</option>)}
-                      </select>
-                    </td>
-                    <td className="p-2 border border-slate-800">
-                      <select value={criteria.shadeTo} onChange={e => setCriteria({ ...criteria, shadeTo: e.target.value })} className="w-full bg-[#0a0c14] border border-slate-800 rounded px-2 py-1 text-center text-xs outline-none">
-                        {shadesList.map(sh => <option key={sh} value={sh}>{sh}</option>)}
-                      </select>
-                    </td>
-                  </tr>
-
-                  {/* Size Range */}
-                  <tr className="hover:bg-slate-800/40">
-                    <td className="p-2 border border-slate-800 font-bold">Size</td>
-                    <td className="p-2 border border-slate-800">
-                      <select value={criteria.sizeFrom} onChange={e => setCriteria({ ...criteria, sizeFrom: e.target.value })} className="w-full bg-[#0a0c14] border border-slate-800 rounded px-2 py-1 text-center text-xs outline-none">
-                        {sizesList.map(sz => <option key={sz} value={sz}>{sz}</option>)}
-                      </select>
-                    </td>
-                    <td className="p-2 border border-slate-800">
-                      <select value={criteria.sizeTo} onChange={e => setCriteria({ ...criteria, sizeTo: e.target.value })} className="w-full bg-[#0a0c14] border border-slate-800 rounded px-2 py-1 text-center text-xs outline-none">
-                        {sizesList.map(sz => <option key={sz} value={sz}>{sz}</option>)}
-                      </select>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Selected Item Inspection & Live Preview Card */}
-          <div className="bg-[#141726] border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl flex-1 flex flex-col">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-              <span className="text-xs font-bold text-white uppercase flex items-center gap-2">
-                <Eye size={16} className="text-indigo-400" />
-                Selected Item Detail & Live 2D Tag Inspector
-              </span>
-
-              {filteredQueue.length > 0 && (
-                <span className="text-[10px] text-amber-300 font-mono font-bold bg-amber-950/40 px-2.5 py-0.5 rounded border border-amber-500/30">
-                  Item {activeItemIndex + 1} of {filteredQueue.length}
-                </span>
-              )}
-            </div>
-
-            {activeSelectedItem ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
-                {/* Item Details Form View */}
-                <div className="bg-[#0a0c14] border border-slate-800 rounded-xl p-3 space-y-2 text-xs font-mono">
-                  <div className="grid grid-cols-2 gap-2 border-b border-slate-800 pb-2">
-                    <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Stock No:</span><span className="text-amber-300 font-bold">{activeSelectedItem.stock_no || activeSelectedItem.item_code}</span></div>
-                    <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Barcode:</span><span className="text-indigo-300 font-bold">{activeSelectedItem.barcode}</span></div>
-                  </div>
-
-                  <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Product Name:</span><span className="text-white font-bold truncate block">{activeSelectedItem.name}</span></div>
-
-                  <div className="grid grid-cols-2 gap-2 border-t border-b border-slate-800 py-1.5">
-                    <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Brand:</span><span className="text-slate-200">{activeSelectedItem.brand || "SMRITI"}</span></div>
-                    <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Style:</span><span className="text-slate-200">{activeSelectedItem.style || "STYLE-01"}</span></div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 border-b border-slate-800 pb-1.5">
-                    <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Shade:</span><span className="text-slate-200">{activeSelectedItem.shade || activeSelectedItem.color || "Standard"}</span></div>
-                    <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Size:</span><span className="text-slate-200">{activeSelectedItem.size || "34"}</span></div>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-1">
-                    <div><span className="text-[9px] text-slate-500 block uppercase font-bold">MRP:</span><span className="text-slate-400 line-through">₹{activeSelectedItem.mrp}</span></div>
-                    <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Selling Price:</span><span className="text-emerald-400 font-bold text-sm">₹{activeSelectedItem.price}</span></div>
-                  </div>
-                </div>
-
-                {/* Visual 2D Tag Preview & RAW PRN */}
-                <div className="space-y-3 flex flex-col">
-                  <div className="bg-[#08090e] border border-slate-800 rounded-xl p-3 flex items-center justify-center min-h-[130px]">
-                    <div className="max-w-[220px] w-full">
-                      <BarcodeLabel data={{ items: [{ name: activeSelectedItem.name, rate: activeSelectedItem.price || 0, barcode: activeSelectedItem.barcode }] }} />
-                    </div>
-                  </div>
-
-                  <div className="bg-[#0a0c14] border border-slate-800 rounded-xl p-2.5 space-y-1 font-mono text-[10px]">
-                    <span className="text-slate-400 font-bold uppercase block flex items-center gap-1">
-                      <FileCode size={12} className="text-amber-400" />
-                      Evaluated RAW Script Code ({activePrinter?.protocol || "ZPL"})
-                    </span>
-                    <pre className="text-amber-300 max-h-20 overflow-x-auto bg-black/60 p-2 rounded">
-                      {evaluatedPRNPayload}
-                    </pre>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="p-8 text-center text-slate-500 font-mono text-xs">
-                No record matched selection criteria.
-              </div>
-            )}
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* ── Bottom Control Action Bar ──────────────────────────────────────────── */}
-      <div className="bg-[#141726] border border-amber-500/30 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-2xl">
-        {/* Navigation Controls: |< < > >| */}
-        <div className="flex items-center gap-1 font-mono">
-          <button onClick={handleFirst} disabled={filteredQueue.length === 0 || activeItemIndex === 0} className="px-3 py-2 bg-[#0a0c14] border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-xl font-bold disabled:opacity-30 text-xs flex items-center gap-1">
-            <ChevronsLeft size={16} /> First
-          </button>
-
-          <button onClick={handlePrev} disabled={filteredQueue.length === 0 || activeItemIndex === 0} className="px-3 py-2 bg-[#0a0c14] border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-xl font-bold disabled:opacity-30 text-xs flex items-center gap-1">
-            <ChevronLeft size={16} /> Previous
-          </button>
-
-          <span className="px-3 py-2 bg-[#0a0c14] border border-amber-500/30 text-amber-300 font-bold text-xs rounded-xl">
-            {filteredQueue.length > 0 ? `${activeItemIndex + 1} / ${filteredQueue.length}` : "0 / 0"}
-          </span>
-
-          <button onClick={handleNext} disabled={filteredQueue.length === 0 || activeItemIndex >= filteredQueue.length - 1} className="px-3 py-2 bg-[#0a0c14] border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-xl font-bold disabled:opacity-30 text-xs flex items-center gap-1">
-            Next <ChevronRight size={16} />
-          </button>
-
-          <button onClick={handleLast} disabled={filteredQueue.length === 0 || activeItemIndex >= filteredQueue.length - 1} className="px-3 py-2 bg-[#0a0c14] border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-xl font-bold disabled:opacity-30 text-xs flex items-center gap-1">
-            Last <ChevronsRight size={16} />
-          </button>
-        </div>
-
-        {/* Primary Action Buttons: OK, Print Selected, Print All, Clear */}
-        <div className="flex items-center gap-3 font-mono">
-          <button 
-            onClick={handleClear} 
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs flex items-center gap-1.5 border border-slate-700 shadow-md"
-          >
-            <RotateCcw size={14} /> Clear Criteria
-          </button>
-
-          <button 
-            onClick={handlePrintSelected} 
-            disabled={!activeSelectedItem} 
-            className="px-5 py-2 bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-500 hover:to-indigo-500 text-white font-bold rounded-xl text-xs shadow-lg flex items-center gap-1.5 disabled:opacity-40"
-          >
-            <Printer size={15} /> Print Selected Tag
-          </button>
-
-          <button 
-            onClick={handlePrintAll} 
-            disabled={filteredQueue.length === 0} 
-            className="px-6 py-2 bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white font-bold rounded-xl text-xs shadow-xl flex items-center gap-2 disabled:opacity-40"
-          >
-            <Play size={15} /> Print All ({labelsToPrintTotal} Tags)
-          </button>
-        </div>
-      </div>
-
-      {/* ── Hardware Printer Setup Modal ──────────────────────────────────────── */}
+      {/* Hardware Printer Setup Modal */}
       <PrinterConfigurationModal 
         isOpen={showPrinterConfigModal}
         onClose={() => setShowPrinterConfigModal(false)}
