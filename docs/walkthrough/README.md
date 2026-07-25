@@ -30,6 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-07-25 | v3.36.0 | Dedicated Print Labels Sidebar Menu | [Walkthrough](./inventory/Print_Labels_Dedicated_Sidebar_Menu_v3.36.0.md) | [Plan](../../brain/0baf8c8a-d81a-4554-8da9-eddd5f9cbb78/implementation_plan.md) | Completed |
 | 2026-07-25 | v3.35.0 | Barcode Standard Printer USB & TCP/IP Config | [Walkthrough](./inventory/Barcode_Standard_Printer_USB_TCPIP_Config_v3.35.0.md) | [Plan](../../brain/0baf8c8a-d81a-4554-8da9-eddd5f9cbb78/implementation_plan.md) | Completed |
 | 2026-07-25 | v3.33.0 | Universal SMRITI Label Printing Engine | [Walkthrough](./inventory/Universal_Label_Printing_Engine_v3.33.0.md) | — | Completed |
 | 2026-07-25 | v3.32.0 | Barcode Studio V2.4a Enterprise Spec | [Walkthrough](./inventory/Barcode_Studio_V2.4a_Upgrade_v3.32.0.md) | — | Completed |
