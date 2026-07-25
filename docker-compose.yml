@@ -79,6 +79,7 @@ services:
       # Recommended long-term: run migrations as a one-off job from CI or an init container.
       SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-false}"
     volumes:
+      - ./backend:/app
       - ./CHANGELOG.md:/app/CHANGELOG.md
     depends_on:
       db:
