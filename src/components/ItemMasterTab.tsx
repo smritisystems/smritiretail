@@ -2346,6 +2346,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
             </div>
           </div>
         </div>
+      )}
       {/* Universal Label Printer Modal */}
       <UniversalLabelPrinterModal
         isOpen={showUniversalLabelModal}
