@@ -4,6 +4,8 @@ from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 from app.api.deps import get_db
+from decimal import Decimal
+from app.models.inventory import Product
 from app.models.auth import User
 from app.services.rebalancing_service import StockRebalancingService
 from app.services.security import SecurityService
@@ -65,6 +67,10 @@ async def run():
             print("Recon OK:", len(reconciled))
 
             print("4. Barcode...")
+            prod_reg = Product(id="prod-reg-01", name="Regression Item", sku="SKU-REG-SUITE-001", price=Decimal("100.00"), is_active=True)
+            db.add(prod_reg)
+            await db.commit()
+
             pie_svc = ProductIdentityService()
             identity = await pie_svc.assign_gs1_barcode(
                 db=db,
