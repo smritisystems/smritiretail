@@ -89,6 +89,9 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   const [formImage, setFormImage] = useState<string>("");
   const [displayPolicy, setDisplayPolicy] = useState<DisplayPolicy>(DEFAULT_DISPLAY_POLICY);
   const [showPolicyModal, setShowPolicyModal] = useState<boolean>(false);
+  const [stockUnitLabel, setStockUnitLabel] = useState<string>(() => {
+    return localStorage.getItem("smriti_stock_unit_label") || "Qty";
+  });
 
   // Expand Cell capability state
   const [expandedCell, setExpandedCell] = useState<{
@@ -639,7 +642,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   {onHandStock.toLocaleString("en-IN")} <span className="text-xs font-normal text-theme-muted">Units</span>
                 </span>
                 <span className="text-[11px] text-theme-muted mt-1 block">
-                  Average stock per SKU: <span className="text-theme-body font-medium">{totalSkus > 0 ? Math.round(onHandStock / totalSkus) : 0} Qty</span>
+                  Average stock per SKU: <span className="text-theme-body font-medium">{totalSkus > 0 ? Math.round(onHandStock / totalSkus) : 0} {stockUnitLabel}</span>
                 </span>
               </div>
               <div className="w-12 h-12 rounded-xl bg-emerald-950 flex items-center justify-center text-emerald-400 border border-emerald-900">
@@ -701,6 +704,28 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                 >
                   Advanced
                 </button>
+              </div>
+
+              {/* Configurable Stock Unit Selector */}
+              <div className="flex items-center gap-1.5 text-xs text-theme-muted font-mono pl-0 sm:pl-3 border-t sm:border-t-0 sm:border-l border-theme-divider/40 pt-2 sm:pt-0">
+                <span>Unit:</span>
+                <select
+                  value={stockUnitLabel}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setStockUnitLabel(val);
+                    localStorage.setItem("smriti_stock_unit_label", val);
+                  }}
+                  className="bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1 text-xs text-indigo-300 font-bold focus:outline-none font-mono cursor-pointer"
+                >
+                  <option value="Qty">Qty</option>
+                  <option value="Pcs">Pcs</option>
+                  <option value="Units">Units</option>
+                  <option value="Box">Box</option>
+                  <option value="Kg">Kg</option>
+                  <option value="Mtr">Mtr</option>
+                  <option value="Pair">Pair</option>
+                </select>
               </div>
             </div>
 
@@ -1531,7 +1556,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                               onDoubleClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "stock", "Stock On Hand", String(p.stock), p); }}
                             >
                               <span className={`font-semibold ${p.stock < 10 ? "text-rose-400" : "text-theme-primary"}`}>
-                                {p.stock} Qty
+                                {p.stock} {stockUnitLabel}
                               </span>
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "stock", "Stock On Hand", String(p.stock), p); }}
