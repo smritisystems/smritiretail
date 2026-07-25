@@ -793,8 +793,8 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
               return;
             }
           }
-        }
-
+        for (const attr of activeAttrs) {
+          const val = row.attributes[attr.name];
           if (attr.isMandatory && (!val || val.trim() === "")) {
             onNotification("Mandatory Field", `Row ${i + 1}: Attribute "${attr.label}" is mandatory.`, "error");
             setLoading(false);
