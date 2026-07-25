@@ -300,7 +300,7 @@ async def test_7_post_product_with_invalid_color_returns_422_smriti_val_010(db_s
         }
     ))
 
-    tenant_ctx = TenantContext(company_id=comp1.id, branch_id=br1.id)
+    tenant_ctx = TenantContext(company_id=comp1.id, branch_id=br1.id, tenant_id=comp1.id)
     inv_svc = InventoryService(db_session, tenant_ctx)
 
     p_in = ProductCreate(
@@ -382,7 +382,7 @@ async def test_9_post_product_with_invalid_category_returns_422_smriti_val_010(d
         }
     ))
 
-    tenant_ctx = TenantContext(company_id=comp1.id, branch_id=br1.id)
+    tenant_ctx = TenantContext(company_id=comp1.id, branch_id=br1.id, tenant_id=comp1.id)
     inv_svc = InventoryService(db_session, tenant_ctx)
 
     p_in = ProductCreate(
