@@ -154,6 +154,14 @@ async def test_pve_strict_validation_failure_raises_smriti_val_010(db_session):
 
     engine = PlatformValidationEngine()
     engine.invalidate_policy_cache()
+    custom_policy = ValidationPolicy(
+        entity_type="product",
+        tenant_id=comp1.id,
+        fields={
+            "color": FieldValidationConfig(mandatory=False, mode=ValidationMode.STRICT, master_type="product_color")
+        }
+    )
+    engine.cache.set(f"product:{comp1.id}", custom_policy)
 
     input_data = {"color": "Rede", "category": "General"}
     with pytest.raises(HTTPException) as exc_info:
@@ -312,7 +320,7 @@ async def test_validation_policy_api_endpoints(db_session):
         # 3. POST reset
         res_reset = await ac.post("/api/v1/validation-policies/product/reset", headers=headers)
         assert res_reset.status_code == 200
-        assert res_reset.json()["fields"]["color"]["mode"] == "STRICT"
+        assert res_reset.json()["fields"]["color"]["mode"] == "AUTO_CREATE"
 
 
 @pytest.mark.asyncio

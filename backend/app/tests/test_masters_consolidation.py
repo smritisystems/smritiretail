@@ -229,7 +229,7 @@ async def test_lookups_validation_and_soft_delete(db_session):
         # 6. Soft delete lookup value
         res_del = await client.delete(f"/api/v1/masters/lookup/department/values/{val_id}", headers=headers)
         assert res_del.status_code == 200
-        assert res_del.json()["success"] is True
+        assert res_del.json()["active"] is False
 
         # 7. Verify soft deleted item is filtered out from active list
         res_list_after = await client.get("/api/v1/masters/lookup/department/values", headers=headers)

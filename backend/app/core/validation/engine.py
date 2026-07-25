@@ -368,5 +368,11 @@ class PlatformValidationEngine:
         return results
 
 
+_engine_instance: Optional[PlatformValidationEngine] = None
+
+
 def get_validation_engine() -> PlatformValidationEngine:
-    return PlatformValidationEngine()
+    global _engine_instance
+    if _engine_instance is None:
+        _engine_instance = PlatformValidationEngine()
+    return _engine_instance

@@ -100,7 +100,7 @@ class LookupRepository:
                 )
             )
         if active_only:
-            stmt = stmt.filter(MasterValue.active == True)
+            stmt = stmt.filter(MasterValue.active.is_(True))
         stmt = stmt.order_by(MasterValue.sort_order, MasterValue.name)
         result = await self.db.execute(stmt)
         return result.scalars().all()

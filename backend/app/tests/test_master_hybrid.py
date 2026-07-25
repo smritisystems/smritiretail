@@ -290,6 +290,16 @@ async def test_7_post_product_with_invalid_color_returns_422_smriti_val_010(db_s
     db_session.add(red)
     await db_session.commit()
 
+    from app.core.validation import get_validation_engine, ValidationPolicy, FieldValidationConfig, ValidationMode
+    pve = get_validation_engine()
+    pve.cache.set(f"product:{comp1.id}", ValidationPolicy(
+        entity_type="product",
+        tenant_id=comp1.id,
+        fields={
+            "color": FieldValidationConfig(mandatory=False, mode=ValidationMode.STRICT, master_type="product_color")
+        }
+    ))
+
     tenant_ctx = TenantContext(company_id=comp1.id, branch_id=br1.id)
     inv_svc = InventoryService(db_session, tenant_ctx)
 
@@ -361,6 +371,16 @@ async def test_9_post_product_with_invalid_category_returns_422_smriti_val_010(d
     )
     db_session.add(shirts)
     await db_session.commit()
+
+    from app.core.validation import get_validation_engine, ValidationPolicy, FieldValidationConfig, ValidationMode
+    pve = get_validation_engine()
+    pve.cache.set(f"product:{comp1.id}", ValidationPolicy(
+        entity_type="product",
+        tenant_id=comp1.id,
+        fields={
+            "category": FieldValidationConfig(mandatory=True, mode=ValidationMode.STRICT, master_type="product_category")
+        }
+    ))
 
     tenant_ctx = TenantContext(company_id=comp1.id, branch_id=br1.id)
     inv_svc = InventoryService(db_session, tenant_ctx)

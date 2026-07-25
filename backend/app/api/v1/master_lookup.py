@@ -24,7 +24,10 @@ from ...models.auth import User
 from ...models.master_lookup import MasterValue
 from ...repositories.master_lookup import LookupRepository
 from ...services.master_lookup import LookupService
+import uuid
+from ...models.master_lookup import MasterType
 from ...schemas.master_lookup import (
+    MasterTypeCreate,
     MasterTypeResponse,
     MasterValueCreate,
     MasterValueUpdate,
@@ -34,6 +37,48 @@ from ...schemas.master_lookup import (
 )
 
 router = APIRouter()
+
+
+@router.post(
+    "/master-lookups/types",
+    response_model=MasterTypeResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("SETTINGS.MANAGE"))],
+)
+@router.post(
+    "/lookup-types",
+    response_model=MasterTypeResponse,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
+async def create_lookup_type(
+    payload: MasterTypeCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Register a new master lookup type."""
+    repo = LookupRepository(db)
+    existing = await repo.get_type_by_code(payload.code)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Master lookup type '{payload.code}' already exists."
+        )
+    mtype = MasterType(
+        id=uuid.uuid4(),
+        code=payload.code,
+        label=payload.label,
+        category_type=payload.category_type or "SYSTEM",
+        is_system=payload.is_system if payload.is_system is not None else True,
+        field_schema=payload.field_schema,
+        ui_schema=payload.ui_schema,
+        used_in_modules=payload.used_in_modules,
+        depends_on=payload.depends_on,
+        version=payload.version or 1,
+        evidence_level=payload.evidence_level or "D",
+        created_by=current_user.id
+    )
+    return await repo.create_type(mtype)
 
 
 @router.get(
@@ -205,6 +250,7 @@ async def replace_lookup_value(
 )
 async def deactivate_lookup_value(
     value_id: UUID,
+    type_code: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

@@ -156,6 +156,17 @@ class LookupService:
                 detail=f"Lookup code '{value_in.code}' already exists under '{type_code}'."
             )
 
+        # JSON Schema Validation against MasterType.field_schema
+        if mtype.field_schema and value_in.data:
+            import jsonschema
+            try:
+                jsonschema.validate(instance=value_in.data, schema=mtype.field_schema)
+            except jsonschema.ValidationError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Validation failed for master lookup data: {e.message}"
+                )
+
         # Hierarchy validation
         await self._validate_hierarchy(mtype.id, value_in.parent_value_id)
 
@@ -257,7 +268,7 @@ class LookupService:
             )
 
         mtype = await self.repo.get_type_by_id(val.master_type_id)
-        if mtype and mtype.is_system:
+        if mtype and mtype.is_system and getattr(val, "is_system", False):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"System category lookup code '{val.code}' is protected and cannot be deactivated."
