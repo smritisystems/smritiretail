@@ -425,8 +425,8 @@ export interface ExpandContextMenuProps {
   x: number;
   y: number;
   onExpand: () => void;
-  onCopy: () => void;
-  onClear: () => void;
+  onCopy?: () => void;
+  onClear?: () => void;
   onClose: () => void;
 }
 
@@ -464,13 +464,13 @@ export const ExpandContextMenu: React.FC<ExpandContextMenuProps> = ({
       icon: "⎘",
       label: "Copy Cell Value",
       sub: "Ctrl+C",
-      action: () => { onCopy(); onClose(); },
+      action: () => { onCopy ? onCopy() : undefined; onClose(); },
     },
     {
       icon: "✕",
       label: "Clear Cell",
       sub: "Delete",
-      action: () => { onClear(); onClose(); },
+      action: () => { onClear ? onClear() : undefined; onClose(); },
       danger: true,
     },
   ];

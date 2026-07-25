@@ -15,7 +15,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { 
   FileSpreadsheet, Plus, Trash2, CheckCircle2, Keyboard,
-  ClipboardCopy, ChevronDown, ChevronUp, Info, Maximize2, Printer
+  ClipboardCopy, ChevronDown, ChevronUp, Info, Maximize2, Printer,
+  AlertCircle, X
 } from "lucide-react";
 import { AttributeGroup, AttributeDefinition } from "../types.js";
 import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
@@ -1106,7 +1107,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
               </div>
             ) : skuFormatPattern === "CUSTOM" ? (
               <div>
-                <label className="text-[9px] font-mono text-theme-muted block mb-1">Custom Formula Template ("{style}", "{color}", "{size}")</label>
+                <label className="text-[9px] font-mono text-theme-muted block mb-1">{"Custom Formula Template (\"{style}\", \"{color}\", \"{size}\")"}</label>
                 <input
                   type="text"
                   value={customSkuTemplate}

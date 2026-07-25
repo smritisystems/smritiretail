@@ -1535,7 +1535,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                                   </div>
                                 ) : skuFormatPattern === "CUSTOM" ? (
                                   <div>
-                                    <label className="text-[9px] font-mono text-theme-muted block mb-1">Custom Formula Template ("{style}", "{color}", "{size}")</label>
+                                    <label className="text-[9px] font-mono text-theme-muted block mb-1">{"Custom Formula Template (\"{style}\", \"{color}\", \"{size}\")"}</label>
                                     <input
                                       type="text"
                                       value={customSkuTemplate}
@@ -2362,10 +2362,10 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           category: p.category || "General",
           brand: p.brand || "SMRITI",
           price: p.price,
-          cost_price: p.cost_price,
+          cost_price: p.costPrice || (p as any).cost_price || 0,
           mrp: p.mrp || p.price,
-          stock_qty: p.stock_qty,
-          received_qty: p.stock_qty,
+          stock_qty: p.stock ?? (p as any).stock_qty ?? 0,
+          received_qty: p.stock ?? (p as any).stock_qty ?? 0,
           sold_qty: 0,
           style_code: p.code || p.sku
         }))}
