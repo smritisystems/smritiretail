@@ -32,9 +32,10 @@ import {
 import { 
   UniversalLabelItem, QuantitySource, PRNScriptMaster, PRNAssignmentRule, 
   PrintHistoryRecord, PrinterProfile, MASTER_PRN_SCRIPTS, DEFAULT_ASSIGNMENT_RULES, 
-  DEFAULT_PRINTER_PROFILES, extractLabelTokens, renderSLPEPRNScript, 
+  DEFAULT_PRINTER_PROFILES, getStoredPrinterProfiles, extractLabelTokens, renderSLPEPRNScript, 
   resolvePRNScriptForContainer, computeLabelCopies 
 } from "../services/universalLabelPrinterService.ts";
+import { PrinterConfigurationModal } from "./PrinterConfigurationModal.tsx";
 import { Product } from "../types.ts";
 
 export interface UniversalLabelPrinterTabProps {
@@ -97,7 +98,12 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
   const [masterScripts, setMasterScripts] = useState<PRNScriptMaster[]>(MASTER_PRN_SCRIPTS);
   const [assignmentRules, setAssignmentRules] = useState<PRNAssignmentRule[]>(DEFAULT_ASSIGNMENT_RULES);
   const [selectedScriptCode, setSelectedScriptCode] = useState<string>("ZPL001");
-  const [activePrinter, setActivePrinter] = useState<PrinterProfile>(DEFAULT_PRINTER_PROFILES[0]);
+  const [printerProfiles, setPrinterProfiles] = useState<PrinterProfile[]>(() => getStoredPrinterProfiles());
+  const [activePrinter, setActivePrinter] = useState<PrinterProfile>(() => {
+    const defaultPrn = getStoredPrinterProfiles().find(p => p.isDefault);
+    return defaultPrn || getStoredPrinterProfiles()[0] || DEFAULT_PRINTER_PROFILES[0];
+  });
+  const [showPrinterConfigModal, setShowPrinterConfigModal] = useState<boolean>(false);
 
   // Search & Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -634,19 +640,37 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
 
                 {/* Hardware Profile */}
                 <div>
-                  <label className="text-[10px] text-slate-400 uppercase block mb-1">Hardware Printer Destination</label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-[10px] text-slate-400 uppercase">Hardware Printer Destination</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPrinterConfigModal(true)}
+                      className="text-[10px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40"
+                    >
+                      <Settings size={11} />
+                      <span>Configure USB / TCP-IP</span>
+                    </button>
+                  </div>
                   <select 
                     value={activePrinter.id}
                     onChange={(e) => {
-                      const found = DEFAULT_PRINTER_PROFILES.find(p => p.id === e.target.value);
+                      const found = printerProfiles.find(p => p.id === e.target.value);
                       if (found) setActivePrinter(found);
                     }}
                     className="w-full bg-[#0b0d14] border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none"
                   >
-                    {DEFAULT_PRINTER_PROFILES.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.protocol})</option>
+                    {printerProfiles.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} [{p.connectionType || "TCP/IP"}] ({p.protocol})</option>
                     ))}
                   </select>
+
+                  <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Mode: <strong className="text-amber-300">{activePrinter.connectionType || "TCP/IP"}</strong>
+                    </span>
+                    <span>Target: <strong className="text-indigo-300">{activePrinter.connectionType === "TCP/IP" ? (activePrinter.ipAddress || activePrinter.address) : activePrinter.address}</strong></span>
+                  </div>
                 </div>
               </div>
 
@@ -889,8 +913,18 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
               </div>
             </form>
           </div>
-        </div>
-      )}
+      {/* ── Printer Configuration Modal ────────────────────────────────────────── */}
+      <PrinterConfigurationModal 
+        isOpen={showPrinterConfigModal}
+        onClose={() => setShowPrinterConfigModal(false)}
+        onPrinterProfileChanged={(updatedList, newSelectedId) => {
+          setPrinterProfiles(updatedList);
+          if (newSelectedId) {
+            const target = updatedList.find(p => p.id === newSelectedId);
+            if (target) setActivePrinter(target);
+          }
+        }}
+      />
     </div>
   );
 };

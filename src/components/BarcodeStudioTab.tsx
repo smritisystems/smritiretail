@@ -35,6 +35,7 @@ import { BarcodeEngine, BarcodeRecord } from "../services/barcodeEngine.ts";
 import { BarcodeLabel } from "../print_engine/templates/BarcodeLabel.tsx";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { UniversalLabelPrinterModal } from "./UniversalLabelPrinterModal.tsx";
+import { PrinterConfigurationModal } from "./PrinterConfigurationModal.tsx";
 
 /**
  * 4-Step Style Token Resolution Chain (ACP_BARCODE_003 / Section 8)
@@ -775,14 +776,16 @@ const BarcodeDemo = () => {
 };
 
 const EngineSettings = () => {
+  const [showPrinterConfigModal, setShowPrinterConfigModal] = useState(false);
+
   return (
     <div className="max-w-4xl space-y-8 font-mono text-xs">
       <div className="border-b border-theme-divider pb-4">
         <h2 className="text-xl font-bold font-display text-theme-body flex items-center gap-2">
           <Settings className="text-indigo-400" />
-          Barcode Engine Rules & Settings
+          Barcode Engine Rules & Hardware Settings
         </h2>
-        <p className="text-xs text-theme-muted mt-1">Configure global rules for GS1 prefixes, check digits, and token resolution.</p>
+        <p className="text-xs text-theme-muted mt-1">Configure global rules for GS1 prefixes, check digits, and hardware USB/TCP-IP barcode standard printers.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -804,7 +807,39 @@ const EngineSettings = () => {
             <input type="text" defaultValue="8901234" className="w-full bg-theme-surface-1 border border-theme-divider rounded px-3 py-1.5 text-xs font-mono outline-none" />
           </div>
         </div>
+
+        {/* Hardware Barcode Printer Setup Card */}
+        <div className="col-span-full bg-gradient-to-r from-slate-900 to-[#101322] border border-amber-500/30 rounded-xl p-6 space-y-4 shadow-xl">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <Printer size={20} />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-white font-display">Barcode Standard Printer Hardware Setup</h3>
+                <p className="text-[11px] text-slate-400">Manage USB & TCP/IP network connection profiles for Zebra, TSC, TVS, Citizen printers</p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowPrinterConfigModal(true)}
+              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg text-xs flex items-center gap-1.5"
+            >
+              <Settings size={14} />
+              <span>Configure Barcode Printers</span>
+            </button>
+          </div>
+
+          <div className="text-[11px] text-slate-400 leading-relaxed">
+            Configure direct USB spooler ports (<code className="text-emerald-300">USB001</code>, <code className="text-emerald-300">COM4</code>) or high-speed TCP/IP network socket connections (<code className="text-indigo-300">192.168.1.x:9100</code>). Configured printer hardware profiles automatically sync with the SMRITI Universal Label Printing Engine.
+          </div>
+        </div>
       </div>
+
+      <PrinterConfigurationModal 
+        isOpen={showPrinterConfigModal}
+        onClose={() => setShowPrinterConfigModal(false)}
+      />
     </div>
   );
 };

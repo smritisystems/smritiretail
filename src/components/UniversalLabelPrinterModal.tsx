@@ -29,9 +29,10 @@ import {
 } from "lucide-react";
 import { 
   UniversalLabelItem, QuantitySource, LabelTemplate, PrinterProfile, 
-  DEFAULT_LABEL_TEMPLATES, DEFAULT_PRINTER_PROFILES, 
+  DEFAULT_LABEL_TEMPLATES, DEFAULT_PRINTER_PROFILES, getStoredPrinterProfiles, 
   extractLabelTokens, renderPRNScript, computeLabelCopies 
 } from "../services/universalLabelPrinterService.ts";
+import { PrinterConfigurationModal } from "./PrinterConfigurationModal.tsx";
 import { BarcodeLabel } from "../print_engine/templates/BarcodeLabel.tsx";
 
 export interface UniversalLabelPrinterModalProps {
@@ -76,11 +77,27 @@ export const UniversalLabelPrinterModal: React.FC<UniversalLabelPrinterModalProp
   // PRN Template & Hardware Printer Settings
   const [templates] = useState<LabelTemplate[]>(DEFAULT_LABEL_TEMPLATES);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(DEFAULT_LABEL_TEMPLATES[0].id);
-  const [printers] = useState<PrinterProfile[]>(DEFAULT_PRINTER_PROFILES);
-  const [selectedPrinterId, setSelectedPrinterId] = useState<string>(DEFAULT_PRINTER_PROFILES[0].id);
+  const [printers, setPrinters] = useState<PrinterProfile[]>(() => getStoredPrinterProfiles());
+  const [selectedPrinterId, setSelectedPrinterId] = useState<string>(() => {
+    const defaultPrn = getStoredPrinterProfiles().find(p => p.isDefault);
+    return defaultPrn ? defaultPrn.id : getStoredPrinterProfiles()[0]?.id || DEFAULT_PRINTER_PROFILES[0].id;
+  });
+  const [showPrinterConfigModal, setShowPrinterConfigModal] = useState<boolean>(false);
   const [customPrnScript, setCustomPrnScript] = useState<string>("");
   const [isEditingPrnScript, setIsEditingPrnScript] = useState<boolean>(false);
   const [showPrnCodeInspector, setShowPrnCodeInspector] = useState<boolean>(false);
+
+  // Sync printers on modal open
+  React.useEffect(() => {
+    if (isOpen) {
+      const freshProfiles = getStoredPrinterProfiles();
+      setPrinters(freshProfiles);
+      if (!freshProfiles.some(p => p.id === selectedPrinterId)) {
+        const defaultPrn = freshProfiles.find(p => p.isDefault);
+        setSelectedPrinterId(defaultPrn ? defaultPrn.id : freshProfiles[0]?.id || DEFAULT_PRINTER_PROFILES[0].id);
+      }
+    }
+  }, [isOpen]);
 
   // Unique attribute filter options extracted from items
   const categories = useMemo(() => Array.from(new Set(items.map(i => i.category).filter(Boolean))), [items]);
@@ -539,14 +556,24 @@ export const UniversalLabelPrinterModal: React.FC<UniversalLabelPrinterModalProp
 
             {/* Hardware Printer Selection */}
             <div className="bg-[#191d2b] p-4 rounded-2xl border border-slate-800 space-y-3">
-              <span className="text-[10px] text-indigo-400 uppercase font-bold block">3. Target Hardware Printer</span>
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-indigo-400 uppercase font-bold block">3. Target Hardware Printer</span>
+                <button
+                  type="button"
+                  onClick={() => setShowPrinterConfigModal(true)}
+                  className="text-[10px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40"
+                >
+                  <Printer size={11} />
+                  <span>Configure USB / TCP-IP</span>
+                </button>
+              </div>
               <select
                 value={selectedPrinterId}
                 onChange={e => setSelectedPrinterId(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs font-mono outline-none focus:border-indigo-500"
               >
                 {printers.map(p => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.address})</option>
+                  <option key={p.id} value={p.id}>{p.name} [{p.connectionType || "TCP/IP"}] ({p.address})</option>
                 ))}
               </select>
             </div>
@@ -588,6 +615,15 @@ export const UniversalLabelPrinterModal: React.FC<UniversalLabelPrinterModalProp
             </button>
           </div>
         </div>
+
+        <PrinterConfigurationModal
+          isOpen={showPrinterConfigModal}
+          onClose={() => setShowPrinterConfigModal(false)}
+          onPrinterProfileChanged={(updatedList, selectedId) => {
+            setPrinters(updatedList);
+            if (selectedId) setSelectedPrinterId(selectedId);
+          }}
+        />
 
       </div>
     </div>
