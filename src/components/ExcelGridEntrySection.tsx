@@ -768,6 +768,16 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
     setLoading(true);
     let successCount = 0;
     let failCount = 0;
+    setRowErrors([]);
+    const capturedErrors: Array<{
+      rowIndex: number;
+      barcode: string;
+      sku: string;
+      styleCode: string;
+      name: string;
+      issue: string;
+      action: string;
+    }> = [];
     
     try {
       // Validate mandatory custom attributes
@@ -793,6 +803,8 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
               return;
             }
           }
+        }
+
         for (const attr of activeAttrs) {
           const val = row.attributes[attr.name];
           if (attr.isMandatory && (!val || val.trim() === "")) {
@@ -803,92 +815,78 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
         }
       }
 
-      setRowErrors([]);
-      const capturedErrors: any[] = [];
-
       // Submit items sequentially
-      for (const row of validRows) {
-        const rowNum = validRows.indexOf(row) + 1;
+      for (let i = 0; i < validRows.length; i++) {
+        const row = validRows[i];
+        const rowNum = i + 1;
+        
+        // Construct unique SKU code by suffixing color/size to the base style code
+        const variantSuffix = [row.attributes.color, row.attributes.size]
+          .filter(v => v && v.trim() !== "")
+          .map(v => v.trim().toUpperCase())
+          .join("-");
+        
+        const uniqueSku = variantSuffix ? `${row.code.trim()}-${variantSuffix}` : row.code.trim();
+
+        const payload = {
+          id: `p-grid-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          code: uniqueSku,
+          name: row.name,
+          price: parseFloat(row.price) || 0,
+          stock: parseInt(row.stock) || 0,
+          category: row.category.trim() || activeGroup?.name || "General",
+          barcode: row.barcode,
+          cost_price: parseFloat(row.costPrice) || Math.round((parseFloat(row.price) || 0) * 0.6),
+          mrp: parseFloat(row.mrp) || parseFloat(row.price) || 0,
+          gst_percentage: parseFloat(row.gstPercentage) || 18.00,
+          sku: uniqueSku,
+          style_code: row.styleCode.trim() || row.code.trim(),
+          brand: row.brand.trim() || row.attributes.brand || "SMRITI",
+          hsn_code: row.hsnCode.trim() || row.attributes.hsnCode || row.attributes.HSN || row.attributes.hsn || "61091000",
+          primary_image_url: row.imageLink.trim() || undefined,
+          attributes: {
+            ...row.attributes,
+            ...(row.brand.trim() ? { brand: row.brand.trim() } : {}),
+            ...(row.styleCode.trim() ? { styleCode: row.styleCode.trim() } : {}),
+            ...(row.category.trim() ? { category: row.category.trim() } : {}),
+            ...(row.hsnCode.trim() ? { hsnCode: row.hsnCode.trim() } : {}),
+            ...(row.vendorCode.trim() ? { vendorCode: row.vendorCode.trim() } : {}),
+            ...(row.purchaseClass.trim() ? { purchaseClass: row.purchaseClass.trim() } : {}),
+            ...(row.department.trim() ? { department: row.department.trim() } : {}),
+            ...(row.merchandiseCategory.trim() ? { merchandiseCategory: row.merchandiseCategory.trim() } : {}),
+            ...(row.subCategory.trim() ? { subCategory: row.subCategory.trim() } : {}),
+            ...(row.gender.trim() ? { gender: row.gender.trim() } : {}),
+            ...(row.heels.trim() ? { heels: row.heels.trim() } : {}),
+            ...(row.upperMaterial.trim() ? { upperMaterial: row.upperMaterial.trim() } : {}),
+            ...(row.outsole.trim() ? { outsole: row.outsole.trim() } : {}),
+          },
+        };
+
         try {
-          // Construct unique SKU code by suffixing color/size to the base style code
-          const variantSuffix = [row.attributes.color, row.attributes.size]
-            .filter(v => v && v.trim() !== "")
-            .map(v => v.trim().toUpperCase())
-            .join("-");
-          
-          const uniqueSku = variantSuffix ? `${row.code.trim()}-${variantSuffix}` : row.code.trim();
-
-          const payload = {
-            id: `p-grid-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-            code: uniqueSku,
-            name: row.name,
-            price: parseFloat(row.price) || 0,
-            stock: parseInt(row.stock) || 0,
-            category: row.category.trim() || activeGroup?.name || "General",
-            barcode: row.barcode,
-            cost_price: parseFloat(row.costPrice) || Math.round((parseFloat(row.price) || 0) * 0.6),
-            mrp: parseFloat(row.mrp) || parseFloat(row.price) || 0,
-            gst_percentage: parseFloat(row.gstPercentage) || 18.00,
-            sku: uniqueSku,
-            style_code: row.styleCode.trim() || row.code.trim(),
-            brand: row.brand.trim() || row.attributes.brand || "SMRITI",
-            hsn_code: row.hsnCode.trim() || row.attributes.hsnCode || row.attributes.HSN || row.attributes.hsn || "61091000",
-            primary_image_url: row.imageLink.trim() || undefined,
-            attributes: {
-              ...row.attributes,
-              ...(row.brand.trim() ? { brand: row.brand.trim() } : {}),
-              ...(row.styleCode.trim() ? { styleCode: row.styleCode.trim() } : {}),
-              ...(row.category.trim() ? { category: row.category.trim() } : {}),
-              ...(row.hsnCode.trim() ? { hsnCode: row.hsnCode.trim() } : {}),
-              ...(row.vendorCode.trim() ? { vendorCode: row.vendorCode.trim() } : {}),
-              ...(row.purchaseClass.trim() ? { purchaseClass: row.purchaseClass.trim() } : {}),
-              ...(row.department.trim() ? { department: row.department.trim() } : {}),
-              ...(row.merchandiseCategory.trim() ? { merchandiseCategory: row.merchandiseCategory.trim() } : {}),
-              ...(row.subCategory.trim() ? { subCategory: row.subCategory.trim() } : {}),
-              ...(row.gender.trim() ? { gender: row.gender.trim() } : {}),
-              ...(row.heels.trim() ? { heels: row.heels.trim() } : {}),
-              ...(row.upperMaterial.trim() ? { upperMaterial: row.upperMaterial.trim() } : {}),
-              ...(row.outsole.trim() ? { outsole: row.outsole.trim() } : {}),
-            },
-          };
-
-          try {
-            await apiFetchV1("/inventory/", {
-              method: "POST",
-              body: JSON.stringify(payload),
-            });
-            successCount++;
-          } catch (err: any) {
-            const errMsg = err.message || "Save failed";
-            let action = "Ensure Barcode and SKU Code are unique across catalog.";
-            if (errMsg.toLowerCase().includes("brand")) {
-              action = "Select a valid brand option or add brand to system dictionary.";
-            } else if (errMsg.toLowerCase().includes("barcode")) {
-              action = "Change barcode for this row to make it unique.";
-            } else if (errMsg.toLowerCase().includes("sku") || errMsg.toLowerCase().includes("code")) {
-              action = "Change SKU Code or style suffix for this row.";
-            }
-
-            capturedErrors.push({
-              rowIndex: rowNum,
-              barcode: row.barcode.trim() || "Missing",
-              sku: uniqueSku || "Missing",
-              styleCode: row.styleCode.trim() || row.code.trim() || "N/A",
-              name: row.name.trim(),
-              issue: errMsg,
-              action
-            });
-            failCount++;
-          }
+          await apiFetchV1("/inventory/", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          successCount++;
         } catch (err: any) {
+          const errMsg = err.message || "Save failed";
+          let action = "Ensure Barcode and SKU Code are unique across catalog.";
+          if (errMsg.toLowerCase().includes("brand")) {
+            action = "Select a valid brand option or add brand to system dictionary.";
+          } else if (errMsg.toLowerCase().includes("barcode")) {
+            action = "Change barcode for this row to make it unique.";
+          } else if (errMsg.toLowerCase().includes("sku") || errMsg.toLowerCase().includes("code")) {
+            action = "Change SKU Code or style suffix for this row.";
+          }
+
           capturedErrors.push({
             rowIndex: rowNum,
             barcode: row.barcode.trim() || "Missing",
-            sku: row.code.trim() || "Missing",
-            styleCode: row.styleCode.trim() || "N/A",
+            sku: uniqueSku || "Missing",
+            styleCode: row.styleCode.trim() || row.code.trim() || "N/A",
             name: row.name.trim(),
-            issue: err.message || "Row processing failed",
-            action: "Check row input values."
+            issue: errMsg,
+            action
           });
           failCount++;
         }
