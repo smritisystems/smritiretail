@@ -75,7 +75,7 @@ const DEFAULT_PREFERENCES: LayoutPreferences = {
   sidebarWidth: 260,
   lastWorkspace: "dashboard",
   collapsedGroups: [],
-  favorites: ["pos", "sales"],
+  favorites: ["pos", "sales", "print-labels", "barcode"],
   hideNavbar: false,
   hideSidebar: false,
   hideBottombar: false,

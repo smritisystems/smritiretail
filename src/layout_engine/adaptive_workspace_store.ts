@@ -28,24 +28,28 @@ export const WORKSPACE_MODE_CONFIGS: Record<WorkspaceMode, WorkspaceModeConfig> 
     mode: "SIMPLE",
     name: "Simple (Cashier)",
     description: "Ultra-fast billing terminal & shift summary with zero visual clutter.",
-    maxPrimaryButtons: 4,
-    allowedTabIds: ["pos", "dashboard", "about", "wiki"],
+    maxPrimaryButtons: 6,
+    allowedTabIds: ["pos", "dashboard", "print-labels", "universal-label-printer", "about", "wiki"],
   },
   HYBRID: {
     mode: "HYBRID",
     name: "Hybrid (Store Owner)",
     description: "Daily retail operations, item management, rebalancing, and CRM.",
-    maxPrimaryButtons: 7,
+    maxPrimaryButtons: 10,
     allowedTabIds: [
       "pos",
       "dashboard",
+      "item-master",
       "items",
       "sales",
       "purchase",
       "customers",
+      "customer-master",
       "stock_ledger",
       "quick_reports",
       "barcode",
+      "print-labels",
+      "universal-label-printer",
       "about",
       "wiki",
     ],
@@ -54,7 +58,7 @@ export const WORKSPACE_MODE_CONFIGS: Record<WorkspaceMode, WorkspaceModeConfig> 
     mode: "ADVANCED",
     name: "Advanced (Enterprise)",
     description: "Full accounting, SGIP GST reconciliation, SIP identity, approvals, and audit logs.",
-    maxPrimaryButtons: 12,
+    maxPrimaryButtons: 16,
     allowedTabIds: ["*"], // All tabs allowed
   },
 };
@@ -62,7 +66,7 @@ export const WORKSPACE_MODE_CONFIGS: Record<WorkspaceMode, WorkspaceModeConfig> 
 const STORAGE_KEY = "smriti_workspace_mode";
 
 class AdaptiveWorkspaceStore {
-  private currentMode: WorkspaceMode = "HYBRID";
+  private currentMode: WorkspaceMode = "ADVANCED";
   private listeners: Set<() => void> = new Set();
 
   constructor() {

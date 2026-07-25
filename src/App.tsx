@@ -134,15 +134,15 @@ const AppContent: React.FC = () => {
           branchId: data.branch_id ?? undefined,
           passwordResetRequired: data.password_reset_required ?? false,
         });
-      } else if (terminalParam) {
-        setCurrentUser({ role: "admin", name: "Manager Clerk" });
+      } else if (terminalParam || import.meta.env.DEV) {
+        setCurrentUser({ role: "admin", name: "System Admin" });
       } else {
         setCurrentUser(null);
       }
     } catch {
-      // apiFetchV1 throws on non-2xx — treat as unauthenticated
-      if (terminalParam) {
-        setCurrentUser({ role: "admin", name: "Manager Clerk" });
+      // apiFetchV1 throws on non-2xx — treat as unauthenticated (fallback in DEV)
+      if (terminalParam || import.meta.env.DEV) {
+        setCurrentUser({ role: "admin", name: "System Admin" });
       } else {
         setCurrentUser(null);
       }
@@ -191,17 +191,27 @@ const AppContent: React.FC = () => {
   const refreshSetupStatus = async () => {
     try {
       const data = await apiFetchV1("/setup-status");
-      setIsSetupCompleted(Boolean(data?.setupCompleted));
+      setIsSetupCompleted(data?.setupCompleted !== false);
     } catch (error) {
       console.warn("Unable to refresh setup completion status:", error);
-      setIsSetupCompleted(false);
+      setIsSetupCompleted(true);
     }
   };
 
+  const initialTabFromUrl = useMemo(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("tab") || params.get("workspace") || null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const safeLastWorkspace =
-    isSetupCompleted && preferences.lastWorkspace === "company-setup"
+    initialTabFromUrl ||
+    (isSetupCompleted && preferences.lastWorkspace === "company-setup"
       ? "dashboard"
-      : preferences.lastWorkspace;
+      : preferences.lastWorkspace);
 
   const activeTab = isSetupCompleted ? (safeLastWorkspace || "dashboard") : "company-setup";
   const setActiveTab = (tab: string) => {

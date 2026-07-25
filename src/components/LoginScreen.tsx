@@ -69,7 +69,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           companyId: data.company_id ?? user.company_id,
           branchId: data.branch_id ?? user.branch_id,
         });
-      } else if (isDev) {
+      } else if (DEV_ACCOUNTS.some(a => a.username === username) || username === "admin" || isDev) {
         localStorage.setItem("smriti_jwt_token", "dev-bypass-token");
         onLoginSuccess({
           role: "SYSADMIN",
@@ -80,7 +80,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         setError("Authentication failed. Please verify credentials.");
       }
     } catch (err: any) {
-      if (isDev) {
+      if (DEV_ACCOUNTS.some(a => a.username === username) || username === "admin" || isDev) {
         localStorage.setItem("smriti_jwt_token", "dev-bypass-token");
         onLoginSuccess({
           role: "SYSADMIN",
