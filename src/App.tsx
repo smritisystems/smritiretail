@@ -53,6 +53,7 @@ import { ConsignmentStudioTab } from "./components/ConsignmentStudioTab.tsx";
 import { CrmStudioTab } from "./components/CrmStudioTab.tsx";
 import { LoyaltyStudioTab } from "./components/LoyaltyStudioTab.tsx";
 import { SupplierDashboardTab } from "./components/SupplierDashboardTab.tsx";
+import { ScreenStudioTab } from "./components/ScreenStudioTab.tsx";
 import { ReportDesignerTab } from "./components/ReportDesignerTab.tsx";
 import { ExplainModal } from "./components/ExplainModal.tsx";
 import { DrillDownProvider } from "./components/drilldown/drilldown_store.tsx";
@@ -445,6 +446,8 @@ const AppContent: React.FC = () => {
         return <SupplierDashboardTab currentUser={currentUser} />;
       case "report-designer":
         return <ReportDesignerTab currentUser={currentUser} />;
+      case "screen-studio":
+        return <ScreenStudioTab />;
       case "item-master":
         return (
           <ItemMasterTab

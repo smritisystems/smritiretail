@@ -195,6 +195,24 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Data & Config",
     },
     {
+      id: "screen-studio",
+      label: "Screen & Policy Studio",
+      icon: "design_services",
+      category: "Data & Config",
+    },
+    {
+      id: "customer-dashboard",
+      label: "Customer Insights",
+      icon: "space_dashboard",
+      category: "Sales & POS",
+    },
+    {
+      id: "consignment-studio",
+      label: "Consignment Studio",
+      icon: "inventory",
+      category: "Inventory & Sourcing",
+    },
+    {
       id: "item-master",
       label: "Item Master",
       icon: "inventory_2",

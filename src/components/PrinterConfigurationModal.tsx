@@ -221,6 +221,8 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
     setTestResult(res);
   };
 
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 font-mono text-xs">
       <div className="bg-[#10121d] border border-amber-500/30 rounded-2xl max-w-4xl w-full flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
