@@ -50,12 +50,12 @@ class Product(RowSecuredMixin, BaseEntity):
     primary_image_url = Column(String(512))
     gallery_images = Column(ARRAY(String), server_default="{}")
 
-    # Relationships
-    barcodes = relationship("ProductBarcode", back_populates="product", cascade="all, delete-orphan")
-    vendors = relationship("ProductVendor", back_populates="product", cascade="all, delete-orphan")
-    tax_profiles = relationship("ProductTaxProfile", back_populates="product", cascade="all, delete-orphan", order_by="desc(ProductTaxProfile.effective_from)")
-    inventory_policy = relationship("ProductInventoryPolicy", back_populates="product", uselist=False, cascade="all, delete-orphan")
-    variant_template = relationship("VariantTemplate", primaryjoin="foreign(Product.variant_template_id) == VariantTemplate.id", backref="products")
+    # Relationships — all use lazy="selectin" to prevent MissingGreenlet in async SQLAlchemy
+    barcodes = relationship("ProductBarcode", back_populates="product", cascade="all, delete-orphan", lazy="selectin")
+    vendors = relationship("ProductVendor", back_populates="product", cascade="all, delete-orphan", lazy="selectin")
+    tax_profiles = relationship("ProductTaxProfile", back_populates="product", cascade="all, delete-orphan", order_by="desc(ProductTaxProfile.effective_from)", lazy="selectin")
+    inventory_policy = relationship("ProductInventoryPolicy", back_populates="product", uselist=False, cascade="all, delete-orphan", lazy="selectin")
+    variant_template = relationship("VariantTemplate", primaryjoin="foreign(Product.variant_template_id) == VariantTemplate.id", backref="products", lazy="selectin")
 
     @property
     def secondary_barcodes(self) -> list[str]:
