@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { 
   UniversalLabelItem, PrinterProfile, 
-  getStoredPrinterProfiles, renderSLPEPRNScript, MASTER_PRN_SCRIPTS 
+  getStoredPrinterProfiles, syncPrinterProfilesFromNetwork, renderSLPEPRNScript, MASTER_PRN_SCRIPTS 
 } from "../services/universalLabelPrinterService.ts";
 import { PrinterConfigurationModal } from "./PrinterConfigurationModal.tsx";
 import { Product } from "../types.ts";
@@ -161,6 +161,15 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
   useEffect(() => {
     setItems(initialItems);
   }, [initialItems]);
+
+  // Auto-sync printer profiles from network on mount (enables cross-PC synchronization)
+  useEffect(() => {
+    syncPrinterProfilesFromNetwork().then(freshProfiles => {
+      setPrinterProfiles(freshProfiles);
+      const defaultPrn = freshProfiles.find(p => p.isDefault) || freshProfiles[0];
+      if (defaultPrn) setActivePrinter(defaultPrn);
+    });
+  }, []);
 
   // Dropdown Extraction Lists
   const productsList = useMemo(() => ["ALL", ...Array.from(new Set(items.map(i => i.product || i.category).filter(Boolean)))], [items]);

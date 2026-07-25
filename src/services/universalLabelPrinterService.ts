@@ -17,7 +17,7 @@
  * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  *
  * * Version    : 3.34.0 (SMRITI Smart Label Printing Engine - SLPE)
- * * Created    : 2026-07-25
+import { apiFetchV1 } from "../lib/apiFetch.ts";
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -425,6 +425,43 @@ export function savePrinterProfiles(profiles: PrinterProfile[]): void {
     localStorage.setItem(PRINTER_PROFILES_STORAGE_KEY, JSON.stringify(profiles));
   } catch (err) {
     console.error("Failed to save printer profiles to localStorage:", err);
+  }
+}
+
+/**
+ * Sync Printer Profiles across network / multiple PCs via Platform API
+ */
+export async function syncPrinterProfilesFromNetwork(): Promise<PrinterProfile[]> {
+  try {
+    const data = await apiFetchV1("/barcode/printer-settings");
+    if (data && data.profiles && Array.isArray(data.profiles) && data.profiles.length > 0) {
+      savePrinterProfiles(data.profiles);
+      return data.profiles;
+    }
+  } catch (err) {
+    console.warn("Network printer profiles sync failed, using local storage:", err);
+  }
+  return getStoredPrinterProfiles();
+}
+
+export async function pushPrinterProfilesToNetwork(profiles: PrinterProfile[]): Promise<boolean> {
+  savePrinterProfiles(profiles);
+  try {
+    const defaultPrn = profiles.find(p => p.isDefault) || profiles[0];
+    await apiFetchV1("/barcode/printer-settings", {
+      method: "POST",
+      body: JSON.stringify({
+        connection_type: defaultPrn?.connectionType === "TCP/IP" ? "TCP" : "USB",
+        ip: defaultPrn?.ipAddress || "192.168.1.200",
+        port: defaultPrn?.port || 9100,
+        usb_target: defaultPrn?.usbPort || "USB001",
+        profiles: profiles
+      })
+    });
+    return true;
+  } catch (err) {
+    console.warn("Failed to push printer settings to network API:", err);
+    return false;
   }
 }
 

@@ -29,7 +29,8 @@ import {
 } from "lucide-react";
 import { 
   PrinterProfile, PRNPrinterBrand, getStoredPrinterProfiles, 
-  savePrinterProfiles, testPrinterConnection, generateRawTestPrintScript 
+  savePrinterProfiles, pushPrinterProfilesToNetwork, syncPrinterProfilesFromNetwork,
+  testPrinterConnection, generateRawTestPrintScript 
 } from "../services/universalLabelPrinterService.ts";
 
 export interface PrinterConfigurationModalProps {
@@ -77,14 +78,17 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
 
   // Sync state when modal is opened or profile selection changes
   useEffect(() => {
-    const freshProfiles = getStoredPrinterProfiles();
-    setProfiles(freshProfiles);
-    if (!isAddingNew) {
-      const target = freshProfiles.find(p => p.id === selectedProfileId) || freshProfiles.find(p => p.isDefault) || freshProfiles[0];
-      if (target) {
-        setSelectedProfileId(target.id);
-        setFormData({ ...target });
-      }
+    if (isOpen) {
+      syncPrinterProfilesFromNetwork().then(freshProfiles => {
+        setProfiles(freshProfiles);
+        if (!isAddingNew) {
+          const target = freshProfiles.find(p => p.id === selectedProfileId) || freshProfiles.find(p => p.isDefault) || freshProfiles[0];
+          if (target) {
+            setSelectedProfileId(target.id);
+            setFormData({ ...target });
+          }
+        }
+      });
     }
   }, [isOpen]);
 
@@ -167,6 +171,7 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
 
     setProfiles(newProfilesList);
     savePrinterProfiles(newProfilesList);
+    pushPrinterProfilesToNetwork(newProfilesList);
     setIsAddingNew(false);
     setSelectedProfileId(updatedProfile.id);
 
@@ -186,6 +191,7 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
     }
     setProfiles(filtered);
     savePrinterProfiles(filtered);
+    pushPrinterProfilesToNetwork(filtered);
     const nextSelected = filtered[0]?.id || "";
     setSelectedProfileId(nextSelected);
     if (filtered[0]) setFormData({ ...filtered[0] });
