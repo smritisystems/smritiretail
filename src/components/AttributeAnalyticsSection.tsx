@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -115,7 +115,7 @@ export const AttributeAnalyticsSection: React.FC<AttributeAnalyticsSectionProps>
               {bestPerforming ? bestPerforming.value : "None"}
             </span>
             <span className="text-[11px] text-emerald-400 mt-1 block">
-              Qty Sold: <span className="font-bold">{bestPerforming ? bestPerforming.quantitySold : 0} pcs</span>
+              Qty Sold: <span className="font-bold">{bestPerforming ? bestPerforming.quantitySold : 0} Qty</span>
             </span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-emerald-950 flex items-center justify-center text-emerald-400 border border-emerald-900">
@@ -140,9 +140,9 @@ export const AttributeAnalyticsSection: React.FC<AttributeAnalyticsSectionProps>
 
         <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider flex items-center justify-between">
           <div>
-            <span className="text-[9px] text-theme-muted font-mono block tracking-wider uppercase">TOTAL PIECES INSTORE</span>
+            <span className="text-[9px] text-theme-muted font-mono block tracking-wider uppercase">TOTAL QUANTITY INSTORE</span>
             <span className="text-xl font-bold font-display text-sky-400 mt-1.5 block">
-              {totalStockCount.toLocaleString("en-IN")} pcs
+              {totalStockCount.toLocaleString("en-IN")} Qty
             </span>
             <span className="text-[11px] text-theme-muted mt-1 block">
               Spread across <span className="text-theme-body font-medium">{stockData.length} unique values</span>

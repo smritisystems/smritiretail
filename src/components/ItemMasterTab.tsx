@@ -639,7 +639,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   {onHandStock.toLocaleString("en-IN")} <span className="text-xs font-normal text-theme-muted">Units</span>
                 </span>
                 <span className="text-[11px] text-theme-muted mt-1 block">
-                  Average stock per SKU: <span className="text-theme-body font-medium">{totalSkus > 0 ? Math.round(onHandStock / totalSkus) : 0} pcs</span>
+                  Average stock per SKU: <span className="text-theme-body font-medium">{totalSkus > 0 ? Math.round(onHandStock / totalSkus) : 0} Qty</span>
                 </span>
               </div>
               <div className="w-12 h-12 rounded-xl bg-emerald-950 flex items-center justify-center text-emerald-400 border border-emerald-900">
@@ -1531,7 +1531,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                               onDoubleClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "stock", "Stock On Hand", String(p.stock), p); }}
                             >
                               <span className={`font-semibold ${p.stock < 10 ? "text-rose-400" : "text-theme-primary"}`}>
-                                {p.stock} pcs
+                                {p.stock} Qty
                               </span>
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "stock", "Stock On Hand", String(p.stock), p); }}
