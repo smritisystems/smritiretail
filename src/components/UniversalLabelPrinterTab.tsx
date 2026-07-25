@@ -913,6 +913,8 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
               </div>
             </form>
           </div>
+        </div>
+      )}
       {/* ── Printer Configuration Modal ────────────────────────────────────────── */}
       <PrinterConfigurationModal 
         isOpen={showPrinterConfigModal}
