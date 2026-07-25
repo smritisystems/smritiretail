@@ -124,7 +124,7 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
 
   // 18-Field Selection Criteria Range Boundaries State
   const [criteria, setCriteria] = useState<SelectionCriteriaState>({
-    stockNoFrom: "000006", stockNoTo: "000008",
+    stockNoFrom: "", stockNoTo: "",
     barcodeFrom: "", barcodeTo: "",
     productFrom: "ALL", productTo: "ALL",
     brandFrom: "ALL", brandTo: "ALL",
