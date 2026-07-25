@@ -322,10 +322,10 @@ async def test_price_engine_no_change_when_no_pricing_group(db_session, crm_fixt
     prod_id = "pg-prod-002"
     await db_session.execute(text(
         "INSERT INTO products "
-        "(id, uuid, name, code, category, barcode, price, cost_price, mrp, stock, tracking_mode, "
+        "(id, uuid, name, code, category, barcode, price, cost_price, mrp, stock, tracking_mode, gst_percentage, "
         " company_id, branch_id, is_active, is_deleted, created_at, modified_at, version) "
         "VALUES (:id, :uuid, 'Base Product', 'BP001', 'General', '8901234567891', "
-        "        200.00, 150.00, 220.00, 100, 'Track', "
+        "        200.00, 150.00, 220.00, 100, 'Track', 12.00, "
         "        :co, :br, true, false, now(), now(), 1)"
     ), {"id": prod_id, "uuid": str(uuid.uuid4()),
         "co": fx["company_id"], "br": fx["branch_id"]})
