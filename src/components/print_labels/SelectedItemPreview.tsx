@@ -10,7 +10,7 @@
  */
 
 import React from "react";
-import { Eye, FileCode } from "lucide-react";
+import { Eye, FileCode, Printer } from "lucide-react";
 import { UniversalLabelItem, PrinterProfile } from "../../services/universalLabelPrinterService.ts";
 import { BarcodeLabel } from "../../print_engine/templates/BarcodeLabel.tsx";
 
@@ -20,6 +20,7 @@ export interface SelectedItemPreviewProps {
   evaluatedPRNPayload: string;
   itemIndex: number;
   totalItems: number;
+  onPrintSelected?: () => void;
 }
 
 export const SelectedItemPreview: React.FC<SelectedItemPreviewProps> = ({
@@ -84,10 +85,20 @@ export const SelectedItemPreview: React.FC<SelectedItemPreviewProps> = ({
                 <FileCode size={12} className="text-amber-400" />
                 Evaluated RAW Script ({activePrinter?.protocol || "ZPL"})
               </span>
-              <pre className="text-amber-300 max-h-20 overflow-x-auto bg-black/60 p-2 rounded">
+              <pre className="text-amber-300 max-h-20 overflow-x-auto bg-black/60 p-2 rounded font-mono">
                 {evaluatedPRNPayload}
               </pre>
             </div>
+
+            {onPrintSelected && (
+              <button 
+                type="button" 
+                onClick={onPrintSelected}
+                className="w-full py-2.5 bg-gradient-to-r from-emerald-600 via-amber-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white font-bold rounded-xl text-xs shadow-xl flex items-center justify-center gap-2 tracking-wide uppercase transition-all"
+              >
+                <Printer size={16} /> Print Selected Label ({item.name})
+              </button>
+            )}
           </div>
         </div>
       ) : (

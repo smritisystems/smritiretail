@@ -41,6 +41,7 @@ import { resolvePRNMappingForRule } from "../services/print_labels/prnMappingSer
 import { validateLabelQueuePreflight, LabelPreflightReport } from "../services/print_labels/labelValidationService.ts";
 import { addJobToPrintQueue } from "../services/print_labels/printQueueService.ts";
 import { logPrintAuditRecord } from "../services/print_labels/printAuditService.ts";
+import { dispatchRawPrintJob } from "../services/print_labels/qzTrayService.ts";
 
 export interface PrintLabelsTabProps {
   products?: Product[];
@@ -245,7 +246,7 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
   }, [filteredQueue, activePrinter, quantityStrategy]);
 
   // Action Handlers
-  const handlePrintSelected = () => {
+  const handlePrintSelected = async () => {
     if (!activeSelectedItem) {
       if (onNotification) onNotification("Empty Selection", "No item selected in tag queue.", "error");
       return;
@@ -273,8 +274,10 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
       status: "SUCCESS"
     });
 
+    const dispatchRes = await dispatchRawPrintJob(activePrinter, result.rawPayload, copiesMultiplier);
+
     if (onNotification) {
-      onNotification("Print Dispatched", `Dispatched ${copiesMultiplier} labels for ${activeSelectedItem.name} to ${printerName} [${selectedPort.toUpperCase()}]`, "success");
+      onNotification("Print Dispatched", `${dispatchRes.message} [${dispatchRes.method}]`, "success");
     }
   };
 
@@ -286,7 +289,7 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
     setShowPreDispatchModal(true);
   };
 
-  const handleConfirmBatchPrint = () => {
+  const handleConfirmBatchPrint = async () => {
     const printerName = activePrinter?.name || "Default Printer";
     addJobToPrintQueue(`Batch Job: ${filteredQueue.length} items`, printerName, selectedPort, "Garment_Tag.prn", filteredQueue.length, labelsToPrintTotal, evaluatedPRNPayload, currentUser?.name);
     logPrintAuditRecord({
@@ -301,9 +304,11 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
       status: "SUCCESS"
     });
 
+    const dispatchRes = await dispatchRawPrintJob(activePrinter, evaluatedPRNPayload, labelsToPrintTotal);
     setShowPreDispatchModal(false);
+
     if (onNotification) {
-      onNotification("Batch Print Dispatched", `Dispatched ${labelsToPrintTotal} total labels (${filteredQueue.length} records) to ${printerName}`, "success");
+      onNotification("Batch Print Dispatched", `${dispatchRes.message} [${dispatchRes.method}]`, "success");
     }
   };
 
@@ -440,6 +445,7 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
                 evaluatedPRNPayload={evaluatedPRNPayload}
                 itemIndex={activeItemIndex}
                 totalItems={filteredQueue.length}
+                onPrintSelected={handlePrintSelected}
               />
             </div>
           </div>
