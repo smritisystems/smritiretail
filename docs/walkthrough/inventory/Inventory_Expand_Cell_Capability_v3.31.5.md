@@ -22,7 +22,7 @@ This walkthrough documents the design and implementation of the universal Excel-
 ## 2. Scope
 - **Component Layer**: Created reusable `ExpandedCellEditor.tsx` component and `ExpandContextMenu.tsx` right-click helper.
 - **Excel Import Grid**: Integrated cell expansion into `ExcelGridEntrySection.tsx` for all static and dynamic attribute columns.
-- **Item Master Registry**: Integrated cell expansion into `ItemMasterTab.tsx` for main catalog data rows.
+- **Item Master Registry**: Integrated cell expansion into `ItemMasterTab.tsx` for main catalog data rows; added View Details modal, Bulk Edit selected modal, Range Filtering (min/max stock & price), and AI Suggest Best Autopilot.
 - **Triggers**: Double-click (`onDoubleClick`), Keyboard shortcuts (`F2`, `Ctrl+Shift+E`, `Ctrl+Enter`, `Esc`, `Ctrl+F`), Right-click context menu (`Expand Cell`), Hover icon button (`⤢`).
 
 ## 3. Files Created
@@ -30,7 +30,8 @@ This walkthrough documents the design and implementation of the universal Excel-
 
 ## 4. Files Modified
 - `src/components/ExcelGridEntrySection.tsx`: Added double-click, F2, Ctrl+Shift+E, context menu, and hover expand button to all grid cells.
-- `src/components/ItemMasterTab.tsx`: Added double-click and context menu cell expansion to the core catalog master registry table with inline API update capabilities.
+- `src/components/ItemMasterTab.tsx`: Added double-click and context menu cell expansion, View Details Modal, Bulk Edit Selected Modal, Range Filter Autopilot, and Suggest Best AI optimization.
+- `src/components/AttributeAnalyticsSection.tsx`: Updated stock unit label from `pcs` to `Qty`.
 
 ## 5. Architecture Decisions
 - **Fixed Floating Panel vs Full-Screen Modal**: The expanded viewer renders as a fixed floating panel anchored to the bottom-right of the viewport (or fullscreen when toggled). This keeps the main data grid visible and interactive alongside the expanded cell.
