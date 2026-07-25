@@ -61,38 +61,42 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
   // Master Tab State
   const [activeStudioTab, setActiveStudioTab] = useState<ActiveTabMode>("workstation");
 
-  // Sample Tag Inventory Queue
-  const initialItems: UniversalLabelItem[] = useMemo(() => {
-    if (products.length > 0) {
-      return products.map((p, index) => ({
-        id: p.id,
-        item_code: p.code || p.sku || `00000${index + 1}`,
-        stock_no: p.code || p.sku || `00000${index + 1}`,
-        barcode: p.barcode || `890123456000${index + 1}`,
-        sku: p.sku || p.code || `SKU-00${index + 1}`,
-        name: p.name,
-        product: p.category || "Shirt",
-        category: p.category || "Shirt",
-        brand: p.brand || "Beanstalk",
-        style: (p as any).style || p.code || "BeeLine",
-        shade: (p as any).color || (p as any).shade || "Ecru",
-        color: (p as any).color || (p as any).shade || "Ecru",
-        size: (p as any).size || "34",
-        price: p.price || 1299,
-        mrp: p.mrp || p.price || 1999,
-        stock_qty: p.stock ?? (p as any).stock_qty ?? 15,
-        received_qty: p.stock ?? (p as any).stock_qty ?? 15,
-        label_copies: 1
-      }));
-    }
+  // Build label items from Product[] (Item Master or products prop)
+  const buildItemsFromProducts = (prodList: typeof products): UniversalLabelItem[] =>
+    prodList.map((p, index) => ({
+      id: p.id,
+      item_code: p.code || p.sku || `00000${index + 1}`,
+      stock_no: p.code || p.sku || `00000${index + 1}`,
+      barcode: p.barcode || `890123456000${index + 1}`,
+      sku: p.sku || p.code || `SKU-00${index + 1}`,
+      name: p.name,
+      product: p.category || "Apparel",
+      category: p.category || "Apparel",
+      brand: p.brand || "",
+      // BUG FIX #1: was wrongly using p.code as style fallback
+      style: p.styleCode || (p.attributes?.Style) || "",
+      shade: p.color || (p.attributes?.Color) || "",
+      color: p.color || (p.attributes?.Color) || "",
+      size: p.size || (p.attributes?.Size) || "",
+      price: p.price || 0,
+      mrp: p.mrp ?? p.price ?? 0,
+      stock_qty: p.stock ?? 0,
+      received_qty: p.stock ?? 0,
+      label_copies: 1
+    }));
 
-    return [
-      { id: "lbl-101", stock_no: "000006", item_code: "000006", barcode: "8901234560006", sku: "SHT-BEAN-06", name: "Premium Casual Cotton Shirt (Ecru)", product: "Shirt", category: "Shirt", brand: "Beanstalk", style: "BeeLine", shade: "Ecru", size: "34", price: 1499, mrp: 2999, stock_qty: 24, received_qty: 24, label_copies: 1 },
-      { id: "lbl-102", stock_no: "000007", item_code: "000007", barcode: "8901234560007", sku: "SHT-BEAN-07", name: "Premium Casual Cotton Shirt (Blue)", product: "Shirt", category: "Shirt", brand: "Beanstalk", style: "BeeLine", shade: "Blue", size: "36", price: 1499, mrp: 2999, stock_qty: 18, received_qty: 18, label_copies: 1 },
-      { id: "lbl-103", stock_no: "000008", item_code: "000008", barcode: "8901234560008", sku: "SHT-BEAN-08", name: "Premium Formal Oxford Shirt (White)", product: "Shirt", category: "Shirt", brand: "Beanstalk", style: "BeeLine", shade: "White", size: "38", price: 1799, mrp: 3499, stock_qty: 30, received_qty: 30, label_copies: 1 },
-      { id: "lbl-104", stock_no: "000009", item_code: "000009", barcode: "8901234560009", sku: "TRO-ROY-09", name: "Executive Slim Fit Trouser (Black)", product: "Trouser", category: "Trouser", brand: "Royal Smriti", style: "ExecFit", shade: "Black", size: "32", price: 2499, mrp: 4999, stock_qty: 12, received_qty: 12, label_copies: 1 },
-      { id: "lbl-105", stock_no: "000010", item_code: "000010", barcode: "8901234560010", sku: "DEN-AIT-10", name: "Regular Fit Denim Jeans (Indigo)", product: "Jeans", category: "Jeans", brand: "AITDL Craft", style: "DenimX", shade: "Indigo", size: "34", price: 2999, mrp: 5999, stock_qty: 15, received_qty: 15, label_copies: 1 },
-    ];
+  const DEMO_ITEMS: UniversalLabelItem[] = [
+    { id: "lbl-101", stock_no: "000006", item_code: "000006", barcode: "8901234560006", sku: "SHT-BEAN-06", name: "Premium Casual Cotton Shirt (Ecru)", product: "Shirt", category: "Shirt", brand: "Beanstalk", style: "BeeLine", shade: "Ecru", color: "Ecru", size: "34", price: 1499, mrp: 2999, stock_qty: 24, received_qty: 24, label_copies: 1 },
+    { id: "lbl-102", stock_no: "000007", item_code: "000007", barcode: "8901234560007", sku: "SHT-BEAN-07", name: "Premium Casual Cotton Shirt (Blue)", product: "Shirt", category: "Shirt", brand: "Beanstalk", style: "BeeLine", shade: "Blue", color: "Blue", size: "36", price: 1499, mrp: 2999, stock_qty: 18, received_qty: 18, label_copies: 1 },
+    { id: "lbl-103", stock_no: "000008", item_code: "000008", barcode: "8901234560008", sku: "SHT-BEAN-08", name: "Premium Formal Oxford Shirt (White)", product: "Shirt", category: "Shirt", brand: "Beanstalk", style: "BeeLine", shade: "White", color: "White", size: "38", price: 1799, mrp: 3499, stock_qty: 30, received_qty: 30, label_copies: 1 },
+    { id: "lbl-104", stock_no: "000009", item_code: "000009", barcode: "8901234560009", sku: "TRO-ROY-09", name: "Executive Slim Fit Trouser (Black)", product: "Trouser", category: "Trouser", brand: "Royal Smriti", style: "ExecFit", shade: "Black", color: "Black", size: "32", price: 2499, mrp: 4999, stock_qty: 12, received_qty: 12, label_copies: 1 },
+    { id: "lbl-105", stock_no: "000010", item_code: "000010", barcode: "8901234560010", sku: "DEN-AIT-10", name: "Regular Fit Denim Jeans (Indigo)", product: "Jeans", category: "Jeans", brand: "AITDL Craft", style: "DenimX", shade: "Indigo", color: "Indigo", size: "34", price: 2999, mrp: 5999, stock_qty: 15, received_qty: 15, label_copies: 1 },
+  ];
+
+  // BUG FIX #2: initialItems from products prop (not useMemo over products directly to allow mode switching)
+  const initialItems: UniversalLabelItem[] = useMemo(() => {
+    if (products.length > 0) return buildItemsFromProducts(products);
+    return DEMO_ITEMS;
   }, [products]);
 
   const [items, setItems] = useState<UniversalLabelItem[]>(initialItems);
@@ -158,10 +162,28 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
   // Pre-Dispatch Batch Summary Modal State
   const [showPreDispatchModal, setShowPreDispatchModal] = useState<boolean>(false);
 
-  // Sync items when initialItems prop updates
+  // Sync items when initialItems prop updates (manual mode)
   useEffect(() => {
-    setItems(initialItems);
-  }, [initialItems]);
+    if (optionMode !== "item_master") {
+      setItems(initialItems);
+    }
+  }, [initialItems, optionMode]);
+
+  // BUG FIX #3: When user selects "Against Item Master", reload ALL products from backend
+  useEffect(() => {
+    if (optionMode === "item_master") {
+      if (products.length > 0) {
+        // Already loaded - just use them all
+        setItems(buildItemsFromProducts(products));
+        setActiveItemIndex(0);
+      } else if (onRefreshProducts) {
+        // Products not loaded yet — trigger a refresh from API
+        onRefreshProducts().then(() => {
+          // products state in App.tsx will update and flow down as prop
+        });
+      }
+    }
+  }, [optionMode]);
 
   // Auto-sync printer profiles from network on mount (enables cross-PC synchronization)
   useEffect(() => {
@@ -226,19 +248,26 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
     return filteredQueue.reduce((acc, i) => acc + ((i.label_copies || 1) * copiesMultiplier), 0);
   }, [filteredQueue, quantityStrategy, currentStockTotal, totalRecords, copiesMultiplier]);
 
-  // Evaluated PRN Code & 9-Tier Rule Resolver Preview
+  // BUG FIX #4: Evaluated PRN code now uses renderSLPEPRNScript with the
+  // actual PRN template body (Tattly Threads or matched rule script),
+  // NOT the generic PrinterDriverFactory ZPL stub.
   const evaluatedPRNPayload = useMemo(() => {
-    if (!activeSelectedItem) return "; Select item to evaluate tag script";
+    if (!activeSelectedItem) return "; Select an item to evaluate tag script";
     const resolved = resolvePRNMappingForRule(activeSelectedItem);
-    const driver = PrinterDriverFactory.getDriver(activePrinter?.protocol || resolved.rule.protocol);
-    const result = driver.render({
-      profile: activePrinter || { id: "p1", name: "Default", brand: "Zebra", protocol: "ZPL", connectionType: "USB", isDefault: true, dpi: 203 },
-      item: activeSelectedItem,
-      copies: activeSelectedItem.label_copies || 1,
-      userName: currentUser?.name || "System Clerk"
-    });
-    return result.rawPayload;
-  }, [activeSelectedItem, activePrinter, currentUser]);
+    const templateScript = resolved.script?.rawScript || MASTER_PRN_SCRIPTS[0]?.rawScript || "";
+    if (!templateScript) {
+      // Fallback: use driver stub for protocols with no raw PRN template
+      const driver = PrinterDriverFactory.getDriver(activePrinter?.protocol || resolved.rule.protocol);
+      const result = driver.render({
+        profile: activePrinter || { id: "p1", name: "Default", brand: "Zebra", protocol: "ZPL", connectionType: "USB", isDefault: true, dpi: 203 },
+        item: activeSelectedItem,
+        copies: copiesMultiplier,
+        userName: currentUser?.name || "System Clerk"
+      });
+      return result.rawPayload;
+    }
+    return renderSLPEPRNScript(templateScript, activeSelectedItem, copiesMultiplier, currentUser?.name || "System Clerk");
+  }, [activeSelectedItem, activePrinter, currentUser, copiesMultiplier]);
 
   // Pre-Flight Readiness Report
   const preflightReport: LabelPreflightReport = useMemo(() => {
@@ -397,6 +426,13 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
                 printerProfiles={printerProfiles}
                 onSelectPrinter={setActivePrinter}
                 onOpenConfigModal={() => setShowPrinterConfigModal(true)}
+                onRefreshPrinters={() => {
+                  syncPrinterProfilesFromNetwork().then(freshProfiles => {
+                    setPrinterProfiles(freshProfiles);
+                    const def = freshProfiles.find(p => p.isDefault) || freshProfiles[0];
+                    if (def) setActivePrinter(def);
+                  });
+                }}
               />
 
               <SourceSelectionPanel
