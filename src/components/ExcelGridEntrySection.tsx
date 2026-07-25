@@ -15,11 +15,12 @@ import React, { useState, useEffect, useCallback } from "react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { 
   FileSpreadsheet, Plus, Trash2, CheckCircle2, Keyboard,
-  ClipboardCopy, ChevronDown, ChevronUp, Info, Maximize2
+  ClipboardCopy, ChevronDown, ChevronUp, Info, Maximize2, Printer
 } from "lucide-react";
 import { AttributeGroup, AttributeDefinition } from "../types.js";
 import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
 import { ExpandedCellEditor, ExpandContextMenu } from "./ExpandedCellEditor";
+import { UniversalLabelPrinterModal } from "./UniversalLabelPrinterModal.tsx";
 
 interface ExcelGridEntrySectionProps {
   onRefreshProducts: () => Promise<void>;
@@ -230,6 +231,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
   const [focusedCell, setFocusedCell] = useState<{ rowIndex: number; field: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showLabelModal, setShowLabelModal] = useState(false);
   const [fieldConfigs, setFieldConfigs] = useState<FieldConfig[]>(defaultFieldConfigs);
 
   // Configurable SKU Engine states for Excel Grid Entry
@@ -1020,6 +1022,12 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
             </select>
           </div>
           <button
+            onClick={() => setShowLabelModal(true)}
+            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shadow-md"
+          >
+            <Printer size={14} /> Print Universal Labels
+          </button>
+          <button
             onClick={resetGrid}
             className="px-3 py-1.5 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body text-xs rounded-lg transition-colors cursor-pointer"
           >
@@ -1767,11 +1775,34 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
           x={contextMenu.x}
           y={contextMenu.y}
           onExpand={() => handleExpandCell(contextMenu.rowIndex, contextMenu.field)}
-          onCopy={() => navigator.clipboard.writeText(contextMenu.value)}
-          onClear={() => handleCellChange(contextMenu.rowIndex, contextMenu.field, "")}
           onClose={() => setContextMenu(null)}
         />
       )}
+
+      {/* ── Universal Label Printer Modal ────────────────────────────── */}
+      <UniversalLabelPrinterModal
+        isOpen={showLabelModal}
+        onClose={() => setShowLabelModal(false)}
+        moduleSource="Excel Grid Entry"
+        onNotification={onNotification}
+        items={rows.filter(r => r.code || r.name || r.barcode).map((r, idx) => ({
+          id: `excel-row-${idx}`,
+          item_code: r.code || r.styleCode || "ITEM-001",
+          barcode: r.barcode || "8901234560000",
+          sku: r.code || "SKU-001",
+          name: r.name || "Grid Item",
+          category: r.category || "Apparel",
+          brand: r.brand || "SMRITI",
+          department: r.department,
+          price: parseFloat(r.price) || 0,
+          cost_price: parseFloat(r.costPrice) || 0,
+          mrp: parseFloat(r.mrp) || parseFloat(r.price) || 0,
+          stock_qty: parseInt(r.stock, 10) || 1,
+          received_qty: parseInt(r.stock, 10) || 1,
+          sold_qty: 0,
+          style_code: r.styleCode || r.code
+        }))}
+      />
     </>
   );
 };

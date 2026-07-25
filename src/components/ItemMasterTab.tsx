@@ -47,6 +47,8 @@ import { ProductImage } from "./common/ProductImage.tsx";
 import { ImageDisplayPolicyModal, DisplayPolicy, DEFAULT_DISPLAY_POLICY } from "./common/ImageDisplayPolicyModal.tsx";
 import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
 import { ExpandedCellEditor, ExpandContextMenu } from "./ExpandedCellEditor";
+import { UniversalLabelPrinterModal } from "./UniversalLabelPrinterModal.tsx";
+import { UniversalLabelItem } from "../services/universalLabelPrinterService.ts";
 
 
 interface ItemMasterTabProps {
@@ -112,6 +114,9 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
 
   // Suggest Best Autopilot state
   const [showSuggestBestModal, setShowSuggestBestModal] = useState<boolean>(false);
+
+  // Universal Label Printer Modal state
+  const [showUniversalLabelModal, setShowUniversalLabelModal] = useState<boolean>(false);
 
   // Validation Callout state for Barcode/SKU/Style No error guidance
   const [validationIssue, setValidationIssue] = useState<{
@@ -978,6 +983,12 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   className="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2.5 py-1 rounded transition-colors cursor-pointer"
                 >
                   Bulk Edit Selected
+                </button>
+                <button
+                  onClick={() => setShowUniversalLabelModal(true)}
+                  className="text-[10px] bg-purple-600 hover:bg-purple-500 text-white font-bold px-2.5 py-1 rounded transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <Printer size={12} /> Print Labels ({selectedIds.size})
                 </button>
                 <button
                   onClick={async () => {
@@ -2335,7 +2346,29 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
             </div>
           </div>
         </div>
-      )}
+      {/* Universal Label Printer Modal */}
+      <UniversalLabelPrinterModal
+        isOpen={showUniversalLabelModal}
+        onClose={() => setShowUniversalLabelModal(false)}
+        moduleSource="Item Master"
+        onNotification={onNotification}
+        items={products.map(p => ({
+          id: p.id,
+          item_code: p.code || p.sku || "ITEM-001",
+          barcode: p.barcode || "8901234560000",
+          sku: p.sku || p.code || "SKU-001",
+          name: p.name,
+          category: p.category || "General",
+          brand: p.brand || "SMRITI",
+          price: p.price,
+          cost_price: p.cost_price,
+          mrp: p.mrp || p.price,
+          stock_qty: p.stock_qty,
+          received_qty: p.stock_qty,
+          sold_qty: 0,
+          style_code: p.code || p.sku
+        }))}
+      />
 
     </div>
   );

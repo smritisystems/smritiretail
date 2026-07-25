@@ -30,6 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-07-25 | v3.33.0 | Universal SMRITI Label Printing Engine | [Walkthrough](./inventory/Universal_Label_Printing_Engine_v3.33.0.md) | — | Completed |
 | 2026-07-25 | v3.32.0 | Barcode Studio V2.4a Enterprise Spec | [Walkthrough](./inventory/Barcode_Studio_V2.4a_Upgrade_v3.32.0.md) | — | Completed |
 | 2026-07-25 | v3.31.5 | Inventory Data Grid Expand Cell | [Walkthrough](./inventory/Inventory_Expand_Cell_Capability_v3.31.5.md) | — | Completed |
 | 2026-07-22 | v1.0.0 | SMRITI Enterprise Architecture Guardian | [Walkthrough](./foundation/SMRITI_Enterprise_Architecture_Guardian_v1.0.0.md) | [Plan](../implementation/foundation/SMRITI_Enterprise_Architecture_Guardian_v1.0.0.md) | Completed |

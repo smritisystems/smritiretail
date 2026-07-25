@@ -34,6 +34,7 @@ import {
 import { BarcodeEngine, BarcodeRecord } from "../services/barcodeEngine.ts";
 import { BarcodeLabel } from "../print_engine/templates/BarcodeLabel.tsx";
 import { recordAuditAction } from "../lib/apiFetch.ts";
+import { UniversalLabelPrinterModal } from "./UniversalLabelPrinterModal.tsx";
 
 /**
  * 4-Step Style Token Resolution Chain (ACP_BARCODE_003 / Section 8)
@@ -435,6 +436,7 @@ const LabelPrintingV24a = ({ onNotification }: { onNotification: (t: string, m: 
   const [rangeEnd, setRangeEnd] = useState("BBM-0005");
   const [selectedTemplate, setSelectedTemplate] = useState("Standard Product Tag (50x25mm)");
   const [selectedProtocol, setSelectedProtocol] = useState<"ZPL" | "TSPL" | "PDF">("ZPL");
+  const [showUniversalPrinter, setShowUniversalPrinter] = useState<boolean>(false);
 
   // 9-Column Interactive Worksheet Grid State
   const [worksheet, setWorksheet] = useState<BarcodeWorksheetRow[]>([
@@ -565,9 +567,17 @@ const LabelPrintingV24a = ({ onNotification }: { onNotification: (t: string, m: 
           </h2>
           <p className="text-xs text-theme-muted mt-1">Widescreen 3-panel warehouse printing grid with Article Range Loader & Box Packing Rules.</p>
         </div>
-        <button onClick={handleExecutePrintRun} className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 cursor-pointer transition-all">
-          <Printer size={16} /> Batch Print Run ({totalLabelsToPrint} Labels)
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setShowUniversalPrinter(true)}
+            className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 cursor-pointer transition-all"
+          >
+            <Sparkles size={16} /> Open Universal Label Engine
+          </button>
+          <button onClick={handleExecutePrintRun} className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 cursor-pointer transition-all">
+            <Printer size={16} /> Batch Print Run ({totalLabelsToPrint} Labels)
+          </button>
+        </div>
       </div>
 
       {/* Panel 1: Article Range Loader & Output Controls */}
@@ -700,7 +710,27 @@ const LabelPrintingV24a = ({ onNotification }: { onNotification: (t: string, m: 
             </tbody>
           </table>
         </div>
-      </div>
+      {/* Universal Label Printer Modal */}
+      <UniversalLabelPrinterModal
+        isOpen={showUniversalPrinter}
+        onClose={() => setShowUniversalPrinter(false)}
+        moduleSource="Barcode Studio V2.4a"
+        onNotification={onNotification}
+        items={worksheet.map(r => ({
+          id: r.variantSku,
+          item_code: r.styleCode,
+          barcode: r.barcode,
+          sku: r.variantSku,
+          name: r.name,
+          cost_price: r.costPrice,
+          price: r.price,
+          mrp: r.mrp,
+          stock_qty: r.stockQty,
+          received_qty: r.stockQty,
+          sold_qty: 0,
+          style_code: r.styleCode
+        }))}
+      />
     </div>
   );
 };
