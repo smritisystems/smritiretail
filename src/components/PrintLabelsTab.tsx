@@ -248,18 +248,19 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
     return filteredQueue.reduce((acc, i) => acc + ((i.label_copies || 1) * copiesMultiplier), 0);
   }, [filteredQueue, quantityStrategy, currentStockTotal, totalRecords, copiesMultiplier]);
 
-  // BUG FIX #4: Evaluated PRN code now uses renderSLPEPRNScript with the
-  // actual PRN template body (Tattly Threads or matched rule script),
-  // NOT the generic PrinterDriverFactory ZPL stub.
+  // Evaluated PRN code: uses renderSLPEPRNScript with the actual matched rule
+  // templateScript body or the system default Tattly Threads PRN template.
   const evaluatedPRNPayload = useMemo(() => {
     if (!activeSelectedItem) return "; Select an item to evaluate tag script";
     const resolved = resolvePRNMappingForRule(activeSelectedItem);
-    const templateScript = resolved.script?.rawScript || MASTER_PRN_SCRIPTS[0]?.rawScript || "";
+    // BUG FIX: resolved returns { rule, matchedTier } — script is on rule.templateScript
+    // MASTER_PRN_SCRIPTS field is .prnScript, not .rawScript
+    const templateScript = resolved.rule.templateScript || MASTER_PRN_SCRIPTS[0]?.prnScript || "";
     if (!templateScript) {
       // Fallback: use driver stub for protocols with no raw PRN template
       const driver = PrinterDriverFactory.getDriver(activePrinter?.protocol || resolved.rule.protocol);
       const result = driver.render({
-        profile: activePrinter || { id: "p1", name: "Default", brand: "Zebra", protocol: "ZPL", connectionType: "USB", isDefault: true, dpi: 203 },
+        profile: activePrinter || { id: "p1", name: "Default", printerBrand: "Zebra", protocol: "ZPL", connectionType: "USB", isDefault: true, dpi: 203, address: "" },
         item: activeSelectedItem,
         copies: copiesMultiplier,
         userName: currentUser?.name || "System Clerk"
@@ -281,20 +282,19 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
       return;
     }
 
-    const driver = PrinterDriverFactory.getDriver(activePrinter?.protocol || "ZPL");
-    const result = driver.render({
-      profile: activePrinter,
-      item: activeSelectedItem,
-      copies: copiesMultiplier,
-      userName: currentUser?.name || "System Clerk"
-    });
+    // Use the actual resolved PRN template (same logic as evaluatedPRNPayload)
+    const resolved = resolvePRNMappingForRule(activeSelectedItem);
+    const templateScript = resolved.rule.templateScript || MASTER_PRN_SCRIPTS[0]?.prnScript || "";
+    const rawPayload = templateScript
+      ? renderSLPEPRNScript(templateScript, activeSelectedItem, copiesMultiplier, currentUser?.name || "System Clerk")
+      : evaluatedPRNPayload;
 
     const printerName = activePrinter?.name || "Default Printer";
-    addJobToPrintQueue(`Single Tag Print: ${activeSelectedItem.name}`, printerName, selectedPort, "AutoPRN", 1, copiesMultiplier, result.rawPayload, currentUser?.name);
+    addJobToPrintQueue(`Single Tag Print: ${activeSelectedItem.name}`, printerName, selectedPort, "AutoPRN", 1, copiesMultiplier, rawPayload, currentUser?.name);
     logPrintAuditRecord({
       whoPrinted: currentUser?.name || "System Clerk",
       printerName,
-      templateName: "Garment_Hangtag.prn",
+      templateName: resolved.rule.templateName || "Garment_Hangtag.prn",
       clientIp: "127.0.0.1",
       machineId: "WS-WORKSTATION-01",
       itemCount: 1,
@@ -303,7 +303,7 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
       status: "SUCCESS"
     });
 
-    const dispatchRes = await dispatchRawPrintJob(activePrinter, result.rawPayload, copiesMultiplier);
+    const dispatchRes = await dispatchRawPrintJob(activePrinter, rawPayload, copiesMultiplier);
 
     if (onNotification) {
       onNotification("Print Dispatched", `${dispatchRes.message} [${dispatchRes.method}]`, "success");
