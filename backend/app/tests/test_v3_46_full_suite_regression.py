@@ -19,6 +19,7 @@ from httpx import ASGITransport, AsyncClient
 from app.main import app
 from app.api.deps import get_db
 from app.models.auth import User
+from app.models.inventory import Product
 from app.models.product_identity import ProductIdentity
 from app.models.security import SMRITIRole
 from app.services.rebalancing_service import StockRebalancingService
@@ -75,7 +76,7 @@ async def test_full_platform_v3_46_integrated_suite(db_session):
 
     # 2. SSACF Security Scopes
     sec_svc = SecurityService(db_session)
-    user = User(id="usr-reg-01", email="reg@smriti.com", hashed_password="pwd", is_platform_admin=True)
+    user = User(id="usr-reg-01", username="reg_user", email="reg@smriti.com", hashed_password="pwd", is_platform_admin=True)
     db_session.add(user)
     await db_session.commit()
     scopes = await sec_svc.get_effective_permission_scopes(user.id)
@@ -94,6 +95,10 @@ async def test_full_platform_v3_46_integrated_suite(db_session):
     assert reconciled[0].reconciliation_status == "MATCHED"
 
     # 4. PIE Barcode & SKU Assignment
+    prod_reg = Product(id="prod-reg-01", name="Regression Item", sku="SKU-REG-SUITE-001", price=Decimal("100.00"), is_active=True)
+    db_session.add(prod_reg)
+    await db_session.commit()
+
     pie_svc = ProductIdentityService()
     identity = await pie_svc.assign_gs1_barcode(
         db=db_session,

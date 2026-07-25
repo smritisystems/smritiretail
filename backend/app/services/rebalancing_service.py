@@ -40,6 +40,7 @@ class StockRebalancingService:
         db: AsyncSession,
         source_branch_id: str,
         target_branch_id: str,
+        min_threshold_qty: Optional[int] = 10,
     ) -> List[StockRebalancingRecommendation]:
         """
         Analyzes SKU inventory across source and target branches and generates recommendations

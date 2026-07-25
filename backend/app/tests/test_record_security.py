@@ -71,10 +71,10 @@ async def _setup_rls_environment(db_session):
 
     # 3. Customer Groups and Customers
     cg_a = CustomerGroup(id="cg-a", name="Group A", company_id="comp-a", branch_id="br-a")
-    cust_a = Customer(id="cust-a", name="Customer A", customer_group_id="cg-a", company_id="comp-a", branch_id="br-a")
+    cust_a = Customer(id="cust-a", code="CUST-A", name="Customer A", customer_group_id="cg-a", company_id="comp-a", branch_id="br-a")
 
     cg_b = CustomerGroup(id="cg-b", name="Group B", company_id="comp-b", branch_id="br-b")
-    cust_b = Customer(id="cust-b", name="Customer B", customer_group_id="cg-b", company_id="comp-b", branch_id="br-b")
+    cust_b = Customer(id="cust-b", code="CUST-B", name="Customer B", customer_group_id="cg-b", company_id="comp-b", branch_id="br-b")
 
     db_session.add_all([cg_a, cust_a, cg_b, cust_b])
     await db_session.commit()
