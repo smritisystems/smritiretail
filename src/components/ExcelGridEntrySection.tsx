@@ -921,7 +921,8 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       
       {/* Selector Toolbar */}
       <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1699,5 +1700,6 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
           onClose={() => setContextMenu(null)}
         />
       )}
+    </>
   );
 };

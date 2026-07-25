@@ -31,7 +31,7 @@ import { Heart, AlignJustify,
   Package, DollarSign, Percent, AlertCircle, X, Eye, 
   Layers, Barcode, CheckCircle2, ListFilter, Sliders,
   Settings, FolderKanban, FileSpreadsheet, BarChart3, Info,
-  Printer, ShieldAlert, Image
+  Printer, ShieldAlert, Image, Maximize2
 } from "lucide-react";
 import { Product, AttributeDefinition, AttributeGroup } from "../types.js";
 import { AttributeManagerSection } from "./AttributeManagerSection.js";
@@ -46,6 +46,7 @@ import { LabelPrintingSection } from "./LabelPrintingSection.js";
 import { ProductImage } from "./common/ProductImage.tsx";
 import { ImageDisplayPolicyModal, DisplayPolicy, DEFAULT_DISPLAY_POLICY } from "./common/ImageDisplayPolicyModal.tsx";
 import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
+import { ExpandedCellEditor, ExpandContextMenu } from "./ExpandedCellEditor";
 
 
 interface ItemMasterTabProps {
@@ -88,6 +89,69 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   const [formImage, setFormImage] = useState<string>("");
   const [displayPolicy, setDisplayPolicy] = useState<DisplayPolicy>(DEFAULT_DISPLAY_POLICY);
   const [showPolicyModal, setShowPolicyModal] = useState<boolean>(false);
+
+  // Expand Cell capability state
+  const [expandedCell, setExpandedCell] = useState<{
+    rowIndex: number;
+    field: string;
+    label: string;
+    value: string;
+    product: Product;
+  } | null>(null);
+
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    rowIndex: number;
+    field: string;
+    label: string;
+    value: string;
+    product: Product;
+  } | null>(null);
+
+  const handleExpandCell = (rowIndex: number, field: string, label: string, value: string, product: Product) => {
+    setContextMenu(null);
+    setExpandedCell({ rowIndex, field, label, value, product });
+  };
+
+  const handleExpandConfirm = async (newValue: string) => {
+    if (!expandedCell) return;
+    const { product, field } = expandedCell;
+    setExpandedCell(null);
+
+    // Map field key to product payload update
+    let updatedPayload: any = {
+      name: product.name,
+      code: product.code,
+      price: product.price,
+      stock: product.stock,
+      category: product.category,
+      barcode: product.barcode,
+      mrp: product.mrp || product.price,
+      gst_percentage: product.gstPercentage || 18,
+      cost_price: product.costPrice || Math.round(product.price * 0.6),
+      attributes: product.attributes || {},
+    };
+
+    if (field === "code") updatedPayload.code = newValue.trim();
+    else if (field === "name") updatedPayload.name = newValue.trim();
+    else if (field === "costPrice") updatedPayload.cost_price = parseFloat(newValue) || 0;
+    else if (field === "price") updatedPayload.price = parseFloat(newValue) || 0;
+    else if (field === "mrp") updatedPayload.mrp = parseFloat(newValue) || 0;
+    else if (field === "gstPercentage") updatedPayload.gst_percentage = parseFloat(newValue) || 0;
+    else if (field === "stock") updatedPayload.stock = parseInt(newValue) || 0;
+
+    try {
+      await apiFetchV1(`/inventory/${product.id}`, {
+        method: "PUT",
+        body: JSON.stringify(updatedPayload),
+      });
+      onNotification("Cell Value Updated", `Updated ${expandedCell.label} for product ${product.code}.`, "success");
+      await onRefreshProducts();
+    } catch (err: any) {
+      onNotification("Update Failed", err.message || "Failed to update product cell value.", "error");
+    }
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem("smriti_spif_display_policy");
@@ -1316,7 +1380,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredProducts.map(p => (
+                        {filteredProducts.map((p, idx) => (
                           <tr 
                             key={p.id} 
                             onClick={() => setSelectedProduct(p)}
@@ -1348,15 +1412,31 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                                 className="rounded border-theme-divider bg-theme-surface-1 accent-indigo-500"
                               />
                             </td>
-                            <td className={`px-5 ${densityPadding} font-mono font-bold text-theme-body`}>
+                            {/* SKU Code */}
+                            <td
+                              className={`px-5 ${densityPadding} font-mono font-bold text-theme-body relative group/cell`}
+                              onDoubleClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "code", "SKU Code", p.code, p); }}
+                            >
                               <div className="flex items-center space-x-1.5">
                                 <Tag size={12} className="text-theme-muted" />
                                 <DrillableLink context={{ entityType: "item", entityId: p.code, title: p.name }}>
                                   {p.code}
                                 </DrillableLink>
                               </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "code", "SKU Code", p.code, p); }}
+                                title="Expand cell (Double-click / F2)"
+                                className="absolute top-1 right-1 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10"
+                              >
+                                <Maximize2 size={10} />
+                              </button>
                             </td>
-                            <td className={`px-5 ${densityPadding}`}>
+
+                            {/* Item Details */}
+                            <td
+                              className={`px-5 ${densityPadding} relative group/cell`}
+                              onDoubleClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "name", "Item Name & Details", p.name, p); }}
+                            >
                               <div className="flex items-center space-x-3">
                                 {displayPolicy.showInInventory && (
                                   <ProductImage
@@ -1376,23 +1456,90 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                                   </div>
                                 </div>
                               </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "name", "Item Name & Details", p.name, p); }}
+                                title="Expand cell (Double-click / F2)"
+                                className="absolute top-1 right-1 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10"
+                              >
+                                <Maximize2 size={10} />
+                              </button>
                             </td>
-                            <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
+
+                            {/* Buy Cost */}
+                            <td
+                              className={`px-5 ${densityPadding} text-right font-mono text-theme-muted relative group/cell`}
+                              onDoubleClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "costPrice", "Buy Cost", String(p.costPrice || Math.round(p.price * 0.6)), p); }}
+                            >
                               ₹{(p.costPrice || Math.round(p.price * 0.6)).toLocaleString("en-IN")}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "costPrice", "Buy Cost", String(p.costPrice || Math.round(p.price * 0.6)), p); }}
+                                title="Expand cell"
+                                className="absolute top-1 right-1 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10"
+                              >
+                                <Maximize2 size={10} />
+                              </button>
                             </td>
-                            <td className={`px-5 ${densityPadding} text-right font-mono font-semibold text-emerald-400`}>
+
+                            {/* Selling Rate */}
+                            <td
+                              className={`px-5 ${densityPadding} text-right font-mono font-semibold text-emerald-400 relative group/cell`}
+                              onDoubleClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "price", "Selling Rate", String(p.price), p); }}
+                            >
                               ₹{p.price.toLocaleString("en-IN")}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "price", "Selling Rate", String(p.price), p); }}
+                                title="Expand cell"
+                                className="absolute top-1 right-1 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10"
+                              >
+                                <Maximize2 size={10} />
+                              </button>
                             </td>
-                            <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
+
+                            {/* MRP */}
+                            <td
+                              className={`px-5 ${densityPadding} text-right font-mono text-theme-muted relative group/cell`}
+                              onDoubleClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "mrp", "MRP", String(p.mrp || p.price), p); }}
+                            >
                               ₹{(p.mrp || p.price).toLocaleString("en-IN")}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "mrp", "MRP", String(p.mrp || p.price), p); }}
+                                title="Expand cell"
+                                className="absolute top-1 right-1 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10"
+                              >
+                                <Maximize2 size={10} />
+                              </button>
                             </td>
-                            <td className={`px-5 ${densityPadding} text-right font-mono text-amber-400 font-bold`}>
+
+                            {/* GST */}
+                            <td
+                              className={`px-5 ${densityPadding} text-right font-mono text-amber-400 font-bold relative group/cell`}
+                              onDoubleClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "gstPercentage", "GST %", String(p.gstPercentage || 18), p); }}
+                            >
                               {p.gstPercentage || 18}%
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "gstPercentage", "GST %", String(p.gstPercentage || 18), p); }}
+                                title="Expand cell"
+                                className="absolute top-1 right-1 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10"
+                              >
+                                <Maximize2 size={10} />
+                              </button>
                             </td>
-                            <td className={`px-5 ${densityPadding} text-right font-mono`}>
+
+                            {/* Stock On Hand */}
+                            <td
+                              className={`px-5 ${densityPadding} text-right font-mono relative group/cell`}
+                              onDoubleClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "stock", "Stock On Hand", String(p.stock), p); }}
+                            >
                               <span className={`font-semibold ${p.stock < 10 ? "text-rose-400" : "text-theme-primary"}`}>
                                 {p.stock} pcs
                               </span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleExpandCell(idx, "stock", "Stock On Hand", String(p.stock), p); }}
+                                title="Expand cell"
+                                className="absolute top-1 right-1 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10"
+                              >
+                                <Maximize2 size={10} />
+                              </button>
                             </td>
                             <td className={`px-5 ${densityPadding} text-center`} onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center justify-center space-x-2">
@@ -1592,6 +1739,29 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
         <ImageDisplayPolicyModal
           onClose={() => setShowPolicyModal(false)}
           onSave={(newPolicy) => setDisplayPolicy(newPolicy)}
+        />
+      )}
+
+      {/* ── Expanded Cell Editor Panel ────────────────────────────────────────── */}
+      <ExpandedCellEditor
+        isOpen={!!expandedCell}
+        rowIndex={expandedCell?.rowIndex ?? 0}
+        fieldKey={expandedCell?.field ?? ""}
+        fieldLabel={expandedCell?.label ?? ""}
+        value={expandedCell?.value ?? ""}
+        onConfirm={handleExpandConfirm}
+        onClose={() => setExpandedCell(null)}
+      />
+
+      {/* ── Cell Context Menu ─────────────────────────────────────────────────── */}
+      {contextMenu && (
+        <ExpandContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onExpand={() => handleExpandCell(contextMenu.rowIndex, contextMenu.field, contextMenu.label, contextMenu.value, contextMenu.product)}
+          onCopy={() => navigator.clipboard.writeText(contextMenu.value)}
+          onClear={() => handleExpandConfirm("")}
+          onClose={() => setContextMenu(null)}
         />
       )}
 
