@@ -256,6 +256,17 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
     value: string;
   } | null>(null);
 
+  // Row validation errors state
+  const [rowErrors, setRowErrors] = useState<Array<{
+    rowIndex: number;
+    barcode: string;
+    sku: string;
+    styleCode: string;
+    name: string;
+    issue: string;
+    action: string;
+  }>>([]);
+
   const applySkuGenerationToGrid = (targetRows: GridRow[]): GridRow[] => {
     if (skuMode === "manual") return targetRows;
 
@@ -784,8 +795,6 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
           }
         }
 
-        for (const attr of activeAttrs) {
-          const val = row.attributes[attr.name];
           if (attr.isMandatory && (!val || val.trim() === "")) {
             onNotification("Mandatory Field", `Row ${i + 1}: Attribute "${attr.label}" is mandatory.`, "error");
             setLoading(false);
@@ -794,8 +803,12 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
         }
       }
 
+      setRowErrors([]);
+      const capturedErrors: any[] = [];
+
       // Submit items sequentially
       for (const row of validRows) {
+        const rowNum = validRows.indexOf(row) + 1;
         try {
           // Construct unique SKU code by suffixing color/size to the base style code
           const variantSuffix = [row.attributes.color, row.attributes.size]
@@ -829,7 +842,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
               ...(row.hsnCode.trim() ? { hsnCode: row.hsnCode.trim() } : {}),
               ...(row.vendorCode.trim() ? { vendorCode: row.vendorCode.trim() } : {}),
               ...(row.purchaseClass.trim() ? { purchaseClass: row.purchaseClass.trim() } : {}),
-                ...(row.department.trim() ? { department: row.department.trim() } : {}),
+              ...(row.department.trim() ? { department: row.department.trim() } : {}),
               ...(row.merchandiseCategory.trim() ? { merchandiseCategory: row.merchandiseCategory.trim() } : {}),
               ...(row.subCategory.trim() ? { subCategory: row.subCategory.trim() } : {}),
               ...(row.gender.trim() ? { gender: row.gender.trim() } : {}),
@@ -840,25 +853,48 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
           };
 
           try {
-            const response = await apiFetchV1("/inventory/", {
+            await apiFetchV1("/inventory/", {
               method: "POST",
               body: JSON.stringify(payload),
             });
-
-            if (response && response.ok) {
-              successCount++;
-            } else {
-              failCount++;
+            successCount++;
+          } catch (err: any) {
+            const errMsg = err.message || "Save failed";
+            let action = "Ensure Barcode and SKU Code are unique across catalog.";
+            if (errMsg.toLowerCase().includes("brand")) {
+              action = "Select a valid brand option or add brand to system dictionary.";
+            } else if (errMsg.toLowerCase().includes("barcode")) {
+              action = "Change barcode for this row to make it unique.";
+            } else if (errMsg.toLowerCase().includes("sku") || errMsg.toLowerCase().includes("code")) {
+              action = "Change SKU Code or style suffix for this row.";
             }
-          } catch (err) {
-            console.error("Product save failed", err);
+
+            capturedErrors.push({
+              rowIndex: rowNum,
+              barcode: row.barcode.trim() || "Missing",
+              sku: uniqueSku || "Missing",
+              styleCode: row.styleCode.trim() || row.code.trim() || "N/A",
+              name: row.name.trim(),
+              issue: errMsg,
+              action
+            });
             failCount++;
           }
         } catch (err: any) {
-          console.error("Row save error", err);
+          capturedErrors.push({
+            rowIndex: rowNum,
+            barcode: row.barcode.trim() || "Missing",
+            sku: row.code.trim() || "Missing",
+            styleCode: row.styleCode.trim() || "N/A",
+            name: row.name.trim(),
+            issue: err.message || "Row processing failed",
+            action: "Check row input values."
+          });
           failCount++;
         }
       }
+
+      setRowErrors(capturedErrors);
 
       if (successCount > 0) {
         onNotification("Success", `Committed ${successCount} items to Master ledger database.`, "success");
@@ -923,6 +959,44 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
   return (
     <>
       <div className="space-y-6">
+
+        {/* Batch Row Validation Error Guidance Callout */}
+        {rowErrors.length > 0 && (
+          <div className="bg-rose-950/90 border-2 border-rose-500/70 rounded-2xl p-5 space-y-3 font-mono text-xs shadow-2xl animate-in slide-in-from-top duration-200">
+            <div className="flex items-center justify-between border-b border-rose-500/40 pb-2">
+              <div className="flex items-center space-x-2 text-rose-300 font-bold text-sm">
+                <AlertCircle size={18} className="text-rose-400 shrink-0" />
+                <span>Row Validation Conflicts Detected ({rowErrors.length} Rows Failed)</span>
+              </div>
+              <button onClick={() => setRowErrors([])} className="text-rose-400 hover:text-white p-1">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+              {rowErrors.map((errItem, idx) => (
+                <div key={idx} className="bg-rose-900/40 p-3 rounded-xl border border-rose-500/30 space-y-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-white font-bold">
+                    <span className="bg-rose-950 px-2 py-0.5 rounded border border-rose-500/40 text-amber-300">
+                      Row #{errItem.rowIndex}: {errItem.name}
+                    </span>
+                    <div className="flex items-center space-x-3 text-[11px]">
+                      <span>Barcode: <strong className="text-indigo-300">{errItem.barcode}</strong></span>
+                      <span>SKU: <strong className="text-emerald-300">{errItem.sku}</strong></span>
+                      <span>Style No: <strong className="text-amber-300">{errItem.styleCode}</strong></span>
+                    </div>
+                  </div>
+                  <p className="text-rose-200 text-[11px] font-mono leading-relaxed">
+                    🚨 <strong>Issue:</strong> {errItem.issue}
+                  </p>
+                  <p className="text-indigo-200 text-[11px] font-mono">
+                    💡 <strong>Action Required:</strong> {errItem.action}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       
       {/* Selector Toolbar */}
       <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

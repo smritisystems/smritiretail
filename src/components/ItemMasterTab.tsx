@@ -113,6 +113,16 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   // Suggest Best Autopilot state
   const [showSuggestBestModal, setShowSuggestBestModal] = useState<boolean>(false);
 
+  // Validation Callout state for Barcode/SKU/Style No error guidance
+  const [validationIssue, setValidationIssue] = useState<{
+    title: string;
+    field: string;
+    identifierLabel: string;
+    identifierValue: string;
+    explanation: string;
+    suggestedAction: string;
+  } | null>(null);
+
   // Expand Cell capability state
   const [expandedCell, setExpandedCell] = useState<{
     rowIndex: number;
@@ -306,6 +316,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   };
 
   const handleOpenCreate = () => {
+    setValidationIssue(null);
     setFormName("");
     setFormCode(itemMasterMode === "simple" ? generateSimpleSku("") : "");
     setFormBarcode(itemMasterMode === "simple" ? generateSimpleBarcode() : "");
@@ -324,6 +335,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   };
 
   const handleOpenEdit = (prod: Product) => {
+    setValidationIssue(null);
     setSelectedProduct(prod);
     setFormName(prod.name);
     setFormCode(prod.code);
@@ -344,11 +356,53 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
 
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationIssue(null);
     const effectiveCode = formCode.trim() || (itemMasterMode === "simple" ? generateSimpleSku(formName) : "");
     const effectiveBarcode = formBarcode.trim() || (itemMasterMode === "simple" ? generateSimpleBarcode() : "");
 
     if (!formName.trim() || !effectiveCode || !effectiveBarcode) {
-      onNotification("Missing Fields", "Name, SKU Code, and Barcode are required parameters.", "error");
+      const issue = {
+        title: "Missing Required Fields",
+        field: "general",
+        identifierLabel: "Mandatory Fields",
+        identifierValue: "Name, SKU Code, Barcode",
+        explanation: "Product Name, SKU Code, and Barcode Identifier are required before saving.",
+        suggestedAction: "Fill in the missing Product Name, SKU Code, and Barcode fields."
+      };
+      setValidationIssue(issue);
+      onNotification("Missing Fields", issue.explanation, "error");
+      return;
+    }
+
+    // 1. Client-Side Pre-Validation: Barcode Collision Check
+    const dupBarcode = products.find(p => p.barcode.toLowerCase() === effectiveBarcode.toLowerCase() && (!isEditing || p.id !== selectedProduct?.id));
+    if (dupBarcode) {
+      const issue = {
+        title: "Barcode Collision Detected",
+        field: "barcode",
+        identifierLabel: "Barcode Identifier",
+        identifierValue: effectiveBarcode,
+        explanation: `Barcode '${effectiveBarcode}' is already assigned to SKU '${dupBarcode.code}' (${dupBarcode.name}).`,
+        suggestedAction: "Assign a unique barcode identifier or click 'Code Autopilot' to generate a fresh barcode."
+      };
+      setValidationIssue(issue);
+      onNotification("Barcode Conflict", issue.explanation, "error");
+      return;
+    }
+
+    // 2. Client-Side Pre-Validation: SKU Code Collision Check
+    const dupSku = products.find(p => p.code.toLowerCase() === effectiveCode.toLowerCase() && (!isEditing || p.id !== selectedProduct?.id));
+    if (dupSku) {
+      const issue = {
+        title: "SKU Code Conflict Detected",
+        field: "code",
+        identifierLabel: "SKU / Unique Code",
+        identifierValue: effectiveCode,
+        explanation: `SKU Code '${effectiveCode}' already exists in SMRITI catalog for product '${dupSku.name}'.`,
+        suggestedAction: "Enter a unique SKU code or switch SKU Generation Mode to Auto/Hybrid to construct non-colliding codes."
+      };
+      setValidationIssue(issue);
+      onNotification("SKU Conflict", issue.explanation, "error");
       return;
     }
 
@@ -358,7 +412,16 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
       if (itemMasterMode === "advanced") {
         for (const attr of activeGroupAttrs) {
           if (attr.isMandatory && !dynamicAttributes[attr.name]) {
-            onNotification("Mandatory Attribute", `Please specify a value for "${attr.label}".`, "error");
+            const issue = {
+              title: "Mandatory Attribute Missing",
+              field: attr.name,
+              identifierLabel: `Attribute: ${attr.label}`,
+              identifierValue: attr.name,
+              explanation: `Please specify a value for required attribute "${attr.label}".`,
+              suggestedAction: `Select or type a valid value for "${attr.label}" before proceeding.`
+            };
+            setValidationIssue(issue);
+            onNotification("Mandatory Attribute", issue.explanation, "error");
             setLoading(false);
             return;
           }
@@ -414,10 +477,47 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
       setIsEditing(false);
       setSelectedProduct(null);
       setDynamicAttributes({});
+      setValidationIssue(null);
       await onRefreshProducts();
     } catch (err: any) {
-      onNotification("Database Error", err.message || "Failed to commit record.", "error");
-      onNotification("Connection Error", "Failed to connect with Master DB API.", "error");
+      const errMsg = err.message || "Failed to commit record.";
+      let parsedTitle = "Validation Error";
+      let parsedField = "general";
+      let parsedLabel = "Barcode / SKU / Style No";
+      let parsedValue = effectiveBarcode || effectiveCode || formStyleCode || "Master Item";
+      let parsedExplanation = errMsg;
+      let parsedAction = "Please review item parameters and try again.";
+
+      if (errMsg.toLowerCase().includes("brand")) {
+        parsedTitle = "Brand Validation Conflict";
+        parsedLabel = "Brand Name";
+        parsedExplanation = `The specified brand is invalid or restricted by system dictionary: ${errMsg}`;
+        parsedAction = "Select a valid brand option or register the brand in Attribute Manager.";
+      } else if (errMsg.toLowerCase().includes("barcode")) {
+        parsedTitle = "Barcode Conflict";
+        parsedLabel = "Barcode Identifier";
+        parsedValue = effectiveBarcode;
+        parsedExplanation = `Barcode '${effectiveBarcode}' failed validation: ${errMsg}`;
+        parsedAction = "Change the barcode or use Code Autopilot.";
+      } else if (errMsg.toLowerCase().includes("sku") || errMsg.toLowerCase().includes("code")) {
+        parsedTitle = "SKU Code Conflict";
+        parsedLabel = "SKU Code";
+        parsedValue = effectiveCode;
+        parsedExplanation = `SKU Code '${effectiveCode}' failed validation: ${errMsg}`;
+        parsedAction = "Enter a unique SKU code.";
+      }
+
+      const issue = {
+        title: parsedTitle,
+        field: parsedField,
+        identifierLabel: parsedLabel,
+        identifierValue: parsedValue,
+        explanation: parsedExplanation,
+        suggestedAction: parsedAction
+      };
+
+      setValidationIssue(issue);
+      onNotification(parsedTitle, parsedExplanation, "error");
     } finally {
       setLoading(false);
     }
@@ -1107,6 +1207,42 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   </div>
 
                   <form onSubmit={handleSaveItem} className="p-6 space-y-5">
+                    {/* HREP Validation & Identifier Conflict Banner */}
+                    {validationIssue && (
+                      <div className="bg-rose-950/90 border-2 border-rose-500/70 rounded-xl p-4 space-y-3 text-xs font-mono shadow-xl animate-in slide-in-from-top duration-200">
+                        <div className="flex items-center justify-between border-b border-rose-500/40 pb-2">
+                          <div className="flex items-center space-x-2 text-rose-300 font-bold">
+                            <AlertCircle size={16} className="text-rose-400 shrink-0" />
+                            <span>{validationIssue.title}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setValidationIssue(null)}
+                            className="text-rose-400 hover:text-white p-0.5"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-rose-900/40 p-3 rounded-lg border border-rose-500/20">
+                          <div>
+                            <span className="text-[9px] text-rose-300 uppercase block font-bold">Identifier Having Issue</span>
+                            <span className="text-white font-bold bg-rose-950 px-2 py-0.5 rounded border border-rose-500/40 inline-block mt-1">
+                              {validationIssue.identifierLabel}: <strong className="text-amber-300 font-mono">{validationIssue.identifierValue}</strong>
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-rose-300 uppercase block font-bold">What Issue Needs to be Solved</span>
+                            <span className="text-rose-200 leading-relaxed block mt-1">{validationIssue.explanation}</span>
+                          </div>
+                        </div>
+
+                        <div className="bg-indigo-950/60 p-2.5 rounded-lg border border-indigo-500/30 text-indigo-200">
+                          <span className="text-[9px] text-indigo-400 uppercase font-bold block mb-0.5">💡 Suggested Action to Resolve</span>
+                          <span>{validationIssue.suggestedAction}</span>
+                        </div>
+                      </div>
+                    )}
                     {itemMasterMode === "simple" ? (
                       <>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
