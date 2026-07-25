@@ -707,9 +707,9 @@ const LabelPrintingV24a = ({ onNotification }: { onNotification: (t: string, m: 
                   </tr>
                 );
               })}
-            </tbody>
           </table>
         </div>
+      </div>
       {/* Universal Label Printer Modal */}
       <UniversalLabelPrinterModal
         isOpen={showUniversalPrinter}
