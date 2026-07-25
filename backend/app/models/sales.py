@@ -15,7 +15,7 @@ Classification: Internal
 from decimal import Decimal
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, DateTime, Text, text
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, synonym
 from ..db.base import Base, BaseEntity, RowSecuredMixin
 
 class SalesInvoice(RowSecuredMixin, BaseEntity):
@@ -164,6 +164,10 @@ class SalesReturn(RowSecuredMixin, BaseEntity):
     is_interstate       = Column(Boolean, default=False)
     credit_note_id      = Column(String(50), nullable=True)
 
+    invoice_id = synonym("original_invoice_id")
+    return_date = synonym("date")
+    refund_amount = synonym("grand_total")
+
     invoice  = relationship("SalesInvoice")
     customer = relationship("Customer")
     items    = relationship("SalesReturnItem", back_populates="return_order", cascade="all, delete-orphan", lazy="selectin")
@@ -192,6 +196,10 @@ class SalesReturnItem(Base):
     tenant_id      = Column(String(50), nullable=True, index=True)
     company_id     = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True)
     branch_id      = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True)
+
+    unit_price     = synonym("price")
+    gst_percentage = synonym("gst_rate")
+    line_total     = synonym("total_amount")
 
     return_order = relationship("SalesReturn", back_populates="items")
     product      = relationship("Product")

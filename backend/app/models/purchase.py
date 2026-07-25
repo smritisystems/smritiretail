@@ -57,13 +57,13 @@ class Supplier(RowSecuredMixin, BaseEntity):
     tier_classification = Column(String(30), nullable=True)  # PREFERRED, APPROVED, CONDITIONAL, SUSPENDED
 
     # Relationships to aggregate child entities
-    tax_profile        = relationship("SupplierTaxProfile", back_populates="supplier", uselist=False, cascade="all, delete-orphan")
-    compliance_profile = relationship("SupplierComplianceProfile", back_populates="supplier", uselist=False, cascade="all, delete-orphan")
-    payment_profile    = relationship("SupplierPaymentProfile", back_populates="supplier", uselist=False, cascade="all, delete-orphan")
-    credit_profile     = relationship("SupplierCreditProfile", back_populates="supplier", uselist=False, cascade="all, delete-orphan")
-    bank_details       = relationship("SupplierBankDetails", back_populates="supplier", cascade="all, delete-orphan")
-    addresses          = relationship("SupplierAddress", back_populates="supplier", cascade="all, delete-orphan")
-    contacts           = relationship("SupplierContact", back_populates="supplier", cascade="all, delete-orphan")
+    tax_profile        = relationship("SupplierTaxProfile", back_populates="supplier", uselist=False, cascade="all, delete-orphan", lazy="selectin")
+    compliance_profile = relationship("SupplierComplianceProfile", back_populates="supplier", uselist=False, cascade="all, delete-orphan", lazy="selectin")
+    payment_profile    = relationship("SupplierPaymentProfile", back_populates="supplier", uselist=False, cascade="all, delete-orphan", lazy="selectin")
+    credit_profile     = relationship("SupplierCreditProfile", back_populates="supplier", uselist=False, cascade="all, delete-orphan", lazy="selectin")
+    bank_details       = relationship("SupplierBankDetails", back_populates="supplier", cascade="all, delete-orphan", lazy="selectin")
+    addresses          = relationship("SupplierAddress", back_populates="supplier", cascade="all, delete-orphan", lazy="selectin")
+    contacts           = relationship("SupplierContact", back_populates="supplier", cascade="all, delete-orphan", lazy="selectin")
 
 
 class SupplierTaxProfile(RowSecuredMixin, BaseEntity):

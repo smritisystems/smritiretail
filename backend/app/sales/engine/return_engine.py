@@ -115,21 +115,22 @@ class SalesReturnEngine:
             line_tot = line_sub + cgst + sgst + igst
 
             ret_item = SalesReturnItem(
-                id=f"ret-item-{uuid.uuid4().hex[:12]}",
-                uuid=str(uuid.uuid4()),
-                tenant_id=getattr(self.tenant, "tenant_id", None) or self.tenant.company_id,
-                company_id=self.tenant.company_id,
-                branch_id=self.tenant.branch_id,
                 return_id=return_id,
                 product_id=p_id,
+                code=getattr(inv_item, "code", "") or "",
+                name=getattr(inv_item, "name", "") or "",
                 quantity=qty,
-                unit_price=unit_price,
-                condition=condition,
-                gst_percentage=gst_pct,
+                price=unit_price,
+                gst_rate=gst_pct,
+                tax_amount=(cgst + sgst + igst).quantize(Decimal("0.01")),
+                total_amount=line_tot.quantize(Decimal("0.01")),
                 cgst_amount=cgst.quantize(Decimal("0.01")),
                 sgst_amount=sgst.quantize(Decimal("0.01")),
                 igst_amount=igst.quantize(Decimal("0.01")),
-                line_total=line_tot.quantize(Decimal("0.01"))
+                condition=condition,
+                tenant_id=getattr(self.tenant, "tenant_id", None) or self.tenant.company_id,
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id
             )
             return_items.append(ret_item)
 

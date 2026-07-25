@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -167,9 +167,9 @@ async def test_resolve_pricing_returns_defaults_when_no_group(db_session, crm_fi
     cust_id = "pg-cust-no-pg"
     await db_session.execute(text(
         "INSERT INTO customers "
-        "(id, uuid, name, customer_group_id, pricing_group_id, status, "
+        "(id, uuid, code, name, customer_group_id, pricing_group_id, status, "
         " company_id, branch_id, is_active, is_deleted, created_at, modified_at, version) "
-        "VALUES (:id, :uuid, 'No PG Customer', :cg, NULL, 'Active', "
+        "VALUES (:id, :uuid, 'CUST-PG-001', 'No PG Customer', :cg, NULL, 'Active', "
         "        :co, :br, true, false, now(), now(), 1)"
     ), {"id": cust_id, "uuid": str(uuid.uuid4()), "cg": fx["customer_group_id"],
         "co": fx["company_id"], "br": fx["branch_id"]})
@@ -199,9 +199,9 @@ async def test_resolve_pricing_returns_group_params(db_session, crm_fixtures):
     cust_id = "pg-cust-with-pg"
     await db_session.execute(text(
         "INSERT INTO customers "
-        "(id, uuid, name, customer_group_id, pricing_group_id, status, "
+        "(id, uuid, code, name, customer_group_id, pricing_group_id, status, "
         " company_id, branch_id, is_active, is_deleted, created_at, modified_at, version) "
-        "VALUES (:id, :uuid, 'VIP Customer', :cg, :pg, 'Active', "
+        "VALUES (:id, :uuid, 'CUST-PG-002', 'VIP Customer', :cg, :pg, 'Active', "
         "        :co, :br, true, false, now(), now(), 1)"
     ), {"id": cust_id, "uuid": str(uuid.uuid4()),
         "cg": fx["customer_group_id"], "pg": fx["pricing_group_id"],
@@ -252,9 +252,9 @@ async def test_price_engine_applies_discount_to_invoice_item(db_session, crm_fix
     cust_id = "pg-cust-invoice"
     await db_session.execute(text(
         "INSERT INTO customers "
-        "(id, uuid, name, customer_group_id, pricing_group_id, status, "
+        "(id, uuid, code, name, customer_group_id, pricing_group_id, status, "
         " company_id, branch_id, is_active, is_deleted, created_at, modified_at, version) "
-        "VALUES (:id, :uuid, 'Invoice VIP', :cg, :pg, 'Active', "
+        "VALUES (:id, :uuid, 'CUST-PG-003', 'Invoice VIP', :cg, :pg, 'Active', "
         "        :co, :br, true, false, now(), now(), 1)"
     ), {"id": cust_id, "uuid": str(uuid.uuid4()),
         "cg": fx["customer_group_id"], "pg": fx["pricing_group_id"],
@@ -333,9 +333,9 @@ async def test_price_engine_no_change_when_no_pricing_group(db_session, crm_fixt
     cust_id = "pg-cust-no-pg2"
     await db_session.execute(text(
         "INSERT INTO customers "
-        "(id, uuid, name, customer_group_id, pricing_group_id, status, "
+        "(id, uuid, code, name, customer_group_id, pricing_group_id, status, "
         " company_id, branch_id, is_active, is_deleted, created_at, modified_at, version) "
-        "VALUES (:id, :uuid, 'Retail Customer', :cg, NULL, 'Active', "
+        "VALUES (:id, :uuid, 'CUST-PG-004', 'Retail Customer', :cg, NULL, 'Active', "
         "        :co, :br, true, false, now(), now(), 1)"
     ), {"id": cust_id, "uuid": str(uuid.uuid4()),
         "cg": fx["customer_group_id"],

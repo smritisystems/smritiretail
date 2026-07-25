@@ -100,8 +100,9 @@ class PurchaseService:
     # ──────────────────────────────────────────────────────────────
 
     async def create_supplier(self, req: SupplierCreate) -> Supplier:
+        supplier_id = getattr(req, "id", None) or f"sup-{uuid.uuid4().hex[:12]}"
         supplier = Supplier(
-            id=req.id,
+            id=supplier_id,
             name=req.name,
             code=req.code,
             gst_number=req.gst_number,

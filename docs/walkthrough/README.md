@@ -30,6 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-07-26 | v3.29.0 | Purchase & Procurement Verification Report | [Walkthrough](./procurement/Purchase_Verification_v3.29.0.md) | [Plan](../../brain/8cff0196-7616-41be-a58d-dba8209ecbae/implementation_plan.md) | Completed |
 | 2026-07-26 | v3.29.0 | Sales & POS Verification Report | [Walkthrough](./sales/Sales_POS_Verification_v3.29.0.md) | [Plan](../../brain/8cff0196-7616-41be-a58d-dba8209ecbae/implementation_plan.md) | Completed |
 | 2026-07-26 | v3.37.0 | Full Module Task Completion & SMRITI v2.0 Compliance | [Walkthrough](./foundation/Full_Module_Task_Completion_v3.37.0.md) | [Plan](../../brain/8cff0196-7616-41be-a58d-dba8209ecbae/implementation_plan.md) | Completed |
 | 2026-07-25 | v3.36.0 | Dedicated Print Labels Sidebar Menu | [Walkthrough](./inventory/Print_Labels_Dedicated_Sidebar_Menu_v3.36.0.md) | [Plan](../../brain/0baf8c8a-d81a-4554-8da9-eddd5f9cbb78/implementation_plan.md) | Completed |
