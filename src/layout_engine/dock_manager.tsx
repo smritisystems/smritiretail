@@ -59,10 +59,13 @@ export const DockManager: React.FC<DockManagerProps> = ({
   // seefNavMode is the single source of truth for navigation mode.
   // preferences.position is still respected for sidebar left/right positioning.
   const seefNavMode = useSEEFNavigation();
-  // Rail: 56px icon-only strip. Sidebar: user-resizable 180–480px. Top-nav: full-width bar.
-  const RAIL_WIDTH = 56;
-  const isRailMode    = seefNavMode === "rail";
-  const isTopNavMode  = seefNavMode === "top-nav";
+  // Rail: 56px icon-only strip. Mega-menu: 56px hamburger strip. Sidebar: resizable 180–480px.
+  const RAIL_WIDTH     = 56;
+  const isRailMode     = seefNavMode === "rail";
+  const isMegaMenuMode = seefNavMode === "mega-menu";
+  const isTopNavMode   = seefNavMode === "top-nav";
+  // Both rail and mega-menu use the same 56px fixed-width trigger strip
+  const isFixedStripMode = isRailMode || isMegaMenuMode;
   
   const containerRef = useRef<HTMLDivElement>(null);
   const [isResizing, setIsResizing] = useState(false);
@@ -73,9 +76,9 @@ export const DockManager: React.FC<DockManagerProps> = ({
     setLocalWidth(preferences.sidebarWidth);
   }, [preferences.sidebarWidth]);
 
-  // Determine current width — Rail locks to 56px, sidebar uses drag width
+  // Determine current width — Rail/MegaMenu locks to 56px, sidebar uses drag width
   const isCollapsed = preferences.collapsed || preferences.iconOnly;
-  const currentWidth = isRailMode ? RAIL_WIDTH : (isCollapsed ? 72 : localWidth);
+  const currentWidth = isFixedStripMode ? RAIL_WIDTH : (isCollapsed ? 72 : localWidth);
 
   const showNavigation = !focusMode && !preferences.hideSidebar && !isLaunchpad;
 
@@ -172,8 +175,8 @@ export const DockManager: React.FC<DockManagerProps> = ({
               onSearchChange={onSearchChange}
             />
             
-            {/* Resize handle — hidden in Rail mode (width is fixed) */}
-            {!isCollapsed && !isRailMode && (
+            {/* Resize handle — hidden in Rail/MegaMenu mode (width is fixed) */}
+            {!isCollapsed && !isFixedStripMode && (
               <div 
                 onMouseDown={startResize}
                 className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-blue-600/50 hover:w-2 active:bg-blue-500 transition-colors z-20"
@@ -212,8 +215,8 @@ export const DockManager: React.FC<DockManagerProps> = ({
             style={{ width: `${currentWidth}px` }} 
             className="h-full flex-shrink-0 transition-all duration-200 ease-in-out select-none relative z-10 animate-fade-in"
           >
-            {/* Resize handle — hidden in Rail mode (width is fixed) */}
-            {!isCollapsed && !isRailMode && (
+            {/* Resize handle — hidden in Rail/MegaMenu mode (width is fixed) */}
+            {!isCollapsed && !isFixedStripMode && (
               <div 
                 onMouseDown={startResize}
                 className="absolute top-0 left-0 w-1.5 h-full cursor-col-resize hover:bg-blue-600/50 hover:w-2 active:bg-blue-500 transition-colors z-20"
@@ -285,10 +288,11 @@ export const DockManager: React.FC<DockManagerProps> = ({
   };
 
   // SEEF Phase 7 wiring: navMode from Admin Configurator drives layout selector
-  // top-nav → renderTopDockLayout regardless of preferences.position
-  // rail    → renderLeftDockLayout with RAIL_WIDTH=56 (NavigationRenderer handles icon rendering)
-  // sidebar → respect preferences.position (left/right/top/bottom)
-  if (isTopNavMode) return renderTopDockLayout();
+  // top-nav     → renderTopDockLayout regardless of preferences.position
+  // rail        → renderLeftDockLayout with RAIL_WIDTH=56 (NavigationRenderer handles icon rendering)
+  // mega-menu   → renderLeftDockLayout with RAIL_WIDTH=56 (NavigationRenderer renders trigger strip + overlay)
+  // sidebar     → respect preferences.position (left/right/top/bottom)
+  if (isTopNavMode)   return renderTopDockLayout();
   switch (effectivePosition) {
     case "right":
       return renderRightDockLayout();

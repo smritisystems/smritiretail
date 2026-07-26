@@ -389,13 +389,14 @@ export const SEEFAdminConfigurator: React.FC<SEEFAdminConfiguratorProps> = ({
             <FieldLabel>Navigation Mode</FieldLabel>
             <OptionGrid
               options={[
-                { value: "sidebar" as SEEFNavigationMode,  label: "Sidebar" },
-                { value: "rail" as SEEFNavigationMode,     label: "Rail" },
-                { value: "top-nav" as SEEFNavigationMode,  label: "Top Nav" },
+                { value: "sidebar"   as SEEFNavigationMode, label: "Sidebar"   },
+                { value: "rail"      as SEEFNavigationMode, label: "Rail"      },
+                { value: "top-nav"   as SEEFNavigationMode, label: "Top Nav"   },
+                { value: "mega-menu" as SEEFNavigationMode, label: "Mega Menu" },
               ]}
               value={config.navigationMode}
               onChange={(v) => updateSEEF({ navigationMode: v })}
-              columns={3}
+              columns={4}
             />
             <FieldLabel>Form Layout</FieldLabel>
             <OptionGrid
