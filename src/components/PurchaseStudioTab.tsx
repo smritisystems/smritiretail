@@ -1812,8 +1812,6 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         {/* â”€â”€ SUB-TAB 5: REPORTS & REGISTERS â”€â”€ */}
         {activeSubTab === "reports" && (
           <div className="space-y-8">
-              )}
-            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
