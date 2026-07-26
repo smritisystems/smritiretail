@@ -3,12 +3,12 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.1.0
+ * Version      : 5.2.0
  * Created      : 2026-07-10
  * Modified     : 2026-07-26
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Classification: Internal
+ * Classification: Internal - Metadata-Driven Login Engine
  */
 
 import React, { useState, useEffect } from "react";
@@ -28,8 +28,15 @@ import {
   Building2,
   Globe,
   Cpu,
+  Sliders,
+  Image as ImageIcon,
 } from "lucide-react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
+import {
+  LoginBackgroundProvider,
+  useLoginBackground,
+} from "../services/login_background/LoginBackgroundEngine";
+import { LoginBackgroundAdminDrawer } from "./LoginBackgroundAdminDrawer";
 
 interface LoginScreenProps {
   onLoginSuccess: (user: {
@@ -55,14 +62,23 @@ const FEATURE_TILES = [
   { icon: Cpu,       label: "AI-Assisted",         desc: "Intelligent business analytics" },
 ];
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
-  const [username, setUsername]       = useState("");
-  const [password, setPassword]       = useState("");
-  const [error, setError]             = useState<string | null>(null);
-  const [loading, setLoading]         = useState(false);
-  const [showDevPanel, setShowDevPanel] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [tileIndex, setTileIndex]     = useState(0);
+const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
+  const {
+    config,
+    resolvedItem,
+    isAccessibilityDisabled,
+    getCardStyle,
+    getBackgroundCanvasStyle,
+  } = useLoginBackground();
+
+  const [username, setUsername]           = useState("");
+  const [password, setPassword]           = useState("");
+  const [error, setError]                 = useState<string | null>(null);
+  const [loading, setLoading]             = useState(false);
+  const [showDevPanel, setShowDevPanel]   = useState(false);
+  const [showPassword, setShowPassword]   = useState(false);
+  const [showAdminDrawer, setShowAdminDrawer] = useState(false);
+  const [tileIndex, setTileIndex]         = useState(0);
   const [usernameFocused, setUsernameFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
 
@@ -152,16 +168,40 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
   return (
     <div
-      style={{ fontFamily: "'72', '72full', Arial, Helvetica, sans-serif" }}
-      className="min-h-screen w-full flex flex-col bg-[#f0f0f0] text-[#32363a]"
+      style={{
+        fontFamily: "'72', '72full', 'Inter', Arial, Helvetica, sans-serif",
+        ...getBackgroundCanvasStyle(),
+      }}
+      className="min-h-screen w-full flex flex-col text-[#32363a] relative overflow-hidden transition-all duration-500"
     >
+      {/* ── Metadata-Driven Vector Background Layer ── */}
+      {config.enabled && !isAccessibilityDisabled && resolvedItem && (
+        <div
+          className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center overflow-hidden transition-opacity duration-700"
+          style={{ opacity: config.displayControls.opacity / 100 }}
+        >
+          {resolvedItem.svgContent ? (
+            <div
+              className="w-[110vw] h-[110vh] max-w-[1400px] max-h-[1400px] text-blue-200/40"
+              dangerouslySetInnerHTML={{ __html: resolvedItem.svgContent }}
+            />
+          ) : resolvedItem.imageUrl ? (
+            <img
+              src={resolvedItem.imageUrl}
+              alt={resolvedItem.title}
+              className="w-full h-full object-cover"
+            />
+          ) : null}
+        </div>
+      )}
+
       {/* ── SAP Fiori Shell Bar ── */}
       <header
         style={{ backgroundColor: "#354a5e" }}
-        className="h-12 flex items-center px-6 shrink-0 shadow-sm"
+        className="h-12 flex items-center px-6 shrink-0 shadow-md relative z-20"
       >
         <div className="flex items-center gap-3">
-          {/* Waffle icon */}
+          {/* Waffle app launcher matrix */}
           <div className="grid grid-cols-3 gap-[3px] w-4 h-4 opacity-80">
             {Array.from({ length: 9 }).map((_, i) => (
               <div key={i} className="w-[4px] h-[4px] rounded-[1px] bg-white" />
@@ -170,13 +210,34 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           <span className="text-white font-semibold text-sm tracking-wide">
             SMRITI Retail OS
           </span>
+          {resolvedItem && (
+            <span
+              style={{ backgroundColor: "rgba(255,255,255,0.15)", color: "#e2e8f0" }}
+              className="hidden sm:flex items-center gap-1.5 text-[10px] px-2.5 py-0.5 rounded font-mono"
+            >
+              <ImageIcon size={11} className="text-blue-300" />
+              <span>{resolvedItem.title}</span>
+            </span>
+          )}
         </div>
-        <div className="ml-auto flex items-center gap-4">
+
+        <div className="ml-auto flex items-center gap-3">
+          {/* Admin Background Configurator Button */}
+          <button
+            onClick={() => setShowAdminDrawer(true)}
+            style={{ backgroundColor: "rgba(255,255,255,0.12)", color: "#fff" }}
+            className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded font-semibold hover:bg-white/20 transition-all cursor-pointer"
+            title="Configure Metadata Background Engine"
+          >
+            <Sliders size={13} className="text-blue-300" />
+            <span className="hidden sm:inline">Background Engine</span>
+          </button>
+
           <span
             style={{ backgroundColor: "rgba(255,255,255,0.12)", color: "#fff" }}
             className="text-[10px] px-2 py-0.5 rounded font-mono"
           >
-            v5.1.0
+            v5.2.0
           </span>
           {isDev && (
             <span
@@ -190,24 +251,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       </header>
 
       {/* ── Main Content ── */}
-      <main className="flex-1 flex items-center justify-center px-4 py-10">
-        <div className="w-full max-w-5xl flex shadow-2xl rounded overflow-hidden" style={{ minHeight: 520 }}>
-
-          {/* ── LEFT PANEL — Branding ── */}
+      <main className="flex-1 flex items-center justify-center px-4 py-8 relative z-10">
+        <div
+          style={getCardStyle()}
+          className="w-full max-w-5xl flex rounded overflow-hidden transition-all duration-300"
+        >
+          {/* ── LEFT PANEL — Branding & Showcase ── */}
           <div
             className="hidden md:flex flex-col justify-between w-[420px] shrink-0 p-10 relative overflow-hidden"
-            style={{ background: "linear-gradient(160deg, #354a5e 0%, #1b3a4b 60%, #0a2038 100%)" }}
+            style={{ background: "linear-gradient(160deg, rgba(53,74,94,0.95) 0%, rgba(27,58,75,0.95) 60%, rgba(10,32,56,0.98) 100%)" }}
           >
-            {/* Decorative circles */}
-            <div
-              className="absolute -top-16 -right-16 w-72 h-72 rounded-full opacity-10"
-              style={{ background: "radial-gradient(circle, #6fa8dc, transparent)" }}
-            />
-            <div
-              className="absolute -bottom-20 -left-20 w-80 h-80 rounded-full opacity-10"
-              style={{ background: "radial-gradient(circle, #1a73e8, transparent)" }}
-            />
-
             {/* Logo block */}
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-8">
@@ -291,7 +344,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           </div>
 
           {/* ── RIGHT PANEL — Login Form ── */}
-          <div className="flex-1 bg-white flex flex-col justify-center px-10 py-12">
+          <div className="flex-1 bg-white/95 flex flex-col justify-center px-10 py-12">
 
             {/* Form header */}
             <div className="mb-8">
@@ -529,7 +582,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
       {/* ── Fiori Footer Bar ── */}
       <footer
-        className="h-9 flex items-center justify-between px-6 text-[11px]"
+        className="h-9 flex items-center justify-between px-6 text-[11px] relative z-20"
         style={{ backgroundColor: "#354a5e", color: "rgba(255,255,255,0.45)" }}
       >
         <span>SMRITI Retail OS — Enterprise Business Platform</span>
@@ -539,11 +592,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         </div>
       </footer>
 
-      {/* Global inline font-face for SAP 72 fallback */}
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', '72', Arial, sans-serif !important; }
-      `}</style>
+      {/* Admin Background Control Panel Drawer */}
+      <LoginBackgroundAdminDrawer
+        isOpen={showAdminDrawer}
+        onClose={() => setShowAdminDrawer(false)}
+      />
     </div>
   );
 };
+
+export const LoginScreen: React.FC<LoginScreenProps> = (props) => (
+  <LoginBackgroundProvider>
+    <LoginScreenContent {...props} />
+  </LoginBackgroundProvider>
+);
