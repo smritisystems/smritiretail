@@ -165,36 +165,19 @@ async def test_api_v1_migration_endpoints(db_session):
         assert res_setup_again.status_code == 400
         assert res_setup_again.json()["detail"] == "Company setup has already been completed."
 
-        res_partners = await client.get("/api/v1/exchange/partners", headers=headers)
-        assert res_partners.status_code == 200
-        assert isinstance(res_partners.json(), list)
+        res_tasks = await client.get("/api/v1/exchange/tasks", headers=headers)
+        assert res_tasks.status_code == 200
+        assert isinstance(res_tasks.json(), list)
 
-        res_logs = await client.get("/api/v1/exchange/logs", headers=headers)
-        assert res_logs.status_code == 200
-        assert isinstance(res_logs.json(), list)
-
-        res_validate = await client.post(
-            "/api/v1/exchange/validate",
-            json={"partnerId": "PRT-01", "rows": [{"sku": "SKU-001", "quantity": 5}]},
+        res_create_task = await client.post(
+            "/api/v1/exchange/tasks",
+            json={"name": "Sales Sync", "direction": "Import", "entity_type": "sales"},
             headers=headers,
         )
-        assert res_validate.status_code == 200
-        assert res_validate.json()["rowCount"] == 1
+        assert res_create_task.status_code == 201
+        assert res_create_task.json()["name"] == "Sales Sync"
 
-        res_commit = await client.post(
-            "/api/v1/exchange/commit",
-            json={"partnerId": "PRT-01", "rows": [{"sku": "SKU-001", "quantity": 5}]},
-            headers=headers,
-        )
-        assert res_commit.status_code == 200
-        assert res_commit.json()["success"] is True
 
-        res_approve = await client.post(
-            "/api/v1/exchange/approve-log/EXLOG-001",
-            headers=headers,
-        )
-        assert res_approve.status_code == 200
-        assert res_approve.json()["success"] is True
 
         res_validate_customer = await client.post(
             "/api/v1/customers/validate-add",
