@@ -3,7 +3,7 @@
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
  *
- * Version    : 3.37.0 (Selected Item WYSIWYG Preview Sub-Component)
+ * Version    : 5.1.0 (SEEF Phase 8 — Token Upgrade)
  * Created    : 2026-07-25
  * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * License    : Proprietary Commercial Software
@@ -46,9 +46,9 @@ export const SelectedItemPreview: React.FC<SelectedItemPreviewProps> = ({
   const mrp = item?.mrp || 2999;
 
   return (
-    <div className="bg-[#141726] border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl flex-1 flex flex-col font-mono text-xs">
-      <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-        <span className="text-xs font-bold text-white uppercase flex items-center gap-2">
+    <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-4 space-y-3 shadow-xl flex-1 flex flex-col font-mono text-xs select-none">
+      <div className="flex justify-between items-center border-b border-theme-divider pb-2">
+        <span className="text-xs font-bold text-theme-heading uppercase flex items-center gap-2">
           <Eye size={16} className="text-indigo-400" />
           Selected Item Detail & Live 2D WYSIWYG Tag Inspector
         </span>
@@ -62,44 +62,44 @@ export const SelectedItemPreview: React.FC<SelectedItemPreviewProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
         {/* Item Details Metadata */}
-        <div className="bg-[#0a0c14] border border-slate-800 rounded-xl p-3 space-y-2 text-xs">
-          <div className="grid grid-cols-2 gap-2 border-b border-slate-800 pb-2">
-            <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Stock No:</span><span className="text-amber-300 font-bold">{stockNo}</span></div>
-            <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Barcode:</span><span className="text-indigo-300 font-bold">{barcode}</span></div>
+        <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 space-y-2 text-xs">
+          <div className="grid grid-cols-2 gap-2 border-b border-theme-divider pb-2">
+            <div><span className="text-[9px] text-theme-muted block uppercase font-bold">Stock No:</span><span className="text-amber-300 font-bold">{stockNo}</span></div>
+            <div><span className="text-[9px] text-theme-muted block uppercase font-bold">Barcode:</span><span className="text-indigo-300 font-bold">{barcode}</span></div>
           </div>
 
-          <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Product Name:</span><span className="text-white font-bold truncate block">{name}</span></div>
+          <div><span className="text-[9px] text-theme-muted block uppercase font-bold">Product Name:</span><span className="text-theme-heading font-bold truncate block">{name}</span></div>
 
-          <div className="grid grid-cols-2 gap-2 border-t border-b border-slate-800 py-1.5">
-            <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Brand:</span><span className="text-slate-200">{brand}</span></div>
-            <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Style:</span><span className="text-slate-200">{style}</span></div>
+          <div className="grid grid-cols-2 gap-2 border-t border-b border-theme-divider py-1.5">
+            <div><span className="text-[9px] text-theme-muted block uppercase font-bold">Brand:</span><span className="text-theme-body">{brand}</span></div>
+            <div><span className="text-[9px] text-theme-muted block uppercase font-bold">Style:</span><span className="text-theme-body">{style}</span></div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 border-b border-slate-800 pb-1.5">
-            <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Shade:</span><span className="text-slate-200">{shade}</span></div>
-            <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Size:</span><span className="text-slate-200">{size}</span></div>
+          <div className="grid grid-cols-2 gap-2 border-b border-theme-divider pb-1.5">
+            <div><span className="text-[9px] text-theme-muted block uppercase font-bold">Shade:</span><span className="text-theme-body">{shade}</span></div>
+            <div><span className="text-[9px] text-theme-muted block uppercase font-bold">Size:</span><span className="text-theme-body">{size}</span></div>
           </div>
 
           <div className="flex justify-between items-center pt-1">
-            <div><span className="text-[9px] text-slate-500 block uppercase font-bold">MRP:</span><span className="text-slate-400 line-through">₹{mrp}</span></div>
-            <div><span className="text-[9px] text-slate-500 block uppercase font-bold">Selling Price:</span><span className="text-emerald-400 font-bold text-sm">₹{price}</span></div>
+            <div><span className="text-[9px] text-theme-muted block uppercase font-bold">MRP:</span><span className="text-theme-muted line-through">₹{mrp}</span></div>
+            <div><span className="text-[9px] text-theme-muted block uppercase font-bold">Selling Price:</span><span className="text-emerald-400 font-bold text-sm">₹{price}</span></div>
           </div>
         </div>
 
         {/* Visual 2D Tag Render & Evaluated RAW Script */}
         <div className="space-y-3 flex flex-col">
-          <div className="bg-[#08090e] border border-slate-800 rounded-xl p-3 flex items-center justify-center min-h-[130px]">
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 flex items-center justify-center min-h-[130px]">
             <div className="max-w-[220px] w-full">
               <BarcodeLabel data={{ items: [{ name, rate: price, barcode }] }} />
             </div>
           </div>
 
-          <div className="bg-[#0a0c14] border border-slate-800 rounded-xl p-2.5 space-y-1 text-[10px]">
-            <span className="text-slate-400 font-bold uppercase block flex items-center gap-1">
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-2.5 space-y-1 text-[10px]">
+            <span className="text-theme-muted font-bold uppercase block flex items-center gap-1">
               <FileCode size={12} className="text-amber-400" />
               Evaluated RAW Script ({activePrinter?.protocol || "ZPL"})
             </span>
-            <pre className="text-amber-300 max-h-20 overflow-x-auto bg-black/60 p-2 rounded font-mono">
+            <pre className="text-amber-300 max-h-20 overflow-x-auto bg-theme-surface-3 p-2 rounded font-mono border border-theme-divider">
               {evaluatedPRNPayload}
             </pre>
           </div>
@@ -109,7 +109,7 @@ export const SelectedItemPreview: React.FC<SelectedItemPreviewProps> = ({
               <button 
                 type="button" 
                 onClick={onOpenPRNFile}
-                className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs border border-slate-700 shadow-md flex items-center justify-center gap-1.5"
+                className="flex-1 py-2 bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-body font-bold rounded-xl text-xs border border-theme-divider shadow-md flex items-center justify-center gap-1.5"
                 title="Open a PRN / ZPL file from computer"
               >
                 <FolderOpen size={14} className="text-amber-400" /> Open PRN File
