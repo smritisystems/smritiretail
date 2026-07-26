@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.27.0
+ * Version      : 4.0.0  (SEEF Phase 6 — SEEFListReport Cascade Integration)
  * Created      : 2026-07-10
  * Modified     : 2026-07-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -24,7 +24,10 @@ import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { Product, Quotation, SalesOrder, SalesItemLine, SalesInvoice, SalesReturn, Customer, CustomerGroup } from "../types.js";
 import { SmartFilter, FilterDefinition } from "./SmartFilter.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+// SEEFListReport alias (FioriListReport is the SEEF-upgraded primitive — see FioriListReport.tsx v5.2.0)
 import { FioriListReport, ListReportColumn } from "./common/FioriListReport.tsx";
+export { FioriListReport as SEEFListReport };
+import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 import { getCustomers, getCustomerGroups, saveCustomers } from "../services/customerStore.ts";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
@@ -271,7 +274,9 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [subView, setSubView] = useState<"quotations" | "orders" | "invoices" | "returns" | "customers">("quotations");
-  const [density, setDensity] = useState<"compact" | "comfortable" | "relaxed">("comfortable");
+  // SEEF Phase 6: density now resolved from SEEF Resolution Cascade (Admin Configurator → global config)
+  const { config: seefConfig } = useSEEF();
+  const density = seefConfig.density === "compact" ? "compact" : seefConfig.density === "spacious" ? "relaxed" : "comfortable";
   const densityPadding = density === "compact" ? "py-1.5" : density === "comfortable" ? "py-3" : "py-4";
   const [activeFilters, setActiveFilters] = useState<Record<string, any>>({});
 

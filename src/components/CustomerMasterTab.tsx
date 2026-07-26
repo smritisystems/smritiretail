@@ -5,7 +5,7 @@
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
- * Version      : 5.0.0
+ * Version      : 6.0.0  (SEEF Phase 6 — SEEFListReport + SEEFObjectPage Cascade Integration)
  * Created      : 2026-07-13
  * Modified     : 2026-07-26
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -23,8 +23,12 @@ import { recordAuditAction } from "../lib/apiFetch.ts";
 import { CustomerLedger } from "./customer/CustomerLedger.tsx";
 import { validateCustomerProfile } from "../services/customerValidation.ts";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+// SEEF Phase 6 — SEEF-upgraded primitives with backward-compatible aliases
 import { FioriListReport, ListReportColumn } from "./common/FioriListReport.tsx";
+export { FioriListReport as SEEFListReport };
 import { FioriObjectPage, ObjectPageTab, ObjectPageMetric } from "./common/FioriObjectPage.tsx";
+export { FioriObjectPage as SEEFObjectPage };
+import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 
 export interface CustomerMasterTabProps {
   currentUser?: { role: string; name: string } | null;

@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 2.1.3
+ * Version      : 4.0.0  (SEEF Phase 6 — Density Cascade Integration)
  * Created      : 2026-07-10
  * Modified     : 2026-07-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -44,7 +44,10 @@ import { Product } from "../types.js";
 import { SmartFilter, FilterDefinition } from "./SmartFilter.tsx";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
+// SEEFListReport alias (FioriListReport is the SEEF-upgraded primitive — see FioriListReport.tsx v5.2.0)
 import { FioriListReport, ListReportColumn } from "./common/FioriListReport.tsx";
+export { FioriListReport as SEEFListReport };
+import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 
 interface PurchaseStudioTabProps {
   products: Product[];

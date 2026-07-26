@@ -16,7 +16,7 @@
  *
  * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 3.31.4
+ * * Version    : 4.0.0  (SEEF Phase 6 — Density Cascade Integration)
  * * Created    : 2026-07-10
  * * Modified   : 2026-07-19
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
@@ -26,6 +26,8 @@
 import React, { useState, useEffect } from "react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { FioriObjectPage } from "./common/FioriObjectPage.tsx";
+export { FioriObjectPage as SEEFObjectPage };
+import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 import { recordAuditAction } from "../lib/apiFetch";
 import { Heart, AlignJustify, 
   Plus, Search, Grid, Trash2, Edit3, RefreshCw, Tag, 
@@ -74,7 +76,10 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   // WNG-002: activeTab state removed — FioriObjectPage manages tab state internally
   const [loading, setLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [density, setDensity] = useState<"compact" | "comfortable" | "relaxed">("comfortable");
+  // SEEF Phase 6: seed density from SEEF Resolution Cascade; local control still allows per-session override
+  const { config: seefConfig } = useSEEF();
+  const seefDensity = seefConfig.density === "compact" ? "compact" : seefConfig.density === "spacious" ? "relaxed" : "comfortable";
+  const [density, setDensity] = useState<"compact" | "comfortable" | "relaxed">(seefDensity);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState<boolean>(false);
   
