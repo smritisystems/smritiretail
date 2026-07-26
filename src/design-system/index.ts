@@ -29,4 +29,7 @@ export * from './layout/SEDSPanel';
 export * from './components/SEDSButton';
 export * from './components/SEDSBadge';
 export * from './components/SEDSInput';
+export * from './components/SEDSSelect';
+export * from './components/SEDSSwitch';
+export * from './components/SEDSTabs';
 export * from './components/SEDSToast';
