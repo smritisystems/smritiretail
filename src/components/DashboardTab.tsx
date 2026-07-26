@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -16,9 +16,9 @@
  *
  * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 3.17.0
+ * * Version    : 4.0.0  (SEEF Phase 6 — SEEFCard KPI Upgrade)
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-14
+ * * Modified   : 2026-07-26
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -39,12 +39,13 @@ import {
 } from "recharts";
 import { apiFetch, apiFetchV1 } from "../lib/apiFetch.ts";
 import { Product, Formula, PSVParty } from "../types";
-
 import { DrillableLink } from "./drilldown/DrillableLink.tsx";
 import { AboutSmritiWidget } from "./AboutSmritiWidget.tsx";
 import { InventoryForecastWidget } from "./InventoryForecastWidget.tsx";
 import { AuditActivityFeed } from "./AuditActivityFeed.tsx";
 import { QuickReportsWidget } from "./QuickReportsWidget.tsx";
+import { SEEFCard } from "./common/SEEFCard.tsx";
+import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 
 // Branded Custom Tooltip for Trend/Sales Performance
 const TrendSalesTooltip = ({ active, payload, label }: any) => {
@@ -771,10 +772,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </div>
       </div>
 
-      {/* KPI Section */}
+      {/* KPI Section — SEEFCard wrappers (SEEF Phase 6) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1 */}
-        <div className="bg-theme-surface-1 rounded-xl p-5 border border-theme-divider relative group hover:border-[#2563EB] transition-all">
+        {/* Metric 1 — Outlet Health Score */}
+        <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-theme-muted uppercase font-display">
               Outlet Health Score
@@ -806,10 +807,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <p className="mt-2 text-xs text-theme-muted">
             Operational Safety & Accuracy
           </p>
-        </div>
+        </SEEFCard>
 
-        {/* Metric 2 */}
-        <div className="bg-theme-surface-1 rounded-xl p-5 border border-theme-divider relative group hover:border-[#2563EB] transition-all">
+        {/* Metric 2 — Weeks of Cover */}
+        <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-theme-muted uppercase font-display">
               Weeks of Cover
@@ -838,10 +839,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <p className="mt-2 text-xs text-theme-muted">
             Average inventory runway
           </p>
-        </div>
+        </SEEFCard>
 
-        {/* Metric 3 */}
-        <div className="bg-theme-surface-1 rounded-xl p-5 border border-theme-divider relative group hover:border-[#2563EB] transition-all">
+        {/* Metric 3 — Dead Stock % */}
+        <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-theme-muted uppercase font-display">
               Dead Stock %
@@ -873,10 +874,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <p className="mt-2 text-xs text-theme-muted">
             Unsold in past 30 days
           </p>
-        </div>
+        </SEEFCard>
 
-        {/* Metric 4 */}
-        <div className="bg-theme-surface-1 rounded-xl p-5 border border-theme-divider relative group hover:border-[#2563EB] transition-all">
+        {/* Metric 4 — Live Sales Value */}
+        <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <span className="text-xs font-semibold text-theme-muted uppercase font-display block">
             Live Sales Value
           </span>
@@ -891,10 +892,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <p className="mt-2 text-xs text-theme-muted">
             Aggregated shift totals
           </p>
-        </div>
+        </SEEFCard>
 
-        {/* Metric 5 */}
-        <div className="bg-theme-surface-1 rounded-xl p-5 border border-theme-divider relative group hover:border-[#2563EB] transition-all">
+        {/* Metric 5 — Channel Capital */}
+        <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-theme-muted uppercase font-display">
               Channel Capital
@@ -921,10 +922,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <p className="mt-2 text-xs text-theme-muted">
             Downstream partner stock
           </p>
-        </div>
+        </SEEFCard>
 
-        {/* Metric 6: Daily Revenue */}
-        <div className="bg-theme-surface-1 rounded-xl p-5 border border-theme-divider relative group hover:border-[#2563EB] transition-all">
+        {/* Metric 6 — Daily Revenue */}
+        <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-theme-muted uppercase font-display">
               Daily Revenue
@@ -945,10 +946,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </span>
           </div>
           <p className="mt-2 text-xs text-theme-muted">Today's total revenue</p>
-        </div>
+        </SEEFCard>
 
-        {/* Metric 7: Total Sales */}
-        <div className="bg-theme-surface-1 rounded-xl p-5 border border-theme-divider relative group hover:border-[#2563EB] transition-all">
+        {/* Metric 7 — Total Sales */}
+        <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-theme-muted uppercase font-display">
               Total Sales
@@ -966,10 +967,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </span>
           </div>
           <p className="mt-2 text-xs text-theme-muted">Products sold today</p>
-        </div>
+        </SEEFCard>
 
-        {/* Metric 8: Low-Stock Items */}
-        <div className="bg-theme-surface-1 rounded-xl p-5 border border-theme-divider relative group hover:border-[#2563EB] transition-all">
+        {/* Metric 8 — Low-Stock Items */}
+        <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-theme-muted uppercase font-display">
               Low-Stock Items
@@ -992,7 +993,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <p className="mt-2 text-xs text-theme-muted">
             Items below safety stock
           </p>
-        </div>
+        </SEEFCard>
       </div>
 
       {/* Main Grid: Visuals and AI Assistant */}
