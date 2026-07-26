@@ -281,13 +281,13 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     const loadMetadata = async () => {
       try {
         const [res1, res2, res3] = await Promise.all([
-          apiFetchV1("/attributes/definitions"),
-          apiFetchV1("/attributes/groups"),
-          apiFetchV1("/attributes/category-mappings")
+          apiFetchV1("/attributes/definitions").catch(() => []),
+          apiFetchV1("/attributes/groups").catch(() => []),
+          apiFetchV1("/attributes/category-mappings").catch(() => [])
         ]);
-        setDefinitions(res1);
-        setGroups(res2);
-        setCategoryMappings(res3);
+        setDefinitions(Array.isArray(res1) ? res1 : []);
+        setGroups(Array.isArray(res2) ? res2 : []);
+        setCategoryMappings(Array.isArray(res3) ? res3 : []);
       } catch (err) {
         console.error("Error loading attribute metadata in master:", err);
       }
@@ -297,9 +297,11 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
 
   // Find active attribute group definitions for selected form category
   const getActiveGroup = () => {
-    const mapping = categoryMappings.find(m => m.category.toLowerCase() === formCategory.toLowerCase());
+    const safeMappings = Array.isArray(categoryMappings) ? categoryMappings : [];
+    const safeGroups = Array.isArray(groups) ? groups : [];
+    const mapping = safeMappings.find(m => m && m.category && (m.category || "").toLowerCase() === (formCategory || "").toLowerCase());
     if (!mapping) return null;
-    return groups.find(g => g.id === mapping.attributeGroupId) || null;
+    return safeGroups.find(g => g && g.id === mapping.attributeGroupId) || null;
   };
 
   const activeGroup = getActiveGroup();
