@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -16,7 +16,7 @@
  *
  * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 2.1.2
+ * * Version    : 4.0.0  (SEEF Phase 6 — Cascade Integration)
  * * Created    : 2026-07-10
  * * Modified   : 2026-07-11
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
@@ -46,6 +46,10 @@ import { User } from "../types.js";
 import { useNotifications } from "../notifications/notification_store.tsx";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+// SEEF Phase 6 — cascade integration
+import { useSEEF } from "../layout_engine/SEEFContext.tsx";
+import { SEEFSkeleton } from "./common/SEEFSkeleton.tsx";
+import { SEEFEmptyState } from "./common/SEEFEmptyState.tsx";
 
 interface StaffManagementTabProps {
   currentUser?: { role: string; name: string } | null;
@@ -53,6 +57,7 @@ interface StaffManagementTabProps {
 
 export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentUser }) => {
   const { addNotification } = useNotifications();
+  const { config: seefConfig } = useSEEF(); // SEEF Phase 6 — density + animation cascade
   const isReadOnly = currentUser?.role === "Report User";
   const [staff, setStaff] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -440,9 +445,12 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
           </div>
           
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            {/* SEEF Phase 6: SEEFSkeleton loading state */}
             {loading && staff.length === 0 ? (
-              <div className="p-8 text-center text-xs text-theme-muted font-mono animate-pulse">
-                Syncing Operator Registries...
+              <div style={{ padding: "var(--seef-space-3)", display: "flex", flexDirection: "column", gap: "var(--seef-space-2)" }}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <SEEFSkeleton key={i} variant="list" height={60} />
+                ))}
               </div>
             ) : filteredStaff.map(s => (
               <div 
@@ -453,6 +461,9 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
                     ? "bg-blue-500/10 border-blue-500/30" 
                     : "bg-theme-surface-1 border-transparent hover:bg-theme-surface-hover"
                 }`}
+                style={{
+                  padding: seefConfig.density === "compact" ? "8px" : seefConfig.density === "spacious" ? "16px" : "12px",
+                }}
               >
                 <div className="flex justify-between items-start">
                   <div>
@@ -481,8 +492,12 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
               </div>
             ))}
 
+            {/* SEEF Phase 6: SEEFEmptyState no-staff message */}
             {filteredStaff.length === 0 && !loading && (
-              <div className="p-8 text-center text-theme-muted text-sm">No active operator profiles found.</div>
+              <SEEFEmptyState
+                title="No operator profiles found"
+                description={searchQuery ? `No staff match "${searchQuery}". Try a different search term.` : "No staff have been registered yet. Click Add Employee to get started."}
+              />
             )}
           </div>
         </div>

@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.27.0
+ * Version      : 4.0.0  (SEEF Phase 6 — SEEFDataTable + Cascade Integration)
  * Created      : 2026-07-19
  * Modified     : 2026-07-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -20,7 +20,11 @@ import {
   Building2, ArrowRightLeft, FileSpreadsheet, CreditCard, 
   RotateCcw, Landmark, Users, PackageCheck, Plus, AlertCircle, CheckCircle2 
 } from "lucide-react";
+// SEEF Phase 6 — SEEF-upgraded primitives
 import { FioriListReport } from "./common/FioriListReport.tsx";
+export { FioriListReport as SEEFListReport };
+import { SEEFDataTable, SEEFColumnDef } from "./common/SEEFDataTable.tsx";
+import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 
 interface ConsignmentStudioTabProps {
   currentUser?: any;
@@ -730,34 +734,35 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                   </div>
                 </div>
 
-                {/* Added Items table */}
+                {/* SEEF Phase 6 — Transfer Items preview table */}
                 {newTransferItems.length > 0 && (
-                  <div className="border border-theme-divider rounded-lg overflow-hidden max-h-40 overflow-y-auto">
-                    <table className="w-full text-left">
-                      <thead className="bg-theme-surface-3 text-[8px] uppercase tracking-wider text-theme-muted">
-                        <tr>
-                          <th className="p-2">Product Name</th>
-                          <th className="p-2 text-right">Quantity</th>
-                          <th className="p-2 text-right">Consignment Rate</th>
-                          <th className="p-2 text-right">Taxable Value</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {newTransferItems.map((item, idx) => {
-                          const p = products.find(prod => prod.id === item.productId);
-                          const total = item.qty * item.rate;
-                          return (
-                            <tr key={idx} className="border-t border-theme-divider/50">
-                              <td className="p-2 font-bold">{p?.name}</td>
-                              <td className="p-2 text-right font-mono">{item.qty}</td>
-                              <td className="p-2 text-right font-mono">₹{item.rate}</td>
-                              <td className="p-2 text-right font-mono text-emerald-400 font-semibold">₹{total.toFixed(2)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <SEEFDataTable
+                    id="consignment-transfer-items"
+                    caption="Transfer Items"
+                    height={160}
+                    columns={[
+                      { key: "name", header: "Product Name", width: 200,
+                        render: (_v, _r, idx) => {
+                          const p = products.find(prod => prod.id === newTransferItems[idx]?.productId);
+                          return <span style={{ fontWeight: 700 }}>{p?.name ?? "—"}</span>;
+                        }
+                      },
+                      { key: "qty", header: "Quantity", align: "right", width: 90,
+                        render: (_v, _r, idx) => <span style={{ fontFamily: "monospace" }}>{newTransferItems[idx]?.qty}</span>
+                      },
+                      { key: "rate", header: "Consignment Rate", align: "right", width: 130,
+                        render: (_v, _r, idx) => <span style={{ fontFamily: "monospace" }}>₹{newTransferItems[idx]?.rate}</span>
+                      },
+                      { key: "total", header: "Taxable Value", align: "right", width: 120,
+                        render: (_v, _r, idx) => {
+                          const item = newTransferItems[idx];
+                          return <span style={{ fontFamily: "monospace", color: "var(--seef-success)", fontWeight: 600 }}>₹{(item ? item.qty * item.rate : 0).toFixed(2)}</span>;
+                        }
+                      },
+                    ] as SEEFColumnDef<typeof newTransferItems[0]>[]}
+                    rows={newTransferItems}
+                    rowKey={(_r, i) => i}
+                  />
                 )}
 
                 <div className="flex justify-end gap-2 border-t border-theme-divider/50 pt-4 mt-6">
@@ -905,32 +910,35 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                   </div>
                 )}
 
+                {/* SEEF Phase 6 — Report (Sales) Items preview table */}
                 {newReportItems.length > 0 && (
-                  <div className="border border-theme-divider rounded-lg overflow-hidden">
-                    <table className="w-full text-left">
-                      <thead className="bg-theme-surface-3 text-[8px] uppercase tracking-wider text-theme-muted">
-                        <tr>
-                          <th className="p-2">Item</th>
-                          <th className="p-2 text-right">Quantity Sold</th>
-                          <th className="p-2 text-right">Rate</th>
-                          <th className="p-2 text-right">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {newReportItems.map((item, idx) => {
-                          const tItem = getTransferItemsForPartner(newReportPartner).find(i => i.id === item.transferItemId);
-                          return (
-                            <tr key={idx} className="border-t border-theme-divider/50">
-                              <td className="p-2 font-bold">{tItem?.name || item.productId}</td>
-                              <td className="p-2 text-right font-mono">{item.qty}</td>
-                              <td className="p-2 text-right font-mono">₹{item.rate}</td>
-                              <td className="p-2 text-right font-mono text-emerald-400 font-semibold">₹{(item.qty * item.rate).toFixed(2)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <SEEFDataTable
+                    id="consignment-report-items"
+                    caption="Consignment Report Items"
+                    height={160}
+                    columns={[
+                      { key: "name", header: "Item", width: 200,
+                        render: (_v, _r, idx) => {
+                          const tItem = getTransferItemsForPartner(newReportPartner).find(i => i.id === newReportItems[idx]?.transferItemId);
+                          return <span style={{ fontWeight: 700 }}>{tItem?.name || newReportItems[idx]?.productId || "—"}</span>;
+                        }
+                      },
+                      { key: "qty", header: "Quantity Sold", align: "right", width: 110,
+                        render: (_v, _r, idx) => <span style={{ fontFamily: "monospace" }}>{newReportItems[idx]?.qty}</span>
+                      },
+                      { key: "rate", header: "Rate", align: "right", width: 90,
+                        render: (_v, _r, idx) => <span style={{ fontFamily: "monospace" }}>₹{newReportItems[idx]?.rate}</span>
+                      },
+                      { key: "total", header: "Total", align: "right", width: 110,
+                        render: (_v, _r, idx) => {
+                          const item = newReportItems[idx];
+                          return <span style={{ fontFamily: "monospace", color: "var(--seef-success)", fontWeight: 600 }}>₹{(item ? item.qty * item.rate : 0).toFixed(2)}</span>;
+                        }
+                      },
+                    ] as SEEFColumnDef<typeof newReportItems[0]>[]}
+                    rows={newReportItems}
+                    rowKey={(_r, i) => i}
+                  />
                 )}
 
                 <div className="flex justify-end gap-2 border-t border-theme-divider/50 pt-4 mt-6">
@@ -1153,32 +1161,35 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                   </div>
                 )}
 
+                {/* SEEF Phase 6 — Return Items preview table */}
                 {newReturnItems.length > 0 && (
-                  <div className="border border-theme-divider rounded-lg overflow-hidden">
-                    <table className="w-full text-left">
-                      <thead className="bg-theme-surface-3 text-[8px] uppercase tracking-wider text-theme-muted">
-                        <tr>
-                          <th className="p-2">Item</th>
-                          <th className="p-2 text-right">Quantity Returned</th>
-                          <th className="p-2 text-right">Rate</th>
-                          <th className="p-2 text-right">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {newReturnItems.map((item, idx) => {
-                          const tItem = getTransferItemsForPartner(newReturnPartner).find(i => i.id === item.transferItemId);
-                          return (
-                            <tr key={idx} className="border-t border-theme-divider/50">
-                              <td className="p-2 font-bold">{tItem?.name || item.productId}</td>
-                              <td className="p-2 text-right font-mono">{item.qty}</td>
-                              <td className="p-2 text-right font-mono">₹{item.rate}</td>
-                              <td className="p-2 text-right font-mono text-rose-400 font-semibold">₹{(item.qty * item.rate).toFixed(2)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <SEEFDataTable
+                    id="consignment-return-items"
+                    caption="Consignment Return Items"
+                    height={160}
+                    columns={[
+                      { key: "name", header: "Item", width: 200,
+                        render: (_v, _r, idx) => {
+                          const tItem = getTransferItemsForPartner(newReturnPartner).find(i => i.id === newReturnItems[idx]?.transferItemId);
+                          return <span style={{ fontWeight: 700 }}>{tItem?.name || newReturnItems[idx]?.productId || "—"}</span>;
+                        }
+                      },
+                      { key: "qty", header: "Qty Returned", align: "right", width: 100,
+                        render: (_v, _r, idx) => <span style={{ fontFamily: "monospace" }}>{newReturnItems[idx]?.qty}</span>
+                      },
+                      { key: "rate", header: "Rate", align: "right", width: 90,
+                        render: (_v, _r, idx) => <span style={{ fontFamily: "monospace" }}>₹{newReturnItems[idx]?.rate}</span>
+                      },
+                      { key: "total", header: "Total", align: "right", width: 110,
+                        render: (_v, _r, idx) => {
+                          const item = newReturnItems[idx];
+                          return <span style={{ fontFamily: "monospace", color: "var(--seef-error)", fontWeight: 600 }}>₹{(item ? item.qty * item.rate : 0).toFixed(2)}</span>;
+                        }
+                      },
+                    ] as SEEFColumnDef<typeof newReturnItems[0]>[]}
+                    rows={newReturnItems}
+                    rowKey={(_r, i) => i}
+                  />
                 )}
 
                 <div className="flex justify-end gap-2 border-t border-theme-divider/50 pt-4 mt-6">
