@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -1230,20 +1230,20 @@ export const TermsEngineTab: React.FC = () => {
 
       {/* DIALOG 1: NEW/EDIT CLAUSE FORM MODAL */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
+            className="bg-theme-surface-1 border border-theme-divider rounded-2xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
           >
-            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
-              <h3 className="text-sm font-bold text-white flex items-center space-x-1.5">
+            <div className="px-6 py-4 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2">
+              <h3 className="text-sm font-bold text-theme-heading flex items-center space-x-1.5">
                 <Gavel className="w-4 h-4 text-indigo-400" />
                 <span>{editingClause ? "Revise Existing Clause" : "Draft New Clause"}</span>
               </h3>
               <button
                 onClick={() => setIsFormOpen(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-theme-muted hover:text-theme-heading"
               >
                 <XCircle className="w-5 h-5" />
               </button>
@@ -1252,13 +1252,13 @@ export const TermsEngineTab: React.FC = () => {
             <form onSubmit={handleSaveClause} className="p-6 overflow-y-auto space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Clause Code</label>
+                  <label className="block text-xs font-bold text-theme-muted uppercase mb-1">Clause Code</label>
                   <input
                     type="text"
                     value={formCode}
                     onChange={(e) => setFormCode(e.target.value)}
                     placeholder="e.g. PAY-NET30"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-xs text-theme-heading focus:outline-none focus:border-indigo-500 font-mono"
                   />
                 </div>
 
@@ -1347,7 +1347,7 @@ export const TermsEngineTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 px-4 py-2 rounded-lg transition"
+                  className="bg-theme-surface-3 hover:bg-theme-surface-hover text-xs text-theme-body px-4 py-2 rounded-lg transition border border-theme-divider"
                 >
                   Cancel
                 </button>
@@ -1365,17 +1365,17 @@ export const TermsEngineTab: React.FC = () => {
 
       {/* DIALOG 2: MAP DEFAULTS FORM MODAL */}
       {isDefaultFormOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden"
+            className="bg-theme-surface-1 border border-theme-divider rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden"
           >
-            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
-              <h3 className="text-sm font-bold text-white">Define Default Mapping Set</h3>
+            <div className="px-6 py-4 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2">
+              <h3 className="text-sm font-bold text-theme-heading">Define Default Mapping Set</h3>
               <button
                 onClick={() => setIsDefaultFormOpen(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-theme-muted hover:text-theme-heading"
               >
                 <XCircle className="w-5 h-5" />
               </button>
@@ -1383,11 +1383,11 @@ export const TermsEngineTab: React.FC = () => {
 
             <form onSubmit={handleSaveDefaultMap} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Mapping Level</label>
+                <label className="block text-xs font-bold text-theme-muted uppercase mb-1">Mapping Level</label>
                 <select
                   value={mapLevel}
                   onChange={(e: any) => setMapLevel(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-xs text-theme-heading focus:outline-none focus:border-indigo-500"
                 >
                   <option value="Company">Company Default</option>
                   <option value="Branch">Branch Override</option>
@@ -1398,22 +1398,22 @@ export const TermsEngineTab: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Reference ID / Key value</label>
+                <label className="block text-xs font-bold text-theme-muted uppercase mb-1">Reference ID / Key value</label>
                 <input
                   type="text"
                   value={mapRefId}
                   onChange={(e) => setMapRefId(e.target.value)}
                   placeholder="e.g. MUM (for Branch) or Retail Invoice (for Document)"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-xs text-theme-heading focus:outline-none focus:border-indigo-500"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Select Clauses for Association</label>
-                <div className="space-y-2 max-h-[180px] overflow-y-auto border border-slate-850 p-3 rounded-lg bg-slate-950">
+                <label className="block text-xs font-bold text-theme-muted uppercase mb-2">Select Clauses for Association</label>
+                <div className="space-y-2 max-h-[180px] overflow-y-auto border border-theme-divider p-3 rounded-lg bg-theme-surface-2">
                   {clauses.map(clause => (
-                    <label key={clause.id} className="flex items-start space-x-2 text-xs text-slate-300 hover:text-white cursor-pointer select-none py-0.5">
+                    <label key={clause.id} className="flex items-start space-x-2 text-xs text-theme-body hover:text-theme-heading cursor-pointer select-none py-0.5">
                       <input
                         type="checkbox"
                         checked={mapSelectedClauses.includes(clause.id)}
@@ -1424,22 +1424,22 @@ export const TermsEngineTab: React.FC = () => {
                             setMapSelectedClauses(mapSelectedClauses.filter(id => id !== clause.id));
                           }
                         }}
-                        className="rounded border-slate-800 bg-slate-900 text-indigo-600 focus:ring-0 mt-0.5"
+                        className="rounded border-theme-divider bg-theme-surface-1 text-indigo-600 focus:ring-0 mt-0.5"
                       />
                       <div>
                         <span className="font-semibold block">{clause.title}</span>
-                        <span className="text-[10px] text-slate-500 font-mono">{clause.category} • {clause.code}</span>
+                        <span className="text-[10px] text-theme-muted font-mono">{clause.category} • {clause.code}</span>
                       </div>
                     </label>
                   ))}
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+              <div className="flex justify-end space-x-2 pt-2 border-t border-theme-divider">
                 <button
                   type="button"
                   onClick={() => setIsDefaultFormOpen(false)}
-                  className="bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 px-4 py-2 rounded-lg transition"
+                  className="bg-theme-surface-3 hover:bg-theme-surface-hover text-xs text-theme-body px-4 py-2 rounded-lg transition border border-theme-divider"
                 >
                   Cancel
                 </button>
