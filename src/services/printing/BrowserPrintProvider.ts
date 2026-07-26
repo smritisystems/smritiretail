@@ -115,19 +115,19 @@ export class BrowserPrintProvider implements IPrinterProvider {
       }
     }
 
-    // Fallback: create raw text download blob or alert
+    // Fallback: create raw text download blob (interoperable with SMRITI Windows Auto Print Agent)
     const blob = new Blob([rawContent], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `label-print-${jobId}.prn`;
+    a.download = `smriti_barcodes_${Date.now()}.prn`;
     a.click();
     URL.revokeObjectURL(url);
 
     return {
       success: true,
       jobId,
-      message: "Generated raw .PRN label script download. To print silently without prompts, open QZ Tray.",
+      message: "Generated PRN label script. (SMRITI Windows Auto Print Agent will spool automatically if running).",
       providerName: this.providerName,
       timestamp: new Date().toISOString()
     };
