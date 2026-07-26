@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from ..db.base import BaseEntity, RowSecuredMixin
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text, DateTime

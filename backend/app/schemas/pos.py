@@ -20,6 +20,13 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, ConfigDict
 
 
+class POSProfileCreate(BaseModel):
+    name: str
+    notes: Optional[str] = None
+    cashier: Optional[str] = None
+    warehouse: Optional[str] = None
+
+
 class PosSessionOpenReq(BaseModel):
     cashier_id: str
     terminal_id: str
