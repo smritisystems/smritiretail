@@ -31,14 +31,19 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, lazy, Suspense } from "react";
 import {
   X, Palette, Type, Layout, Square, Zap, Image, Briefcase,
   Accessibility, RotateCcw, Download, Upload, ChevronDown,
   ChevronRight, Monitor, Moon, Sun, Contrast, Minimize2,
-  Building2, Check
+  Building2, Check, ShieldCheck
 } from "lucide-react";
 import { useSEEF } from "./SEEFContext.tsx";
+
+// Lazy-load the Governance Dashboard so it doesn't bloat the main bundle
+const SEEFGovernanceDashboard = lazy(() =>
+  import("./SEEFGovernanceDashboard.tsx").then(m => ({ default: m.SEEFGovernanceDashboard }))
+);
 import {
   SEEFTheme,
   SEEFDensity,
@@ -199,6 +204,7 @@ export const SEEFAdminConfigurator: React.FC<SEEFAdminConfiguratorProps> = ({
   const { config, updateSEEF, resetSEEF, exportConfig, importConfig } = useSEEF();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [showGovernance, setShowGovernance] = useState(false);
 
   const isSysAdmin = userRole === "SYSADMIN";
 
@@ -636,9 +642,34 @@ export const SEEFAdminConfigurator: React.FC<SEEFAdminConfiguratorProps> = ({
               >
                 <RotateCcw size={13} /> Reset to Defaults
               </button>
+              {/* Governance Dashboard */}
+              <button
+                onClick={() => setShowGovernance(true)}
+                style={actionBtnStyle("var(--c-seef-accent)")}
+              >
+                <ShieldCheck size={13} /> Open Governance Dashboard
+              </button>
             </div>
           </ConfigSection>
         </div>
+
+        {/* Governance Dashboard Overlay (lazy-loaded) */}
+        {showGovernance && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 20,
+            background: "var(--c-theme-surface-1)",
+            display: "flex", flexDirection: "column",
+          }}>
+            <Suspense fallback={
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                color: "var(--c-theme-muted)", fontSize: "var(--seef-font-size-sm)" }}>
+                Loading Governance Engine…
+              </div>
+            }>
+              <SEEFGovernanceDashboard onClose={() => setShowGovernance(false)} />
+            </Suspense>
+          </div>
+        )}
 
         {/* Footer badge */}
         <div style={{
