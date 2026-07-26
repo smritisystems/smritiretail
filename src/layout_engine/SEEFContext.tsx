@@ -304,10 +304,14 @@ export const SEEFProvider: React.FC<SEEFProviderProps> = ({ children }) => {
 export function useSEEF(): SEEFContextType {
   const ctx = useContext(SEEFContext);
   if (!ctx) {
-    throw new Error(
-      "[SEEF] useSEEF() must be called inside <SEEFProvider>. " +
-      "Ensure SEEFProvider wraps your App root in main.tsx."
-    );
+    console.warn("[SEEF] useSEEF() called outside <SEEFProvider>. Falling back to DEFAULT_SEEF_CONFIG.");
+    return {
+      config: DEFAULT_SEEF_CONFIG,
+      updateSEEF: () => {},
+      resetSEEF: () => {},
+      theme: DEFAULT_SEEF_CONFIG.theme,
+      toggleTheme: () => {},
+    };
   }
   return ctx;
 }
