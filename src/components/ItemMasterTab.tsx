@@ -305,8 +305,6 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     ? activeGroup.attributeIds.map(aid => definitions.find(d => d.id === aid)).filter((d): d is AttributeDefinition => !!d)
     : [];
 
-  const categories = ["All", ...Array.from(new Set(products.map(p => p.category)))];
-
   const generateSimpleBarcode = () => `SMR-B${Math.floor(100000 + Math.random() * 900000)}`;
 
   const handleNameChange = (nameVal: string) => {
