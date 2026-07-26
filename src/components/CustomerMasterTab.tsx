@@ -392,28 +392,28 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
                   <span className="font-mono font-bold text-cyan-400">{selectedCustomer.gstNumber || "Unregistered"}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 text-xs block">PAN</span>
-                  <span className="font-mono text-slate-200">{selectedCustomer.pan || "Unregistered"}</span>
+                  <span className="text-theme-muted text-xs block">PAN</span>
+                  <span className="font-mono text-theme-body">{selectedCustomer.pan || "Unregistered"}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 text-xs block">Customer Group</span>
-                  <span className="font-mono text-slate-200">{selectedCustomer.customerGroupId}</span>
+                  <span className="text-theme-muted text-xs block">Customer Group</span>
+                  <span className="font-mono text-theme-body">{selectedCustomer.customerGroupId}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 text-xs block">Pricing Group</span>
-                  <span className="font-mono text-slate-200">{selectedCustomer.pricingGroupId || "Standard Pricing"}</span>
+                  <span className="text-theme-muted text-xs block">Pricing Group</span>
+                  <span className="font-mono text-theme-body">{selectedCustomer.pricingGroupId || "Standard Pricing"}</span>
                 </div>
               </div>
             </div>
 
             {selectedCustomer.tags && selectedCustomer.tags.length > 0 && (
-              <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
-                <span className="text-[10px] font-mono uppercase text-slate-500 tracking-wider block font-bold mb-2">
+              <div className="bg-theme-surface-1 p-4 rounded-xl border border-theme-divider">
+                <span className="text-[10px] font-mono uppercase text-theme-muted tracking-wider block font-bold mb-2">
                   Customer Tags
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {selectedCustomer.tags.map((tag, idx) => (
-                    <span key={idx} className="bg-slate-800 border border-slate-700 text-cyan-300 text-xs px-2 py-0.5 rounded font-mono">
+                    <span key={idx} className="bg-theme-surface-2 border border-theme-divider text-cyan-300 text-xs px-2 py-0.5 rounded font-mono">
                       {tag}
                     </span>
                   ))}
@@ -422,11 +422,11 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
             )}
 
             {selectedCustomer.notes && (
-              <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
-                <span className="text-[10px] font-mono uppercase text-slate-500 tracking-wider block font-bold mb-1">
+              <div className="bg-theme-surface-1 p-4 rounded-xl border border-theme-divider">
+                <span className="text-[10px] font-mono uppercase text-theme-muted tracking-wider block font-bold mb-1">
                   Internal Business Comments
                 </span>
-                <p className="text-slate-300 text-xs leading-relaxed whitespace-pre-wrap">{selectedCustomer.notes}</p>
+                <p className="text-theme-body text-xs leading-relaxed whitespace-pre-wrap">{selectedCustomer.notes}</p>
               </div>
             )}
           </div>
@@ -438,12 +438,12 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
         content: (
           <div className="space-y-4 max-w-4xl">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-2">
-                <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold block">
+              <div className="bg-theme-surface-1 p-4 rounded-xl border border-theme-divider space-y-2">
+                <span className="text-[10px] font-mono uppercase text-theme-muted tracking-wider font-bold block">
                   Billing Address
                 </span>
                 {selectedCustomer.billingAddressLine1 ? (
-                  <p className="text-slate-200 text-xs leading-relaxed">
+                  <p className="text-theme-body text-xs leading-relaxed">
                     {selectedCustomer.billingAddressLine1}
                     {selectedCustomer.billingAddressLine2 ? `, ${selectedCustomer.billingAddressLine2}` : ""}
                     <br />
@@ -451,18 +451,18 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
                     {selectedCustomer.billingCountry && `, ${selectedCustomer.billingCountry}`}
                   </p>
                 ) : (
-                  <p className="text-slate-500 italic text-xs">No billing address listed.</p>
+                  <p className="text-theme-muted italic text-xs">No billing address listed.</p>
                 )}
               </div>
 
-              <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-2">
-                <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold block">
+              <div className="bg-theme-surface-1 p-4 rounded-xl border border-theme-divider space-y-2">
+                <span className="text-[10px] font-mono uppercase text-theme-muted tracking-wider font-bold block">
                   Shipping Address
                 </span>
                 {selectedCustomer.shippingSameAsBilling !== false ? (
-                  <p className="text-slate-400 italic text-xs">Same as Billing Address</p>
+                  <p className="text-theme-muted italic text-xs">Same as Billing Address</p>
                 ) : selectedCustomer.shippingAddressLine1 ? (
-                  <p className="text-slate-200 text-xs leading-relaxed">
+                  <p className="text-theme-body text-xs leading-relaxed">
                     {selectedCustomer.shippingAddressLine1}
                     {selectedCustomer.shippingAddressLine2 ? `, ${selectedCustomer.shippingAddressLine2}` : ""}
                     <br />
@@ -470,26 +470,26 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
                     {selectedCustomer.shippingCountry && `, ${selectedCustomer.shippingCountry}`}
                   </p>
                 ) : (
-                  <p className="text-slate-500 italic text-xs">No shipping address listed.</p>
+                  <p className="text-theme-muted italic text-xs">No shipping address listed.</p>
                 )}
               </div>
             </div>
 
             {selectedCustomer.additionalAddresses && selectedCustomer.additionalAddresses.length > 0 && (
-              <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-3">
-                <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold block">
+              <div className="bg-theme-surface-1 p-4 rounded-xl border border-theme-divider space-y-3">
+                <span className="text-[10px] font-mono uppercase text-theme-muted tracking-wider font-bold block">
                   Additional Linked Locations ({selectedCustomer.additionalAddresses.length})
                 </span>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {selectedCustomer.additionalAddresses.map((addr, idx) => (
-                    <div key={idx} className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs space-y-1">
+                    <div key={idx} className="bg-theme-surface-2 p-3 rounded-lg border border-theme-divider text-xs space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-200">{addr.label}</span>
-                        <span className="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded text-[9px] font-mono uppercase">
+                        <span className="font-bold text-theme-body">{addr.label}</span>
+                        <span className="bg-theme-surface-3 text-theme-muted px-1.5 py-0.5 rounded text-[9px] font-mono uppercase">
                           {addr.address_type}
                         </span>
                       </div>
-                      <p className="text-slate-400 leading-snug">
+                      <p className="text-theme-muted leading-snug">
                         {addr.line1}, {addr.city}, {addr.state} - {addr.pincode}
                       </p>
                     </div>
@@ -519,7 +519,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
     ];
 
     return (
-      <div className="flex flex-col h-full bg-slate-950 p-6">
+      <div className="flex flex-col h-full bg-theme-base p-6">
         <FioriObjectPage
           title={selectedCustomer.name}
           subtitle={`Customer ID: ${selectedCustomer.id} | Mobile: ${selectedCustomer.mobile || "Unregistered"}`}
@@ -537,7 +537,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
 
   // WNG-002 Directory view: List Report Pattern
   return (
-    <div className="flex flex-col h-full bg-slate-950 text-slate-100">
+    <div className="flex flex-col h-full bg-theme-base text-theme-body">
       {/* Read-Only Banner */}
       {isReadOnly && (
         <div className="bg-amber-950/40 border-b border-amber-500/30 px-6 py-2.5 flex items-center space-x-2 text-amber-400 text-xs flex-shrink-0">
@@ -589,24 +589,24 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
       {/* Add Customer Modal Overlay */}
       {isAddingCustomer && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl p-6 relative text-slate-100">
+          <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-lg shadow-2xl p-6 relative text-theme-body">
             <button
               onClick={() => setIsAddingCustomer(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-200"
+              className="absolute top-4 right-4 text-theme-muted hover:text-theme-heading"
             >
               <span className="material-symbols-outlined text-lg">close</span>
             </button>
 
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+            <div className="flex justify-between items-center border-b border-theme-divider pb-3 mb-4">
+              <h3 className="text-sm font-bold text-theme-heading uppercase tracking-wider">
                 Register New Customer Profile
               </h3>
-              <div className="flex bg-slate-950 border border-slate-800 rounded-lg p-0.5">
+              <div className="flex bg-theme-surface-2 border border-theme-divider rounded-lg p-0.5">
                 <button
                   type="button"
                   onClick={() => setFormMode("quick")}
                   className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-colors ${
-                    formMode === "quick" ? "bg-cyan-500 text-slate-950" : "text-slate-400 hover:text-slate-200"
+                    formMode === "quick" ? "bg-cyan-500 text-slate-950" : "text-theme-muted hover:text-theme-body"
                   }`}
                 >
                   Quick
@@ -615,7 +615,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
                   type="button"
                   onClick={() => setFormMode("advanced")}
                   className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-colors ${
-                    formMode === "advanced" ? "bg-cyan-500 text-slate-950" : "text-slate-400 hover:text-slate-200"
+                    formMode === "advanced" ? "bg-cyan-500 text-slate-950" : "text-theme-muted hover:text-theme-body"
                   }`}
                 >
                   Advanced
@@ -631,35 +631,35 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
               </div>
             )}
 
-            <SmritiScrollArea maxHeight="60vh" className="text-xs" fadeColorClass="from-slate-900">
+            <SmritiScrollArea maxHeight="60vh" className="text-xs">
               <div className="space-y-4 pr-2">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-bold">Full Name *</label>
+                  <label className="block text-theme-muted mb-1 font-bold">Full Name *</label>
                   <input
                     type="text"
                     value={newCustomerName}
                     onChange={(e) => setNewCustomerName(e.target.value)}
                     placeholder="e.g. John Doe"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-cyan-500"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-heading focus:outline-none focus:border-cyan-500"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-slate-400 mb-1 font-bold">Mobile *</label>
+                    <label className="block text-theme-muted mb-1 font-bold">Mobile *</label>
                     <input
                       type="text"
                       value={newCustomerMobile}
                       onChange={(e) => setNewCustomerMobile(e.target.value)}
                       placeholder="10-digit number"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-cyan-500 font-mono"
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-heading focus:outline-none focus:border-cyan-500 font-mono"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-400 mb-1 font-bold">Customer Group</label>
+                    <label className="block text-theme-muted mb-1 font-bold">Customer Group</label>
                     <select
                       value={newCustomerGroup}
                       onChange={(e) => setNewCustomerGroup(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-cyan-500"
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-heading focus:outline-none focus:border-cyan-500"
                     >
                       {customerGroups.map((cg) => (
                         <option key={cg.id} value={cg.id}>
@@ -671,13 +671,13 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-bold flex items-center gap-1.5">
+                  <label className="block text-theme-muted mb-1 font-bold flex items-center gap-1.5">
                     Pricing Group
                   </label>
                   <select
                     value={newCustomerPricingGroup}
                     onChange={(e) => setNewCustomerPricingGroup(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-cyan-500"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-heading focus:outline-none focus:border-cyan-500"
                   >
                     <option value="">Standard Retail Price</option>
                     {pricingGroups.map((pg) => (
@@ -690,10 +690,10 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
               </div>
             </SmritiScrollArea>
 
-            <div className="flex justify-end gap-2 mt-6 border-t border-slate-800 pt-4">
+            <div className="flex justify-end gap-2 mt-6 border-t border-theme-divider pt-4">
               <button
                 onClick={() => setIsAddingCustomer(false)}
-                className="px-4 py-2 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                className="px-4 py-2 border border-theme-divider hover:bg-theme-surface-hover text-theme-body rounded-lg text-xs font-bold transition-colors cursor-pointer"
               >
                 Cancel
               </button>

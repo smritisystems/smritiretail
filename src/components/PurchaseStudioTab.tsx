@@ -1167,7 +1167,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                                   </div>
                                 </td>
                               <td className="px-4 py-3">
-                                <span className="text-slate-300">{item.color || "N/A"}</span> â€¢ <span className="font-semibold text-theme-muted">{item.size || "OS"}</span>
+                                <span className="text-theme-body">{item.color || "N/A"}</span> • <span className="font-semibold text-theme-muted">{item.size || "OS"}</span>
                               </td>
                               <td className="px-4 py-3 text-right font-mono font-bold text-theme-body">{item.quantity}</td>
                               <td className="px-4 py-3 text-right font-mono text-[#cbd5e1]">â‚¹{item.price}</td>
@@ -1392,7 +1392,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 
                     <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/40 text-left">
                       <span className="text-[10px] font-mono text-theme-muted block">LAST CONTRACT DATE</span>
-                      <span className="text-sm font-bold text-slate-200 mt-1 block">
+                      <span className="text-sm font-bold text-theme-body mt-1 block">
                         {supplierDetails.summary.lastOrderDate === "-" ? "-" : new Date(supplierDetails.summary.lastOrderDate).toLocaleDateString()}
                       </span>
                       <span className="text-[9px] text-theme-muted mt-1.5 block">Most recent dispatch log</span>
@@ -1413,7 +1413,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                       </div>
                       <div className="space-y-1 md:col-span-2 pt-2 border-t border-theme-divider/30">
                         <span className="text-[10px] font-mono text-theme-muted block">LINKED CORPORATE ADDRESS</span>
-                        <span className="text-slate-300 text-xs leading-relaxed block mt-1">{supplierDetails.address || "N/A"}</span>
+                        <span className="text-theme-body text-xs leading-relaxed block mt-1">{supplierDetails.address || "N/A"}</span>
                       </div>
                     </div>
                   </div>
@@ -1615,14 +1615,14 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                             <span className="block text-[10px] text-theme-muted font-mono mt-0.5">{s.code}</span>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="text-slate-300">{s.color || "N/A"}</span> â€¢ <span className="font-semibold text-theme-muted">{s.size || "OS"}</span>
+                            <span className="text-theme-body">{s.color || "N/A"}</span> • <span className="font-semibold text-theme-muted">{s.size || "OS"}</span>
                           </td>
                           <td className="px-4 py-3 text-right font-mono font-bold text-rose-400">{s.currentStock} units</td>
                           <td className="px-4 py-3 text-right font-mono text-theme-muted">{s.reorderLevel} units</td>
                           <td className="px-4 py-3 text-right font-mono text-theme-body">{s.reorderQty} units</td>
                           <td className="px-4 py-3 text-right font-mono font-bold text-amber-300">+{s.suggestedQty} units</td>
                           <td className="px-4 py-3">
-                            <span className="text-slate-200 text-xs font-semibold">{s.preferredSupplierName}</span>
+                            <span className="text-theme-body text-xs font-semibold">{s.preferredSupplierName}</span>
                           </td>
                           <td className="px-4 py-3 text-right">
                             <span className="font-mono text-theme-primary">â‚¹{s.lastPurchaseRate}</span>
@@ -1919,7 +1919,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                               {item.name}
                               <span className="block text-[9px] text-theme-muted mt-0.5">{item.color || "N/A"} â€¢ {item.size || "OS"}</span>
                             </td>
-                            <td className="px-3 py-2.5 text-right text-slate-300">{item.totalOrdered}</td>
+                            <td className="px-3 py-2.5 text-right text-theme-body">{item.totalOrdered}</td>
                             <td className="px-3 py-2.5 text-right text-emerald-400">{item.totalReceived}</td>
                             <td className="px-3 py-2.5 text-right text-amber-300 font-bold">{item.pendingQty}</td>
                             <td className="px-3 py-2.5 text-center font-sans font-semibold text-white bg-indigo-950/20">{item.supplierCount}</td>
@@ -2046,7 +2046,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
             </div>
 
             <div className="p-6 space-y-4 font-sans text-xs">
-              <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/60 space-y-2 text-slate-300">
+              <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/60 space-y-2 text-theme-body">
                 <div className="flex justify-between">
                   <span>Supplier:</span>
                   <strong className="text-theme-body">{payModalPO.supplierName}</strong>

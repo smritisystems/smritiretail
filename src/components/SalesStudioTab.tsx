@@ -2953,7 +2953,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                           >
                             <Eye size={14} />
                           </button>
-                          <button onClick={(e) => { e.stopPropagation(); onNotification("Print", "Printing Quotation " + q.quotationNo, "success"); window.print(); }} className="p-1 rounded hover:bg-theme-surface-3 text-slate-400" title="Print"><Printer size={14} /></button>
+                          <button onClick={(e) => { e.stopPropagation(); onNotification("Print", "Printing Quotation " + q.quotationNo, "success"); window.print(); }} className="p-1 rounded hover:bg-theme-surface-3 text-theme-muted" title="Print"><Printer size={14} /></button>
                           <button onClick={(e) => { e.stopPropagation(); onNotification("WhatsApp", "Generating PDF for WhatsApp", "success"); window.open('https://wa.me/?text=Quotation%20' + q.quotationNo); }} className="p-1 rounded hover:bg-theme-surface-3 text-emerald-400" title="WhatsApp"><MessageCircle size={14} /></button>
                           <button onClick={(e) => { e.stopPropagation(); onNotification("Email", "Drafting Email with PDF", "success"); window.open('mailto:?subject=Quotation%20' + q.quotationNo); }} className="p-1 rounded hover:bg-theme-surface-3 text-blue-400" title="Email"><Mail size={14} /></button>
                           
