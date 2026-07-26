@@ -1,58 +1,101 @@
 /**
  * Project      : SMRITI Retail OS
+ * Module       : SAP Fiori Enterprise Slim Header (WNG-002 Compliant)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Email        : support@smritibooks.com
- * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.0.0
- * Created      : 2026-07-20
- * Modified     : 2026-07-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * License      : Proprietary Commercial Software
+ * Version      : 5.1.0 (SEEF Phase 8 — Token Upgrade)
  */
 
 import React from "react";
-import { useAdaptiveWorkspace, WorkspaceMode } from "../../layout_engine/adaptive_workspace_store.ts";
+import { Search, Bell, Sparkles, User, HelpCircle, Shield } from "lucide-react";
+import { useSEEF } from "../../layout_engine/SEEFContext.tsx";
 
-export const AdaptiveWorkspaceHeader: React.FC = () => {
-  const { mode, setMode } = useAdaptiveWorkspace();
+interface AdaptiveWorkspaceHeaderProps {
+  currentUser?: {
+    name: string;
+    role: string;
+  } | null;
+  onOpenGlobalSearch?: () => void;
+  onOpenNotifications?: () => void;
+  onOpenHelp?: () => void;
+}
 
-  const modes: { key: WorkspaceMode; label: string; icon: string; badge: string }[] = [
-    { key: "SIMPLE", label: "Simple", icon: "⚡", badge: "Cashier" },
-    { key: "HYBRID", label: "Hybrid", icon: "🏪", badge: "Owner" },
-    { key: "ADVANCED", label: "Advanced", icon: "⚙️", badge: "Enterprise" },
-  ];
+export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = ({
+  currentUser,
+  onOpenGlobalSearch,
+  onOpenNotifications,
+  onOpenHelp,
+}) => {
+  const { theme, toggleTheme } = useSEEF();
 
   return (
-    <div className="flex items-center space-x-1 bg-slate-900/80 p-1 rounded-lg border border-slate-800 backdrop-blur-md">
-      <span className="text-xs font-semibold uppercase text-slate-400 px-2 flex items-center gap-1">
-        <span>Workspace:</span>
-      </span>
-      {modes.map((m) => {
-        const isActive = mode === m.key;
-        return (
-          <button
-            key={m.key}
-            onClick={() => setMode(m.key)}
-            title={`Switch to ${m.label} Mode`}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-all duration-200 flex items-center space-x-1.5 ${
-              isActive
-                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 scale-105"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
-            }`}
-          >
-            <span>{m.icon}</span>
-            <span>{m.label}</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                isActive ? "bg-white/20 text-white" : "bg-slate-800 text-slate-400"
-              }`}
-            >
-              {m.badge}
+    <header className="h-12 bg-theme-surface-1 border-b border-theme-divider px-4 flex items-center justify-between text-xs select-none z-30 shadow-sm">
+      {/* 1. SMRITI Brand & Version Badge */}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
+          <span className="font-bold text-sm text-theme-heading font-display tracking-tight">
+            SMRITI <span className="text-cyan-400 font-mono text-xs">Retail OS</span>
+          </span>
+        </div>
+        <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono text-[10px] font-semibold hidden sm:inline-block">
+          v5.1 Fiori
+        </span>
+      </div>
+
+      {/* 2. Center Global Search Input Trigger (Ctrl+K) */}
+      <div className="flex-1 max-w-md mx-4">
+        <button
+          onClick={onOpenGlobalSearch}
+          className="w-full flex items-center justify-between bg-theme-surface-2 border border-theme-divider hover:border-cyan-500/50 rounded-xl px-3 py-1.5 text-theme-muted hover:text-theme-body transition-all text-xs"
+        >
+          <div className="flex items-center gap-2">
+            <Search size={14} className="text-theme-muted" />
+            <span>Search applications, SKU, customers...</span>
+          </div>
+          <kbd className="px-1.5 py-0.2 text-[9px] font-mono rounded bg-theme-surface-3 border border-theme-divider text-theme-muted">
+            Ctrl+K
+          </kbd>
+        </button>
+      </div>
+
+      {/* 3. Right Enterprise Actions & User Profile */}
+      <div className="flex items-center gap-2">
+        {/* Help Portal */}
+        <button
+          onClick={onOpenHelp}
+          className="p-1.5 rounded-lg text-theme-muted hover:text-theme-heading hover:bg-theme-surface-2 transition-colors"
+          title="SMRITI Documentation & Help"
+        >
+          <HelpCircle size={16} />
+        </button>
+
+        {/* Notifications Trigger */}
+        <button
+          onClick={onOpenNotifications}
+          className="p-1.5 rounded-lg text-theme-muted hover:text-theme-heading hover:bg-theme-surface-2 transition-colors relative"
+          title="Notifications"
+        >
+          <Bell size={16} />
+          <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500" />
+        </button>
+
+        {/* User Profile Pill */}
+        <div className="flex items-center gap-2 pl-2 border-l border-theme-divider">
+          <div className="w-7 h-7 rounded-full bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 flex items-center justify-center font-bold text-xs">
+            {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "U"}
+          </div>
+          <div className="hidden md:flex flex-col text-left">
+            <span className="font-bold text-theme-heading text-xs leading-tight">
+              {currentUser?.name || "Cashier"}
             </span>
-          </button>
-        );
-      })}
-    </div>
+            <span className="text-[10px] text-theme-muted font-mono leading-tight">
+              {currentUser?.role || "Staff"}
+            </span>
+          </div>
+        </div>
+      </div>
+    </header>
   );
 };
