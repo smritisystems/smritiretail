@@ -40,6 +40,7 @@ import {
   HelpCircle as HelpIcon,
   ArrowLeftRight,
   Bell,
+  Home,
 } from "lucide-react";
 import { useLayoutEngine, DockPosition } from "./layout_store.js";
 import { DockManager } from "./dock_manager.js";
@@ -123,6 +124,20 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
               </p>
             </div>
           </div>
+
+          {/* WNG-002: Launchpad Home Button */}
+          <button
+            onClick={() => onTabSelect("launchpad")}
+            title="Go to Launchpad (Home)"
+            className={`ml-4 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+              activeTab === "launchpad"
+                ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/40"
+                : "bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-muted hover:text-theme-primary border-theme-divider"
+            }`}
+          >
+            <Home size={14} />
+            <span className="hidden sm:inline">Home</span>
+          </button>
 
           {/* Global Control Center & Settings */}
           <div className="flex items-center space-x-6 relative">

@@ -73,7 +73,7 @@ const DEFAULT_PREFERENCES: LayoutPreferences = {
   collapsed: false,
   iconOnly: false,
   sidebarWidth: 260,
-  lastWorkspace: "dashboard",
+  lastWorkspace: "launchpad",
   collapsedGroups: [],
   favorites: ["pos", "sales", "print-labels", "barcode"],
   hideNavbar: false,
@@ -109,6 +109,7 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
   const [preferences, setPreferences] =
     useState<LayoutPreferences>(DEFAULT_PREFERENCES);
   const [recentlyUsed, setRecentlyUsed] = useState<string[]>([
+    "launchpad",
     "dashboard",
     "pos",
   ]);

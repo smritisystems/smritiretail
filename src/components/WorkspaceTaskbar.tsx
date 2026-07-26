@@ -71,6 +71,7 @@ export const WorkspaceTaskbar: React.FC = () => {
   const [pinnedWorkspaces, setPinnedWorkspaces] = useState<PinnedWorkspace[]>(() => {
     const saved = localStorage.getItem("smriti_taskbar_pinned");
     return saved ? JSON.parse(saved) : [
+      { tabId: "launchpad", title: "Home", icon: "home" },
       { tabId: "pos", title: "Billing Desk", icon: "point_of_sale" },
       { tabId: "dashboard", title: "Executive Hub", icon: "dashboard" },
       { tabId: "sales", title: "Sales Studio", icon: "receipt_long" }

@@ -47,6 +47,9 @@ export const DockManager: React.FC<DockManagerProps> = ({
   onSearchChange
 }) => {
   const { preferences, setSidebarWidth, toggleSidebarVisibility } = useLayoutEngine();
+
+  // WNG-002: Launchpad is a single-purpose full-bleed screen — no sidebar, no toolbar, no padding
+  const isLaunchpad = activeTab === "launchpad";
   const { effectivePosition } = useResponsiveLayout(preferences.position);
   const { focusMode } = useWorkspace();
   
@@ -104,7 +107,16 @@ export const DockManager: React.FC<DockManagerProps> = ({
   const isCollapsed = preferences.collapsed || preferences.iconOnly;
   const currentWidth = isCollapsed ? 72 : localWidth;
 
-  const showNavigation = !focusMode && !preferences.hideSidebar;
+  const showNavigation = !focusMode && !preferences.hideSidebar && !isLaunchpad;
+
+  // WNG-002: Full-bleed Launchpad render — suppresses all chrome
+  if (isLaunchpad) {
+    return (
+      <div className="flex-1 overflow-auto bg-slate-950">
+        {children}
+      </div>
+    );
+  }
 
   // Floating trigger button when sidebar is hidden
   const renderSidebarUnhideTrigger = () => {

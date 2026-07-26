@@ -120,7 +120,9 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
   const { isTabAllowed } = useAdaptiveWorkspace();
 
   // Filter workspaces by search term and Adaptive Workspace Mode
+  // WNG-002: Exclude 'launchpad' — it is a top-level single-purpose screen, not a sidebar module
   const filteredWorkspaces = registeredWorkspaces.filter(w => 
+    w.id !== "launchpad" &&
     isTabAllowed(w.id) && (
       w.label.toLowerCase().includes(searchTerm.toLowerCase()) || 
       w.category.toLowerCase().includes(searchTerm.toLowerCase())

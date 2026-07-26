@@ -95,6 +95,7 @@ import { CustomerWorkspacePortal } from "./components/customer/CustomerWorkspace
 import { SmritiEcosystemHub } from "./components/SmritiEcosystemHub.tsx";
 import { LoginScreen } from "./components/LoginScreen.tsx";
 import { SmritiErrorBoundary } from "./components/SmritiErrorBoundary.tsx";
+import { Launchpad } from "./components/Launchpad.tsx";
 
 
 interface AppNotification {
@@ -210,15 +211,15 @@ const AppContent: React.FC = () => {
   const safeLastWorkspace =
     initialTabFromUrl ||
     (isSetupCompleted && preferences.lastWorkspace === "company-setup"
-      ? "dashboard"
+      ? "launchpad"
       : preferences.lastWorkspace);
 
-  const activeTab = isSetupCompleted ? (safeLastWorkspace || "dashboard") : "company-setup";
+  const activeTab = isSetupCompleted ? (safeLastWorkspace || "launchpad") : "company-setup";
   const setActiveTab = (tab: string) => {
     if (!isSetupCompleted && tab !== "company-setup") {
       return;
     }
-    const resolvedTab = isSetupCompleted && tab === "company-setup" ? "dashboard" : tab;
+    const resolvedTab = isSetupCompleted && tab === "company-setup" ? "launchpad" : tab;
     addToRecentlyUsed(resolvedTab);
   };
 
@@ -391,6 +392,13 @@ const AppContent: React.FC = () => {
 
   const renderTab = (tabId: string) => {
     switch (tabId) {
+      case "launchpad":
+        return (
+          <Launchpad
+            currentUser={currentUser}
+            onSelectTab={(t) => setActiveTab(t)}
+          />
+        );
       case "dashboard":
         return (
           <DashboardTab
