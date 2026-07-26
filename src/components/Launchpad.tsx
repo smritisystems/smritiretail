@@ -120,14 +120,14 @@ const ALL_LAUNCHPAD_TILES: LaunchpadTile[] = [
     targetTab: "customers",
   },
   {
-    id: "print-labels",
+    id: "print-studio",
     title: "Barcode Label Hub",
     subtitle: "Direct Thermal & Label Printing",
     category: "Masters",
     icon: Printer,
     permissionScope: "PRINT_VIEW",
     accentColor: "border-sky-500/40 text-sky-400",
-    targetTab: "print-labels",
+    targetTab: "print-studio",
   },
   {
     id: "daily-reports",

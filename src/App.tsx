@@ -510,6 +510,7 @@ const AppContent: React.FC = () => {
         return <DocumentSeriesTab />;
       case "approval-matrix":
         return <ApprovalMatrixTab />;
+      case "print-labels":
       case "print-studio":
         return <PrintStudioTab />;
       case "print-history":

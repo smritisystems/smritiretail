@@ -57,7 +57,7 @@ interface ItemMasterTabProps {
   currentUser?: { role: string; name: string } | null;
 }
 
-type TabType = "registry" | "excel-grid" | "attributes" | "templates" | "bulk" | "analytics" | "barcode-mapping" | "label-printing";
+type TabType = "registry" | "excel-grid" | "attributes" | "templates" | "bulk" | "analytics";
 
 
 
@@ -811,7 +811,6 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                     <div className="flex items-center space-x-2 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1.5 rounded-lg mr-3">
                       <span className="text-xs font-semibold text-indigo-400 mr-2">{selectedIds.size} selected</span>
                       <button onClick={() => setShowBulkEditModal(true)} className="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2.5 py-1 rounded transition-colors cursor-pointer">Bulk Edit Selected</button>
-                      <button onClick={() => setShowUniversalLabelModal(true)} className="text-[10px] bg-purple-600 hover:bg-purple-500 text-white font-bold px-2.5 py-1 rounded transition-colors cursor-pointer flex items-center gap-1"><Printer size={12} /> Print Labels ({selectedIds.size})</button>
                       <button onClick={async () => { if (confirm(`Are you sure you want to delete ${selectedIds.size} items?`)) { for (const id of selectedIds) { try { await apiFetchV1(`/inventory/${id}`, { method: "DELETE" }); } catch (err) { console.error(`Failed to delete product ${id}:`, err); } } await onRefreshProducts(); onNotification("Batch Delete", `${selectedIds.size} records deleted.`, "success"); setSelectedIds(new Set()); } }} className="text-[10px] bg-rose-600 hover:bg-rose-500 text-white font-bold px-2.5 py-1 rounded transition-colors cursor-pointer">Delete Selected ({selectedIds.size})</button>
                       <button onClick={() => setSelectedIds(new Set())} className="text-theme-muted hover:text-white p-1 rounded ml-1"><X size={14} /></button>
                     </div>
@@ -1138,16 +1137,6 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
             id: "analytics",
             label: "Attribute Intelligence",
             content: <AttributeAnalyticsSection onNotification={onNotification} />,
-          },
-          {
-            id: "barcode-mapping",
-            label: "Barcode Mapping",
-            content: <BarcodeMappingSection products={products} onNotification={onNotification} onRefreshProducts={onRefreshProducts} />,
-          },
-          {
-            id: "label-printing",
-            label: "Label Printing Hub",
-            content: <LabelPrintingSection onNotification={onNotification} currentUser={currentUser} />,
           },
         ]}
       />

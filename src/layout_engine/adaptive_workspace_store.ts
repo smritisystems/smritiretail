@@ -29,7 +29,7 @@ export const WORKSPACE_MODE_CONFIGS: Record<WorkspaceMode, WorkspaceModeConfig> 
     name: "Simple (Cashier)",
     description: "Ultra-fast billing terminal & shift summary with zero visual clutter.",
     maxPrimaryButtons: 6,
-    allowedTabIds: ["pos", "dashboard", "print-labels", "universal-label-printer", "about", "wiki"],
+    allowedTabIds: ["pos", "dashboard", "print-studio", "universal-label-printer", "about", "wiki"],
   },
   HYBRID: {
     mode: "HYBRID",
@@ -48,7 +48,7 @@ export const WORKSPACE_MODE_CONFIGS: Record<WorkspaceMode, WorkspaceModeConfig> 
       "stock_ledger",
       "quick_reports",
       "barcode",
-      "print-labels",
+      "print-studio",
       "universal-label-printer",
       "about",
       "wiki",

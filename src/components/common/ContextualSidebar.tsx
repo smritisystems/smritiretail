@@ -56,7 +56,7 @@ const DOMAIN_SUBMODULES: Record<DomainCategory, ContextualMenuItem[]> = {
     { id: "stock-ledger", title: "Stock Ledger", icon: Layers, targetTab: "stock-ledger" },
     { id: "consignment", title: "Consignment Studio", icon: Truck, targetTab: "consignment" },
     { id: "barcode", title: "Barcode Studio", icon: Printer, targetTab: "barcode" },
-    { id: "print-labels", title: "Label Printer Hub", icon: Printer, targetTab: "print-labels" },
+    { id: "print-studio", title: "Label Printer Hub", icon: Printer, targetTab: "print-studio" },
   ],
   Purchase: [
     { id: "purchase", title: "Procurement POs", icon: Briefcase, targetTab: "purchase" },
