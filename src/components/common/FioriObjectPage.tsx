@@ -293,6 +293,7 @@ export const FioriObjectPage: React.FC<FioriObjectPageProps> = ({
   );
 };
 
-// Backward-compatible alias — FioriObjectPage is now SEEFObjectPage
+// Backward-compatible alias — FioriObjectPage is now SEEFObjectPage & SEDSObjectPage
 export const SEEFObjectPage = FioriObjectPage;
+export const SEDSObjectPage = FioriObjectPage;
 

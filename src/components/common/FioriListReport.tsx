@@ -459,6 +459,7 @@ const pagerBtnStyle: React.CSSProperties = {
   alignItems: "center",
 };
 
-// Backward-compatible alias — FioriListReport is now SEEFListReport
+// Backward-compatible alias — FioriListReport is now SEEFListReport & SEDSListReport
 export const SEEFListReport = FioriListReport;
+export const SEDSListReport = FioriListReport;
 
