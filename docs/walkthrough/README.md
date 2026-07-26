@@ -221,6 +221,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-26 | v1.0.0 | SMRITI Enterprise Experience Framework (SEEF) v1.0 — Phases 1–6: Token Layer, SEEFContext, Admin Configurator, Command Palette, UI Primitives, Fiori Component Upgrades | [Walkthrough](./foundation/Foundation_SEEF_Enterprise_Experience_Framework_v1.0.md) | [Plan](../../brain/8cff0196-7616-41be-a58d-dba8209ecbae/implementation_plan.md) | Completed |
 | 2026-07-26 | v2.0.0 | SEEF Phase 6 Module Upgrades — SEEFDataTable primitive + SalesStudio, ItemMaster, PurchaseStudio, CustomerMaster SEEF cascade wiring | [Walkthrough](./foundation/Foundation_SEEF_Phase6_Module_Upgrades_v2.0.md) | [Plan](../../brain/98e34894-1acb-4bb4-8000-17173dfa1ee4/implementation_plan.md) | Completed |
 | 2026-07-26 | v2.1.0 | SEEF Phase 6 Remaining Modules — ConsignmentStudio (SEEFDataTable), StaffManagement (SEEFSkeleton/EmptyState), ReportDesigner (SEEFSkeleton), AdvancedBillingEngine (surgical density/animation), PrintPreviewModal (animation gate) | [Walkthrough](./foundation/Foundation_SEEF_Phase6_RemainingModules_v2.1.md) | [Plan](../../brain/98e34894-1acb-4bb4-8000-17173dfa1ee4/implementation_plan.md) | Completed |
+| 2026-07-26 | v1.0.0 | Navigation: SEEF NavMode → DockManager Bridge — wires `seefConfig.navigationMode` from Admin Configurator into DockManager. Rail=56px fixed, Top-nav=horizontal bar, Sidebar=resizable panel respecting position preference | [Walkthrough](./foundation/Navigation_SEEFNavMode_DockManager_Bridge_v1.0.md) | — | Completed |
 
 
 
