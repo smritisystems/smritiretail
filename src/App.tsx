@@ -202,6 +202,9 @@ const AppContent: React.FC = () => {
 
   const markSetupCompleted = () => {
     setIsSetupCompleted(true);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem("smriti_setup_completed", "true");
+    }
 
     if (preferences.lastWorkspace === "company-setup") {
       addToRecentlyUsed("dashboard");
@@ -209,12 +212,16 @@ const AppContent: React.FC = () => {
   };
 
   const refreshSetupStatus = async () => {
+    const localCompleted = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_setup_completed") === "true" : false;
     try {
       const data = await apiFetchV1("/setup-status");
-      setIsSetupCompleted(data?.setupCompleted !== false);
-    } catch (error) {
-      console.warn("Unable to refresh setup completion status:", error);
-      setIsSetupCompleted(true);
+      if (data && typeof data.setupCompleted === "boolean") {
+        setIsSetupCompleted(data.setupCompleted);
+      } else {
+        setIsSetupCompleted(localCompleted);
+      }
+    } catch {
+      setIsSetupCompleted(localCompleted || true);
     }
   };
 

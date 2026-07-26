@@ -465,7 +465,6 @@ async def save_layout_preferences(
 )
 async def get_setup_status(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     """
     Return whether the company setup wizard has already completed for this tenant.
