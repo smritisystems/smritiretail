@@ -69,9 +69,9 @@ export const RangeSelectionPanel: React.FC<RangeSelectionPanelProps> = ({
           <span className="text-[10px] text-slate-400 font-bold px-1 uppercase flex items-center gap-1">
             <Filter size={11} /> Filter Operator:
           </span>
-          <select 
-            value={operator} 
-            onChange={e => setOperator(e.target.value as FilterOperator)} 
+          <select
+            value={operator}
+            onChange={e => setOperator(e.target.value as FilterOperator)}
             className="bg-[#141726] border border-slate-700 rounded px-2 py-0.5 text-amber-300 font-bold outline-none"
           >
             <option value="range">Range (From → To)</option>

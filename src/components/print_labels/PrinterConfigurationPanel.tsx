@@ -3,7 +3,7 @@
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
  *
- * Version    : 3.37.0 (Printer Configuration Panel Sub-Component)
+ * Version    : 5.1.0 (SEEF Phase 8 — Token Upgrade)
  * Created    : 2026-07-25
  * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * License    : Proprietary Commercial Software
@@ -43,12 +43,13 @@ export const PrinterConfigurationPanel: React.FC<PrinterConfigurationPanelProps>
   activePrinter,
   printerProfiles,
   onOpenConfigModal,
-  onRefreshPrinters
+  onRefreshPrinters,
+  onSelectPrinter
 }) => {
   return (
-    <div className="bg-[#141726] border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-        <span className="text-xs font-bold text-white uppercase flex items-center gap-1.5 font-mono">
+    <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-4 space-y-3 shadow-xl select-none">
+      <div className="flex items-center justify-between border-b border-theme-divider pb-2">
+        <span className="text-xs font-bold text-theme-heading uppercase flex items-center gap-1.5 font-mono">
           <Printer size={15} className="text-amber-400" />
           Output Destination & Hardware Ports
         </span>
@@ -57,7 +58,7 @@ export const PrinterConfigurationPanel: React.FC<PrinterConfigurationPanelProps>
           {onRefreshPrinters && (
             <button 
               onClick={onRefreshPrinters} 
-              className="text-[10px] text-slate-300 hover:text-white bg-slate-800 p-1 rounded border border-slate-700"
+              className="text-[10px] text-theme-body hover:text-theme-heading bg-theme-surface-3 p-1 rounded border border-theme-divider"
               title="Auto-Detect & Refresh Printers"
             >
               <RefreshCw size={12} />
@@ -74,9 +75,9 @@ export const PrinterConfigurationPanel: React.FC<PrinterConfigurationPanelProps>
       </div>
 
       {/* Installed Active Printer Dropdown & Badge */}
-      <div className="bg-[#0a0c14] border border-slate-800 rounded-xl p-2.5 space-y-1.5 font-mono text-xs">
+      <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-2.5 space-y-1.5 font-mono text-xs">
         <div className="flex justify-between items-center">
-          <span className="text-[9px] text-slate-500 font-bold uppercase">Select Barcode Printer (USB / TCP IP)</span>
+          <span className="text-[9px] text-theme-muted font-bold uppercase">Select Barcode Printer (USB / TCP IP)</span>
           <span className="text-[10px] bg-indigo-950/60 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800/40 font-bold">
             {activePrinter?.dpi || 203} DPI • {activePrinter?.protocol || "ZPL"}
           </span>
@@ -88,7 +89,7 @@ export const PrinterConfigurationPanel: React.FC<PrinterConfigurationPanelProps>
             const chosen = printerProfiles.find(p => p.id === e.target.value);
             if (chosen && onSelectPrinter) onSelectPrinter(chosen);
           }}
-          className="w-full bg-[#141726] border border-amber-500/40 rounded-lg px-2.5 py-1.5 text-amber-300 font-bold outline-none"
+          className="w-full bg-theme-surface-1 border border-amber-500/40 rounded-lg px-2.5 py-1.5 text-amber-300 font-bold outline-none"
         >
           {printerProfiles.map(p => (
             <option key={p.id} value={p.id}>
@@ -100,12 +101,12 @@ export const PrinterConfigurationPanel: React.FC<PrinterConfigurationPanelProps>
 
       {/* Checkboxes: Port vs File */}
       <div className="flex items-center gap-6 font-mono text-xs">
-        <label className="flex items-center gap-2 cursor-pointer text-slate-200 font-bold">
+        <label className="flex items-center gap-2 cursor-pointer text-theme-body font-bold">
           <input type="checkbox" checked={outputToPort} onChange={e => onOutputToPortChange(e.target.checked)} className="accent-amber-500" />
           <span>Port Output</span>
         </label>
 
-        <label className="flex items-center gap-2 cursor-pointer text-slate-200 font-bold">
+        <label className="flex items-center gap-2 cursor-pointer text-theme-body font-bold">
           <input type="checkbox" checked={outputToFile} onChange={e => onOutputToFileChange(e.target.checked)} className="accent-amber-500" />
           <span>File Export (.prn/.txt)</span>
         </label>
@@ -117,41 +118,41 @@ export const PrinterConfigurationPanel: React.FC<PrinterConfigurationPanelProps>
             type="text" 
             value={fileOutputPath} 
             onChange={e => onFilePathChange(e.target.value)} 
-            className="w-full bg-[#0a0c14] border border-slate-800 rounded-lg px-2 py-1 text-emerald-300 text-[11px]" 
+            className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-emerald-300 text-[11px]" 
           />
         </div>
       )}
 
       {/* Hardware Port Selection Grid */}
-      <div className="bg-[#0a0c14] border border-slate-800 rounded-xl p-3 space-y-2 font-mono">
-        <span className="text-[10px] text-slate-400 uppercase font-bold block mb-1">Hardware Interface Mode</span>
+      <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 space-y-2 font-mono">
+        <span className="text-[10px] text-theme-muted uppercase font-bold block mb-1">Hardware Interface Mode</span>
         <div className="grid grid-cols-2 gap-2 text-[11px]">
-          <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "usb" ? "bg-emerald-950/50 border-emerald-500/60 text-emerald-300 font-bold" : "bg-[#141726] border-slate-800 text-slate-400"}`}>
+          <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "usb" ? "bg-emerald-950/50 border-emerald-500/60 text-emerald-300 font-bold" : "bg-theme-surface-1 border-theme-divider text-theme-muted"}`}>
             <input type="radio" name="port_setting" checked={selectedPort === "usb"} onChange={() => onPortChange("usb")} className="accent-emerald-500" />
             <span className="flex items-center gap-1"><Usb size={12} /> Direct USB</span>
           </label>
 
-          <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "tcpip" ? "bg-indigo-950/50 border-indigo-500/60 text-indigo-300 font-bold" : "bg-[#141726] border-slate-800 text-slate-400"}`}>
+          <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "tcpip" ? "bg-indigo-950/50 border-indigo-500/60 text-indigo-300 font-bold" : "bg-theme-surface-1 border-theme-divider text-theme-muted"}`}>
             <input type="radio" name="port_setting" checked={selectedPort === "tcpip"} onChange={() => onPortChange("tcpip")} className="accent-indigo-500" />
             <span className="flex items-center gap-1"><Wifi size={12} /> TCP/IP Net</span>
           </label>
 
-          <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "parallel" ? "bg-amber-950/50 border-amber-500/60 text-amber-300 font-bold" : "bg-[#141726] border-slate-800 text-slate-400"}`}>
+          <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "parallel" ? "bg-amber-950/50 border-amber-500/60 text-amber-300 font-bold" : "bg-theme-surface-1 border-theme-divider text-theme-muted"}`}>
             <input type="radio" name="port_setting" checked={selectedPort === "parallel"} onChange={() => onPortChange("parallel")} className="accent-amber-500" />
             <span>Parallel LPT1</span>
           </label>
 
-          <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "com1" ? "bg-purple-950/50 border-purple-500/60 text-purple-300 font-bold" : "bg-[#141726] border-slate-800 text-slate-400"}`}>
+          <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "com1" ? "bg-purple-950/50 border-purple-500/60 text-purple-300 font-bold" : "bg-theme-surface-1 border-theme-divider text-theme-muted"}`}>
             <input type="radio" name="port_setting" checked={selectedPort === "com1"} onChange={() => onPortChange("com1")} className="accent-purple-500" />
             <span>COM 1 Port</span>
           </label>
 
-          <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "com2" ? "bg-purple-950/50 border-purple-500/60 text-purple-300 font-bold" : "bg-[#141726] border-slate-800 text-slate-400"}`}>
+          <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "com2" ? "bg-purple-950/50 border-purple-500/60 text-purple-300 font-bold" : "bg-theme-surface-1 border-theme-divider text-theme-muted"}`}>
             <input type="radio" name="port_setting" checked={selectedPort === "com2"} onChange={() => onPortChange("com2")} className="accent-purple-500" />
             <span>COM 2 Port</span>
           </label>
 
-          <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "com3" ? "bg-purple-950/50 border-purple-500/60 text-purple-300 font-bold" : "bg-[#141726] border-slate-800 text-slate-400"}`}>
+          <label className={`p-2 rounded-lg border cursor-pointer flex items-center gap-2 ${selectedPort === "com3" ? "bg-purple-950/50 border-purple-500/60 text-purple-300 font-bold" : "bg-theme-surface-1 border-theme-divider text-theme-muted"}`}>
             <input type="radio" name="port_setting" checked={selectedPort === "com3"} onChange={() => onPortChange("com3")} className="accent-purple-500" />
             <span>COM 3 Port</span>
           </label>
