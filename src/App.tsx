@@ -485,6 +485,7 @@ const AppContent: React.FC = () => {
         return <ReportDesignerTab currentUser={currentUser} />;
       case "screen-studio":
         return <ScreenStudioTab />;
+      case "items":
       case "item-master":
         return (
           <ItemMasterTab
