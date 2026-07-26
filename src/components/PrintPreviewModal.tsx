@@ -766,8 +766,21 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
     reader.readAsDataURL(file);
   };
 
-  // Triggers the real print through the PrintProvider
+  // Triggers the real print through the PrintProvider & UniversalPrinterService (QZ Tray / Browser Spooler)
   const handleFinalPrint = () => {
+    (async () => {
+      try {
+        const { UniversalPrinterService } = await import("../services/printing/UniversalPrinterService");
+        const service = UniversalPrinterService.getInstance();
+        if (printPreviewRef.current) {
+          const html = printPreviewRef.current.outerHTML;
+          await service.printHTML(html, { paperSize });
+        }
+      } catch (e) {
+        console.warn("UniversalPrinterService printHTML note:", e);
+      }
+    })();
+
     print({
       templateId: selectedTemplateId,
       data: documentData

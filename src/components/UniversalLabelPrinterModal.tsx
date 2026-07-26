@@ -219,6 +219,20 @@ export const UniversalLabelPrinterModal: React.FC<UniversalLabelPrinterModalProp
     const queueList = existing ? JSON.parse(existing) : [];
     localStorage.setItem("smriti_barcode_reprint_queue", JSON.stringify([batchJob, ...queueList.slice(0, 19)]));
 
+    // Dispatch PRN script to UniversalPrinterService
+    (async () => {
+      try {
+        const { UniversalPrinterService } = await import("../services/printing/UniversalPrinterService");
+        const service = UniversalPrinterService.getInstance();
+        await service.printPRN(zplPayload, {
+          jobName: `${batchJob.id}::${activePrinter.name}`,
+          copies: 1
+        });
+      } catch (e: any) {
+        console.warn("UniversalPrinterService dispatch note:", e);
+      }
+    })();
+
     if (onNotification) {
       onNotification(
         "Batch Print Dispatched", 

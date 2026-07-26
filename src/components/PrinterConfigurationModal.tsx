@@ -201,7 +201,7 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
     }
   };
 
-  const handleTestConnection = () => {
+  const handleTestConnection = async () => {
     const targetProfile: PrinterProfile = {
       id: formData.id || "test-id",
       name: formData.name || "Test Printer",
@@ -218,6 +218,17 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
     };
 
     const res = testPrinterConnection(targetProfile);
+    
+    // Dispatch silent test script to UniversalPrinterService
+    try {
+      const prn = generateRawTestPrintScript(targetProfile.protocol);
+      const { UniversalPrinterService } = await import("../services/printing/UniversalPrinterService");
+      const service = UniversalPrinterService.getInstance();
+      await service.printPRN(prn, { jobName: `TestPrint::${targetProfile.name}` });
+    } catch (e: any) {
+      console.warn("UniversalPrinterService test print dispatch note:", e);
+    }
+
     setTestResult(res);
   };
 
