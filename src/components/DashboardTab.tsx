@@ -136,7 +136,7 @@ const DistributorStockTooltip = ({ active, payload, label }: any) => {
       Critical: "bg-rose-500/10 text-rose-400 border-rose-500/20",
     };
     
-    const statusColor = statusColors[data.status] || "bg-slate-500/10 text-slate-400 border-slate-500/20";
+    const statusColor = statusColors[data.status] || "bg-theme-surface-2 text-theme-muted border-theme-divider";
 
     return (
       <div className="bg-theme-surface-3 border border-[#2a3a5c] rounded-xl p-4 shadow-xl backdrop-blur-md min-w-[260px] text-xs font-sans">
@@ -1217,8 +1217,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                             const isSelected = selectedCell?.day === day && selectedCell?.slot === slot;
                             
                             // Color classification logic based on transaction density
-                            let cellBg = "bg-slate-800/20 hover:bg-slate-800/40 border border-slate-700/30";
-                            let cellText = "text-slate-500";
+                            let cellBg = "bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider";
+                            let cellText = "text-theme-muted";
                             
                             if (val.count > 75) {
                               cellBg = isSelected 
@@ -1242,9 +1242,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                               cellText = "text-emerald-300";
                             } else if (val.count > 0) {
                               cellBg = isSelected 
-                                ? "bg-slate-800 border-2 border-white shadow-sm text-emerald-400" 
-                                : "bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/50 text-slate-300";
-                              cellText = "text-slate-300";
+                                ? "bg-theme-surface-3 border-2 border-theme-heading shadow-sm text-emerald-400" 
+                                : "bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-theme-body";
+                              cellText = "text-theme-body";
                             }
 
                             return (
@@ -1279,7 +1279,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               <div className="flex items-center space-x-1.5 font-mono text-[10px] text-theme-muted">
                 <span>Density Key (Orders):</span>
                 <span className="flex items-center space-x-1 pl-1">
-                  <span className="w-3 h-3 rounded bg-slate-800/40 border border-slate-700/50 block"></span>
+                  <span className="w-3 h-3 rounded bg-theme-surface-2 border border-theme-divider block"></span>
                   <span>0-10</span>
                 </span>
                 <span className="flex items-center space-x-1">
