@@ -73,7 +73,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
 }) => {
   const { openMenu } = useACAS();
   const isReadOnly = currentUser?.role === "Report User";
-  // WNG-002: activeTab state removed — FioriObjectPage manages tab state internally
+  const [activeTab, setActiveTab] = useState<TabType>("registry");
   const [loading, setLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
   // SEEF Phase 6: seed density from SEEF Resolution Cascade; local control still allows per-session override
