@@ -2930,6 +2930,6 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
         }))}
       />
 
-    </div>
+    </>
   );
 };
