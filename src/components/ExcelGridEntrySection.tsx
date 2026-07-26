@@ -19,9 +19,7 @@ import {
   AlertCircle, X
 } from "lucide-react";
 import { AttributeGroup, AttributeDefinition } from "../types.js";
-import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
 import { ExpandedCellEditor, ExpandContextMenu } from "./ExpandedCellEditor";
-import { UniversalLabelPrinterModal } from "./UniversalLabelPrinterModal.tsx";
 
 interface ExcelGridEntrySectionProps {
   onRefreshProducts: () => Promise<void>;
@@ -1779,31 +1777,6 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
           onClose={() => setContextMenu(null)}
         />
       )}
-
-      {/* ── Universal Label Printer Modal ────────────────────────────── */}
-      <UniversalLabelPrinterModal
-        isOpen={showLabelModal}
-        onClose={() => setShowLabelModal(false)}
-        moduleSource="Excel Grid Entry"
-        onNotification={onNotification}
-        items={rows.filter(r => r.code || r.name || r.barcode).map((r, idx) => ({
-          id: `excel-row-${idx}`,
-          item_code: r.code || r.styleCode || "ITEM-001",
-          barcode: r.barcode || "8901234560000",
-          sku: r.code || "SKU-001",
-          name: r.name || "Grid Item",
-          category: r.category || "Apparel",
-          brand: r.brand || "SMRITI",
-          department: r.department,
-          price: parseFloat(r.price) || 0,
-          cost_price: parseFloat(r.costPrice) || 0,
-          mrp: parseFloat(r.mrp) || parseFloat(r.price) || 0,
-          stock_qty: parseInt(r.stock, 10) || 1,
-          received_qty: parseInt(r.stock, 10) || 1,
-          sold_qty: 0,
-          style_code: r.styleCode || r.code
-        }))}
-      />
     </>
   );
 };
