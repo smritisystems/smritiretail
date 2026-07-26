@@ -760,7 +760,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
   const renderedLayout = () => {
     // SEEF navMode overrides (when explicitly configured via SEEF Admin Configurator)
     if (seefNavMode === "rail")    return renderRailNav();
-    if (seefNavMode === "top-bar") return renderTopNav();
+    if (seefNavMode === "top-nav") return renderTopNav();
     // Fall back to dock-position-based rendering (existing behavior)
     if (preferences.position === "top")    return renderTopNav();
     if (preferences.position === "bottom") return renderBottomNav();

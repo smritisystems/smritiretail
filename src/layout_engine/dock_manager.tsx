@@ -212,8 +212,8 @@ export const DockManager: React.FC<DockManagerProps> = ({
             style={{ width: `${currentWidth}px` }} 
             className="h-full flex-shrink-0 transition-all duration-200 ease-in-out select-none relative z-10 animate-fade-in"
           >
-            {/* Resize handle (only if not collapsed) */}
-            {!isCollapsed && (
+            {/* Resize handle — hidden in Rail mode (width is fixed) */}
+            {!isCollapsed && !isRailMode && (
               <div 
                 onMouseDown={startResize}
                 className="absolute top-0 left-0 w-1.5 h-full cursor-col-resize hover:bg-blue-600/50 hover:w-2 active:bg-blue-500 transition-colors z-20"
