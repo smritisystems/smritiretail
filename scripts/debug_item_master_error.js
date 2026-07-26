@@ -1,12 +1,19 @@
 import { chromium } from 'playwright';
-import path from 'path';
-
-const ARTIFACT_DIR = 'C:\\Users\\netma\\.gemini\\antigravity-ide\\brain\\98e34894-1acb-4bb4-8000-17173dfa1ee4';
 
 (async () => {
-  console.log('=== LAUNCHING PRODUCT MASTER LIVE DEMO ===');
+  console.log('=== CAPTURING EXACT ITEM MASTER RUNTIME ERROR STACK TRACE ===');
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const page = await browser.newPage();
+
+  page.on('pageerror', (err) => {
+    console.error('[PAGE ERROR STACK]:', err.stack || err.message);
+  });
+
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      console.error('[CONSOLE ERROR]:', msg.text());
+    }
+  });
 
   try {
     await page.goto('http://localhost:3000', { waitUntil: 'networkidle' });
@@ -26,18 +33,14 @@ const ARTIFACT_DIR = 'C:\\Users\\netma\\.gemini\\antigravity-ide\\brain\\98e3489
       }
     }
 
-    // Set setup completed to open Product Master
     await page.evaluate(() => localStorage.setItem('smriti_setup_completed', 'true'));
+    console.log('Navigating to http://localhost:3000?tab=item-master ...');
     await page.goto('http://localhost:3000?tab=item-master', { waitUntil: 'networkidle' });
-    await page.waitForTimeout(2500);
-
-    const shot = path.join(ARTIFACT_DIR, 'live_demo_13_item_master_restored.png');
-    await page.screenshot({ path: shot, fullPage: true });
-    console.log(`[OK] Captured Restored Product Master screenshot: ${shot}`);
+    await page.waitForTimeout(3000);
 
   } catch (err) {
-    console.error('Error during live demo:', err);
-  } fontally: {
+    console.error('Test error:', err);
+  } finally {
     await browser.close();
   }
 })();
