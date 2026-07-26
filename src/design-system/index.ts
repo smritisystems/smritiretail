@@ -18,8 +18,9 @@ export * from './themes/light';
 export * from './themes/dark';
 export * from './themes/system';
 
-// Layout Primitives
+// Layout Primitives & Page Shell
 export * from './layout/SEDSAppShell';
+export * from './layout/SEDSWorkspaceShell';
 export * from './layout/SEDSPage';
 export * from './layout/SEDSStack';
 export * from './layout/SEDSGrid';
