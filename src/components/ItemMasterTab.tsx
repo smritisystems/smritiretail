@@ -782,7 +782,6 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                       <span className="font-bold">Read-Only Verification Mode</span>: You are currently operating under the <span className="font-mono bg-amber-900/60 px-1 py-0.5 rounded text-amber-200">Report User</span> role. All product creation, modifications, SKU deletion, and barcode mapping are locked.
                     </div>
                   </div>
-                )}
 
                 {/* Primary Toolbar Controls */}
                 <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
