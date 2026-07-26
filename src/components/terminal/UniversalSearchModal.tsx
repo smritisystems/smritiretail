@@ -3,9 +3,9 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.0.0
+ * Version      : 5.1.0  (SEEF Phase 8 - Theme token cascade)
  * Created      : 2026-07-20
- * Modified     : 2026-07-20
+ * Modified     : 2026-07-26
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -67,10 +67,11 @@ export const UniversalSearchModal: React.FC<UniversalSearchModalProps> = ({
   }).slice(0, 8);
 
   return (
+    // SEEF Phase 8: backdrop + panel use theme tokens; all slate-* replaced
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-slate-950/80 backdrop-blur-sm p-4 font-sans">
-      <div className="w-full max-w-2xl bg-[#1e293b] border border-slate-700 rounded-xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-2xl bg-theme-surface-1 border border-theme-divider rounded-xl shadow-2xl overflow-hidden flex flex-col">
         {/* Search Header Input */}
-        <div className="p-4 border-b border-slate-700 flex items-center space-x-3 bg-[#0f172a]">
+        <div className="p-4 border-b border-theme-divider flex items-center space-x-3 bg-theme-base">
           <span className="material-symbols-outlined text-blue-400 text-xl">search</span>
           <input
             ref={inputRef}
@@ -78,16 +79,16 @@ export const UniversalSearchModal: React.FC<UniversalSearchModalProps> = ({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Universal Search: Item Name, SKU Code, Barcode, Serial, Category... (Press ESC to exit)"
-            className="flex-1 bg-transparent text-white text-sm focus:outline-none font-mono placeholder:text-slate-500"
+            className="flex-1 bg-transparent text-theme-heading text-sm focus:outline-none font-mono placeholder:text-theme-muted"
           />
-          <kbd className="bg-slate-800 px-2 py-0.5 rounded text-[10px] text-slate-400 border border-slate-700 font-mono">ESC</kbd>
+          <kbd className="bg-theme-surface-2 px-2 py-0.5 rounded text-[10px] text-theme-muted border border-theme-divider font-mono">ESC</kbd>
         </div>
 
         {/* Results List */}
         <div className="max-h-96 overflow-y-auto p-2">
           {filtered.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-400 font-mono">
-              No matching items or records found for "{query}".
+            <div className="p-8 text-center text-xs text-theme-muted font-mono">
+              No matching items or records found for &ldquo;{query}&rdquo;.
             </div>
           ) : (
             filtered.map((item) => (
@@ -97,20 +98,20 @@ export const UniversalSearchModal: React.FC<UniversalSearchModalProps> = ({
                   if (onSelectProduct) onSelectProduct(item);
                   onClose();
                 }}
-                className="p-3 hover:bg-slate-800 rounded-lg cursor-pointer flex items-center justify-between transition-colors border border-transparent hover:border-slate-700"
+                className="p-3 hover:bg-theme-surface-2 rounded-lg cursor-pointer flex items-center justify-between transition-colors border border-transparent hover:border-theme-divider"
               >
                 <div className="flex items-center space-x-3">
-                  <span className="material-symbols-outlined text-slate-400 text-lg">inventory_2</span>
+                  <span className="material-symbols-outlined text-theme-muted text-lg">inventory_2</span>
                   <div>
-                    <h4 className="text-xs font-semibold text-white">{item.name}</h4>
-                    <p className="text-[10px] text-slate-400 font-mono">
+                    <h4 className="text-xs font-semibold text-theme-heading">{item.name}</h4>
+                    <p className="text-[10px] text-theme-muted font-mono">
                       Code: {item.code} | Barcode: {item.barcode} | Cat: {item.category}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
                   <span className="text-xs font-bold text-emerald-400 font-mono">₹{item.price}</span>
-                  <p className="text-[10px] text-slate-400 font-mono">{item.stock} in stock</p>
+                  <p className="text-[10px] text-theme-muted font-mono">{item.stock} in stock</p>
                 </div>
               </div>
             ))
@@ -118,7 +119,7 @@ export const UniversalSearchModal: React.FC<UniversalSearchModalProps> = ({
         </div>
 
         {/* Search Footer */}
-        <div className="p-2.5 bg-[#0f172a] border-t border-slate-700 text-[10px] font-mono text-slate-400 flex items-center justify-between">
+        <div className="p-2.5 bg-theme-base border-t border-theme-divider text-[10px] font-mono text-theme-muted flex items-center justify-between">
           <span>Search scope: Products, Barcodes, Categories</span>
           <span>SMRITI Universal Search Engine</span>
         </div>

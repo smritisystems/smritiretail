@@ -3,9 +3,9 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.0.0
+ * Version      : 5.1.0  (SEEF Phase 8 - Theme token cascade)
  * Created      : 2026-07-20
- * Modified     : 2026-07-20
+ * Modified     : 2026-07-26
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -43,7 +43,8 @@ export const StandardDocumentToolbar: React.FC<StandardDocumentToolbarProps> = (
   onCheckout
 }) => {
   return (
-    <div className="h-12 bg-[#1e293b] border-b border-slate-700 px-4 flex items-center justify-between shrink-0 font-sans select-none">
+    // SEEF Phase 8: bg-[#1e293b] → bg-theme-surface-1; border-slate-700 → border-theme-divider
+    <div className="h-12 bg-theme-surface-1 border-b border-theme-divider px-4 flex items-center justify-between shrink-0 font-sans select-none">
       {/* Primary Actions */}
       <div className="flex items-center space-x-2">
         <button
@@ -58,7 +59,7 @@ export const StandardDocumentToolbar: React.FC<StandardDocumentToolbarProps> = (
         {onHold && (
           <button
             onClick={onHold}
-            className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold px-3 py-1.5 rounded transition-colors"
+            className="flex items-center space-x-1.5 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider text-theme-body text-xs font-semibold px-3 py-1.5 rounded transition-colors"
             title="Hold Current Bill (F2)"
           >
             <span className="material-symbols-outlined text-sm text-amber-400">pause</span>
@@ -69,7 +70,7 @@ export const StandardDocumentToolbar: React.FC<StandardDocumentToolbarProps> = (
         {onRecall && (
           <button
             onClick={onRecall}
-            className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold px-3 py-1.5 rounded transition-colors"
+            className="flex items-center space-x-1.5 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider text-theme-body text-xs font-semibold px-3 py-1.5 rounded transition-colors"
             title="Recall Held Bill"
           >
             <span className="material-symbols-outlined text-sm text-blue-400">restore</span>
@@ -79,82 +80,39 @@ export const StandardDocumentToolbar: React.FC<StandardDocumentToolbarProps> = (
 
         <button
           onClick={onSearchClick}
-          className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold px-3 py-1.5 rounded transition-colors"
+          className="flex items-center space-x-1.5 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider text-theme-body text-xs font-semibold px-3 py-1.5 rounded transition-colors"
           title="Universal Search (Ctrl+K)"
         >
           <span className="material-symbols-outlined text-sm text-emerald-400">search</span>
           <span>Search</span>
-          <kbd className="bg-slate-900 px-1 py-0.5 rounded text-[9px] font-mono text-slate-400 border border-slate-700">Ctrl+K</kbd>
+          <kbd className="bg-theme-base px-1 py-0.5 rounded text-[9px] font-mono text-theme-muted border border-theme-divider">Ctrl+K</kbd>
         </button>
       </div>
 
       {/* Drawer Triggers */}
       {onToggleDrawer && (
         <div className="flex items-center space-x-1.5">
-          <button
-            onClick={() => onToggleDrawer("transport")}
-            className={`flex items-center space-x-1 px-2.5 py-1.5 rounded border text-xs font-medium transition-colors ${
-              activeDrawerId === "transport"
-                ? "bg-blue-600 border-blue-500 text-white"
-                : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
-            }`}
-            title="Transport & E-Way Bill Details"
-          >
-            <span className="material-symbols-outlined text-sm">local_shipping</span>
-            <span>Transport</span>
-          </button>
-
-          <button
-            onClick={() => onToggleDrawer("gst")}
-            className={`flex items-center space-x-1 px-2.5 py-1.5 rounded border text-xs font-medium transition-colors ${
-              activeDrawerId === "gst"
-                ? "bg-blue-600 border-blue-500 text-white"
-                : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
-            }`}
-            title="GSTIN & Tax Details"
-          >
-            <span className="material-symbols-outlined text-sm">receipt</span>
-            <span>GST</span>
-          </button>
-
-          <button
-            onClick={() => onToggleDrawer("coupons")}
-            className={`flex items-center space-x-1 px-2.5 py-1.5 rounded border text-xs font-medium transition-colors ${
-              activeDrawerId === "coupons"
-                ? "bg-blue-600 border-blue-500 text-white"
-                : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
-            }`}
-            title="Promotions & Loyalty Coupons"
-          >
-            <span className="material-symbols-outlined text-sm">local_offer</span>
-            <span>Promos</span>
-          </button>
-
-          <button
-            onClick={() => onToggleDrawer("salesperson")}
-            className={`flex items-center space-x-1 px-2.5 py-1.5 rounded border text-xs font-medium transition-colors ${
-              activeDrawerId === "salesperson"
-                ? "bg-blue-600 border-blue-500 text-white"
-                : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
-            }`}
-            title="Salesperson & Commission Assignment"
-          >
-            <span className="material-symbols-outlined text-sm">badge</span>
-            <span>Salesperson</span>
-          </button>
-
-          <button
-            onClick={() => onToggleDrawer("remarks")}
-            className={`flex items-center space-x-1 px-2.5 py-1.5 rounded border text-xs font-medium transition-colors ${
-              activeDrawerId === "remarks"
-                ? "bg-blue-600 border-blue-500 text-white"
-                : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
-            }`}
-            title="Remarks & Attachments"
-          >
-            <span className="material-symbols-outlined text-sm">notes</span>
-            <span>Remarks</span>
-          </button>
+          {[
+            { id: "transport",   icon: "local_shipping", label: "Transport",   title: "Transport & E-Way Bill Details" },
+            { id: "gst",         icon: "receipt",        label: "GST",         title: "GSTIN & Tax Details" },
+            { id: "coupons",     icon: "local_offer",    label: "Promos",      title: "Promotions & Loyalty Coupons" },
+            { id: "salesperson", icon: "badge",          label: "Salesperson", title: "Salesperson & Commission Assignment" },
+            { id: "remarks",     icon: "notes",          label: "Remarks",     title: "Remarks & Attachments" },
+          ].map(({ id, icon, label, title }) => (
+            <button
+              key={id}
+              onClick={() => onToggleDrawer(id)}
+              className={`flex items-center space-x-1 px-2.5 py-1.5 rounded border text-xs font-medium transition-colors ${
+                activeDrawerId === id
+                  ? "bg-blue-600 border-blue-500 text-white"
+                  : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:bg-theme-surface-3 hover:text-theme-body"
+              }`}
+              title={title}
+            >
+              <span className="material-symbols-outlined text-sm">{icon}</span>
+              <span>{label}</span>
+            </button>
+          ))}
         </div>
       )}
 
@@ -166,7 +124,7 @@ export const StandardDocumentToolbar: React.FC<StandardDocumentToolbarProps> = (
           className={`flex items-center space-x-1.5 text-xs font-bold uppercase px-4 py-1.5 rounded transition-colors ${
             canCheckout
               ? "bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-lg shadow-emerald-900/30"
-              : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+              : "bg-theme-surface-2 text-theme-muted border border-theme-divider cursor-not-allowed"
           }`}
           title="Checkout & Pay (F12)"
         >
