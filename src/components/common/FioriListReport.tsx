@@ -37,6 +37,10 @@ interface FioriListReportProps<T> {
   isLoading?: boolean;
   searchPlaceholder?: string;
   primaryActionLabel?: string;
+  selectable?: boolean;
+  selectedIds?: Set<string | number>;
+  onSelectionChange?: (selectedIds: Set<string | number>) => void;
+  bulkActions?: React.ReactNode;
 }
 
 export function FioriListReport<T extends { id?: string | number }>({
@@ -52,6 +56,10 @@ export function FioriListReport<T extends { id?: string | number }>({
   isLoading = false,
   searchPlaceholder = "Search records...",
   primaryActionLabel = "Create Record",
+  selectable = false,
+  selectedIds,
+  onSelectionChange,
+  bulkActions,
 }: FioriListReportProps<T>) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
@@ -81,6 +89,32 @@ export function FioriListReport<T extends { id?: string | number }>({
     currentPage * pageSize
   );
 
+  const allSelected = selectable && filteredData.length > 0 && selectedIds?.size === filteredData.length;
+
+  const handleToggleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!onSelectionChange) return;
+    if (e.target.checked) {
+      const allIds = new Set<string | number>();
+      filteredData.forEach((item) => {
+        if (item.id !== undefined) allIds.add(item.id);
+      });
+      onSelectionChange(allIds);
+    } else {
+      onSelectionChange(new Set());
+    }
+  };
+
+  const handleToggleRowSelect = (id: string | number, e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!onSelectionChange || !selectedIds) return;
+    const nextSet = new Set(selectedIds);
+    if (e.target.checked) {
+      nextSet.add(id);
+    } else {
+      nextSet.delete(id);
+    }
+    onSelectionChange(nextSet);
+  };
+
   return (
     <div className="flex flex-col h-full bg-slate-950 text-slate-100 rounded-2xl border border-slate-800/80 overflow-hidden shadow-2xl">
       {/* 1. List Report Header & Action Toolbar */}
@@ -92,6 +126,8 @@ export function FioriListReport<T extends { id?: string | number }>({
 
         {/* Global Toolbar Actions */}
         <div className="flex items-center gap-2">
+          {selectable && selectedIds && selectedIds.size > 0 && bulkActions}
+
           {onRefresh && (
             <button
               onClick={onRefresh}
@@ -183,6 +219,16 @@ export function FioriListReport<T extends { id?: string | number }>({
         <table className="w-full text-left border-collapse text-xs">
           <thead className="bg-slate-900/80 sticky top-0 z-10 border-b border-slate-800">
             <tr>
+              {selectable && (
+                <th className="p-3.5 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={handleToggleSelectAll}
+                    className="rounded border-slate-700 bg-slate-900 accent-cyan-500 cursor-pointer"
+                  />
+                </th>
+              )}
               {columns.map((col) => (
                 <th
                   key={col.key}
@@ -202,7 +248,7 @@ export function FioriListReport<T extends { id?: string | number }>({
           <tbody className="divide-y divide-slate-800/50">
             {isLoading ? (
               <tr>
-                <td colSpan={columns.length} className="p-8 text-center text-slate-400">
+                <td colSpan={columns.length + (selectable ? 1 : 0)} className="p-8 text-center text-slate-400">
                   <div className="flex items-center justify-center gap-2">
                     <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
                     <span>Loading dataset...</span>
@@ -211,37 +257,51 @@ export function FioriListReport<T extends { id?: string | number }>({
               </tr>
             ) : paginatedData.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="p-12 text-center text-slate-500">
+                <td colSpan={columns.length + (selectable ? 1 : 0)} className="p-12 text-center text-slate-500">
                   No records match the current filter criteria.
                 </td>
               </tr>
             ) : (
-              paginatedData.map((row, idx) => (
-                <tr
-                  key={row.id ? String(row.id) : idx}
-                  onClick={() => onRowClick && onRowClick(row)}
-                  className={`hover:bg-slate-900/60 transition-colors ${
-                    onRowClick ? "cursor-pointer" : ""
-                  }`}
-                >
-                  {columns.map((col) => (
-                    <td
-                      key={col.key}
-                      className={`p-3.5 text-slate-200 ${
-                        col.align === "right"
-                          ? "text-right font-mono"
-                          : col.align === "center"
-                          ? "text-center"
-                          : "text-left"
-                      }`}
-                    >
-                      {col.render
-                        ? col.render(row)
-                        : String((row as Record<string, any>)[col.key] ?? "-")}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              paginatedData.map((row, idx) => {
+                const rowId = row.id !== undefined ? row.id : idx;
+                const isRowSelected = selectedIds ? selectedIds.has(rowId) : false;
+                return (
+                  <tr
+                    key={rowId ? String(rowId) : idx}
+                    onClick={() => onRowClick && onRowClick(row)}
+                    className={`hover:bg-slate-900/60 transition-colors ${
+                      onRowClick ? "cursor-pointer" : ""
+                    } ${isRowSelected ? "bg-slate-900/80" : ""}`}
+                  >
+                    {selectable && (
+                      <td className="p-3.5 w-10" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isRowSelected}
+                          onChange={(e) => handleToggleRowSelect(rowId, e)}
+                          className="rounded border-slate-700 bg-slate-900 accent-cyan-500 cursor-pointer"
+                        />
+                      </td>
+                    )}
+                    {columns.map((col) => (
+                      <td
+                        key={col.key}
+                        className={`p-3.5 text-slate-200 ${
+                          col.align === "right"
+                            ? "text-right font-mono"
+                            : col.align === "center"
+                            ? "text-center"
+                            : "text-left"
+                        }`}
+                      >
+                        {col.render
+                          ? col.render(row)
+                          : String((row as Record<string, any>)[col.key] ?? "-")}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
