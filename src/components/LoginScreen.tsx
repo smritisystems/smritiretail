@@ -70,9 +70,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           branchId: data.branch_id ?? user.branch_id,
         });
       } else if (DEV_ACCOUNTS.some(a => a.username === username) || username === "admin" || isDev) {
+        const matched = DEV_ACCOUNTS.find(a => a.username === username);
         localStorage.setItem("smriti_jwt_token", "dev-bypass-token");
         onLoginSuccess({
-          role: "SYSADMIN",
+          role: matched?.role || "SYSADMIN",
           name: username || "System Admin",
           passwordResetRequired: false
         });
@@ -80,10 +81,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         setError("Authentication failed. Please verify credentials.");
       }
     } catch (err: any) {
-      if (DEV_ACCOUNTS.some(a => a.username === username) || username === "admin" || isDev) {
+      const matched = DEV_ACCOUNTS.find(a => a.username === username);
+      if (matched || username === "admin" || isDev) {
         localStorage.setItem("smriti_jwt_token", "dev-bypass-token");
         onLoginSuccess({
-          role: "SYSADMIN",
+          role: matched?.role || "SYSADMIN",
           name: username || "System Admin",
           passwordResetRequired: false
         });
