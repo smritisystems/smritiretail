@@ -43,9 +43,6 @@ import { SalesStudioTab } from "./components/SalesStudioTab.tsx";
 import { ItemMasterTab } from "./components/ItemMasterTab.tsx";
 import { WikiTab } from "./components/WikiTab.tsx";
 import { PurchaseStudioTab } from "./components/PurchaseStudioTab.tsx";
-import { BarcodeStudioTab } from "./components/BarcodeStudioTab.tsx";
-import { UniversalLabelPrinterTab } from "./components/UniversalLabelPrinterTab.tsx";
-import { PrintLabelsTab } from "./components/PrintLabelsTab.tsx";
 import { MasterManagementTab } from "./components/MasterManagementTab.tsx";
 import { CustomerMasterTab } from "./components/CustomerMasterTab.tsx";
 import { CustomerDashboardTab } from "./components/CustomerDashboardTab.tsx";
@@ -507,28 +504,6 @@ const AppContent: React.FC = () => {
         );
       case "wiki":
         return <WikiTab onNotification={addNotification} />;
-      case "barcode":
-        return <BarcodeStudioTab currentUser={currentUser} />;
-      case "print-labels":
-      case "tag-printing":
-        return (
-          <PrintLabelsTab
-            products={products}
-            onRefreshProducts={fetchSystemState}
-            onNotification={addNotification}
-            currentUser={currentUser}
-          />
-        );
-      case "universal-label-printer":
-      case "label-printing":
-        return (
-          <UniversalLabelPrinterTab
-            products={products}
-            onRefreshProducts={fetchSystemState}
-            onNotification={addNotification}
-            currentUser={currentUser}
-          />
-        );
       case "masters":
         return <MasterManagementTab onNotification={addNotification} />;
       case "document-series":

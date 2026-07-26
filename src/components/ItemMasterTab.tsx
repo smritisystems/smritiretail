@@ -42,16 +42,12 @@ import { useACAS } from "../context-actions/ContextProvider.tsx";
 import { VariantTemplateSection } from "./VariantTemplateSection.js";
 import { BulkImportSection } from "./BulkImportSection.js";
 import { AttributeAnalyticsSection } from "./AttributeAnalyticsSection.js";
-import { BarcodeMappingSection } from "./BarcodeMappingSection.js";
 import { DrillableLink } from "./drilldown/DrillableLink.tsx";
 import { ExcelGridEntrySection } from "./ExcelGridEntrySection.js";
-import { LabelPrintingSection } from "./LabelPrintingSection.js";
 import { ProductImage } from "./common/ProductImage.tsx";
 import { ImageDisplayPolicyModal, DisplayPolicy, DEFAULT_DISPLAY_POLICY } from "./common/ImageDisplayPolicyModal.tsx";
 import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
 import { ExpandedCellEditor, ExpandContextMenu } from "./ExpandedCellEditor";
-import { UniversalLabelPrinterModal } from "./UniversalLabelPrinterModal.tsx";
-import { UniversalLabelItem } from "../services/universalLabelPrinterService.ts";
 
 
 interface ItemMasterTabProps {
@@ -1241,30 +1237,6 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
         </div>
       )}
 
-      {/* Universal Label Printer Modal */}
-      <UniversalLabelPrinterModal
-        isOpen={showUniversalLabelModal}
-        onClose={() => setShowUniversalLabelModal(false)}
-        moduleSource="Item Master"
-        onNotification={onNotification}
-        items={products.map(p => ({
-          id: p.id,
-          item_code: p.code || p.sku || "ITEM-001",
-          barcode: p.barcode || "8901234560000",
-          sku: p.sku || p.code || "SKU-001",
-          name: p.name,
-          category: p.category || "General",
-          brand: p.brand || "SMRITI",
-          price: p.price,
-          cost_price: p.costPrice || (p as any).cost_price || 0,
-          mrp: p.mrp || p.price,
-          stock_qty: p.stock ?? (p as any).stock_qty ?? 0,
-          received_qty: p.stock ?? (p as any).stock_qty ?? 0,
-          sold_qty: 0,
-          style_code: p.code || p.sku
-        }))}
-      />
-
       {/* Image Display Policy Modal (SPIF) — previously missing from render */}
       {showPolicyModal && (
         <ImageDisplayPolicyModal
@@ -1368,28 +1340,6 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           <BarChart3 size={14} />
           <span>Attribute Intelligence</span>
         </button>
-        <button
-          onClick={() => setActiveTab("barcode-mapping")}
-          className={`px-5 py-3 text-xs font-bold font-display uppercase tracking-wider flex items-center space-x-2 border-b-2 cursor-pointer transition-all ${
-            activeTab === "barcode-mapping" 
-              ? "border-blue-500 text-blue-400 bg-theme-surface-1/40" 
-              : "border-transparent text-theme-muted hover:text-theme-body hover:bg-theme-surface-1/10"
-          }`}
-        >
-          <Barcode size={14} />
-          <span>Barcode Mapping Module</span>
-        </button>
-        <button
-          onClick={() => setActiveTab("label-printing")}
-          className={`px-5 py-3 text-xs font-bold font-display uppercase tracking-wider flex items-center space-x-2 border-b-2 cursor-pointer transition-all ${
-            activeTab === "label-printing" 
-              ? "border-blue-500 text-blue-400 bg-theme-surface-1/40" 
-              : "border-transparent text-theme-muted hover:text-theme-body hover:bg-theme-surface-1/10"
-          }`}
-        >
-          <Printer size={14} />
-          <span>Label Printing Hub</span>
-        </button>
       </div>
 
       {/* RENDER ACTIVE MODULAR VIEW */}
@@ -1421,12 +1371,6 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
 
       {activeTab === "analytics" && (
         <AttributeAnalyticsSection onNotification={onNotification} />
-      )}
-      {activeTab === "barcode-mapping" && (
-        <BarcodeMappingSection products={products} onNotification={onNotification} onRefreshProducts={onRefreshProducts} />
-      )}
-      {activeTab === "label-printing" && (
-        <LabelPrintingSection onNotification={onNotification} currentUser={currentUser} />
       )}
 
       {activeTab === "registry" && (
@@ -2915,29 +2859,6 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           </div>
         </div>
       )}
-      {/* Universal Label Printer Modal */}
-      <UniversalLabelPrinterModal
-        isOpen={showUniversalLabelModal}
-        onClose={() => setShowUniversalLabelModal(false)}
-        moduleSource="Item Master"
-        onNotification={onNotification}
-        items={products.map(p => ({
-          id: p.id,
-          item_code: p.code || p.sku || "ITEM-001",
-          barcode: p.barcode || "8901234560000",
-          sku: p.sku || p.code || "SKU-001",
-          name: p.name,
-          category: p.category || "General",
-          brand: p.brand || "SMRITI",
-          price: p.price,
-          cost_price: p.costPrice || (p as any).cost_price || 0,
-          mrp: p.mrp || p.price,
-          stock_qty: p.stock ?? (p as any).stock_qty ?? 0,
-          received_qty: p.stock ?? (p as any).stock_qty ?? 0,
-          sold_qty: 0,
-          style_code: p.code || p.sku
-        }))}
-      />
     </div>
   );
 };
