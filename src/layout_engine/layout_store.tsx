@@ -376,11 +376,34 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
 
   const restorePreferences = async () => {
     const local = localStorage.getItem("smriti_layout_preferences");
-    const loadedPrefs = local ? JSON.parse(local) : DEFAULT_PREFERENCES;
+    const localPrefs: LayoutPreferences = local ? JSON.parse(local) : DEFAULT_PREFERENCES;
 
-    setPreferences(loadedPrefs);
-    if (loadedPrefs.lastWorkspace && onTabChange) {
-      onTabChange(loadedPrefs.lastWorkspace);
+    // Attempt to merge backend-persisted preferences (lastWorkspace, favorites, position, etc.)
+    // Backend wins for lastWorkspace so multi-device / server-persisted prefs are respected.
+    let merged: LayoutPreferences = { ...localPrefs };
+    try {
+      const serverPrefs = await apiFetchV1("/layout/preferences");
+      if (serverPrefs && typeof serverPrefs === "object") {
+        merged = {
+          ...localPrefs,
+          // Only merge scalar fields the backend actively manages
+          position: serverPrefs.position || localPrefs.position,
+          collapsed: serverPrefs.collapsed ?? localPrefs.collapsed,
+          iconOnly: serverPrefs.iconOnly ?? localPrefs.iconOnly,
+          sidebarWidth: serverPrefs.sidebarWidth || localPrefs.sidebarWidth,
+          // lastWorkspace from backend takes priority over local (persisted across devices)
+          lastWorkspace: serverPrefs.lastWorkspace || localPrefs.lastWorkspace,
+          favorites: serverPrefs.favorites?.length ? serverPrefs.favorites : localPrefs.favorites,
+          collapsedGroups: serverPrefs.collapsedGroups || localPrefs.collapsedGroups,
+        };
+      }
+    } catch {
+      // Network unavailable or backend cold-starting — silently fall back to localStorage
+    }
+
+    setPreferences(merged);
+    if (merged.lastWorkspace && onTabChange) {
+      onTabChange(merged.lastWorkspace);
     }
   };
 

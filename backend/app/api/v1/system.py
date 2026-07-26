@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -48,7 +48,7 @@ DEFAULT_LAYOUT_PREFERENCES: Dict[str, Any] = {
     "collapsed": False,
     "iconOnly": False,
     "sidebarWidth": 260,
-    "lastWorkspace": "dashboard",
+    "lastWorkspace": "launchpad",
     "collapsedGroups": [],
     "favorites": ["pos", "sales"],
 }
@@ -449,7 +449,7 @@ async def save_layout_preferences(
         "collapsed": bool(payload.get("collapsed", layout_preferences.get("collapsed", False))),
         "iconOnly": bool(payload.get("iconOnly", payload.get("icon_only", layout_preferences.get("iconOnly", False)))),
         "sidebarWidth": int(payload.get("sidebarWidth", payload.get("sidebar_width", layout_preferences.get("sidebarWidth", 260)))),
-        "lastWorkspace": payload.get("lastWorkspace", payload.get("last_workspace", layout_preferences.get("lastWorkspace", "dashboard"))),
+        "lastWorkspace": payload.get("lastWorkspace", payload.get("last_workspace", layout_preferences.get("lastWorkspace", "launchpad"))),
         "collapsedGroups": payload.get("collapsedGroups", payload.get("collapsed_groups", layout_preferences.get("collapsedGroups", []))) or [],
         "favorites": payload.get("favorites", layout_preferences.get("favorites", ["pos", "sales"])) or ["pos", "sales"],
     }
