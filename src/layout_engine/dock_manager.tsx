@@ -30,6 +30,8 @@ import { NavigationRenderer } from "./navigation_renderer.js";
 import { SmritiScrollArea } from "../components/SmritiScrollArea.tsx";
 import { useWorkspace } from "../contexts/WorkspaceContext.tsx";
 import { WorkspaceToolbar } from "../components/WorkspaceToolbar.tsx";
+// SEEF Phase 7 wiring: Admin Configurator → DockManager nav mode bridge
+import { useSEEFNavigation } from "./SEEFContext.tsx";
 
 interface DockManagerProps {
   activeTab: string;
@@ -52,6 +54,15 @@ export const DockManager: React.FC<DockManagerProps> = ({
   const isLaunchpad = activeTab === "launchpad";
   const { effectivePosition } = useResponsiveLayout(preferences.position);
   const { focusMode } = useWorkspace();
+
+  // SEEF Phase 7 wiring: resolve nav layout from Admin Configurator cascade
+  // seefNavMode is the single source of truth for navigation mode.
+  // preferences.position is still respected for sidebar left/right positioning.
+  const seefNavMode = useSEEFNavigation();
+  // Rail: 56px icon-only strip. Sidebar: user-resizable 180–480px. Top-nav: full-width bar.
+  const RAIL_WIDTH = 56;
+  const isRailMode    = seefNavMode === "rail";
+  const isTopNavMode  = seefNavMode === "top-nav";
   
   const containerRef = useRef<HTMLDivElement>(null);
   const [isResizing, setIsResizing] = useState(false);
@@ -61,6 +72,12 @@ export const DockManager: React.FC<DockManagerProps> = ({
   useEffect(() => {
     setLocalWidth(preferences.sidebarWidth);
   }, [preferences.sidebarWidth]);
+
+  // Determine current width — Rail locks to 56px, sidebar uses drag width
+  const isCollapsed = preferences.collapsed || preferences.iconOnly;
+  const currentWidth = isRailMode ? RAIL_WIDTH : (isCollapsed ? 72 : localWidth);
+
+  const showNavigation = !focusMode && !preferences.hideSidebar && !isLaunchpad;
 
   // Drag-to-resize handlers
   const startResize = (e: React.MouseEvent) => {
@@ -103,12 +120,6 @@ export const DockManager: React.FC<DockManagerProps> = ({
     };
   }, [isResizing, effectivePosition, localWidth, preferences.sidebarWidth, setSidebarWidth]);
 
-  // Determine current width styled
-  const isCollapsed = preferences.collapsed || preferences.iconOnly;
-  const currentWidth = isCollapsed ? 72 : localWidth;
-
-  const showNavigation = !focusMode && !preferences.hideSidebar && !isLaunchpad;
-
   // WNG-002: Full-bleed Launchpad render — suppresses all chrome
   if (isLaunchpad) {
     return (
@@ -148,7 +159,7 @@ export const DockManager: React.FC<DockManagerProps> = ({
     return (
       <div ref={containerRef} className="flex-1 flex overflow-hidden relative">
         {renderSidebarUnhideTrigger()}
-        {/* Navigation Panel */}
+        {/* Navigation Panel — width locked to 56px in Rail mode; resize handle hidden */}
         {showNavigation && (
           <div 
             style={{ width: `${currentWidth}px` }} 
@@ -161,8 +172,8 @@ export const DockManager: React.FC<DockManagerProps> = ({
               onSearchChange={onSearchChange}
             />
             
-            {/* Resize handle (only if not collapsed) */}
-            {!isCollapsed && (
+            {/* Resize handle — hidden in Rail mode (width is fixed) */}
+            {!isCollapsed && !isRailMode && (
               <div 
                 onMouseDown={startResize}
                 className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-blue-600/50 hover:w-2 active:bg-blue-500 transition-colors z-20"
@@ -273,7 +284,11 @@ export const DockManager: React.FC<DockManagerProps> = ({
     );
   };
 
-  // Return specific position renderers
+  // SEEF Phase 7 wiring: navMode from Admin Configurator drives layout selector
+  // top-nav → renderTopDockLayout regardless of preferences.position
+  // rail    → renderLeftDockLayout with RAIL_WIDTH=56 (NavigationRenderer handles icon rendering)
+  // sidebar → respect preferences.position (left/right/top/bottom)
+  if (isTopNavMode) return renderTopDockLayout();
   switch (effectivePosition) {
     case "right":
       return renderRightDockLayout();
