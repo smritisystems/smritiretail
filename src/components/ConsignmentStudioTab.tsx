@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -20,6 +20,7 @@ import {
   Building2, ArrowRightLeft, FileSpreadsheet, CreditCard, 
   RotateCcw, Landmark, Users, PackageCheck, Plus, AlertCircle, CheckCircle2 
 } from "lucide-react";
+import { FioriListReport } from "./common/FioriListReport.tsx";
 
 interface ConsignmentStudioTabProps {
   currentUser?: any;
@@ -410,284 +411,132 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
         )}
 
         {activeSubTab === "transfers" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold text-theme-muted uppercase tracking-wider font-mono">
-                Consignment Dispatches &amp; Transfers
-              </h3>
-              <button
-                onClick={() => setShowAddTransfer(true)}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
-              >
-                <Plus size={14} /> New Dispatch Proposal
-              </button>
-            </div>
-
-            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden shadow-lg">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-theme-surface-3 border-b border-theme-divider text-[10px] uppercase tracking-wider text-theme-muted font-mono">
-                    <th className="px-6 py-4 font-semibold">Document No</th>
-                    <th className="px-6 py-4 font-semibold">Partner</th>
-                    <th className="px-6 py-4 font-semibold">Transfer Date</th>
-                    <th className="px-6 py-4 font-semibold text-right">Grand Total</th>
-                    <th className="px-6 py-4 font-semibold text-center">Status</th>
-                    <th className="px-6 py-4 font-semibold text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="text-xs divide-y divide-theme-divider">
-                  {transfers.map(t => {
-                    const partner = partners.find(p => p.id === t.partner_id);
-                    return (
-                      <tr key={t.id} className="hover:bg-theme-surface-hover transition-colors">
-                        <td className="px-6 py-4 font-mono font-bold text-blue-400">{t.transfer_no}</td>
-                        <td className="px-6 py-4">
-                          <span className="font-bold text-theme-body">{partner?.name || t.partner_id}</span>
-                        </td>
-                        <td className="px-6 py-4 font-mono">{t.transfer_date}</td>
-                        <td className="px-6 py-4 text-right font-mono text-emerald-400 font-semibold">
-                          ₹{parseFloat(t.grand_total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            t.status === "Draft" ? "bg-amber-950 text-amber-400 border border-amber-500/20" :
-                            t.status === "Dispatched" ? "bg-blue-950 text-blue-400 border border-blue-500/20" :
-                            "bg-emerald-950 text-emerald-400 border border-emerald-500/20"
-                          }`}>
-                            {t.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          {t.status === "Draft" ? (
-                            <button
-                              onClick={() => handleDispatchTransfer(t.id)}
-                              className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1 px-2.5 rounded text-[9px] uppercase tracking-wider transition-colors cursor-pointer"
-                            >
-                              Dispatch Stock
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-theme-muted font-mono">
-                              Invoice: {t.invoice_id ? "Linked" : "—"}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {transfers.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="text-center py-8 text-theme-muted italic">
-                        No consignment dispatches recorded.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <FioriListReport
+            title="Consignment Dispatches & Transfers"
+            subtitle="All stock dispatch proposals and confirmed consignment transfers to modern trade partners."
+            data={transfers.map(t => ({
+              ...t,
+              _partnerName: partners.find(p => p.id === t.partner_id)?.name || t.partner_id,
+            }))}
+            columns={[
+              { key: "transfer_no", label: "Document No", sortable: true, render: (t) => <span className="font-mono font-bold text-blue-400">{t.transfer_no}</span> },
+              { key: "_partnerName", label: "Partner", sortable: true, render: (t) => <span className="font-bold text-theme-body">{(t as any)._partnerName}</span> },
+              { key: "transfer_date", label: "Transfer Date", sortable: true, render: (t) => <span className="font-mono">{t.transfer_date}</span> },
+              { key: "grand_total", label: "Grand Total", align: "right", sortable: true, render: (t) => <span className="font-mono text-emerald-400 font-semibold">₹{parseFloat(t.grand_total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span> },
+              {
+                key: "status", label: "Status", align: "center",
+                render: (t) => (
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                    t.status === "Draft" ? "bg-amber-950 text-amber-400 border border-amber-500/20" :
+                    t.status === "Dispatched" ? "bg-blue-950 text-blue-400 border border-blue-500/20" :
+                    "bg-emerald-950 text-emerald-400 border border-emerald-500/20"
+                  }`}>{t.status}</span>
+                )
+              },
+              {
+                key: "actions", label: "Actions", align: "center",
+                render: (t) => t.status === "Draft" ? (
+                  <button onClick={(e) => { e.stopPropagation(); handleDispatchTransfer(t.id); }} className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1 px-2.5 rounded text-[9px] uppercase tracking-wider transition-colors cursor-pointer">Dispatch Stock</button>
+                ) : (
+                  <span className="text-[10px] text-theme-muted font-mono">Invoice: {t.invoice_id ? "Linked" : "—"}</span>
+                )
+              },
+            ]}
+            filterOptions={[{ key: "status", label: "Status", options: [{ label: "All", value: "ALL" }, { label: "Draft", value: "Draft" }, { label: "Dispatched", value: "Dispatched" }, { label: "Complete", value: "Complete" }] }]}
+            onRefresh={loadAllData}
+            onCreateNew={() => setShowAddTransfer(true)}
+            primaryActionLabel="New Dispatch Proposal"
+            searchPlaceholder="Search transfer no, partner..."
+            isLoading={loading}
+          />
         )}
 
         {activeSubTab === "reports" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold text-theme-muted uppercase tracking-wider font-mono">
-                Consignment Sales Reporting
-              </h3>
-              <button
-                onClick={() => setShowAddReport(true)}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
-              >
-                <Plus size={14} /> Submit Weekly Report
-              </button>
-            </div>
-
-            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden shadow-lg">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-theme-surface-3 border-b border-theme-divider text-[10px] uppercase tracking-wider text-theme-muted font-mono">
-                    <th className="px-6 py-4 font-semibold">Report No</th>
-                    <th className="px-6 py-4 font-semibold">Partner</th>
-                    <th className="px-6 py-4 font-semibold">Report Date</th>
-                    <th className="px-6 py-4 font-semibold text-right">Reported Sales</th>
-                    <th className="px-6 py-4 font-semibold text-center">Status</th>
-                    <th className="px-6 py-4 font-semibold text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="text-xs divide-y divide-theme-divider">
-                  {reports.map(r => {
-                    const partner = partners.find(p => p.id === r.partner_id);
-                    return (
-                      <tr key={r.id} className="hover:bg-theme-surface-hover transition-colors">
-                        <td className="px-6 py-4 font-mono font-bold text-blue-400">{r.report_no}</td>
-                        <td className="px-6 py-4">
-                          <span className="font-bold text-theme-body">{partner?.name || r.partner_id}</span>
-                        </td>
-                        <td className="px-6 py-4 font-mono">{r.report_date}</td>
-                        <td className="px-6 py-4 text-right font-mono text-emerald-400 font-semibold">
-                          ₹{parseFloat(r.total_sales_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            r.status === "Submitted" ? "bg-amber-950 text-amber-400 border border-amber-500/20" :
-                            "bg-emerald-950 text-emerald-400 border border-emerald-500/30"
-                          }`}>
-                            {r.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          {r.status === "Submitted" ? (
-                            <button
-                              onClick={() => handleProcessSaleReport(r.id)}
-                              className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1 px-2.5 rounded text-[9px] uppercase tracking-wider transition-colors cursor-pointer"
-                            >
-                              Process Report
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-theme-muted font-mono flex items-center justify-center gap-1 text-emerald-400 font-bold">
-                              <CheckCircle2 size={12} /> Sales Recognized
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {reports.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="text-center py-8 text-theme-muted italic">
-                        No sales reports recorded.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <FioriListReport
+            title="Consignment Sales Reporting"
+            subtitle="Weekly partner-submitted sales reports for consignment stock recognition and settlement."
+            data={reports.map(r => ({
+              ...r,
+              _partnerName: partners.find(p => p.id === r.partner_id)?.name || r.partner_id,
+            }))}
+            columns={[
+              { key: "report_no", label: "Report No", sortable: true, render: (r) => <span className="font-mono font-bold text-blue-400">{r.report_no}</span> },
+              { key: "_partnerName", label: "Partner", sortable: true, render: (r) => <span className="font-bold text-theme-body">{(r as any)._partnerName}</span> },
+              { key: "report_date", label: "Report Date", sortable: true, render: (r) => <span className="font-mono">{r.report_date}</span> },
+              { key: "total_sales_value", label: "Reported Sales", align: "right", sortable: true, render: (r) => <span className="font-mono text-emerald-400 font-semibold">₹{parseFloat(r.total_sales_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span> },
+              {
+                key: "status", label: "Status", align: "center",
+                render: (r) => (
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                    r.status === "Submitted" ? "bg-amber-950 text-amber-400 border border-amber-500/20" :
+                    "bg-emerald-950 text-emerald-400 border border-emerald-500/30"
+                  }`}>{r.status}</span>
+                )
+              },
+              {
+                key: "actions", label: "Actions", align: "center",
+                render: (r) => r.status === "Submitted" ? (
+                  <button onClick={(e) => { e.stopPropagation(); handleProcessSaleReport(r.id); }} className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1 px-2.5 rounded text-[9px] uppercase tracking-wider transition-colors cursor-pointer">Process Report</button>
+                ) : (
+                  <span className="text-[10px] font-mono flex items-center justify-center gap-1 text-emerald-400 font-bold"><CheckCircle2 size={12} /> Sales Recognized</span>
+                )
+              },
+            ]}
+            filterOptions={[{ key: "status", label: "Status", options: [{ label: "All", value: "ALL" }, { label: "Submitted", value: "Submitted" }, { label: "Processed", value: "Processed" }] }]}
+            onRefresh={loadAllData}
+            onCreateNew={() => setShowAddReport(true)}
+            primaryActionLabel="Submit Weekly Report"
+            searchPlaceholder="Search report no, partner..."
+            isLoading={loading}
+          />
         )}
 
         {activeSubTab === "settlements" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold text-theme-muted uppercase tracking-wider font-mono">
-                Modern Trade Settlements &amp; Ledger Reconciliations
-              </h3>
-              <button
-                onClick={() => setShowAddSettlement(true)}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
-              >
-                <Plus size={14} /> New Payment Settlement
-              </button>
-            </div>
-
-            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden shadow-lg">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-theme-surface-3 border-b border-theme-divider text-[10px] uppercase tracking-wider text-theme-muted font-mono">
-                    <th className="px-6 py-4 font-semibold">Settlement No</th>
-                    <th className="px-6 py-4 font-semibold">Partner</th>
-                    <th className="px-6 py-4 font-semibold">Reconciliation Date</th>
-                    <th className="px-6 py-4 font-semibold text-right">Amount Due</th>
-                    <th className="px-6 py-4 font-semibold text-right">Deductions</th>
-                    <th className="px-6 py-4 font-semibold text-right">Net Paid</th>
-                    <th className="px-6 py-4 font-semibold text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="text-xs divide-y divide-theme-divider">
-                  {settlements.map(s => {
-                    const partner = partners.find(p => p.id === s.partner_id);
-                    return (
-                      <tr key={s.id} className="hover:bg-theme-surface-hover transition-colors">
-                        <td className="px-6 py-4 font-mono font-bold text-blue-400">{s.settlement_no}</td>
-                        <td className="px-6 py-4">
-                          <span className="font-bold text-theme-body">{partner?.name || s.partner_id}</span>
-                        </td>
-                        <td className="px-6 py-4 font-mono">{s.settlement_date}</td>
-                        <td className="px-6 py-4 text-right font-mono">
-                          ₹{parseFloat(s.total_amount_due).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-right font-mono text-rose-400">
-                          ₹{parseFloat(s.total_deductions).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-right font-mono text-emerald-400 font-semibold">
-                          ₹{parseFloat(s.paid_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="bg-emerald-950 text-emerald-400 border border-emerald-500/25 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                            {s.status}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {settlements.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="text-center py-8 text-theme-muted italic">
-                        No settlements recorded.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <FioriListReport
+            title="Modern Trade Settlements & Ledger Reconciliations"
+            subtitle="Recorded payment settlements and deduction reconciliations with modern trade partners."
+            data={settlements.map(s => ({
+              ...s,
+              _partnerName: partners.find(p => p.id === s.partner_id)?.name || s.partner_id,
+            }))}
+            columns={[
+              { key: "settlement_no", label: "Settlement No", sortable: true, render: (s) => <span className="font-mono font-bold text-blue-400">{s.settlement_no}</span> },
+              { key: "_partnerName", label: "Partner", sortable: true, render: (s) => <span className="font-bold text-theme-body">{(s as any)._partnerName}</span> },
+              { key: "settlement_date", label: "Reconciliation Date", sortable: true, render: (s) => <span className="font-mono">{s.settlement_date}</span> },
+              { key: "total_amount_due", label: "Amount Due", align: "right", render: (s) => <span className="font-mono">₹{parseFloat(s.total_amount_due).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span> },
+              { key: "total_deductions", label: "Deductions", align: "right", render: (s) => <span className="font-mono text-rose-400">₹{parseFloat(s.total_deductions).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span> },
+              { key: "paid_amount", label: "Net Paid", align: "right", sortable: true, render: (s) => <span className="font-mono text-emerald-400 font-semibold">₹{parseFloat(s.paid_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span> },
+              { key: "status", label: "Status", align: "center", render: (s) => <span className="bg-emerald-950 text-emerald-400 border border-emerald-500/25 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{s.status}</span> },
+            ]}
+            onRefresh={loadAllData}
+            onCreateNew={() => setShowAddSettlement(true)}
+            primaryActionLabel="New Payment Settlement"
+            searchPlaceholder="Search settlement no, partner..."
+            isLoading={loading}
+          />
         )}
 
         {activeSubTab === "returns" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold text-theme-muted uppercase tracking-wider font-mono">
-                Consignment Stock Returns (Warehouse Receipt)
-              </h3>
-              <button
-                onClick={() => setShowAddReturn(true)}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
-              >
-                <Plus size={14} /> Record Return Delivery
-              </button>
-            </div>
-
-            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden shadow-lg">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-theme-surface-3 border-b border-theme-divider text-[10px] uppercase tracking-wider text-theme-muted font-mono">
-                    <th className="px-6 py-4 font-semibold">Return No</th>
-                    <th className="px-6 py-4 font-semibold">Partner</th>
-                    <th className="px-6 py-4 font-semibold">Return Date</th>
-                    <th className="px-6 py-4 font-semibold text-right">Returned Value</th>
-                    <th className="px-6 py-4 font-semibold text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="text-xs divide-y divide-theme-divider">
-                  {returns.map(r => {
-                    const partner = partners.find(p => p.id === r.partner_id);
-                    return (
-                      <tr key={r.id} className="hover:bg-theme-surface-hover transition-colors">
-                        <td className="px-6 py-4 font-mono font-bold text-blue-400">{r.return_no}</td>
-                        <td className="px-6 py-4">
-                          <span className="font-bold text-theme-body">{partner?.name || r.partner_id}</span>
-                        </td>
-                        <td className="px-6 py-4 font-mono">{r.return_date}</td>
-                        <td className="px-6 py-4 text-right font-mono text-emerald-400 font-semibold">
-                          ₹{parseFloat(r.total_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="bg-emerald-950 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 font-mono">
-                            <CheckCircle2 size={12} /> Stock Restored
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {returns.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="text-center py-8 text-theme-muted italic">
-                        No returns recorded.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <FioriListReport
+            title="Consignment Stock Returns (Warehouse Receipt)"
+            subtitle="Recorded consignment stock return deliveries received back at the warehouse."
+            data={returns.map(r => ({
+              ...r,
+              _partnerName: partners.find(p => p.id === r.partner_id)?.name || r.partner_id,
+            }))}
+            columns={[
+              { key: "return_no", label: "Return No", sortable: true, render: (r) => <span className="font-mono font-bold text-blue-400">{r.return_no}</span> },
+              { key: "_partnerName", label: "Partner", sortable: true, render: (r) => <span className="font-bold text-theme-body">{(r as any)._partnerName}</span> },
+              { key: "return_date", label: "Return Date", sortable: true, render: (r) => <span className="font-mono">{r.return_date}</span> },
+              { key: "total_value", label: "Returned Value", align: "right", sortable: true, render: (r) => <span className="font-mono text-emerald-400 font-semibold">₹{parseFloat(r.total_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span> },
+              { key: "status", label: "Status", align: "center", render: (r) => <span className="bg-emerald-950 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 font-mono"><CheckCircle2 size={12} /> Stock Restored</span> },
+            ]}
+            onRefresh={loadAllData}
+            onCreateNew={() => setShowAddReturn(true)}
+            primaryActionLabel="Record Return Delivery"
+            searchPlaceholder="Search return no, partner..."
+            isLoading={loading}
+          />
         )}
       </SmritiScrollArea>
 
