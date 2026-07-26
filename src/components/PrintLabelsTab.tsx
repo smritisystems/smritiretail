@@ -397,47 +397,47 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#0d0f18] text-slate-200 font-mono text-xs p-4 space-y-4 overflow-y-auto">
+    <div className="flex flex-col h-full bg-theme-base text-theme-body font-mono text-xs p-4 space-y-4 overflow-y-auto">
       
       {/* ── Studio Header Bar ──────────────────────────────────────────────────── */}
-      <div className="bg-[#141726] border border-amber-500/30 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-2xl">
+      <div className="bg-theme-surface-1 border border-amber-500/30 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-2xl">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
             <Tag size={22} />
           </div>
           <div>
-            <h1 className="text-base font-bold text-white font-display flex items-center gap-2">
+            <h1 className="text-base font-bold text-theme-heading font-display flex items-center gap-2">
               Print Labels — SMRITI Barcode Studio v3.37.0
               <span className="text-[10px] bg-emerald-950/60 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/40 font-mono">10/10 Enterprise Ready</span>
             </h1>
-            <p className="text-[11px] text-slate-400">Multi-Format Barcode Tag Printing (ZPL, TSPL, EPL, CPCL, PRN, PDF • 9-Tier Rule Engine)</p>
+            <p className="text-[11px] text-theme-muted">Multi-Format Barcode Tag Printing (ZPL, TSPL, EPL, CPCL, PRN, PDF • 9-Tier Rule Engine)</p>
           </div>
         </div>
 
         {/* Top Studio Workstation Tabs */}
-        <div className="flex flex-wrap items-center gap-1 bg-[#0a0c14] border border-slate-800 p-1.5 rounded-xl text-xs font-bold">
-          <button onClick={() => setActiveStudioTab("workstation")} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${activeStudioTab === "workstation" ? "bg-amber-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}>
+        <div className="flex flex-wrap items-center gap-1 bg-theme-surface-2 border border-theme-divider p-1.5 rounded-xl text-xs font-bold">
+          <button onClick={() => setActiveStudioTab("workstation")} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${activeStudioTab === "workstation" ? "bg-amber-600 text-white shadow-lg" : "text-theme-muted hover:text-theme-heading"}`}>
             <Printer size={13} /> Workstation
           </button>
-          <button onClick={() => setActiveStudioTab("calibration")} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${activeStudioTab === "calibration" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}>
+          <button onClick={() => setActiveStudioTab("calibration")} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${activeStudioTab === "calibration" ? "bg-indigo-600 text-white shadow-lg" : "text-theme-muted hover:text-theme-heading"}`}>
             <Sliders size={13} /> Calibration
           </button>
-          <button onClick={() => setActiveStudioTab("prn_mapping")} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${activeStudioTab === "prn_mapping" ? "bg-purple-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}>
+          <button onClick={() => setActiveStudioTab("prn_mapping")} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${activeStudioTab === "prn_mapping" ? "bg-purple-600 text-white shadow-lg" : "text-theme-muted hover:text-theme-heading"}`}>
             <GitMerge size={13} /> PRN Rules
           </button>
-          <button onClick={() => setActiveStudioTab("scan_print")} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${activeStudioTab === "scan_print" ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}>
+          <button onClick={() => setActiveStudioTab("scan_print")} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${activeStudioTab === "scan_print" ? "bg-emerald-600 text-white shadow-lg" : "text-theme-muted hover:text-theme-heading"}`}>
             <QrCode size={13} /> Scan & Print
           </button>
-          <button onClick={() => setActiveStudioTab("history")} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${activeStudioTab === "history" ? "bg-cyan-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}>
+          <button onClick={() => setActiveStudioTab("history")} className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${activeStudioTab === "history" ? "bg-cyan-600 text-white shadow-lg" : "text-theme-muted hover:text-theme-heading"}`}>
             <History size={13} /> Audit Ledger
           </button>
         </div>
       </div>
 
       {/* Pre-Flight Readiness Warning Ribbon */}
-      <div className="bg-[#141726] border border-slate-800 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-3">
-          <span className="text-slate-400 font-bold uppercase text-[10px]">Pre-Flight Status:</span>
+          <span className="text-theme-muted font-bold uppercase text-[10px]">Pre-Flight Status:</span>
           <span className="bg-emerald-950/60 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800/40 font-bold">{preflightReport.readyItemsCount} Items Ready</span>
           {preflightReport.warningsCount > 0 && <span className="bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-800/40 font-bold flex items-center gap-1"><AlertTriangle size={11} /> {preflightReport.warningsCount} Warnings</span>}
           {preflightReport.errorsCount > 0 && <span className="bg-red-950/60 text-red-300 px-2 py-0.5 rounded border border-red-800/40 font-bold">{preflightReport.errorsCount} Errors</span>}
@@ -453,12 +453,12 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
             className="hidden" 
           />
 
-          <span className="text-[10px] text-slate-400 uppercase font-bold">Template Script:</span>
+          <span className="text-[10px] text-theme-muted uppercase font-bold">Template Script:</span>
           <input 
             type="text" 
             value={scriptFileName} 
             onChange={e => setScriptFileName(e.target.value)} 
-            className="bg-[#0a0c14] border border-slate-800 rounded px-2 py-0.5 text-amber-300 text-[11px] w-44 font-bold" 
+            className="bg-theme-surface-2 border border-theme-divider rounded px-2 py-0.5 text-amber-300 text-[11px] w-44 font-bold" 
           />
 
           <button 
@@ -589,26 +589,26 @@ export const PrintLabelsTab: React.FC<PrintLabelsTabProps> = ({
       {/* ── Pre-Dispatch Batch Summary Modal ───────────────────────────────────── */}
       {showPreDispatchModal && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#141726] border border-amber-500/40 rounded-2xl p-5 max-w-md w-full space-y-4 shadow-2xl font-mono text-xs">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-              <h3 className="text-sm font-bold text-white uppercase flex items-center gap-2">
+          <div className="bg-theme-surface-1 border border-amber-500/40 rounded-2xl p-5 max-w-md w-full space-y-4 shadow-2xl font-mono text-xs">
+            <div className="flex justify-between items-center border-b border-theme-divider pb-2">
+              <h3 className="text-sm font-bold text-theme-heading uppercase flex items-center gap-2">
                 <Play size={16} className="text-amber-400" />
                 Batch Print Pre-Dispatch Summary
               </h3>
-              <button onClick={() => setShowPreDispatchModal(false)} className="text-slate-400 hover:text-white"><X size={16} /></button>
+              <button onClick={() => setShowPreDispatchModal(false)} className="text-theme-muted hover:text-theme-heading"><X size={16} /></button>
             </div>
 
-            <div className="bg-[#0a0c14] border border-slate-800 rounded-xl p-3.5 space-y-2.5">
-              <div className="flex justify-between"><span className="text-slate-400">Target Printer:</span><span className="text-amber-300 font-bold">{activePrinter?.name || "Zebra ZD421 USB"}</span></div>
-              <div className="flex justify-between"><span className="text-slate-400">Hardware Interface:</span><span className="text-emerald-400 font-bold">{selectedPort.toUpperCase()}</span></div>
-              <div className="flex justify-between"><span className="text-slate-400">Active Template:</span><span className="text-indigo-300 font-bold">Garment_Tag.prn ({activePrinter?.protocol || "ZPL"})</span></div>
-              <div className="flex justify-between"><span className="text-slate-400">Records Filtered:</span><span className="text-white font-bold">{filteredQueue.length} items</span></div>
-              <div className="flex justify-between"><span className="text-slate-400">Total Labels To Print:</span><span className="text-emerald-400 font-bold text-sm">{labelsToPrintTotal} Labels</span></div>
-              <div className="flex justify-between border-t border-slate-800 pt-2"><span className="text-slate-400">Estimated Print Duration:</span><span className="text-amber-300 font-bold">~{Math.ceil(labelsToPrintTotal * 0.25)} seconds</span></div>
+            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3.5 space-y-2.5">
+              <div className="flex justify-between"><span className="text-theme-muted">Target Printer:</span><span className="text-amber-300 font-bold">{activePrinter?.name || "Zebra ZD421 USB"}</span></div>
+              <div className="flex justify-between"><span className="text-theme-muted">Hardware Interface:</span><span className="text-emerald-400 font-bold">{selectedPort.toUpperCase()}</span></div>
+              <div className="flex justify-between"><span className="text-theme-muted">Active Template:</span><span className="text-indigo-300 font-bold">Garment_Tag.prn ({activePrinter?.protocol || "ZPL"})</span></div>
+              <div className="flex justify-between"><span className="text-theme-muted">Records Filtered:</span><span className="text-theme-heading font-bold">{filteredQueue.length} items</span></div>
+              <div className="flex justify-between"><span className="text-theme-muted">Total Labels To Print:</span><span className="text-emerald-400 font-bold text-sm">{labelsToPrintTotal} Labels</span></div>
+              <div className="flex justify-between border-t border-theme-divider pt-2"><span className="text-theme-muted">Estimated Print Duration:</span><span className="text-amber-300 font-bold">~{Math.ceil(labelsToPrintTotal * 0.25)} seconds</span></div>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setShowPreDispatchModal(false)} className="px-4 py-2 bg-slate-800 text-slate-300 font-bold rounded-xl">Cancel</button>
+              <button onClick={() => setShowPreDispatchModal(false)} className="px-4 py-2 bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-body font-bold rounded-xl border border-theme-divider">Cancel</button>
               <button onClick={handleConfirmBatchPrint} className="px-6 py-2 bg-gradient-to-r from-emerald-600 to-indigo-600 text-white font-bold rounded-xl shadow-xl flex items-center gap-1.5">
                 <Play size={14} /> Dispatch Batch Job
               </button>

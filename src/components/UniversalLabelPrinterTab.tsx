@@ -641,7 +641,7 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
                 {/* Hardware Profile */}
                 <div>
                   <div className="flex justify-between items-center mb-1">
-                    <label className="text-[10px] text-slate-400 uppercase">Hardware Printer Destination</label>
+                    <label className="text-[10px] text-theme-muted uppercase">Hardware Printer Destination</label>
                     <button
                       type="button"
                       onClick={() => setShowPrinterConfigModal(true)}
@@ -657,14 +657,14 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
                       const found = printerProfiles.find(p => p.id === e.target.value);
                       if (found) setActivePrinter(found);
                     }}
-                    className="w-full bg-[#0b0d14] border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-theme-heading focus:outline-none"
                   >
                     {printerProfiles.map(p => (
                       <option key={p.id} value={p.id}>{p.name} [{p.connectionType || "TCP/IP"}] ({p.protocol})</option>
                     ))}
                   </select>
 
-                  <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                  <div className="mt-1.5 flex items-center justify-between text-[10px] text-theme-muted font-mono">
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                       Mode: <strong className="text-amber-300">{activePrinter.connectionType || "TCP/IP"}</strong>
@@ -675,20 +675,20 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
               </div>
 
               {/* Live 2D Label & RAW PRN Code Card */}
-              <div className="bg-[#141724] border border-amber-500/30 rounded-2xl p-5 space-y-4 shadow-2xl relative overflow-hidden">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="bg-theme-surface-1 border border-amber-500/30 rounded-2xl p-5 space-y-4 shadow-2xl relative overflow-hidden">
+                <div className="flex items-center justify-between border-b border-theme-divider pb-3">
                   <div className="flex items-center gap-2">
                     <Eye size={18} className="text-amber-400" />
-                    <h3 className="text-sm font-bold font-display text-white">Live SLPE 2D Tag Preview</h3>
+                    <h3 className="text-sm font-bold font-display text-theme-heading">Live SLPE 2D Tag Preview</h3>
                   </div>
 
                   {selectedItems.length > 0 && (
                     <div className="flex items-center gap-1.5 text-xs font-mono">
-                      <button onClick={() => setPreviewIndex(prev => Math.max(0, prev - 1))} disabled={previewIndex === 0} className="p-1 text-slate-400 hover:text-white disabled:opacity-30">
+                      <button onClick={() => setPreviewIndex(prev => Math.max(0, prev - 1))} disabled={previewIndex === 0} className="p-1 text-theme-muted hover:text-theme-heading disabled:opacity-30">
                         <ChevronLeft size={16} />
                       </button>
                       <span className="text-amber-300 font-bold">{previewIndex + 1} / {selectedItems.length}</span>
-                      <button onClick={() => setPreviewIndex(prev => Math.min(selectedItems.length - 1, prev + 1))} disabled={previewIndex >= selectedItems.length - 1} className="p-1 text-slate-400 hover:text-white disabled:opacity-30">
+                      <button onClick={() => setPreviewIndex(prev => Math.min(selectedItems.length - 1, prev + 1))} disabled={previewIndex >= selectedItems.length - 1} className="p-1 text-theme-muted hover:text-theme-heading disabled:opacity-30">
                         <ChevronRight size={16} />
                       </button>
                     </div>
@@ -696,7 +696,7 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
                 </div>
 
                 {/* Visual Label Rendering Container */}
-                <div className="bg-[#08090e] p-6 rounded-xl border border-slate-800 flex items-center justify-center min-h-[220px]">
+                <div className="bg-theme-surface-2 p-6 rounded-xl border border-theme-divider flex items-center justify-center min-h-[220px]">
                   {activePreviewItem ? (
                     <div className="bg-white text-black p-3 rounded shadow-2xl w-[230px] box-border space-y-1.5 font-sans text-center border-2 border-slate-950">
                       <div className="flex justify-between items-center text-[9px] font-bold border-b border-slate-200 pb-1">
@@ -725,16 +725,16 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
                       </div>
                     </div>
                   ) : (
-                    <div className="text-center text-slate-500 font-mono text-xs">
+                    <div className="text-center text-theme-muted font-mono text-xs">
                       No items selected in queue.
                     </div>
                   )}
                 </div>
 
                 {/* RAW PRN Template Code Box */}
-                <div className="bg-[#0b0d14] rounded-xl p-3 border border-slate-800 space-y-2 font-mono text-xs">
+                <div className="bg-theme-surface-2 rounded-xl p-3 border border-theme-divider space-y-2 font-mono text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase text-slate-400 font-semibold flex items-center gap-1.5">
+                    <span className="text-[10px] uppercase text-theme-muted font-semibold flex items-center gap-1.5">
                       <FileCode size={13} className="text-amber-400" />
                       Evaluated RAW PRN Script (ZPL/TSPL)
                     </span>
@@ -747,7 +747,7 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
                     </button>
                   </div>
 
-                  <pre className="text-[10px] text-amber-300/90 bg-[#06070a] p-2.5 rounded-lg border border-slate-800 overflow-x-auto max-h-32">
+                  <pre className="text-[10px] text-amber-300/90 bg-theme-surface-3 p-2.5 rounded-lg border border-theme-divider overflow-x-auto max-h-32">
                     {activePRNScript || "; Select item to render PRN template"}
                   </pre>
                 </div>
