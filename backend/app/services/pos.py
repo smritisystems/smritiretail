@@ -31,7 +31,7 @@ from ..api.deps import TenantContext
 from ..repositories.pos import CashRegisterRepository, ShiftRepository
 from ..schemas.pos import (
     CashRegisterCreate, ShiftOpen, ShiftClose,
-    POSCheckoutRequest,
+    POSCheckoutRequest, POSProfileCreate,
 )
 
 
@@ -85,7 +85,7 @@ class POSService:
     # POS Profile CRUD  (frontend POSProfile ↔ CashRegister)
     # ──────────────────────────────────────────────────────────────
 
-    async def create_profile(self, req: "POSProfileCreate") -> CashRegister:  # type: ignore[name-defined]
+    async def create_profile(self, req: POSProfileCreate) -> CashRegister:
         """Create a CashRegister from the frontend POS profile form."""
         import uuid as _uuid
         # Auto-derive a short code from the name if not provided

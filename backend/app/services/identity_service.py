@@ -40,7 +40,7 @@ class ProductIdentityService:
         sum_odd = sum(int(number_12_digits[i]) for i in range(0, 12, 2))
         sum_even = sum(int(number_12_digits[i]) for i in range(1, 12, 2))
         
-        total = sum_odd + (sum_even * 3)
+        total = (sum_odd * 3) + sum_even
         remainder = total % 10
         check_digit = (10 - remainder) % 10
         return str(check_digit)
