@@ -16,7 +16,7 @@
  *
  * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 3.0.0  (SEEF Phase 7 — Rail Nav + SEEF NavMode Switch)
+ * * Version    : 3.1.0  (Mega-Menu NavMode + top-bar→top-nav bugfix)
  * * Created    : 2026-07-10
  * * Modified   : 2026-07-26
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
@@ -637,7 +637,198 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
     );
   };
 
-  // 4. RENDER RAIL NAVIGATION (48 px icon-only rail — SEEF navMode: "rail")
+  // ── 4. RENDER MEGA-MENU NAVIGATION ─────────────────────────────────────
+  // Full-screen glassmorphic overlay triggered by a 56px hamburger trigger strip.
+  // Module grid grouped by category. ESC, backdrop-click, and re-click close it.
+  // seefNavMode === "mega-menu" → DockManager allocates 0px sidebar slot (handled
+  // by renderLeftDockLayout falling through — mega-menu owns its own fixed overlay).
+  const [megaMenuOpen, setMegaMenuOpen] = useState(false);
+  const [megaSearchTerm, setMegaSearchTerm] = useState("");
+
+  // ESC key closes the mega-menu
+  useEffect(() => {
+    if (!megaMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMegaMenuOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [megaMenuOpen]);
+
+  const megaFilteredWorkspaces = registeredWorkspaces.filter(w =>
+    w.id !== "launchpad" &&
+    isTabAllowed(w.id) && (
+      megaSearchTerm === "" ||
+      w.label.toLowerCase().includes(megaSearchTerm.toLowerCase()) ||
+      w.category.toLowerCase().includes(megaSearchTerm.toLowerCase())
+    )
+  );
+  const megaCategories = Array.from(new Set(megaFilteredWorkspaces.map(w => w.category)));
+  const megaFavorites  = megaFilteredWorkspaces.filter(w => preferences.favorites.includes(w.id));
+
+  const renderMegaMenuNav = () => {
+    return (
+      <>
+        {/* Persistent 56px trigger strip — always visible in mega-menu mode */}
+        <div className="h-full w-14 bg-theme-surface-1 border-r border-theme-divider flex flex-col items-center py-3 gap-3 select-none z-10 flex-shrink-0">
+          {/* Hamburger toggle */}
+          <button
+            onClick={() => { setMegaMenuOpen(v => !v); setMegaSearchTerm(""); }}
+            title={megaMenuOpen ? "Close Menu (Esc)" : "Open Module Menu"}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+              megaMenuOpen
+                ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
+                : "bg-theme-surface-2 text-theme-muted hover:bg-blue-600/10 hover:text-blue-400 border border-theme-divider"
+            }`}
+          >
+            {megaMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+
+          {/* Active module indicator strip */}
+          <div className="w-px flex-1 bg-theme-divider/40 mx-auto" />
+          {/* Quick-access: recently active module icon */}
+          {registeredWorkspaces.filter(w => w.id === activeTab && w.id !== "launchpad").map(w => (
+            <button
+              key={w.id}
+              onClick={() => handleItemClick(w.id)}
+              title={w.label}
+              className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-600/10 text-blue-400 border border-blue-500/20 cursor-pointer"
+            >
+              {renderIcon(w.icon, "text-lg")}
+            </button>
+          ))}
+        </div>
+
+        {/* Full-screen mega-menu overlay */}
+        {megaMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-40"
+              onClick={() => setMegaMenuOpen(false)}
+            />
+
+            {/* Overlay panel */}
+            <div className="fixed inset-0 z-50 flex flex-col pointer-events-none">
+              <div className="flex-1 overflow-y-auto pointer-events-auto p-8 max-w-6xl mx-auto w-full">
+
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-white font-display tracking-tight flex items-center gap-3">
+                      <Layers className="text-blue-400" size={24} />
+                      SMRITI Workspace
+                    </h2>
+                    <p className="text-xs text-theme-muted mt-1">Select a module to open — all access governed by RBAC</p>
+                  </div>
+                  <button
+                    onClick={() => setMegaMenuOpen(false)}
+                    className="w-10 h-10 rounded-xl bg-theme-surface-2/80 hover:bg-theme-surface-3 border border-theme-divider text-theme-muted hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                    title="Close (Esc)"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                {/* Search */}
+                <div className="relative mb-8 max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" size={15} />
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Search modules..."
+                    value={megaSearchTerm}
+                    onChange={e => setMegaSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 bg-theme-surface-2/80 border border-theme-divider rounded-xl text-sm text-theme-body placeholder-theme-muted focus:outline-none focus:border-blue-500 focus:bg-theme-surface-2 transition-all"
+                  />
+                </div>
+
+                {/* Favorites row */}
+                {megaFavorites.length > 0 && megaSearchTerm === "" && (
+                  <div className="mb-8">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Star size={12} className="fill-amber-400 text-amber-400" />
+                      <span className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-widest">Pinned Favorites</span>
+                    </div>
+                    <div className="flex gap-3 flex-wrap">
+                      {megaFavorites.map(w => (
+                        <button
+                          key={w.id}
+                          onClick={() => { handleItemClick(w.id); setMegaMenuOpen(false); }}
+                          className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all cursor-pointer ${
+                            activeTab === w.id
+                              ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/30"
+                              : "bg-theme-surface-2/70 border-theme-divider text-theme-body hover:bg-blue-600/10 hover:border-blue-500/40 hover:text-blue-300"
+                          }`}
+                        >
+                          {renderIcon(w.icon, "text-base")}
+                          <span className="font-display">{w.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Category grids */}
+                {megaCategories.length === 0 ? (
+                  <div className="text-center text-theme-muted py-16 text-sm">
+                    No modules match &ldquo;{megaSearchTerm}&rdquo;
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    {megaCategories.map(cat => {
+                      const catModules = megaFilteredWorkspaces.filter(w => w.category === cat);
+                      return (
+                        <div key={cat}>
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-[9px] font-mono font-bold text-theme-muted uppercase tracking-widest">{cat}</span>
+                            <div className="flex-1 h-px bg-theme-divider/30" />
+                            <span className="text-[9px] font-mono text-theme-muted/60">{catModules.length} modules</span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                            {catModules.map(w => (
+                              <button
+                                key={w.id}
+                                onClick={() => { handleItemClick(w.id); setMegaMenuOpen(false); }}
+                                className={`group relative flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border transition-all cursor-pointer text-center ${
+                                  activeTab === w.id
+                                    ? "bg-blue-600/15 border-blue-500/40 shadow-lg shadow-blue-950/20"
+                                    : "bg-theme-surface-2/60 border-theme-divider/60 hover:bg-theme-surface-2 hover:border-theme-divider hover:shadow-lg"
+                                }`}
+                              >
+                                {/* Active indicator dot */}
+                                {activeTab === w.id && (
+                                  <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-blue-400" />
+                                )}
+                                {/* Favorite star */}
+                                {isFavorited(w.id) && activeTab !== w.id && (
+                                  <Star size={9} className="absolute top-2 right-2 fill-amber-400 text-amber-400" />
+                                )}
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                  activeTab === w.id
+                                    ? "bg-blue-600 text-white shadow-md shadow-blue-900/40"
+                                    : "bg-theme-surface-3 text-theme-muted group-hover:bg-blue-600/10 group-hover:text-blue-400"
+                                } transition-all`}>
+                                  {renderIcon(w.icon, "text-lg")}
+                                </div>
+                                <span className={`text-xs font-display font-medium leading-tight ${
+                                  activeTab === w.id ? "text-blue-300" : "text-theme-body"
+                                }`}>{w.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </>
+    );
+  };
+
+  // 5. RENDER RAIL NAVIGATION (48 px icon-only rail — SEEF navMode: "rail")
   // Inspired by VS Code Activity Bar & SAP Fiori Side Navigation compact mode.
   // Rail items show a floating tooltip label on hover. Active item highlighted
   // with an accent-color left bar indicator.
@@ -759,8 +950,9 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
   // Render the matching layout — SEEF navMode takes priority over dock position
   const renderedLayout = () => {
     // SEEF navMode overrides (when explicitly configured via SEEF Admin Configurator)
-    if (seefNavMode === "rail")    return renderRailNav();
-    if (seefNavMode === "top-nav") return renderTopNav();
+    if (seefNavMode === "mega-menu") return renderMegaMenuNav();
+    if (seefNavMode === "rail")      return renderRailNav();
+    if (seefNavMode === "top-nav")   return renderTopNav();   // FIX: was "top-bar"
     // Fall back to dock-position-based rendering (existing behavior)
     if (preferences.position === "top")    return renderTopNav();
     if (preferences.position === "bottom") return renderBottomNav();
