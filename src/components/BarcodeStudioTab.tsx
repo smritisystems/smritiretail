@@ -290,7 +290,7 @@ const BarcodeMaster = ({ masterData }: { masterData: BarcodeRecord[] }) => {
                   </span>
                 </td>
                 <td className="px-4 py-3">{b.type}</td>
-                <td className="px-4 py-3 font-semibold text-slate-200">{b.entity}</td>
+                <td className="px-4 py-3 font-semibold text-theme-heading">{b.entity}</td>
                 <td className="px-4 py-3 text-theme-muted">{b.date}</td>
                 <td className="px-4 py-3 text-center">
                   <ShieldCheck size={14} className="text-emerald-400 mx-auto" />
@@ -591,14 +591,14 @@ const LabelPrintingV24a = ({ onNotification }: { onNotification: (t: string, m: 
               value={rangeStart}
               onChange={e => setRangeStart(e.target.value)}
               placeholder="From: BBM-0001" 
-              className="w-1/2 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono outline-none focus:border-indigo-500" 
+              className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-heading font-mono outline-none focus:border-indigo-500" 
             />
             <input 
               type="text" 
               value={rangeEnd}
               onChange={e => setRangeEnd(e.target.value)}
               placeholder="To: BBM-0005" 
-              className="w-1/2 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono outline-none focus:border-indigo-500" 
+              className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-heading font-mono outline-none focus:border-indigo-500" 
             />
           </div>
           <button onClick={handleLoadArticleRange} className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg shadow-md flex items-center justify-center gap-1">
@@ -607,11 +607,11 @@ const LabelPrintingV24a = ({ onNotification }: { onNotification: (t: string, m: 
         </div>
 
         <div className="space-y-2">
-          <span className="text-[10px] text-slate-400 font-bold uppercase block">2. Label Layout Template</span>
+          <span className="text-[10px] text-theme-muted font-bold uppercase block">2. Label Layout Template</span>
           <select 
             value={selectedTemplate}
             onChange={e => setSelectedTemplate(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono outline-none"
+            className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-heading font-mono outline-none"
           >
             <option>Standard Product Tag (50x25mm)</option>
             <option>Footwear Box Label (75x50mm)</option>
@@ -621,13 +621,13 @@ const LabelPrintingV24a = ({ onNotification }: { onNotification: (t: string, m: 
         </div>
 
         <div className="space-y-2">
-          <span className="text-[10px] text-slate-400 font-bold uppercase block">3. Hardware Protocol Engine</span>
+          <span className="text-[10px] text-theme-muted font-bold uppercase block">3. Hardware Protocol Engine</span>
           <div className="grid grid-cols-3 gap-2">
             {(["ZPL", "TSPL", "PDF"] as const).map((proto) => (
               <button
                 key={proto}
                 onClick={() => setSelectedProtocol(proto)}
-                className={`py-2 rounded-lg text-xs font-bold border ${selectedProtocol === proto ? "bg-indigo-600 border-indigo-400 text-white" : "bg-slate-900 border-slate-800 text-slate-400"}`}
+                className={`py-2 rounded-lg text-xs font-bold border ${selectedProtocol === proto ? "bg-indigo-600 border-indigo-400 text-white" : "bg-theme-surface-2 border-theme-divider text-theme-muted"}`}
               >
                 {proto}
               </button>
@@ -640,16 +640,16 @@ const LabelPrintingV24a = ({ onNotification }: { onNotification: (t: string, m: 
       <div className="border border-theme-divider rounded-2xl overflow-hidden bg-theme-surface-1 shadow-lg space-y-2">
         <div className="px-4 py-3 bg-theme-surface-3 border-b border-theme-divider flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="font-bold text-xs text-white">Worksheet Grid ({selectedRows.length} / {worksheet.length} Rows Selected)</span>
+            <span className="font-bold text-xs text-theme-heading">Worksheet Grid ({selectedRows.length} / {worksheet.length} Rows Selected)</span>
             <button onClick={() => setWorksheet(prev => prev.map(r => ({ ...r, selected: true })))} className="text-[10px] text-indigo-400 hover:underline font-bold">Select All</button>
-            <button onClick={() => setWorksheet(prev => prev.map(r => ({ ...r, selected: false })))} className="text-[10px] text-slate-400 hover:underline">Clear</button>
+            <button onClick={() => setWorksheet(prev => prev.map(r => ({ ...r, selected: false })))} className="text-[10px] text-theme-muted hover:underline">Clear</button>
           </div>
           <span className="text-[11px] font-bold text-emerald-400">Total Labels: {totalLabelsToPrint} Copies</span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs font-mono">
-            <thead className="bg-slate-900 border-b border-slate-800 text-[10px] uppercase text-slate-400 font-bold">
+            <thead className="bg-theme-surface-2 border-b border-theme-divider text-[10px] uppercase text-theme-muted font-bold">
               <tr>
                 <th className="px-3 py-2 text-center">Sel</th>
                 <th className="px-3 py-2">Style ({'{style}'})</th>
@@ -662,32 +662,32 @@ const LabelPrintingV24a = ({ onNotification }: { onNotification: (t: string, m: 
                 <th className="px-3 py-2 text-right w-24">Labels</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-theme-divider">
               {worksheet.map((r, idx) => {
                 const resolvedStyle = resolveStyleToken({ styleCode: r.styleCode, sku: r.variantSku });
                 return (
-                  <tr key={idx} className={`hover:bg-slate-900/60 ${r.selected ? "bg-indigo-950/20" : "opacity-60"}`}>
+                  <tr key={idx} className={`hover:bg-theme-surface-2 ${r.selected ? "bg-indigo-950/20" : "opacity-60"}`}>
                     <td className="px-3 py-2 text-center">
                       <input 
                         type="checkbox" 
                         checked={r.selected} 
                         onChange={e => setWorksheet(prev => prev.map((row, i) => i === idx ? { ...row, selected: e.target.checked } : row))} 
-                        className="rounded bg-slate-900 border-slate-700" 
+                        className="rounded bg-theme-surface-2 border-theme-divider" 
                       />
                     </td>
                     <td className="px-3 py-2 font-bold text-amber-300">{resolvedStyle}</td>
                     <td className="px-3 py-2 text-indigo-300 font-bold">{r.variantSku}</td>
-                    <td className="px-3 py-2 text-white truncate max-w-xs">{r.name}</td>
+                    <td className="px-3 py-2 text-theme-heading truncate max-w-xs">{r.name}</td>
                     <td className="px-3 py-2 font-bold text-emerald-400">{r.barcode}</td>
                     <td className="px-3 py-2 text-right">
-                      <span className="text-slate-400">₹{r.costPrice}</span> / <strong className="text-emerald-400">₹{r.price}</strong> / <span className="text-white">₹{r.mrp}</span>
+                      <span className="text-theme-muted">₹{r.costPrice}</span> / <strong className="text-emerald-400">₹{r.price}</strong> / <span className="text-theme-heading">₹{r.mrp}</span>
                     </td>
-                    <td className="px-3 py-2 text-right font-bold text-white">{r.stockQty}</td>
+                    <td className="px-3 py-2 text-right font-bold text-theme-heading">{r.stockQty}</td>
                     <td className="px-3 py-2">
                       <select 
                         value={r.boxRule} 
                         onChange={e => handleBoxRuleChange(idx, e.target.value as any)}
-                        className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-white outline-none"
+                        className="bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-[11px] text-theme-heading outline-none"
                       >
                         <option value="single">Single (1:1)</option>
                         <option value="box6">6-Pack Box (1/6)</option>
@@ -702,7 +702,7 @@ const LabelPrintingV24a = ({ onNotification }: { onNotification: (t: string, m: 
                         min="1" 
                         value={r.labelCopies} 
                         onChange={e => setWorksheet(prev => prev.map((row, i) => i === idx ? { ...row, labelCopies: parseInt(e.target.value) || 1 } : row))}
-                        className="w-16 text-right bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-bold outline-none focus:border-indigo-500" 
+                        className="w-16 text-right bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-theme-heading font-bold outline-none focus:border-indigo-500" 
                       />
                     </td>
                   </tr>
@@ -896,20 +896,20 @@ const ReprintQueueHistory = () => {
             </div>
 
             <div>
-              <span className="text-[10px] text-slate-500 uppercase block">Job Batch ID</span>
+              <span className="text-[10px] text-theme-muted uppercase block">Job Batch ID</span>
               <span className="font-bold text-amber-300 text-sm">{job.id}</span>
             </div>
 
-            <div className="text-[11px] space-y-1 bg-slate-900/60 p-3 rounded-lg border border-slate-800">
-              <div className="flex justify-between"><span className="text-slate-400">Template:</span><span className="text-white font-bold truncate max-w-[140px]">{job.template}</span></div>
-              <div className="flex justify-between"><span className="text-slate-400">Items:</span><span className="text-indigo-300 font-bold">{job.itemsCount} SKUs</span></div>
-              <div className="flex justify-between"><span className="text-slate-400">Total Labels:</span><span className="text-emerald-400 font-bold">{job.totalLabels} Copies</span></div>
+            <div className="text-[11px] space-y-1 bg-theme-surface-1 p-3 rounded-lg border border-theme-divider">
+              <div className="flex justify-between"><span className="text-theme-muted">Template:</span><span className="text-theme-heading font-bold truncate max-w-[140px]">{job.template}</span></div>
+              <div className="flex justify-between"><span className="text-theme-muted">Items:</span><span className="text-indigo-300 font-bold">{job.itemsCount} SKUs</span></div>
+              <div className="flex justify-between"><span className="text-theme-muted">Total Labels:</span><span className="text-emerald-400 font-bold">{job.totalLabels} Copies</span></div>
             </div>
 
             <div className="flex gap-2">
               <button 
                 onClick={() => setViewingJob(job)} 
-                className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg text-xs flex items-center justify-center gap-1 border border-slate-700"
+                className="flex-1 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body font-bold rounded-lg text-xs flex items-center justify-center gap-1 border border-theme-divider"
               >
                 <FileCode size={13} /> View ZPL
               </button>
@@ -939,20 +939,20 @@ const ReprintQueueHistory = () => {
                 <FileCode size={16} className="text-indigo-400" />
                 <h3 className="text-sm font-bold text-white">Hardware Output — {viewingJob.id}</h3>
               </div>
-              <button onClick={() => setViewingJob(null)} className="p-1 text-slate-400 hover:text-white"><X size={16} /></button>
+              <button onClick={() => setViewingJob(null)} className="p-1 text-theme-muted hover:text-theme-heading"><X size={16} /></button>
             </div>
 
             <div className="p-6 space-y-3 font-mono text-xs">
-              <span className="text-[10px] text-slate-400 uppercase block font-bold">Direct Thermal Command Code ({viewingJob.protocol})</span>
+              <span className="text-[10px] text-theme-muted uppercase block font-bold">Direct Thermal Command Code ({viewingJob.protocol})</span>
               <textarea 
                 readOnly 
                 value={viewingJob.zplPayload || "^XA\n^FO50,50^A0N,30,30^FDDEMO PRINT^FS\n^XZ"} 
-                className="w-full h-48 bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 font-mono text-[11px] outline-none"
+                className="w-full h-48 bg-theme-surface-2 border border-theme-divider rounded-xl p-3 text-emerald-400 font-mono text-[11px] outline-none"
               />
             </div>
 
             <div className="px-6 py-4 bg-[#1a1e2b] border-t border-indigo-500/20 flex justify-end gap-3">
-              <button onClick={() => setViewingJob(null)} className="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-lg">Close</button>
+              <button onClick={() => setViewingJob(null)} className="px-4 py-2 bg-theme-surface-2 text-theme-body text-xs rounded-lg">Close</button>
             </div>
           </div>
         </div>

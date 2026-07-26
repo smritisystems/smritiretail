@@ -769,7 +769,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowAddTransfer(false)}
-                    className="bg-slate-800 hover:bg-slate-700 text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
+                    className="bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -789,7 +789,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
       {/* --- ADD SALES REPORT MODAL --- */}
       <AnimatePresence>
         {showAddReport && (
-          <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -902,7 +902,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                           setReportTransItemInput("");
                           setReportQtyInput("");
                         }}
-                        className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider cursor-pointer"
+                        className="bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-body font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider cursor-pointer"
                       >
                         + Add Reported Line
                       </button>
@@ -945,7 +945,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowAddReport(false)}
-                    className="bg-slate-800 hover:bg-slate-700 text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
+                    className="bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -965,7 +965,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
       {/* --- ADD SETTLEMENT MODAL --- */}
       <AnimatePresence>
         {showAddSettlement && (
-          <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -1048,7 +1048,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowAddSettlement(false)}
-                    className="bg-slate-800 hover:bg-slate-700 text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
+                    className="bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -1068,7 +1068,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
       {/* --- ADD RETURN MODAL --- */}
       <AnimatePresence>
         {showAddReturn && (
-          <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -1153,7 +1153,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                           setReturnTransItemInput("");
                           setReturnQtyInput("");
                         }}
-                        className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider cursor-pointer"
+                        className="bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-body font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider cursor-pointer"
                       >
                         + Add Returned Line
                       </button>
