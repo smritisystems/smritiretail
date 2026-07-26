@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -44,6 +44,7 @@ import { Product } from "../types.js";
 import { SmartFilter, FilterDefinition } from "./SmartFilter.tsx";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
+import { FioriListReport, ListReportColumn } from "./common/FioriListReport.tsx";
 
 interface PurchaseStudioTabProps {
   products: Product[];
@@ -1811,164 +1812,6 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         {/* â”€â”€ SUB-TAB 5: REPORTS & REGISTERS â”€â”€ */}
         {activeSubTab === "reports" && (
           <div className="space-y-8">
-            
-            {/* Row 1: Order Register filtering */}
-            <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 space-y-4">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-theme-divider/60 pb-3">
-                <div>
-                  <h3 className="text-xs font-mono uppercase tracking-wider text-indigo-400">OFFICIAL PURCHASE ORDER REGISTERS</h3>
-                  <p className="text-[10px] text-theme-muted mt-0.5">Filter the complete purchase records ledger dynamically at server database layer.</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <SmartFilter 
-                    filters={[
-                      {
-                        id: "supplier",
-                        label: "Supplier",
-                        type: "multi-select",
-                        options: suppliersList.map(s => ({ value: s.id, label: s.name }))
-                      },
-                      {
-                        id: "status",
-                        label: "Status",
-                        type: "multi-select",
-                        options: [
-                          { value: "Draft", label: "Draft" },
-                          { value: "Confirmed", label: "Confirmed" },
-                          { value: "Cancelled", label: "Cancelled" },
-                          { value: "Complete", label: "Complete" }
-                        ]
-                      },
-                      {
-                        id: "date",
-                        label: "Date Range",
-                        type: "date-range"
-                      }
-                    ]}
-                    onApply={(filters) => {
-                      setReportSupplierFilter(filters.supplier || "");
-                      setReportStatusFilter(filters.status || "");
-                      setReportStartDate(filters.date?.start || "");
-                      setReportEndDate(filters.date?.end || "");
-                      
-                      fetchPurchaseOrders("", {
-                        supplier: filters.supplier || "",
-                        statusFilter: filters.status || "",
-                        start: filters.date?.start || "",
-                        end: filters.date?.end || ""
-                      });
-                    }}
-                  />
-                  <button
-                    onClick={() => fetchPurchaseOrders()}
-                    className="p-1.5 bg-theme-surface-2 border border-theme-divider hover:border-blue-500 rounded text-xs text-theme-body transition-all cursor-pointer"
-                    title="Refresh Register"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {purchaseOrders.length === 0 ? (
-                <div className="p-8 text-center text-theme-muted text-xs">No purchase contracts matching defined filter constraints.</div>
-              ) : (
-                <div className="overflow-x-auto rounded-xl border border-theme-divider">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono text-[9px] tracking-wider border-b border-theme-divider">
-                        <th className="px-4 py-3">Order Number</th>
-                        <th className="px-4 py-3">Date</th>
-                        <th className="px-4 py-3">Supplier</th>
-                        <th className="px-4 py-3">Expected Date</th>
-                        <th className="px-4 py-3 text-right">Contract Value</th>
-                        <th className="px-4 py-3 text-right">Corporate Paid</th>
-                        <th className="px-4 py-3 text-right">Received %</th>
-                        <th className="px-4 py-3 text-center">Status</th>
-                        <th className="px-4 py-3 text-center">Authorized Sourcing Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#2a3a5c]/40">
-                      {purchaseOrders.map(po => (
-                        <tr key={po.id} className="hover:bg-theme-surface-3/20">
-                          <td className="px-4 py-3 font-bold font-mono text-theme-body">{po.orderNo}</td>
-                          <td className="px-4 py-3 text-theme-muted font-mono">{new Date(po.date).toLocaleDateString()}</td>
-                          <td className="px-4 py-3 font-semibold text-theme-body">{po.supplierName}</td>
-                          <td className="px-4 py-3 font-mono">{po.expectedDeliveryDate}</td>
-                          <td className="px-4 py-3 text-right font-mono font-bold text-emerald-400">â‚¹{po.grandTotal}</td>
-                          <td className="px-4 py-3 text-right font-mono text-theme-muted">â‚¹{po.paidAmount || 0}</td>
-                          <td className="px-4 py-3 text-right">
-                            <span className="text-indigo-300 font-mono text-xs">{po.receivedPercentage}%</span>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono border ${
-                              po.status === "Draft" ? "bg-amber-950/40 border-amber-500/30 text-amber-300" : po.status === "Submitted" ? "bg-blue-950/40 border-blue-500/30 text-blue-300" : po.status === "Approved" ? "bg-indigo-950/40 border-indigo-500/30 text-indigo-300" : po.status === "Rejected" || po.status === "Cancelled" ? "bg-rose-950/40 border-rose-500/30 text-rose-300" : "bg-emerald-950/40 border-emerald-500/30 text-emerald-300"
-                            }`}>
-                              {po.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-center flex items-center justify-center space-x-2">
-                            
-                            {po.status === "Draft" && (
-                              <button
-                                onClick={() => handleWorkflowAction(po.id, "submit")}
-                                className="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-mono text-[9px] font-bold transition-all cursor-pointer"
-                              >
-                                SUBMIT
-                              </button>
-                            )}
-                            {po.status === "Submitted" && (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleWorkflowAction(po.id, "approve")}
-                                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-mono text-[9px] font-bold transition-all cursor-pointer"
-                                >
-                                  APPROVE
-                                </button>
-                                <button
-                                  onClick={() => handleWorkflowAction(po.id, "reject")}
-                                  className="px-2 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded font-mono text-[9px] font-bold transition-all cursor-pointer"
-                                >
-                                  REJECT
-                                </button>
-                              </div>
-                            )}
-                            {po.status === "Approved" && (
-
-                              <button
-                                onClick={() => {
-                                  const initialQ: Record<string, number> = {};
-                                  po.items.forEach((item: any) => {
-                                    initialQ[item.productId] = item.quantity;
-                                  });
-                                  setAmendPO(po);
-                                  setAmendQuantities(initialQ);
-                                  setAmendReason("");
-                                }}
-                                className="px-2 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded font-mono text-[9px] font-bold transition-all cursor-pointer"
-                              >
-                                AMEND ORDER
-                              </button>
-                            )}
-                            <button
-                              onClick={() => {
-                                setSelectedPO(po);
-                                setReceiptQuantities({});
-                                setActiveSubTab("receive");
-                              }}
-                              className="p-1 text-theme-muted hover:text-theme-body rounded transition-colors cursor-pointer"
-                              title="Inspect contract"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                              <button onClick={(e) => { e.stopPropagation(); onNotification("Print", "Printing Voucher " + po.orderNo, "success"); window.print(); }} className="p-1 rounded text-theme-muted hover:text-slate-400" title="Print"><Printer className="w-4 h-4" /></button>
-                              <button onClick={(e) => { e.stopPropagation(); onNotification("WhatsApp", "Generating PDF for WhatsApp", "success"); window.open('https://wa.me/?text=Voucher%20' + po.orderNo); }} className="p-1 rounded text-theme-muted hover:text-emerald-400" title="WhatsApp"><MessageCircle className="w-4 h-4" /></button>
-                              <button onClick={(e) => { e.stopPropagation(); onNotification("Email", "Drafting Email with PDF", "success"); window.open('mailto:?subject=Voucher%20' + po.orderNo); }} className="p-1 rounded text-theme-muted hover:text-blue-400" title="Email"><Mail className="w-4 h-4" /></button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
               )}
             </div>
 
