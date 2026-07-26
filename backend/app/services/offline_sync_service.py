@@ -57,7 +57,6 @@ class OfflineSyncService:
                 invoice_no=invoice_num,
                 grand_total=grand_total,
                 status="Draft",
-                payment_mode="CASH",
             )
             self.db.add(invoice)
             synced_invoices.append(invoice_num)

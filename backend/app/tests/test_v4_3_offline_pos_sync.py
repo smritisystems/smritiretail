@@ -15,7 +15,8 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
-from app.api.deps import get_db
+from app.api.deps import get_db, get_current_user
+from app.models.auth import User, UserRole
 from app.services.offline_sync_service import OfflineSyncService
 from app.tests.conftest import clear_db
 from app.db.base import BaseEntity
@@ -34,9 +35,14 @@ async def override_db(db_session):
     async def _get_db():
         yield db_session
 
+    async def _get_user():
+        return User(id="usr-offline-01", username="offline_user", role=UserRole.MANAGER, is_active=True)
+
     app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[get_current_user] = _get_user
     yield
     app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_current_user, None)
     try:
         await clear_db(db_session)
     except Exception:

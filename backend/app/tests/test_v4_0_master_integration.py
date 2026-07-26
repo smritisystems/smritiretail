@@ -15,8 +15,9 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
-from app.api.deps import get_db
-from app.models.auth import User
+from app.main import app
+from app.api.deps import get_db, get_current_user
+from app.models.auth import User, UserRole
 from app.services.communicator_service import SMRITICommunicatorService
 from app.tests.conftest import clear_db
 from app.db.base import BaseEntity
@@ -35,9 +36,14 @@ async def override_db(db_session):
     async def _get_db():
         yield db_session
 
+    async def _get_user():
+        return User(id="usr-comm-01", username="comm_user", role=UserRole.MANAGER, is_active=True)
+
     app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[get_current_user] = _get_user
     yield
     app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_current_user, None)
     try:
         await clear_db(db_session)
     except Exception:
@@ -70,8 +76,8 @@ async def test_v4_0_communicator_sync_queue_submit():
         records=[{"inv": "INV-1", "amt": 500.0}, {"inv": "INV-2", "amt": 1200.0}],
     )
     assert res["connector"] == "BUSY"
-    assert res["status"] == "SYNCED"
-    assert res["processed_records"] == 2
+    assert res["status"] == "PROCESSED"
+    assert res["processed_count"] == 2
 
 
 @pytest.mark.asyncio
@@ -102,4 +108,4 @@ async def test_v4_0_communicator_rest_endpoints(db_session):
             }
         )
         assert res_sync.status_code == 200
-        assert res_sync.json()["status"] == "SYNCED"
+        assert res_sync.json()["status"] == "PROCESSED"

@@ -26,7 +26,7 @@ class SalesInvoice(RowSecuredMixin, BaseEntity):
 
     invoice_no      = Column(String(100), nullable=False, unique=True)
     order_id        = Column(String(50), ForeignKey("sales_orders.id", ondelete="RESTRICT"), nullable=True)
-    customer_id     = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False)
+    customer_id     = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=True)
     invoice_date    = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     due_date        = Column(DateTime(timezone=True), nullable=True)
     subtotal        = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
