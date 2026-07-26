@@ -248,7 +248,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#0f172a] text-slate-100 font-sans select-none overflow-hidden">
+    <div className="flex flex-col h-full bg-theme-base text-theme-body font-sans select-none overflow-hidden">
       {/* Standardized Terminal Toolbar */}
       <StandardDocumentToolbar
         onNew={() => setCart([])}
@@ -266,13 +266,13 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
         {/* Left 70-80% Main Grid Viewport */}
         <div className="flex-1 flex flex-col p-4 space-y-4 overflow-hidden">
           {/* Header Control Row: Terminal Selector + Barcode Input */}
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1e293b] p-3 rounded-lg border border-slate-700">
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-theme-surface-1 p-3 rounded-lg border border-theme-divider">
             <div className="flex items-center space-x-3">
-              <label className="text-xs font-semibold text-slate-400 uppercase font-display">Active Terminal:</label>
+              <label className="text-xs font-semibold text-theme-muted uppercase font-display">Active Terminal:</label>
               <select
                 value={activeProfileId}
                 onChange={(e) => setActiveProfileId(e.target.value)}
-                className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-2.5 py-1.5 focus:outline-none font-mono"
+                className="bg-theme-surface-2 border border-theme-divider text-theme-body text-xs rounded px-2.5 py-1.5 focus:outline-none font-mono"
               >
                 {profiles.length > 0 ? (
                   profiles.map(p => (
@@ -305,15 +305,15 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                       }
                     }
                   }}
-                  className="w-full bg-slate-900 border border-slate-700 text-white text-xs px-3 py-1.5 pl-8 rounded focus:outline-none focus:border-blue-500 font-mono"
+                  className="w-full bg-theme-surface-2 border border-theme-divider text-theme-heading text-xs px-3 py-1.5 pl-8 rounded focus:outline-none focus:border-blue-500 font-mono"
                 />
-                <span className="material-symbols-outlined text-slate-500 text-sm absolute left-2.5 top-2">qr_code_scanner</span>
+                <span className="material-symbols-outlined text-theme-muted text-sm absolute left-2.5 top-2">qr_code_scanner</span>
               </div>
             </div>
 
             {/* Shift Control */}
             {activeShift ? (
-              <div className="flex items-center space-x-2 bg-slate-800 px-3 py-1 rounded border border-slate-700">
+              <div className="flex items-center space-x-2 bg-theme-surface-2 px-3 py-1 rounded border border-theme-divider">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
                 <span className="text-xs text-emerald-400 font-mono font-bold">REGISTER OPEN</span>
                 <button
@@ -330,7 +330,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                   type="number"
                   value={openingBalance}
                   onChange={(e) => setOpeningBalance(e.target.value)}
-                  className="bg-slate-900 border border-slate-700 text-white text-xs px-2 py-1 w-20 rounded font-mono"
+                  className="bg-theme-surface-2 border border-theme-divider text-theme-heading text-xs px-2 py-1 w-20 rounded font-mono"
                 />
                 <button
                   onClick={handleOpenShift}
@@ -356,16 +356,16 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
         </div>
 
         {/* Right Billing Summary Sidebar (20-30% Viewport) */}
-        <div className="w-80 bg-[#1e293b] border-l border-slate-700 p-5 flex flex-col justify-between shrink-0 font-sans">
+        <div className="w-80 bg-theme-surface-1 border-l border-theme-divider p-5 flex flex-col justify-between shrink-0 font-sans">
           <div className="space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-display border-b border-slate-700 pb-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-theme-muted font-display border-b border-theme-divider pb-2">
               Billing Summary & Payment
             </h3>
 
-            <div className="space-y-2 font-mono text-xs text-slate-300">
+            <div className="space-y-2 font-mono text-xs text-theme-body">
               <div className="flex justify-between">
                 <span>Items Count:</span>
-                <span className="font-bold text-white">{cart.reduce((s, i) => s + i.quantity, 0)}</span>
+                <span className="font-bold text-theme-heading">{cart.reduce((s, i) => s + i.quantity, 0)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Subtotal:</span>
@@ -377,22 +377,22 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-700">
-              <div className="text-slate-400 text-[10px] font-mono uppercase">Grand Total (Payable)</div>
+            <div className="pt-4 border-t border-theme-divider">
+              <div className="text-theme-muted text-[10px] font-mono uppercase">Grand Total (Payable)</div>
               <div className="text-3xl font-extrabold text-emerald-400 font-display mt-1">
                 ₹{totalCartValue.toFixed(2)}
               </div>
             </div>
           </div>
 
-          <div className="space-y-3 pt-6 border-t border-slate-700">
+          <div className="space-y-3 pt-6 border-t border-theme-divider">
             <button
               disabled={cart.length === 0 || !activeShift}
               onClick={handleCheckout}
               className={`w-full py-3 rounded-lg font-bold text-xs uppercase tracking-wide flex items-center justify-center space-x-2 transition-all ${
                 cart.length > 0 && activeShift
                   ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40 cursor-pointer"
-                  : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                  : "bg-theme-surface-2 text-theme-muted border border-theme-divider cursor-not-allowed"
               }`}
             >
               <span className="material-symbols-outlined text-lg">payments</span>
