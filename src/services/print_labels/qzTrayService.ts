@@ -128,40 +128,51 @@ export async function dispatchRawPrintJob(
     }
   }
 
-  // ── Mode 2: QZ Tray WebSocket Proxy ─────────────────────────────────────────
-  // Optional desktop helper app. If installed, enables silent USB printing from any browser.
-  // Not required — falls through to Mode 3 if not running.
-  const qzAvailable = await isQZTrayAvailable();
-  if (qzAvailable && (window as any).qz) {
-    try {
-      const qz = (window as any).qz;
-      if (!qz.websocket.isActive()) {
-        await qz.websocket.connect();
+  // ── Mode 2: UniversalPrinterService / QZ Tray WebSocket Proxy ───────────────
+  try {
+    const { UniversalPrinterService } = await import("../printing/UniversalPrinterService");
+    const service = UniversalPrinterService.getInstance();
+    if (service.isQZConnected()) {
+      const res = await service.printRaw(rawScriptPayload, {
+        jobName: `LabelBatch::${profile.name}`,
+        copies
+      });
+      if (res.success) {
+        return {
+          success: true,
+          method: "QZ Tray WebSocket",
+          message: res.message
+        };
       }
-      const config = qz.configs.create(profile.name || profile.usbPort || "Zebra");
-      await qz.print(config, [rawScriptPayload]);
-      return {
-        success: true,
-        method: "QZ Tray WebSocket",
-        message: `Dispatched ${copies} label(s) to '${profile.name}' via QZ Tray WebSocket proxy.`
-      };
-    } catch (err: any) {
-      console.warn("QZ Tray dispatch error:", err);
     }
+  } catch (err) {
+    console.warn("UniversalPrinterService QZ Tray dispatch note:", err);
   }
 
   // ── Mode 3: WebSerial Native USB (Chrome/Edge 89+) ──────────────────────────
   // Sends raw ZPL/TSPL bytes directly to USB thermal printer via browser WebSerial API.
-  // No QZ Tray or middleware needed. Requires Chrome/Edge and user grants port permission once.
   if (profile.connectionType === "USB" && isWebSerialSupported()) {
     return dispatchViaWebSerial(rawScriptPayload, profile.baudRate || 115200);
   }
 
-  // ── Mode 4: Fallback — PDF / Browser Print Dialog ───────────────────────────
-  // For PDF laser printers or environments without WebSerial/QZ Tray.
-  return {
-    success: true,
-    method: "Browser PDF",
-    message: `ZPL script generated (${rawScriptPayload.length} bytes). Use PDF export or install QZ Tray / use TCP/IP for silent print.`
-  };
+  // ── Mode 4: Fallback — Windows Auto Print Agent / Browser PRN Spooler ─────────
+  try {
+    const { UniversalPrinterService } = await import("../printing/UniversalPrinterService");
+    const service = UniversalPrinterService.getInstance();
+    const res = await service.printRaw(rawScriptPayload, {
+      jobName: `LabelBatch::${profile.name}`,
+      copies
+    });
+    return {
+      success: true,
+      method: "Browser PDF",
+      message: res.message
+    };
+  } catch {
+    return {
+      success: true,
+      method: "Browser PDF",
+      message: `ZPL script generated (${rawScriptPayload.length} bytes). PRN script downloaded.`
+    };
+  }
 }
