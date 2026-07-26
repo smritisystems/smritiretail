@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_db, get_current_user, get_current_user_optional, require_role
 from ...core.security import hash_password
 from ...models.auth import User, UserRole
 from ...models.psv import PSVParty, PSVPartySkuTracking
@@ -601,7 +601,7 @@ def normalize_branch_code(code: str | None, idx: int) -> str:
 async def company_setup(
     payload: CompanySetupRequest = Body(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """
     Provision company setup from the onboarding wizard.
@@ -616,7 +616,7 @@ async def company_setup(
 
     existing_setup = await get_system_config(db, SETUP_COMPLETED_KEY)
     if existing_setup and existing_setup.value == "true":
-        if current_user.role != UserRole.SYSADMIN:
+        if not current_user or current_user.role != UserRole.SYSADMIN:
             raise HTTPException(
                 status_code=403,
                 detail="Only a SYSADMIN can run the company setup after initialization."

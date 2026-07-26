@@ -2,7 +2,7 @@
  * Project      : SMRITI Business OS
  * Product      : SMRITI Enterprise Design System (SEDS)
  * Author       : Jawahar Ramkripal Mallah
- * Version      : 1.0.0
+ * Version      : 3.16.0
  * License      : Proprietary Commercial Software
  * Classification: Internal Platform Entrypoint
  */
@@ -28,7 +28,8 @@ export * from './layout/SEDSPanel';
 
 // Core UI Components
 export * from './components/SEDSButton';
-export * from './components/SEDSBadge';
+export * from './components/SEDSCard';
+export * from './components/SEDSTable';
 export * from './components/SEDSInput';
 export * from './components/SEDSSelect';
 export * from './components/SEDSCheckbox';
@@ -43,3 +44,14 @@ export * from './components/SEDSEmptyState';
 export * from './components/SEDSSkeleton';
 export * from './components/SEDSLoading';
 export * from './components/SEDSDialog';
+export * from './components/SEDSWizard';
+export * from './components/SEDSFilterBar';
+export * from './components/SEDSToolbar';
+export * from './components/SEDSStatusBadge';
+export * from './components/SEDSHeader';
+export * from './components/SEDSAvatar';
+export * from './components/SEDSNotification';
+
+// Enterprise UX Layout Patterns
+export * from './components/patterns/SEDSListReport';
+export * from './components/patterns/SEDSObjectPage';

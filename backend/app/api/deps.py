@@ -130,6 +130,32 @@ async def get_current_user(
     return user
 
 
+async def get_current_user_optional(
+    request: Request,
+    db: AsyncSession = Depends(_get_db),
+) -> Optional[User]:
+    """
+    Attempt to decode Bearer JWT and return User object if valid token present.
+    Returns None if token is missing, invalid, or expired instead of throwing 401.
+    """
+    header = request.headers.get("Authorization")
+    if not header or not header.startswith("Bearer "):
+        return None
+    token = header.split(" ", 1)[1].strip()
+    if not token or token == "dev-bypass-token":
+        return None
+    try:
+        payload = decode_token(token)
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        from ..services.auth import AuthService
+        service = AuthService(db)
+        return await service.get_user_by_id(user_id)
+    except Exception:
+        return None
+
+
 # ---------------------------------------------------------------------------
 # get_tenant_context — now sourced from the JWT, not raw headers
 # ---------------------------------------------------------------------------

@@ -26,6 +26,7 @@
 import React, { useState, useEffect } from "react";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
 import { motion, AnimatePresence } from "motion/react";
+import { SEDSWizard } from "../../design-system/components/SEDSWizard.tsx";
 import {
   Sparkles,
   Building2,
