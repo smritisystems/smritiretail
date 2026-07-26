@@ -4,7 +4,7 @@ import path from 'path';
 const ARTIFACT_DIR = 'C:\\Users\\netma\\.gemini\\antigravity-ide\\brain\\98e34894-1acb-4bb4-8000-17173dfa1ee4';
 
 (async () => {
-  console.log('=== STARTING ENHANCED PLAYWRIGHT 1.62.0 DEMO ===');
+  console.log('=== STARTING ITEM MASTER RESTORATION VERIFICATION ===');
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
@@ -29,41 +29,43 @@ const ARTIFACT_DIR = 'C:\\Users\\netma\\.gemini\\antigravity-ide\\brain\\98e3489
       }
     }
 
-    // Click Barcode Label Hub tile on Launchpad
-    console.log('Clicking Barcode Label Hub tile on Launchpad...');
-    const barcodeTile = page.locator('text="Barcode Label Hub"').first();
-    if (await barcodeTile.isVisible().catch(() => false)) {
-      await barcodeTile.click();
+    // Click Product Master tile on Launchpad
+    console.log('Clicking Product Master tile on Launchpad...');
+    const productMasterTile = page.locator('text="Product Master"').first();
+    if (await productMasterTile.isVisible().catch(() => false)) {
+      await productMasterTile.click();
       await page.waitForTimeout(3000);
     }
 
-    const shot1 = path.join(ARTIFACT_DIR, 'live_demo_04_barcode_hub.png');
+    const shot1 = path.join(ARTIFACT_DIR, 'live_demo_06_item_master_registry.png');
     await page.screenshot({ path: shot1, fullPage: true });
-    console.log(`[OK] Captured Barcode Hub workspace screenshot: ${shot1}`);
+    console.log(`[OK] Captured Item Master Registry screenshot: ${shot1}`);
 
-    // If there is a "Show Barcode Demo" or "Print Document" or template selector, click it
-    const showDemoBtn = page.locator('button:has-text("Show Barcode Demo"), button:has-text("Print")').first();
-    if (await showDemoBtn.isVisible().catch(() => false)) {
-      console.log('Clicking demo action button...');
-      await showDemoBtn.click();
-      await page.waitForTimeout(2500);
-    }
-
-    // Select 50x25 Product Barcode Label template if button available
-    const labelTemplateBtn = page.locator('text="Product Barcode Label"').first();
-    if (await labelTemplateBtn.isVisible().catch(() => false)) {
-      console.log('Selecting 50x25mm Product Barcode Label template...');
-      await labelTemplateBtn.click();
+    // Click Excel Entry Grid tab
+    const excelGridTab = page.locator('text="Excel Entry Grid"').first();
+    if (await excelGridTab.isVisible().catch(() => false)) {
+      console.log('Testing Excel Entry Grid sub-tab...');
+      await excelGridTab.click();
       await page.waitForTimeout(2000);
+      const shot2 = path.join(ARTIFACT_DIR, 'live_demo_07_item_master_excel_grid.png');
+      await page.screenshot({ path: shot2, fullPage: true });
+      console.log(`[OK] Captured Excel Entry Grid screenshot: ${shot2}`);
     }
 
-    const shot2 = path.join(ARTIFACT_DIR, 'live_demo_05_label_preview.png');
-    await page.screenshot({ path: shot2, fullPage: true });
-    console.log(`[OK] Captured Label Preview screenshot: ${shot2}`);
+    // Click Attribute Manager tab
+    const attrTab = page.locator('text="Attribute Manager"').first();
+    if (await attrTab.isVisible().catch(() => false)) {
+      console.log('Testing Attribute Manager sub-tab...');
+      await attrTab.click();
+      await page.waitForTimeout(2000);
+      const shot3 = path.join(ARTIFACT_DIR, 'live_demo_08_item_master_attributes.png');
+      await page.screenshot({ path: shot3, fullPage: true });
+      console.log(`[OK] Captured Attribute Manager screenshot: ${shot3}`);
+    }
 
-    console.log('=== ENHANCED DEMO COMPLETED SUCCESSFULLY ===');
+    console.log('=== ITEM MASTER RESTORATION VERIFICATION COMPLETED ===');
   } catch (err) {
-    console.error('Error during enhanced demo:', err);
+    console.error('Error during verification:', err);
   } finally {
     await browser.close();
   }

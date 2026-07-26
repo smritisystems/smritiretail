@@ -37,17 +37,17 @@ import { Heart, AlignJustify,
   Printer, ShieldAlert, Image, Maximize2, Sparkles, SlidersHorizontal, CheckSquare, Square
 } from "lucide-react";
 import { Product, AttributeDefinition, AttributeGroup } from "../types.js";
-import { AttributeManagerSection } from "./AttributeManagerSection.js";
+import { AttributeManagerSection } from "./AttributeManagerSection.tsx";
 import { useACAS } from "../context-actions/ContextProvider.tsx";
-import { VariantTemplateSection } from "./VariantTemplateSection.js";
-import { BulkImportSection } from "./BulkImportSection.js";
-import { AttributeAnalyticsSection } from "./AttributeAnalyticsSection.js";
+import { VariantTemplateSection } from "./VariantTemplateSection.tsx";
+import { BulkImportSection } from "./BulkImportSection.tsx";
+import { AttributeAnalyticsSection } from "./AttributeAnalyticsSection.tsx";
 import { DrillableLink } from "./drilldown/DrillableLink.tsx";
-import { ExcelGridEntrySection } from "./ExcelGridEntrySection.js";
+import { ExcelGridEntrySection } from "./ExcelGridEntrySection.tsx";
 import { ProductImage } from "./common/ProductImage.tsx";
 import { ImageDisplayPolicyModal, DisplayPolicy, DEFAULT_DISPLAY_POLICY } from "./common/ImageDisplayPolicyModal.tsx";
 import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
-import { ExpandedCellEditor, ExpandContextMenu } from "./ExpandedCellEditor";
+import { ExpandedCellEditor, ExpandContextMenu } from "./ExpandedCellEditor.tsx";
 
 
 interface ItemMasterTabProps {
