@@ -30,7 +30,7 @@ import {
 import { 
   PrinterProfile, PRNPrinterBrand, getStoredPrinterProfiles, 
   savePrinterProfiles, pushPrinterProfilesToNetwork, syncPrinterProfilesFromNetwork,
-  testPrinterConnection, generateRawTestPrintScript 
+  testPrinterConnection, generateRawTestPrintScript, discoverLocalHardwarePrinters
 } from "../services/universalLabelPrinterService.ts";
 
 export interface PrinterConfigurationModalProps {
@@ -221,6 +221,28 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
     setTestResult(res);
   };
 
+  const handleScanLocalHardwarePrinters = async () => {
+    const res = await discoverLocalHardwarePrinters();
+    if (res.success && res.profile) {
+      let updatedList = [...profiles, res.profile];
+      if (res.profile.isDefault) {
+        updatedList = updatedList.map(p => p.id === res.profile?.id ? p : { ...p, isDefault: false });
+      }
+      setProfiles(updatedList);
+      savePrinterProfiles(updatedList);
+      pushPrinterProfilesToNetwork(updatedList);
+      setSelectedProfileId(res.profile.id);
+      setFormData(res.profile);
+      setIsAddingNew(false);
+      setTestResult({ success: true, message: res.message });
+      if (onPrinterProfileChanged) {
+        onPrinterProfileChanged(updatedList, res.profile.id);
+      }
+    } else {
+      setTestResult({ success: false, message: res.message });
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -235,7 +257,7 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
             </div>
             <div>
               <h2 className="text-base font-bold text-theme-heading font-display">Barcode Standard Printer Hardware Setup</h2>
-              <p className="text-[11px] text-theme-muted">Configure TCP/IP Network & Direct USB Barcode Label Printers (Zebra, TSC, TVS, Citizen)</p>
+              <p className="text-[11px] text-theme-muted font-sans">Configure TCP/IP Network & Direct USB Barcode Label Printers (Zebra, TSC, TVS, Citizen)</p>
             </div>
           </div>
           
@@ -249,15 +271,25 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
           
           {/* Left Column: Printer Profiles List */}
           <div className="col-span-4 bg-theme-surface-2 border-r border-theme-divider p-4 space-y-3 flex flex-col">
-            <div className="flex justify-between items-center border-b border-theme-divider pb-2">
-              <span className="text-[10px] font-bold uppercase text-theme-muted tracking-wider">Configured Printers</span>
-              <button 
-                onClick={handleAddNewClick}
-                className="px-2 py-1 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 rounded-lg border border-amber-500/40 text-[10px] font-bold flex items-center gap-1"
-              >
-                <Plus size={12} />
-                <span>Add Printer</span>
-              </button>
+            <div className="flex justify-between items-center border-b border-theme-divider pb-2 gap-1">
+              <span className="text-[10px] font-bold uppercase text-theme-muted tracking-wider">Printers</span>
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={handleScanLocalHardwarePrinters}
+                  title="Scan & Pair Local WebSerial USB Barcode Printer"
+                  className="px-2 py-1 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 rounded-lg border border-emerald-500/40 text-[10px] font-bold flex items-center gap-1"
+                >
+                  <Usb size={12} />
+                  <span>Scan USB</span>
+                </button>
+                <button 
+                  onClick={handleAddNewClick}
+                  className="px-2 py-1 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 rounded-lg border border-amber-500/40 text-[10px] font-bold flex items-center gap-1"
+                >
+                  <Plus size={12} />
+                  <span>Add</span>
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">

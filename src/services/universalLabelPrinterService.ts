@@ -444,6 +444,52 @@ export async function syncPrinterProfilesFromNetwork(): Promise<PrinterProfile[]
   return getStoredPrinterProfiles();
 }
 
+/**
+ * Hardware Scanner & WebSerial / WebUSB Local Printer Auto-Discovery
+ */
+export async function discoverLocalHardwarePrinters(): Promise<{ success: boolean; message: string; profile?: PrinterProfile }> {
+  // Check browser WebSerial API support
+  if ("serial" in navigator) {
+    try {
+      // Request WebSerial port authorization from user
+      const port = await (navigator as any).serial.requestPort();
+      const info = port.getInfo ? port.getInfo() : {};
+      const vendorId = info.usbVendorId ? `0x${info.usbVendorId.toString(16)}` : "Unknown";
+      const productId = info.usbProductId ? `0x${info.usbProductId.toString(16)}` : "Unknown";
+
+      const discoveredProfile: PrinterProfile = {
+        id: `prn-usb-${Date.now().toString().slice(-4)}`,
+        name: `Local Direct USB Barcode Printer (${vendorId}:${productId})`,
+        protocol: "TSPL",
+        connectionType: "USB",
+        address: `USB Serial Port (${vendorId}:${productId})`,
+        usbPort: `USB-VID:${vendorId}-PID:${productId}`,
+        isDefault: true,
+        printerBrand: "TSC",
+        dpi: 203,
+        status: "Ready",
+        description: "Discovered via Browser WebSerial Direct Hardware Interop"
+      };
+
+      return {
+        success: true,
+        message: `Discovered and paired local USB hardware printer (${vendorId}:${productId}).`,
+        profile: discoveredProfile
+      };
+    } catch (err: any) {
+      if (err.name === "NotFoundError" || err.message?.includes("cancelled")) {
+        return { success: false, message: "Local USB printer selection was cancelled." };
+      }
+      return { success: false, message: `WebSerial error: ${err.message || "Failed to access USB port."}` };
+    }
+  }
+
+  return {
+    success: false,
+    message: "WebSerial hardware API is not supported in this browser. Use Chrome/Edge for direct USB printing or select Virtual PDF / Windows System Spooler."
+  };
+}
+
 export async function pushPrinterProfilesToNetwork(profiles: PrinterProfile[]): Promise<boolean> {
   savePrinterProfiles(profiles);
   try {
