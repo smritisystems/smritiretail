@@ -246,7 +246,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
 
         {/* ── Shortcuts hint ───────────────────────────────────────────── */}
         {showShortcuts && (
-          <div className="px-4 py-2.5 bg-indigo-950/30 border-b border-indigo-500/10 flex flex-wrap gap-3 text-[10px] font-mono text-slate-400 flex-shrink-0">
+          <div className="px-4 py-2.5 bg-indigo-950/30 border-b border-indigo-500/10 flex flex-wrap gap-3 text-[10px] font-mono text-theme-muted flex-shrink-0">
             {[
               ["Ctrl+Enter", "Confirm"],
               ["Escape", "Cancel"],
@@ -255,7 +255,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
               ["Ctrl+C", "Copy"],
             ].map(([key, desc]) => (
               <span key={key} className="flex items-center gap-1">
-                <kbd className="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-[9px] text-slate-300">
+                <kbd className="bg-theme-surface-3 border border-theme-divider rounded px-1.5 py-0.5 text-[9px] text-theme-body">
                   {key}
                 </kbd>
                 <span>{desc}</span>
@@ -265,18 +265,18 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
         )}
 
         {/* ── Search bar ───────────────────────────────────────────────── */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-[#0c0e14] border-b border-slate-800 flex-shrink-0">
-          <Search size={12} className="text-slate-500 flex-shrink-0" />
+        <div className="flex items-center gap-2 px-3 py-2 bg-theme-surface-2 border-b border-theme-divider flex-shrink-0">
+          <Search size={12} className="text-theme-muted flex-shrink-0" />
           <input
             ref={searchRef}
             type="text"
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setMatchIndex(0); }}
             placeholder="Search within cell content… (Ctrl+F)"
-            className="flex-1 bg-transparent text-[11px] font-mono text-slate-300 placeholder-slate-600 outline-none"
+            className="flex-1 bg-transparent text-[11px] font-mono text-theme-body placeholder-theme-muted outline-none"
           />
           {searchQuery && (
-            <span className="text-[10px] font-mono text-slate-500 flex-shrink-0">
+            <span className="text-[10px] font-mono text-theme-muted flex-shrink-0">
               {matchCount > 0 ? `${matchIndex + 1}/${matchCount}` : "No match"}
             </span>
           )}
@@ -284,14 +284,14 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
             <>
               <button
                 onClick={() => cycleMatch("prev")}
-                className="p-0.5 rounded text-slate-500 hover:text-slate-300 transition-colors"
+                className="p-0.5 rounded text-theme-muted hover:text-theme-heading transition-colors"
                 title="Previous match"
               >
                 <ChevronUp size={12} />
               </button>
               <button
                 onClick={() => cycleMatch("next")}
-                className="p-0.5 rounded text-slate-500 hover:text-slate-300 transition-colors"
+                className="p-0.5 rounded text-theme-muted hover:text-theme-heading transition-colors"
                 title="Next match"
               >
                 <ChevronDown size={12} />
@@ -301,7 +301,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
           {searchQuery && (
             <button
               onClick={() => { setSearchQuery(""); setMatchIndex(0); }}
-              className="p-0.5 rounded text-slate-600 hover:text-slate-300 transition-colors"
+              className="p-0.5 rounded text-theme-muted hover:text-theme-heading transition-colors"
               title="Clear search"
             >
               <X size={11} />
@@ -340,15 +340,15 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             spellCheck={false}
-            className="absolute inset-0 w-full h-full resize-none bg-transparent border-0 outline-none p-3 text-[12px] font-mono leading-relaxed text-slate-100 placeholder-slate-600 z-20"
+            className="absolute inset-0 w-full h-full resize-none bg-transparent border-0 outline-none p-3 text-[12px] font-mono leading-relaxed text-theme-heading placeholder-theme-muted z-20"
             placeholder={`Enter value for ${fieldLabel}…`}
             style={{ caretColor: "#818cf8" }}
           />
         </div>
 
         {/* ── Character / word count bar ────────────────────────────────── */}
-        <div className="px-4 py-1.5 bg-[#0c0e14] border-t border-slate-800 flex items-center justify-between flex-shrink-0">
-          <span className="text-[10px] font-mono text-slate-600">
+        <div className="px-4 py-1.5 bg-theme-surface-2 border-t border-theme-divider flex items-center justify-between flex-shrink-0">
+          <span className="text-[10px] font-mono text-theme-muted">
             {draft.length} chars
             {draft.trim() && ` · ${draft.trim().split(/\s+/).length} words`}
             {draft !== value && (
@@ -363,13 +363,13 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
         </div>
 
         {/* ── Footer toolbar ────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#141720] border-t border-indigo-500/15 flex-shrink-0 gap-2">
+        <div className="flex items-center justify-between px-4 py-3 bg-theme-surface-1 border-t border-indigo-500/15 flex-shrink-0 gap-2">
           {/* Left: destructive actions */}
           <div className="flex items-center gap-2">
             <button
               onClick={handleCopy}
               title="Copy full content to clipboard"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono rounded-lg bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-body hover:text-theme-heading border border-theme-divider transition-all"
             >
               <Copy size={11} />
               {copied ? "Copied!" : "Copy"}
@@ -377,7 +377,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
             <button
               onClick={handleClear}
               title="Clear cell content"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono rounded-lg bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-700/50 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono rounded-lg bg-theme-surface-3 hover:bg-rose-900/40 text-theme-muted hover:text-rose-300 border border-theme-divider hover:border-rose-700/50 transition-all"
             >
               <Trash2 size={11} />
               Clear
@@ -480,14 +480,14 @@ export const ExpandContextMenu: React.FC<ExpandContextMenuProps> = ({
       ref={menuRef}
       role="menu"
       aria-label="Cell context menu"
-      className="fixed z-[10000] w-52 rounded-xl shadow-2xl border border-slate-700/60 bg-[#141720] overflow-hidden py-1"
+      className="fixed z-[10000] w-52 rounded-xl shadow-2xl border border-theme-divider bg-theme-surface-1 overflow-hidden py-1"
       style={{
         left: safeX,
         top: safeY,
         animation: "smriti-context-fade-in 100ms ease both",
       }}
     >
-      <div className="px-3 py-1.5 text-[9px] font-mono text-slate-600 uppercase tracking-widest border-b border-slate-800 mb-1">
+      <div className="px-3 py-1.5 text-[9px] font-mono text-theme-muted uppercase tracking-widest border-b border-theme-divider mb-1">
         Cell Actions
       </div>
       {items.map((item) => (
@@ -499,15 +499,15 @@ export const ExpandContextMenu: React.FC<ExpandContextMenuProps> = ({
             item.highlight
               ? "text-indigo-300 hover:bg-indigo-600/20"
               : item.danger
-              ? "text-slate-400 hover:text-rose-400 hover:bg-rose-900/20"
-              : "text-slate-300 hover:bg-slate-800"
+              ? "text-theme-muted hover:text-rose-400 hover:bg-rose-900/20"
+              : "text-theme-body hover:bg-theme-surface-2"
           }`}
         >
           <span className="flex items-center gap-2">
             <span className="text-[13px] w-4 text-center">{item.icon}</span>
             {item.label}
           </span>
-          <span className="text-[9px] text-slate-600">{item.sub}</span>
+          <span className="text-[9px] text-theme-muted">{item.sub}</span>
         </button>
       ))}
       <style>{`
