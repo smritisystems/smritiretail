@@ -580,7 +580,7 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
 
             </form>
 
-          </div>>
+          </div>
 
         </div>
 

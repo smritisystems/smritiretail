@@ -86,7 +86,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
       : status === "Blocked"
       ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
       : status === "Inactive"
-      : "bg-theme-surface-2 text-theme-muted border-theme-divider"
+      ? "bg-theme-surface-2 text-theme-muted border-theme-divider"
       : "bg-amber-500/10 text-amber-400 border-amber-500/30";
   return (
     <span className={`px-2 py-0.5 text-[10px] font-bold tracking-wider rounded-md border ${cls}`}>
