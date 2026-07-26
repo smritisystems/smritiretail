@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 2.1.2
+ * Version      : 5.1.0  (SEEF Phase 8 - Already theme-token compliant; audit confirmed)
  * Created      : 2026-07-10
  * Modified     : 2026-07-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
