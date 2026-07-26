@@ -5,7 +5,7 @@
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
- * Version      : 5.0.0
+ * Version      : 5.1.0  (SEEF Phase 8 - Theme token cascade)
  * Created      : 2026-07-10
  * Modified     : 2026-07-26
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -27,7 +27,7 @@ const ActionBadge: React.FC<{ action: string }> = ({ action }) => {
       ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
       : action === "UPDATE"
       ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
-      : "bg-slate-500/10 text-slate-400 border-slate-500/30";
+      : "bg-theme-surface-2 text-theme-muted border-theme-divider";
   return (
     <span className={`px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded border ${cls}`}>
       {action}
@@ -40,7 +40,7 @@ const COLUMNS: ListReportColumn<AuditLogEntry>[] = [
     key: "timestamp",
     label: "Timestamp",
     render: (row) => (
-      <span className="text-slate-300 font-mono text-xs">
+      <span className="text-theme-body font-mono text-xs">
         {new Date(row.timestamp).toLocaleString()}
       </span>
     ),
@@ -50,8 +50,8 @@ const COLUMNS: ListReportColumn<AuditLogEntry>[] = [
     label: "Operator",
     render: (row) => (
       <div>
-        <span className="font-semibold text-slate-100 text-xs">{row.userName}</span>
-        {row.userId && <div className="text-[10px] text-slate-500 font-mono">{row.userId}</div>}
+        <span className="font-semibold text-theme-heading text-xs">{row.userName}</span>
+        {row.userId && <div className="text-[10px] text-theme-muted font-mono">{row.userId}</div>}
       </div>
     ),
   },
@@ -59,7 +59,7 @@ const COLUMNS: ListReportColumn<AuditLogEntry>[] = [
     key: "module",
     label: "Module Segment",
     render: (row) => (
-      <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded text-[10px] font-mono">
+      <span className="bg-theme-surface-2 text-theme-body px-2 py-0.5 rounded text-[10px] font-mono">
         {row.module}
       </span>
     ),
@@ -75,9 +75,9 @@ const COLUMNS: ListReportColumn<AuditLogEntry>[] = [
     label: "Target Entity",
     render: (row) => (
       <div>
-        <span className="text-slate-200 text-xs">{row.targetName}</span>
+        <span className="text-theme-body text-xs">{row.targetName}</span>
         {row.targetId && (
-          <span className="text-[10px] text-slate-500 font-mono block">({row.targetId})</span>
+          <span className="text-[10px] text-theme-muted font-mono block">({row.targetId})</span>
         )}
       </div>
     ),
@@ -94,9 +94,9 @@ const COLUMNS: ListReportColumn<AuditLogEntry>[] = [
           </div>
         )}
         {!row.oldValue && row.newValue && (
-          <span className="text-slate-300">{row.newValue}</span>
+          <span className="text-theme-body">{row.newValue}</span>
         )}
-        {!row.oldValue && !row.newValue && <span className="text-slate-600">—</span>}
+        {!row.oldValue && !row.newValue && <span className="text-theme-muted">—</span>}
       </div>
     ),
   },
@@ -130,7 +130,7 @@ export const AuditLogsTab: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 text-slate-100">
+    <div className="flex flex-col h-full bg-theme-base text-theme-body">
       <div className="flex-1 overflow-hidden">
         <FioriListReport<AuditLogEntry>
           title="System Audit Logs"

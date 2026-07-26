@@ -16,7 +16,7 @@
  *
  * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 5.0.0
+ * * Version    : 5.1.0  (SEEF Phase 8 - Theme token cascade)
  * * Created    : 2026-07-10
  * * Modified   : 2026-07-26
  * * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -58,8 +58,8 @@ const COLUMNS: ListReportColumn<LedgerRow>[] = [
     label: "Timestamp",
     render: (row) => (
       <div>
-        <div className="text-slate-200 text-xs">{new Date(row.timestamp).toLocaleString()}</div>
-        <div className="text-[10px] text-slate-500 mt-0.5">
+        <div className="text-theme-body text-xs">{new Date(row.timestamp).toLocaleString()}</div>
+        <div className="text-[10px] text-theme-muted mt-0.5">
           {row.user || "System"} · {row.sourceModule || "App"}
         </div>
       </div>
@@ -69,7 +69,7 @@ const COLUMNS: ListReportColumn<LedgerRow>[] = [
     key: "id",
     label: "Trans ID",
     render: (row) => (
-      <span className="font-mono text-[10px] text-slate-500 truncate block max-w-[90px]">{row.id}</span>
+      <span className="font-mono text-[10px] text-theme-muted truncate block max-w-[90px]">{row.id}</span>
     ),
   },
   {
@@ -77,8 +77,8 @@ const COLUMNS: ListReportColumn<LedgerRow>[] = [
     label: "Item",
     render: (row) => (
       <div>
-        <div className="font-medium text-slate-100 text-xs">{row.productName}</div>
-        <div className="text-[10px] text-slate-500 font-mono mt-0.5">{row.productCode}</div>
+        <div className="font-medium text-theme-heading text-xs">{row.productName}</div>
+        <div className="text-[10px] text-theme-muted font-mono mt-0.5">{row.productCode}</div>
       </div>
     ),
   },
@@ -87,8 +87,8 @@ const COLUMNS: ListReportColumn<LedgerRow>[] = [
     label: "Warehouse / Bin",
     render: (row) => (
       <div>
-        <div className="text-slate-300 text-xs">{row.warehouse || "Main WH"}</div>
-        <div className="text-[10px] text-slate-500 mt-0.5">Bin: {row.bin || "Default"}</div>
+        <div className="text-theme-body text-xs">{row.warehouse || "Main WH"}</div>
+        <div className="text-[10px] text-theme-muted mt-0.5">Bin: {row.bin || "Default"}</div>
       </div>
     ),
   },
@@ -99,7 +99,7 @@ const COLUMNS: ListReportColumn<LedgerRow>[] = [
       <div className="flex flex-col gap-1 items-start">
         <MovementBadge type={row.movementType} />
         {row.referenceDocId && (
-          <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[10px] text-slate-400">
+          <span className="bg-theme-surface-2 px-1.5 py-0.5 rounded text-[10px] text-theme-muted">
             {row.referenceDocId}
           </span>
         )}
@@ -135,7 +135,7 @@ const COLUMNS: ListReportColumn<LedgerRow>[] = [
     label: "Balance",
     align: "right",
     render: (row) => (
-      <span className="font-bold text-slate-100">{row.balanceAfter}</span>
+      <span className="font-bold text-theme-heading">{row.balanceAfter}</span>
     ),
   },
 ];

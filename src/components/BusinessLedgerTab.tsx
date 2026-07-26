@@ -16,7 +16,7 @@
  *
  * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 5.0.0
+ * * Version    : 5.1.0  (SEEF Phase 8 - Theme token cascade)
  * * Created    : 2026-07-10
  * * Modified   : 2026-07-26
  * * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -86,7 +86,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
       : status === "Blocked"
       ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
       : status === "Inactive"
-      ? "bg-slate-500/10 text-slate-400 border-slate-500/30"
+      : "bg-theme-surface-2 text-theme-muted border-theme-divider"
       : "bg-amber-500/10 text-amber-400 border-amber-500/30";
   return (
     <span className={`px-2 py-0.5 text-[10px] font-bold tracking-wider rounded-md border ${cls}`}>
@@ -162,10 +162,10 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
       render: (row) => (
         <div
           onClick={() => setSelectedCustomerId(row.id)}
-          className={`cursor-pointer ${selectedCustomerId === row.id ? "text-cyan-400 font-bold" : "text-slate-200"}`}
+          className={`cursor-pointer ${selectedCustomerId === row.id ? "text-cyan-400 font-bold" : "text-theme-body"}`}
         >
           <div className="font-medium text-xs">{row.name}</div>
-          <div className="text-[10px] text-slate-500 font-mono mt-0.5">{row.mobile}</div>
+          <div className="text-[10px] text-theme-muted font-mono mt-0.5">{row.mobile}</div>
         </div>
       ),
     },
@@ -173,7 +173,7 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
       key: "customerGroupId",
       label: "Segment",
       render: (row) => (
-        <span className="px-2 py-0.5 text-[10px] rounded bg-slate-800 text-slate-300">
+        <span className="px-2 py-0.5 text-[10px] rounded bg-theme-surface-2 text-theme-body">
           {getGroupName(row.customerGroupId)}
         </span>
       ),
@@ -183,7 +183,7 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
       label: "Outstanding",
       align: "right",
       render: (row) => (
-        <span className="font-mono font-semibold text-xs text-slate-100">
+        <span className="font-mono font-semibold text-xs text-theme-heading">
           {formatCurrency(row.outstanding)}
         </span>
       ),
@@ -217,7 +217,7 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
   ];
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 text-slate-100">
+    <div className="flex flex-col h-full bg-theme-base text-theme-body">
       {/* Read-Only Banner */}
       {isReadOnly && (
         <div className="bg-amber-950/40 border-b border-amber-500/30 px-6 py-2.5 flex items-center space-x-2 text-amber-400 text-xs flex-shrink-0">
@@ -228,25 +228,25 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
       )}
 
       {/* Fiori-style Page Header */}
-      <div className="px-6 pt-6 pb-4 border-b border-slate-800 flex-shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight text-white">Business Ledger</h1>
-        <p className="text-xs text-slate-400 mt-1">
+      <div className="px-6 pt-6 pb-4 border-b border-theme-divider flex-shrink-0">
+        <h1 className="text-2xl font-bold tracking-tight text-theme-heading">Business Ledger</h1>
+        <p className="text-xs text-theme-muted mt-1">
           Operational view of outstanding balances, settlements, credit policies, and party risk
         </p>
       </div>
 
       {/* KPI Header Cards */}
-      <div className="px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-4 flex-shrink-0 border-b border-slate-800/60">
+      <div className="px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-4 flex-shrink-0 border-b border-theme-divider">
         {[
           { label: "Total Outstanding", value: formatCurrency(totalOutstanding), icon: <Landmark size={18} />, color: "text-rose-400 bg-rose-500/10" },
           { label: "Active Parties", value: customers.length, icon: <Users size={18} />, color: "text-blue-400 bg-blue-500/10" },
           { label: "Parties with Dues", value: duePartiesCount, icon: <ShieldAlert size={18} />, color: "text-amber-400 bg-amber-500/10" },
           { label: "Avg Outstanding", value: formatCurrency(avgOutstanding), icon: <TrendingUp size={18} />, color: "text-emerald-400 bg-emerald-500/10" },
         ].map((kpi) => (
-          <div key={kpi.label} className="bg-slate-900/60 p-4 rounded-xl border border-slate-800/60 flex items-center justify-between">
+          <div key={kpi.label} className="bg-theme-surface-1 p-4 rounded-xl border border-theme-divider flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{kpi.label}</p>
-              <h3 className="text-base font-bold font-mono text-slate-100 mt-1">{kpi.value}</h3>
+              <p className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider">{kpi.label}</p>
+              <h3 className="text-base font-bold font-mono text-theme-heading mt-1">{kpi.value}</h3>
             </div>
             <div className={`p-2 rounded-lg ${kpi.color}`}>{kpi.icon}</div>
           </div>
@@ -256,7 +256,7 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
       {/* Split View: List Report (left) + Party Detail Panel (right) */}
       <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-0">
         {/* Left: WNG-002 List Report — Receivables Ledger */}
-        <div className="lg:col-span-7 overflow-hidden border-r border-slate-800/60">
+        <div className="lg:col-span-7 overflow-hidden border-r border-theme-divider">
           <FioriListReport<Customer>
             title="Receivables Ledger"
             subtitle={`${customers.length} parties — click a row to load insights`}
@@ -279,18 +279,18 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
         </div>
 
         {/* Right: Party Insights Detail Panel */}
-        <div className="lg:col-span-5 overflow-auto p-6 bg-slate-900/20">
+        <div className="lg:col-span-5 overflow-auto p-6 bg-theme-surface-1/20">
           {selectedCustomer ? (
             <div className="space-y-6">
               {/* Party Header */}
-              <div className="pb-4 border-b border-slate-800">
+              <div className="pb-4 border-b border-theme-divider">
                 <div className="flex justify-between items-start">
                   <div>
-                    <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">
+                    <span className="text-[10px] font-mono text-theme-muted uppercase tracking-wider">
                       Party Insights
                     </span>
-                    <h3 className="text-lg font-bold text-white mt-1">{selectedCustomer.name}</h3>
-                    <p className="text-xs text-slate-400 mt-1 flex items-center gap-1 font-mono">
+                    <h3 className="text-lg font-bold text-theme-heading mt-1">{selectedCustomer.name}</h3>
+                    <p className="text-xs text-theme-muted mt-1 flex items-center gap-1 font-mono">
                       <span className="material-symbols-outlined text-xs">mail</span>
                       {selectedCustomer.email || "No email on file"}
                     </p>
@@ -304,21 +304,21 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
               {/* 6-Month Balance Trend Chart */}
               <div>
                 <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <h4 className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
                     6-Month Balance History
                   </h4>
                   <span className="text-[11px] font-semibold text-cyan-400 font-mono">Trend</span>
                 </div>
-                <div className="h-56 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+                <div className="h-56 bg-theme-surface-1 p-4 rounded-xl border border-theme-divider">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 4 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-theme-divider, #1e293b)" />
                       <XAxis dataKey="month" stroke="#475569" fontSize={10} tickLine={false} />
                       <YAxis stroke="#475569" fontSize={10} tickLine={false} />
                       <Tooltip
-                        contentStyle={{ backgroundColor: "#0f172a", borderColor: "#1e293b", borderRadius: 8 }}
-                        labelStyle={{ color: "#94a3b8", fontWeight: "bold", fontSize: 10 }}
-                        itemStyle={{ color: "#ffffff", fontSize: 11 }}
+                        contentStyle={{ backgroundColor: "var(--color-theme-surface-1, #0f172a)", borderColor: "var(--color-theme-divider, #1e293b)", borderRadius: 8 }}
+                        labelStyle={{ color: "var(--color-theme-muted, #94a3b8)", fontWeight: "bold", fontSize: 10 }}
+                        itemStyle={{ color: "var(--color-theme-heading, #ffffff)", fontSize: 11 }}
                         formatter={(value) => [`₹${Number(value).toLocaleString("en-IN")}`, "Balance"]}
                       />
                       <Line
@@ -326,7 +326,7 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
                         dataKey="Balance"
                         stroke="#22d3ee"
                         strokeWidth={2.5}
-                        dot={{ r: 3, stroke: "#22d3ee", fill: "#0f172a" }}
+                        dot={{ r: 3, stroke: "#22d3ee", fill: "var(--color-theme-base, #0f172a)" }}
                         activeDot={{ r: 5 }}
                       />
                     </LineChart>
@@ -335,16 +335,16 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
               </div>
 
               {/* Stat Summary */}
-              <div className="grid grid-cols-2 gap-3 py-4 border-t border-b border-slate-800">
-                <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800/60">
-                  <span className="text-[10px] uppercase text-slate-500 font-semibold">Peak Balance (6M)</span>
-                  <span className="block text-sm font-bold text-slate-100 font-mono mt-0.5">
+              <div className="grid grid-cols-2 gap-3 py-4 border-t border-b border-theme-divider">
+                <div className="bg-theme-surface-1 p-3 rounded-xl border border-theme-divider">
+                  <span className="text-[10px] uppercase text-theme-muted font-semibold">Peak Balance (6M)</span>
+                  <span className="block text-sm font-bold text-theme-heading font-mono mt-0.5">
                     {formatCurrency(Math.max(...chartData.map((d) => d.Balance), 0))}
                   </span>
                 </div>
-                <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800/60">
-                  <span className="text-[10px] uppercase text-slate-500 font-semibold">Avg Balance</span>
-                  <span className="block text-sm font-bold text-slate-100 font-mono mt-0.5">
+                <div className="bg-theme-surface-1 p-3 rounded-xl border border-theme-divider">
+                  <span className="text-[10px] uppercase text-theme-muted font-semibold">Avg Balance</span>
+                  <span className="block text-sm font-bold text-theme-heading font-mono mt-0.5">
                     {formatCurrency(
                       Math.round(chartData.reduce((s, d) => s + d.Balance, 0) / (chartData.length || 1))
                     )}
@@ -355,7 +355,7 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
               {/* Resolved Risk Policies */}
               {policy && (
                 <div className="space-y-3">
-                  <h4 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <h4 className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
                     Resolved Risk Policies
                   </h4>
                   <div className="grid grid-cols-2 gap-2.5">
@@ -370,10 +370,10 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
                     ].map((p) => (
                       <div
                         key={p.label}
-                        className="p-2.5 bg-slate-900/50 rounded-lg border border-slate-800/60 text-xs"
+                        className="p-2.5 bg-theme-surface-1 rounded-lg border border-theme-divider text-xs"
                       >
-                        <span className="text-slate-500 block text-[10px] uppercase">{p.label}</span>
-                        <span className="font-semibold text-slate-100 font-mono">{p.value}</span>
+                        <span className="text-theme-muted block text-[10px] uppercase">{p.label}</span>
+                        <span className="font-semibold text-theme-heading font-mono">{p.value}</span>
                       </div>
                     ))}
                   </div>
@@ -381,7 +381,7 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
               )}
             </div>
           ) : (
-            <div className="h-full flex items-center justify-center text-slate-500 text-sm">
+            <div className="h-full flex items-center justify-center text-theme-muted text-sm">
               Select a party from the ledger list to view their financial insights.
             </div>
           )}
