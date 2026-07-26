@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -509,6 +509,7 @@ export interface Customer {
 
   // Pricing overrides
   priceListId?: string;
+  pricingGroupId?: string;
   discountPercent?: number;
 
   // Payment overrides

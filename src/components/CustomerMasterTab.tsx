@@ -187,7 +187,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
 
     try {
       const valResult = await validateCustomerProfile(payload);
-      if (!valResult.isValid) {
+      if (!valResult.valid) {
         setValidationErrors(valResult.errors);
         setIsValidating(false);
         return;
