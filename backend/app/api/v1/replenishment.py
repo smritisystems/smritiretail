@@ -20,7 +20,7 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.api.deps import get_current_tenant, TenantContext
+from app.api.deps import get_current_tenant, TenantContext, require_permission
 from app.models.inventory import ReplenishmentPlan
 from app.services.replenishment_engine import ReplenishmentEngine
 from app.schemas.replenishment import (
@@ -31,7 +31,7 @@ from app.schemas.replenishment import (
 router = APIRouter(prefix="/inventory/replenishment", tags=["Automated Warehouse Replenishment"])
 
 
-@router.get("/suggestions", response_model=List[ReorderSuggestionResponse])
+@router.get("/suggestions", response_model=List[ReorderSuggestionResponse], dependencies=[Depends(require_permission("INVENTORY.VIEW"))])
 async def get_reorder_suggestions(
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_current_tenant)
@@ -43,7 +43,7 @@ async def get_reorder_suggestions(
     return await engine.generate_reorder_suggestions()
 
 
-@router.post("/plans", response_model=ReplenishmentPlanResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/plans", response_model=ReplenishmentPlanResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("INVENTORY.MANAGE_REPLENISHMENT"))])
 async def create_replenishment_plan(
     payload: ReplenishmentPlanCreate,
     db: AsyncSession = Depends(get_db),
@@ -61,7 +61,7 @@ async def create_replenishment_plan(
     )
 
 
-@router.post("/plans/{id}/convert", response_model=List[ConvertedPurchaseOrderSummary])
+@router.post("/plans/{id}/convert", response_model=List[ConvertedPurchaseOrderSummary], dependencies=[Depends(require_permission("PURCHASE.CREATE"))])
 async def convert_plan_to_purchase_orders(
     id: str,
     db: AsyncSession = Depends(get_db),
@@ -75,7 +75,7 @@ async def convert_plan_to_purchase_orders(
     return [ConvertedPurchaseOrderSummary.model_validate(po) for po in pos]
 
 
-@router.get("/plans/{id}", response_model=ReplenishmentPlanResponse)
+@router.get("/plans/{id}", response_model=ReplenishmentPlanResponse, dependencies=[Depends(require_permission("INVENTORY.VIEW"))])
 async def get_replenishment_plan(
     id: str,
     db: AsyncSession = Depends(get_db),

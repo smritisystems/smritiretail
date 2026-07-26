@@ -13,37 +13,38 @@ Classification: Enterprise WMS REST API Gateway
 """
 
 from typing import List, Dict, Any
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, Depends
 
 from app.core.wms.bin_location import BinLocationManager
 from app.core.wms.stock_transfer import StockTransferEngine
 from app.core.wms.batch_serial import BatchSerialManager
 from app.core.wms.inventory_count import InventoryCountEngine
+from app.api.deps import require_permission
 
 router = APIRouter(prefix="/wms", tags=["Domain Release: Enterprise WMS & Multi-Bin Engine (v18.0.0)"])
 
 
-@router.post("/bins")
+@router.post("/bins", dependencies=[Depends(require_permission("INVENTORY.MANAGE_WMS"))])
 async def create_bin_location(warehouse_id: str = Body(...), zone: str = Body("MAIN"), aisle: str = Body(...), rack: str = Body(...), shelf: str = Body(...), bin_code: str = Body(...), max_capacity: int = Body(1000)):
     """Creates a new bin location in a warehouse."""
     bin_rec = BinLocationManager.create_bin(warehouse_id, zone, aisle, rack, shelf, bin_code, max_capacity)
     return bin_rec.to_dict()
 
 
-@router.get("/bins/{warehouse_id}")
+@router.get("/bins/{warehouse_id}", dependencies=[Depends(require_permission("INVENTORY.VIEW"))])
 async def get_bins_by_warehouse(warehouse_id: str):
     """Returns all bin locations in a given warehouse."""
     return BinLocationManager.get_bins_for_warehouse(warehouse_id)
 
 
-@router.post("/transfers/initiate")
+@router.post("/transfers/initiate", dependencies=[Depends(require_permission("INVENTORY.TRANSFER"))])
 async def initiate_stock_transfer(from_warehouse_id: str = Body(...), to_warehouse_id: str = Body(...), items: List[dict] = Body(...), notes: str = Body(None)):
     """Initiates an in-transit stock transfer between warehouses."""
     tr = StockTransferEngine.initiate_transfer(from_warehouse_id, to_warehouse_id, items, notes)
     return tr.to_dict()
 
 
-@router.post("/transfers/{transfer_id}/ship")
+@router.post("/transfers/{transfer_id}/ship", dependencies=[Depends(require_permission("INVENTORY.TRANSFER"))])
 async def ship_stock_transfer(transfer_id: str):
     """Marks a stock transfer as SHIPPED / IN_TRANSIT."""
     ok = StockTransferEngine.ship_transfer(transfer_id)
@@ -52,7 +53,7 @@ async def ship_stock_transfer(transfer_id: str):
     return {"success": True, "status": "IN_TRANSIT"}
 
 
-@router.post("/transfers/{transfer_id}/receive")
+@router.post("/transfers/{transfer_id}/receive", dependencies=[Depends(require_permission("INVENTORY.TRANSFER"))])
 async def receive_stock_transfer(transfer_id: str):
     """Reconciles and completes a stock transfer as RECEIVED."""
     ok = StockTransferEngine.receive_transfer(transfer_id)
@@ -61,13 +62,13 @@ async def receive_stock_transfer(transfer_id: str):
     return {"success": True, "status": "RECEIVED"}
 
 
-@router.post("/batches/fefo-allocate")
+@router.post("/batches/fefo-allocate", dependencies=[Depends(require_permission("INVENTORY.MANAGE_WMS"))])
 async def allocate_fefo_batches(item_id: str = Body(...), required_qty: int = Body(...), available_batches: List[dict] = Body(...)):
     """Allocates inventory picking batches based on FEFO rules."""
     return BatchSerialManager.allocate_fefo_batches(item_id, required_qty, available_batches)
 
 
-@router.post("/inventory-count/variance")
+@router.post("/inventory-count/variance", dependencies=[Depends(require_permission("INVENTORY.AUDIT"))])
 async def calculate_count_variance(item_id: str = Body(...), expected_qty: int = Body(...), actual_counted_qty: int = Body(...)):
     """Calculates cycle count inventory variance."""
     return InventoryCountEngine.calculate_variance(item_id, expected_qty, actual_counted_qty)

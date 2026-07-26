@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.api.deps import get_db
+from app.api.deps import get_db, require_permission
 from app.models.transfer import StockTransferOrder
 from app.services.rebalancing_service import StockRebalancingService
 
@@ -44,7 +44,8 @@ class ActionTransferRequest(BaseModel):
 @router.post(
     "/rebalance/calculate",
     summary="Calculate Multi-Store Rebalancing Recommendations",
-    description="Analyzes inventory velocity and stock-on-hand across stores to generate stock redistribution recommendations."
+    description="Analyzes inventory velocity and stock-on-hand across stores to generate stock redistribution recommendations.",
+    dependencies=[Depends(require_permission("INVENTORY.TRANSFER"))]
 )
 async def calculate_rebalance(
     payload: CalculateRebalanceRequest,
@@ -76,7 +77,8 @@ async def calculate_rebalance(
 @router.post(
     "/rebalance/{recommendation_id}/convert",
     summary="Convert Recommendation to Transfer Order",
-    description="Converts a pending rebalancing recommendation into a Stock Transfer Order (REQUESTED)."
+    description="Converts a pending rebalancing recommendation into a Stock Transfer Order (REQUESTED).",
+    dependencies=[Depends(require_permission("INVENTORY.TRANSFER"))]
 )
 async def convert_recommendation(
     recommendation_id: str,
@@ -103,7 +105,8 @@ async def convert_recommendation(
 @router.post(
     "/{transfer_order_id}/dispatch",
     summary="Dispatch Stock Transfer Order",
-    description="Dispatches goods from source store, updates STO status to DISPATCHED, and logs OUT stock movement."
+    description="Dispatches goods from source store, updates STO status to DISPATCHED, and logs OUT stock movement.",
+    dependencies=[Depends(require_permission("INVENTORY.TRANSFER"))]
 )
 async def dispatch_transfer(
     transfer_order_id: str,
@@ -131,7 +134,8 @@ async def dispatch_transfer(
 @router.post(
     "/{transfer_order_id}/receive",
     summary="Receive Stock Transfer Order",
-    description="Receives goods at target store, updates STO status to RECEIVED, and logs IN stock movement."
+    description="Receives goods at target store, updates STO status to RECEIVED, and logs IN stock movement.",
+    dependencies=[Depends(require_permission("INVENTORY.TRANSFER"))]
 )
 async def receive_transfer(
     transfer_order_id: str,
@@ -159,7 +163,8 @@ async def receive_transfer(
 @router.get(
     "/",
     summary="List Stock Transfer Orders",
-    description="Fetches active or historical Stock Transfer Orders."
+    description="Fetches active or historical Stock Transfer Orders.",
+    dependencies=[Depends(require_permission("INVENTORY.VIEW"))]
 )
 async def list_transfers(
     db: AsyncSession = Depends(get_db),

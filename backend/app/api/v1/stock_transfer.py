@@ -20,7 +20,7 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.api.deps import get_current_tenant, TenantContext
+from app.api.deps import get_current_tenant, TenantContext, require_permission
 from app.models.inventory import StockTransfer
 from app.services.stock_transfer_engine import StockTransferEngine
 from app.schemas.stock_transfer import (
@@ -31,7 +31,7 @@ from app.schemas.stock_transfer import (
 router = APIRouter(prefix="/inventory", tags=["Inter-Branch Stock Transfers"])
 
 
-@router.post("/transfers", response_model=StockTransferResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/transfers", response_model=StockTransferResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("INVENTORY.TRANSFER"))])
 async def create_transfer_order(
     payload: StockTransferCreate,
     db: AsyncSession = Depends(get_db),
@@ -50,7 +50,7 @@ async def create_transfer_order(
     )
 
 
-@router.post("/transfers/{id}/approve", response_model=StockTransferResponse)
+@router.post("/transfers/{id}/approve", response_model=StockTransferResponse, dependencies=[Depends(require_permission("INVENTORY.TRANSFER"))])
 async def approve_transfer_order(
     id: str,
     db: AsyncSession = Depends(get_db),
@@ -63,7 +63,7 @@ async def approve_transfer_order(
     return await engine.approve_transfer_order(transfer_id=id)
 
 
-@router.post("/transfers/{id}/dispatch")
+@router.post("/transfers/{id}/dispatch", dependencies=[Depends(require_permission("INVENTORY.TRANSFER"))])
 async def dispatch_transfer_shipment(
     id: str,
     payload: Optional[StockTransferDispatchReq] = None,
@@ -83,7 +83,7 @@ async def dispatch_transfer_shipment(
     }
 
 
-@router.post("/transfers/{id}/receive", response_model=StockTransferResponse)
+@router.post("/transfers/{id}/receive", response_model=StockTransferResponse, dependencies=[Depends(require_permission("INVENTORY.TRANSFER"))])
 async def receive_transfer_stock(
     id: str,
     payload: Optional[StockTransferReceiveReq] = None,
@@ -98,7 +98,7 @@ async def receive_transfer_stock(
     return await engine.receive_transfer(transfer_id=id, line_receipts=line_rcv)
 
 
-@router.get("/transfers/{id}", response_model=StockTransferResponse)
+@router.get("/transfers/{id}", response_model=StockTransferResponse, dependencies=[Depends(require_permission("INVENTORY.VIEW"))])
 async def get_transfer_order(
     id: str,
     db: AsyncSession = Depends(get_db),

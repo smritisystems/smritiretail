@@ -20,7 +20,7 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.api.deps import get_current_tenant, TenantContext
+from app.api.deps import get_current_tenant, TenantContext, require_permission
 from app.models.inventory import StockCount, StockAdjustment
 from app.services.stock_audit_engine import StockAuditEngine
 from app.schemas.stock_audit import (
@@ -31,7 +31,7 @@ from app.schemas.stock_audit import (
 router = APIRouter(prefix="/inventory", tags=["Inventory Physical Audit & Cycle Counting"])
 
 
-@router.post("/stock-counts", response_model=StockCountResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/stock-counts", response_model=StockCountResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("INVENTORY.AUDIT"))])
 async def create_stock_count_session(
     payload: StockCountCreate,
     db: AsyncSession = Depends(get_db),
@@ -49,7 +49,7 @@ async def create_stock_count_session(
     )
 
 
-@router.post("/stock-counts/{id}/counts", response_model=StockCountResponse)
+@router.post("/stock-counts/{id}/counts", response_model=StockCountResponse, dependencies=[Depends(require_permission("INVENTORY.AUDIT"))])
 async def record_physical_counts(
     id: str,
     payload: PhysicalCountsRequest,
@@ -64,7 +64,7 @@ async def record_physical_counts(
     return await engine.record_physical_counts(count_id=id, line_counts=line_counts)
 
 
-@router.post("/stock-counts/{id}/reconcile")
+@router.post("/stock-counts/{id}/reconcile", dependencies=[Depends(require_permission("INVENTORY.RECONCILE"))])
 async def reconcile_stock_count(
     id: str,
     payload: Optional[StockCountReconcileRequest] = None,
@@ -83,7 +83,7 @@ async def reconcile_stock_count(
     }
 
 
-@router.get("/stock-counts/{id}", response_model=StockCountResponse)
+@router.get("/stock-counts/{id}", response_model=StockCountResponse, dependencies=[Depends(require_permission("INVENTORY.VIEW"))])
 async def get_stock_count_session(
     id: str,
     db: AsyncSession = Depends(get_db),
@@ -103,7 +103,7 @@ async def get_stock_count_session(
     return cnt
 
 
-@router.get("/stock-adjustments/{id}", response_model=StockAdjustmentResponse)
+@router.get("/stock-adjustments/{id}", response_model=StockAdjustmentResponse, dependencies=[Depends(require_permission("INVENTORY.VIEW"))])
 async def get_stock_adjustment_voucher(
     id: str,
     db: AsyncSession = Depends(get_db),
