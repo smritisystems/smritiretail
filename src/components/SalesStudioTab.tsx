@@ -24,6 +24,7 @@ import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { Product, Quotation, SalesOrder, SalesItemLine, SalesInvoice, SalesReturn, Customer, CustomerGroup } from "../types.js";
 import { SmartFilter, FilterDefinition } from "./SmartFilter.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { FioriListReport, ListReportColumn } from "./common/FioriListReport.tsx";
 import { getCustomers, getCustomerGroups, saveCustomers } from "../services/customerStore.ts";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
@@ -3107,130 +3108,125 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   </div>
                 )
               ) : subView === "invoices" ? (
-                /* Sales Invoices Registry Table */
-                salesInvoices.length === 0 ? (
-                  <div className="p-16 text-center text-theme-muted text-xs">
-                    No sales invoices match current filters or none exist in SMRITI.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono text-[9px] tracking-wider border-b border-theme-divider">
-                          <th className={`px-5 ${densityPadding} w-10`}>
-                            <input
-                              type="checkbox"
-                              checked={salesInvoices.length > 0 && selectedIds.size === salesInvoices.length}
-                              onChange={(e) => {
-                                if (e.target.checked) setSelectedIds(new Set(salesInvoices.map(si => si.id)));
-                                else setSelectedIds(new Set());
-                              }}
-                              className="rounded border-theme-divider bg-theme-surface-1 accent-indigo-500"
-                            />
-                          </th>
-                          <th className={`px-5 ${densityPadding}`}>Invoice No</th>
-                          <th className={`px-5 ${densityPadding}`}>Customer Name</th>
-                          <th className={`px-5 ${densityPadding}`}>Date</th>
-                          <th className={`px-5 ${densityPadding} text-right`}>Items</th>
-                          <th className={`px-5 ${densityPadding} text-right`}>Taxes</th>
-                          <th className={`px-5 ${densityPadding} text-right`}>Grand Total</th>
-                          <th className={`px-5 ${densityPadding} text-center`}>Status</th>
-                          <th className={`px-5 ${densityPadding} text-center`}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {salesInvoices.map(si => {
-                          const cust = customers.find(c => c.id === si.customerId);
-                          return (
-                            <tr 
-                              key={si.id} 
-                              onClick={() => setSelectedInvoice(si)}
-                              onContextMenu={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                openMenu(e, {
-                                  module: "sales",
-                                  type: "sales-invoice",
-                                  object: si
-                                });
-                              }}
-                              className={`border-b border-theme-divider/40 hover:bg-theme-surface-3/50 cursor-pointer transition-colors ${
-                                selectedInvoice?.id === si.id ? "bg-theme-surface-3" : ""
-                              }`}
-                            >
-                              <td className={`px-5 ${densityPadding}`} onClick={(e) => e.stopPropagation()}>
-                                <input
-                                  type="checkbox"
-                                  checked={selectedIds.has(si.id)}
-                                  onChange={(e) => {
-                                    const newSet = new Set(selectedIds);
-                                    if (e.target.checked) newSet.add(si.id);
-                                    else newSet.delete(si.id);
-                                    setSelectedIds(newSet);
-                                  }}
-                                  className="rounded border-theme-divider bg-theme-surface-1 accent-indigo-500"
-                                />
-                              </td>
-                              <td className={`px-5 ${densityPadding} font-mono font-bold text-theme-body flex items-center space-x-2`}>
-                                <FileCheck size={13} className="text-theme-muted" />
-                                <span>{si.invoiceNo}</span>
-                              </td>
-                              <td className={`px-5 ${densityPadding} text-theme-body font-medium`}>{cust?.name || "Walk-In"}</td>
-                              <td className={`px-5 ${densityPadding} text-theme-muted font-mono`}>
-                                {formatDateTime(si.date)}
-                              </td>
-                              <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
-                                {si.items.reduce((acc, i) => acc + i.quantity, 0)} units
-                              </td>
-                              <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
-                                {formatCurrency(si.taxTotal)}
-                              </td>
-                              <td className={`px-5 ${densityPadding} text-right font-mono font-semibold text-emerald-400`}>
-                                {formatCurrency(si.grandTotal)}
-                              </td>
-                              <td className={`px-5 ${densityPadding} text-center`}>
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                                  si.status === "Draft" ? "bg-theme-surface-3 text-theme-muted border border-theme-divider" :
-                                  si.status === "Submitted" ? "bg-amber-950/80 text-amber-400 border border-amber-800" :
-                                  si.status === "Approved" ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800" :
-                                  "bg-rose-950/80 text-rose-400 border border-rose-800"
-                                }`}>
-                                  {si.status}
-                                </span>
-                              </td>
-                              <td className={`px-5 ${densityPadding} text-center`} onClick={(e) => e.stopPropagation()}>
-                                <div className="flex items-center justify-center space-x-2">
-                                  <button
-                                    onClick={() => setSelectedInvoice(si)}
-                                    className="p-1 rounded hover:bg-theme-surface-3 text-sky-400"
-                                    title="View Invoice Detail"
-                                  >
-                                    <Eye size={13} />
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openMenu(e, {
-                                        module: "sales",
-                                        type: "sales-invoice",
-                                        object: si,
-                                        role: currentUser?.role || "Store Manager"
-                                      });
-                                    }}
-                                    className="p-1 rounded hover:bg-theme-surface-3 text-theme-muted hover:text-theme-body"
-                                    title="Context Actions Menu"
-                                  >
-                                    <MoreVertical size={13} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )
+                /* Sales Invoices Registry — WNG-002 Fiori List Report Pattern */
+                <FioriListReport
+                  title="Sales Invoices Registry"
+                  subtitle="Complete tax-compliant GST invoice ledger with workflow status and context actions."
+                  data={salesInvoices.map(si => ({
+                    ...si,
+                    _customerName: customers.find(c => c.id === si.customerId)?.name || "Walk-In",
+                    _itemCount: si.items.reduce((acc: number, i: any) => acc + i.quantity, 0),
+                  }))}
+                  columns={[
+                    {
+                      key: "invoiceNo",
+                      label: "Invoice No",
+                      sortable: true,
+                      render: (si) => (
+                        <span className="font-mono font-bold text-theme-body flex items-center space-x-2">
+                          <FileCheck size={13} className="text-theme-muted shrink-0" />
+                          <span>{si.invoiceNo}</span>
+                        </span>
+                      )
+                    },
+                    {
+                      key: "_customerName",
+                      label: "Customer Name",
+                      sortable: true,
+                      render: (si) => <span className="font-medium text-theme-body">{(si as any)._customerName}</span>
+                    },
+                    {
+                      key: "date",
+                      label: "Date",
+                      sortable: true,
+                      render: (si) => <span className="text-theme-muted font-mono">{formatDateTime(si.date)}</span>
+                    },
+                    {
+                      key: "_itemCount",
+                      label: "Items",
+                      align: "right",
+                      render: (si) => <span className="font-mono text-theme-muted">{(si as any)._itemCount} units</span>
+                    },
+                    {
+                      key: "taxTotal",
+                      label: "GST",
+                      align: "right",
+                      render: (si) => <span className="font-mono text-theme-muted">{formatCurrency(si.taxTotal)}</span>
+                    },
+                    {
+                      key: "grandTotal",
+                      label: "Grand Total",
+                      align: "right",
+                      sortable: true,
+                      render: (si) => <span className="font-mono font-semibold text-emerald-400">{formatCurrency(si.grandTotal)}</span>
+                    },
+                    {
+                      key: "status",
+                      label: "Status",
+                      align: "center",
+                      render: (si) => (
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                          si.status === "Draft" ? "bg-theme-surface-3 text-theme-muted border border-theme-divider" :
+                          si.status === "Submitted" ? "bg-amber-950/80 text-amber-400 border border-amber-800" :
+                          si.status === "Approved" ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800" :
+                          "bg-rose-950/80 text-rose-400 border border-rose-800"
+                        }`}>
+                          {si.status}
+                        </span>
+                      )
+                    },
+                    {
+                      key: "actions",
+                      label: "Actions",
+                      align: "center",
+                      render: (si) => (
+                        <div className="flex items-center justify-center space-x-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setSelectedInvoice(si as any); }}
+                            className="p-1 rounded hover:bg-theme-surface-3 text-sky-400"
+                            title="View Invoice Detail"
+                          >
+                            <Eye size={13} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openMenu(e, {
+                                module: "sales",
+                                type: "sales-invoice",
+                                object: si,
+                                role: currentUser?.role || "Store Manager"
+                              });
+                            }}
+                            className="p-1 rounded hover:bg-theme-surface-3 text-theme-muted hover:text-theme-body"
+                            title="Context Actions Menu"
+                          >
+                            <MoreVertical size={13} />
+                          </button>
+                        </div>
+                      )
+                    }
+                  ]}
+                  filterOptions={[
+                    {
+                      key: "status",
+                      label: "Status",
+                      options: [
+                        { label: "All Statuses", value: "ALL" },
+                        { label: "Draft", value: "Draft" },
+                        { label: "Submitted", value: "Submitted" },
+                        { label: "Approved", value: "Approved" },
+                        { label: "Cancelled", value: "Cancelled" },
+                      ]
+                    }
+                  ]}
+                  onRowClick={(si) => setSelectedInvoice(si as any)}
+                  onRefresh={() => { fetchSalesInvoices(); }}
+                  onCreateNew={() => setIsCreatingInvoice(true)}
+                  primaryActionLabel="New Sales Invoice"
+                  searchPlaceholder="Search invoice no, customer name..."
+                  isLoading={loading}
+                />
               ) : subView === "returns" ? (
                 /* Sales Returns Registry Table */
                 salesReturns.length === 0 ? (
