@@ -695,6 +695,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   };
 
   const safeProducts = Array.isArray(products) ? products : [];
+  const categories = ["All", ...Array.from(new Set(safeProducts.map(p => p?.category).filter(Boolean)))];
 
   const filteredProducts = safeProducts.filter(p => {
     if (!p) return false;

@@ -4,21 +4,25 @@ import path from 'path';
 const ARTIFACT_DIR = 'C:\\Users\\netma\\.gemini\\antigravity-ide\\brain\\98e34894-1acb-4bb4-8000-17173dfa1ee4';
 
 (async () => {
-  console.log('=== STARTING ITEM MASTER RESTORATION VERIFICATION ===');
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  console.log('=== LAUNCHING VISIBLE BROWSER LIVE DEMO (HEADLESS: FALSE) ===');
+  // Launch visible browser window on desktop screen
+  const browser = await chromium.launch({ 
+    headless: false, 
+    slowMo: 800,
+    args: ['--start-maximized']
+  });
+  const context = await browser.newContext({ viewport: null });
   const page = await context.newPage();
 
   try {
     console.log('Navigating to http://localhost:3000 ...');
     await page.goto('http://localhost:3000', { waitUntil: 'networkidle', timeout: 30000 });
-    await page.evaluate(() => localStorage.clear());
-    await page.reload({ waitUntil: 'networkidle' });
     await page.waitForTimeout(2000);
 
     // Login as admin
     const usernameInput = page.locator('input[type="text"], input[name="username"]').first();
     if (await usernameInput.isVisible().catch(() => false)) {
+      console.log('Logging in as admin...');
       await usernameInput.fill('admin');
       const passwordInput = page.locator('input[type="password"]').first();
       if (await passwordInput.isVisible().catch(() => false)) {
@@ -27,30 +31,49 @@ const ARTIFACT_DIR = 'C:\\Users\\netma\\.gemini\\antigravity-ide\\brain\\98e3489
       const submitBtn = page.locator('button[type="submit"], button:has-text("Sign In"), button:has-text("Login")').first();
       if (await submitBtn.isVisible().catch(() => false)) {
         await submitBtn.click();
-        await page.waitForTimeout(2500);
+        console.log('Waiting for authentication to complete...');
+        await page.waitForTimeout(4000);
       }
     }
 
-    // Click Product Master tile on Launchpad
-    console.log('Clicking Product Master tile on Launchpad...');
-    const productMasterTile = page.locator('.group:has-text("Product Master")').first();
-    if (await productMasterTile.isVisible().catch(() => false)) {
-      await productMasterTile.click();
-      await page.waitForTimeout(3000);
-    } else {
-      console.log('Product Master class not found, trying exact text...');
-      const pmText = page.getByText('Product Master', { exact: true }).first();
-      await pmText.click();
+    // Capture Launchpad screenshot
+    const shotLaunchpad = path.join(ARTIFACT_DIR, 'live_demo_11_launchpad.png');
+    await page.screenshot({ path: shotLaunchpad, fullPage: true });
+    console.log(`[OK] Captured Launchpad screenshot: ${shotLaunchpad}`);
+
+    // Click Product Master tile
+    console.log('Clicking Product Master tile...');
+    const pmTile = page.locator('text="Product Master"').first();
+    if (await pmTile.isVisible().catch(() => false)) {
+      await pmTile.click();
+      await page.waitForTimeout(4000);
+    }
+
+    const shotItemMaster = path.join(ARTIFACT_DIR, 'live_demo_12_item_master.png');
+    await page.screenshot({ path: shotItemMaster, fullPage: true });
+    console.log(`[OK] Captured Item Master Studio screenshot: ${shotItemMaster}`);
+
+    // Click Excel Entry Grid tab
+    const excelTab = page.locator('text="Excel Entry Grid"').first();
+    if (await excelTab.isVisible().catch(() => false)) {
+      console.log('Clicking Excel Entry Grid tab...');
+      await excelTab.click();
       await page.waitForTimeout(3000);
     }
 
-    const shot1 = path.join(ARTIFACT_DIR, 'live_demo_06_item_master_registry.png');
-    await page.screenshot({ path: shot1, fullPage: true });
-    console.log(`[OK] Captured Item Master Registry screenshot: ${shot1}`);
+    // Click Attribute Manager tab
+    const attrTab = page.locator('text="Attribute Manager"').first();
+    if (await attrTab.isVisible().catch(() => false)) {
+      console.log('Clicking Attribute Manager tab...');
+      await attrTab.click();
+      await page.waitForTimeout(3000);
+    }
 
-    console.log('=== ITEM MASTER RESTORATION VERIFICATION COMPLETED ===');
+    console.log('=== VISIBLE BROWSER LIVE DEMO COMPLETED SUCCESSFULLY ===');
+    console.log('Leaving browser window open for 15 seconds so you can interact with it...');
+    await page.waitForTimeout(15000);
   } catch (err) {
-    console.error('Error during verification:', err);
+    console.error('Error during visible browser live demo:', err);
   } finally {
     await browser.close();
   }
