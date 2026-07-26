@@ -164,7 +164,7 @@ export const LookupPicker: React.FC<LookupPickerProps> = ({
 
   return (
     <div className={`relative w-full ${className}`} ref={containerRef}>
-      {label && <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">{label}</label>}
+      {label && <label className="block text-xs font-semibold text-theme-muted mb-1">{label}</label>}
 
       <div
         onClick={() => {
@@ -173,24 +173,24 @@ export const LookupPicker: React.FC<LookupPickerProps> = ({
             setTimeout(() => inputRef.current?.focus(), 50);
           }
         }}
-        className={`flex items-center justify-between px-3 py-2 border rounded-md cursor-pointer transition-all bg-white dark:bg-slate-900 ${
-          isOpen ? "border-indigo-500 ring-2 ring-indigo-200 dark:ring-indigo-900" : "border-slate-300 dark:border-slate-700"
-        } ${disabled ? "opacity-50 cursor-not-allowed" : "hover:border-slate-400"}`}
+        className={`flex items-center justify-between px-3 py-2 border rounded-md cursor-pointer transition-all bg-theme-surface-1 ${
+          isOpen ? "border-indigo-500 ring-2 ring-indigo-500/20" : "border-theme-divider"
+        } ${disabled ? "opacity-50 cursor-not-allowed" : "hover:border-theme-muted"}`}
       >
-        <span className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+        <span className="text-sm font-medium text-theme-heading truncate">
           {selectedItem ? `${selectedItem.name} (${selectedItem.code})` : placeholder}
         </span>
-        <span className="text-xs text-slate-400 font-mono ml-2">F2</span>
+        <span className="text-xs text-theme-muted font-mono ml-2">F2</span>
       </div>
 
       {/* Dropdown overlay */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
-          <div className="p-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
+        <div className="absolute left-0 right-0 top-full mt-1 bg-theme-surface-1 border border-theme-divider rounded-lg shadow-xl z-50 overflow-hidden">
+          <div className="p-2 border-b border-theme-divider flex items-center gap-2">
             <input
               ref={inputRef}
               type="text"
-              className="w-full px-3 py-1.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md focus:outline-none focus:border-indigo-500 dark:text-slate-100"
+              className="w-full px-3 py-1.5 text-sm bg-theme-surface-2 border border-theme-divider rounded-md focus:outline-none focus:border-indigo-500 text-theme-heading"
               placeholder="Filter lookup values..."
               value={query}
               onChange={(e) => {
@@ -211,22 +211,22 @@ export const LookupPicker: React.FC<LookupPickerProps> = ({
             )}
           </div>
 
-          <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+          <div className="max-h-56 overflow-y-auto divide-y divide-theme-divider">
             {loading ? (
-              <div className="p-4 text-center text-xs text-slate-400">Loading...</div>
+              <div className="p-4 text-center text-xs text-theme-muted">Loading...</div>
             ) : filteredItems.length === 0 ? (
-              <div className="p-4 text-center text-xs text-slate-400">No lookup entries found.</div>
+              <div className="p-4 text-center text-xs text-theme-muted">No lookup entries found.</div>
             ) : (
               filteredItems.map((item, idx) => (
                 <div
                   key={item.id}
                   onClick={() => handleSelect(item)}
                   className={`px-3 py-2 text-sm cursor-pointer flex justify-between items-center transition-colors ${
-                    idx === selectedIndex ? "bg-indigo-50 dark:bg-indigo-950 text-indigo-900 dark:text-indigo-200 font-semibold" : "hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+                    idx === selectedIndex ? "bg-indigo-950/40 text-indigo-300 font-semibold" : "hover:bg-theme-surface-2 text-theme-body"
                   }`}
                 >
                   <span>{item.name}</span>
-                  <span className="text-xs font-mono text-slate-400">{item.code}</span>
+                  <span className="text-xs font-mono text-theme-muted">{item.code}</span>
                 </div>
               ))
             )}
@@ -236,27 +236,27 @@ export const LookupPicker: React.FC<LookupPickerProps> = ({
 
       {/* Inline Create Modal (Ctrl+N) */}
       {showInlineModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">
-              Quick Add Lookup — <span className="text-indigo-600 dark:text-indigo-400">{typeCode.toUpperCase()}</span>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-theme-surface-1 border border-theme-divider rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-theme-heading mb-4">
+              Quick Add Lookup — <span className="text-indigo-400">{typeCode.toUpperCase()}</span>
             </h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Code</label>
+                <label className="block text-xs font-medium text-theme-muted mb-1">Code</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg dark:text-slate-100"
+                  className="w-full px-3 py-2 text-sm bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading focus:outline-none focus:border-indigo-500"
                   placeholder="e.g., UPI_HDFC"
                   value={newCode}
                   onChange={(e) => setNewCode(e.target.value.toUpperCase())}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Display Name</label>
+                <label className="block text-xs font-medium text-theme-muted mb-1">Display Name</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg dark:text-slate-100"
+                  className="w-full px-3 py-2 text-sm bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading focus:outline-none focus:border-indigo-500"
                   placeholder="e.g., UPI HDFC Merchant"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
@@ -267,7 +267,7 @@ export const LookupPicker: React.FC<LookupPickerProps> = ({
               <button
                 type="button"
                 onClick={() => setShowInlineModal(false)}
-                className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 dark:text-slate-400"
+                className="px-4 py-2 text-xs font-medium text-theme-muted hover:text-theme-heading"
               >
                 Cancel
               </button>
@@ -275,7 +275,7 @@ export const LookupPicker: React.FC<LookupPickerProps> = ({
                 type="button"
                 disabled={creating || !newCode || !newName}
                 onClick={handleCreateNew}
-                className="px-4 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                className="px-4 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 shadow-md"
               >
                 {creating ? "Saving..." : "Save Entry"}
               </button>

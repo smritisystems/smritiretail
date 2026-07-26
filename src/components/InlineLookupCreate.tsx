@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.1.0
+ * Version      : 5.1.0 (SEEF Phase 8 — Token Upgrade)
  * Created      : 2026-07-21
- * Modified     : 2026-07-21
+ * Modified     : 2026-07-26
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal Architecture Standard
@@ -65,34 +65,34 @@ export const InlineLookupCreate: React.FC<InlineLookupCreateProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 select-none">
+      <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl max-w-md w-full p-6 shadow-2xl">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-            Quick Add Lookup — <span className="text-indigo-600 dark:text-indigo-400">{typeCode.toUpperCase()}</span>
+          <h3 className="text-lg font-bold text-theme-heading">
+            Quick Add Lookup — <span className="text-indigo-400">{typeCode.toUpperCase()}</span>
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl font-bold"
+            className="text-theme-muted hover:text-theme-heading text-xl font-bold"
           >
             &times;
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs rounded-lg">
+          <div className="mb-4 p-3 bg-rose-950/60 border border-rose-500/50 text-rose-300 text-xs rounded-lg">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Lookup Code</label>
+            <label className="block text-xs font-semibold text-theme-muted mb-1">Lookup Code</label>
             <input
               type="text"
               required
-              className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg dark:text-slate-100 uppercase"
+              className="w-full px-3 py-2 text-sm bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading uppercase focus:outline-none focus:border-indigo-500"
               placeholder="e.g. CARD_AMEX"
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
@@ -100,11 +100,11 @@ export const InlineLookupCreate: React.FC<InlineLookupCreateProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Display Label</label>
+            <label className="block text-xs font-semibold text-theme-muted mb-1">Display Label</label>
             <input
               type="text"
               required
-              className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg dark:text-slate-100"
+              className="w-full px-3 py-2 text-sm bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading focus:outline-none focus:border-indigo-500"
               placeholder="e.g. American Express Card"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -115,14 +115,14 @@ export const InlineLookupCreate: React.FC<InlineLookupCreateProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900"
+              className="px-4 py-2 text-xs font-medium text-theme-muted hover:text-theme-heading"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving || !code || !name}
-              className="px-5 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all"
+              className="px-5 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md"
             >
               {saving ? 'Saving...' : 'Create Record'}
             </button>

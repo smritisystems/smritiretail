@@ -192,22 +192,22 @@ const TEMPLATE_METADATA: Record<string, {
     iconBg: "bg-emerald-500/10 text-emerald-400",
     badgeColor: "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
     illustration: (
-      <div className="w-full h-16 bg-slate-950/80 rounded-lg p-2 border border-slate-800/80 flex flex-col justify-between text-[6px] font-mono select-none">
-        <div className="flex justify-between border-b border-slate-800/60 pb-1">
+      <div className="w-full h-16 bg-theme-surface-2 rounded-lg p-2 border border-theme-divider flex flex-col justify-between text-[6px] font-mono select-none">
+        <div className="flex justify-between border-b border-theme-divider pb-1">
           <div className="font-bold text-emerald-400">TAX INVOICE</div>
-          <div className="text-slate-500">#INV-2026</div>
+          <div className="text-theme-muted">#INV-2026</div>
         </div>
         <div className="space-y-0.5">
-          <div className="flex justify-between text-slate-400">
+          <div className="flex justify-between text-theme-body">
             <span>Item A x5</span>
             <span>$1,100.00</span>
           </div>
-          <div className="flex justify-between text-slate-400">
+          <div className="flex justify-between text-theme-body">
             <span>Item B x2</span>
             <span>$150.00</span>
           </div>
         </div>
-        <div className="flex justify-between items-center pt-1 border-t border-slate-800/60 text-slate-300">
+        <div className="flex justify-between items-center pt-1 border-t border-theme-divider text-theme-heading">
           <span>PAY TOTAL</span>
           <span className="font-bold text-emerald-400">$1,298.00</span>
         </div>
@@ -221,22 +221,22 @@ const TEMPLATE_METADATA: Record<string, {
     iconBg: "bg-blue-500/10 text-blue-400",
     badgeColor: "bg-blue-500/10 border-blue-500/20 text-blue-400",
     illustration: (
-      <div className="w-full h-16 bg-slate-950/80 rounded-lg p-2 border border-slate-800/80 flex flex-col justify-between text-[6px] font-mono select-none">
-        <div className="flex justify-between border-b border-slate-800/60 pb-1">
+      <div className="w-full h-16 bg-theme-surface-2 rounded-lg p-2 border border-theme-divider flex flex-col justify-between text-[6px] font-mono select-none">
+        <div className="flex justify-between border-b border-theme-divider pb-1">
           <div className="font-bold text-blue-400">GOODS RECEIPT</div>
-          <div className="text-slate-500">#GRN-2026</div>
+          <div className="text-theme-muted">#GRN-2026</div>
         </div>
         <div className="space-y-0.5">
-          <div className="flex justify-between text-slate-400">
+          <div className="flex justify-between text-theme-body">
             <span>Supplier</span>
             <span className="truncate max-w-[42px] text-right">Direct Foods</span>
           </div>
-          <div className="flex justify-between text-slate-400">
+          <div className="flex justify-between text-theme-body">
             <span>Lines Count</span>
             <span>4 Records</span>
           </div>
         </div>
-        <div className="flex justify-between items-center pt-1 border-t border-slate-800/60 text-slate-300">
+        <div className="flex justify-between items-center pt-1 border-t border-theme-divider text-theme-heading">
           <span>STATUS</span>
           <span className="text-emerald-400 font-bold bg-emerald-500/10 px-1 rounded-sm">VERIFIED</span>
         </div>
@@ -250,11 +250,11 @@ const TEMPLATE_METADATA: Record<string, {
     iconBg: "bg-amber-500/10 text-amber-400",
     badgeColor: "bg-amber-500/10 border-amber-500/20 text-amber-400",
     illustration: (
-      <div className="w-full h-16 bg-slate-950/80 rounded-lg p-2 border border-slate-800/80 flex flex-col justify-between text-[6px] font-mono select-none relative overflow-hidden">
+      <div className="w-full h-16 bg-theme-surface-2 rounded-lg p-2 border border-theme-divider flex flex-col justify-between text-[6px] font-mono select-none relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-amber-500/20 to-transparent"></div>
         <div className="text-center font-bold text-amber-400 tracking-wider">SMRITI HYPER</div>
-        <div className="border-t border-dashed border-slate-800 my-0.5"></div>
-        <div className="space-y-0.5 text-slate-400">
+        <div className="border-t border-dashed border-theme-divider my-0.5"></div>
+        <div className="space-y-0.5 text-theme-body">
           <div className="flex justify-between">
             <span>Almonds 500g</span>
             <span>$25.00</span>
@@ -264,7 +264,7 @@ const TEMPLATE_METADATA: Record<string, {
             <span>$13.50</span>
           </div>
         </div>
-        <div className="border-t border-dashed border-slate-800 mt-0.5 pt-0.5 flex justify-between text-slate-200 font-bold">
+        <div className="border-t border-dashed border-theme-divider mt-0.5 pt-0.5 flex justify-between text-theme-heading font-bold">
           <span>TOTAL</span>
           <span className="text-amber-400">$66.36</span>
         </div>
@@ -278,22 +278,22 @@ const TEMPLATE_METADATA: Record<string, {
     iconBg: "bg-purple-500/10 text-purple-400",
     badgeColor: "bg-purple-500/10 border-purple-500/20 text-purple-400",
     illustration: (
-      <div className="w-full h-16 bg-slate-950/80 rounded-lg p-1.5 border border-slate-800/80 flex flex-col justify-between text-[6px] font-mono select-none">
-        <div className="text-[5px] text-slate-400 truncate font-semibold">Premium Blend Tea</div>
+      <div className="w-full h-16 bg-theme-surface-2 rounded-lg p-1.5 border border-theme-divider flex flex-col justify-between text-[6px] font-mono select-none">
+        <div className="text-[5px] text-theme-body truncate font-semibold">Premium Blend Tea</div>
         <div className="flex flex-col items-center justify-center my-0.5">
           <div className="flex space-x-[1px] h-5 items-stretch opacity-80">
-            <div className="w-[1.5px] bg-slate-300"></div>
-            <div className="w-[0.5px] bg-slate-300"></div>
-            <div className="w-[1px] bg-slate-300"></div>
-            <div className="w-[2px] bg-slate-300"></div>
-            <div className="w-[0.5px] bg-slate-300"></div>
-            <div className="w-[1.5px] bg-slate-300"></div>
-            <div className="w-[1px] bg-slate-300"></div>
-            <div className="w-[0.5px] bg-slate-300"></div>
+            <div className="w-[1.5px] bg-theme-heading"></div>
+            <div className="w-[0.5px] bg-theme-heading"></div>
+            <div className="w-[1px] bg-theme-heading"></div>
+            <div className="w-[2px] bg-theme-heading"></div>
+            <div className="w-[0.5px] bg-theme-heading"></div>
+            <div className="w-[1.5px] bg-theme-heading"></div>
+            <div className="w-[1px] bg-theme-heading"></div>
+            <div className="w-[0.5px] bg-theme-heading"></div>
           </div>
-          <span className="text-[4px] text-slate-500 scale-90">8901058002315</span>
+          <span className="text-[4px] text-theme-muted scale-90">8901058002315</span>
         </div>
-        <div className="flex justify-between items-center text-slate-300 font-bold">
+        <div className="flex justify-between items-center text-theme-heading font-bold">
           <span>$6.99</span>
           <span className="text-[4.5px] text-purple-400 bg-purple-500/10 px-0.5 rounded-sm">50x25</span>
         </div>
@@ -1004,7 +1004,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                                 {/* Thumbnail Illustration Area */}
                                 <div className="p-2 bg-theme-surface-3/50 border-b border-theme-divider/50 group-hover:bg-theme-surface-3 transition-colors">
                                   {meta ? meta.illustration : (
-                                    <div className="w-full h-16 bg-slate-950/80 rounded-lg flex items-center justify-center border border-slate-800">
+                                    <div className="w-full h-16 bg-theme-surface-2 rounded-lg flex items-center justify-center border border-theme-divider">
                                       <FileText size={18} className="text-theme-muted" />
                                     </div>
                                   )}
@@ -1466,7 +1466,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
 
                       <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-3.5 flex flex-col sm:flex-row items-center gap-4">
                         {/* QR Code Container */}
-                        <div className="relative bg-white p-2 rounded-xl shadow-md border border-slate-200 shrink-0 group transition-all duration-300 hover:scale-[1.03] hover:shadow-lg">
+                        <div className="relative bg-white p-2 rounded-xl shadow-md border border-theme-divider shrink-0 group transition-all duration-300 hover:scale-[1.03] hover:shadow-lg">
                           {qrCodeDataUrl ? (
                             <img 
                               src={qrCodeDataUrl} 
@@ -1475,8 +1475,8 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
                               referrerPolicy="no-referrer"
                             />
                           ) : (
-                            <div className="w-24 h-24 flex items-center justify-center bg-slate-50 rounded-lg">
-                              <span className="text-[9px] text-slate-400 font-mono animate-pulse">Generating...</span>
+                            <div className="w-24 h-24 flex items-center justify-center bg-theme-surface-2 rounded-lg">
+                              <span className="text-[9px] text-theme-muted font-mono animate-pulse">Generating...</span>
                             </div>
                           )}
                         </div>
