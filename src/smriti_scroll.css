@@ -73,8 +73,8 @@
 /* Global Scrollbar Overrides for Webkit browsers (Chrome, Safari, Edge, Opera) */
 /* Apply to all scrollable elements except elements with the explicit hide class */
 :not(.smriti-hide-scrollbar)::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 :not(.smriti-hide-scrollbar)::-webkit-scrollbar-track {
@@ -82,29 +82,23 @@
 }
 
 :not(.smriti-hide-scrollbar)::-webkit-scrollbar-thumb {
-  background-color: transparent; /* Completely hidden by default */
+  background-color: var(--c-theme-divider, rgba(148, 163, 184, 0.35));
   border-radius: 9999px;
-  border: 2.5px solid transparent; /* Creates padding away from edges */
-  background-clip: padding-box;
-  transition: background-color 250ms ease-in-out;
+  transition: background-color 200ms ease-in-out;
 }
 
-/* Reveal thin scrollbar thumb only when the container is hovered */
-:not(.smriti-hide-scrollbar):hover::-webkit-scrollbar-thumb {
-  background-color: rgba(136, 146, 164, 0.35); /* Slate gray thumb */
-}
-
-/* Highlight the scrollbar thumb in brand-blue when hovered directly */
+/* Highlight the scrollbar thumb when hovered */
+:not(.smriti-hide-scrollbar):hover::-webkit-scrollbar-thumb,
 :not(.smriti-hide-scrollbar)::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(37, 99, 235, 0.7) !important;
+  background-color: var(--c-theme-primary, rgba(99, 102, 241, 0.8)) !important;
 }
 
-/* Firefox scrollbar compatibility (hidden by default, thin on hover) */
+/* Firefox scrollbar compatibility (sleek thin visible scrollbar) */
 *:not(.smriti-hide-scrollbar) {
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-theme-divider, rgba(148, 163, 184, 0.35)) transparent;
 }
 
 *:not(.smriti-hide-scrollbar):hover {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(136, 146, 164, 0.35) transparent;
+  scrollbar-color: var(--c-theme-primary, rgba(99, 102, 241, 0.8)) transparent;
 }
