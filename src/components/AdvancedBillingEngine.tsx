@@ -5,7 +5,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.0.0
+ * Version      : 5.1.0  (SEEF Phase 6 — Density + Animation Cascade)
  * Created      : 2026-07-10
  * Modified     : 2026-07-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -23,6 +23,8 @@ import { SMRITIGrid } from "./terminal/SMRITIGrid";
 import { StandardDocumentToolbar } from "./terminal/StandardDocumentToolbar";
 import { RightDrawerHost } from "./terminal/RightDrawerHost";
 import { UniversalSearchModal } from "./terminal/UniversalSearchModal";
+// SEEF Phase 6 — surgical cascade integration (POS grid untouched)
+import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 
 // Types for Advanced Billing
 export interface AdvancedCustomer {
@@ -181,6 +183,13 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     terms: "1. Goods once sold cannot be taken back or exchanged.\n2. In case of manufacturing defect, return within 7 days with original invoice.\n3. All disputes are subject to Mumbai jurisdiction.",
     policy: "Returns accepted within 7 days on clothing and accessories only if tags are intact."
   };
+
+  // SEEF Phase 6 — density cascade (compact: tighter POS rows, spacious: more breathing room)
+  // AOP-001: useSEEF is advisory only — POS workflow never depends on AI or cascade availability
+  const { config: seefConfig } = useSEEF();
+  const posRowPadding = seefConfig.density === "compact" ? "py-1.5" : seefConfig.density === "spacious" ? "py-3" : "py-2";
+  // Gate motion/react transitions on SEEF animation config (respects reducedMotion user preference)
+  const motionProps = seefConfig.animation === "none" ? {} : { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } };
 
   // Local Cart State when cart prop is empty
   const [localCart, setLocalCart] = useState<{ product: Product; quantity: number }[]>([

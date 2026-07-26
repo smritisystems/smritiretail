@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -16,7 +16,7 @@
  *
  * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 2.1.2
+ * * Version    : 4.0.0  (SEEF Phase 6 — Cascade Integration)
  * * Created    : 2026-07-10
  * * Modified   : 2026-07-11
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
@@ -36,6 +36,8 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { usePrintEngine } from "../print_engine/print_store.tsx";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
+// SEEF Phase 6 — cascade integration (container preserved; SEEFDialog not used — html2canvas requires native DOM refs)
+import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 
 // Mock datasets corresponding to various tabs
 const MOCK_TAB_DATA: Record<string, any> = {
@@ -403,6 +405,11 @@ const WATERMARK_PRESETS = [
 ];
 
 export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, activeTabId }) => {
+  const { config: seefConfig } = useSEEF(); // SEEF Phase 6 — animation cascade
+  // Gate spring animation on SEEF animation config (respects reducedMotion preference)
+  const modalTransition = seefConfig.animation === "none"
+    ? { type: "tween", duration: 0 }
+    : { type: "spring", duration: 0.4 };
   const { 
     print, 
     templates,
@@ -869,12 +876,12 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
         className="absolute inset-0 cursor-pointer"
       />
 
-      {/* Main Modal Container */}
+      {/* Main Modal Container — SEEF Phase 6: animation gated by seefConfig.animation */}
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 15 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 15 }}
-        transition={{ type: "spring", duration: 0.4 }}
+        transition={modalTransition}
         className="relative bg-theme-surface-1 border border-theme-divider rounded-2xl w-full h-full max-w-7xl flex flex-col overflow-hidden shadow-2xl z-10 text-theme-body"
       >
         
