@@ -18,6 +18,7 @@ Founders
 
 from decimal import Decimal
 from datetime import date, datetime, timezone
+from sqlalchemy import func, Date, cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException
@@ -93,7 +94,7 @@ class ReportsService:
         """
         res = await self.db.execute(
             select(SalesInvoice).where(
-                SalesInvoice.date       == report_date,
+                func.date(SalesInvoice.invoice_date) == report_date,
                 SalesInvoice.company_id == self.tenant.company_id,
                 SalesInvoice.branch_id  == self.tenant.branch_id,
                 SalesInvoice.is_deleted == False,
@@ -112,7 +113,9 @@ class ReportsService:
 
         for inv in invoices:
             gt   = Decimal(str(inv.grand_total or "0"))
-            mode = (inv.payment_mode or "CASH").upper()
+            modes = [p.payment_mode for p in (inv.payments or []) if p.payment_mode]
+            raw_mode = modes[0] if modes else getattr(inv, "payment_mode", "CASH")
+            mode = (raw_mode or "CASH").upper()
             if mode == "CASH":
                 cash_total += gt
             elif mode == "CARD":
@@ -123,8 +126,9 @@ class ReportsService:
                 credit_total += gt
             grand_total += gt
 
-            if inv.shift_id:
-                entry = shift_map.setdefault(inv.shift_id, {"shift_id": inv.shift_id, "total": Decimal("0"), "invoices": 0})
+            shift_id = getattr(inv, "shift_id", None)
+            if shift_id:
+                entry = shift_map.setdefault(shift_id, {"shift_id": shift_id, "total": Decimal("0"), "invoices": 0})
                 entry["total"]    += gt
                 entry["invoices"] += 1
 

@@ -49,9 +49,9 @@ class SalesInvoiceRepository(BaseRepository[SalesInvoice]):
         if status:
             stmt = stmt.filter(SalesInvoice.status == status)
         if date_from:
-            stmt = stmt.filter(SalesInvoice.date >= date_from)
+            stmt = stmt.filter(SalesInvoice.invoice_date >= date_from)
         if date_to:
-            stmt = stmt.filter(SalesInvoice.date <= date_to)
+            stmt = stmt.filter(SalesInvoice.invoice_date <= date_to)
         stmt = stmt.offset(skip).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
