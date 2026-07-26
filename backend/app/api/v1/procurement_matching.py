@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.db.session import get_db
-from app.api.deps import TenantContext, get_tenant_context
+from app.api.deps import TenantContext, get_tenant_context, require_permission
 from app.procurement.engine.matching_engine import MatchingEngine
 from app.procurement.engine.landed_cost_engine import LandedCostEngine
 from app.models.purchase import ProcurementTolerancePolicy
@@ -34,7 +34,7 @@ from app.schemas.purchase import (
 router = APIRouter(prefix="/purchase/matching", tags=["Procurement Matching & Valuation"])
 
 
-@router.post("/three-way-match", response_model=ThreeWayMatchResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/three-way-match", response_model=ThreeWayMatchResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("PURCHASE.MATCH_THREE_WAY"))])
 async def execute_three_way_match(
     req: ThreeWayMatchRequest,
     db: AsyncSession = Depends(get_db),
@@ -55,7 +55,7 @@ async def execute_three_way_match(
     )
 
 
-@router.post("/grn/{grn_id}/allocate-landed-cost", status_code=status.HTTP_200_OK)
+@router.post("/grn/{grn_id}/allocate-landed-cost", status_code=status.HTTP_200_OK, dependencies=[Depends(require_permission("PURCHASE.ALLOCATE_LANDED_COST"))])
 async def allocate_landed_cost(
     grn_id: str,
     req: LandedCostAllocationRequest,
@@ -80,7 +80,7 @@ async def allocate_landed_cost(
     }
 
 
-@router.post("/{match_id}/approve", response_model=ThreeWayMatchResponse)
+@router.post("/{match_id}/approve", response_model=ThreeWayMatchResponse, dependencies=[Depends(require_permission("PURCHASE.APPROVE_VARIANCE"))])
 async def approve_variance_block(
     match_id: str,
     approved_by: str = Query(...),
@@ -95,7 +95,7 @@ async def approve_variance_block(
     return await engine.approve_variance_block(match_id=match_id, approved_by=approved_by, approval_notes=approval_notes)
 
 
-@router.post("/tolerance-policies", response_model=TolerancePolicyResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/tolerance-policies", response_model=TolerancePolicyResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("SYSTEM.CONFIG"))])
 async def create_tolerance_policy(
     policy_in: TolerancePolicyCreate,
     db: AsyncSession = Depends(get_db),

@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.db.session import get_db
-from app.api.deps import TenantContext, get_tenant_context
+from app.api.deps import TenantContext, get_tenant_context, require_permission
 from app.models.purchase import QualityInspection, QualityInspectionItem, SupplierDebitNote
 from app.schemas.purchase import (
     QCInspectionResponse, QCEvaluationRequest, SupplierDebitNoteResponse
@@ -28,7 +28,7 @@ from app.procurement.engine.qc_inspection_engine import QCInspectionEngine
 router = APIRouter(prefix="/purchase/qc", tags=["Procurement Quality Control & Debit Notes"])
 
 
-@router.post("/inspections", response_model=QCInspectionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/inspections", response_model=QCInspectionResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("PURCHASE.QC_MANAGE"))])
 async def create_quality_inspection(
     receipt_id: str,
     inspector_id: Optional[str] = None,
@@ -42,7 +42,7 @@ async def create_quality_inspection(
     return await engine.create_inspection_from_receipt(receipt_id=receipt_id, inspector_id=inspector_id)
 
 
-@router.get("/inspections", response_model=List[QCInspectionResponse])
+@router.get("/inspections", response_model=List[QCInspectionResponse], dependencies=[Depends(require_permission("PURCHASE.VIEW"))])
 async def list_quality_inspections(
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)
@@ -61,7 +61,7 @@ async def list_quality_inspections(
     return inspections
 
 
-@router.get("/inspections/{inspection_id}", response_model=QCInspectionResponse)
+@router.get("/inspections/{inspection_id}", response_model=QCInspectionResponse, dependencies=[Depends(require_permission("PURCHASE.VIEW"))])
 async def get_quality_inspection(
     inspection_id: str,
     db: AsyncSession = Depends(get_db),
@@ -84,7 +84,7 @@ async def get_quality_inspection(
     return insp
 
 
-@router.post("/inspections/{inspection_id}/evaluate", response_model=QCInspectionResponse)
+@router.post("/inspections/{inspection_id}/evaluate", response_model=QCInspectionResponse, dependencies=[Depends(require_permission("PURCHASE.QC_MANAGE"))])
 async def evaluate_quality_inspection(
     inspection_id: str,
     req_body: QCEvaluationRequest,
@@ -99,7 +99,7 @@ async def evaluate_quality_inspection(
     return await engine.evaluate_inspection(inspection_id=inspection_id, line_evaluations=items_in, remarks=req_body.remarks)
 
 
-@router.get("/debit-notes", response_model=List[SupplierDebitNoteResponse])
+@router.get("/debit-notes", response_model=List[SupplierDebitNoteResponse], dependencies=[Depends(require_permission("PURCHASE.VIEW"))])
 async def list_supplier_debit_notes(
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)

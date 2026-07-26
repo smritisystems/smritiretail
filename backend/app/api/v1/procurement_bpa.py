@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.db.session import get_db
-from app.api.deps import TenantContext, get_tenant_context
+from app.api.deps import TenantContext, get_tenant_context, require_permission
 from app.models.purchase import BlanketPurchaseAgreement, BlanketPurchaseAgreementLine, Supplier
 from app.schemas.purchase import BPACreate, BPAResponse, BPAReleaseRequest, PurchaseOrderResponse
 from app.procurement.engine.blanket_release_engine import BlanketReleaseEngine
@@ -28,7 +28,7 @@ from app.procurement.engine.blanket_release_engine import BlanketReleaseEngine
 router = APIRouter(prefix="/purchase/bpa", tags=["Procurement Blanket Purchase Agreements"])
 
 
-@router.post("", response_model=BPAResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=BPAResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("PURCHASE.CREATE"))])
 async def create_bpa(
     bpa_in: BPACreate,
     db: AsyncSession = Depends(get_db),
@@ -92,7 +92,7 @@ async def create_bpa(
     return bpa_obj
 
 
-@router.get("", response_model=List[BPAResponse])
+@router.get("", response_model=List[BPAResponse], dependencies=[Depends(require_permission("PURCHASE.VIEW"))])
 async def list_bpas(
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)
@@ -111,7 +111,7 @@ async def list_bpas(
     return bpas
 
 
-@router.get("/{bpa_id}", response_model=BPAResponse)
+@router.get("/{bpa_id}", response_model=BPAResponse, dependencies=[Depends(require_permission("PURCHASE.VIEW"))])
 async def get_bpa(
     bpa_id: str,
     db: AsyncSession = Depends(get_db),
@@ -134,7 +134,7 @@ async def get_bpa(
     return bpa
 
 
-@router.post("/{bpa_id}/release", response_model=PurchaseOrderResponse)
+@router.post("/{bpa_id}/release", response_model=PurchaseOrderResponse, dependencies=[Depends(require_permission("PURCHASE.CREATE"))])
 async def issue_bpa_release(
     bpa_id: str,
     req: BPAReleaseRequest,

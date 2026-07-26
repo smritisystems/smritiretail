@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.db.session import get_db
-from app.api.deps import TenantContext, get_tenant_context
+from app.api.deps import TenantContext, get_tenant_context, require_permission
 from app.models.purchase import (
     PurchaseRequisition, PurchaseRequisitionLine, RequisitionApproval, RequisitionApprovalPolicy
 )
@@ -36,7 +36,7 @@ from app.procurement.engine.requisition_conversion_engine import RequisitionConv
 router = APIRouter(prefix="/purchase/requisitions", tags=["Procurement Purchase Requisitions"])
 
 
-@router.post("", response_model=RequisitionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=RequisitionResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("PURCHASE.CREATE_REQUISITION"))])
 async def create_requisition(
     req_in: RequisitionCreate,
     db: AsyncSession = Depends(get_db),
@@ -104,7 +104,7 @@ async def create_requisition(
     return requisition
 
 
-@router.get("", response_model=List[RequisitionResponse])
+@router.get("", response_model=List[RequisitionResponse], dependencies=[Depends(require_permission("PURCHASE.VIEW"))])
 async def list_requisitions(
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)
@@ -125,7 +125,7 @@ async def list_requisitions(
     return reqs
 
 
-@router.get("/{requisition_id}", response_model=RequisitionResponse)
+@router.get("/{requisition_id}", response_model=RequisitionResponse, dependencies=[Depends(require_permission("PURCHASE.VIEW"))])
 async def get_requisition(
     requisition_id: str,
     db: AsyncSession = Depends(get_db),
@@ -150,7 +150,7 @@ async def get_requisition(
     return req
 
 
-@router.post("/{requisition_id}/submit", response_model=RequisitionResponse)
+@router.post("/{requisition_id}/submit", response_model=RequisitionResponse, dependencies=[Depends(require_permission("PURCHASE.CREATE_REQUISITION"))])
 async def submit_requisition(
     requisition_id: str,
     db: AsyncSession = Depends(get_db),
@@ -164,7 +164,7 @@ async def submit_requisition(
     return await get_requisition(req.id, db, tenant)
 
 
-@router.post("/{requisition_id}/approve", response_model=RequisitionResponse)
+@router.post("/{requisition_id}/approve", response_model=RequisitionResponse, dependencies=[Depends(require_permission("PURCHASE.APPROVE"))])
 async def record_approval_decision(
     requisition_id: str,
     req_body: ApprovalDecisionRequest,
@@ -184,7 +184,7 @@ async def record_approval_decision(
     return await get_requisition(req.id, db, tenant)
 
 
-@router.post("/{requisition_id}/convert")
+@router.post("/{requisition_id}/convert", dependencies=[Depends(require_permission("PURCHASE.CREATE"))])
 async def convert_requisition(
     requisition_id: str,
     req_body: RequisitionConvertRequest,
@@ -209,7 +209,7 @@ async def convert_requisition(
     }
 
 
-@router.post("/policies", response_model=ApprovalPolicyResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/policies", response_model=ApprovalPolicyResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("SYSTEM.CONFIG"))])
 async def create_approval_policy(
     pol_in: ApprovalPolicyCreate,
     db: AsyncSession = Depends(get_db),
@@ -238,7 +238,7 @@ async def create_approval_policy(
     return policy
 
 
-@router.get("/policies", response_model=List[ApprovalPolicyResponse])
+@router.get("/policies", response_model=List[ApprovalPolicyResponse], dependencies=[Depends(require_permission("SYSTEM.CONFIG"))])
 async def list_approval_policies(
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)

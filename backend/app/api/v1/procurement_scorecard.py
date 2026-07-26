@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.db.session import get_db
-from app.api.deps import TenantContext, get_tenant_context
+from app.api.deps import TenantContext, get_tenant_context, require_permission
 from app.models.purchase import SupplierScorecard, SupplierScorecardMetric, Supplier
 from app.schemas.purchase import (
     SupplierScorecardResponse, ScorecardRecalculateRequest
@@ -28,7 +28,7 @@ from app.procurement.engine.supplier_performance_engine import SupplierPerforman
 router = APIRouter(prefix="/purchase/scorecards", tags=["Procurement Supplier Performance Scorecards"])
 
 
-@router.post("/calculate", response_model=List[SupplierScorecardResponse])
+@router.post("/calculate", response_model=List[SupplierScorecardResponse], dependencies=[Depends(require_permission("PURCHASE.CALCULATE_SCORECARD"))])
 async def calculate_supplier_scorecards(
     req_body: ScorecardRecalculateRequest,
     db: AsyncSession = Depends(get_db),
@@ -45,7 +45,7 @@ async def calculate_supplier_scorecards(
         return await engine.recalculate_all_scorecards(days_window=req_body.days_window)
 
 
-@router.get("/supplier/{supplier_id}", response_model=SupplierScorecardResponse)
+@router.get("/supplier/{supplier_id}", response_model=SupplierScorecardResponse, dependencies=[Depends(require_permission("PURCHASE.VIEW"))])
 async def get_latest_supplier_scorecard(
     supplier_id: str,
     db: AsyncSession = Depends(get_db),
@@ -68,7 +68,7 @@ async def get_latest_supplier_scorecard(
     return sc
 
 
-@router.get("/rankings", response_model=List[SupplierScorecardResponse])
+@router.get("/rankings", response_model=List[SupplierScorecardResponse], dependencies=[Depends(require_permission("PURCHASE.VIEW"))])
 async def list_supplier_rankings(
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)

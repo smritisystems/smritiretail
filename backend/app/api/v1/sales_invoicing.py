@@ -20,7 +20,7 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.api.deps import get_current_tenant, TenantContext
+from app.api.deps import get_current_tenant, TenantContext, require_permission
 from app.models.sales import SalesInvoice
 from app.sales.engine.invoicing_engine import SalesInvoicingEngine
 from app.schemas.sales_invoicing import (
@@ -30,7 +30,7 @@ from app.schemas.sales_invoicing import (
 router = APIRouter(prefix="/sales", tags=["Sales Invoicing & Payment Settlement"])
 
 
-@router.post("/invoices/from-order/{order_id}", response_model=SalesInvoiceResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/invoices/from-order/{order_id}", response_model=SalesInvoiceResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("SALES.CREATE"))])
 async def generate_invoice_from_order(
     order_id: str,
     is_interstate: bool = Query(False, description="Set True for interstate supply (IGST)"),
@@ -44,7 +44,7 @@ async def generate_invoice_from_order(
     return await engine.generate_invoice_from_order(order_id, is_interstate=is_interstate)
 
 
-@router.get("/invoices/{id}", response_model=SalesInvoiceResponse)
+@router.get("/invoices/{id}", response_model=SalesInvoiceResponse, dependencies=[Depends(require_permission("SALES.VIEW"))])
 async def get_sales_invoice(
     id: str,
     db: AsyncSession = Depends(get_db),
@@ -64,7 +64,7 @@ async def get_sales_invoice(
     return invoice
 
 
-@router.post("/payments", response_model=SalesPaymentResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/payments", response_model=SalesPaymentResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("SALES.CREATE"))])
 async def record_customer_payment(
     payload: SalesPaymentCreate,
     db: AsyncSession = Depends(get_db),
@@ -83,7 +83,7 @@ async def record_customer_payment(
     )
 
 
-@router.get("/customers/{customer_id}/statement", response_model=CustomerStatementResponse)
+@router.get("/customers/{customer_id}/statement", response_model=CustomerStatementResponse, dependencies=[Depends(require_permission("SALES.VIEW"))])
 async def get_customer_statement(
     customer_id: str,
     db: AsyncSession = Depends(get_db),

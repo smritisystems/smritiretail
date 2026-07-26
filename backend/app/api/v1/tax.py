@@ -20,7 +20,7 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.api.deps import get_current_tenant, TenantContext
+from app.api.deps import get_current_tenant, TenantContext, require_permission
 from app.models.tax import EWayBill
 from app.services.gst_tax_engine import GstTaxEngine
 from app.schemas.tax import (
@@ -31,7 +31,7 @@ from app.schemas.tax import (
 router = APIRouter(prefix="/tax", tags=["GST Tax Settlement & Statutory E-Way Bills"])
 
 
-@router.get("/gst/settlement", response_model=GstSettlementResponse)
+@router.get("/gst/settlement", response_model=GstSettlementResponse, dependencies=[Depends(require_permission("TAX.VIEW"))])
 async def calculate_gst_settlement(
     tax_period: str = Query(..., description="Tax Period in YYYY-MM format"),
     db: AsyncSession = Depends(get_db),
@@ -44,7 +44,7 @@ async def calculate_gst_settlement(
     return await engine.calculate_monthly_settlement(tax_period=tax_period)
 
 
-@router.get("/gst/gstr1", response_model=Gstr1PayloadResponse)
+@router.get("/gst/gstr1", response_model=Gstr1PayloadResponse, dependencies=[Depends(require_permission("TAX.VIEW"))])
 async def generate_gstr1_payload(
     tax_period: str = Query(..., description="Tax Period in YYYY-MM format"),
     db: AsyncSession = Depends(get_db),
@@ -57,7 +57,7 @@ async def generate_gstr1_payload(
     return await engine.generate_gstr1_payload(tax_period=tax_period)
 
 
-@router.post("/eway-bills", response_model=EWayBillResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/eway-bills", response_model=EWayBillResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("TAX.MANAGE_EWAY"))])
 async def generate_eway_bill(
     payload: EWayBillCreateReq,
     db: AsyncSession = Depends(get_db),
@@ -77,7 +77,7 @@ async def generate_eway_bill(
     )
 
 
-@router.get("/eway-bills/{id}", response_model=EWayBillResponse)
+@router.get("/eway-bills/{id}", response_model=EWayBillResponse, dependencies=[Depends(require_permission("TAX.VIEW"))])
 async def get_eway_bill(
     id: str,
     db: AsyncSession = Depends(get_db),

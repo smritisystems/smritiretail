@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.db.session import get_db
-from app.api.deps import TenantContext, get_tenant_context
+from app.api.deps import TenantContext, get_tenant_context, require_permission
 from app.models.purchase import (
     ProcurementRFQ, ProcurementRFQItem, ProcurementRFQVendor,
     VendorQuotation, VendorQuotationItem, Supplier
@@ -39,7 +39,7 @@ from app.procurement.engine.award_engine import AwardEngine
 router = APIRouter(prefix="/purchase/rfqs", tags=["Procurement RFQ & Bidding"])
 
 
-@router.post("", response_model=RFQResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=RFQResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("PURCHASE.CREATE_RFQ"))])
 async def create_rfq(
     rfq_in: RFQCreate,
     db: AsyncSession = Depends(get_db),
@@ -116,7 +116,7 @@ async def create_rfq(
     return rfq_obj
 
 
-@router.get("", response_model=List[RFQResponse])
+@router.get("", response_model=List[RFQResponse], dependencies=[Depends(require_permission("PURCHASE.VIEW"))])
 async def list_rfqs(
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)
@@ -139,7 +139,7 @@ async def list_rfqs(
     return rfqs
 
 
-@router.get("/{rfq_id}", response_model=RFQResponse)
+@router.get("/{rfq_id}", response_model=RFQResponse, dependencies=[Depends(require_permission("PURCHASE.VIEW"))])
 async def get_rfq(
     rfq_id: str,
     db: AsyncSession = Depends(get_db),
@@ -166,7 +166,7 @@ async def get_rfq(
     return rfq
 
 
-@router.post("/{rfq_id}/publish", response_model=RFQResponse)
+@router.post("/{rfq_id}/publish", response_model=RFQResponse, dependencies=[Depends(require_permission("PURCHASE.CREATE_RFQ"))])
 async def publish_rfq(
     rfq_id: str,
     db: AsyncSession = Depends(get_db),
@@ -198,7 +198,7 @@ async def publish_rfq(
     return rfq
 
 
-@router.post("/{rfq_id}/quotations", response_model=VendorQuotationResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/{rfq_id}/quotations", response_model=VendorQuotationResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("PURCHASE.SUBMIT_BID"))])
 async def submit_quotation(
     rfq_id: str,
     quote_in: VendorQuotationCreate,
@@ -296,7 +296,7 @@ async def submit_quotation(
     return quote_obj
 
 
-@router.get("/{rfq_id}/compare", response_model=Dict[str, Any])
+@router.get("/{rfq_id}/compare", response_model=Dict[str, Any], dependencies=[Depends(require_permission("PURCHASE.VIEW"))])
 async def compare_rfq_quotations(
     rfq_id: str,
     db: AsyncSession = Depends(get_db),
@@ -361,7 +361,7 @@ async def compare_rfq_quotations(
     return await matrix_builder.build_matrix(rfq_id)
 
 
-@router.post("/{rfq_id}/award", response_model=QuotationEvaluationResponse)
+@router.post("/{rfq_id}/award", response_model=QuotationEvaluationResponse, dependencies=[Depends(require_permission("PURCHASE.AWARD_RFQ"))])
 async def award_rfq(
     rfq_id: str,
     award_req: QuotationAwardRequest,

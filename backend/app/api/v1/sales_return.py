@@ -20,7 +20,7 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.api.deps import get_current_tenant, TenantContext
+from app.api.deps import get_current_tenant, TenantContext, require_permission
 from app.models.sales import SalesReturn, CreditNote
 from app.sales.engine.return_engine import SalesReturnEngine
 from app.schemas.sales_return import (
@@ -30,7 +30,7 @@ from app.schemas.sales_return import (
 router = APIRouter(prefix="/sales", tags=["Sales Returns & Credit Notes"])
 
 
-@router.post("/returns", response_model=SalesReturnResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/returns", response_model=SalesReturnResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("SALES.CREATE_RETURN"))])
 async def create_sales_return(
     payload: SalesReturnCreate,
     db: AsyncSession = Depends(get_db),
@@ -48,7 +48,7 @@ async def create_sales_return(
     )
 
 
-@router.post("/returns/{id}/evaluate")
+@router.post("/returns/{id}/evaluate", dependencies=[Depends(require_permission("SALES.APPROVE_RETURN"))])
 async def evaluate_and_process_return(
     id: str,
     payload: Optional[ReturnEvaluationRequest] = None,
@@ -67,7 +67,7 @@ async def evaluate_and_process_return(
     }
 
 
-@router.get("/returns/{id}", response_model=SalesReturnResponse)
+@router.get("/returns/{id}", response_model=SalesReturnResponse, dependencies=[Depends(require_permission("SALES.VIEW"))])
 async def get_sales_return(
     id: str,
     db: AsyncSession = Depends(get_db),
@@ -87,7 +87,7 @@ async def get_sales_return(
     return ret
 
 
-@router.get("/credit-notes/{id}", response_model=CreditNoteResponse)
+@router.get("/credit-notes/{id}", response_model=CreditNoteResponse, dependencies=[Depends(require_permission("SALES.VIEW"))])
 async def get_credit_note(
     id: str,
     db: AsyncSession = Depends(get_db),
