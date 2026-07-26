@@ -547,7 +547,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
       {/* --- ADD PARTNER MODAL --- */}
       <AnimatePresence>
         {showAddPartner && (
-          <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-theme-surface-3 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -627,7 +627,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowAddPartner(false)}
-                    className="bg-slate-800 hover:bg-slate-700 text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
+                    className="bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -647,7 +647,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
       {/* --- ADD TRANSFER MODAL --- */}
       <AnimatePresence>
         {showAddTransfer && (
-          <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-theme-surface-3 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -727,7 +727,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                     <button
                       type="button"
                       onClick={addTransferLine}
-                      className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider cursor-pointer"
+                      className="bg-theme-surface-3 hover:bg-theme-surface-3 text-white font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider cursor-pointer"
                     >
                       + Add Item
                     </button>
@@ -1196,7 +1196,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowAddReturn(false)}
-                    className="bg-slate-800 hover:bg-slate-700 text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
+                    className="bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
                   >
                     Cancel
                   </button>

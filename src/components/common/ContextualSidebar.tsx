@@ -147,7 +147,7 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
               onClick={() => onSelectTab(item.targetTab)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
                 isActive
-                  ? "bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20"
+                  ? "bg-cyan-500 text-theme-heading font-bold shadow-md shadow-cyan-500/20"
                   : "text-theme-muted hover:text-theme-heading hover:bg-theme-surface-2"
               } ${collapsed ? "justify-center px-0" : ""}`}
               title={collapsed ? item.title : undefined}

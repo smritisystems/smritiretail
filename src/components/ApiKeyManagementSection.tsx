@@ -172,24 +172,24 @@ export const ApiKeyManagementSection: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 text-slate-100 bg-slate-950/40 rounded-xl border border-slate-800/60 backdrop-blur-md">
+    <div className="p-6 space-y-6 text-theme-heading bg-theme-surface-3 rounded-xl border border-theme-divider backdrop-blur-md">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800/80 pb-5">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-theme-divider pb-5">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
             <Key className="w-6 h-6 text-emerald-400" />
             Service Accounts & API Keys (v3.35.0)
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-theme-muted mt-1">
             Programmatic API security credentials with SHA-256 secret hashing, IP CIDR containment, and permission set scoping.
           </p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={() => setShowCreateSAModal(true)}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition flex items-center gap-1.5"
+            className="px-3.5 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading text-xs font-semibold rounded-lg border border-theme-divider transition flex items-center gap-1.5"
           >
-            <Plus className="w-4 h-4 text-slate-400" />
+            <Plus className="w-4 h-4 text-theme-muted" />
             New Service Account
           </button>
           <button
@@ -208,9 +208,9 @@ export const ApiKeyManagementSection: React.FC = () => {
       {/* Keys List */}
       <SmritiScrollArea className="max-h-[500px] pr-2">
         {loading ? (
-          <div className="p-12 text-center text-slate-400 text-sm">Loading API key credentials...</div>
+          <div className="p-12 text-center text-theme-muted text-sm">Loading API key credentials...</div>
         ) : keys.length === 0 ? (
-          <div className="p-12 text-center text-slate-500 text-sm bg-slate-900/30 rounded-xl border border-dashed border-slate-800">
+          <div className="p-12 text-center text-theme-muted text-sm bg-theme-surface-2 rounded-xl border border-dashed border-theme-divider">
             No API keys found. Create a Service Account and generate a key to enable external programmatic integrations.
           </div>
         ) : (
@@ -218,7 +218,7 @@ export const ApiKeyManagementSection: React.FC = () => {
             {keys.map((k) => (
               <div
                 key={k.id}
-                className="p-4 bg-slate-900/60 border border-slate-800/80 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-slate-700 transition"
+                className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-theme-divider transition"
               >
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-3">
@@ -234,17 +234,17 @@ export const ApiKeyManagementSection: React.FC = () => {
                       {k.is_active ? "Active" : "Revoked"}
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-4 text-xs text-slate-400">
-                    <span>Rate Limit: <strong className="text-slate-200">{k.rate_limit_per_minute} req/min</strong></span>
-                    <span>IP CIDR: <strong className="text-slate-200">{k.allowed_ip_cidrs ? k.allowed_ip_cidrs.join(", ") : "Any (Unrestricted)"}</strong></span>
-                    <span>Last Used: <strong className="text-slate-200">{k.last_used_at ? new Date(k.last_used_at).toLocaleString() : "Never"}</strong></span>
+                  <div className="flex flex-wrap gap-4 text-xs text-theme-muted">
+                    <span>Rate Limit: <strong className="text-theme-heading">{k.rate_limit_per_minute} req/min</strong></span>
+                    <span>IP CIDR: <strong className="text-theme-heading">{k.allowed_ip_cidrs ? k.allowed_ip_cidrs.join(", ") : "Any (Unrestricted)"}</strong></span>
+                    <span>Last Used: <strong className="text-theme-heading">{k.last_used_at ? new Date(k.last_used_at).toLocaleString() : "Never"}</strong></span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 self-end md:self-auto">
                   <button
                     onClick={() => handleViewLogs(k.id)}
-                    className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition"
+                    className="p-2 text-theme-muted hover:text-theme-heading hover:bg-theme-surface-hover rounded-lg transition"
                     title="View Usage Audit Logs"
                   >
                     <Activity className="w-4 h-4" />
@@ -273,7 +273,7 @@ export const ApiKeyManagementSection: React.FC = () => {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4"
+              className="bg-theme-surface-2 border border-theme-divider rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4"
             >
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <Shield className="w-5 h-5 text-emerald-400" />
@@ -281,41 +281,41 @@ export const ApiKeyManagementSection: React.FC = () => {
               </h3>
               <form onSubmit={handleCreateServiceAccount} className="space-y-4">
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Service Account Code</label>
+                  <label className="text-xs text-theme-muted block mb-1">Service Account Code</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. SA-WMS-PROD"
                     value={saCode}
                     onChange={(e) => setSaCode(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none"
+                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Service Account Name</label>
+                  <label className="text-xs text-theme-muted block mb-1">Service Account Name</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Warehouse Sync Service"
                     value={saName}
                     onChange={(e) => setSaName(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none"
+                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Description (Optional)</label>
+                  <label className="text-xs text-theme-muted block mb-1">Description (Optional)</label>
                   <textarea
                     placeholder="Integration scope details..."
                     value={saDesc}
                     onChange={(e) => setSaDesc(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none h-20"
+                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none h-20"
                   />
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => setShowCreateSAModal(false)}
-                    className="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-semibold rounded-lg hover:bg-slate-700"
+                    className="px-4 py-2 bg-theme-surface-2 text-theme-body text-xs font-semibold rounded-lg hover:bg-theme-surface-hover"
                   >
                     Cancel
                   </button>
@@ -340,7 +340,7 @@ export const ApiKeyManagementSection: React.FC = () => {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4"
+              className="bg-theme-surface-2 border border-theme-divider rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4"
             >
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <Key className="w-5 h-5 text-emerald-400" />
@@ -348,22 +348,22 @@ export const ApiKeyManagementSection: React.FC = () => {
               </h3>
               <form onSubmit={handleGenerateApiKey} className="space-y-4">
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Key Name / Identifier</label>
+                  <label className="text-xs text-theme-muted block mb-1">Key Name / Identifier</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. WMS Live Production Key"
                     value={keyName}
                     onChange={(e) => setKeyName(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none"
+                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Attached Permission Set</label>
+                  <label className="text-xs text-theme-muted block mb-1">Attached Permission Set</label>
                   <select
                     value={permissionSetId}
                     onChange={(e) => setPermissionSetId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none"
+                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none"
                   >
                     <option value="pol-inventory-mgmt">Inventory Management Policy</option>
                     <option value="pol-sales-mgmt">Sales Management Policy</option>
@@ -372,29 +372,29 @@ export const ApiKeyManagementSection: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Allowed IP CIDR Ranges (comma-separated)</label>
+                  <label className="text-xs text-theme-muted block mb-1">Allowed IP CIDR Ranges (comma-separated)</label>
                   <input
                     type="text"
                     placeholder="e.g. 192.168.1.0/24, 10.0.5.10/32"
                     value={ipCidrsInput}
                     onChange={(e) => setIpCidrsInput(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none font-mono text-xs"
+                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none font-mono text-xs"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Rate Limit (Requests per Minute)</label>
+                  <label className="text-xs text-theme-muted block mb-1">Rate Limit (Requests per Minute)</label>
                   <input
                     type="number"
                     value={rateLimit}
                     onChange={(e) => setRateLimit(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none"
+                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none"
                   />
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => setShowGenKeyModal(false)}
-                    className="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-semibold rounded-lg hover:bg-slate-700"
+                    className="px-4 py-2 bg-theme-surface-2 text-theme-body text-xs font-semibold rounded-lg hover:bg-theme-surface-hover"
                   >
                     Cancel
                   </button>
@@ -419,7 +419,7 @@ export const ApiKeyManagementSection: React.FC = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-slate-900 border border-emerald-500/50 rounded-xl max-w-lg w-full p-6 shadow-2xl space-y-4 text-center"
+              className="bg-theme-surface-2 border border-emerald-500/50 rounded-xl max-w-lg w-full p-6 shadow-2xl space-y-4 text-center"
             >
               <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center mx-auto">
                 <Lock className="w-6 h-6" />
@@ -430,7 +430,7 @@ export const ApiKeyManagementSection: React.FC = () => {
                 This raw secret token will <strong>NEVER be shown again</strong>. SMRITI OS stores only the SHA-256 cryptographic hash. Copy and save it securely in your configuration vault now.
               </p>
 
-              <div className="p-3 bg-slate-950 border border-slate-800 rounded-lg flex items-center justify-between gap-3 font-mono text-xs text-emerald-300 break-all select-all">
+              <div className="p-3 bg-theme-surface-3 border border-theme-divider rounded-lg flex items-center justify-between gap-3 font-mono text-xs text-emerald-300 break-all select-all">
                 <span>{generatedRawKey}</span>
                 <button
                   onClick={copyToClipboard}
@@ -444,7 +444,7 @@ export const ApiKeyManagementSection: React.FC = () => {
               <div className="pt-2">
                 <button
                   onClick={() => setShowSecretModal(false)}
-                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition"
+                  className="w-full py-2.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading text-xs font-semibold rounded-lg transition"
                 >
                   I Have Saved My Secret Token
                 </button>
@@ -462,16 +462,16 @@ export const ApiKeyManagementSection: React.FC = () => {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl space-y-4"
+              className="bg-theme-surface-2 border border-theme-divider rounded-xl max-w-2xl w-full p-6 shadow-2xl space-y-4"
             >
-              <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div className="flex justify-between items-center border-b border-theme-divider pb-3">
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
                   <Activity className="w-5 h-5 text-emerald-400" />
                   API Key Usage Audit Trail
                 </h3>
                 <button
                   onClick={() => setShowLogsModal(false)}
-                  className="text-xs text-slate-400 hover:text-slate-200"
+                  className="text-xs text-theme-muted hover:text-theme-heading"
                 >
                   Close
                 </button>
@@ -479,13 +479,13 @@ export const ApiKeyManagementSection: React.FC = () => {
 
               <SmritiScrollArea className="max-h-80 pr-2">
                 {loadingLogs ? (
-                  <div className="p-8 text-center text-xs text-slate-400">Loading audit logs...</div>
+                  <div className="p-8 text-center text-xs text-theme-muted">Loading audit logs...</div>
                 ) : keyLogs.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-slate-500">No request audit logs recorded for this key yet.</div>
+                  <div className="p-8 text-center text-xs text-theme-muted">No request audit logs recorded for this key yet.</div>
                 ) : (
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-800 text-slate-400 font-semibold">
+                      <tr className="border-b border-theme-divider text-theme-muted font-semibold">
                         <th className="py-2">Timestamp</th>
                         <th className="py-2">IP Address</th>
                         <th className="py-2">Method</th>
@@ -494,15 +494,15 @@ export const ApiKeyManagementSection: React.FC = () => {
                         <th className="py-2">Latency</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/50">
+                    <tbody className="divide-y divide-theme-divider">
                       {keyLogs.map((l) => (
-                        <tr key={l.id} className="hover:bg-slate-800/30">
-                          <td className="py-2 text-slate-400">{new Date(l.timestamp).toLocaleTimeString()}</td>
-                          <td className="py-2 font-mono text-slate-300">{l.ip_address}</td>
+                        <tr key={l.id} className="hover:bg-theme-surface-2">
+                          <td className="py-2 text-theme-muted">{new Date(l.timestamp).toLocaleTimeString()}</td>
+                          <td className="py-2 font-mono text-theme-body">{l.ip_address}</td>
                           <td className="py-2 font-bold text-emerald-400">{l.http_method}</td>
-                          <td className="py-2 font-mono text-slate-300 truncate max-w-[150px]">{l.endpoint}</td>
+                          <td className="py-2 font-mono text-theme-body truncate max-w-[150px]">{l.endpoint}</td>
                           <td className="py-2 font-semibold text-emerald-400">{l.status_code}</td>
-                          <td className="py-2 text-slate-400">{l.response_time_ms} ms</td>
+                          <td className="py-2 text-theme-muted">{l.response_time_ms} ms</td>
                         </tr>
                       ))}
                     </tbody>

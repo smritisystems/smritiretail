@@ -459,7 +459,7 @@ export const VariantTemplateSection: React.FC<VariantTemplateSectionProps> = ({
                       setName("");
                       setGroupId("");
                     }}
-                    className="px-3 py-1 bg-slate-800 text-xs text-slate-300 rounded"
+                    className="px-3 py-1 bg-theme-surface-3 text-xs text-theme-muted hover:text-theme-heading rounded"
                   >
                     Cancel
                   </button>
@@ -529,7 +529,7 @@ export const VariantTemplateSection: React.FC<VariantTemplateSectionProps> = ({
                   <div className="overflow-x-auto border border-theme-divider/70 rounded-xl">
                     <table className="w-full text-xs text-left border-collapse">
                       <thead>
-                        <tr className="bg-theme-surface-2 text-slate-400 border-b border-theme-divider">
+                        <tr className="bg-theme-surface-2 text-theme-muted border-b border-theme-divider">
                           <th className="p-3 font-mono text-[10px] uppercase border-r border-theme-divider/50 text-indigo-300 font-bold">
                             {rowAttr.label} \ {colAttr.label}
                           </th>
@@ -552,7 +552,7 @@ export const VariantTemplateSection: React.FC<VariantTemplateSectionProps> = ({
                               return (
                                 <td key={colVal} className="p-2 border-r border-theme-divider/40 min-w-[170px]">
                                   <div className="space-y-1 bg-theme-surface-2/40 p-2 rounded border border-theme-divider/25">
-                                    <label className="flex items-center space-x-1.5 cursor-pointer text-[10px] text-slate-400 select-none">
+                                    <label className="flex items-center space-x-1.5 cursor-pointer text-[10px] text-theme-muted select-none">
                                       <input
                                         type="checkbox"
                                         checked={cell.active}

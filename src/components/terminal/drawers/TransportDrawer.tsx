@@ -29,7 +29,7 @@ export const TransportDrawer: React.FC<DrawerPluginProps> = ({ data, onSave, onC
   };
 
   return (
-    // SEEF Phase 8: bg-slate-900 → bg-theme-base; border-slate-700 → border-theme-divider
+    // SEEF Phase 8: bg-theme-surface-2 → bg-theme-base; border-theme-divider → border-theme-divider
     <div className="space-y-4 font-sans text-xs">
       <div>
         <label className={fieldLabel}>Transporter Name</label>

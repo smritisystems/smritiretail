@@ -218,7 +218,7 @@ export const CustomerDashboardTab: React.FC = () => {
                           <span className="font-medium text-theme-body">{pg}</span>
                           <span className="font-bold text-theme-muted font-mono">{count} ({pct.toFixed(0)}%)</span>
                         </div>
-                        <div className="w-full bg-slate-800 rounded-full h-2">
+                        <div className="w-full bg-theme-surface-2 rounded-full h-2">
                           <div 
                             className="bg-indigo-500 h-2 rounded-full transition-all duration-500" 
                             style={{ width: `${pct}%` }} 
@@ -245,7 +245,7 @@ export const CustomerDashboardTab: React.FC = () => {
                       <span>0 - 30 Days</span>
                       <span className="font-bold text-theme-body">₹{Math.round(totalReceivables * 0.65).toLocaleString()}</span>
                     </div>
-                    <div className="w-full bg-slate-800 rounded-full h-2.5">
+                    <div className="w-full bg-theme-surface-2 rounded-full h-2.5">
                       <div className="bg-emerald-500 h-2.5 rounded-full" style={{ width: "65%" }} />
                     </div>
                   </div>
@@ -254,7 +254,7 @@ export const CustomerDashboardTab: React.FC = () => {
                       <span>31 - 60 Days</span>
                       <span className="font-bold text-theme-body">₹{Math.round(totalReceivables * 0.20).toLocaleString()}</span>
                     </div>
-                    <div className="w-full bg-slate-800 rounded-full h-2.5">
+                    <div className="w-full bg-theme-surface-2 rounded-full h-2.5">
                       <div className="bg-blue-500 h-2.5 rounded-full" style={{ width: "20%" }} />
                     </div>
                   </div>
@@ -263,7 +263,7 @@ export const CustomerDashboardTab: React.FC = () => {
                       <span>61 - 90 Days</span>
                       <span className="font-bold text-theme-body">₹{Math.round(totalReceivables * 0.10).toLocaleString()}</span>
                     </div>
-                    <div className="w-full bg-slate-800 rounded-full h-2.5">
+                    <div className="w-full bg-theme-surface-2 rounded-full h-2.5">
                       <div className="bg-amber-500 h-2.5 rounded-full" style={{ width: "10%" }} />
                     </div>
                   </div>
@@ -272,7 +272,7 @@ export const CustomerDashboardTab: React.FC = () => {
                       <span>90+ Days (Overdue)</span>
                       <span className="font-bold">₹{Math.round(totalReceivables * 0.05).toLocaleString()}</span>
                     </div>
-                    <div className="w-full bg-slate-800 rounded-full h-2.5">
+                    <div className="w-full bg-theme-surface-2 rounded-full h-2.5">
                       <div className="bg-rose-500 h-2.5 rounded-full" style={{ width: "5%" }} />
                     </div>
                   </div>
@@ -293,56 +293,56 @@ export const CustomerDashboardTab: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-theme-surface-2/40 border border-theme-divider/50 p-3.5 rounded-xl text-center relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-slate-900/10 group-hover:bg-transparent transition-colors" />
+                  <div className="absolute inset-0 bg-theme-surface-2 group-hover:bg-transparent transition-colors" />
                   <span className="text-[9px] font-bold text-theme-muted uppercase tracking-wider block font-mono">Total Sales (All-Time)</span>
                   <span className="text-lg font-bold text-theme-body/50 block mt-1.5">₹0.00</span>
                   <span className="text-[8px] font-mono text-amber-500/80 block mt-1">FASTAPI SALES DATA REQUIRED</span>
                 </div>
 
                 <div className="bg-theme-surface-2/40 border border-theme-divider/50 p-3.5 rounded-xl text-center relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-slate-900/10 group-hover:bg-transparent transition-colors" />
+                  <div className="absolute inset-0 bg-theme-surface-2 group-hover:bg-transparent transition-colors" />
                   <span className="text-[9px] font-bold text-theme-muted uppercase tracking-wider block font-mono">Average Payment Days</span>
                   <span className="text-lg font-bold text-theme-body/50 block mt-1.5">0 Days</span>
                   <span className="text-[8px] font-mono text-amber-500/80 block mt-1">FASTAPI SALES DATA REQUIRED</span>
                 </div>
 
                 <div className="bg-theme-surface-2/40 border border-theme-divider/50 p-3.5 rounded-xl text-center relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-slate-900/10 group-hover:bg-transparent transition-colors" />
+                  <div className="absolute inset-0 bg-theme-surface-2 group-hover:bg-transparent transition-colors" />
                   <span className="text-[9px] font-bold text-theme-muted uppercase tracking-wider block font-mono">Credit Limit Used %</span>
                   <span className="text-lg font-bold text-theme-body/50 block mt-1.5">0.00%</span>
                   <span className="text-[8px] font-mono text-amber-500/80 block mt-1">FASTAPI SALES DATA REQUIRED</span>
                 </div>
 
                 <div className="bg-theme-surface-2/40 border border-theme-divider/50 p-3.5 rounded-xl text-center relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-slate-900/10 group-hover:bg-transparent transition-colors" />
+                  <div className="absolute inset-0 bg-theme-surface-2 group-hover:bg-transparent transition-colors" />
                   <span className="text-[9px] font-bold text-theme-muted uppercase tracking-wider block font-mono">Returns Value</span>
                   <span className="text-lg font-bold text-theme-body/50 block mt-1.5">₹0.00</span>
                   <span className="text-[8px] font-mono text-amber-500/80 block mt-1">FASTAPI SALES DATA REQUIRED</span>
                 </div>
 
                 <div className="bg-theme-surface-2/40 border border-theme-divider/50 p-3.5 rounded-xl text-center relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-slate-900/10 group-hover:bg-transparent transition-colors" />
+                  <div className="absolute inset-0 bg-theme-surface-2 group-hover:bg-transparent transition-colors" />
                   <span className="text-[9px] font-bold text-theme-muted uppercase tracking-wider block font-mono">Open Orders</span>
                   <span className="text-lg font-bold text-theme-body/50 block mt-1.5">0 Bills</span>
                   <span className="text-[8px] font-mono text-amber-500/80 block mt-1">FASTAPI SALES DATA REQUIRED</span>
                 </div>
 
                 <div className="bg-theme-surface-2/40 border border-theme-divider/50 p-3.5 rounded-xl text-center relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-slate-900/10 group-hover:bg-transparent transition-colors" />
+                  <div className="absolute inset-0 bg-theme-surface-2 group-hover:bg-transparent transition-colors" />
                   <span className="text-[9px] font-bold text-theme-muted uppercase tracking-wider block font-mono">Open Invoices</span>
                   <span className="text-lg font-bold text-theme-body/50 block mt-1.5">0 Bills</span>
                   <span className="text-[8px] font-mono text-amber-500/80 block mt-1">FASTAPI SALES DATA REQUIRED</span>
                 </div>
 
                 <div className="bg-theme-surface-2/40 border border-theme-divider/50 p-3.5 rounded-xl text-center relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-slate-900/10 group-hover:bg-transparent transition-colors" />
+                  <div className="absolute inset-0 bg-theme-surface-2 group-hover:bg-transparent transition-colors" />
                   <span className="text-[9px] font-bold text-theme-muted uppercase tracking-wider block font-mono">Lifetime Value (CLV)</span>
                   <span className="text-lg font-bold text-theme-body/50 block mt-1.5">₹0.00</span>
                   <span className="text-[8px] font-mono text-amber-500/80 block mt-1">FASTAPI SALES DATA REQUIRED</span>
                 </div>
 
                 <div className="bg-theme-surface-2/40 border border-theme-divider/50 p-3.5 rounded-xl text-center relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-slate-900/10 group-hover:bg-transparent transition-colors" />
+                  <div className="absolute inset-0 bg-theme-surface-2 group-hover:bg-transparent transition-colors" />
                   <span className="text-[9px] font-bold text-theme-muted uppercase tracking-wider block font-mono">Last Purchase Date</span>
                   <span className="text-lg font-bold text-theme-body/50 block mt-1.5">—</span>
                   <span className="text-[8px] font-mono text-amber-500/80 block mt-1">FASTAPI SALES DATA REQUIRED</span>
@@ -404,7 +404,7 @@ export const CustomerDashboardTab: React.FC = () => {
                       <td className="px-6 py-4 text-center">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                           c.status === "Active" ? "bg-emerald-950 text-emerald-400 border border-emerald-500/30" :
-                          c.status === "Inactive" ? "bg-slate-700 text-slate-300" :
+                          c.status === "Inactive" ? "bg-theme-surface-3 text-theme-body" :
                           "bg-rose-950 text-rose-400 border border-rose-500/30 font-bold"
                         }`}>
                           {c.status}

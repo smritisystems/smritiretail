@@ -764,18 +764,18 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
   return (
     <div className="w-full h-full flex flex-col bg-[#0b1329] text-gray-200 overflow-hidden font-sans select-none relative">
       {/* SHOPER 9 HEADER BAR (TOP CONTROL ROW) */}
-      <div className="px-4 py-2 bg-[#0f172a] border-b border-slate-700/80 flex items-center justify-between text-xs font-mono">
+      <div className="px-4 py-2 bg-[#0f172a] border-b border-theme-divider flex items-center justify-between text-xs font-mono">
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <span className="text-slate-400 font-bold">Bill Type:</span>
+            <span className="text-theme-muted font-bold">Bill Type:</span>
             <span className="bg-blue-600/30 text-blue-300 px-2 py-0.5 rounded border border-blue-500/40 font-bold uppercase">Tax Invoice</span>
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-slate-400 font-bold">Type:</span>
+            <span className="text-theme-muted font-bold">Type:</span>
             <span className="bg-emerald-600/30 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/40 font-bold">{paymentMode === "Single" ? primaryPaymentMethod.toUpperCase() : "SPLIT"}</span>
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-slate-400 font-bold">Customer:</span>
+            <span className="text-theme-muted font-bold">Customer:</span>
             <button
               onClick={() => {
                 setTempCustomer(customer);
@@ -789,17 +789,17 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
             </button>
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-slate-400 font-bold">Sales Staff:</span>
-            <span className="text-slate-200">{SALESPERSONS.find(s => s.id === globalSalespersonId)?.name || "Counter Clerk"}</span>
+            <span className="text-theme-muted font-bold">Sales Staff:</span>
+            <span className="text-theme-heading">{SALESPERSONS.find(s => s.id === globalSalespersonId)?.name || "Counter Clerk"}</span>
           </div>
         </div>
 
         <div className="flex items-center space-x-3">
-          <span className="text-slate-400">Shift: <strong className="text-white">{activeShift?.id || "SHIFT-01"}</strong></span>
-          <span className="text-slate-400">Desk: <strong className="text-white">{activeProfile?.name || "LANE-01"}</strong></span>
+          <span className="text-theme-muted">Shift: <strong className="text-white">{activeShift?.id || "SHIFT-01"}</strong></span>
+          <span className="text-theme-muted">Desk: <strong className="text-white">{activeProfile?.name || "LANE-01"}</strong></span>
           <button 
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition-colors"
+            className="text-theme-muted hover:text-white p-1 rounded hover:bg-theme-surface-hover transition-colors"
           >
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
@@ -821,16 +821,16 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           
           {/* LEFT COLUMN: SHOPER 9 DETAIL SECTION (SMRITI ITEM GRID - 75% WIDTH) */}
-          <div className="flex-1 flex flex-col overflow-hidden border-r border-slate-800 p-4 space-y-3">
+          <div className="flex-1 flex flex-col overflow-hidden border-r border-theme-divider p-4 space-y-3">
             {/* Quick Barcode Scanner / SKU Search Bar */}
-            <form onSubmit={handleScanSubmit} className="flex items-center gap-3 bg-[#1e293b] p-2.5 rounded-lg border border-slate-700">
+            <form onSubmit={handleScanSubmit} className="flex items-center gap-3 bg-[#1e293b] p-2.5 rounded-lg border border-theme-divider">
               <span className="material-symbols-outlined text-blue-400 text-xl">qr_code_scanner</span>
               <input
                 type="text"
                 value={scanInput}
                 onChange={(e) => setScanInput(e.target.value)}
                 placeholder="Scan barcode or type SKU / Item Name (e.g. 8901234567890, Shirt, Denim, Belt) & press Enter..."
-                className="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-blue-500"
+                className="flex-1 bg-theme-surface-2 border border-theme-divider rounded px-3 py-1.5 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-blue-500"
               />
               <button
                 type="submit"
@@ -842,7 +842,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
               <button
                 type="button"
                 onClick={() => setIsSearchOpen(true)}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1 font-mono border border-slate-700 cursor-pointer"
+                className="bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1 font-mono border border-theme-divider cursor-pointer"
               >
                 <span className="material-symbols-outlined text-sm">search</span>
                 Catalog (Ctrl+K)
@@ -851,7 +851,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
 
             {/* Quick Catalog Chips Bar for Instant 1-Click Item Additions */}
             <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1 text-[11px] font-mono">
-              <span className="text-slate-400 font-bold flex items-center gap-1 shrink-0">
+              <span className="text-theme-muted font-bold flex items-center gap-1 shrink-0">
                 <span className="material-symbols-outlined text-xs text-emerald-400">add_circle</span>
                 Quick Add Items:
               </span>
@@ -859,7 +859,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                 <button
                   key={p.id}
                   onClick={() => handleAddToCart(p, 1)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-2.5 py-1 rounded border border-slate-700 hover:border-slate-500 font-semibold transition-all shrink-0 flex items-center gap-1 cursor-pointer"
+                  className="bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading hover:text-white px-2.5 py-1 rounded border border-theme-divider hover:border-theme-divider font-semibold transition-all shrink-0 flex items-center gap-1 cursor-pointer"
                 >
                   <span>+ {p.name.split(" ")[0]}</span>
                   <span className="text-emerald-400 font-bold">₹{p.price}</span>
@@ -878,16 +878,16 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
           </div>
 
           {/* RIGHT COLUMN: SHOPER 9 FOOTER NET VALUES BREAKDOWN (25% WIDTH) */}
-          <div className="w-full lg:w-80 bg-[#0f172a] border-l border-slate-800 flex flex-col p-4 space-y-4 font-mono">
-            <div className="border-b border-slate-700 pb-2 flex items-center justify-between">
-              <h4 className="font-bold text-slate-200 text-xs uppercase tracking-wide font-display">Net Values Sheet</h4>
+          <div className="w-full lg:w-80 bg-[#0f172a] border-l border-theme-divider flex flex-col p-4 space-y-4 font-mono">
+            <div className="border-b border-theme-divider pb-2 flex items-center justify-between">
+              <h4 className="font-bold text-theme-heading text-xs uppercase tracking-wide font-display">Net Values Sheet</h4>
               <span className="text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 font-bold">GST Live</span>
             </div>
 
             <div className="flex-1 space-y-2.5 text-xs overflow-y-auto custom-scrollbar">
-              <div className="flex justify-between text-slate-400">
+              <div className="flex justify-between text-theme-muted">
                 <span>Gross Sales:</span>
-                <span className="font-bold text-slate-200">₹{(Number(totals.grossAmount) || 0).toFixed(2)}</span>
+                <span className="font-bold text-theme-heading">₹{(Number(totals.grossAmount) || 0).toFixed(2)}</span>
               </div>
 
               {(totals.itemDiscountsTotal || 0) > 0 && (
@@ -904,24 +904,24 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                 </div>
               )}
 
-              <div className="flex justify-between text-slate-300 border-t border-slate-800 pt-2 font-bold">
+              <div className="flex justify-between text-theme-body border-t border-theme-divider pt-2 font-bold">
                 <span>Taxable Base Value:</span>
                 <span className="text-white">₹{(Number(totals.totalTaxableAmount) || 0).toFixed(2)}</span>
               </div>
 
               {!totals.isInterstate ? (
                 <>
-                  <div className="flex justify-between text-slate-400 pl-2 text-[11px]">
+                  <div className="flex justify-between text-theme-muted pl-2 text-[11px]">
                     <span>Sales Tax (CGST):</span>
                     <span className="text-blue-400 font-bold">₹{(Number(totals.cgstTotal) || 0).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-slate-400 pl-2 text-[11px]">
+                  <div className="flex justify-between text-theme-muted pl-2 text-[11px]">
                     <span>Sales Tax (SGST):</span>
                     <span className="text-blue-400 font-bold">₹{(Number(totals.sgstTotal) || 0).toFixed(2)}</span>
                   </div>
                 </>
               ) : (
-                <div className="flex justify-between text-slate-400 pl-2 text-[11px]">
+                <div className="flex justify-between text-theme-muted pl-2 text-[11px]">
                   <span>Sales Tax (IGST):</span>
                   <span className="text-blue-400 font-bold">₹{(Number(totals.igstTotal) || 0).toFixed(2)}</span>
                 </div>
@@ -934,9 +934,9 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                 </div>
               )}
 
-              <div className="flex justify-between text-slate-400 border-t border-slate-800 pt-2 text-[11px]">
+              <div className="flex justify-between text-theme-muted border-t border-theme-divider pt-2 text-[11px]">
                 <span>Round Off:</span>
-                <span className="text-slate-300 font-bold">{(totals.roundOff || 0) >= 0 ? `+₹${(Number(totals.roundOff) || 0).toFixed(2)}` : `-₹${Math.abs(Number(totals.roundOff) || 0).toFixed(2)}`}</span>
+                <span className="text-theme-body font-bold">{(totals.roundOff || 0) >= 0 ? `+₹${(Number(totals.roundOff) || 0).toFixed(2)}` : `-₹${Math.abs(Number(totals.roundOff) || 0).toFixed(2)}`}</span>
               </div>
 
               <div className="bg-emerald-950/60 border border-emerald-500/50 p-3.5 rounded-xl space-y-1 text-center mt-3 shadow-lg">
@@ -953,7 +953,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
               className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider font-display transition-all flex items-center justify-center gap-2 ${
                 cart.length > 0
                   ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 cursor-pointer"
-                  : "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
+                  : "bg-theme-surface-2 text-theme-muted cursor-not-allowed border border-theme-divider"
               }`}
             >
               <span className="material-symbols-outlined text-base">task_alt</span>
@@ -964,7 +964,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
         </div>
       ) : (
           /* SECTION 4: INTERACTIVE PRINT TEMPLATE VIEWER */
-          <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-slate-900">
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-theme-surface-2">
             
             {/* Left selector menu */}
             <div className="w-full md:w-64 bg-[#0e172a] border-b md:border-b-0 md:border-r border-theme-divider p-4 space-y-4">
@@ -1003,7 +1003,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                   onClick={() => {
                     onNotification("PDF Exported", "Invoice successfully printed and downloaded as PDF document.", "success");
                   }}
-                  className="w-full bg-slate-800 hover:bg-slate-700 text-gray-300 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-slate-700"
+                  className="w-full bg-theme-surface-2 hover:bg-theme-surface-hover text-gray-300 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-theme-divider"
                 >
                   <span className="material-symbols-outlined text-base">picture_as_pdf</span>
                   PDF Download
@@ -1013,7 +1013,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                     const email = customer.email || "customer@domain.com";
                     onNotification("Invoice Dispatched", `Receipt successfully routed to customer mailbox: ${email}`, "success");
                   }}
-                  className="w-full bg-slate-800 hover:bg-slate-700 text-gray-300 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-slate-700"
+                  className="w-full bg-theme-surface-2 hover:bg-theme-surface-hover text-gray-300 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-theme-divider"
                 >
                   <span className="material-symbols-outlined text-base">mail</span>
                   Email Invoice
@@ -1052,7 +1052,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
             </div>
 
             {/* Right side live layout canvas frame */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-8 flex justify-center bg-slate-950">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-8 flex justify-center bg-theme-surface-3">
               
               {selectedPrintLayout === "A4" && (
                 <div id="print-area-a4" className="w-[794px] min-h-[1123px] bg-white text-gray-900 p-8 shadow-2xl font-sans text-[11px] leading-snug border border-gray-200">
@@ -1263,7 +1263,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
 
                       {/* Digital Barcode Generator placeholder */}
                       <div className="pt-2 flex flex-col items-center justify-center space-y-1">
-                        <div className="h-6 w-full bg-slate-200 border border-slate-300 flex items-center justify-center font-mono text-[8px] text-gray-600 select-none">
+                        <div className="h-6 w-full bg-theme-surface-2 border border-theme-divider flex items-center justify-center font-mono text-[8px] text-gray-600 select-none">
                           ||| | |||| | ||| | ||| {finalizedInvoice?.invoiceNo} |||
                         </div>
                         <span className="text-[8px] text-gray-400">IRN e-Invoice ready QR</span>
@@ -1452,7 +1452,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
         </AnimatePresence>
 
       {/* SHOPER 9 BOTTOM SUMMARY BAR (FOOTER SECTION) */}
-      <footer className="h-10 bg-[#1e293b] border-t border-slate-700 px-4 flex items-center justify-between font-mono text-xs text-slate-300">
+      <footer className="h-10 bg-[#1e293b] border-t border-theme-divider px-4 flex items-center justify-between font-mono text-xs text-theme-body">
         <div className="flex items-center space-x-6">
           <div>Total Items: <span className="text-white font-bold">{cart.length}</span></div>
           <div>Total Qty: <span className="text-white font-bold">{totals.totalQty || 0}</span></div>
@@ -1485,27 +1485,27 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       {/* Customer Master Details Modal */}
       {isCustomerModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0f172a] border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl font-sans text-xs">
+          <div className="bg-[#0f172a] border border-theme-divider rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl font-sans text-xs">
             {/* Modal Header */}
-            <div className="px-5 py-4 border-b border-slate-700 flex items-center justify-between bg-[#1e293b] rounded-t-2xl">
+            <div className="px-5 py-4 border-b border-theme-divider flex items-center justify-between bg-[#1e293b] rounded-t-2xl">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-amber-400 text-xl">person_add</span>
                 <div>
                   <h3 className="font-bold text-white text-sm font-display uppercase tracking-wide">Customer & B2B GSTIN Master Details</h3>
-                  <p className="text-[11px] text-slate-400">Configure tax classification, GSTIN, place of supply, and billing addresses.</p>
+                  <p className="text-[11px] text-theme-muted">Configure tax classification, GSTIN, place of supply, and billing addresses.</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsCustomerModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-700 transition-colors"
+                className="text-theme-muted hover:text-white p-1 rounded hover:bg-theme-surface-hover transition-colors"
               >
                 <span className="material-symbols-outlined text-lg">close</span>
               </button>
             </div>
 
             {/* Quick Preset Buttons */}
-            <div className="px-5 py-2.5 bg-slate-900 border-b border-slate-800 flex items-center gap-2 font-mono text-[11px] overflow-x-auto">
-              <span className="text-slate-400 font-bold shrink-0">Quick Presets:</span>
+            <div className="px-5 py-2.5 bg-theme-surface-2 border-b border-theme-divider flex items-center gap-2 font-mono text-[11px] overflow-x-auto">
+              <span className="text-theme-muted font-bold shrink-0">Quick Presets:</span>
               <button
                 type="button"
                 onClick={() => {
@@ -1562,7 +1562,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                     membershipId: ""
                   });
                 }}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded border border-slate-700 cursor-pointer shrink-0"
+                className="bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body px-2 py-0.5 rounded border border-theme-divider cursor-pointer shrink-0"
               >
                 Reset B2C Walk-In
               </button>
@@ -1572,47 +1572,47 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
             <div className="p-5 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Customer Type / Category</label>
+                  <label className="block text-[10px] font-mono text-theme-muted uppercase mb-1 font-bold">Customer Type / Category</label>
                   <select
                     value={tempCustomer.type}
                     onChange={(e) => setTempCustomer({ ...tempCustomer, type: e.target.value as "Unregistered" | "Registered" })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500"
                   >
                     <option value="Unregistered">Unregistered Retail (B2C)</option>
                     <option value="Registered">Registered Commercial Business (B2B)</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Full Name / Customer Name *</label>
+                  <label className="block text-[10px] font-mono text-theme-muted uppercase mb-1 font-bold">Full Name / Customer Name *</label>
                   <input
                     type="text"
                     value={tempCustomer.name}
                     onChange={(e) => setTempCustomer({ ...tempCustomer, name: e.target.value })}
                     placeholder="e.g. Walk-In Customer / Rajesh Sharma"
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white font-semibold text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded px-3 py-2 text-white font-semibold text-xs focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Mobile Number</label>
+                  <label className="block text-[10px] font-mono text-theme-muted uppercase mb-1 font-bold">Mobile Number</label>
                   <input
                     type="text"
                     value={tempCustomer.mobile}
                     onChange={(e) => setTempCustomer({ ...tempCustomer, mobile: e.target.value })}
                     placeholder="e.g. 9820098200"
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Email Address</label>
+                  <label className="block text-[10px] font-mono text-theme-muted uppercase mb-1 font-bold">Email Address</label>
                   <input
                     type="email"
                     value={tempCustomer.email}
                     onChange={(e) => setTempCustomer({ ...tempCustomer, email: e.target.value })}
                     placeholder="e.g. customer@example.com"
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -1622,23 +1622,23 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                   <span className="text-[10px] font-mono text-blue-300 font-bold uppercase tracking-wider block">B2B GSTIN & Corporate Credentials</span>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">15-Digit GSTIN Number</label>
+                      <label className="block text-[10px] font-mono text-theme-muted uppercase mb-1">15-Digit GSTIN Number</label>
                       <input
                         type="text"
                         value={tempCustomer.gstin}
                         onChange={(e) => setTempCustomer({ ...tempCustomer, gstin: e.target.value.toUpperCase() })}
                         placeholder="e.g. 27AAACS1094J1Z3"
-                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-amber-300 font-mono text-xs font-bold focus:outline-none focus:border-blue-500"
+                        className="w-full bg-theme-surface-2 border border-theme-divider rounded px-3 py-2 text-amber-300 font-mono text-xs font-bold focus:outline-none focus:border-blue-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">Company / Legal Business Name</label>
+                      <label className="block text-[10px] font-mono text-theme-muted uppercase mb-1">Company / Legal Business Name</label>
                       <input
                         type="text"
                         value={tempCustomer.companyName}
                         onChange={(e) => setTempCustomer({ ...tempCustomer, companyName: e.target.value })}
                         placeholder="e.g. Super Textiles Private Limited"
-                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
+                        className="w-full bg-theme-surface-2 border border-theme-divider rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
                       />
                     </div>
                   </div>
@@ -1646,38 +1646,38 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
               )}
 
               <div>
-                <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Billing Address</label>
+                <label className="block text-[10px] font-mono text-theme-muted uppercase mb-1 font-bold">Billing Address</label>
                 <textarea
                   rows={2}
                   value={tempCustomer.billingAddress}
                   onChange={(e) => setTempCustomer({ ...tempCustomer, billingAddress: e.target.value })}
                   placeholder="Street address, City, State, Pincode..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Shipping Address</label>
+                <label className="block text-[10px] font-mono text-theme-muted uppercase mb-1 font-bold">Shipping Address</label>
                 <textarea
                   rows={2}
                   value={tempCustomer.shippingAddress || tempCustomer.billingAddress}
                   onChange={(e) => setTempCustomer({ ...tempCustomer, shippingAddress: e.target.value })}
                   placeholder="Shipping address..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
                 />
               </div>
             </div>
 
             {/* Modal Actions */}
-            <div className="px-5 py-3 border-t border-slate-700 flex items-center justify-between bg-[#1e293b] rounded-b-2xl">
-              <span className="text-[10px] text-slate-400 font-mono">
+            <div className="px-5 py-3 border-t border-theme-divider flex items-center justify-between bg-[#1e293b] rounded-b-2xl">
+              <span className="text-[10px] text-theme-muted font-mono">
                 Tax Taxability: <strong className="text-emerald-400">{tempCustomer.gstin && !tempCustomer.gstin.startsWith("27") ? "Interstate (IGST 18%)" : "Intrastate (CGST 9% + SGST 9%)"}</strong>
               </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setIsCustomerModalOpen(false)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg font-semibold cursor-pointer"
+                  className="bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body px-4 py-2 rounded-lg font-semibold cursor-pointer"
                 >
                   Cancel
                 </button>

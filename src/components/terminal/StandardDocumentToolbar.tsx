@@ -43,7 +43,7 @@ export const StandardDocumentToolbar: React.FC<StandardDocumentToolbarProps> = (
   onCheckout
 }) => {
   return (
-    // SEEF Phase 8: bg-[#1e293b] → bg-theme-surface-1; border-slate-700 → border-theme-divider
+    // SEEF Phase 8: bg-[#1e293b] → bg-theme-surface-1; border-theme-divider → border-theme-divider
     <div className="h-12 bg-theme-surface-1 border-b border-theme-divider px-4 flex items-center justify-between shrink-0 font-sans select-none">
       {/* Primary Actions */}
       <div className="flex items-center space-x-2">

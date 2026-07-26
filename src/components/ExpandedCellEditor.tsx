@@ -211,7 +211,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
             <span className="bg-indigo-600/25 border border-indigo-500/30 text-indigo-300 text-[10px] font-mono px-2 py-0.5 rounded-full">
               {fieldLabel}
             </span>
-            <span className="text-[10px] text-slate-500 font-mono">
+            <span className="text-[10px] text-theme-muted font-mono">
               Row {rowIndex + 1} · {fieldKey}
             </span>
           </div>
@@ -221,7 +221,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
             <button
               onClick={() => setShowShortcuts((s) => !s)}
               title="Keyboard shortcuts"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
+              className="p-1.5 rounded-lg text-theme-muted hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
             >
               <Keyboard size={13} />
             </button>
@@ -229,7 +229,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
             <button
               onClick={() => setIsFullscreen((f) => !f)}
               title={isFullscreen ? "Restore size" : "Fullscreen"}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
+              className="p-1.5 rounded-lg text-theme-muted hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
             >
               <Maximize2 size={13} />
             </button>
@@ -237,7 +237,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
             <button
               onClick={onClose}
               title="Close (Esc)"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+              className="p-1.5 rounded-lg text-theme-muted hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
             >
               <X size={13} />
             </button>
@@ -388,7 +388,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-1.5 text-[11px] font-mono rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 transition-all"
+              className="px-4 py-1.5 text-[11px] font-mono rounded-lg bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-muted hover:text-white border border-theme-divider transition-all"
             >
               Cancel <span className="text-[9px] opacity-50 ml-1">Esc</span>
             </button>

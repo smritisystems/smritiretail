@@ -28,7 +28,7 @@ export const PhysicalCountTerminal: React.FC<TerminalPluginProps> = ({
   };
 
   return (
-    // SEEF Phase 8: bg-[#0f172a] → bg-theme-base; text-slate-100 → text-theme-body
+    // SEEF Phase 8: bg-[#0f172a] → bg-theme-base; text-theme-heading → text-theme-body
     <div className="flex flex-col h-full bg-theme-base text-theme-body font-sans select-none overflow-hidden">
       <StandardDocumentToolbar
         onNew={() => setCart([])}

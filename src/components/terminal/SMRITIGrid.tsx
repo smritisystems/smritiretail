@@ -43,7 +43,7 @@ export const SMRITIGrid: React.FC<SMRITIGridProps> = ({
 }) => {
   if (cart.length === 0) {
     return (
-      // SEEF Phase 8: bg-[#0f172a] → bg-theme-base; border-slate-700 → border-theme-divider
+      // SEEF Phase 8: bg-[#0f172a] → bg-theme-base; border-theme-divider → border-theme-divider
       <div className="w-full h-full min-h-[350px] bg-theme-base border border-theme-divider rounded-xl flex flex-col items-center justify-center p-8 text-center select-none font-sans">
         <div className="w-14 h-14 rounded-full bg-theme-surface-2 border border-theme-divider flex items-center justify-center text-theme-muted mb-3">
           <span className="material-symbols-outlined text-3xl">qr_code_scanner</span>

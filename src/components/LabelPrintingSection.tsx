@@ -421,10 +421,10 @@ export const LabelPrintingSection: React.FC<LabelPrintingSectionProps> = ({
 
     return (
       <div 
-        className="bg-white border-2 border-slate-350 shadow-inner relative overflow-hidden rounded-md text-black"
+        className="bg-white border-2 border-theme-divider shadow-inner relative overflow-hidden rounded-md text-black"
         style={{ width: `${w}px`, height: `${h}px` }}
       >
-        <span className="absolute top-1 right-2 text-[6px] font-mono text-slate-400">Preview (50x25mm)</span>
+        <span className="absolute top-1 right-2 text-[6px] font-mono text-theme-muted">Preview (50x25mm)</span>
         
         {activeLayout.elements.map((el: BarcodeLayoutElement, i: number) => {
           const x = el.x * 6;

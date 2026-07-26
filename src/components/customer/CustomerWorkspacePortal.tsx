@@ -23,11 +23,11 @@ export const CustomerWorkspacePortal: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'LICENSES' | 'BACKUPS' | 'SUPPORT' | 'SETTINGS'>('DASHBOARD');
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans">
+    <div className="min-h-screen bg-theme-surface-3 text-white font-sans">
       {/* Workspace Navigation Header */}
-      <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 px-6 py-3.5 flex flex-wrap justify-between items-center gap-4">
+      <header className="sticky top-0 z-40 bg-theme-surface-3 backdrop-blur-md border-b border-theme-divider px-6 py-3.5 flex flex-wrap justify-between items-center gap-4">
         <div className="flex items-center gap-3">
-          <a href="/" className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition-colors">
+          <a href="/" className="p-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover rounded-lg text-theme-body transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </a>
           <div className="p-2 bg-indigo-600 rounded-lg text-white">
@@ -42,34 +42,34 @@ export const CustomerWorkspacePortal: React.FC = () => {
         </div>
 
         {/* Tab Navigation */}
-        <nav className="flex items-center bg-slate-900 border border-slate-800 p-1 rounded-xl">
+        <nav className="flex items-center bg-theme-surface-2 border border-theme-divider p-1 rounded-xl">
           <button
             onClick={() => setActiveTab('DASHBOARD')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'DASHBOARD' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'DASHBOARD' ? 'bg-indigo-600 text-white' : 'text-theme-muted hover:text-white'}`}
           >
             Overview
           </button>
           <button
             onClick={() => setActiveTab('LICENSES')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'LICENSES' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'LICENSES' ? 'bg-indigo-600 text-white' : 'text-theme-muted hover:text-white'}`}
           >
             Licenses
           </button>
           <button
             onClick={() => setActiveTab('BACKUPS')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'BACKUPS' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'BACKUPS' ? 'bg-indigo-600 text-white' : 'text-theme-muted hover:text-white'}`}
           >
             Backups
           </button>
           <button
             onClick={() => setActiveTab('SUPPORT')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'SUPPORT' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'SUPPORT' ? 'bg-indigo-600 text-white' : 'text-theme-muted hover:text-white'}`}
           >
             Support Desk
           </button>
           <button
             onClick={() => setActiveTab('SETTINGS')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'SETTINGS' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'SETTINGS' ? 'bg-indigo-600 text-white' : 'text-theme-muted hover:text-white'}`}
           >
             Organization
           </button>
@@ -81,10 +81,10 @@ export const CustomerWorkspacePortal: React.FC = () => {
         {activeTab === 'DASHBOARD' && (
           <div className="space-y-8">
             {/* Health Status Banner */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex items-center justify-between">
+            <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-white mb-1">AITDL Retail Enterprises</h2>
-                <p className="text-slate-400 text-xs">SIP-001 Multi-Tenant Isolation Active • Tenant ID: TENANT-001</p>
+                <p className="text-theme-muted text-xs">SIP-001 Multi-Tenant Isolation Active • Tenant ID: TENANT-001</p>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold rounded-lg">
                 <ShieldCheck className="w-4 h-4" /> System Health 100%
@@ -93,36 +93,36 @@ export const CustomerWorkspacePortal: React.FC = () => {
 
             {/* Quick Metrics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+              <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-5">
                 <div className="flex justify-between items-center mb-3">
-                  <span className="text-xs text-slate-400 font-medium">Active Licenses</span>
+                  <span className="text-xs text-theme-muted font-medium">Active Licenses</span>
                   <Key className="w-4 h-4 text-indigo-400" />
                 </div>
                 <div className="text-2xl font-bold text-white mb-1">1 Enterprise</div>
-                <span className="text-[11px] text-slate-500">Valid thru Dec 2027</span>
+                <span className="text-[11px] text-theme-muted">Valid thru Dec 2027</span>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+              <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-5">
                 <div className="flex justify-between items-center mb-3">
-                  <span className="text-xs text-slate-400 font-medium">Active Stores</span>
+                  <span className="text-xs text-theme-muted font-medium">Active Stores</span>
                   <Store className="w-4 h-4 text-sky-400" />
                 </div>
                 <div className="text-2xl font-bold text-white mb-1">4 / 10 Stores</div>
-                <span className="text-[11px] text-slate-500">6 Stores Available</span>
+                <span className="text-[11px] text-theme-muted">6 Stores Available</span>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+              <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-5">
                 <div className="flex justify-between items-center mb-3">
-                  <span className="text-xs text-slate-400 font-medium">POS Terminals</span>
+                  <span className="text-xs text-theme-muted font-medium">POS Terminals</span>
                   <Monitor className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div className="text-2xl font-bold text-white mb-1">18 / 50 Terminals</div>
-                <span className="text-[11px] text-slate-500">Capacity Allowed</span>
+                <span className="text-[11px] text-theme-muted">Capacity Allowed</span>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+              <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-5">
                 <div className="flex justify-between items-center mb-3">
-                  <span className="text-xs text-slate-400 font-medium">Open Support Tickets</span>
+                  <span className="text-xs text-theme-muted font-medium">Open Support Tickets</span>
                   <LifeBuoy className="w-4 h-4 text-amber-400" />
                 </div>
                 <div className="text-2xl font-bold text-white mb-1">1 Ticket</div>

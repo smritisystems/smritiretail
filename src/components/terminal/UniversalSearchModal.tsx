@@ -68,7 +68,7 @@ export const UniversalSearchModal: React.FC<UniversalSearchModalProps> = ({
 
   return (
     // SEEF Phase 8: backdrop + panel use theme tokens; all slate-* replaced
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-slate-950/80 backdrop-blur-sm p-4 font-sans">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-theme-surface-3 backdrop-blur-sm p-4 font-sans">
       <div className="w-full max-w-2xl bg-theme-surface-1 border border-theme-divider rounded-xl shadow-2xl overflow-hidden flex flex-col">
         {/* Search Header Input */}
         <div className="p-4 border-b border-theme-divider flex items-center space-x-3 bg-theme-base">

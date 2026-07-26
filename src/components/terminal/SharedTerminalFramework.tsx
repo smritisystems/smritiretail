@@ -111,7 +111,7 @@ export const SharedTerminalFramework: React.FC<SharedTerminalFrameworkProps> = (
         onClose
       }}
     >
-      {/* SEEF theme tokens replace hardcoded bg-[#0f172a] / bg-[#1e293b] / border-slate-700 */}
+      {/* SEEF theme tokens replace hardcoded bg-[#0f172a] / bg-[#1e293b] / border-theme-divider */}
       <div className="fixed inset-0 z-50 flex flex-col bg-theme-base text-theme-body font-sans antialiased overflow-hidden select-none">
         {/* Terminal Header */}
         <header className={`h-14 bg-theme-surface-1 border-b border-theme-divider px-6 flex items-center justify-between shrink-0 ${motionClass}`}>

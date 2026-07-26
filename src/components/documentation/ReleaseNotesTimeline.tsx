@@ -57,37 +57,37 @@ export const ReleaseNotesTimeline: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+      <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6">
         <h2 className="text-xl font-bold text-white mb-1">Version Changelog & Release Timeline</h2>
-        <p className="text-slate-400 text-xs">Chronological release history across SMRITI Digital Platform releases.</p>
+        <p className="text-theme-muted text-xs">Chronological release history across SMRITI Digital Platform releases.</p>
       </div>
 
-      <div className="space-y-6 relative before:absolute before:inset-0 before:left-4 before:w-0.5 before:bg-slate-800">
+      <div className="space-y-6 relative before:absolute before:inset-0 before:left-4 before:w-0.5 before:bg-theme-surface-2">
         {releases.map((rel, idx) => (
           <div key={idx} className="relative pl-10">
-            <div className="absolute left-1.5 top-1.5 p-1 bg-indigo-600 rounded-full text-white ring-4 ring-slate-950">
+            <div className="absolute left-1.5 top-1.5 p-1 bg-indigo-600 rounded-full text-white ring-4 ring-theme-divider">
               <GitCommit className="w-3.5 h-3.5" />
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+            <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-theme-divider">
                 <div>
                   <span className="px-2.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold text-xs mr-3">
                     {rel.version}
                   </span>
                   <h3 className="font-bold text-lg text-white inline-block">{rel.title}</h3>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                <div className="flex items-center gap-1.5 text-xs text-theme-muted">
                   <Calendar className="w-3.5 h-3.5" />
                   <span>{rel.date}</span>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <span className="block text-xs font-semibold text-slate-300">Release Highlights:</span>
+                <span className="block text-xs font-semibold text-theme-body">Release Highlights:</span>
                 <ul className="space-y-2">
                   {rel.highlights.map((h, i) => (
-                    <li key={i} className="flex items-start gap-2 text-xs text-slate-400">
+                    <li key={i} className="flex items-start gap-2 text-xs text-theme-muted">
                       <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                       <span>{h}</span>
                     </li>
@@ -95,7 +95,7 @@ export const ReleaseNotesTimeline: React.FC = () => {
                 </ul>
               </div>
 
-              <div className="pt-3 border-t border-slate-800/60 text-xs text-slate-500 font-mono">
+              <div className="pt-3 border-t border-theme-divider text-xs text-theme-muted font-mono">
                 Notes: {rel.migration}
               </div>
             </div>

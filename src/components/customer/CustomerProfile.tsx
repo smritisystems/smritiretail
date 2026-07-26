@@ -111,7 +111,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
           <span className="text-theme-muted block font-medium font-mono uppercase text-[9px] mb-1">Status</span>
           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
             customer.status === "Active" ? "bg-emerald-950 text-emerald-400 border border-emerald-500/30" :
-            customer.status === "Inactive" ? "bg-slate-700 text-slate-300" :
+            customer.status === "Inactive" ? "bg-theme-surface-3 text-theme-body" :
             "bg-rose-950 text-rose-400 border border-rose-500/30 font-bold"
           }`}>
             {customer.status}
@@ -204,7 +204,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
                   <div key={idx} className="bg-theme-surface-3 border border-theme-divider/30 p-2 rounded-lg text-[10px]">
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <span className="font-bold text-theme-body">{addr.label}</span>
-                      <span className="text-[7px] bg-slate-800 text-slate-400 px-1 rounded uppercase font-bold tracking-wider font-mono">
+                      <span className="text-[7px] bg-theme-surface-2 text-theme-muted px-1 rounded uppercase font-bold tracking-wider font-mono">
                         {addr.address_type}
                       </span>
                       {addr.is_default_shipping && (

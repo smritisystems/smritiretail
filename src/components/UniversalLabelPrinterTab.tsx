@@ -303,7 +303,7 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0f17] text-slate-100 p-4 md:p-6 font-sans">
+    <div className="min-h-screen bg-[#0d0f17] text-theme-heading p-4 md:p-6 font-sans">
       
       {/* ── Banner Header ────────────────────────────────────────────────────────── */}
       <div className="bg-[#141724] border border-amber-500/30 rounded-2xl p-5 mb-6 shadow-2xl relative overflow-hidden">
@@ -322,7 +322,7 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
                     v3.34.0 ENTERPRISE
                   </span>
                 </h1>
-                <p className="text-xs text-slate-400 font-mono">
+                <p className="text-xs text-theme-muted font-mono">
                   Cascading PRN Script Assignment Rules, Multi-Transaction Document Sourcing & Dynamic Token Engine
                 </p>
               </div>
@@ -331,19 +331,19 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
 
           {/* Quick Stat Badges & Actions */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="bg-[#0b0d14] px-3.5 py-2 rounded-xl border border-slate-800 text-right">
-              <span className="text-[9px] font-mono uppercase text-slate-500 block">Queue Selection</span>
+            <div className="bg-[#0b0d14] px-3.5 py-2 rounded-xl border border-theme-divider text-right">
+              <span className="text-[9px] font-mono uppercase text-theme-muted block">Queue Selection</span>
               <span className="text-sm font-mono font-bold text-amber-400">{selectedItems.length} / {itemList.length} Items</span>
             </div>
 
-            <div className="bg-[#0b0d14] px-3.5 py-2 rounded-xl border border-slate-800 text-right">
-              <span className="text-[9px] font-mono uppercase text-slate-500 block">Total Calculated Copies</span>
+            <div className="bg-[#0b0d14] px-3.5 py-2 rounded-xl border border-theme-divider text-right">
+              <span className="text-[9px] font-mono uppercase text-theme-muted block">Total Calculated Copies</span>
               <span className="text-sm font-mono font-bold text-indigo-400">{totalCopiesCalculated} Tags</span>
             </div>
 
             <button 
               onClick={() => setShowAddModal(true)}
-              className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-semibold rounded-xl border border-slate-700/60 transition-all flex items-center gap-2"
+              className="px-3.5 py-2.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading text-xs font-mono font-semibold rounded-xl border border-theme-divider transition-all flex items-center gap-2"
             >
               <Plus size={15} />
               <span>Add Custom Item</span>
@@ -360,13 +360,13 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 mt-5 border-t border-slate-800/80 pt-3 font-mono text-xs">
+        <div className="flex items-center gap-2 mt-5 border-t border-theme-divider pt-3 font-mono text-xs">
           <button 
             onClick={() => setActiveSubTab("print_queue")}
             className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
               activeSubTab === "print_queue" 
                 ? "bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40" 
-                : "text-slate-400 hover:text-white hover:bg-slate-800"
+                : "text-theme-muted hover:text-white hover:bg-theme-surface-hover"
             }`}
           >
             <Tag size={15} />
@@ -378,7 +378,7 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
             className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
               activeSubTab === "rule_engine" 
                 ? "bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40" 
-                : "text-slate-400 hover:text-white hover:bg-slate-800"
+                : "text-theme-muted hover:text-white hover:bg-theme-surface-hover"
             }`}
           >
             <GitBranch size={15} />
@@ -390,7 +390,7 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
             className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
               activeSubTab === "history_ledger" 
                 ? "bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40" 
-                : "text-slate-400 hover:text-white hover:bg-slate-800"
+                : "text-theme-muted hover:text-white hover:bg-theme-surface-hover"
             }`}
           >
             <History size={15} />
@@ -404,8 +404,8 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
         <div className="space-y-6">
           
           {/* Transaction Document Source Selector Bar */}
-          <div className="bg-[#141724] border border-slate-800 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 font-mono text-xs">
-            <div className="flex items-center gap-2 text-slate-400 font-semibold">
+          <div className="bg-[#141724] border border-theme-divider rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 font-mono text-xs">
+            <div className="flex items-center gap-2 text-theme-muted font-semibold">
               <Layers size={16} className="text-amber-400" />
               <span>Document Context Source:</span>
             </div>
@@ -428,7 +428,7 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
                     className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors ${
                       isSel 
                         ? "bg-indigo-600 text-white font-bold shadow-lg" 
-                        : "bg-[#0b0d14] text-slate-400 hover:text-slate-200 border border-slate-800"
+                        : "bg-[#0b0d14] text-theme-muted hover:text-theme-heading border border-theme-divider"
                     }`}
                   >
                     <IconComp size={13} />
@@ -445,23 +445,23 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
             <div className="lg:col-span-7 space-y-4">
               
               {/* Search & Filter Bar */}
-              <div className="bg-[#141724] border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
+              <div className="bg-[#141724] border border-theme-divider rounded-2xl p-4 space-y-3 shadow-xl">
                 <div className="flex flex-col sm:flex-row items-center gap-3">
                   <div className="relative flex-1 w-full">
-                    <Search size={15} className="absolute left-3 top-2.5 text-slate-500" />
+                    <Search size={15} className="absolute left-3 top-2.5 text-theme-muted" />
                     <input 
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Search Item Code, Barcode, SKU, Name, Vendor..."
-                      className="w-full bg-[#0b0d14] border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500/50 font-mono"
+                      className="w-full bg-[#0b0d14] border border-theme-divider rounded-xl pl-9 pr-3 py-1.5 text-xs text-theme-heading focus:outline-none focus:border-amber-500/50 font-mono"
                     />
                   </div>
 
                   <select 
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full sm:w-36 bg-[#0b0d14] border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 font-mono focus:outline-none"
+                    className="w-full sm:w-36 bg-[#0b0d14] border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-theme-body font-mono focus:outline-none"
                   >
                     {categories.map(c => <option key={c} value={c}>Cat: {c}</option>)}
                   </select>
@@ -469,17 +469,17 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
                   <select 
                     value={selectedBrand}
                     onChange={(e) => setSelectedBrand(e.target.value)}
-                    className="w-full sm:w-36 bg-[#0b0d14] border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 font-mono focus:outline-none"
+                    className="w-full sm:w-36 bg-[#0b0d14] border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-theme-body font-mono focus:outline-none"
                   >
                     {brands.map(b => <option key={b} value={b}>Brand: {b}</option>)}
                   </select>
                 </div>
 
                 {/* Quantity Strategy Rules */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/60">
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-theme-divider">
                   <div className="flex items-center gap-2 font-mono text-xs">
                     <SlidersHorizontal size={14} className="text-amber-400" />
-                    <span className="text-slate-400 font-semibold">Print Quantity Rule:</span>
+                    <span className="text-theme-muted font-semibold">Print Quantity Rule:</span>
                     <select 
                       value={quantitySource}
                       onChange={(e) => setQuantitySource(e.target.value as QuantitySource)}
@@ -504,17 +504,17 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
               </div>
 
               {/* Data Table */}
-              <div className="bg-[#141724] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+              <div className="bg-[#141724] border border-theme-divider rounded-2xl overflow-hidden shadow-xl">
                 <div className="max-h-[540px] overflow-y-auto">
                   <table className="w-full text-left text-xs font-mono border-collapse">
-                    <thead className="sticky top-0 z-10 bg-[#0b0d14] border-b border-slate-800 text-slate-400 text-[10px] uppercase tracking-wider">
+                    <thead className="sticky top-0 z-10 bg-[#0b0d14] border-b border-theme-divider text-theme-muted text-[10px] uppercase tracking-wider">
                       <tr>
                         <th className="p-3 w-10 text-center">
                           <input 
                             type="checkbox" 
                             checked={selectedIds.size > 0 && selectedIds.size === filteredItems.length}
                             onChange={toggleSelectAll}
-                            className="rounded border-slate-700 accent-amber-500"
+                            className="rounded border-theme-divider accent-amber-500"
                           />
                         </th>
                         <th className="p-3">Product / Document Line</th>
@@ -524,28 +524,28 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
                         <th className="p-3 text-center">Preview</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                    <tbody className="divide-y divide-theme-divider text-theme-body">
                       {filteredItems.map(item => {
                         const isSelected = selectedIds.has(item.id);
                         const copies = computeLabelCopies(item, quantitySource, fixedCopiesValue);
                         const resolvedScript = resolvePRNScriptForContainer(item, assignmentRules, masterScripts);
 
                         return (
-                          <tr key={item.id} className={`transition-colors ${isSelected ? "bg-amber-950/20 hover:bg-amber-900/30" : "hover:bg-slate-800/40"}`}>
+                          <tr key={item.id} className={`transition-colors ${isSelected ? "bg-amber-950/20 hover:bg-amber-900/30" : "hover:bg-theme-surface-2"}`}>
                             <td className="p-3 text-center">
                               <input 
                                 type="checkbox" 
                                 checked={isSelected}
                                 onChange={() => toggleSelectItem(item.id)}
-                                className="rounded border-slate-700 accent-amber-500"
+                                className="rounded border-theme-divider accent-amber-500"
                               />
                             </td>
                             <td className="p-3">
                               <div className="font-bold text-white max-w-xs truncate">{item.name}</div>
-                              <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
+                              <div className="flex items-center gap-2 mt-0.5 text-[10px] text-theme-muted">
                                 <span className="text-amber-400">{item.item_code}</span>
                                 <span>• {item.barcode}</span>
-                                <span className="bg-slate-800 px-1.5 py-0.2 rounded text-slate-300">{item.brand}</span>
+                                <span className="bg-theme-surface-2 px-1.5 py-0.2 rounded text-theme-body">{item.brand}</span>
                               </div>
                             </td>
                             <td className="p-3 font-mono text-[10px]">
@@ -555,14 +555,14 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
                             </td>
                             <td className="p-3 text-right font-mono">
                               <div className="font-bold text-emerald-400">₹{item.price?.toLocaleString()}</div>
-                              {item.mrp && <div className="text-[10px] text-slate-500 line-through">₹{item.mrp?.toLocaleString()}</div>}
+                              {item.mrp && <div className="text-[10px] text-theme-muted line-through">₹{item.mrp?.toLocaleString()}</div>}
                             </td>
                             <td className="p-3 text-center">
                               {quantitySource === "custom" ? (
-                                <div className="inline-flex items-center border border-slate-700 bg-[#0b0d14] rounded-lg">
-                                  <button onClick={() => updateItemCopies(item.id, -1)} className="px-2 py-0.5 text-slate-400 hover:text-white">-</button>
+                                <div className="inline-flex items-center border border-theme-divider bg-[#0b0d14] rounded-lg">
+                                  <button onClick={() => updateItemCopies(item.id, -1)} className="px-2 py-0.5 text-theme-muted hover:text-white">-</button>
                                   <span className="px-2 py-0.5 font-bold text-amber-400 text-xs">{item.label_copies || 1}</span>
-                                  <button onClick={() => updateItemCopies(item.id, 1)} className="px-2 py-0.5 text-slate-400 hover:text-white">+</button>
+                                  <button onClick={() => updateItemCopies(item.id, 1)} className="px-2 py-0.5 text-theme-muted hover:text-white">+</button>
                                 </div>
                               ) : (
                                 <span className="px-2.5 py-1 bg-amber-950/60 border border-amber-500/40 text-amber-300 font-bold rounded-lg text-xs">
@@ -576,7 +576,7 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
                                   const idx = selectedItems.findIndex(i => i.id === item.id);
                                   if (idx >= 0) setPreviewIndex(idx);
                                 }}
-                                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg"
+                                className="p-1.5 text-theme-muted hover:text-white hover:bg-theme-surface-hover rounded-lg"
                               >
                                 <Eye size={14} />
                               </button>
@@ -594,8 +594,8 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
             <div className="lg:col-span-5 space-y-4">
               
               {/* SLPE Cascading Resolution & Hardware Config */}
-              <div className="bg-[#141724] border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl font-mono text-xs">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="bg-[#141724] border border-theme-divider rounded-2xl p-5 space-y-4 shadow-xl font-mono text-xs">
+                <div className="flex items-center justify-between border-b border-theme-divider pb-3">
                   <div className="flex items-center gap-2">
                     <Settings size={18} className="text-amber-400" />
                     <h3 className="text-sm font-bold text-white font-display">SLPE Script & Hardware Config</h3>
@@ -614,12 +614,12 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
 
                 {/* Script Selector */}
                 <div>
-                  <label className="text-[10px] text-slate-400 uppercase block mb-1">Active PRN Script Master</label>
+                  <label className="text-[10px] text-theme-muted uppercase block mb-1">Active PRN Script Master</label>
                   {useAutoRuleEngine ? (
                     <div className="bg-[#0b0d14] border border-indigo-500/40 rounded-xl p-2.5 text-indigo-300 flex items-center justify-between">
                       <div>
                         <span className="font-bold block">{activeResolvedScript.scriptName} ({activeResolvedScript.scriptCode})</span>
-                        <span className="text-[10px] text-slate-400">Brand: {activeResolvedScript.printerBrand} • Size: {activeResolvedScript.paperSize}</span>
+                        <span className="text-[10px] text-theme-muted">Brand: {activeResolvedScript.printerBrand} • Size: {activeResolvedScript.paperSize}</span>
                       </div>
                       <span className="text-[9px] bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800/40">Auto Resolved</span>
                     </div>
@@ -627,7 +627,7 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
                     <select 
                       value={selectedScriptCode}
                       onChange={(e) => setSelectedScriptCode(e.target.value)}
-                      className="w-full bg-[#0b0d14] border border-slate-800 rounded-xl px-3 py-2 text-amber-300 font-bold focus:outline-none"
+                      className="w-full bg-[#0b0d14] border border-theme-divider rounded-xl px-3 py-2 text-amber-300 font-bold focus:outline-none"
                     >
                       {masterScripts.map(s => (
                         <option key={s.scriptCode} value={s.scriptCode}>
@@ -698,28 +698,28 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
                 {/* Visual Label Rendering Container */}
                 <div className="bg-theme-surface-2 p-6 rounded-xl border border-theme-divider flex items-center justify-center min-h-[220px]">
                   {activePreviewItem ? (
-                    <div className="bg-white text-black p-3 rounded shadow-2xl w-[230px] box-border space-y-1.5 font-sans text-center border-2 border-slate-950">
-                      <div className="flex justify-between items-center text-[9px] font-bold border-b border-slate-200 pb-1">
-                        <span className="uppercase text-slate-700">{activePreviewItem.brand || "SMRITI"}</span>
+                    <div className="bg-white text-black p-3 rounded shadow-2xl w-[230px] box-border space-y-1.5 font-sans text-center border-2 border-theme-divider">
+                      <div className="flex justify-between items-center text-[9px] font-bold border-b border-theme-divider pb-1">
+                        <span className="uppercase text-theme-body">{activePreviewItem.brand || "SMRITI"}</span>
                         <span className="text-black font-extrabold">₹{activePreviewItem.price?.toLocaleString()}</span>
                       </div>
                       
-                      <div className="text-[10px] font-bold text-slate-900 leading-tight py-0.5 truncate">
+                      <div className="text-[10px] font-bold text-theme-heading leading-tight py-0.5 truncate">
                         {activePreviewItem.name}
                       </div>
 
                       <div className="py-1">
-                        <div className="h-9 bg-slate-950 w-full rounded-sm flex items-center justify-center p-1">
+                        <div className="h-9 bg-theme-surface-3 w-full rounded-sm flex items-center justify-center p-1">
                           <div className="w-full h-full bg-repeating-linear-stripes" style={{
                             backgroundImage: "linear-gradient(90deg, #fff 0px, #fff 2px, #000 2px, #000 5px, #fff 5px, #fff 7px, #000 7px, #000 11px)"
                           }} />
                         </div>
-                        <div className="text-[9px] font-mono font-bold tracking-widest text-slate-900 mt-0.5">
+                        <div className="text-[9px] font-mono font-bold tracking-widest text-theme-heading mt-0.5">
                           {activePreviewItem.barcode}
                         </div>
                       </div>
 
-                      <div className="flex justify-between items-center text-[8px] text-slate-600 border-t border-slate-200 pt-1 font-mono">
+                      <div className="flex justify-between items-center text-[8px] text-theme-muted border-t border-theme-divider pt-1 font-mono">
                         <span>CODE: {activePreviewItem.item_code}</span>
                         <span>MRP: ₹{activePreviewItem.mrp || activePreviewItem.price}</span>
                       </div>
@@ -761,50 +761,50 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
 
       {/* ── SubTab 2: 6-Tier Assignment Rules Engine ────────────────────────────── */}
       {activeSubTab === "rule_engine" && (
-        <div className="bg-[#141724] border border-slate-800 rounded-2xl p-6 space-y-6 shadow-xl font-mono text-xs">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="bg-[#141724] border border-theme-divider rounded-2xl p-6 space-y-6 shadow-xl font-mono text-xs">
+          <div className="flex items-center justify-between border-b border-theme-divider pb-4">
             <div>
               <h2 className="text-base font-bold text-white font-display flex items-center gap-2">
                 <GitBranch size={18} className="text-amber-400" />
                 SLPE Cascading Assignment Rule Engine (Priority 1 to 6)
               </h2>
-              <p className="text-slate-400 text-xs mt-0.5">
+              <p className="text-theme-muted text-xs mt-0.5">
                 Priority order: Item Code (1) ➔ Brand (2) ➔ Category (3) ➔ Department (4) ➔ Vendor (5) ➔ Company Default (6)
               </p>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse border border-slate-800">
-              <thead className="bg-[#0b0d14] text-slate-400 text-[10px] uppercase">
+            <table className="w-full text-left border-collapse border border-theme-divider">
+              <thead className="bg-[#0b0d14] text-theme-muted text-[10px] uppercase">
                 <tr>
-                  <th className="p-3 border border-slate-800 text-center">Priority</th>
-                  <th className="p-3 border border-slate-800">Match Target</th>
-                  <th className="p-3 border border-slate-800">Match Value</th>
-                  <th className="p-3 border border-slate-800">Assigned PRN Script</th>
-                  <th className="p-3 border border-slate-800 text-center">Status</th>
+                  <th className="p-3 border border-theme-divider text-center">Priority</th>
+                  <th className="p-3 border border-theme-divider">Match Target</th>
+                  <th className="p-3 border border-theme-divider">Match Value</th>
+                  <th className="p-3 border border-theme-divider">Assigned PRN Script</th>
+                  <th className="p-3 border border-theme-divider text-center">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800 text-slate-300">
+              <tbody className="divide-y divide-theme-divider text-theme-body">
                 {assignmentRules.sort((a, b) => a.priority - b.priority).map(rule => {
                   const targetScript = masterScripts.find(s => s.scriptCode === rule.scriptCode);
                   return (
-                    <tr key={rule.id} className="hover:bg-slate-800/40">
-                      <td className="p-3 border border-slate-800 text-center font-bold text-amber-400">
+                    <tr key={rule.id} className="hover:bg-theme-surface-2">
+                      <td className="p-3 border border-theme-divider text-center font-bold text-amber-400">
                         P{rule.priority}
                       </td>
-                      <td className="p-3 border border-slate-800 font-bold text-white">
+                      <td className="p-3 border border-theme-divider font-bold text-white">
                         {rule.matchBy}
                       </td>
-                      <td className="p-3 border border-slate-800 text-indigo-300">
+                      <td className="p-3 border border-theme-divider text-indigo-300">
                         "{rule.matchValue}"
                       </td>
-                      <td className="p-3 border border-slate-800">
+                      <td className="p-3 border border-theme-divider">
                         <span className="bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800/40">
                           {rule.scriptCode} - {targetScript?.scriptName || "Default"}
                         </span>
                       </td>
-                      <td className="p-3 border border-slate-800 text-center">
+                      <td className="p-3 border border-theme-divider text-center">
                         <span className="text-emerald-400 font-bold">Active</span>
                       </td>
                     </tr>
@@ -818,40 +818,40 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
 
       {/* ── SubTab 3: Print History Ledger ────────────────────────────────────── */}
       {activeSubTab === "history_ledger" && (
-        <div className="bg-[#141724] border border-slate-800 rounded-2xl p-6 space-y-6 shadow-xl font-mono text-xs">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-6 space-y-6 shadow-xl font-mono text-xs">
+          <div className="flex items-center justify-between border-b border-theme-divider pb-4">
             <div>
-              <h2 className="text-base font-bold text-white font-display flex items-center gap-2">
+              <h2 className="text-base font-bold text-theme-heading font-display flex items-center gap-2">
                 <History size={18} className="text-amber-400" />
                 SLPE Enterprise Audit Print History Ledger
               </h2>
-              <p className="text-slate-400 text-xs mt-0.5">
+              <p className="text-theme-muted text-xs mt-0.5">
                 Complete audit trail of all generated label print batches across system life-cycle
               </p>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse border border-slate-800">
-              <thead className="bg-[#0b0d14] text-slate-400 text-[10px] uppercase">
+            <table className="w-full text-left border-collapse border border-theme-divider">
+              <thead className="bg-theme-surface-2 text-theme-muted text-[10px] uppercase">
                 <tr>
-                  <th className="p-3 border border-slate-800">Timestamp</th>
-                  <th className="p-3 border border-slate-800">Printed By</th>
-                  <th className="p-3 border border-slate-800">Hardware Target</th>
-                  <th className="p-3 border border-slate-800">Template / Script</th>
-                  <th className="p-3 border border-slate-800">Transaction Source</th>
-                  <th className="p-3 border border-slate-800 text-right">Printed Tags</th>
+                  <th className="p-3 border border-theme-divider">Timestamp</th>
+                  <th className="p-3 border border-theme-divider">Printed By</th>
+                  <th className="p-3 border border-theme-divider">Hardware Target</th>
+                  <th className="p-3 border border-theme-divider">Template / Script</th>
+                  <th className="p-3 border border-theme-divider">Transaction Source</th>
+                  <th className="p-3 border border-theme-divider text-right">Printed Tags</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800 text-slate-300">
+              <tbody className="divide-y divide-theme-divider text-theme-body">
                 {printHistory.map(log => (
-                  <tr key={log.id} className="hover:bg-slate-800/40">
-                    <td className="p-3 border border-slate-800 text-slate-400">{log.timestamp}</td>
-                    <td className="p-3 border border-slate-800 font-bold text-white">{log.printedBy}</td>
-                    <td className="p-3 border border-slate-800 text-indigo-300">{log.printerName}</td>
-                    <td className="p-3 border border-slate-800">{log.templateName} ({log.scriptCode})</td>
-                    <td className="p-3 border border-slate-800 text-amber-400">{log.transactionSource}</td>
-                    <td className="p-3 border border-slate-800 text-right font-bold text-emerald-400">{log.quantity} Tags</td>
+                  <tr key={log.id} className="hover:bg-theme-surface-hover">
+                    <td className="p-3 border border-theme-divider text-theme-muted">{log.timestamp}</td>
+                    <td className="p-3 border border-theme-divider font-bold text-theme-heading">{log.printedBy}</td>
+                    <td className="p-3 border border-theme-divider text-indigo-400">{log.printerName}</td>
+                    <td className="p-3 border border-theme-divider">{log.templateName} ({log.scriptCode})</td>
+                    <td className="p-3 border border-theme-divider text-amber-400">{log.transactionSource}</td>
+                    <td className="p-3 border border-theme-divider text-right font-bold text-emerald-400">{log.quantity} Tags</td>
                   </tr>
                 ))}
               </tbody>
@@ -862,54 +862,54 @@ export const UniversalLabelPrinterTab: React.FC<UniversalLabelPrinterTabProps> =
 
       {/* ── Add Custom Item Modal ──────────────────────────────────────────────── */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 font-mono text-xs">
-          <div className="bg-[#141724] border border-amber-500/30 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-white font-display flex items-center gap-2">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 font-mono text-xs select-none">
+          <div className="bg-theme-surface-1 border border-amber-500/30 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-theme-divider pb-3">
+              <h3 className="text-sm font-bold text-theme-heading font-display flex items-center gap-2">
                 <Plus size={16} className="text-amber-400" />
                 Add Custom SLPE Batch Entry
               </h3>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white">✕</button>
+              <button onClick={() => setShowAddModal(false)} className="text-theme-muted hover:text-theme-heading">✕</button>
             </div>
 
             <form onSubmit={handleAddCustomItem} className="space-y-3">
               <div>
-                <label className="text-slate-400 block mb-1 text-[10px]">Product Name *</label>
+                <label className="text-theme-muted block mb-1 text-[10px]">Product Name *</label>
                 <input 
                   type="text"
                   required
                   value={newItem.name}
                   onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
                   placeholder="e.g. Silk Printed Dupatta"
-                  className="w-full bg-[#0b0d14] border border-slate-800 rounded-xl px-3 py-1.5 text-slate-200 focus:outline-none"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-1.5 text-theme-heading focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-slate-400 block mb-1 text-[10px]">Item Code</label>
-                  <input type="text" value={newItem.item_code} onChange={(e) => setNewItem({ ...newItem, item_code: e.target.value })} placeholder="DUP-001" className="w-full bg-[#0b0d14] border border-slate-800 rounded-xl px-3 py-1.5 text-slate-200 focus:outline-none" />
+                  <label className="text-theme-muted block mb-1 text-[10px]">Item Code</label>
+                  <input type="text" value={newItem.item_code} onChange={(e) => setNewItem({ ...newItem, item_code: e.target.value })} placeholder="DUP-001" className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-1.5 text-theme-heading focus:outline-none focus:border-indigo-500" />
                 </div>
                 <div>
-                  <label className="text-slate-400 block mb-1 text-[10px]">Barcode</label>
-                  <input type="text" value={newItem.barcode} onChange={(e) => setNewItem({ ...newItem, barcode: e.target.value })} placeholder="8901234567890" className="w-full bg-[#0b0d14] border border-slate-800 rounded-xl px-3 py-1.5 text-slate-200 focus:outline-none" />
+                  <label className="text-theme-muted block mb-1 text-[10px]">Barcode</label>
+                  <input type="text" value={newItem.barcode} onChange={(e) => setNewItem({ ...newItem, barcode: e.target.value })} placeholder="8901234567890" className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-1.5 text-theme-heading focus:outline-none focus:border-indigo-500" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-slate-400 block mb-1 text-[10px]">Selling Price (₹)</label>
-                  <input type="number" value={newItem.price} onChange={(e) => setNewItem({ ...newItem, price: e.target.value })} placeholder="999" className="w-full bg-[#0b0d14] border border-slate-800 rounded-xl px-3 py-1.5 text-slate-200 focus:outline-none" />
+                  <label className="text-theme-muted block mb-1 text-[10px]">Selling Price (₹)</label>
+                  <input type="number" value={newItem.price} onChange={(e) => setNewItem({ ...newItem, price: e.target.value })} placeholder="999" className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-1.5 text-theme-heading focus:outline-none focus:border-indigo-500" />
                 </div>
                 <div>
-                  <label className="text-slate-400 block mb-1 text-[10px]">MRP (₹)</label>
-                  <input type="number" value={newItem.mrp} onChange={(e) => setNewItem({ ...newItem, mrp: e.target.value })} placeholder="1999" className="w-full bg-[#0b0d14] border border-slate-800 rounded-xl px-3 py-1.5 text-slate-200 focus:outline-none" />
+                  <label className="text-theme-muted block mb-1 text-[10px]">MRP (₹)</label>
+                  <input type="number" value={newItem.mrp} onChange={(e) => setNewItem({ ...newItem, mrp: e.target.value })} placeholder="1999" className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-1.5 text-theme-heading focus:outline-none focus:border-indigo-500" />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
-                <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs">Cancel</button>
-                <button type="submit" className="px-5 py-2 bg-gradient-to-r from-amber-500 to-indigo-600 text-white font-bold rounded-xl text-xs shadow-lg">Add to Queue</button>
+              <div className="flex justify-end gap-2 pt-3 border-t border-theme-divider">
+                <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-theme-surface-3 text-theme-body hover:text-theme-heading rounded-xl text-xs">Cancel</button>
+                <button type="submit" className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs shadow-lg">Add to Queue</button>
               </div>
             </form>
           </div>

@@ -758,10 +758,10 @@ const BarcodeDemo = () => {
         <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6 space-y-4">
           <h3 className="text-sm font-bold text-theme-body">Label Specs & Token Resolution</h3>
           <div className="space-y-2 text-xs">
-            <div className="flex justify-between border-b border-slate-800 pb-1"><span className="text-slate-400">Article Style ({'{style}'}):</span><span className="font-bold text-amber-300">BBM-0001</span></div>
-            <div className="flex justify-between border-b border-slate-800 pb-1"><span className="text-slate-400">Variant SKU ({'{sku}'}):</span><span className="font-bold text-indigo-300">BBM-0001-6-BLK</span></div>
-            <div className="flex justify-between border-b border-slate-800 pb-1"><span className="text-slate-400">Barcode EAN-13 ({'{barcode}'}):</span><span className="font-bold text-emerald-400">8901234560015</span></div>
-            <div className="flex justify-between border-b border-slate-800 pb-1"><span className="text-slate-400">Selling Price ({'{rate}'}):</span><span className="font-bold text-white">₹899.00</span></div>
+            <div className="flex justify-between border-b border-theme-divider pb-1"><span className="text-theme-muted">Article Style ({'{style}'}):</span><span className="font-bold text-amber-300">BBM-0001</span></div>
+            <div className="flex justify-between border-b border-theme-divider pb-1"><span className="text-theme-muted">Variant SKU ({'{sku}'}):</span><span className="font-bold text-indigo-300">BBM-0001-6-BLK</span></div>
+            <div className="flex justify-between border-b border-theme-divider pb-1"><span className="text-theme-muted">Barcode EAN-13 ({'{barcode}'}):</span><span className="font-bold text-emerald-400">8901234560015</span></div>
+            <div className="flex justify-between border-b border-theme-divider pb-1"><span className="text-theme-muted">Selling Price ({'{rate}'}):</span><span className="font-bold text-white">₹899.00</span></div>
           </div>
         </div>
 
@@ -809,15 +809,15 @@ const EngineSettings = () => {
         </div>
 
         {/* Hardware Barcode Printer Setup Card */}
-        <div className="col-span-full bg-gradient-to-r from-slate-900 to-[#101322] border border-amber-500/30 rounded-xl p-6 space-y-4 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="col-span-full bg-gradient-to-r from-theme-surface-2 to-[#101322] border border-amber-500/30 rounded-xl p-6 space-y-4 shadow-xl">
+          <div className="flex items-center justify-between border-b border-theme-divider pb-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
                 <Printer size={20} />
               </div>
               <div>
                 <h3 className="font-bold text-sm text-white font-display">Barcode Standard Printer Hardware Setup</h3>
-                <p className="text-[11px] text-slate-400">Manage USB & TCP/IP network connection profiles for Zebra, TSC, TVS, Citizen printers</p>
+                <p className="text-[11px] text-theme-muted">Manage USB & TCP/IP network connection profiles for Zebra, TSC, TVS, Citizen printers</p>
               </div>
             </div>
 
@@ -830,7 +830,7 @@ const EngineSettings = () => {
             </button>
           </div>
 
-          <div className="text-[11px] text-slate-400 leading-relaxed">
+          <div className="text-[11px] text-theme-muted leading-relaxed">
             Configure direct USB spooler ports (<code className="text-emerald-300">USB001</code>, <code className="text-emerald-300">COM4</code>) or high-speed TCP/IP network socket connections (<code className="text-indigo-300">192.168.1.x:9100</code>). Configured printer hardware profiles automatically sync with the SMRITI Universal Label Printing Engine.
           </div>
         </div>
@@ -1013,9 +1013,9 @@ const ScannerConsole = ({ masterData }: { masterData: BarcodeRecord[] }) => {
         </div>
 
         {/* SRS Score Badge Gauge */}
-        <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-3">
+        <div className="bg-theme-surface-2 border border-theme-divider px-4 py-2 rounded-xl flex items-center gap-3">
           <div className="text-right">
-            <span className="text-[9px] text-slate-500 uppercase block font-bold">Scan Reliability Score ($SRS$)</span>
+            <span className="text-[9px] text-theme-muted uppercase block font-bold">Scan Reliability Score ($SRS$)</span>
             <span className={`text-lg font-bold ${srsScore >= 90 ? "text-emerald-400" : srsScore >= 75 ? "text-amber-400" : "text-rose-400"}`}>
               {srsScore}% SRS
             </span>
@@ -1068,7 +1068,7 @@ const ScannerConsole = ({ masterData }: { masterData: BarcodeRecord[] }) => {
           <div className="flex-1 bg-theme-surface-1 border border-theme-divider rounded-lg p-3 font-mono text-[11px] space-y-2 overflow-y-auto">
             {log.map((entry, idx) => (
               <div key={idx} className={`p-2 rounded border flex items-start gap-2 ${entry.status === 'success' ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300' : 'bg-rose-950/20 border-rose-500/30 text-rose-300 font-bold'}`}>
-                <span className="shrink-0 text-slate-500 text-[10px]">[{entry.time}]</span>
+                <span className="shrink-0 text-theme-muted text-[10px]">[{entry.time}]</span>
                 <span>{entry.message}</span>
               </div>
             ))}

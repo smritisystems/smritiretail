@@ -62,11 +62,11 @@ export const SmritiLiveDocsPortal: React.FC = () => {
   const [activeArticleId, setActiveArticleId] = useState<string>('dpf-001');
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans">
+    <div className="min-h-screen bg-theme-surface-3 text-white font-sans">
       {/* Top Header */}
-      <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 px-6 py-3.5 flex flex-wrap justify-between items-center gap-4">
+      <header className="sticky top-0 z-40 bg-theme-surface-3 backdrop-blur-md border-b border-theme-divider px-6 py-3.5 flex flex-wrap justify-between items-center gap-4">
         <div className="flex items-center gap-3">
-          <a href="/" className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition-colors">
+          <a href="/" className="p-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover rounded-lg text-theme-body transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </a>
           <div className="p-2 bg-indigo-600 rounded-lg text-white">
@@ -82,23 +82,23 @@ export const SmritiLiveDocsPortal: React.FC = () => {
 
         {/* Global Search Bar */}
         <div className="relative max-w-md w-full">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-theme-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search docs, APIs, governance standards (powered by Global Search)..."
-            className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+            className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
           />
         </div>
 
         {/* Version Switcher */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400">Version:</span>
+          <span className="text-xs text-theme-muted">Version:</span>
           <select
             value={selectedVersion}
             onChange={e => setSelectedVersion(e.target.value)}
-            className="bg-slate-900 border border-slate-700 text-xs text-indigo-300 font-bold rounded-lg px-3 py-1.5 focus:outline-none"
+            className="bg-theme-surface-2 border border-theme-divider text-xs text-indigo-300 font-bold rounded-lg px-3 py-1.5 focus:outline-none"
           >
             <option value="29.0.0">v29.0.0 (Latest)</option>
             <option value="28.0.0">v28.0.0</option>
@@ -112,22 +112,22 @@ export const SmritiLiveDocsPortal: React.FC = () => {
         {/* Left Navigation Sidebar */}
         <div className="lg:col-span-1 space-y-6">
           {/* Top Mode Tabs */}
-          <div className="bg-slate-900 border border-slate-800 p-1 rounded-xl flex">
+          <div className="bg-theme-surface-2 border border-theme-divider p-1 rounded-xl flex">
             <button
               onClick={() => setActiveTab('ARTICLES')}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-colors ${activeTab === 'ARTICLES' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-colors ${activeTab === 'ARTICLES' ? 'bg-indigo-600 text-white' : 'text-theme-muted hover:text-white'}`}
             >
               Docs
             </button>
             <button
               onClick={() => setActiveTab('API_SANDBOX')}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-colors ${activeTab === 'API_SANDBOX' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-colors ${activeTab === 'API_SANDBOX' ? 'bg-indigo-600 text-white' : 'text-theme-muted hover:text-white'}`}
             >
               API Sandbox
             </button>
             <button
               onClick={() => setActiveTab('RELEASE_NOTES')}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-colors ${activeTab === 'RELEASE_NOTES' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-colors ${activeTab === 'RELEASE_NOTES' ? 'bg-indigo-600 text-white' : 'text-theme-muted hover:text-white'}`}
             >
               Changelog
             </button>
@@ -135,8 +135,8 @@ export const SmritiLiveDocsPortal: React.FC = () => {
 
           {/* Categories Navigation Tree */}
           {activeTab === 'ARTICLES' && (
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
-              <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 mb-2">Collections</span>
+            <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-4 space-y-2">
+              <span className="block text-[11px] font-semibold text-theme-muted uppercase tracking-wider px-3 mb-2">Collections</span>
               {categories.map((cat) => {
                 const IconComp = cat.icon;
                 const isSelected = selectedCategory === cat.id;
@@ -145,14 +145,14 @@ export const SmritiLiveDocsPortal: React.FC = () => {
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
                     className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-colors ${
-                      isSelected ? 'bg-indigo-500/10 border border-indigo-500/30 text-indigo-300' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      isSelected ? 'bg-indigo-500/10 border border-indigo-500/30 text-indigo-300' : 'text-theme-muted hover:bg-theme-surface-hover hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
                       <IconComp className="w-4 h-4 text-indigo-400" />
                       <span>{cat.name}</span>
                     </div>
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
+                    <ChevronRight className="w-3.5 h-3.5 text-theme-muted" />
                   </button>
                 );
               })}
@@ -168,13 +168,13 @@ export const SmritiLiveDocsPortal: React.FC = () => {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setActiveArticleId('dpf-001')}
-                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${activeArticleId === 'dpf-001' ? 'bg-indigo-600 text-white' : 'bg-slate-900 border border-slate-800 text-slate-400'}`}
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${activeArticleId === 'dpf-001' ? 'bg-indigo-600 text-white' : 'bg-theme-surface-2 border border-theme-divider text-theme-muted'}`}
                 >
                   DPF-001 Architecture Framework
                 </button>
                 <button
                   onClick={() => setActiveArticleId('sip-001')}
-                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${activeArticleId === 'sip-001' ? 'bg-indigo-600 text-white' : 'bg-slate-900 border border-slate-800 text-slate-400'}`}
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${activeArticleId === 'sip-001' ? 'bg-indigo-600 text-white' : 'bg-theme-surface-2 border border-theme-divider text-theme-muted'}`}
                 >
                   SIP-001 Identity Standard
                 </button>

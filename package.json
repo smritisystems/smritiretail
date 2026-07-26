@@ -15,6 +15,7 @@
     "preview": "vite preview",
     "start": "npm run dev",
     "lint": "tsc --noEmit",
+    "validate:seds": "node scripts/validate_seds.js",
     "test": "vitest run",
     "start:fastapi": "python -m uvicorn backend.app.main:app --port 8000 --reload"
   },

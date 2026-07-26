@@ -32,9 +32,9 @@ interface ArticleProps {
 
 export const ArticleViewer: React.FC<ArticleProps> = ({ article }) => {
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl">
+    <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-8 shadow-xl">
       {/* Header Info */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-800">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-6 border-b border-theme-divider">
         <div>
           <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 mb-3 inline-block">
             {article.category}
@@ -42,21 +42,21 @@ export const ArticleViewer: React.FC<ArticleProps> = ({ article }) => {
           <h1 className="text-2xl md:text-3xl font-extrabold text-white">{article.title}</h1>
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-slate-300">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-theme-surface-2 border border-theme-divider text-xs text-theme-body">
           <ShieldCheck className="w-4 h-4 text-emerald-400" />
           <span>Version: <strong>{article.version}</strong></span>
         </div>
       </div>
 
       {/* Metadata Bar */}
-      <div className="flex flex-wrap items-center gap-6 text-xs text-slate-400 mb-8 pb-6 border-b border-slate-800/60">
+      <div className="flex flex-wrap items-center gap-6 text-xs text-theme-muted mb-8 pb-6 border-b border-theme-divider">
         <div className="flex items-center gap-1.5">
           <User className="w-4 h-4 text-indigo-400" />
-          <span>Author: <strong className="text-slate-200">{article.author}</strong></span>
+          <span>Author: <strong className="text-theme-heading">{article.author}</strong></span>
         </div>
         <div className="flex items-center gap-1.5">
           <Calendar className="w-4 h-4 text-indigo-400" />
-          <span>Updated: <strong className="text-slate-200">{article.last_updated}</strong></span>
+          <span>Updated: <strong className="text-theme-heading">{article.last_updated}</strong></span>
         </div>
       </div>
 
@@ -66,18 +66,18 @@ export const ArticleViewer: React.FC<ArticleProps> = ({ article }) => {
       </div>
 
       {/* Main Content Body */}
-      <div className="prose prose-invert max-w-none text-slate-300 text-sm leading-relaxed mb-8">
-        <pre className="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs text-indigo-300 whitespace-pre-wrap">
+      <div className="prose prose-invert max-w-none text-theme-body text-sm leading-relaxed mb-8">
+        <pre className="bg-theme-surface-3 p-4 rounded-xl border border-theme-divider font-mono text-xs text-indigo-300 whitespace-pre-wrap">
           {article.content}
         </pre>
       </div>
 
       {/* Tags Footer */}
-      <div className="pt-6 border-t border-slate-800 flex items-center gap-2">
-        <Tag className="w-4 h-4 text-slate-500" />
+      <div className="pt-6 border-t border-theme-divider flex items-center gap-2">
+        <Tag className="w-4 h-4 text-theme-muted" />
         <div className="flex flex-wrap gap-2">
           {article.tags.map((tag, idx) => (
-            <span key={idx} className="text-[10px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-400">
+            <span key={idx} className="text-[10px] px-2 py-0.5 rounded bg-theme-surface-2 border border-theme-divider text-theme-muted">
               #{tag}
             </span>
           ))}

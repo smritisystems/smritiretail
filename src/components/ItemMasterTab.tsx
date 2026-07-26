@@ -752,14 +752,14 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
             </button>
             <button
               onClick={() => setShowPolicyModal(true)}
-              className="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+              className="p-2.5 rounded-lg bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-theme-muted hover:text-theme-heading transition-colors cursor-pointer"
               title="Image Display Policy"
             >
               <Image size={14} className="text-emerald-400" />
             </button>
             <button
               onClick={onRefreshProducts}
-              className="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+              className="p-2.5 rounded-lg bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-theme-muted hover:text-theme-heading transition-colors cursor-pointer"
               title="Refresh Ledger"
             >
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
@@ -1229,7 +1229,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
               <div className="bg-theme-surface-2 p-3 rounded-xl border border-theme-divider text-[10px] text-theme-muted">Ready to optimize catalog pricing &amp; inventory levels across SMRITI Master DB.</div>
             </div>
             <div className="px-6 py-4 bg-[#1a1e2b] border-t border-amber-500/20 flex justify-end gap-3">
-              <button onClick={() => setShowSuggestBestModal(false)} className="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-lg">Cancel</button>
+              <button onClick={() => setShowSuggestBestModal(false)} className="px-4 py-2 bg-theme-surface-2 text-theme-body text-xs rounded-lg">Cancel</button>
               <button onClick={handleApplySuggestBest} disabled={loading} className="px-5 py-2 bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-500 hover:to-indigo-500 text-white font-bold text-xs rounded-lg shadow-lg">{loading ? "Optimizing Catalog..." : "Run AI Autopilot Optimization"}</button>
             </div>
           </div>
@@ -1692,7 +1692,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                     setMinPriceFilter("");
                     setMaxPriceFilter("");
                   }}
-                  className="text-[10px] font-mono text-slate-400 hover:text-rose-400 transition-colors"
+                  className="text-[10px] font-mono text-theme-muted hover:text-rose-400 transition-colors"
                 >
                   Clear Range Filters
                 </button>
@@ -1701,50 +1701,50 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Min Stock */}
                 <div>
-                  <label className="text-[9px] font-mono text-slate-400 block mb-1">Min Stock ({stockUnitLabel})</label>
+                  <label className="text-[9px] font-mono text-theme-muted block mb-1">Min Stock ({stockUnitLabel})</label>
                   <input
                     type="number"
                     min="0"
                     value={minStockFilter}
                     onChange={(e) => setMinStockFilter(e.target.value)}
                     placeholder="e.g. 0"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono outline-none focus:border-indigo-500"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-white font-mono outline-none focus:border-indigo-500"
                   />
                 </div>
                 {/* Max Stock */}
                 <div>
-                  <label className="text-[9px] font-mono text-slate-400 block mb-1">Max Stock ({stockUnitLabel})</label>
+                  <label className="text-[9px] font-mono text-theme-muted block mb-1">Max Stock ({stockUnitLabel})</label>
                   <input
                     type="number"
                     min="0"
                     value={maxStockFilter}
                     onChange={(e) => setMaxStockFilter(e.target.value)}
                     placeholder="e.g. 100"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono outline-none focus:border-indigo-500"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-white font-mono outline-none focus:border-indigo-500"
                   />
                 </div>
                 {/* Min Price */}
                 <div>
-                  <label className="text-[9px] font-mono text-slate-400 block mb-1">Min Price (₹)</label>
+                  <label className="text-[9px] font-mono text-theme-muted block mb-1">Min Price (₹)</label>
                   <input
                     type="number"
                     min="0"
                     value={minPriceFilter}
                     onChange={(e) => setMinPriceFilter(e.target.value)}
                     placeholder="e.g. 100"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono outline-none focus:border-indigo-500"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-white font-mono outline-none focus:border-indigo-500"
                   />
                 </div>
                 {/* Max Price */}
                 <div>
-                  <label className="text-[9px] font-mono text-slate-400 block mb-1">Max Price (₹)</label>
+                  <label className="text-[9px] font-mono text-theme-muted block mb-1">Max Price (₹)</label>
                   <input
                     type="number"
                     min="0"
                     value={maxPriceFilter}
                     onChange={(e) => setMaxPriceFilter(e.target.value)}
                     placeholder="e.g. 5000"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono outline-none focus:border-indigo-500"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-white font-mono outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
@@ -2728,53 +2728,53 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   <span className="text-[10px] font-mono text-indigo-300 uppercase">SKU: {viewingProduct.code}</span>
                 </div>
               </div>
-              <button onClick={() => setViewingProduct(null)} className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition">
+              <button onClick={() => setViewingProduct(null)} className="p-1 rounded text-theme-muted hover:text-white hover:bg-theme-surface-hover transition">
                 <X size={16} />
               </button>
             </div>
 
             <div className="p-6 overflow-y-auto space-y-5 font-mono text-xs">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-theme-surface-2 p-4 rounded-xl border border-theme-divider">
                 <div>
-                  <span className="text-[9px] text-slate-500 uppercase block">Category</span>
+                  <span className="text-[9px] text-theme-muted uppercase block">Category</span>
                   <span className="text-white font-bold">{viewingProduct.category}</span>
                 </div>
                 <div>
-                  <span className="text-[9px] text-slate-500 uppercase block">Barcode</span>
+                  <span className="text-[9px] text-theme-muted uppercase block">Barcode</span>
                   <span className="text-indigo-300 font-bold">{viewingProduct.barcode}</span>
                 </div>
                 <div>
-                  <span className="text-[9px] text-slate-500 uppercase block">Stock On Hand</span>
+                  <span className="text-[9px] text-theme-muted uppercase block">Stock On Hand</span>
                   <span className="text-emerald-400 font-bold">{viewingProduct.stock} {stockUnitLabel}</span>
                 </div>
                 <div>
-                  <span className="text-[9px] text-slate-500 uppercase block">GST Tax %</span>
+                  <span className="text-[9px] text-theme-muted uppercase block">GST Tax %</span>
                   <span className="text-amber-400 font-bold">{viewingProduct.gstPercentage || 18}%</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-center">
+              <div className="grid grid-cols-3 gap-3 bg-theme-surface-2 p-4 rounded-xl border border-theme-divider text-center">
                 <div>
-                  <span className="text-[9px] text-slate-500 uppercase block">Buy Cost Price</span>
-                  <span className="text-slate-300 text-sm font-bold">₹{(viewingProduct.costPrice || Math.round(viewingProduct.price * 0.6)).toLocaleString("en-IN")}</span>
+                  <span className="text-[9px] text-theme-muted uppercase block">Buy Cost Price</span>
+                  <span className="text-theme-body text-sm font-bold">₹{(viewingProduct.costPrice || Math.round(viewingProduct.price * 0.6)).toLocaleString("en-IN")}</span>
                 </div>
                 <div>
-                  <span className="text-[9px] text-slate-500 uppercase block">Selling Rate</span>
+                  <span className="text-[9px] text-theme-muted uppercase block">Selling Rate</span>
                   <span className="text-emerald-400 text-sm font-bold">₹{viewingProduct.price.toLocaleString("en-IN")}</span>
                 </div>
                 <div>
-                  <span className="text-[9px] text-slate-500 uppercase block">Max Retail Price</span>
+                  <span className="text-[9px] text-theme-muted uppercase block">Max Retail Price</span>
                   <span className="text-white text-sm font-bold">₹{(viewingProduct.mrp || viewingProduct.price).toLocaleString("en-IN")}</span>
                 </div>
               </div>
 
               {viewingProduct.attributes && Object.keys(viewingProduct.attributes).length > 0 && (
-                <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-2">
+                <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-2">
                   <span className="text-[10px] text-indigo-400 font-bold uppercase block">Dynamic Attribute Specifications</span>
                   <div className="grid grid-cols-2 gap-2 text-[11px]">
                     {Object.entries(viewingProduct.attributes).map(([k, v]) => (
-                      <div key={k} className="flex justify-between border-b border-slate-800 pb-1">
-                        <span className="text-slate-400">{k}:</span>
+                      <div key={k} className="flex justify-between border-b border-theme-divider pb-1">
+                        <span className="text-theme-muted">{k}:</span>
                         <span className="text-white font-bold">{v}</span>
                       </div>
                     ))}
@@ -2794,7 +2794,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
               >
                 Edit Product Details
               </button>
-              <button onClick={() => setViewingProduct(null)} className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs transition">
+              <button onClick={() => setViewingProduct(null)} className="px-4 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body rounded-lg text-xs transition">
                 Close
               </button>
             </div>
@@ -2811,16 +2811,16 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                 <SlidersHorizontal size={16} className="text-indigo-400" />
                 <h3 className="text-sm font-bold text-white">Bulk Edit ({selectedIds.size} Items Selected)</h3>
               </div>
-              <button onClick={() => setShowBulkEditModal(false)} className="p-1 text-slate-400 hover:text-white"><X size={16} /></button>
+              <button onClick={() => setShowBulkEditModal(false)} className="p-1 text-theme-muted hover:text-white"><X size={16} /></button>
             </div>
 
             <div className="p-6 space-y-4 text-xs font-mono">
               <div>
-                <label className="text-[10px] text-slate-400 block mb-1">Set Category for All Selected</label>
+                <label className="text-[10px] text-theme-muted block mb-1">Set Category for All Selected</label>
                 <select
                   value={bulkCategory}
                   onChange={(e) => setBulkCategory(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none focus:border-indigo-500"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-white font-mono outline-none focus:border-indigo-500"
                 >
                   <option value="">-- Keep Existing Categories --</option>
                   {categories.filter(c => c !== "All").map(c => <option key={c} value={c}>{c}</option>)}
@@ -2828,22 +2828,22 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
               </div>
 
               <div>
-                <label className="text-[10px] text-slate-400 block mb-1">Adjust Selling Price By % (+10% or -5%)</label>
+                <label className="text-[10px] text-theme-muted block mb-1">Adjust Selling Price By % (+10% or -5%)</label>
                 <input
                   type="number"
                   value={bulkPriceChangePercent}
                   onChange={(e) => setBulkPriceChangePercent(e.target.value)}
                   placeholder="e.g. 10 for +10% increase, -5 for discount"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none focus:border-indigo-500"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-white font-mono outline-none focus:border-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="text-[10px] text-slate-400 block mb-1">Set GST Tax Rate %</label>
+                <label className="text-[10px] text-theme-muted block mb-1">Set GST Tax Rate %</label>
                 <select
                   value={bulkGst}
                   onChange={(e) => setBulkGst(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none focus:border-indigo-500"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-white font-mono outline-none focus:border-indigo-500"
                 >
                   <option value="">-- Keep Existing GST % --</option>
                   <option value="0">0% GST</option>
@@ -2854,19 +2854,19 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
               </div>
 
               <div>
-                <label className="text-[10px] text-slate-400 block mb-1">Add Stock Units to On-Hand (+Qty)</label>
+                <label className="text-[10px] text-theme-muted block mb-1">Add Stock Units to On-Hand (+Qty)</label>
                 <input
                   type="number"
                   value={bulkStockAdd}
                   onChange={(e) => setBulkStockAdd(e.target.value)}
                   placeholder="e.g. 50 (adds 50 units to stock on hand)"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none focus:border-indigo-500"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-white font-mono outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
 
             <div className="px-6 py-4 bg-[#1a1e2b] border-t border-indigo-500/20 flex justify-end gap-3">
-              <button onClick={() => setShowBulkEditModal(false)} className="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-lg">Cancel</button>
+              <button onClick={() => setShowBulkEditModal(false)} className="px-4 py-2 bg-theme-surface-2 text-theme-body text-xs rounded-lg">Cancel</button>
               <button onClick={handleBulkEditConfirm} disabled={loading} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg shadow-lg">
                 {loading ? "Updating Selected..." : `Apply Bulk Edit to ${selectedIds.size} Items`}
               </button>
@@ -2884,25 +2884,25 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                 <Sparkles size={16} className="text-amber-400" />
                 <h3 className="text-sm font-bold text-white">AI Smart Autopilot — Suggest Best</h3>
               </div>
-              <button onClick={() => setShowSuggestBestModal(false)} className="p-1 text-slate-400 hover:text-white"><X size={16} /></button>
+              <button onClick={() => setShowSuggestBestModal(false)} className="p-1 text-theme-muted hover:text-white"><X size={16} /></button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs font-mono text-slate-300 leading-relaxed">
+            <div className="p-6 space-y-4 text-xs font-mono text-theme-body leading-relaxed">
               <p className="text-amber-300 font-bold">
                 The Smart Autopilot will analyze all {products.length} catalog items and apply optimization rules:
               </p>
-              <ul className="space-y-2 text-[11px] list-disc pl-4 text-slate-400">
+              <ul className="space-y-2 text-[11px] list-disc pl-4 text-theme-muted">
                 <li><strong className="text-white">Margin Compliance:</strong> Enforces minimum 25% gross margin over buy cost on all products.</li>
                 <li><strong className="text-white">MRP Alignment:</strong> Ensures MRP is at least 20% above selling rate for price compliance.</li>
                 <li><strong className="text-white">Stock Buffer Suggestion:</strong> Replenishes low stock (&lt; 5 {stockUnitLabel}) up to the recommended buffer of 25 {stockUnitLabel}.</li>
               </ul>
-              <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 text-[10px] text-slate-400">
+              <div className="bg-theme-surface-2 p-3 rounded-xl border border-theme-divider text-[10px] text-theme-muted">
                 Ready to optimize catalog pricing & inventory levels across SMRITI Master DB.
               </div>
             </div>
 
             <div className="px-6 py-4 bg-[#1a1e2b] border-t border-amber-500/20 flex justify-end gap-3">
-              <button onClick={() => setShowSuggestBestModal(false)} className="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-lg">Cancel</button>
+              <button onClick={() => setShowSuggestBestModal(false)} className="px-4 py-2 bg-theme-surface-2 text-theme-body text-xs rounded-lg">Cancel</button>
               <button onClick={handleApplySuggestBest} disabled={loading} className="px-5 py-2 bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-500 hover:to-indigo-500 text-white font-bold text-xs rounded-lg shadow-lg">
                 {loading ? "Optimizing Catalog..." : "Run AI Autopilot Optimization"}
               </button>

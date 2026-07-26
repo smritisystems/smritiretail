@@ -224,7 +224,7 @@ export const Launchpad: React.FC<LaunchpadProps> = ({
   });
 
   return (
-    <div className="min-h-screen bg-theme-base text-theme-body p-6 md:p-10 font-sans selection:bg-cyan-500 selection:text-slate-950">
+    <div className="min-h-screen bg-theme-base text-theme-body p-6 md:p-10 font-sans selection:bg-cyan-500 selection:text-theme-heading">
       <div className="max-w-7xl mx-auto space-y-8 relative z-10">
         {/* Launchpad Top Header (SAP Fiori Header Pattern) */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-theme-divider">
@@ -277,7 +277,7 @@ export const Launchpad: React.FC<LaunchpadProps> = ({
               onClick={() => setSelectedCategory(cat)}
               className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 selectedCategory === cat
-                  ? "bg-cyan-500 text-slate-950 font-semibold shadow-lg shadow-cyan-500/20"
+                  ? "bg-cyan-500 text-theme-heading font-semibold shadow-lg shadow-cyan-500/20"
                   : "bg-theme-surface-1 text-theme-muted hover:bg-theme-surface-2 hover:text-theme-heading border border-theme-divider"
               }`}
             >

@@ -36,7 +36,7 @@ export const StockTransferTerminal: React.FC<TerminalPluginProps> = ({
   const warehouseInput = "bg-theme-base border border-theme-divider text-theme-heading text-xs px-3 py-1 rounded font-mono focus:outline-none focus:border-blue-500 transition-colors";
 
   return (
-    // SEEF Phase 8: bg-[#0f172a] → bg-theme-base; text-slate-100 → text-theme-body
+    // SEEF Phase 8: bg-[#0f172a] → bg-theme-base; text-theme-heading → text-theme-body
     <div className="flex flex-col h-full bg-theme-base text-theme-body font-sans select-none overflow-hidden">
       <StandardDocumentToolbar
         onNew={() => setCart([])}

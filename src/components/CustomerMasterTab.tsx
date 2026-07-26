@@ -298,8 +298,8 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
       label: "Name",
       render: (c) => (
         <div>
-          <div className="font-semibold text-slate-100">{c.name}</div>
-          {c.shortName && <div className="text-[10px] text-slate-500 font-mono">{c.shortName}</div>}
+          <div className="font-semibold text-theme-heading">{c.name}</div>
+          {c.shortName && <div className="text-[10px] text-theme-muted font-mono">{c.shortName}</div>}
         </div>
       ),
     },
@@ -307,16 +307,16 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
       key: "mobile",
       label: "Contact / Email",
       render: (c) => (
-        <div className="text-slate-300">
+        <div className="text-theme-body">
           <div>{c.mobile || "—"}</div>
-          <div className="text-[10px] text-slate-500">{c.email || ""}</div>
+          <div className="text-[10px] text-theme-muted">{c.email || ""}</div>
         </div>
       ),
     },
     {
       key: "gstNumber",
       label: "GSTIN",
-      render: (c) => <span className="font-mono text-slate-400">{c.gstNumber || "—"}</span>,
+      render: (c) => <span className="font-mono text-theme-muted">{c.gstNumber || "—"}</span>,
     },
     {
       key: "outstanding",
@@ -338,7 +338,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
             c.status === "Active"
               ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
               : c.status === "Inactive"
-              ? "bg-slate-500/10 text-slate-400 border border-slate-500/30"
+              ? "bg-theme-surface-3/10 text-theme-muted border border-theme-divider/30"
               : "bg-rose-500/10 text-rose-400 border border-rose-500/30"
           }`}
         >
@@ -359,36 +359,36 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
         content: (
           <div className="space-y-6 max-w-4xl">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-3">
-                <span className="text-[10px] font-mono uppercase text-slate-500 tracking-wider block font-bold">
+              <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-3">
+                <span className="text-[10px] font-mono uppercase text-theme-muted tracking-wider block font-bold">
                   Basic Contact Information
                 </span>
                 <div>
-                  <span className="text-slate-500 text-xs block">Full Name</span>
-                  <span className="font-semibold text-slate-100 text-sm">{selectedCustomer.name}</span>
+                  <span className="text-theme-muted text-xs block">Full Name</span>
+                  <span className="font-semibold text-theme-heading text-sm">{selectedCustomer.name}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 text-xs block">Mobile Number</span>
-                  <span className="font-mono text-slate-200">{selectedCustomer.mobile || "Unregistered"}</span>
+                  <span className="text-theme-muted text-xs block">Mobile Number</span>
+                  <span className="font-mono text-theme-heading">{selectedCustomer.mobile || "Unregistered"}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 text-xs block">Email Address</span>
-                  <span className="text-slate-200">{selectedCustomer.email || "Unregistered"}</span>
+                  <span className="text-theme-muted text-xs block">Email Address</span>
+                  <span className="text-theme-heading">{selectedCustomer.email || "Unregistered"}</span>
                 </div>
                 {selectedCustomer.salesperson && (
                   <div>
-                    <span className="text-slate-500 text-xs block">Salesperson</span>
-                    <span className="text-slate-200">{selectedCustomer.salesperson}</span>
+                    <span className="text-theme-muted text-xs block">Salesperson</span>
+                    <span className="text-theme-heading">{selectedCustomer.salesperson}</span>
                   </div>
                 )}
               </div>
 
-              <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-3">
-                <span className="text-[10px] font-mono uppercase text-slate-500 tracking-wider block font-bold">
+              <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-3">
+                <span className="text-[10px] font-mono uppercase text-theme-muted tracking-wider block font-bold">
                   Taxation & Risk Classification
                 </span>
                 <div>
-                  <span className="text-slate-500 text-xs block">GSTIN Registration</span>
+                  <span className="text-theme-muted text-xs block">GSTIN Registration</span>
                   <span className="font-mono font-bold text-cyan-400">{selectedCustomer.gstNumber || "Unregistered"}</span>
                 </div>
                 <div>
@@ -606,7 +606,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
                   type="button"
                   onClick={() => setFormMode("quick")}
                   className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-colors ${
-                    formMode === "quick" ? "bg-cyan-500 text-slate-950" : "text-theme-muted hover:text-theme-body"
+                    formMode === "quick" ? "bg-cyan-500 text-theme-heading" : "text-theme-muted hover:text-theme-body"
                   }`}
                 >
                   Quick
@@ -615,7 +615,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
                   type="button"
                   onClick={() => setFormMode("advanced")}
                   className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-colors ${
-                    formMode === "advanced" ? "bg-cyan-500 text-slate-950" : "text-theme-muted hover:text-theme-body"
+                    formMode === "advanced" ? "bg-cyan-500 text-theme-heading" : "text-theme-muted hover:text-theme-body"
                   }`}
                 >
                   Advanced
@@ -700,7 +700,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
               <button
                 onClick={handleRegisterCustomer}
                 disabled={isValidating}
-                className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-5 py-2 rounded-lg text-xs transition-colors cursor-pointer disabled:opacity-50"
+                className="bg-cyan-500 hover:bg-cyan-400 text-theme-heading font-bold px-5 py-2 rounded-lg text-xs transition-colors cursor-pointer disabled:opacity-50"
               >
                 {isValidating ? "Validating..." : "Register Profile"}
               </button>

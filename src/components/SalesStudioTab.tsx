@@ -1014,7 +1014,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
         <div className="flex items-center space-x-2 shrink-0 py-2 pr-2">
           <button
             onClick={() => window.open("/?terminal=pos", "_blank", "fullscreen=yes,scrollbars=yes")}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-xs font-bold font-mono text-emerald-400 rounded-lg shadow-sm transition-all"
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-theme-surface-2 border border-theme-divider hover:bg-theme-surface-hover text-xs font-bold font-mono text-emerald-400 rounded-lg shadow-sm transition-all"
             title="Launch POS terminal in new window"
           >
             <span className="material-symbols-outlined text-sm">point_of_sale</span>
@@ -1022,7 +1022,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
           </button>
           <button
             onClick={() => window.open("/?terminal=tax", "_blank", "fullscreen=yes,scrollbars=yes")}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-xs font-bold font-mono text-indigo-400 rounded-lg shadow-sm transition-all"
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-theme-surface-2 border border-theme-divider hover:bg-theme-surface-hover text-xs font-bold font-mono text-indigo-400 rounded-lg shadow-sm transition-all"
             title="Launch GST Tax Invoice terminal in new window"
           >
             <span className="material-symbols-outlined text-sm">receipt_long</span>

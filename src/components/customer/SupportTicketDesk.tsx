@@ -54,10 +54,10 @@ export const SupportTicketDesk: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-wrap justify-between items-center gap-4">
+      <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6 flex flex-wrap justify-between items-center gap-4">
         <div>
           <h2 className="text-xl font-bold text-white mb-1">Technical Support Desk & SLA Tracker</h2>
-          <p className="text-slate-400 text-xs">Submit support tickets, track SLA resolution progress, and escalate critical issues.</p>
+          <p className="text-theme-muted text-xs">Submit support tickets, track SLA resolution progress, and escalate critical issues.</p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
@@ -68,26 +68,26 @@ export const SupportTicketDesk: React.FC = () => {
       </div>
 
       {showForm && (
-        <form onSubmit={handleCreateTicket} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <form onSubmit={handleCreateTicket} className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6 space-y-4">
           <h3 className="text-sm font-bold text-white mb-2">New Support Ticket</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-[11px] font-medium text-slate-300 mb-1">Subject</label>
+              <label className="block text-[11px] font-medium text-theme-body mb-1">Subject</label>
               <input
                 type="text"
                 required
                 value={newTicket.subject}
                 onChange={e => setNewTicket({ ...newTicket, subject: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                 placeholder="Brief ticket summary..."
               />
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-slate-300 mb-1">Category</label>
+              <label className="block text-[11px] font-medium text-theme-body mb-1">Category</label>
               <select
                 value={newTicket.category}
                 onChange={e => setNewTicket({ ...newTicket, category: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
               >
                 <option value="POS_BILLING">POS & Billing</option>
                 <option value="WMS_INVENTORY">WMS & Inventory</option>
@@ -96,11 +96,11 @@ export const SupportTicketDesk: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-slate-300 mb-1">Priority</label>
+              <label className="block text-[11px] font-medium text-theme-body mb-1">Priority</label>
               <select
                 value={newTicket.priority}
                 onChange={e => setNewTicket({ ...newTicket, priority: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
               >
                 <option value="LOW">Low (24h SLA)</option>
                 <option value="MEDIUM">Medium (12h SLA)</option>
@@ -111,13 +111,13 @@ export const SupportTicketDesk: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-slate-300 mb-1">Issue Details</label>
+            <label className="block text-[11px] font-medium text-theme-body mb-1">Issue Details</label>
             <textarea
               rows={3}
               required
               value={newTicket.description}
               onChange={e => setNewTicket({ ...newTicket, description: e.target.value })}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+              className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
               placeholder="Describe the technical issue in detail..."
             />
           </div>
@@ -126,7 +126,7 @@ export const SupportTicketDesk: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs font-medium"
+              className="px-4 py-2 bg-theme-surface-2 text-theme-body rounded-lg text-xs font-medium"
             >
               Cancel
             </button>
@@ -141,12 +141,12 @@ export const SupportTicketDesk: React.FC = () => {
       )}
 
       {/* Ticket List */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+      <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6 space-y-4">
         <h3 className="font-semibold text-sm text-white mb-4">Active & Recent Tickets</h3>
 
         <div className="space-y-3">
           {tickets.map((tck) => (
-            <div key={tck.id} className="p-4 bg-slate-950 border border-slate-800 rounded-xl flex flex-wrap items-center justify-between gap-4">
+            <div key={tck.id} className="p-4 bg-theme-surface-3 border border-theme-divider rounded-xl flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-indigo-400">
                   <LifeBuoy className="w-5 h-5" />
@@ -154,9 +154,9 @@ export const SupportTicketDesk: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-sm font-bold text-white">{tck.id}</span>
-                    <span className="font-semibold text-sm text-slate-200">{tck.subject}</span>
+                    <span className="font-semibold text-sm text-theme-heading">{tck.subject}</span>
                   </div>
-                  <span className="text-xs text-slate-400">{tck.category} • Created: {tck.createdAt}</span>
+                  <span className="text-xs text-theme-muted">{tck.category} • Created: {tck.createdAt}</span>
                 </div>
               </div>
 

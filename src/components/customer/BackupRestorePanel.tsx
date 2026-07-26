@@ -54,10 +54,10 @@ export const BackupRestorePanel: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-wrap justify-between items-center gap-4">
+      <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6 flex flex-wrap justify-between items-center gap-4">
         <div>
           <h2 className="text-xl font-bold text-white mb-1">Database Snapshots & Cloud Restores</h2>
-          <p className="text-slate-400 text-xs">Automated daily backups, verified checksums, and one-click cloud restore triggers.</p>
+          <p className="text-theme-muted text-xs">Automated daily backups, verified checksums, and one-click cloud restore triggers.</p>
         </div>
         <button
           onClick={handleCreateBackup}
@@ -69,12 +69,12 @@ export const BackupRestorePanel: React.FC = () => {
         </button>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+      <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6 space-y-4">
         <h3 className="font-semibold text-sm text-white mb-4">Available Backup Snapshots</h3>
 
         <div className="space-y-3">
           {snapshots.map((snap) => (
-            <div key={snap.id} className="p-4 bg-slate-950 border border-slate-800 rounded-xl flex flex-wrap items-center justify-between gap-4">
+            <div key={snap.id} className="p-4 bg-theme-surface-3 border border-theme-divider rounded-xl flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-indigo-400">
                   <Database className="w-5 h-5" />
@@ -82,11 +82,11 @@ export const BackupRestorePanel: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-sm font-bold text-white">{snap.id}</span>
-                    <span className="px-2 py-0.5 text-[10px] uppercase font-semibold bg-slate-800 text-slate-300 rounded border border-slate-700">
+                    <span className="px-2 py-0.5 text-[10px] uppercase font-semibold bg-theme-surface-2 text-theme-body rounded border border-theme-divider">
                       {snap.type}
                     </span>
                   </div>
-                  <span className="text-xs text-slate-400">{snap.timestamp} • Size: {snap.size} • Retention: {snap.retention}</span>
+                  <span className="text-xs text-theme-muted">{snap.timestamp} • Size: {snap.size} • Retention: {snap.retention}</span>
                 </div>
               </div>
 
@@ -94,10 +94,10 @@ export const BackupRestorePanel: React.FC = () => {
                 <span className="px-2.5 py-1 text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Verified
                 </span>
-                <button className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-medium rounded-lg border border-slate-700 transition-colors flex items-center gap-1.5">
+                <button className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-indigo-300 text-xs font-medium rounded-lg border border-theme-divider transition-colors flex items-center gap-1.5">
                   <Download className="w-3.5 h-3.5" /> Download
                 </button>
-                <button className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs font-medium rounded-lg border border-slate-700 transition-colors flex items-center gap-1.5">
+                <button className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-emerald-300 text-xs font-medium rounded-lg border border-theme-divider transition-colors flex items-center gap-1.5">
                   <HardDrive className="w-3.5 h-3.5" /> Restore
                 </button>
               </div>

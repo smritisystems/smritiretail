@@ -39,16 +39,16 @@ export const ApiReferenceSandbox: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+      <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6">
         <div className="flex items-center gap-3 mb-2">
           <Terminal className="w-6 h-6 text-indigo-400" />
           <h2 className="text-xl font-bold text-white">Interactive OpenAPI Sandbox</h2>
         </div>
-        <p className="text-slate-400 text-xs">Test REST API endpoints and inspect request/response DTO schemas.</p>
+        <p className="text-theme-muted text-xs">Test REST API endpoints and inspect request/response DTO schemas.</p>
       </div>
 
       {endpoints.map((ep, idx) => (
-        <div key={idx} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <div key={idx} className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6 space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold text-xs rounded">
@@ -62,29 +62,29 @@ export const ApiReferenceSandbox: React.FC = () => {
             </div>
           </div>
 
-          <p className="text-slate-300 text-xs">{ep.summary}</p>
+          <p className="text-theme-body text-xs">{ep.summary}</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Request Example Payload</span>
-              <pre className="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs text-slate-300 overflow-x-auto">
+              <span className="block text-[11px] font-semibold text-theme-muted uppercase tracking-wider mb-2">Request Example Payload</span>
+              <pre className="bg-theme-surface-3 p-4 rounded-xl border border-theme-divider font-mono text-xs text-theme-body overflow-x-auto">
                 {ep.request}
               </pre>
             </div>
             <div>
-              <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Response DTO (HTTP 200 OK)</span>
-              <pre className="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs text-emerald-300 overflow-x-auto">
+              <span className="block text-[11px] font-semibold text-theme-muted uppercase tracking-wider mb-2">Response DTO (HTTP 200 OK)</span>
+              <pre className="bg-theme-surface-3 p-4 rounded-xl border border-theme-divider font-mono text-xs text-emerald-300 overflow-x-auto">
                 {ep.response}
               </pre>
             </div>
           </div>
 
           <div>
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-theme-muted uppercase tracking-wider mb-2">
               <Code className="w-3.5 h-3.5 text-indigo-400" />
               <span>Python SDK Snippet</span>
             </div>
-            <pre className="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs text-indigo-300 overflow-x-auto">
+            <pre className="bg-theme-surface-3 p-4 rounded-xl border border-theme-divider font-mono text-xs text-indigo-300 overflow-x-auto">
               {ep.snippet}
             </pre>
           </div>

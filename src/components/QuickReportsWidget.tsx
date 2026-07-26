@@ -394,7 +394,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
 
       {/* DYNAMIC INTERACTIVE LIVE PREVIEW OVERLAY MODAL */}
       {isPreviewOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center bg-theme-surface-3 backdrop-blur-md p-4 animate-fadeIn">
           <div className="bg-theme-surface-1 border border-[#2a3a5c] rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-theme-divider bg-theme-surface-3 flex items-center justify-between">
@@ -427,27 +427,27 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
             </div>
 
             {/* Modal Preview Area */}
-            <div className="flex-1 overflow-y-auto bg-slate-900/50 p-6 flex justify-center custom-scrollbar">
+            <div className="flex-1 overflow-y-auto bg-theme-surface-2 p-6 flex justify-center custom-scrollbar">
               {layoutMode === "a4" ? (
                 /* A4 PAGE CONTAINER */
-                <div id="virtual-a4-sheet" className="bg-white text-slate-900 w-[210mm] min-h-[297mm] p-10 shadow-2xl rounded-sm border border-slate-300 font-sans relative flex flex-col justify-between text-xs leading-normal">
+                <div id="virtual-a4-sheet" className="bg-white text-theme-heading w-[210mm] min-h-[297mm] p-10 shadow-2xl rounded-sm border border-theme-divider font-sans relative flex flex-col justify-between text-xs leading-normal">
                   <div>
                     {/* Header Stamp/Logo */}
-                    <div className="flex justify-between items-start border-b-2 border-slate-800 pb-5 mb-5">
+                    <div className="flex justify-between items-start border-b-2 border-theme-divider pb-5 mb-5">
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <span className="font-display font-black tracking-tighter text-lg text-slate-950 uppercase">SMRITI Retail OS</span>
-                          <span className="text-[9px] bg-slate-100 border border-slate-300 px-1 py-0.2 rounded font-mono uppercase font-semibold text-slate-600">Enterprise Edition</span>
+                          <span className="font-display font-black tracking-tighter text-lg text-theme-heading uppercase">SMRITI Retail OS</span>
+                          <span className="text-[9px] bg-theme-surface-2 border border-theme-divider px-1 py-0.2 rounded font-mono uppercase font-semibold text-theme-muted">Enterprise Edition</span>
                         </div>
-                        <p className="text-[10px] text-slate-500 font-mono mt-0.5">Automated Intelligence & Audit Ledger Engine</p>
-                        <div className="text-[10px] text-slate-500 font-sans mt-2.5">
+                        <p className="text-[10px] text-theme-muted font-mono mt-0.5">Automated Intelligence & Audit Ledger Engine</p>
+                        <div className="text-[10px] text-theme-muted font-sans mt-2.5">
                           <div><strong>Operator:</strong> Jawahar.mallah@gmail.com</div>
                           <div><strong>Location:</strong> Andheri West, Mumbai (MH-POS)</div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="bg-slate-900 text-white font-mono text-[10px] font-bold px-2 py-1 rounded">OFFICIAL DOCUMENT</div>
-                        <div className="text-[10px] text-slate-500 font-mono mt-3">
+                        <div className="bg-theme-surface-2 text-white font-mono text-[10px] font-bold px-2 py-1 rounded">OFFICIAL DOCUMENT</div>
+                        <div className="text-[10px] text-theme-muted font-mono mt-3">
                           <div><strong>Ref No:</strong> {reportMeta.code}-901</div>
                           <div><strong>Timeframe:</strong> {startDate} to {endDate}</div>
                           <div><strong>Printed on:</strong> {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</div>
@@ -457,8 +457,8 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
 
                     {/* Report Metadata Title */}
                     <div className="mb-6">
-                      <h2 className="text-base font-bold text-slate-950 uppercase tracking-wide">{reportMeta.title}</h2>
-                      <p className="text-[10px] text-slate-500 italic mt-0.5">{reportMeta.subtitle}</p>
+                      <h2 className="text-base font-bold text-theme-heading uppercase tracking-wide">{reportMeta.title}</h2>
+                      <p className="text-[10px] text-theme-muted italic mt-0.5">{reportMeta.subtitle}</p>
                     </div>
 
                     {/* Day Summary Layout */}
@@ -466,41 +466,41 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                       <div className="space-y-6">
                         {/* KPI grid */}
                         <div className="grid grid-cols-4 gap-4">
-                          <div className="border border-slate-200 bg-slate-50 p-3 rounded">
-                            <span className="text-[9px] text-slate-500 uppercase font-bold font-mono">Gross Revenue</span>
-                            <div className="text-sm font-bold text-slate-950 mt-1">{formatCurrency(dailyRevenue)}</div>
+                          <div className="border border-theme-divider bg-theme-surface-2 p-3 rounded">
+                            <span className="text-[9px] text-theme-muted uppercase font-bold font-mono">Gross Revenue</span>
+                            <div className="text-sm font-bold text-theme-heading mt-1">{formatCurrency(dailyRevenue)}</div>
                             <span className="text-[8px] text-emerald-700 font-mono">✓ Verified Active Shift</span>
                           </div>
-                          <div className="border border-slate-200 bg-slate-50 p-3 rounded">
-                            <span className="text-[9px] text-slate-500 uppercase font-bold font-mono">Completed Invoices</span>
-                            <div className="text-sm font-bold text-slate-950 mt-1">{totalInvoices > 0 ? totalInvoices : Math.round(15 * scaleFactor)} bills</div>
-                            <span className="text-[8px] text-slate-500 font-mono">Checkout desks active</span>
+                          <div className="border border-theme-divider bg-theme-surface-2 p-3 rounded">
+                            <span className="text-[9px] text-theme-muted uppercase font-bold font-mono">Completed Invoices</span>
+                            <div className="text-sm font-bold text-theme-heading mt-1">{totalInvoices > 0 ? totalInvoices : Math.round(15 * scaleFactor)} bills</div>
+                            <span className="text-[8px] text-theme-muted font-mono">Checkout desks active</span>
                           </div>
-                          <div className="border border-slate-200 bg-slate-50 p-3 rounded">
-                            <span className="text-[9px] text-slate-500 uppercase font-bold font-mono">Avg Ticket Value</span>
-                            <div className="text-sm font-bold text-slate-950 mt-1">{formatCurrency(avgOrderValue)}</div>
-                            <span className="text-[8px] text-slate-500 font-mono">Per billing session</span>
+                          <div className="border border-theme-divider bg-theme-surface-2 p-3 rounded">
+                            <span className="text-[9px] text-theme-muted uppercase font-bold font-mono">Avg Ticket Value</span>
+                            <div className="text-sm font-bold text-theme-heading mt-1">{formatCurrency(avgOrderValue)}</div>
+                            <span className="text-[8px] text-theme-muted font-mono">Per billing session</span>
                           </div>
-                          <div className="border border-slate-200 bg-slate-50 p-3 rounded">
-                            <span className="text-[9px] text-slate-500 uppercase font-bold font-mono">Channel Capital</span>
-                            <div className="text-sm font-bold text-slate-950 mt-1">{formatCurrency(totalCapitalLocked)}</div>
+                          <div className="border border-theme-divider bg-theme-surface-2 p-3 rounded">
+                            <span className="text-[9px] text-theme-muted uppercase font-bold font-mono">Channel Capital</span>
+                            <div className="text-sm font-bold text-theme-heading mt-1">{formatCurrency(totalCapitalLocked)}</div>
                             <span className="text-[8px] text-amber-700 font-mono">Locked in partner supply</span>
                           </div>
                         </div>
 
                         {/* Payment Breakdowns */}
                         <div>
-                          <h4 className="text-xs font-bold text-slate-950 border-b border-slate-300 pb-1 mb-2 uppercase font-mono">Payment Mode Reconciliation</h4>
+                          <h4 className="text-xs font-bold text-theme-heading border-b border-theme-divider pb-1 mb-2 uppercase font-mono">Payment Mode Reconciliation</h4>
                           <table className="w-full text-left text-[11px]">
                             <thead>
-                              <tr className="border-b border-slate-200 text-slate-600 font-bold">
+                              <tr className="border-b border-theme-divider text-theme-muted font-bold">
                                 <th className="py-1.5">Manner of Receipt</th>
                                 <th className="py-1.5 text-center">Share</th>
                                 <th className="py-1.5 text-right">Settled Amount (INR)</th>
                                 <th className="py-1.5 text-right">Reconciliation Status</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-theme-divider">
                               <tr>
                                 <td className="py-1.5 font-semibold flex items-center gap-1.5">
                                   <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
@@ -528,11 +528,11 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                                 <td className="py-1.5 text-right font-mono font-semibold">{formatCurrency(cashSales)}</td>
                                 <td className="py-1.5 text-right text-blue-700 font-mono font-bold">Physical Audit Count Pending</td>
                               </tr>
-                              <tr className="border-t border-slate-200 font-bold bg-slate-50">
+                              <tr className="border-t border-theme-divider font-bold bg-theme-surface-2">
                                 <td className="py-2">TOTAL FISCAL TALLY</td>
                                 <td className="py-2 text-center font-mono">100%</td>
-                                <td className="py-2 text-right font-mono text-slate-950">{formatCurrency(dailyRevenue)}</td>
-                                <td className="py-2 text-right text-slate-950 font-mono">Perfect Balance Match</td>
+                                <td className="py-2 text-right font-mono text-theme-heading">{formatCurrency(dailyRevenue)}</td>
+                                <td className="py-2 text-right text-theme-heading font-mono">Perfect Balance Match</td>
                               </tr>
                             </tbody>
                           </table>
@@ -544,10 +544,10 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                     {selectedReport === "sales-billing" && (
                       <div className="space-y-6">
                         <div>
-                          <h4 className="text-xs font-bold text-slate-950 border-b border-slate-300 pb-1 mb-2 uppercase font-mono">Invoice Ledger Entries</h4>
+                          <h4 className="text-xs font-bold text-theme-heading border-b border-theme-divider pb-1 mb-2 uppercase font-mono">Invoice Ledger Entries</h4>
                           <table className="w-full text-left text-[11px]">
                             <thead>
-                              <tr className="border-b border-slate-200 text-slate-600 font-bold">
+                              <tr className="border-b border-theme-divider text-theme-muted font-bold">
                                 <th className="py-1.5">Timestamp</th>
                                 <th className="py-1.5">Invoice / Receipt ID</th>
                                 <th className="py-1.5">Checkout Cashier</th>
@@ -555,18 +555,18 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                                 <th className="py-1.5 text-right">Invoice Amount</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 font-mono">
+                            <tbody className="divide-y divide-theme-divider font-mono">
                               {auditLogs.filter(log => log.action === "Invoice Created").length > 0 ? (
                                 auditLogs.filter(log => log.action === "Invoice Created").map((log, index) => {
                                   const amtMatch = log.after.match(/Total Sales: (\d+) INR/);
                                   const amt = amtMatch ? parseInt(amtMatch[1]) : 12450;
                                   return (
                                     <tr key={index}>
-                                      <td className="py-1.5 text-slate-600">{new Date(log.timestamp).toLocaleTimeString()}</td>
+                                      <td className="py-1.5 text-theme-muted">{new Date(log.timestamp).toLocaleTimeString()}</td>
                                       <td className="py-1.5 font-bold text-blue-800">INV-2026-{(index+101)}</td>
-                                      <td className="py-1.5 text-slate-800 font-sans">{log.user || "Cashier-01"}</td>
-                                      <td className="py-1.5 text-slate-600 font-sans">Andheri West, Mumbai</td>
-                                      <td className="py-1.5 text-right font-bold text-slate-950">{formatCurrency(amt)}</td>
+                                      <td className="py-1.5 text-theme-heading font-sans">{log.user || "Cashier-01"}</td>
+                                      <td className="py-1.5 text-theme-muted font-sans">Andheri West, Mumbai</td>
+                                      <td className="py-1.5 text-right font-bold text-theme-heading">{formatCurrency(amt)}</td>
                                     </tr>
                                   );
                                 })
@@ -580,17 +580,17 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                                   { time: "07:35 PM", inv: "INV-2026-108", cashier: "Karan Johar", branch: "Andheri West, Mumbai", amt: 82000 }
                                 ].map((row, index) => (
                                   <tr key={index}>
-                                    <td className="py-1.5 text-slate-600">{row.time}</td>
+                                    <td className="py-1.5 text-theme-muted">{row.time}</td>
                                     <td className="py-1.5 font-bold text-blue-800">{row.inv}</td>
-                                    <td className="py-1.5 text-slate-800 font-sans">{row.cashier}</td>
-                                    <td className="py-1.5 text-slate-600 font-sans">{row.branch}</td>
-                                    <td className="py-1.5 text-right font-bold text-slate-950">{formatCurrency(row.amt * scaleFactor)}</td>
+                                    <td className="py-1.5 text-theme-heading font-sans">{row.cashier}</td>
+                                    <td className="py-1.5 text-theme-muted font-sans">{row.branch}</td>
+                                    <td className="py-1.5 text-right font-bold text-theme-heading">{formatCurrency(row.amt * scaleFactor)}</td>
                                   </tr>
                                 ))
                               )}
-                              <tr className="border-t border-slate-200 font-bold bg-slate-50 font-sans">
-                                <td colSpan={4} className="py-2 text-slate-900 uppercase font-bold text-right pr-4">Aggregated Total</td>
-                                <td className="py-2 text-right font-mono font-bold text-slate-950">{formatCurrency(dailyRevenue)}</td>
+                              <tr className="border-t border-theme-divider font-bold bg-theme-surface-2 font-sans">
+                                <td colSpan={4} className="py-2 text-theme-heading uppercase font-bold text-right pr-4">Aggregated Total</td>
+                                <td className="py-2 text-right font-mono font-bold text-theme-heading">{formatCurrency(dailyRevenue)}</td>
                               </tr>
                             </tbody>
                           </table>
@@ -602,10 +602,10 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                     {selectedReport === "inventory-status" && (
                       <div className="space-y-6">
                         <div>
-                          <h4 className="text-xs font-bold text-slate-950 border-b border-slate-300 pb-1 mb-2 uppercase font-mono">Critical Low Stock Warning & Reorder Levels</h4>
+                          <h4 className="text-xs font-bold text-theme-heading border-b border-theme-divider pb-1 mb-2 uppercase font-mono">Critical Low Stock Warning & Reorder Levels</h4>
                           <table className="w-full text-left text-[11px]">
                             <thead>
-                              <tr className="border-b border-slate-200 text-slate-600 font-bold">
+                              <tr className="border-b border-theme-divider text-theme-muted font-bold">
                                 <th className="py-1.5">Product Code</th>
                                 <th className="py-1.5">Product Name</th>
                                 <th className="py-1.5">Category</th>
@@ -614,25 +614,25 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                                 <th className="py-1.5 text-right">Unit Value</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 font-mono">
+                            <tbody className="divide-y divide-theme-divider font-mono">
                               {products.length > 0 ? (
                                 products.slice(0, 8).map((p, index) => (
                                   <tr key={p.id}>
-                                    <td className="py-1.5 font-bold text-slate-800">{p.code}</td>
-                                    <td className="py-1.5 font-sans text-slate-900">{p.name}</td>
-                                    <td className="py-1.5 font-sans text-slate-600">{p.category}</td>
+                                    <td className="py-1.5 font-bold text-theme-heading">{p.code}</td>
+                                    <td className="py-1.5 font-sans text-theme-heading">{p.name}</td>
+                                    <td className="py-1.5 font-sans text-theme-muted">{p.category}</td>
                                     <td className="py-1.5 text-center">
-                                      <span className={`px-1.5 py-0.5 rounded font-bold ${p.stock < 15 ? "bg-rose-100 text-rose-800" : "bg-slate-100"}`}>
+                                      <span className={`px-1.5 py-0.5 rounded font-bold ${p.stock < 15 ? "bg-rose-100 text-rose-800" : "bg-theme-surface-2"}`}>
                                         {p.stock} Units
                                       </span>
                                     </td>
-                                    <td className="py-1.5 text-center text-slate-500">15 Units</td>
-                                    <td className="py-1.5 text-right font-sans text-slate-900">{formatCurrency(p.price)}</td>
+                                    <td className="py-1.5 text-center text-theme-muted">15 Units</td>
+                                    <td className="py-1.5 text-right font-sans text-theme-heading">{formatCurrency(p.price)}</td>
                                   </tr>
                                 ))
                               ) : (
                                 <tr>
-                                  <td colSpan={6} className="py-4 text-center text-slate-500 font-sans">No products catalogued in active workspace.</td>
+                                  <td colSpan={6} className="py-4 text-center text-theme-muted font-sans">No products catalogued in active workspace.</td>
                                 </tr>
                               )}
                             </tbody>
@@ -640,10 +640,10 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                         </div>
 
                         <div>
-                          <h4 className="text-xs font-bold text-slate-950 border-b border-slate-300 pb-1 mb-2 uppercase font-mono">Distributor Stock Allocations</h4>
+                          <h4 className="text-xs font-bold text-theme-heading border-b border-theme-divider pb-1 mb-2 uppercase font-mono">Distributor Stock Allocations</h4>
                           <table className="w-full text-left text-[11px]">
                             <thead>
-                              <tr className="border-b border-slate-200 text-slate-600 font-bold">
+                              <tr className="border-b border-theme-divider text-theme-muted font-bold">
                                 <th className="py-1.5">Distributor Partner</th>
                                 <th className="py-1.5">City Node</th>
                                 <th className="py-1.5 text-center">Units Stocked</th>
@@ -651,14 +651,14 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                                 <th className="py-1.5 text-right">Capital Locked (INR)</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 font-mono">
+                            <tbody className="divide-y divide-theme-divider font-mono">
                               {psvParties.map((partner, index) => (
                                 <tr key={index}>
-                                  <td className="py-1.5 font-bold text-slate-800 font-sans">{partner.name}</td>
-                                  <td className="py-1.5 text-slate-600 font-sans">{partner.location}</td>
+                                  <td className="py-1.5 font-bold text-theme-heading font-sans">{partner.name}</td>
+                                  <td className="py-1.5 text-theme-muted font-sans">{partner.location}</td>
                                   <td className="py-1.5 text-center">{partner.stockCount} Units</td>
                                   <td className="py-1.5 text-center">{partner.sellThrough}%</td>
-                                  <td className="py-1.5 text-right font-bold text-slate-950">{formatCurrency(partner.capitalLocked)}</td>
+                                  <td className="py-1.5 text-right font-bold text-theme-heading">{formatCurrency(partner.capitalLocked)}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -671,10 +671,10 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                     {selectedReport === "compliance-audit" && (
                       <div className="space-y-6">
                         <div>
-                          <h4 className="text-xs font-bold text-slate-950 border-b border-slate-300 pb-1 mb-2 uppercase font-mono">Rule 10 System Compliance Audit Ledger</h4>
+                          <h4 className="text-xs font-bold text-theme-heading border-b border-theme-divider pb-1 mb-2 uppercase font-mono">Rule 10 System Compliance Audit Ledger</h4>
                           <table className="w-full text-left text-[11px]">
                             <thead>
-                              <tr className="border-b border-slate-200 text-slate-600 font-bold">
+                              <tr className="border-b border-theme-divider text-theme-muted font-bold">
                                 <th className="py-1.5">Compliant Time</th>
                                 <th className="py-1.5">Operator ID</th>
                                 <th className="py-1.5">Action Executed</th>
@@ -682,14 +682,14 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                                 <th className="py-1.5">State After Modification</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 font-mono">
+                            <tbody className="divide-y divide-theme-divider font-mono">
                               {auditLogs.slice(0, 12).map((log, index) => (
                                 <tr key={index}>
-                                  <td className="py-1.5 text-slate-600">{new Date(log.timestamp).toLocaleTimeString()}</td>
-                                  <td className="py-1.5 text-slate-800 font-sans">{log.user}</td>
+                                  <td className="py-1.5 text-theme-muted">{new Date(log.timestamp).toLocaleTimeString()}</td>
+                                  <td className="py-1.5 text-theme-heading font-sans">{log.user}</td>
                                   <td className="py-1.5">
-                                    <div className="font-bold text-slate-950">{log.action}</div>
-                                    <div className="text-[9px] text-slate-500 font-sans">{log.details}</div>
+                                    <div className="font-bold text-theme-heading">{log.action}</div>
+                                    <div className="text-[9px] text-theme-muted font-sans">{log.details}</div>
                                   </td>
                                   <td className="py-1.5 text-rose-700 text-[10px] whitespace-pre-wrap max-w-[120px] truncate" title={log.before}>{log.before}</td>
                                   <td className="py-1.5 text-emerald-700 text-[10px] whitespace-pre-wrap max-w-[120px] truncate" title={log.after}>{log.after}</td>
@@ -703,14 +703,14 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
 
                     {/* Stock Warnings Appendix */}
                     {includeStockWarnings && selectedReport !== "inventory-status" && lowStockItems.length > 0 && (
-                      <div className="mt-6 pt-4 border-t border-dashed border-slate-300">
+                      <div className="mt-6 pt-4 border-t border-dashed border-theme-divider">
                         <div className="flex items-center gap-1.5 text-amber-800 font-bold text-xs uppercase mb-2 font-mono">
                           <AlertTriangle size={13} />
                           <span>Critical Inventory Warning Appendix (Safety Stock &lt; 15)</span>
                         </div>
                         <table className="w-full text-left text-[10px] bg-amber-50/50 rounded border border-amber-200 p-2">
                           <thead>
-                            <tr className="border-b border-amber-200 text-slate-600 font-semibold font-mono">
+                            <tr className="border-b border-amber-200 text-theme-muted font-semibold font-mono">
                               <th className="p-1 pl-2">Product Code</th>
                               <th className="p-1">Name</th>
                               <th className="p-1 text-center">Stock left</th>
@@ -720,8 +720,8 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                           <tbody className="divide-y divide-amber-100">
                             {lowStockItems.map((item, index) => (
                               <tr key={index} className="font-mono">
-                                <td className="p-1 pl-2 font-bold text-slate-800">{item.code}</td>
-                                <td className="p-1 font-sans text-slate-900">{item.name}</td>
+                                <td className="p-1 pl-2 font-bold text-theme-heading">{item.code}</td>
+                                <td className="p-1 font-sans text-theme-heading">{item.name}</td>
                                 <td className="p-1 text-center font-bold text-rose-700">{item.stock} Units</td>
                                 <td className="p-1 text-right text-rose-700 font-sans pr-2">Critical Trigger: Refill Immediately</td>
                               </tr>
@@ -733,14 +733,14 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
 
                     {/* Live Audit Appendix */}
                     {includeAuditTrail && selectedReport !== "compliance-audit" && auditLogs.length > 0 && (
-                      <div className="mt-6 pt-4 border-t border-dashed border-slate-300">
+                      <div className="mt-6 pt-4 border-t border-dashed border-theme-divider">
                         <div className="flex items-center gap-1.5 text-blue-900 font-bold text-xs uppercase mb-2 font-mono">
                           <ShieldCheck size={13} />
                           <span>Attached System Security Audit Appendix (Rule 10 Tracker)</span>
                         </div>
-                        <table className="w-full text-left text-[9px] bg-slate-50/80 rounded border border-slate-200 p-2 font-mono">
+                        <table className="w-full text-left text-[9px] bg-theme-surface-2/80 rounded border border-theme-divider p-2 font-mono">
                           <thead>
-                            <tr className="border-b border-slate-200 text-slate-600 font-semibold">
+                            <tr className="border-b border-theme-divider text-theme-muted font-semibold">
                               <th className="p-1 pl-2">Timestamp</th>
                               <th className="p-1">Operator</th>
                               <th className="p-1">Action</th>
@@ -750,9 +750,9 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                           <tbody>
                             {auditLogs.slice(0, 4).map((log, index) => (
                               <tr key={index}>
-                                <td className="p-1 pl-2 text-slate-500">{new Date(log.timestamp).toLocaleTimeString()}</td>
-                                <td className="p-1 text-slate-800 font-semibold">{log.user}</td>
-                                <td className="p-1 text-slate-700">{log.action}: {log.details}</td>
+                                <td className="p-1 pl-2 text-theme-muted">{new Date(log.timestamp).toLocaleTimeString()}</td>
+                                <td className="p-1 text-theme-heading font-semibold">{log.user}</td>
+                                <td className="p-1 text-theme-body">{log.action}: {log.details}</td>
                                 <td className="p-1 pr-2 text-right text-emerald-700 font-semibold">Non-Repudiable ✓</td>
                               </tr>
                             ))}
@@ -763,29 +763,29 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                   </div>
 
                   {/* Signatures & Footer stamp */}
-                  <div className="border-t border-slate-300 pt-8 mt-10 grid grid-cols-3 gap-6 text-[10px] text-slate-500">
+                  <div className="border-t border-theme-divider pt-8 mt-10 grid grid-cols-3 gap-6 text-[10px] text-theme-muted">
                     <div className="text-center">
-                      <div className="h-10 border-b border-slate-300 flex items-end justify-center pb-1 italic font-serif text-slate-400">Jawahar R. Mallah</div>
+                      <div className="h-10 border-b border-theme-divider flex items-end justify-center pb-1 italic font-serif text-theme-muted">Jawahar R. Mallah</div>
                       <div className="mt-1 font-mono uppercase text-[9px]">Operator Signature</div>
                     </div>
                     <div className="text-center flex flex-col items-center justify-end">
-                      <div className="border border-slate-300 px-3 py-1.5 rounded-full font-mono text-[8px] bg-slate-50 inline-block font-bold">
+                      <div className="border border-theme-divider px-3 py-1.5 rounded-full font-mono text-[8px] bg-theme-surface-2 inline-block font-bold">
                         SMRITI SECURITY STAMP
                       </div>
                       <div className="mt-2 text-[8px]">DIGITALLY VERIFIED POS</div>
                     </div>
                     <div className="text-center">
-                      <div className="h-10 border-b border-slate-300 flex items-end justify-center pb-1 font-mono text-slate-300">[ STAMP / SEAL ]</div>
+                      <div className="h-10 border-b border-theme-divider flex items-end justify-center pb-1 font-mono text-theme-body">[ STAMP / SEAL ]</div>
                       <div className="mt-1 font-mono uppercase text-[9px]">Operational Head Seal</div>
                     </div>
                   </div>
                 </div>
               ) : (
                 /* THERMAL SLIP CONTAINER (80mm) */
-                <div id="virtual-thermal-slip" className="bg-white text-slate-900 w-[80mm] p-4 shadow-2xl rounded-sm border border-slate-300 font-mono text-[10px] flex flex-col justify-between relative">
+                <div id="virtual-thermal-slip" className="bg-white text-theme-heading w-[80mm] p-4 shadow-2xl rounded-sm border border-theme-divider font-mono text-[10px] flex flex-col justify-between relative">
                   <div>
                     {/* Thermal Header */}
-                    <div className="text-center border-b border-dashed border-slate-400 pb-3 mb-3">
+                    <div className="text-center border-b border-dashed border-theme-divider pb-3 mb-3">
                       <h3 className="font-bold text-xs uppercase tracking-tight">SMRITI RETAIL OS</h3>
                       <p className="text-[8px] uppercase mt-0.5">Andheri West, Mumbai</p>
                       <p className="text-[8px] mt-0.5">Operator: jawahar.mallah@gmail.com</p>
@@ -793,7 +793,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                     </div>
 
                     {/* Meta */}
-                    <div className="space-y-0.5 border-b border-dashed border-slate-400 pb-2 mb-2 text-[9px]">
+                    <div className="space-y-0.5 border-b border-dashed border-theme-divider pb-2 mb-2 text-[9px]">
                       <div>DATE: {new Date().toLocaleDateString()}  TIME: {new Date().toLocaleTimeString()}</div>
                       <div>DOC ID: {reportMeta.code}-901</div>
                       <div>TIMEFRAME: {startDate} to {endDate}</div>
@@ -824,7 +824,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                         </div>
 
                         {/* Mode splits */}
-                        <div className="border-t border-dashed border-slate-400 pt-2">
+                        <div className="border-t border-dashed border-theme-divider pt-2">
                           <div className="font-bold text-[9px] mb-1">PAYMENT MODES:</div>
                           <div className="flex justify-between pl-1">
                             <span>- UPI:</span>
@@ -846,7 +846,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                     {selectedReport === "sales-billing" && (
                       <div className="space-y-2">
                         <div className="font-bold text-[9px] mb-1">INVOICES COMPILATION:</div>
-                        <div className="divide-y divide-dashed divide-slate-300">
+                        <div className="divide-y divide-dashed divide-theme-divider">
                           {(auditLogs.filter(log => log.action === "Invoice Created").length > 0 
                             ? auditLogs.filter(log => log.action === "Invoice Created").slice(0, 5)
                             : [
@@ -868,7 +868,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                             );
                           })}
                         </div>
-                        <div className="border-t border-dashed border-slate-400 pt-1.5 flex justify-between font-bold text-[10px]">
+                        <div className="border-t border-dashed border-theme-divider pt-1.5 flex justify-between font-bold text-[10px]">
                           <span>TOTAL REVENUE</span>
                           <span>{formatCurrency(dailyRevenue)}</span>
                         </div>
@@ -888,7 +888,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                           ))}
                         </div>
 
-                        <div className="border-t border-dashed border-slate-400 pt-2">
+                        <div className="border-t border-dashed border-theme-divider pt-2">
                           <div className="font-bold text-[9px] mb-1">PARTNER CAPS LOCKED:</div>
                           <div className="space-y-1">
                             {psvParties.map((p, i) => (
@@ -908,12 +908,12 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                         <div className="font-bold text-[9px] mb-1">AUDIT compliance logs:</div>
                         <div className="space-y-1.5">
                           {auditLogs.slice(0, 4).map((log, i) => (
-                            <div key={i} className="text-[8px] border-b border-slate-200 pb-1">
+                            <div key={i} className="text-[8px] border-b border-theme-divider pb-1">
                               <div className="flex justify-between font-bold">
                                 <span>{new Date(log.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                                 <span>{log.user}</span>
                               </div>
-                              <div className="text-slate-600">{log.action}</div>
+                              <div className="text-theme-muted">{log.action}</div>
                             </div>
                           ))}
                         </div>
@@ -922,7 +922,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
 
                     {/* Low Stock alerts list (if included and not inventory tab) */}
                     {includeStockWarnings && selectedReport !== "inventory-status" && lowStockItems.length > 0 && (
-                      <div className="border-t border-dashed border-slate-400 mt-3 pt-2">
+                      <div className="border-t border-dashed border-theme-divider mt-3 pt-2">
                         <div className="font-bold text-[8px] text-rose-800 uppercase flex items-center gap-1">
                           <span>!! STOCK WARN !!</span>
                         </div>
@@ -939,9 +939,9 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
 
                     {/* Audit Appendix (if included) */}
                     {includeAuditTrail && selectedReport !== "compliance-audit" && auditLogs.length > 0 && (
-                      <div className="border-t border-dashed border-slate-400 mt-3 pt-2">
-                        <div className="font-bold text-[8px] text-slate-800 uppercase">✓ AUDIT SECURED APPENDIX</div>
-                        <div className="space-y-0.5 mt-1 text-[7px] text-slate-600">
+                      <div className="border-t border-dashed border-theme-divider mt-3 pt-2">
+                        <div className="font-bold text-[8px] text-theme-heading uppercase">✓ AUDIT SECURED APPENDIX</div>
+                        <div className="space-y-0.5 mt-1 text-[7px] text-theme-muted">
                           {auditLogs.slice(0, 2).map((log, i) => (
                             <div key={i} className="truncate">
                               [{new Date(log.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}] {log.user}: {log.action}
@@ -952,10 +952,10 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                     )}
 
                     {/* Thermal Cut lines */}
-                    <div className="text-center text-[8px] border-t border-dashed border-slate-400 pt-3 mt-4 text-slate-600">
+                    <div className="text-center text-[8px] border-t border-dashed border-theme-divider pt-3 mt-4 text-theme-muted">
                       <div>*** END OF SECURE PRINT ***</div>
                       <div className="mt-1 font-sans">SMRITI Ledger Security v2.1.2</div>
-                      <div className="mt-2 text-[6px] tracking-widest text-slate-400">===========================</div>
+                      <div className="mt-2 text-[6px] tracking-widest text-theme-muted">===========================</div>
                     </div>
                   </div>
                 </div>

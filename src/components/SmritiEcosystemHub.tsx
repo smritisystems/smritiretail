@@ -101,9 +101,9 @@ export const SmritiEcosystemHub: React.FC = () => {
   });
 
   return (
-    <div className="p-6 bg-slate-900 text-white min-h-screen font-sans">
+    <div className="p-6 bg-theme-surface-2 text-white min-h-screen font-sans">
       {/* Header Banner */}
-      <div className="mb-8 border-b border-slate-800 pb-6 flex justify-between items-center">
+      <div className="mb-8 border-b border-theme-divider pb-6 flex justify-between items-center">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <ShieldCheck className="w-8 h-8 text-emerald-400" />
@@ -112,28 +112,28 @@ export const SmritiEcosystemHub: React.FC = () => {
               v27.0.0 Ecosystem Hub
             </span>
           </div>
-          <p className="text-slate-400 text-sm">
+          <p className="text-theme-muted text-sm">
             Unified 8-Portal Operating Environment uniting Prospects, Customers, Partners, and Developers.
           </p>
         </div>
 
         {/* Filter Buttons */}
-        <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700">
+        <div className="flex bg-theme-surface-2 p-1 rounded-lg border border-theme-divider">
           <button
             onClick={() => setSelectedTier('ALL')}
-            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedTier === 'ALL' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedTier === 'ALL' ? 'bg-indigo-600 text-white' : 'text-theme-muted hover:text-white'}`}
           >
             All Portals (8)
           </button>
           <button
             onClick={() => setSelectedTier('PUBLIC')}
-            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedTier === 'PUBLIC' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedTier === 'PUBLIC' ? 'bg-indigo-600 text-white' : 'text-theme-muted hover:text-white'}`}
           >
             Public Tier (4)
           </button>
           <button
             onClick={() => setSelectedTier('AUTHENTICATED')}
-            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedTier === 'AUTHENTICATED' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedTier === 'AUTHENTICATED' ? 'bg-indigo-600 text-white' : 'text-theme-muted hover:text-white'}`}
           >
             Authenticated Tier (4)
           </button>
@@ -145,7 +145,7 @@ export const SmritiEcosystemHub: React.FC = () => {
         {filteredPortals.map((portal) => (
           <div
             key={portal.id}
-            className="bg-slate-800/60 border border-slate-700/80 rounded-xl p-5 hover:border-indigo-500/50 hover:bg-slate-800 transition-all flex flex-col justify-between group"
+            className="bg-theme-surface-2 border border-theme-divider rounded-xl p-5 hover:border-indigo-500/50 hover:bg-theme-surface-hover transition-all flex flex-col justify-between group"
           >
             <div>
               <div className="flex justify-between items-start mb-4">
@@ -168,11 +168,11 @@ export const SmritiEcosystemHub: React.FC = () => {
                 </span>
               </div>
               <h3 className="font-semibold text-lg text-white mb-2 group-hover:text-indigo-300 transition-colors">{portal.name}</h3>
-              <p className="text-slate-400 text-xs leading-relaxed mb-4">{portal.description}</p>
+              <p className="text-theme-muted text-xs leading-relaxed mb-4">{portal.description}</p>
             </div>
 
-            <div className="pt-3 border-t border-slate-700/50 flex justify-between items-center text-xs">
-              <span className="text-slate-500 font-mono">{portal.route}</span>
+            <div className="pt-3 border-t border-theme-divider flex justify-between items-center text-xs">
+              <span className="text-theme-muted font-mono">{portal.route}</span>
               <button className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-medium">
                 Launch <ExternalLink className="w-3 h-3" />
               </button>
@@ -182,14 +182,14 @@ export const SmritiEcosystemHub: React.FC = () => {
       </div>
 
       {/* Platform Status Footer */}
-      <div className="mt-12 bg-slate-800/40 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+      <div className="mt-12 bg-theme-surface-2 border border-theme-divider rounded-xl p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-          <span className="text-xs text-slate-300">
+          <span className="text-xs text-theme-body">
             SMRITI Platform Foundation Baseline & Unified SSO Authentication Active.
           </span>
         </div>
-        <span className="text-xs text-slate-500 font-mono">Status: 100% HEALTHY</span>
+        <span className="text-xs text-theme-muted font-mono">Status: 100% HEALTHY</span>
       </div>
     </div>
   );
