@@ -107,7 +107,7 @@ const ALL_LAUNCHPAD_TILES: LaunchpadTile[] = [
     icon: Package,
     permissionScope: "ITEM_VIEW",
     accentColor: "border-indigo-500/40 text-indigo-400",
-    targetTab: "items",
+    targetTab: "item-master",
   },
   {
     id: "customer-master",

@@ -52,7 +52,7 @@ const DOMAIN_SUBMODULES: Record<DomainCategory, ContextualMenuItem[]> = {
     { id: "customers", title: "Customer CRM", icon: Users, targetTab: "customers" },
   ],
   Inventory: [
-    { id: "items", title: "Product Master", icon: Package, targetTab: "items" },
+    { id: "item-master", title: "Product Master", icon: Package, targetTab: "item-master" },
     { id: "stock-ledger", title: "Stock Ledger", icon: Layers, targetTab: "stock-ledger" },
     { id: "consignment", title: "Consignment Studio", icon: Truck, targetTab: "consignment" },
     { id: "barcode", title: "Barcode Studio", icon: Printer, targetTab: "barcode" },
