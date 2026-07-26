@@ -68,9 +68,24 @@ async def test_generate_fingerprint_and_sku_key():
     assert sku_key == "SKU-ELE-SAM-00042"
 
 
+from app.models.inventory import Product
+
+
 @pytest.mark.asyncio
 async def test_assign_gs1_barcode_service(db_session):
     """Verifies ProductIdentity record creation and GS1 barcode assignment."""
+    product = Product(
+        id="prod-test-001",
+        name="Wireless Earbuds",
+        code="SKU-APP-AMZ-00001",
+        barcode="890100000001",
+        category="Audio",
+        brand="Amzotech",
+        price=1999.00
+    )
+    db_session.add(product)
+    await db_session.commit()
+
     svc = ProductIdentityService()
     identity = await svc.assign_gs1_barcode(
         db=db_session,

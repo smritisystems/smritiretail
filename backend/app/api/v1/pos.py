@@ -20,7 +20,7 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.api.deps import get_current_tenant, TenantContext
+from app.api.deps import get_current_tenant, TenantContext, require_permission, require_role
 from app.models.pos import PosSession, PosTransaction
 from app.services.pos_engine import PosEngine
 from app.schemas.pos import (
@@ -32,7 +32,7 @@ from app.schemas.pos import (
 router = APIRouter(prefix="/pos", tags=["Point of Sale (POS) Checkout & Cash Drawer"])
 
 
-@router.post("/sessions/open", response_model=PosSessionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/sessions/open", response_model=PosSessionResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("POS.OPEN_SHIFT"))])
 async def open_pos_session(
     payload: PosSessionOpenReq,
     db: AsyncSession = Depends(get_db),
@@ -49,7 +49,7 @@ async def open_pos_session(
     )
 
 
-@router.post("/sessions/{id}/checkout", response_model=PosTransactionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/sessions/{id}/checkout", response_model=PosTransactionResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("POS.CHECKOUT"))])
 async def pos_checkout(
     id: str,
     payload: PosCheckoutReq,
@@ -72,7 +72,29 @@ async def pos_checkout(
     )
 
 
-@router.post("/sessions/{id}/close", response_model=PosSessionResponse)
+@router.post("/checkout", response_model=PosTransactionResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("POS.CHECKOUT"))])
+async def direct_pos_checkout(
+    payload: PosCheckoutReq,
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant)
+):
+    """
+    Executes a counter sale checkout without pre-existing session ID parameter.
+    """
+    engine = PosEngine(db, tenant)
+    items_payload = [item.model_dump() for item in payload.items]
+    return await engine.process_checkout(
+        session_id="DEFAULT_SESSION",
+        items=items_payload,
+        payment_method=payload.payment_method,
+        tendered_amount=payload.tendered_amount,
+        customer_id=payload.customer_id,
+        client_tx_uuid=payload.client_tx_uuid,
+        discount_amount=payload.discount_amount
+    )
+
+
+@router.post("/sessions/{id}/close", response_model=PosSessionResponse, dependencies=[Depends(require_permission("POS.CLOSE_SHIFT"))])
 async def close_pos_session(
     id: str,
     payload: PosSessionCloseReq,
@@ -90,7 +112,7 @@ async def close_pos_session(
     )
 
 
-@router.post("/sync", response_model=List[PosOfflineSyncResultItem])
+@router.post("/sync", response_model=List[PosOfflineSyncResultItem], dependencies=[Depends(require_permission("POS.OFFLINE_SYNC"))])
 async def sync_offline_transactions(
     payload: PosOfflineSyncBatchReq,
     db: AsyncSession = Depends(get_db),
@@ -104,7 +126,7 @@ async def sync_offline_transactions(
     return await engine.process_offline_sync_batch(items=batch_payload)
 
 
-@router.get("/sessions/{id}", response_model=PosSessionResponse)
+@router.get("/sessions/{id}", response_model=PosSessionResponse, dependencies=[Depends(require_permission("POS.VIEW"))])
 async def get_pos_session(
     id: str,
     db: AsyncSession = Depends(get_db),
@@ -125,11 +147,8 @@ async def get_pos_session(
 
 
 # ─── POS Profile Endpoints ─────────────────────────────────────────────────────
-# A "POS Profile" in SMRITI UI is a named terminal configuration (cashier + warehouse).
-# Since there is no separate pos_profiles table, this is served from the
-# PosSession registry. The frontend expects a list of profile-shaped objects.
 
-@router.get("/profiles/", response_model=list[dict])
+@router.get("/profiles/", response_model=list[dict], dependencies=[Depends(require_permission("POS.VIEW"))])
 async def list_pos_profiles(
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_current_tenant)
@@ -162,7 +181,7 @@ async def list_pos_profiles(
     return profiles
 
 
-@router.post("/profiles/", response_model=dict, status_code=201)
+@router.post("/profiles/", response_model=dict, status_code=201, dependencies=[Depends(require_permission("SYSTEM.CONFIG"))])
 async def create_pos_profile(
     payload: dict,
     tenant: TenantContext = Depends(get_current_tenant)
@@ -184,7 +203,7 @@ async def create_pos_profile(
     }
 
 
-@router.post("/profiles/{id}/clone", response_model=dict, status_code=201)
+@router.post("/profiles/{id}/clone", response_model=dict, status_code=201, dependencies=[Depends(require_permission("SYSTEM.CONFIG"))])
 async def clone_pos_profile(
     id: str,
     tenant: TenantContext = Depends(get_current_tenant)
@@ -202,22 +221,21 @@ async def clone_pos_profile(
     }
 
 
-@router.post("/profiles/{id}/archive", response_model=dict)
+@router.post("/profiles/{id}/archive", response_model=dict, dependencies=[Depends(require_permission("SYSTEM.CONFIG"))])
 async def archive_pos_profile(id: str, tenant: TenantContext = Depends(get_current_tenant)):
     """Archives (soft-deletes) a POS terminal profile."""
     return {"id": id, "isArchived": True, "message": "Profile archived successfully."}
 
 
-@router.post("/profiles/{id}/toggle-lock", response_model=dict)
+@router.post("/profiles/{id}/toggle-lock", response_model=dict, dependencies=[Depends(require_permission("SYSTEM.CONFIG"))])
 async def toggle_lock_pos_profile(id: str, tenant: TenantContext = Depends(get_current_tenant)):
     """Toggles lock state of a POS terminal profile."""
     return {"id": id, "message": "Lock state toggled successfully."}
 
 
 # ─── POS Shift Endpoints ────────────────────────────────────────────────────────
-# "Shifts" map to open PosSession records. The frontend expects shift-shaped objects.
 
-@router.get("/shifts/", response_model=list[dict])
+@router.get("/shifts/", response_model=list[dict], dependencies=[Depends(require_permission("POS.VIEW"))])
 async def list_pos_shifts(
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_current_tenant)
@@ -254,7 +272,7 @@ async def list_pos_shifts(
     return shifts
 
 
-@router.post("/shifts/open", response_model=dict, status_code=201)
+@router.post("/shifts/open", response_model=dict, status_code=201, dependencies=[Depends(require_permission("POS.OPEN_SHIFT"))])
 async def open_shift(
     payload: dict,
     db: AsyncSession = Depends(get_db),
@@ -284,7 +302,7 @@ async def open_shift(
     }
 
 
-@router.post("/shifts/close/{id}", response_model=dict)
+@router.post("/shifts/close/{id}", response_model=dict, dependencies=[Depends(require_permission("POS.CLOSE_SHIFT"))])
 async def close_shift(
     id: str,
     payload: dict,
