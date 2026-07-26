@@ -30,6 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-07-26 | v5.0.0 | SAP Fiori WNG-002 Workspace-First UI Architecture (Phase 3) — Launchpad, FioriListReport, FioriObjectPage, StockLedger Migration | [Walkthrough](./foundation/SAP_Fiori_WNG002_Workspace_UI_Architecture_v5.0.0.md) | [Plan](../../brain/8cff0196-7616-41be-a58d-dba8209ecbae/implementation_plan.md) | Completed |
 | 2026-07-26 | v3.29.0 | Purchase & Procurement Verification Report | [Walkthrough](./procurement/Purchase_Verification_v3.29.0.md) | [Plan](../../brain/8cff0196-7616-41be-a58d-dba8209ecbae/implementation_plan.md) | Completed |
 | 2026-07-26 | v3.29.0 | Sales & POS Verification Report | [Walkthrough](./sales/Sales_POS_Verification_v3.29.0.md) | [Plan](../../brain/8cff0196-7616-41be-a58d-dba8209ecbae/implementation_plan.md) | Completed |
 | 2026-07-26 | v3.37.0 | Full Module Task Completion & SMRITI v2.0 Compliance | [Walkthrough](./foundation/Full_Module_Task_Completion_v3.37.0.md) | [Plan](../../brain/8cff0196-7616-41be-a58d-dba8209ecbae/implementation_plan.md) | Completed |
