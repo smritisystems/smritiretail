@@ -703,3 +703,81 @@ async def dispatch_raw_print_job(
         "warnings": errors if errors else None,
         "message": f"Dispatched {copies} label(s) to {printer_ip}:{printer_port} ({sent_bytes} bytes)"
     }
+
+
+# ── Core Barcode & Print Framework Endpoints ───────────────────────────────
+
+@router.get("/tokens")
+async def get_barcode_token_registry(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get registered token metadata dictionary for thermal barcode label field mappings.
+    """
+    from ...services.barcode_engine import BarcodeEngineService
+    return {
+        "success": True,
+        "tokens": BarcodeEngineService.get_token_reference()
+    }
+
+
+@router.get("/printers")
+async def list_registered_printers(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List all registered hardware printers and connection profiles.
+    """
+    from ...services.barcode_engine import BarcodeEngineService
+    return {
+        "success": True,
+        "printers": BarcodeEngineService.list_printers()
+    }
+
+
+@router.post("/generate-prn")
+async def generate_prn_endpoint(
+    req: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate raw ZPL/TSPL PRN label script from items list and template.
+    """
+    from ...services.barcode_engine import BarcodeEngineService
+    items = req.get("items") or []
+    raw_template = req.get("raw_template")
+    protocol = req.get("protocol") or "ZPL"
+    label_size = req.get("label_size") or "50x25"
+    company_name = req.get("company_name") or "SMRITI RETAIL"
+
+    res = BarcodeEngineService.generate_prn(
+        items=items,
+        raw_template=raw_template,
+        protocol=protocol,
+        label_size=label_size,
+        company_name=company_name
+    )
+    return {
+        "success": True,
+        **res
+    }
+
+
+@router.post("/test-printer")
+async def test_printer_endpoint(
+    req: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Test TCP/IP socket ping to a target printer IP and port.
+    """
+    from ...services.barcode_engine import BarcodeEngineService
+    printer_ip = req.get("printer_ip")
+    printer_port = int(req.get("printer_port") or 9100)
+
+    if not printer_ip:
+        raise HTTPException(status_code=400, detail="printer_ip is required")
+
+    res = BarcodeEngineService.test_printer_connection(printer_ip=printer_ip, printer_port=printer_port)
+    return res
+
