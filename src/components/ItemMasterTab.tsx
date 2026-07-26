@@ -723,7 +723,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   const densityPadding = density === "compact" ? "py-1.5" : density === "relaxed" ? "py-5" : "py-3";
 
   return (
-    <>
+    <div className="space-y-6">
       {/* WNG-002: FioriObjectPage — Master Entity Pattern for Item Master Studio */}
       <FioriObjectPage
         title="Item Master Studio"
@@ -776,12 +776,14 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
             content: (
               <div className="space-y-5">
                 {/* Read-Only Banner */}
+                {isReadOnly && (
                   <div className="bg-amber-950/60 border border-amber-500/30 text-amber-300 rounded-xl p-3 px-4 flex items-center space-x-3 shadow-lg">
                     <ShieldAlert size={16} className="text-amber-400 shrink-0" />
                     <div className="text-xs">
                       <span className="font-bold">Read-Only Verification Mode</span>: You are currently operating under the <span className="font-mono bg-amber-900/60 px-1 py-0.5 rounded text-amber-200">Report User</span> role. All product creation, modifications, SKU deletion, and barcode mapping are locked.
                     </div>
                   </div>
+                )}
 
                 {/* Primary Toolbar Controls */}
                 <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -1287,9 +1289,6 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           onClose={() => setContextMenu(null)}
         />
       )}
-    </>
-  );
-};
       
       {/* SMRITI Module Tab Bar Switcher */}
       <div className="flex border-b border-theme-divider overflow-x-auto select-none no-scrollbar">
@@ -2929,7 +2928,6 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           style_code: p.code || p.sku
         }))}
       />
-
-    </>
+    </div>
   );
 };
