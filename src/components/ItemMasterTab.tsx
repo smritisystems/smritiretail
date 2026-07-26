@@ -696,13 +696,16 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     return base ? `${base.slice(0, 12)}-${Math.floor(100 + Math.random() * 900)}` : `SMR-${Date.now().toString().slice(-6)}`;
   };
 
-  const filteredProducts = products.filter(p => {
+  const safeProducts = Array.isArray(products) ? products : [];
+
+  const filteredProducts = safeProducts.filter(p => {
+    if (!p) return false;
     const matchesSearch = 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.barcode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.code || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.barcode || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.styleCode || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      Object.values(p.attributes || {}).some(v => v.toLowerCase().includes(searchTerm.toLowerCase()));
+      Object.values(p.attributes || {}).some(v => (v || "").toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesCategory = selectedCategory === "All" || p.category === selectedCategory;
     const matchesFavorites = !showFavoritesOnly || p.isFavorite;
@@ -713,17 +716,17 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     const minP = minPriceFilter !== "" ? parseFloat(minPriceFilter) || 0 : null;
     const maxP = maxPriceFilter !== "" ? parseFloat(maxPriceFilter) || Infinity : null;
 
-    const matchesStockRange = (minS === null || p.stock >= minS) && (maxS === null || p.stock <= maxS);
-    const matchesPriceRange = (minP === null || p.price >= minP) && (maxP === null || p.price <= maxP);
+    const matchesStockRange = (minS === null || (p.stock || 0) >= minS) && (maxS === null || (p.stock || 0) <= maxS);
+    const matchesPriceRange = (minP === null || (p.price || 0) >= minP) && (maxP === null || (p.price || 0) <= maxP);
 
     return matchesSearch && matchesCategory && matchesFavorites && matchesStockRange && matchesPriceRange;
   });
 
   // KPI Calculations
-  const totalSkus = products.length;
-  const onHandStock = products.reduce((sum, p) => sum + p.stock, 0);
-  const totalAssetValuation = products.reduce((sum, p) => sum + (p.stock * p.price), 0);
-  const distinctCategories = Array.from(new Set(products.map(p => p.category))).length;
+  const totalSkus = safeProducts.length;
+  const onHandStock = safeProducts.reduce((sum, p) => sum + (p?.stock || 0), 0);
+  const totalAssetValuation = safeProducts.reduce((sum, p) => sum + ((p?.stock || 0) * (p?.price || 0)), 0);
+  const distinctCategories = Array.from(new Set(safeProducts.map(p => p?.category || "Uncategorized"))).length;
 
   const densityPadding = density === "compact" ? "py-1.5" : density === "relaxed" ? "py-5" : "py-3";
 
