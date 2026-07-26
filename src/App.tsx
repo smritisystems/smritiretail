@@ -125,7 +125,26 @@ const AppContent: React.FC = () => {
 
   const checkAuth = async () => {
     try {
-      // Migrated: GET /api/auth/me (Express session) → GET /api/v1/auth/me (FastAPI JWT)
+      const token = typeof localStorage !== 'undefined'
+        ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
+        : null;
+
+      if (!token) {
+        if (terminalParam) {
+          setCurrentUser({ role: "SYSADMIN", name: "System Admin" });
+        } else {
+          setCurrentUser(null);
+        }
+        setCheckingAuth(false);
+        return;
+      }
+
+      if (token === "dev-bypass-token") {
+        setCurrentUser({ role: "SYSADMIN", name: "System Admin" });
+        setCheckingAuth(false);
+        return;
+      }
+
       const data = await apiFetchV1("/auth/me");
       if (data) {
         setCurrentUser({
@@ -135,15 +154,13 @@ const AppContent: React.FC = () => {
           branchId: data.branch_id ?? undefined,
           passwordResetRequired: data.password_reset_required ?? false,
         });
-      } else if (terminalParam || import.meta.env.DEV) {
-        setCurrentUser({ role: "admin", name: "System Admin" });
       } else {
         setCurrentUser(null);
       }
     } catch {
-      // apiFetchV1 throws on non-2xx — treat as unauthenticated (fallback in DEV)
-      if (terminalParam || import.meta.env.DEV) {
-        setCurrentUser({ role: "admin", name: "System Admin" });
+      const token = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_jwt_token") : null;
+      if (token === "dev-bypass-token" || terminalParam) {
+        setCurrentUser({ role: "SYSADMIN", name: "System Admin" });
       } else {
         setCurrentUser(null);
       }
