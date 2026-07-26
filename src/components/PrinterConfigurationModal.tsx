@@ -224,22 +224,22 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 font-mono text-xs">
-      <div className="bg-[#10121d] border border-amber-500/30 rounded-2xl max-w-4xl w-full flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 font-mono text-xs select-none">
+      <div className="bg-theme-surface-1 border border-amber-500/30 rounded-2xl max-w-4xl w-full flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
         
         {/* Header */}
-        <div className="bg-[#171a2a] px-6 py-4 border-b border-slate-800 flex justify-between items-center">
+        <div className="bg-theme-surface-2 px-6 py-4 border-b border-theme-divider flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
               <Printer size={20} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white font-display">Barcode Standard Printer Hardware Setup</h2>
-              <p className="text-[11px] text-slate-400">Configure TCP/IP Network & Direct USB Barcode Label Printers (Zebra, TSC, TVS, Citizen)</p>
+              <h2 className="text-base font-bold text-theme-heading font-display">Barcode Standard Printer Hardware Setup</h2>
+              <p className="text-[11px] text-theme-muted">Configure TCP/IP Network & Direct USB Barcode Label Printers (Zebra, TSC, TVS, Citizen)</p>
             </div>
           </div>
           
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800">
+          <button onClick={onClose} className="p-1.5 text-theme-muted hover:text-theme-heading rounded-lg hover:bg-theme-surface-hover border border-theme-divider">
             <X size={18} />
           </button>
         </div>
@@ -248,9 +248,9 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
         <div className="grid grid-cols-12 flex-1 overflow-hidden">
           
           {/* Left Column: Printer Profiles List */}
-          <div className="col-span-4 bg-[#0b0d15] border-r border-slate-800 p-4 space-y-3 flex flex-col">
-            <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
-              <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Configured Printers</span>
+          <div className="col-span-4 bg-theme-surface-2 border-r border-theme-divider p-4 space-y-3 flex flex-col">
+            <div className="flex justify-between items-center border-b border-theme-divider pb-2">
+              <span className="text-[10px] font-bold uppercase text-theme-muted tracking-wider">Configured Printers</span>
               <button 
                 onClick={handleAddNewClick}
                 className="px-2 py-1 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 rounded-lg border border-amber-500/40 text-[10px] font-bold flex items-center gap-1"
@@ -270,11 +270,11 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
                     className={`p-3 rounded-xl border transition-all cursor-pointer ${
                       isSelected
                         ? "bg-amber-950/40 border-amber-500/60 shadow-lg"
-                        : "bg-[#141724] border-slate-800 hover:border-slate-700 hover:bg-[#1a1e30]"
+                        : "bg-theme-surface-3 border-theme-divider hover:border-amber-500/40 hover:bg-theme-surface-hover"
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="font-bold text-white text-xs truncate max-w-[170px]">{p.name}</div>
+                      <div className="font-bold text-theme-heading text-xs truncate max-w-[170px]">{p.name}</div>
                       {p.isDefault && (
                         <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded font-bold">
                           DEFAULT
@@ -288,17 +288,17 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
                           ? "bg-indigo-950 text-indigo-300 border border-indigo-800/40" 
                           : p.connectionType === "USB"
                           ? "bg-emerald-950 text-emerald-300 border border-emerald-800/40"
-                          : "bg-slate-800 text-slate-300"
+                          : "bg-theme-surface-1 text-theme-body border border-theme-divider"
                       }`}>
                         {p.connectionType === "TCP/IP" ? <Wifi size={10} /> : <Usb size={10} />}
                         {p.connectionType}
                       </span>
 
-                      <span className="text-slate-400 font-mono">[{p.protocol}]</span>
-                      <span className="text-slate-400 truncate">{p.printerBrand || "Generic"}</span>
+                      <span className="text-theme-muted font-mono">[{p.protocol}]</span>
+                      <span className="text-theme-muted truncate">{p.printerBrand || "Generic"}</span>
                     </div>
 
-                    <div className="text-[10px] text-slate-400 mt-1 font-mono truncate">
+                    <div className="text-[10px] text-theme-muted mt-1 font-mono truncate">
                       {p.connectionType === "TCP/IP" ? (
                         <span>IP: {p.ipAddress || "192.168.1.45"}:{p.port || 9100}</span>
                       ) : p.connectionType === "USB" ? (
@@ -312,17 +312,16 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
               })}
             </div>
           </div>
-
           {/* Right Column: Configuration Form & Live Connection Tester */}
-          <div className="col-span-8 p-6 overflow-y-auto space-y-5 bg-[#10121d]">
+          <div className="col-span-8 p-6 overflow-y-auto space-y-5 bg-theme-surface-1">
             
             <form onSubmit={handleSaveProfile} className="space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div className="flex justify-between items-center border-b border-theme-divider pb-3">
                 <div>
-                  <h3 className="text-sm font-bold text-white font-display">
+                  <h3 className="text-sm font-bold text-theme-heading font-display">
                     {isAddingNew ? "Add New Barcode Printer" : `Configure Printer: ${formData.name}`}
                   </h3>
-                  <span className="text-[10px] text-slate-400">ID: {formData.id}</span>
+                  <span className="text-[10px] text-theme-muted">ID: {formData.id}</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -349,23 +348,23 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
               {/* Printer Profile Name & Brand */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-slate-400 block mb-1 text-[10px] font-bold uppercase">Printer Name / Identifier *</label>
+                  <label className="text-theme-muted block mb-1 text-[10px] font-bold uppercase">Printer Name / Identifier *</label>
                   <input 
                     type="text" 
                     required 
                     value={formData.name || ""} 
                     onChange={e => setFormData({ ...formData, name: e.target.value })} 
                     placeholder="e.g. Zebra ZD421 Warehouse (TCP/IP)" 
-                    className="w-full bg-[#07080d] border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-500/60" 
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-theme-heading focus:outline-none focus:border-amber-500/60" 
                   />
                 </div>
 
                 <div>
-                  <label className="text-slate-400 block mb-1 text-[10px] font-bold uppercase">Printer Brand / Manufacturer</label>
+                  <label className="text-theme-muted block mb-1 text-[10px] font-bold uppercase">Printer Brand / Manufacturer</label>
                   <select 
                     value={formData.printerBrand || "Zebra"} 
                     onChange={e => setFormData({ ...formData, printerBrand: e.target.value as PRNPrinterBrand })} 
-                    className="w-full bg-[#07080d] border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-theme-heading focus:outline-none"
                   >
                     <option value="Zebra">Zebra (ZD421 / ZT230 / ZT411)</option>
                     <option value="TSC">TSC (TE244 / DA210 / MB240)</option>
@@ -381,7 +380,7 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
 
               {/* Connection Mode Selection Tabs */}
               <div>
-                <label className="text-slate-400 block mb-1.5 text-[10px] font-bold uppercase">Printer Connection Protocol Mode</label>
+                <label className="text-theme-muted block mb-1.5 text-[10px] font-bold uppercase">Printer Connection Protocol Mode</label>
                 <div className="grid grid-cols-3 gap-3">
                   <button
                     type="button"
@@ -389,7 +388,7 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
                     className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-all ${
                       formData.connectionType === "TCP/IP"
                         ? "bg-indigo-950/60 border-indigo-500 text-indigo-300 shadow-lg font-bold"
-                        : "bg-[#07080d] border-slate-800 text-slate-400 hover:text-slate-200"
+                        : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:text-theme-body"
                     }`}
                   >
                     <Wifi size={18} />
@@ -403,7 +402,7 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
                     className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-all ${
                       formData.connectionType === "USB"
                         ? "bg-emerald-950/60 border-emerald-500 text-emerald-300 shadow-lg font-bold"
-                        : "bg-[#07080d] border-slate-800 text-slate-400 hover:text-slate-200"
+                        : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:text-theme-body"
                     }`}
                   >
                     <Usb size={18} />
@@ -416,8 +415,8 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
                     onClick={() => setFormData({ ...formData, connectionType: "PDF", protocol: "PDF" })}
                     className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-all ${
                       formData.connectionType === "PDF"
-                        ? "bg-slate-800 border-amber-500/50 text-amber-300 shadow-lg font-bold"
-                        : "bg-[#07080d] border-slate-800 text-slate-400 hover:text-slate-200"
+                        ? "bg-theme-surface-3 border-amber-500/50 text-amber-300 shadow-lg font-bold"
+                        : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:text-theme-body"
                     }`}
                   >
                     <Monitor size={18} />
@@ -429,7 +428,7 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
 
               {/* Dynamic Connection Parameters: TCP/IP vs USB */}
               {formData.connectionType === "TCP/IP" && (
-                <div className="bg-[#07080d] border border-indigo-500/30 rounded-xl p-4 space-y-3">
+                <div className="bg-theme-surface-2 border border-indigo-500/30 rounded-xl p-4 space-y-3">
                   <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs">
                     <Server size={14} />
                     <span>TCP/IP Network Socket Parameters</span>
@@ -437,32 +436,32 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
 
                   <div className="grid grid-cols-3 gap-3">
                     <div className="col-span-2">
-                      <label className="text-slate-400 block mb-1 text-[10px]">Printer IP Address / Hostname *</label>
+                      <label className="text-theme-muted block mb-1 text-[10px]">Printer IP Address / Hostname *</label>
                       <input 
                         type="text" 
                         value={formData.ipAddress || ""} 
                         onChange={e => setFormData({ ...formData, ipAddress: e.target.value })} 
                         placeholder="e.g. 192.168.1.45" 
-                        className="w-full bg-[#10121d] border border-slate-800 rounded-xl px-3 py-1.5 text-indigo-300 font-bold focus:outline-none" 
+                        className="w-full bg-theme-surface-3 border border-theme-divider rounded-xl px-3 py-1.5 text-indigo-300 font-bold focus:outline-none" 
                       />
                     </div>
                     <div>
-                      <label className="text-slate-400 block mb-1 text-[10px]">Network Port *</label>
+                      <label className="text-theme-muted block mb-1 text-[10px]">Network Port *</label>
                       <input 
                         type="number" 
                         value={formData.port || 9100} 
                         onChange={e => setFormData({ ...formData, port: parseInt(e.target.value) || 9100 })} 
                         placeholder="9100" 
-                        className="w-full bg-[#10121d] border border-slate-800 rounded-xl px-3 py-1.5 text-indigo-300 font-bold focus:outline-none" 
+                        className="w-full bg-theme-surface-3 border border-theme-divider rounded-xl px-3 py-1.5 text-indigo-300 font-bold focus:outline-none" 
                       />
                     </div>
                   </div>
-                  <div className="text-[10px] text-slate-500">Standard barcode printers operate over RAW TCP Port 9100 (Direct JetDirect Socket).</div>
+                  <div className="text-[10px] text-theme-muted">Standard barcode printers operate over RAW TCP Port 9100 (Direct JetDirect Socket).</div>
                 </div>
               )}
 
               {formData.connectionType === "USB" && (
-                <div className="bg-[#07080d] border border-emerald-500/30 rounded-xl p-4 space-y-3">
+                <div className="bg-theme-surface-2 border border-emerald-500/30 rounded-xl p-4 space-y-3">
                   <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
                     <Usb size={14} />
                     <span>USB & Serial Port Parameters</span>
@@ -470,22 +469,22 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-slate-400 block mb-1 text-[10px]">USB Port / Device Name *</label>
+                      <label className="text-theme-muted block mb-1 text-[10px]">USB Port / Device Name *</label>
                       <input 
                         type="text" 
                         value={formData.usbPort || "USB001"} 
                         onChange={e => setFormData({ ...formData, usbPort: e.target.value })} 
                         placeholder="e.g. USB001, COM4, Zebra ZD421" 
-                        className="w-full bg-[#10121d] border border-slate-800 rounded-xl px-3 py-1.5 text-emerald-300 font-bold focus:outline-none" 
+                        className="w-full bg-theme-surface-3 border border-theme-divider rounded-xl px-3 py-1.5 text-emerald-300 font-bold focus:outline-none" 
                       />
                     </div>
 
                     <div>
-                      <label className="text-slate-400 block mb-1 text-[10px]">Serial Baud Rate (If COM Port)</label>
+                      <label className="text-theme-muted block mb-1 text-[10px]">Serial Baud Rate (If COM Port)</label>
                       <select 
                         value={formData.baudRate || 9600} 
                         onChange={e => setFormData({ ...formData, baudRate: parseInt(e.target.value) })} 
-                        className="w-full bg-[#10121d] border border-slate-800 rounded-xl px-3 py-1.5 text-slate-300 focus:outline-none"
+                        className="w-full bg-theme-surface-3 border border-theme-divider rounded-xl px-3 py-1.5 text-theme-body focus:outline-none"
                       >
                         <option value={9600}>9600 Baud</option>
                         <option value={19200}>19200 Baud</option>
@@ -500,11 +499,11 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
               {/* Protocol, Resolution & Default Settings */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-slate-400 block mb-1 text-[10px] font-bold uppercase">Command Protocol</label>
+                  <label className="text-theme-muted block mb-1 text-[10px] font-bold uppercase">Command Protocol</label>
                   <select 
                     value={formData.protocol || "ZPL"} 
                     onChange={e => setFormData({ ...formData, protocol: e.target.value as any })} 
-                    className="w-full bg-[#07080d] border border-slate-800 rounded-xl px-3 py-2 text-amber-300 font-bold focus:outline-none"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-amber-300 font-bold focus:outline-none"
                   >
                     <option value="ZPL">ZPL / ZPL-II (Zebra Command)</option>
                     <option value="TSPL">TSPL / TSPL-2 (TSC / TVS / Godex)</option>
@@ -516,11 +515,11 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
                 </div>
 
                 <div>
-                  <label className="text-slate-400 block mb-1 text-[10px] font-bold uppercase font-sans">Print Resolution (DPI)</label>
+                  <label className="text-theme-muted block mb-1 text-[10px] font-bold uppercase font-sans">Print Resolution (DPI)</label>
                   <select 
                     value={formData.dpi || 203} 
                     onChange={e => setFormData({ ...formData, dpi: parseInt(e.target.value) as any })} 
-                    className="w-full bg-[#07080d] border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-theme-body focus:outline-none"
                   >
                     <option value={203}>203 DPI (Standard Desktop/POS)</option>
                     <option value={300}>300 DPI (High Resolution Industrial)</option>
@@ -529,7 +528,7 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
                 </div>
 
                 <div className="flex flex-col justify-end">
-                  <label className="flex items-center gap-2 cursor-pointer bg-[#07080d] border border-slate-800 rounded-xl p-2.5 text-xs text-amber-300">
+                  <label className="flex items-center gap-2 cursor-pointer bg-theme-surface-2 border border-theme-divider rounded-xl p-2.5 text-xs text-amber-300">
                     <input 
                       type="checkbox" 
                       checked={!!formData.isDefault} 
@@ -542,9 +541,9 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
               </div>
 
               {/* Hardware Diagnostics & Connection Test Bar */}
-              <div className="bg-[#080911] border border-slate-800 rounded-xl p-4 space-y-3">
+              <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white flex items-center gap-2">
+                  <span className="text-xs font-bold text-theme-heading flex items-center gap-2">
                     <Cpu size={15} className="text-amber-400" />
                     Printer Hardware Diagnostics & Connection Test
                   </span>
@@ -571,7 +570,7 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
                     </div>
 
                     {testResult.payload && (
-                      <pre className="text-[10px] bg-black/60 p-2 rounded border border-slate-800 text-amber-300 overflow-x-auto">
+                      <pre className="text-[10px] bg-theme-surface-3 p-2 rounded border border-theme-divider text-amber-300 overflow-x-auto">
                         {testResult.payload}
                       </pre>
                     )}
@@ -581,7 +580,7 @@ export const PrinterConfigurationModal: React.FC<PrinterConfigurationModalProps>
 
             </form>
 
-          </div>
+          </div>>
 
         </div>
 
