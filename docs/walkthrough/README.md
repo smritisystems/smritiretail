@@ -218,6 +218,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-24 | v4.0.0 | Phase 1 Platform Extension Models (Domains 17, 18, 20) | [Walkthrough](./foundation/Foundation_Phase1_Platform_Extension_Models_v4.0.0.md) | — | Completed |
 | 2026-07-25 | v3.16.0 | Frontend Authentication Error Handling & Connection Resilience | [Walkthrough](./foundation/Foundation_Login_Error_Handling_Fix_v3.16.0.md) | — | Completed |
 | 2026-07-25 | v4.0.0 | Configurable SKU Code Generation Engine (Manual, Hybrid & Auto Formula) | [Walkthrough](./inventory/Inventory_SKU_Code_Generation_Modes_And_Formula_v4.0.0.md) | — | Completed |
+| 2026-07-26 | v1.0.0 | SMRITI Enterprise Experience Framework (SEEF) v1.0 — Phases 1–6: Token Layer, SEEFContext, Admin Configurator, Command Palette, UI Primitives, Fiori Component Upgrades | [Walkthrough](./foundation/Foundation_SEEF_Enterprise_Experience_Framework_v1.0.md) | [Plan](../../brain/8cff0196-7616-41be-a58d-dba8209ecbae/implementation_plan.md) | Completed |
 
 
 

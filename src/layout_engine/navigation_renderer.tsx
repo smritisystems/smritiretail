@@ -16,9 +16,9 @@
  *
  * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 2.1.1
+ * * Version    : 3.0.0  (SEEF Phase 7 — Rail Nav + SEEF NavMode Switch)
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-11
+ * * Modified   : 2026-07-26
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -34,6 +34,7 @@ import { useLayoutEngine, WorkspaceConfig, DockPosition } from "./layout_store.j
 import { SmritiScrollArea } from "../components/SmritiScrollArea.tsx";
 import { useWorkspace } from "../contexts/WorkspaceContext.tsx";
 import { useAdaptiveWorkspace } from "./adaptive_workspace_store.ts";
+import { useSEEFNavigation } from "./SEEFContext.tsx";
 
 interface NavigationRendererProps {
   activeTab: string;
@@ -60,6 +61,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
   } = useLayoutEngine();
 
   const { popOutTab } = useWorkspace();
+  const seefNavMode = useSEEFNavigation();
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -635,9 +637,132 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
     );
   };
 
-  // Render the matching layout
+  // 4. RENDER RAIL NAVIGATION (48 px icon-only rail — SEEF navMode: "rail")
+  // Inspired by VS Code Activity Bar & SAP Fiori Side Navigation compact mode.
+  // Rail items show a floating tooltip label on hover. Active item highlighted
+  // with an accent-color left bar indicator.
+  const renderRailNav = () => {
+    // Group by category; show a divider between groups
+    const groupedEntries: Array<{ type: "divider"; label: string } | { type: "item"; ws: WorkspaceConfig }> = [];
+    const visitedCats = new Set<string>();
+
+    filteredWorkspaces.forEach(ws => {
+      if (!visitedCats.has(ws.category)) {
+        if (visitedCats.size > 0) {
+          groupedEntries.push({ type: "divider", label: ws.category });
+        }
+        visitedCats.add(ws.category);
+      }
+      groupedEntries.push({ type: "item", ws });
+    });
+
+    // Favorites shown at top (pinned rail)
+    const favItems = registeredWorkspaces.filter(w => isFavorited(w.id));
+
+    return (
+      <div
+        style={{
+          width: 48,
+          minWidth: 48,
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          background: "var(--c-theme-surface-1)",
+          borderRight: "1px solid var(--c-theme-divider)",
+          overflowY: "auto",
+          overflowX: "hidden",
+          userSelect: "none",
+        }}
+      >
+        {/* Favorites pinned at top */}
+        {favItems.length > 0 && (
+          <>
+            {favItems.map(ws => (
+              <RailItem
+                key={`rail-fav-${ws.id}`}
+                ws={ws}
+                isActive={activeTab === ws.id}
+                isFav={true}
+                onSelect={handleItemClick}
+                onContextMenu={handleContextMenu}
+                renderIcon={renderIcon}
+              />
+            ))}
+            {/* Divider after favorites */}
+            <div style={{
+              height: 1,
+              background: "var(--c-theme-divider)",
+              margin: "4px 8px",
+            }} />
+          </>
+        )}
+
+        {/* All workspace items grouped */}
+        {groupedEntries.map((entry, idx) => {
+          if (entry.type === "divider") {
+            return (
+              <div
+                key={`rail-div-${idx}`}
+                title={entry.label}
+                style={{
+                  height: 1,
+                  background: "var(--c-theme-divider)",
+                  margin: "4px 8px",
+                }}
+              />
+            );
+          }
+          const { ws } = entry;
+          const alreadyInFav = isFavorited(ws.id) && favItems.length > 0;
+          if (alreadyInFav) return null; // deduplicate
+          return (
+            <RailItem
+              key={`rail-${ws.id}`}
+              ws={ws}
+              isActive={activeTab === ws.id}
+              isFav={false}
+              onSelect={handleItemClick}
+              onContextMenu={handleContextMenu}
+              renderIcon={renderIcon}
+            />
+          );
+        })}
+
+        {/* Spacer pushes collapse toggle to bottom */}
+        <div style={{ flex: 1 }} />
+
+        {/* Collapse → switch back to sidebar button */}
+        <button
+          onClick={toggleSidebar}
+          title="Expand Sidebar"
+          style={{
+            width: 48,
+            height: 40,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--c-theme-muted)",
+            borderTop: "1px solid var(--c-theme-divider)",
+            flexShrink: 0,
+          }}
+          className="seef-interactive seef-focus-ring"
+        >
+          <ArrowLeftRight size={14} />
+        </button>
+      </div>
+    );
+  };
+
+  // Render the matching layout — SEEF navMode takes priority over dock position
   const renderedLayout = () => {
-    if (preferences.position === "top") return renderTopNav();
+    // SEEF navMode overrides (when explicitly configured via SEEF Admin Configurator)
+    if (seefNavMode === "rail")    return renderRailNav();
+    if (seefNavMode === "top-bar") return renderTopNav();
+    // Fall back to dock-position-based rendering (existing behavior)
+    if (preferences.position === "top")    return renderTopNav();
     if (preferences.position === "bottom") return renderBottomNav();
     return renderSidebarNav();
   };
@@ -704,5 +829,98 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
         </div>
       )}
     </>
+  );
+};
+
+// ── RailItem ──────────────────────────────────────────────────────────────────
+// 48px rail button with a floating label tooltip on hover.
+// Active state: 3px accent left-bar + accent background tint.
+// Tooltip appears to the right of the rail (left: 52px).
+
+interface RailItemProps {
+  ws: WorkspaceConfig;
+  isActive: boolean;
+  isFav: boolean;
+  onSelect: (id: string) => void;
+  onContextMenu: (e: React.MouseEvent, id: string, label: string, icon: string) => void;
+  renderIcon: (name: string, cls?: string) => React.ReactNode;
+}
+
+const RailItem: React.FC<RailItemProps> = ({
+  ws, isActive, isFav, onSelect, onContextMenu, renderIcon
+}) => {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div
+      style={{ position: "relative", flexShrink: 0 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <button
+        onClick={() => onSelect(ws.id)}
+        onContextMenu={(e) => onContextMenu(e, ws.id, ws.label, ws.icon)}
+        title={ws.label}
+        style={{
+          width: 48,
+          height: 44,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: isActive ? "rgba(26,115,232,0.12)" : "none",
+          border: "none",
+          borderLeft: isActive
+            ? "3px solid var(--c-seef-accent)"
+            : "3px solid transparent",
+          cursor: "pointer",
+          color: isActive ? "var(--c-seef-accent)" : "var(--c-theme-muted)",
+          transition: "all var(--seef-motion-fast) var(--seef-ease-standard)",
+          position: "relative",
+          flexShrink: 0,
+        }}
+        className="seef-focus-ring"
+      >
+        {renderIcon(ws.icon, `text-xl ${isActive ? "text-blue-400" : "text-theme-muted"}`)}
+
+        {/* Favorite star badge */}
+        {isFav && (
+          <span style={{
+            position: "absolute",
+            top: 6,
+            right: 6,
+            width: 5,
+            height: 5,
+            borderRadius: "50%",
+            background: "#f59e0b",
+          }} />
+        )}
+      </button>
+
+      {/* Hover tooltip: label floats to the right of the rail */}
+      {hovered && (
+        <div
+          style={{
+            position: "fixed",
+            left: 56,
+            top: "inherit",
+            transform: "translateY(-50%)",
+            background: "var(--c-theme-surface-2)",
+            border: "1px solid var(--c-theme-divider)",
+            borderRadius: "var(--seef-radius-active-md)",
+            padding: "4px 10px",
+            fontSize: "var(--seef-font-size-xs)",
+            fontFamily: "var(--font-sans)",
+            fontWeight: 500,
+            color: "var(--c-theme-body)",
+            boxShadow: "var(--seef-elevation-3)",
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            zIndex: 9000,
+          }}
+        >
+          {ws.label}
+        </div>
+      )}
+    </div>
   );
 };
