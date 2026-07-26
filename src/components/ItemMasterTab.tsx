@@ -25,6 +25,7 @@
 
 import React, { useState, useEffect } from "react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
+import { FioriObjectPage } from "./common/FioriObjectPage.tsx";
 import { recordAuditAction } from "../lib/apiFetch";
 import { Heart, AlignJustify, 
   Plus, Search, Grid, Trash2, Edit3, RefreshCw, Tag, 
@@ -70,7 +71,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
 }) => {
   const { openMenu } = useACAS();
   const isReadOnly = currentUser?.role === "Report User";
-  const [activeTab, setActiveTab] = useState<TabType>("registry");
+  // WNG-002: activeTab state removed — FioriObjectPage manages tab state internally
   const [loading, setLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [density, setDensity] = useState<"compact" | "comfortable" | "relaxed">("comfortable");
@@ -722,8 +723,60 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   const densityPadding = density === "compact" ? "py-1.5" : density === "relaxed" ? "py-5" : "py-3";
 
   return (
-    <div className="space-y-6">
-      {isReadOnly && (
+    <>
+      {/* WNG-002: FioriObjectPage — Master Entity Pattern for Item Master Studio */}
+      <FioriObjectPage
+        title="Item Master Studio"
+        subtitle={`${totalSkus} SKUs across ${distinctCategories} categories — ₹${totalAssetValuation.toLocaleString("en-IN")} asset valuation`}
+        badgeStatus={{ label: isReadOnly ? "Read-Only Mode" : "Catalog Active", type: isReadOnly ? "warning" : "success" }}
+        metrics={[
+          { label: "Active SKUs", value: `${totalSkus} SKUs`, highlight: true },
+          { label: "On-Hand Stock", value: `${onHandStock.toLocaleString("en-IN")} Units` },
+          { label: "Asset Valuation", value: `₹${totalAssetValuation.toLocaleString("en-IN")}`, highlight: true },
+          { label: "Attributes Defined", value: `${definitions.length} Attrs / ${groups.length} Groups` },
+        ]}
+        headerActions={
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setShowSuggestBestModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-500 hover:to-indigo-500 text-white font-bold text-xs rounded-lg shadow-md transition-all cursor-pointer"
+              title="AI Smart Autopilot — Optimize margins & reorder levels"
+            >
+              <Sparkles size={13} />
+              <span>Suggest Best</span>
+            </button>
+            <button
+              onClick={() => setShowPolicyModal(true)}
+              className="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+              title="Image Display Policy"
+            >
+              <Image size={14} className="text-emerald-400" />
+            </button>
+            <button
+              onClick={onRefreshProducts}
+              className="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+              title="Refresh Ledger"
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            </button>
+            <button
+              onClick={handleOpenCreate}
+              disabled={isReadOnly}
+              className={`px-4 py-2 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-2 shadow-lg transition-all ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+            >
+              <Plus size={14} />
+              <span>Add SMRITI SKU</span>
+            </button>
+          </div>
+        }
+        tabs={[
+          {
+            id: "registry",
+            label: "Catalog Registry",
+            content: (
+              <div className="space-y-5">
+                {/* Read-Only Banner */}
+                {isReadOnly && (
         <div className="bg-amber-950/60 border border-amber-500/30 text-amber-300 rounded-xl p-3 px-4 flex items-center space-x-3 shadow-lg">
           <ShieldAlert size={16} className="text-amber-400 shrink-0" />
           <div className="text-xs">
