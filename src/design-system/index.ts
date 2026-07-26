@@ -40,3 +40,6 @@ export * from './components/SEDSAccordion';
 export * from './components/SEDSBreadcrumb';
 export * from './components/SEDSToast';
 export * from './components/SEDSEmptyState';
+export * from './components/SEDSSkeleton';
+export * from './components/SEDSLoading';
+export * from './components/SEDSDialog';
