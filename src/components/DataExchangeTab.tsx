@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -799,10 +799,10 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                           setMappingPairs(updated);
                         }}
                         placeholder="Partner column header name"
-                        className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white font-mono"
+                        className="w-full text-xs border border-theme-divider rounded px-2 py-1.5 bg-theme-surface-1 text-theme-body font-mono"
                       />
                     </div>
-                    <ArrowRight className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <ArrowRight className="h-3.5 w-3.5 text-theme-muted flex-shrink-0" />
                     <div className="flex-1">
                       <select
                         value={pair.internal}
@@ -811,7 +811,7 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                           updated[idx].internal = e.target.value;
                           setMappingPairs(updated);
                         }}
-                        className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white"
+                        className="w-full text-xs border border-theme-divider rounded px-2 py-1.5 bg-theme-surface-1 text-theme-body"
                       >
                         <option value="">-- Choose SMRITI Field --</option>
                         {SMRITI_INTERNAL_FIELDS.map(f => (
@@ -832,17 +832,17 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 border-t border-slate-100 pt-5">
+          <div className="flex justify-end gap-3 border-t border-theme-divider pt-5">
             <button
               onClick={() => setIsEditingPartner(false)}
-              className="px-4 py-2 border border-slate-200 text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50 transition"
+              className="px-4 py-2 border border-theme-divider text-sm font-medium rounded-lg text-theme-body hover:bg-theme-surface-hover transition"
             >
               Cancel
             </button>
             <button
               onClick={savePartner}
               disabled={loading}
-              className="px-5 py-2 text-sm font-medium rounded-lg text-white bg-slate-900 hover:bg-slate-800 transition disabled:opacity-50"
+              className="px-5 py-2 text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-500 transition disabled:opacity-50"
             >
               {loading ? "Saving Config..." : "Verify & Issue Policy"}
             </button>
@@ -855,17 +855,17 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left sidebar upload box */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-5">
-              <h3 className="text-sm font-medium text-slate-900 border-b pb-2">
+            <div className="bg-theme-surface-1 rounded-xl border border-theme-divider shadow-sm p-5 space-y-5">
+              <h3 className="text-sm font-medium text-theme-heading border-b border-theme-divider pb-2">
                 Initiate Inbound Transmission
               </h3>
 
               <div className="space-y-3">
-                <label className="block text-xs font-medium text-slate-600">Select Active Partner</label>
+                <label className="block text-xs font-medium text-theme-muted">Select Active Partner</label>
                 <select
                   value={selectedPartnerId}
                   onChange={(e) => setSelectedPartnerId(e.target.value)}
-                  className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50/50"
+                  className="w-full text-sm border border-theme-divider rounded-lg px-3 py-2 bg-theme-surface-2 text-theme-body"
                 >
                   <option value="">-- Select Partner --</option>
                   {partners.map(p => (
@@ -876,11 +876,11 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Payload Format</label>
+                  <label className="block text-xs font-medium text-theme-muted mb-1">Payload Format</label>
                   <select
                     value={selectedFormat}
                     onChange={(e) => setSelectedFormat(e.target.value)}
-                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50/50"
+                    className="w-full text-sm border border-theme-divider rounded-lg px-3 py-2 bg-theme-surface-2 text-theme-body"
                   >
                     <option value="CSV">CSV Document</option>
                     <option value="JSON">JSON Stream</option>
@@ -888,25 +888,25 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Source Intermediary</label>
-                  <div className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 bg-slate-100 font-mono text-slate-600">
+                  <label className="block text-xs font-medium text-theme-muted mb-1">Source Intermediary</label>
+                  <div className="w-full text-xs border border-theme-divider rounded-lg px-3 py-2 bg-theme-surface-2 font-mono text-theme-body">
                     SMRITI Gateway Secure-Ingress
                   </div>
                 </div>
               </div>
 
               {/* Sandbox Template quick trigger for easier audit testing */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-3">
-                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1">
+              <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-3">
+                <span className="text-[10px] uppercase tracking-wider text-theme-muted font-semibold flex items-center gap-1">
                   <Sliders className="h-3 w-3" /> Sandbox Quick Load
                 </span>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-theme-muted">
                   Select a preloaded testing payload containing clean & faulty rows to trace mapping and instant corrections:
                 </p>
                 <div className="flex flex-col gap-2">
                   <button
                     onClick={() => loadTestingTemplate("reliance")}
-                    className="w-full text-left text-xs bg-white hover:bg-blue-50/50 border border-slate-200 px-3 py-2 rounded-lg flex items-center justify-between text-slate-700 hover:text-blue-700 transition"
+                    className="w-full text-left text-xs bg-theme-surface-1 hover:bg-blue-500/10 border border-theme-divider px-3 py-2 rounded-lg flex items-center justify-between text-theme-body hover:text-blue-400 transition"
                   >
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-orange-400"></span>
@@ -916,7 +916,7 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                   </button>
                   <button
                     onClick={() => loadTestingTemplate("smarttech")}
-                    className="w-full text-left text-xs bg-white hover:bg-emerald-50/50 border border-slate-200 px-3 py-2 rounded-lg flex items-center justify-between text-slate-700 hover:text-emerald-700 transition"
+                    className="w-full text-left text-xs bg-theme-surface-1 hover:bg-emerald-500/10 border border-theme-divider px-3 py-2 rounded-lg flex items-center justify-between text-theme-body hover:text-emerald-400 transition"
                   >
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -929,19 +929,19 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
             </div>
 
             {/* Validation output and interactive live grid */}
-            <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
-              <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+            <div className="lg:col-span-2 bg-theme-surface-1 rounded-xl border border-theme-divider shadow-sm overflow-hidden flex flex-col min-h-[500px]">
+              <div className="p-5 border-b border-theme-divider flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-medium text-slate-900">
+                  <h3 className="text-sm font-medium text-theme-heading">
                     Live Field Mapping & Validation Pipeline
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-theme-muted">
                     Interactive sandbox. Update data inline directly inside table cells to resolve warnings before syncing.
                   </p>
                 </div>
                 {validationResult && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-mono text-slate-400">
+                    <span className="text-xs font-mono text-theme-muted">
                       Checksum: {validationResult.checksum.slice(0, 15)}...
                     </span>
                   </div>
@@ -949,13 +949,13 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
               </div>
 
               {!validationResult ? (
-                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 space-y-3 bg-slate-50/50">
-                  <div className="p-4 bg-white rounded-full border border-slate-200 shadow-sm">
-                    <Upload className="h-6 w-6 text-slate-400" />
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-theme-muted space-y-3 bg-theme-surface-2">
+                  <div className="p-4 bg-theme-surface-1 rounded-full border border-theme-divider shadow-sm">
+                    <Upload className="h-6 w-6 text-theme-muted" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium text-slate-700 mb-0.5">No Transmission Loaded</h4>
-                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    <h4 className="text-sm font-medium text-theme-heading mb-0.5">No Transmission Loaded</h4>
+                    <p className="text-xs text-theme-muted max-w-sm mx-auto">
                       Select a partner and click a "Sandbox Quick Load" template above to load test payloads instantly.
                     </p>
                   </div>
