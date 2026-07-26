@@ -96,6 +96,7 @@ import { SmritiEcosystemHub } from "./components/SmritiEcosystemHub.tsx";
 import { LoginScreen } from "./components/LoginScreen.tsx";
 import { SmritiErrorBoundary } from "./components/SmritiErrorBoundary.tsx";
 import { Launchpad } from "./components/Launchpad.tsx";
+import { SEEFCommandPalette, useSEEFCommandPaletteShortcut } from "./layout_engine/SEEFCommandPalette.tsx";
 
 
 interface AppNotification {
@@ -111,6 +112,10 @@ const AppContent: React.FC = () => {
   useLayoutModuleRegistration();
   const { globalZoom, popOutTab } = useWorkspace();
   const { addNotification: addSystemNotification } = useNotifications();
+
+  // SEEF Command Palette (Ctrl+K)
+  const [seefPaletteOpen, setSeefPaletteOpen] = useState(false);
+  useSEEFCommandPaletteShortcut(setSeefPaletteOpen);
   
   const [currentUser, setCurrentUser] = useState<{ role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string } | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -745,6 +750,16 @@ const AppContent: React.FC = () => {
           activeTabId={activeTab}
         />
       )}
+
+      {/* SEEF Command Palette — Ctrl+K global keyboard launcher */}
+      <SEEFCommandPalette
+        isOpen={seefPaletteOpen}
+        onClose={() => setSeefPaletteOpen(false)}
+        onNavigate={(id) => {
+          addToRecentlyUsed(id);
+          setActiveTab(id);
+        }}
+      />
     </div>
   );
 };

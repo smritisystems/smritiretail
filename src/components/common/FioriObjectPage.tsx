@@ -1,14 +1,18 @@
 /**
  * Project      : SMRITI Retail OS
- * Module       : SAP Fiori Object Page Pattern Component (WNG-002 Compliant)
+ * Module       : SEEF Object Page Pattern Component (WNG-002 Compliant)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * Version      : 5.0.0
+ * Version      : 5.2.0  (SEEF Phase 5 — Token Upgrade)
+ * Modified     : 2026-07-26
+ * Note         : FioriObjectPage is preserved as a backward-compatible alias
+ *                for SEEFObjectPage. All new code should use SEEFObjectPage.
  */
 
 import React, { useState } from "react";
-import { ArrowLeft, Save, Trash2, Edit3, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { ArrowLeft, Save, Trash2, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { useSEEF } from "../../layout_engine/SEEFContext.tsx";
 
 export interface ObjectPageTab {
   id: string;
@@ -48,85 +52,190 @@ export const FioriObjectPage: React.FC<FioriObjectPageProps> = ({
   headerActions,
 }) => {
   const [activeTabId, setActiveTabId] = useState<string>(tabs[0]?.id || "");
+  const { config } = useSEEF();
 
   const activeTabContent = tabs.find((t) => t.id === activeTabId)?.content;
 
   const badgeColorMap = {
-    success: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-    warning: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-    info: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
-    error: "bg-rose-500/10 text-rose-400 border-rose-500/30",
+    success: { color: "var(--c-seef-success)", bg: "rgba(24,128,56,0.10)", border: "rgba(24,128,56,0.25)" },
+    warning: { color: "var(--c-seef-warning)", bg: "rgba(242,153,0,0.10)", border: "rgba(242,153,0,0.25)" },
+    info:    { color: "var(--c-seef-info)",    bg: "rgba(8,84,160,0.10)",  border: "rgba(8,84,160,0.25)" },
+    error:   { color: "var(--c-seef-error)",   bg: "rgba(187,0,0,0.10)",   border: "rgba(187,0,0,0.25)" },
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 text-slate-100 rounded-2xl border border-slate-800/80 overflow-hidden shadow-2xl">
-      {/* 1. Object Page Summary Header (Fixed Key Header) */}
-      <div className="p-6 bg-slate-900/90 border-b border-slate-800 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      height: "100%",
+      background: "var(--c-theme-surface-1)",
+      color: "var(--c-theme-body)",
+      borderRadius: "var(--seef-radius-active-xl)",
+      border: "var(--seef-card-border)",
+      overflow: "hidden",
+      boxShadow: "var(--seef-elevation-2)",
+    }}>
+      {/* 1. Object Page Summary Header */}
+      <div style={{
+        padding: "var(--seef-space-xl)",
+        background: "var(--c-theme-surface-2)",
+        borderBottom: "1px solid var(--c-theme-divider)",
+      }}>
+        <div style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "var(--seef-space-md)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--seef-space-md)" }}>
             {onBack && (
               <button
                 onClick={onBack}
-                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                className="seef-interactive seef-focus-ring"
+                style={{
+                  padding: "6px",
+                  borderRadius: "var(--seef-radius-active-md)",
+                  background: "var(--c-theme-surface-hover)",
+                  border: "none",
+                  color: "var(--c-theme-muted)",
+                  cursor: "pointer",
+                  display: "flex",
+                }}
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft size={16} />
               </button>
             )}
             <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold tracking-tight text-white">{title}</h1>
-                {badgeStatus && (
-                  <span
-                    className={`px-2.5 py-0.5 text-xs font-semibold rounded-full border ${
-                      badgeColorMap[badgeStatus.type]
-                    }`}
-                  >
-                    {badgeStatus.label}
-                  </span>
-                )}
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--seef-space-sm)" }}>
+                <h1 style={{
+                  margin: 0,
+                  fontSize: "var(--seef-font-size-xl)",
+                  fontWeight: 700,
+                  color: "var(--c-theme-body)",
+                  fontFamily: "var(--font-display)",
+                  letterSpacing: "-0.02em",
+                }}>
+                  {title}
+                </h1>
+                {badgeStatus && (() => {
+                  const bc = badgeColorMap[badgeStatus.type];
+                  return (
+                    <span style={{
+                      padding: "2px 10px",
+                      fontSize: "var(--seef-font-size-xs)",
+                      fontWeight: 600,
+                      borderRadius: "var(--seef-radius-active-full)",
+                      background: bc.bg,
+                      color: bc.color,
+                      border: `1px solid ${bc.border}`,
+                    }}>
+                      {badgeStatus.label}
+                    </span>
+                  );
+                })()}
               </div>
-              {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+              {subtitle && (
+                <p style={{
+                  margin: "2px 0 0",
+                  fontSize: "var(--seef-font-size-xs)",
+                  color: "var(--c-theme-muted)",
+                }}>
+                  {subtitle}
+                </p>
+              )}
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2">
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--seef-space-sm)" }}>
             {headerActions}
             {onDelete && (
               <button
                 onClick={onDelete}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition flex items-center gap-2"
+                className="seef-interactive seef-focus-ring"
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "var(--seef-radius-active-md)",
+                  fontSize: "var(--seef-font-size-sm)",
+                  fontWeight: 600,
+                  background: "rgba(187,0,0,0.08)",
+                  color: "var(--c-seef-error)",
+                  border: "1px solid rgba(187,0,0,0.25)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "5px",
+                }}
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete
+                <Trash2 size={13} /> Delete
               </button>
             )}
             {onSave && (
               <button
                 onClick={onSave}
                 disabled={isSaving}
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold shadow-lg shadow-cyan-500/20 flex items-center gap-2 transition disabled:opacity-50"
+                className="seef-interactive seef-focus-ring"
+                style={{
+                  padding: "6px 16px",
+                  borderRadius: "var(--seef-radius-active-md)",
+                  fontSize: "var(--seef-font-size-sm)",
+                  fontWeight: 600,
+                  background: "var(--c-seef-accent)",
+                  color: "#fff",
+                  border: "none",
+                  cursor: isSaving ? "not-allowed" : "pointer",
+                  opacity: isSaving ? 0.7 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "5px",
+                  boxShadow: "var(--seef-elevation-1)",
+                }}
               >
-                <Save className="w-3.5 h-3.5" />
+                <Save size={13} />
                 {isSaving ? "Saving..." : "Save Changes"}
               </button>
             )}
           </div>
         </div>
 
-        {/* Header Key Metrics Card Bar */}
+        {/* Key Metrics Bar */}
         {metrics.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-800/60">
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(auto-fit, minmax(120px, 1fr))`,
+            gap: "var(--seef-space-md)",
+            marginTop: "var(--seef-space-lg)",
+            paddingTop: "var(--seef-space-lg)",
+            borderTop: "1px solid var(--c-theme-divider)",
+          }}>
             {metrics.map((m, idx) => (
-              <div key={idx} className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60">
-                <span className="text-[11px] text-slate-400 uppercase tracking-wider block">
+              <div
+                key={idx}
+                style={{
+                  padding: "var(--seef-space-md)",
+                  borderRadius: "var(--seef-radius-active-md)",
+                  background: "var(--c-theme-surface-1)",
+                  border: "1px solid var(--c-theme-divider)",
+                }}
+              >
+                <span style={{
+                  fontSize: "var(--seef-font-size-xs)",
+                  color: "var(--c-theme-muted)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  display: "block",
+                }}>
                   {m.label}
                 </span>
-                <span
-                  className={`text-lg font-bold mt-0.5 block ${
-                    m.highlight ? "text-cyan-400 font-mono" : "text-slate-100"
-                  }`}
-                >
+                <span style={{
+                  fontSize: "var(--seef-font-size-lg)",
+                  fontWeight: 700,
+                  color: m.highlight ? "var(--c-seef-accent)" : "var(--c-theme-body)",
+                  fontFamily: m.highlight ? "var(--font-mono)" : "var(--font-display)",
+                  display: "block",
+                  marginTop: "2px",
+                }}>
                   {m.value}
                 </span>
               </div>
@@ -135,25 +244,55 @@ export const FioriObjectPage: React.FC<FioriObjectPageProps> = ({
         )}
       </div>
 
-      {/* 2. Horizontal Tabs Navigation */}
-      <div className="bg-slate-900/40 border-b border-slate-800 px-6 flex items-center gap-2 overflow-x-auto scrollbar-none">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTabId(tab.id)}
-            className={`py-3.5 px-4 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${
-              activeTabId === tab.id
-                ? "border-cyan-500 text-cyan-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* 2. Horizontal Tab Navigation */}
+      <div style={{
+        display: "flex",
+        background: "var(--c-theme-surface-2)",
+        borderBottom: "1px solid var(--c-theme-divider)",
+        overflowX: "auto",
+        flexShrink: 0,
+      }}>
+        {tabs.map((tab) => {
+          const active = activeTabId === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTabId(tab.id)}
+              className="seef-interactive seef-focus-ring"
+              style={{
+                padding: "var(--seef-space-md) var(--seef-space-lg)",
+                border: "none",
+                borderBottom: active
+                  ? "2px solid var(--c-seef-accent)"
+                  : "2px solid transparent",
+                background: "none",
+                color: active ? "var(--c-seef-accent)" : "var(--c-theme-muted)",
+                fontSize: "var(--seef-font-size-sm)",
+                fontWeight: active ? 600 : 400,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                transition: "all var(--seef-motion-fast) var(--seef-ease-standard)",
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* 3. Active Tab Content Section */}
-      <div className="flex-1 overflow-auto p-6 bg-slate-950">{activeTabContent}</div>
+      {/* 3. Active Tab Content */}
+      <div style={{
+        flex: 1,
+        overflowY: "auto",
+        padding: "var(--seef-space-xl)",
+        background: "var(--c-theme-surface-1)",
+      }}>
+        {activeTabContent}
+      </div>
     </div>
   );
 };
+
+// Backward-compatible alias — FioriObjectPage is now SEEFObjectPage
+export const SEEFObjectPage = FioriObjectPage;
+

@@ -35,6 +35,10 @@ export interface LayoutPreferences {
   hideNavbar: boolean;
   hideSidebar: boolean;
   hideBottombar: boolean;
+  // SEEF persistence fields — mirror of SEEFConfig for layout-layer preferences
+  seefTheme?: string;       // persisted theme preference (overrides SEEFContext default on next load)
+  seefDensity?: string;     // persisted density preference
+  seefNavMode?: string;     // persisted navigation mode
 }
 
 interface LayoutStoreContextType {
@@ -79,6 +83,9 @@ const DEFAULT_PREFERENCES: LayoutPreferences = {
   hideNavbar: false,
   hideSidebar: false,
   hideBottombar: false,
+  seefTheme: undefined,
+  seefDensity: undefined,
+  seefNavMode: undefined,
 };
 
 const LayoutStoreContext = createContext<LayoutStoreContextType | undefined>(

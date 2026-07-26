@@ -23,7 +23,7 @@
  * * License    : Proprietary Commercial Software
  */
 
-import React from "react";
+import React, { useState } from "react";
 import { 
   ZoomIn, 
   ZoomOut, 
@@ -37,12 +37,14 @@ import {
   Eye,
   EyeOff,
   Keyboard,
-  Printer
+  Printer,
+  Paintbrush
 } from "lucide-react";
 import { useWorkspace } from "../contexts/WorkspaceContext.tsx";
 import { useLayoutEngine } from "../layout_engine/layout_store.tsx";
 import { useShortcuts } from "../contexts/ShortcutContext.tsx";
 import { AdaptiveWorkspaceHeader } from "./common/AdaptiveWorkspaceHeader.tsx";
+import { SEEFAdminConfigurator } from "../layout_engine/SEEFAdminConfigurator.tsx";
 
 interface WorkspaceToolbarProps {
   currentTabId: string;
@@ -73,6 +75,7 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
 
   const { registeredWorkspaces } = useLayoutEngine();
   const { setPaletteOpen } = useShortcuts();
+  const [seefOpen, setSeefOpen] = useState(false);
   
   // Find current tab details
   const tabConfig = registeredWorkspaces.find((w) => w.id === currentTabId);
@@ -246,6 +249,23 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
         >
           <Keyboard size={14} />
         </button>
+
+        {/* SEEF Experience Configurator trigger (Admin / Manager only) */}
+        {!isFloating && (
+          <button
+            onClick={() => setSeefOpen(true)}
+            className="p-1.5 rounded-lg text-theme-muted hover:text-purple-400 hover:bg-purple-500/10 transition-all cursor-pointer"
+            title="SEEF Experience Configurator — Theme, Density, Navigation & More"
+          >
+            <Paintbrush size={14} />
+          </button>
+        )}
+
+        {/* SEEF Admin Drawer */}
+        <SEEFAdminConfigurator
+          isOpen={seefOpen}
+          onClose={() => setSeefOpen(false)}
+        />
 
         {isFloating && windowId && (
           <>

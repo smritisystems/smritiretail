@@ -1,14 +1,20 @@
 /**
  * Project      : SMRITI Retail OS
- * Module       : SAP Fiori List Report Pattern Component (WNG-002 Compliant)
+ * Module       : SEEF List Report Pattern Component (WNG-002 Compliant)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * Version      : 5.0.0
+ * Version      : 5.2.0  (SEEF Phase 6 — Token Upgrade)
+ * Modified     : 2026-07-26
+ * Note         : FioriListReport is preserved as backward-compatible alias
+ *                for SEEFListReport. All new code should use SEEFListReport.
  */
 
 import React, { useState } from "react";
 import { Search, Filter, RefreshCw, Plus, Download, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { useSEEF } from "../../layout_engine/SEEFContext.tsx";
+import { SEEFSkeleton } from "./SEEFSkeleton.tsx";
+import { SEEFEmptyState } from "./SEEFEmptyState.tsx";
 
 export interface ListReportColumn<T> {
   key: string;
@@ -65,7 +71,9 @@ export function FioriListReport<T extends { id?: string | number }>({
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
   const [showFilterBar, setShowFilterBar] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const { config } = useSEEF();
   const pageSize = 15;
+  const rowPadding = config.density === "compact" ? "8px 12px" : config.density === "spacious" ? "14px 16px" : "10px 14px";
 
   // Filter Data
   const filteredData = data.filter((item) => {
@@ -116,23 +124,57 @@ export function FioriListReport<T extends { id?: string | number }>({
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 text-slate-100 rounded-2xl border border-slate-800/80 overflow-hidden shadow-2xl">
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      height: "100%",
+      background: "var(--c-theme-surface-1)",
+      color: "var(--c-theme-body)",
+      borderRadius: "var(--seef-radius-active-xl)",
+      border: "var(--seef-card-border)",
+      overflow: "hidden",
+      boxShadow: "var(--seef-elevation-2)",
+      fontFamily: "var(--font-sans)",
+    }}>
       {/* 1. List Report Header & Action Toolbar */}
-      <div className="p-6 bg-slate-900/90 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div style={{
+        padding: "var(--seef-space-xl)",
+        background: "var(--c-theme-surface-2)",
+        borderBottom: "1px solid var(--c-theme-divider)",
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "var(--seef-space-md)",
+      }}>
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-white">{title}</h2>
-          {subtitle && <p className="text-xs text-slate-400 mt-1">{subtitle}</p>}
+          <h2 style={{
+            margin: 0,
+            fontSize: "var(--seef-font-size-xl)",
+            fontWeight: 700,
+            color: "var(--c-theme-body)",
+            fontFamily: "var(--font-display)",
+            letterSpacing: "-0.02em",
+          }}>
+            {title}
+          </h2>
+          {subtitle && (
+            <p style={{ margin: "2px 0 0", fontSize: "var(--seef-font-size-xs)", color: "var(--c-theme-muted)" }}>
+              {subtitle}
+            </p>
+          )}
         </div>
 
-        {/* Global Toolbar Actions */}
-        <div className="flex items-center gap-2">
+        {/* Toolbar Actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--seef-space-sm)", flexWrap: "wrap" }}>
           {selectable && selectedIds && selectedIds.size > 0 && bulkActions}
 
           {onRefresh && (
             <button
               onClick={onRefresh}
-              className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition border border-slate-700/50"
+              className="seef-interactive seef-focus-ring"
               title="Refresh Data"
+              style={toolbarBtnStyle}
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
             </button>
@@ -141,11 +183,13 @@ export function FioriListReport<T extends { id?: string | number }>({
           {filterOptions.length > 0 && (
             <button
               onClick={() => setShowFilterBar(!showFilterBar)}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 border transition ${
-                showFilterBar
-                  ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
-                  : "bg-slate-800 text-slate-300 border-slate-700/50 hover:bg-slate-700"
-              }`}
+              className="seef-interactive seef-focus-ring"
+              style={{
+                ...toolbarBtnStyle,
+                background: showFilterBar ? "rgba(26,115,232,0.10)" : "none",
+                color: showFilterBar ? "var(--c-seef-accent)" : "var(--c-theme-muted)",
+                border: showFilterBar ? "1px solid rgba(26,115,232,0.30)" : "1px solid var(--c-theme-divider)",
+              }}
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               Filters
@@ -153,19 +197,29 @@ export function FioriListReport<T extends { id?: string | number }>({
           )}
 
           {onExport && (
-            <button
-              onClick={onExport}
-              className="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/50 flex items-center gap-2 transition"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Export
+            <button onClick={onExport} className="seef-interactive seef-focus-ring" style={toolbarBtnStyle}>
+              <Download className="w-3.5 h-3.5" /> Export
             </button>
           )}
 
           {onCreateNew && (
             <button
               onClick={onCreateNew}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold shadow-lg shadow-cyan-500/20 flex items-center gap-2 transition"
+              className="seef-interactive seef-focus-ring"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "6px 14px",
+                borderRadius: "var(--seef-radius-active-md)",
+                background: "var(--c-seef-accent)",
+                color: "#fff",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "var(--seef-font-size-sm)",
+                fontWeight: 600,
+                boxShadow: "var(--seef-elevation-1)",
+              }}
             >
               <Plus className="w-4 h-4" />
               {primaryActionLabel}
@@ -174,39 +228,70 @@ export function FioriListReport<T extends { id?: string | number }>({
         </div>
       </div>
 
-      {/* 2. Compact Filter Bar (Fiori Filter Bar Pattern) */}
+      {/* 2. Filter Bar */}
       {showFilterBar && (
-        <div className="p-4 bg-slate-900/50 border-b border-slate-800/80 flex flex-wrap items-center gap-4">
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+        <div style={{
+          padding: "var(--seef-space-md) var(--seef-space-xl)",
+          background: "var(--c-theme-surface-2)",
+          borderBottom: "1px solid var(--c-theme-divider)",
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: "var(--seef-space-md)",
+        }}>
+          <div style={{ position: "relative", flex: "1", minWidth: "200px" }}>
+            <Search style={{
+              position: "absolute",
+              left: "10px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "var(--c-theme-muted)",
+              width: 14,
+              height: 14,
+            }} />
             <input
               type="text"
               placeholder={searchPlaceholder}
               value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              style={{
+                width: "100%",
+                background: "var(--c-theme-surface-1)",
+                border: "1px solid var(--c-theme-divider)",
+                borderRadius: "var(--seef-radius-active-md)",
+                paddingLeft: "32px",
+                paddingRight: "12px",
+                paddingTop: "7px",
+                paddingBottom: "7px",
+                fontSize: "var(--seef-font-size-sm)",
+                color: "var(--c-theme-body)",
+                outline: "none",
+                boxSizing: "border-box" as const,
               }}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
             />
           </div>
 
           {filterOptions.map((f) => (
-            <div key={f.key} className="flex items-center gap-2">
-              <span className="text-xs text-slate-400 font-medium">{f.label}:</span>
+            <div key={f.key} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "var(--seef-font-size-xs)", color: "var(--c-theme-muted)", fontWeight: 500 }}>
+                {f.label}:
+              </span>
               <select
                 value={activeFilters[f.key] || "ALL"}
-                onChange={(e) => {
-                  setActiveFilters({ ...activeFilters, [f.key]: e.target.value });
-                  setCurrentPage(1);
+                onChange={(e) => { setActiveFilters({ ...activeFilters, [f.key]: e.target.value }); setCurrentPage(1); }}
+                style={{
+                  background: "var(--c-theme-surface-1)",
+                  border: "1px solid var(--c-theme-divider)",
+                  borderRadius: "var(--seef-radius-active-sm)",
+                  padding: "5px 10px",
+                  fontSize: "var(--seef-font-size-xs)",
+                  color: "var(--c-theme-body)",
+                  outline: "none",
                 }}
-                className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
               >
                 <option value="ALL">All {f.label}s</option>
                 {f.options.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
             </div>
@@ -214,120 +299,131 @@ export function FioriListReport<T extends { id?: string | number }>({
         </div>
       )}
 
-      {/* 3. Actionable Data Table */}
-      <div className="flex-1 overflow-auto">
-        <table className="w-full text-left border-collapse text-xs">
-          <thead className="bg-slate-900/80 sticky top-0 z-10 border-b border-slate-800">
-            <tr>
-              {selectable && (
-                <th className="p-3.5 w-10">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={handleToggleSelectAll}
-                    className="rounded border-slate-700 bg-slate-900 accent-cyan-500 cursor-pointer"
-                  />
-                </th>
-              )}
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className={`p-3.5 font-semibold text-slate-400 tracking-wider uppercase text-[11px] ${
-                    col.align === "right"
-                      ? "text-right"
-                      : col.align === "center"
-                      ? "text-center"
-                      : "text-left"
-                  }`}
-                >
-                  {col.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800/50">
-            {isLoading ? (
-              <tr>
-                <td colSpan={columns.length + (selectable ? 1 : 0)} className="p-8 text-center text-slate-400">
-                  <div className="flex items-center justify-center gap-2">
-                    <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
-                    <span>Loading dataset...</span>
-                  </div>
-                </td>
+      {/* 3. Data Table */}
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {isLoading ? (
+          <div style={{ padding: "var(--seef-space-xl)" }}>
+            <SEEFSkeleton variant="table" rows={8} columns={columns.length} />
+          </div>
+        ) : paginatedData.length === 0 ? (
+          <SEEFEmptyState
+            title="No Records Found"
+            description="No records match the current filter criteria. Try adjusting your search or filters."
+          />
+        ) : (
+          <table style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: "var(--seef-font-size-sm)",
+          }}>
+            <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
+              <tr style={{
+                background: "var(--c-theme-surface-2)",
+                borderBottom: "2px solid var(--c-theme-divider)",
+              }}>
+                {selectable && (
+                  <th style={{ padding: rowPadding, width: 40 }}>
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={handleToggleSelectAll}
+                      style={{ cursor: "pointer", accentColor: "var(--c-seef-accent)" }}
+                    />
+                  </th>
+                )}
+                {columns.map((col) => (
+                  <th
+                    key={col.key}
+                    style={{
+                      padding: rowPadding,
+                      fontWeight: 600,
+                      fontSize: "var(--seef-font-size-xs)",
+                      color: "var(--c-theme-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      textAlign: col.align === "right" ? "right" : col.align === "center" ? "center" : "left",
+                    }}
+                  >
+                    {col.label}
+                  </th>
+                ))}
               </tr>
-            ) : paginatedData.length === 0 ? (
-              <tr>
-                <td colSpan={columns.length + (selectable ? 1 : 0)} className="p-12 text-center text-slate-500">
-                  No records match the current filter criteria.
-                </td>
-              </tr>
-            ) : (
-              paginatedData.map((row, idx) => {
+            </thead>
+            <tbody>
+              {paginatedData.map((row, idx) => {
                 const rowId = row.id !== undefined ? row.id : idx;
                 const isRowSelected = selectedIds ? selectedIds.has(rowId) : false;
                 return (
                   <tr
                     key={rowId ? String(rowId) : idx}
                     onClick={() => onRowClick && onRowClick(row)}
-                    className={`hover:bg-slate-900/60 transition-colors ${
-                      onRowClick ? "cursor-pointer" : ""
-                    } ${isRowSelected ? "bg-slate-900/80" : ""}`}
+                    className={onRowClick ? "seef-interactive" : ""}
+                    style={{
+                      borderBottom: "1px solid var(--c-theme-divider)",
+                      cursor: onRowClick ? "pointer" : "default",
+                      background: isRowSelected ? "rgba(26,115,232,0.07)" : "transparent",
+                      transition: "background var(--seef-motion-fast) var(--seef-ease-standard)",
+                    }}
                   >
                     {selectable && (
-                      <td className="p-3.5 w-10" onClick={(e) => e.stopPropagation()}>
+                      <td style={{ padding: rowPadding, width: 40 }} onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={isRowSelected}
                           onChange={(e) => handleToggleRowSelect(rowId, e)}
-                          className="rounded border-slate-700 bg-slate-900 accent-cyan-500 cursor-pointer"
+                          style={{ cursor: "pointer", accentColor: "var(--c-seef-accent)" }}
                         />
                       </td>
                     )}
                     {columns.map((col) => (
                       <td
                         key={col.key}
-                        className={`p-3.5 text-slate-200 ${
-                          col.align === "right"
-                            ? "text-right font-mono"
-                            : col.align === "center"
-                            ? "text-center"
-                            : "text-left"
-                        }`}
+                        style={{
+                          padding: rowPadding,
+                          color: "var(--c-theme-primary)",
+                          textAlign: col.align === "right" ? "right" : col.align === "center" ? "center" : "left",
+                          fontFamily: col.align === "right" ? "var(--font-mono)" : undefined,
+                        }}
                       >
-                        {col.render
-                          ? col.render(row)
-                          : String((row as Record<string, any>)[col.key] ?? "-")}
+                        {col.render ? col.render(row) : String((row as Record<string, any>)[col.key] ?? "-")}
                       </td>
                     ))}
                   </tr>
                 );
-              })
-            )}
-          </tbody>
-        </table>
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
 
-      {/* 4. Table Pagination Footer */}
-      <div className="p-4 bg-slate-900/80 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-        <div>
-          Showing {paginatedData.length} of {filteredData.length} entries
-        </div>
-
-        <div className="flex items-center gap-2">
+      {/* 4. Pagination Footer */}
+      <div style={{
+        padding: "var(--seef-space-md) var(--seef-space-xl)",
+        background: "var(--c-theme-surface-2)",
+        borderTop: "1px solid var(--c-theme-divider)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        fontSize: "var(--seef-font-size-xs)",
+        color: "var(--c-theme-muted)",
+        flexShrink: 0,
+      }}>
+        <div>Showing {paginatedData.length} of {filteredData.length} entries</div>
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--seef-space-sm)" }}>
           <button
             disabled={currentPage === 1}
             onClick={() => setCurrentPage(currentPage - 1)}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300"
+            className="seef-interactive seef-focus-ring"
+            style={{ ...pagerBtnStyle, opacity: currentPage === 1 ? 0.4 : 1 }}
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
+          <span>Page {currentPage} of {totalPages}</span>
           <button
             disabled={currentPage === totalPages}
             onClick={() => setCurrentPage(currentPage + 1)}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300"
+            className="seef-interactive seef-focus-ring"
+            style={{ ...pagerBtnStyle, opacity: currentPage === totalPages ? 0.4 : 1 }}
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -336,3 +432,33 @@ export function FioriListReport<T extends { id?: string | number }>({
     </div>
   );
 }
+
+// ── Style helpers ─────────────────────────────────────────────────────────────
+
+const toolbarBtnStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "5px",
+  padding: "6px 12px",
+  borderRadius: "var(--seef-radius-active-md)",
+  background: "none",
+  color: "var(--c-theme-muted)",
+  border: "1px solid var(--c-theme-divider)",
+  cursor: "pointer",
+  fontSize: "var(--seef-font-size-sm)",
+};
+
+const pagerBtnStyle: React.CSSProperties = {
+  padding: "4px",
+  borderRadius: "var(--seef-radius-active-sm)",
+  background: "var(--c-theme-surface-hover)",
+  border: "1px solid var(--c-theme-divider)",
+  color: "var(--c-theme-muted)",
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+};
+
+// Backward-compatible alias — FioriListReport is now SEEFListReport
+export const SEEFListReport = FioriListReport;
+
