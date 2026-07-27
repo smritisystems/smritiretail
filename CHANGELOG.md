@@ -30,6 +30,13 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [5.3.0] — 2026-07-27
 
+### Added
+- **SAP HANA Fiori Theme Alignment & Launchpad UI Standardization**:
+  - Refactored `Launchpad.tsx` to match 100% authentic SAP HANA Fiori 3 (Quartz) & Fiori Horizon Theme design specifications.
+  - Converted category buttons to SAP Fiori Segmented Control buttons (`bg-theme-surface-2`, active segment `#0a6ed1` SAP Fiori Blue).
+  - Replaced rainbow card borders with 8px Fiori card geometry (`rounded-lg`), subtle Fiori elevation (`shadow-xs hover:shadow-md`), and SAP Fiori blue focus borders (`hover:border-[#0a6ed1]`).
+  - Added SAP Fiori Group Category Section Dividers ("Operations & POS Transactions", "Master Data & Registry Hub", "Analytics, Ledger & Reports", "Administration & System RBAC").
+
 ### Fixed
 - **SMRITI Slate Navy Header & Original Theme Alignment**:
   - Aligned `AdaptiveWorkspaceHeader.tsx` header navigation bar across all application workspace modules with the authentic SMRITI Slate Navy theme (`#354a5e`).
