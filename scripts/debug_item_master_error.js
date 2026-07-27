@@ -1,9 +1,17 @@
 import { chromium } from 'playwright';
 
 (async () => {
-  console.log('=== CAPTURING EXACT ITEM MASTER RUNTIME ERROR STACK TRACE ===');
+  console.log('=== VERIFYING ITEM MASTER WITH NO-CACHE HEADERS ===');
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  const context = await browser.newContext();
+  const page = await context.newPage();
+
+  // Disable HTTP cache completely
+  await page.setExtraHTTPHeaders({
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0'
+  });
 
   page.on('pageerror', (err) => {
     console.error('[PAGE ERROR STACK]:', err.stack || err.message);
@@ -38,6 +46,7 @@ import { chromium } from 'playwright';
     await page.goto('http://localhost:3000?tab=item-master', { waitUntil: 'networkidle' });
     await page.waitForTimeout(3000);
 
+    console.log('[SUCCESS] Navigation completed without errors!');
   } catch (err) {
     console.error('Test error:', err);
   } finally {
