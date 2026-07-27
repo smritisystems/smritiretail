@@ -1,7 +1,16 @@
+"""
+  Project         : SMRITI Retail OS
+  Organization    : SmritiSys
+  Author          : Jawahar Ramkripal Mallah
+  Email           : support@smritisys.com
+  Version         : 3.32.0
+  Copyright       : © SmritiSys. All Rights Reserved.
+  License         : Proprietary Commercial Software
+"""
 import asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy import text
-from backend.app.core.config import settings
+from app.core.config import settings
 
 async def main():
     engine = create_async_engine(settings.DATABASE_URL, echo=False)
