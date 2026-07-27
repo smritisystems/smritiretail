@@ -616,15 +616,15 @@ async def company_setup(
 
     existing_setup = await get_system_config(db, SETUP_COMPLETED_KEY)
     if existing_setup and existing_setup.value == "true":
-        if not current_user or current_user.role != UserRole.SYSADMIN:
-            raise HTTPException(
-                status_code=403,
-                detail="Only a SYSADMIN can run the company setup after initialization."
-            )
-        raise HTTPException(
-            status_code=400,
-            detail="Company setup has already been completed."
-        )
+        return {
+            "success": True,
+            "message": "Company setup has already been completed.",
+            "alreadyCompleted": True,
+            "company": {
+                "name": company_name,
+                "id": "sys-co-default"
+            }
+        }
 
     if not branch_entries:
         branch_entries = [
