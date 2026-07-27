@@ -31,6 +31,8 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [5.3.0] — 2026-07-27
 
 ### Fixed
+- **Indian Rupee (₹) Currency Standardization**:
+  - Replaced legacy dollar ($) symbols with Indian Rupee (₹) in `PrintPreviewModal.tsx` and across all spreadsheet data grid schemas.
 - **SMRITI Spreadsheet Platform (SSP)**:
   - Implemented decoupled enterprise spreadsheet platform under `src/spreadsheet/` featuring `FormulaEngine.ts` (=GST, =MARGIN, =MRP, =ROUND), `ClipboardEngine.ts` (MS Excel 5,000+ row TSV/CSV parser), `ValidationEngine.ts`, `HistoryEngine.ts` (Ctrl+Z Undo / Ctrl+Y Redo), `TransactionEngine.ts` (Pending changes, Commit, Rollback), `PermissionEngine.ts`, and `AIAssistant.ts`.
   - Created Domain Data Adapters (`ItemMasterAdapter.ts`, `CustomerAdapter.ts`, `SupplierAdapter.ts`) mapping domain entities to SSP grid schemas.

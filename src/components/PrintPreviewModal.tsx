@@ -200,16 +200,16 @@ const TEMPLATE_METADATA: Record<string, {
         <div className="space-y-0.5">
           <div className="flex justify-between text-theme-body">
             <span>Item A x5</span>
-            <span>$1,100.00</span>
+            <span>₹1,100.00</span>
           </div>
           <div className="flex justify-between text-theme-body">
             <span>Item B x2</span>
-            <span>$150.00</span>
+            <span>₹150.00</span>
           </div>
         </div>
         <div className="flex justify-between items-center pt-1 border-t border-theme-divider text-theme-heading">
           <span>PAY TOTAL</span>
-          <span className="font-bold text-emerald-400">$1,298.00</span>
+          <span className="font-bold text-emerald-400">₹1,298.00</span>
         </div>
       </div>
     )
@@ -257,16 +257,16 @@ const TEMPLATE_METADATA: Record<string, {
         <div className="space-y-0.5 text-theme-body">
           <div className="flex justify-between">
             <span>Almonds 500g</span>
-            <span>$25.00</span>
+            <span>₹25.00</span>
           </div>
           <div className="flex justify-between">
             <span>Coffee Blend</span>
-            <span>$13.50</span>
+            <span>₹13.50</span>
           </div>
         </div>
         <div className="border-t border-dashed border-theme-divider mt-0.5 pt-0.5 flex justify-between text-theme-heading font-bold">
           <span>TOTAL</span>
-          <span className="text-amber-400">$66.36</span>
+          <span className="text-amber-400">₹66.36</span>
         </div>
       </div>
     )
@@ -294,7 +294,7 @@ const TEMPLATE_METADATA: Record<string, {
           <span className="text-[4px] text-theme-muted scale-90">8901058002315</span>
         </div>
         <div className="flex justify-between items-center text-theme-heading font-bold">
-          <span>$6.99</span>
+          <span>₹6.99</span>
           <span className="text-[4.5px] text-purple-400 bg-purple-500/10 px-0.5 rounded-sm">50x25</span>
         </div>
       </div>

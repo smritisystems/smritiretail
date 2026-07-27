@@ -30,7 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 2026-07-27 | v5.3.0 | SMRITI Spreadsheet Platform (SSP) Architecture | [Walkthrough](./foundation/Smriti_Spreadsheet_Platform_SSP_v5.3.0.md) | [Plan](../../brain/5ab16916-2d2a-444d-b33a-aa5801f2433d/implementation_plan.md) | Completed |
+| 2026-07-27 | v5.3.0 | SMRITI Spreadsheet Platform (SSP) & Rupee Symbol Standardization | [Walkthrough](./foundation/Smriti_Spreadsheet_Platform_SSP_v5.3.0.md) | [Plan](../../brain/5ab16916-2d2a-444d-b33a-aa5801f2433d/implementation_plan.md) | Completed |
 | 2026-07-27 | v5.3.0 | Barcode Print Studio & PRN Script Generator | [Walkthrough](./inventory/Barcode_Print_Studio_ItemMaster_PRN_v5.3.0.md) | — | Completed |
 | 2026-07-27 | v5.3.0 | SMRITI Launchpad Refactoring & Brand Upgrade | [Walkthrough](./foundation/Foundation_Smriti_Launchpad_Refactor_v5.3.0.md) | — | Completed |
 | 2026-07-27 | v5.3.0 | SMRITI Enterprise Experience Framework (SEEF) UI/UX & Component Governance Cleanup | [Walkthrough](./foundation/Foundation_SEEF_UI_UX_Governance_Debug_v5.3.0.md) | — | Completed |
