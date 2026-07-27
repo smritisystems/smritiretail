@@ -1,8 +1,4 @@
 {
-  "tallyExportQueue": [],
-  "partnersList": [],
-  "transformationMappings": [],
-  "exchangeLogs": [],
   "ledgerEntries": [],
   "auditLogs": [],
   "profiles": [],
@@ -241,15 +237,10 @@
       ]
     }
   ],
-  "fields": [],
-  "formulas": [],
-  "psvParties": [],
-  "companyState": "DL",
   "goodsReceipts": [],
   "attributeDefinitions": [],
   "attributeGroups": [],
   "variantTemplates": [],
   "categoryAttributeGroupMappings": [],
-  "roles": [],
-  "reportSchedules": []
+  "roles": []
 }
