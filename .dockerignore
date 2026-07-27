@@ -10,17 +10,17 @@
 
 .git
 .github
+.gemini
 node_modules
 dist
-backend/.venv
-backend/app/tests/.pytest_cache
-backend/app/__pycache__
-**/*.pyc
-**/*.pyo
-**/*.pyd
+docs
+backend
+scripts
+artifacts
+*.md
+*.log
 .pytest_cache
 **/.pytest_cache
-backend/.pytest_cache
 .coverage
 htmlcov
 .env
