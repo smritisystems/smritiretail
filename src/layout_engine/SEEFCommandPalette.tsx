@@ -1,12 +1,13 @@
 /**
  * Project      : SMRITI Retail OS
+ * Organization : SmritiSys
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 1.0.0  (SEEF Phase 4)
  * Created      : 2026-07-26
- * Modified     : 2026-07-26
+ * Modified     : 2026-07-27
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  *
@@ -207,14 +208,23 @@ export const SEEFCommandPalette: React.FC<SEEFCommandPaletteProps> = ({
   // Reset selection when results change
   useEffect(() => setSelectedIndex(0), [filtered.length, query]);
 
-  // Focus input on open
+  // Focus input on open & bind global Escape key listener
   useEffect(() => {
     if (isOpen) {
       setQuery("");
       setSelectedIndex(0);
       requestAnimationFrame(() => inputRef.current?.focus());
+
+      const handleGlobalKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onClose();
+        }
+      };
+      window.addEventListener("keydown", handleGlobalKeyDown);
+      return () => window.removeEventListener("keydown", handleGlobalKeyDown);
     }
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   // ── Keyboard navigation ───────────────────────────────────────────────────
   const handleKeyDown = useCallback(

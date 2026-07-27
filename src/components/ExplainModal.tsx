@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -23,7 +23,7 @@
  * * License    : Proprietary Commercial Software
  */
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Formula } from "../types";
 
 interface ExplainModalProps {
@@ -32,6 +32,18 @@ interface ExplainModalProps {
 }
 
 export const ExplainModal: React.FC<ExplainModalProps> = ({ formula, onClose }) => {
+  useEffect(() => {
+    if (!formula) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [formula, onClose]);
+
   if (!formula) return null;
 
   return (

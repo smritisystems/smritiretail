@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -508,9 +508,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       }
 
-      // Escape: exit full screen/maximize
+      // Escape: restore maximized windows or minimize active window
       if (e.key === "Escape") {
-        // Find if any window is maximized/docked full and restore it
         setFloatingWindows((prev) => {
           if (prev.some((w) => w.isMaximized || w.dockStatus === "full")) {
             return prev.map((w) => 

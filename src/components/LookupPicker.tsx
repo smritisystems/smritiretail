@@ -1,12 +1,13 @@
 /**
  * Project      : SMRITI Retail OS
+ * Organization : SmritiSys
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 5.1.0
  * Created      : 2026-07-21
- * Modified     : 2026-07-21
+ * Modified     : 2026-07-27
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal Architecture Standard
@@ -106,12 +107,18 @@ export const LookupPicker: React.FC<LookupPickerProps> = ({
       } else if (e.ctrlKey && e.key.toLowerCase() === "n" && allowInlineCreate) {
         e.preventDefault();
         setShowInlineModal(true);
+      } else if (e.key === "Escape") {
+        if (showInlineModal) {
+          setShowInlineModal(false);
+        } else if (isOpen) {
+          setIsOpen(false);
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [disabled, allowInlineCreate]);
+  }, [disabled, allowInlineCreate, isOpen, showInlineModal]);
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
