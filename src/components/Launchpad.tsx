@@ -239,8 +239,8 @@ export const Launchpad: React.FC<LaunchpadProps> = ({
   });
 
   return (
-    <div className="min-h-screen bg-theme-base text-theme-body p-6 md:p-8 font-sans selection:bg-[#0a6ed1] selection:text-white">
-      <div className="max-w-7xl mx-auto space-y-6 relative z-10">
+    <div className="w-full h-full overflow-y-auto bg-theme-base text-theme-body p-6 md:p-8 font-sans selection:bg-[#0a6ed1] selection:text-white">
+      <div className="max-w-7xl mx-auto space-y-6 relative z-10 pb-12">
         {/* 1. SAP Fiori Shell Sub-Header / Welcome Banner */}
         <div className="bg-theme-surface-1 border border-theme-divider rounded-lg p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1.5">

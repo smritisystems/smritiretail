@@ -267,12 +267,12 @@ export const WorkspaceTaskbar: React.FC = () => {
                 onClick={() => setIsNewWorkspaceMenuOpen(!isNewWorkspaceMenuOpen)}
                 className={`flex items-center space-x-1.5 h-9 px-3 rounded-lg text-xs font-bold transition-all shadow-md ${
                   isNewWorkspaceMenuOpen 
-                    ? "bg-indigo-600 text-white" 
+                    ? "bg-[#0a6ed1] text-white" 
                     : "bg-theme-surface-2 text-theme-body hover:bg-theme-surface-3 border border-theme-divider/80"
                 }`}
                 title="Launch New Floating Workspace Tab"
               >
-                <Plus size={14} className="text-indigo-400 shrink-0" />
+                <Plus size={14} className="text-[#0a6ed1] dark:text-[#6fa8dc] shrink-0" />
                 <span className="hidden sm:inline">New Workspace</span>
               </button>
 
@@ -307,7 +307,7 @@ export const WorkspaceTaskbar: React.FC = () => {
                           className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-theme-surface-2 transition-all text-left text-xs font-medium"
                         >
                           <div className="flex items-center space-x-2.5 min-w-0">
-                            <span className="material-symbols-outlined text-[16px] text-indigo-400 shrink-0">
+                            <span className="material-symbols-outlined text-[16px] text-[#0a6ed1] dark:text-[#6fa8dc] shrink-0">
                               {mod.icon}
                             </span>
                             <div className="truncate">
@@ -315,7 +315,7 @@ export const WorkspaceTaskbar: React.FC = () => {
                               <p className="text-[10px] text-theme-muted">{mod.category}</p>
                             </div>
                           </div>
-                          <span className="text-[9px] uppercase font-bold text-indigo-400 px-1 bg-indigo-500/10 rounded">
+                          <span className="text-[9px] uppercase font-bold text-[#0a6ed1] dark:text-[#6fa8dc] px-1 bg-[#0a6ed1]/10 rounded">
                             Pop
                           </span>
                         </button>
@@ -335,7 +335,7 @@ export const WorkspaceTaskbar: React.FC = () => {
               className="flex items-center justify-center w-9 h-9 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider/80 text-theme-body rounded-lg transition-all shadow-md"
               title="Overview & Manage Open Workspaces"
             >
-              <Grid size={15} className="text-indigo-400" />
+              <Grid size={15} className="text-[#0a6ed1] dark:text-[#6fa8dc]" />
             </button>
 
             {/* Show Desktop (Minimize All) */}
@@ -360,7 +360,7 @@ export const WorkspaceTaskbar: React.FC = () => {
                     onClick={() => launchPinned(pw)}
                     className={`flex items-center space-x-1.5 h-9 px-2.5 rounded-lg text-xs font-semibold transition-all ${
                       isOpen 
-                        ? "bg-indigo-500/10 border border-indigo-500/30 text-indigo-300" 
+                        ? "bg-[#0a6ed1]/10 border border-[#0a6ed1]/30 text-[#0a6ed1] dark:text-[#6fa8dc]" 
                         : "bg-transparent text-theme-muted hover:text-theme-body hover:bg-theme-surface-2"
                     }`}
                     title={`Open Pinned ${pw.title}`}
@@ -409,7 +409,7 @@ export const WorkspaceTaskbar: React.FC = () => {
                       onClick={() => handleLeftClickItem(win)}
                       className={`flex items-center space-x-2 h-9 px-3 rounded-lg text-xs font-bold cursor-pointer transition-all border shrink-0 select-none relative group ${
                         isActive
-                          ? "bg-theme-surface-2 text-white border-indigo-500 shadow-lg ring-1 ring-indigo-500/20"
+                          ? "bg-theme-surface-2 text-white border-[#0a6ed1] shadow-md ring-1 ring-[#0a6ed1]/30"
                           : isMinimized
                           ? "bg-theme-surface-1 border-theme-divider/40 text-theme-muted opacity-50 hover:opacity-80"
                           : "bg-theme-surface-2/60 hover:bg-theme-surface-2 border-theme-divider text-theme-body"
@@ -417,10 +417,10 @@ export const WorkspaceTaskbar: React.FC = () => {
                     >
                       {/* Active status underline dot indicator */}
                       <span className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full transition-all ${
-                        isActive ? "bg-indigo-400" : isMinimized ? "bg-theme-muted/50" : "bg-indigo-500/40"
+                        isActive ? "bg-[#0a6ed1]" : isMinimized ? "bg-theme-muted/50" : "bg-[#0a6ed1]/40"
                       }`} />
 
-                      <span className="material-symbols-outlined text-[15px] text-indigo-400 shrink-0">
+                      <span className="material-symbols-outlined text-[15px] text-[#0a6ed1] dark:text-[#6fa8dc] shrink-0">
                         {activeTab.icon}
                       </span>
                       <span className="max-w-[100px] md:max-w-[140px] truncate pr-1">

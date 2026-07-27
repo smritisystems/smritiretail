@@ -107,7 +107,7 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
       <div className="p-3 border-b border-theme-divider flex items-center justify-between">
         {!collapsed && (
           <div className="flex items-center gap-2 overflow-hidden">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+            <span className="w-2 h-2 rounded-full bg-[#0a6ed1] shrink-0" />
             <span className="text-xs font-bold text-theme-heading font-display uppercase tracking-wider truncate">
               {activeDomain} Domain
             </span>
@@ -126,7 +126,7 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
       <div className="p-2 border-b border-theme-divider">
         <button
           onClick={onReturnToLaunchpad}
-          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/20 transition-all ${
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[#0a6ed1]/10 text-[#0a6ed1] dark:text-[#6fa8dc] border border-[#0a6ed1]/30 hover:bg-[#0a6ed1]/20 transition-all ${
             collapsed ? "justify-center px-0" : ""
           }`}
           title="Return to SMRITI Launchpad"
@@ -146,9 +146,9 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
             <button
               key={item.id}
               onClick={() => onSelectTab(item.targetTab)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
                 isActive
-                  ? "bg-cyan-500 text-theme-heading font-bold shadow-md shadow-cyan-500/20"
+                  ? "bg-[#0a6ed1] text-white font-bold shadow-xs"
                   : "text-theme-muted hover:text-theme-heading hover:bg-theme-surface-2"
               } ${collapsed ? "justify-center px-0" : ""}`}
               title={collapsed ? item.title : undefined}
@@ -158,7 +158,7 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
                 <div className="flex-1 flex items-center justify-between truncate">
                   <span className="truncate">{item.title}</span>
                   {item.badge && (
-                    <span className="px-1.5 py-0.2 text-[9px] font-mono font-bold rounded bg-cyan-500/20 text-cyan-400 uppercase">
+                    <span className="px-1.5 py-0.2 text-[9px] font-mono font-bold rounded bg-[#0a6ed1]/20 text-[#0a6ed1] dark:text-[#6fa8dc] uppercase">
                       {item.badge}
                     </span>
                   )}
