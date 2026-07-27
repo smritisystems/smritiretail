@@ -1,5 +1,6 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
+ * Organization : SmritiSys
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
@@ -11,15 +12,37 @@
  * License      : Proprietary Commercial Software
  */
 
+const GSTIN_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
 /**
- * Validates Indian GSTIN format.
- * Format: 2 digits (State Code) + 10 characters (PAN) + 1 digit (Entity code) + 1 character (Z by default) + 1 checksum digit/char.
+ * Calculates the 15th checksum character of an Indian GSTIN using Luhn Mod 36.
+ */
+export function calculateGSTINChecksum(gstin14: string): string {
+  if (!gstin14 || gstin14.length !== 14) return "";
+  const clean = gstin14.trim().toUpperCase();
+  let total = 0;
+  for (let i = 0; i < 14; i++) {
+    const val = GSTIN_CHARS.indexOf(clean[i]);
+    if (val === -1) return "";
+    const factor = (i % 2 === 0) ? 2 : 1;
+    const product = val * factor;
+    total += Math.floor(product / 36) + (product % 36);
+  }
+  const remainder = total % 36;
+  const checkVal = (36 - remainder) % 36;
+  return GSTIN_CHARS[checkVal];
+}
+
+/**
+ * Validates Indian GSTIN format and checksum digit.
+ * Format: 2 digits (State Code) + 10 characters (PAN) + 1 digit (Entity code) + 1 character (Z) + 1 checksum char.
  */
 export function isValidGSTIN(gstin: string): boolean {
   if (!gstin) return false;
   const clean = gstin.trim().toUpperCase();
   const regex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-  return regex.test(clean);
+  if (!regex.test(clean)) return false;
+  return calculateGSTINChecksum(clean.slice(0, 14)) === clean[14];
 }
 
 /**
