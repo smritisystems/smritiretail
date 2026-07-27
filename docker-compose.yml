@@ -46,7 +46,7 @@ services:
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
       PYTHON_CORE_HOST: "api:8000"
       SMRITI_API_HOST: "api:8000"
-      INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:?INTERNAL_SERVICE_KEY is required}"
+      INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:-smriti_test_internal_key_do_not_use_in_production}"
     depends_on:
       db:
         condition: service_healthy
@@ -70,9 +70,9 @@ services:
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smriti_retail_db}"
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
-      JWT_SECRET_KEY: "${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}"
-      SGIP_VAULT_MASTER_KEY: "${SGIP_VAULT_MASTER_KEY:?SGIP_VAULT_MASTER_KEY is required}"
-      INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:?INTERNAL_SERVICE_KEY is required}"
+      JWT_SECRET_KEY: "${JWT_SECRET_KEY:-CHANGE_ME_FOR_DEVELOPMENT_ONLY_JWT}"
+      SGIP_VAULT_MASTER_KEY: "${SGIP_VAULT_MASTER_KEY:-CHANGE_ME_FOR_DEVELOPMENT_ONLY_VAULT}"
+      INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:-smriti_test_internal_key_do_not_use_in_production}"
       # When true, the container will skip running Alembic migrations on startup.
       # Recommended long-term: run migrations as a one-off job from CI or an init container.
       SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-false}"
