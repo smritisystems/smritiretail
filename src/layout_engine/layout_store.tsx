@@ -233,7 +233,7 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Inventory & Sourcing",
     },
     {
-      id: "print-studio",
+      id: "print-labels",
       label: "Barcode Print Studio",
       icon: "label_important",
       category: "Inventory & Sourcing",

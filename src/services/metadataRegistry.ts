@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -50,6 +50,11 @@ class MetadataRegistryService {
       const existingJson = JSON.stringify(existing);
       const payloadJson = JSON.stringify(payload);
       if (existingJson !== payloadJson) {
+        if (existing.owner === "System Auto-Registered") {
+          this.modules.set(payload.id, payload);
+          this.emitChange();
+          return;
+        }
         throw new Error(`Module '${metadata.id}' is already registered with different metadata.`);
       }
       return;
