@@ -309,8 +309,9 @@ export function useSEEF(): SEEFContextType {
       config: DEFAULT_SEEF_CONFIG,
       updateSEEF: () => {},
       resetSEEF: () => {},
-      theme: DEFAULT_SEEF_CONFIG.theme,
-      toggleTheme: () => {},
+      exportConfig: () => JSON.stringify(DEFAULT_SEEF_CONFIG),
+      importConfig: () => true,
+      isReady: true,
     };
   }
   return ctx;

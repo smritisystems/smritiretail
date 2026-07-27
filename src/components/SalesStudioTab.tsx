@@ -290,6 +290,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
   // Editor states (for creating/editing Quotations)
   const [isCreatingQuotation, setIsCreatingQuotation] = useState<boolean>(false);
+  const [isCreatingOrder, setIsCreatingOrder] = useState<boolean>(false);
   const [editorCustomerName, setEditorCustomerName] = useState<string>("");
   const [editorItems, setEditorItems] = useState<any[]>([]); // items in current draft
   const [editorStatus, setEditorStatus] = useState<"Draft" | "Submitted">("Draft");
@@ -2888,7 +2889,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   }))}
                   selectable={true}
                   selectedIds={selectedIds}
-                  onSelectionChange={(newSet) => setSelectedIds(newSet)}
+                  onSelectionChange={(newSet) => setSelectedIds(new Set(Array.from(newSet).map(String)))}
                   columns={[
                     {
                       key: "quotationNo",
@@ -3036,7 +3037,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   }))}
                   selectable={true}
                   selectedIds={selectedIds}
-                  onSelectionChange={(newSet) => setSelectedIds(newSet)}
+                  onSelectionChange={(newSet) => setSelectedIds(new Set(Array.from(newSet).map(String)))}
                   columns={[
                     {
                       key: "orderNo",
@@ -3255,7 +3256,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   }))}
                   selectable={true}
                   selectedIds={selectedIds}
-                  onSelectionChange={(newSet) => setSelectedIds(newSet)}
+                  onSelectionChange={(newSet) => setSelectedIds(new Set(Array.from(newSet).map(String)))}
                   columns={[
                     {
                       key: "returnNo",

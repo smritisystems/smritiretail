@@ -407,7 +407,7 @@ const WATERMARK_PRESETS = [
 export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, activeTabId }) => {
   const { config: seefConfig } = useSEEF(); // SEEF Phase 6 — animation cascade
   // Gate spring animation on SEEF animation config (respects reducedMotion preference)
-  const modalTransition = seefConfig.animation === "none"
+  const modalTransition = (seefConfig.animationPolicy === "none" || seefConfig.reducedMotion)
     ? { type: "tween", duration: 0 }
     : { type: "spring", duration: 0.4 };
   const { 

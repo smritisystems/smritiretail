@@ -391,7 +391,7 @@ export class SEEFGovernanceEngine {
 
   /** Dev-mode console reporter — only runs in development */
   logViolations(componentId: string): void {
-    if (import.meta.env.PROD) return;
+    if ((import.meta as any).env?.PROD) return;
     const viols = this.violations.get(componentId) ?? [];
     if (viols.length === 0) return;
     console.group(`[SEEF Governance] ${componentId} — ${viols.length} violation(s)`);
