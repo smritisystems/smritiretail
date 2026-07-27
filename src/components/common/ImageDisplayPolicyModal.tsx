@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -39,15 +39,17 @@ export const DEFAULT_DISPLAY_POLICY: DisplayPolicy = {
 };
 
 interface ImageDisplayPolicyModalProps {
+  policy?: DisplayPolicy;
   onClose: () => void;
   onSave: (policy: DisplayPolicy) => void;
 }
 
 export const ImageDisplayPolicyModal: React.FC<ImageDisplayPolicyModalProps> = ({
+  policy: initialPolicy,
   onClose,
   onSave,
 }) => {
-  const [policy, setPolicy] = useState<DisplayPolicy>(DEFAULT_DISPLAY_POLICY);
+  const [policy, setPolicy] = useState<DisplayPolicy>(initialPolicy || DEFAULT_DISPLAY_POLICY);
 
   useEffect(() => {
     const saved = localStorage.getItem("smriti_spif_display_policy");

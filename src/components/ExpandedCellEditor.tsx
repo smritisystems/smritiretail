@@ -55,12 +55,14 @@ import {
 /* ─── Props ──────────────────────────────────────────────────────────────── */
 
 export interface ExpandedCellEditorProps {
-  isOpen: boolean;
+  isOpen?: boolean;
   rowIndex: number;
-  fieldKey: string;
-  fieldLabel: string;
+  fieldKey?: string;
+  field?: string;
+  fieldLabel?: string;
+  label?: string;
   value: string;
-  onConfirm: (newValue: string) => void;
+  onConfirm: (newValue: string) => void | Promise<void>;
   onClose: () => void;
 }
 
@@ -88,14 +90,18 @@ function buildHighlightedSegments(
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
 export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
-  isOpen,
+  isOpen = true,
   rowIndex,
   fieldKey,
+  field,
   fieldLabel,
+  label,
   value,
   onConfirm,
   onClose,
 }) => {
+  const actualFieldKey = fieldKey || field || "";
+  const actualFieldLabel = fieldLabel || label || actualFieldKey;
   const [draft, setDraft] = useState(value);
   const [searchQuery, setSearchQuery] = useState("");
   const [matchIndex, setMatchIndex] = useState(0);
