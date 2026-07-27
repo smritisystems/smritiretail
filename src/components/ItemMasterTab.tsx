@@ -48,6 +48,7 @@ import { ProductImage } from "./common/ProductImage.tsx";
 import { ImageDisplayPolicyModal, DisplayPolicy, DEFAULT_DISPLAY_POLICY } from "./common/ImageDisplayPolicyModal.tsx";
 import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
 import { ExpandedCellEditor, ExpandContextMenu } from "./ExpandedCellEditor.tsx";
+import { BarcodePrintStudioModal } from "./BarcodePrintStudioModal.tsx";
 
 
 interface ItemMasterTabProps {
@@ -2847,6 +2848,15 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* ── Barcode Print Studio & PRN Script Generator Modal ───────────── */}
+      <BarcodePrintStudioModal
+        isOpen={showUniversalLabelModal}
+        onClose={() => setShowUniversalLabelModal(false)}
+        products={products}
+        selectedProductIds={selectedIds}
+        onNotification={onNotification}
+      />
     </div>
   );
 };

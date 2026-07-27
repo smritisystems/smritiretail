@@ -31,6 +31,10 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [5.3.0] — 2026-07-27
 
 ### Fixed
+- **Barcode Print Studio & PRN Script Generator**:
+  - Built `prnGenerator.ts` supporting raw TSPL and ZPL thermal printer command mapping based on Item Master products.
+  - Created `BarcodePrintStudioModal.tsx` modal with live visual thermal label mockup, TSPL/ZPL language switcher, copy PRN script, and .PRN file downloader.
+  - Wired Barcode Print Studio launcher into `ItemMasterTab.tsx` toolbar and batch actions.
 - **SMRITI Launchpad Refactoring**:
   - Rebranded Launchpad and ContextualSidebar from legacy Fiori labels to SMRITI Launchpad (`SMRITI Launchpad v5.3`).
   - Added Luhn Modulus 36 GSTIN checksum validation in `validators.ts` and inline SVG favicon in `index.html`.
