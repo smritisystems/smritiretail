@@ -712,4 +712,7 @@
   }
 }
 @media screen {
-  .print-only-con
+  .print-only-container {
+    display: none !important;
+  }
+}
