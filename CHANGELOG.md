@@ -31,6 +31,11 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [5.3.0] — 2026-07-27
 
 ### Fixed
+- **SMRITI Spreadsheet Platform (SSP)**:
+  - Implemented decoupled enterprise spreadsheet platform under `src/spreadsheet/` featuring `FormulaEngine.ts` (=GST, =MARGIN, =MRP, =ROUND), `ClipboardEngine.ts` (MS Excel 5,000+ row TSV/CSV parser), `ValidationEngine.ts`, `HistoryEngine.ts` (Ctrl+Z Undo / Ctrl+Y Redo), `TransactionEngine.ts` (Pending changes, Commit, Rollback), `PermissionEngine.ts`, and `AIAssistant.ts`.
+  - Created Domain Data Adapters (`ItemMasterAdapter.ts`, `CustomerAdapter.ts`, `SupplierAdapter.ts`) mapping domain entities to SSP grid schemas.
+  - Created universal `SmritiSpreadsheetPlatform.tsx` workspace UI component and wired into `ItemMasterTab.tsx` Live Excel Workspace tab.
+  - Created Vitest test suite `smritiSpreadsheetPlatform.test.ts` (100% pass rate).
 - **Barcode Print Studio & PRN Script Generator**:
   - Built `prnGenerator.ts` supporting raw TSPL and ZPL thermal printer command mapping based on Item Master products.
   - Created `BarcodePrintStudioModal.tsx` modal with live visual thermal label mockup, TSPL/ZPL language switcher, copy PRN script, and .PRN file downloader.
