@@ -31,6 +31,9 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [5.3.0] — 2026-07-27
 
 ### Fixed
+- **SMRITI Slate Navy Header & Original Theme Alignment**:
+  - Aligned `AdaptiveWorkspaceHeader.tsx` header navigation bar across all application workspace modules with the authentic SMRITI Slate Navy theme (`#354a5e`).
+  - Added Waffle matrix 9-dots app launcher icon, high-contrast search input, and slate blue brand badges.
 - **Indian Rupee (₹) Currency Standardization**:
   - Replaced legacy dollar ($) symbols with Indian Rupee (₹) in `PrintPreviewModal.tsx` and across all spreadsheet data grid schemas.
 - **SMRITI Spreadsheet Platform (SSP)**:

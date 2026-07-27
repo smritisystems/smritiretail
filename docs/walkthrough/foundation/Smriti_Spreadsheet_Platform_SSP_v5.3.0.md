@@ -53,6 +53,7 @@ Implement an enterprise-grade, decoupled **SMRITI Spreadsheet Platform (SSP)** u
 ## 4. Files Modified
 - `src/components/ItemMasterTab.tsx`
 - `src/components/PrintPreviewModal.tsx`
+- `src/components/common/AdaptiveWorkspaceHeader.tsx`
 - `CHANGELOG.md`
 - `docs/walkthrough/README.md`
 
