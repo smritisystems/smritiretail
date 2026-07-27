@@ -1116,6 +1116,40 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
             ),
           },
           {
+            id: "excel-workspace",
+            label: "Live Excel Workspace",
+            content: (
+              <div className="h-[680px]">
+                <SmritiSpreadsheetPlatform
+                  title="Item Master Live Excel Workspace"
+                  subtitle="Real-time spreadsheet grid connected to SMRITI Master Database — Supports formulas, MS Excel clipboard paste, and AI assistant"
+                  columns={ItemMasterAdapter.getColumns()}
+                  initialData={ItemMasterAdapter.toGridRows(products)}
+                  userRole={currentUser?.role || "Store Manager"}
+                  onSaveData={async (gridRows) => {
+                    const updatedProducts = ItemMasterAdapter.fromGridRows(gridRows);
+                    for (const prod of updatedProducts) {
+                      if (prod.id) {
+                        try {
+                          await apiFetchV1(`/inventory/${prod.id}`, {
+                            method: "PUT",
+                            body: JSON.stringify(prod),
+                          });
+                        } catch (err) {
+                          console.error(`Failed to update product ${prod.id}:`, err);
+                        }
+                      }
+                    }
+                    await onRefreshProducts();
+                    onNotification("Grid Saved", "Item Master database updated from Live Excel Workspace.", "success");
+                  }}
+                  onNotification={onNotification}
+                  isReadOnly={isReadOnly}
+                />
+              </div>
+            ),
+          },
+          {
             id: "excel-grid",
             label: "Excel Entry Grid",
             content: <ExcelGridEntrySection onRefreshProducts={onRefreshProducts} onNotification={onNotification} />,
@@ -2652,44 +2686,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
             </div>
           </div>
         </div>
-        )
-      },
-      {
-        id: "excel-workspace",
-        label: "Live Excel Workspace",
-        content: (
-          <div className="h-[680px]">
-            <SmritiSpreadsheetPlatform
-              title="Item Master Live Excel Workspace"
-              subtitle="Real-time spreadsheet grid connected to SMRITI Master Database — Supports formulas, MS Excel clipboard paste, and AI assistant"
-              columns={ItemMasterAdapter.getColumns()}
-              initialData={ItemMasterAdapter.toGridRows(products)}
-              userRole={currentUser?.role || "Store Manager"}
-              onSaveData={async (gridRows) => {
-                const updatedProducts = ItemMasterAdapter.fromGridRows(gridRows);
-                for (const prod of updatedProducts) {
-                  if (prod.id) {
-                    try {
-                      await apiFetchV1(`/inventory/${prod.id}`, {
-                        method: "PUT",
-                        body: JSON.stringify(prod),
-                      });
-                    } catch (err) {
-                      console.error(`Failed to update product ${prod.id}:`, err);
-                    }
-                  }
-                }
-                await onRefreshProducts();
-                onNotification("Grid Saved", "Item Master database updated from Live Excel Workspace.", "success");
-              }}
-              onNotification={onNotification}
-              isReadOnly={isReadOnly}
-            />
-          </div>
-        )
-      }
-    ]}
-  />
+      )}
 
       {/* ── Product Inspection / View Details Modal ──────────────────────────── */}
       {viewingProduct && (
