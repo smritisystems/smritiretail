@@ -192,8 +192,10 @@ export const Launchpad: React.FC<LaunchpadProps> = ({
 
   // 1. RBAC Dynamic Filtering (Governance WNG-002: max 12 tiles, disabled tiles NOT rendered)
   const authorizedTiles = useMemo(() => {
-    const isAdmin = currentUser?.role?.toLowerCase().includes("admin") || currentUser?.role?.toLowerCase().includes("manager");
-    
+    const isAdmin =
+      currentUser?.role?.toLowerCase().includes("admin") ||
+      currentUser?.role?.toLowerCase().includes("manager");
+
     let filtered = ALL_LAUNCHPAD_TILES.filter((tile) => {
       if (isAdmin) return true;
       if (!userPermissions || userPermissions.length === 0) return true;
@@ -219,131 +221,173 @@ export const Launchpad: React.FC<LaunchpadProps> = ({
 
   const categories = ["ALL", "Operations", "Masters", "Analytics", "Administration"];
 
+  // Group tiles by category for authentic SAP Fiori Launchpad Group rendering
+  const groupedTiles = useMemo(() => {
+    const groups: { [key: string]: LaunchpadTile[] } = {};
+    displayedTiles.forEach((tile) => {
+      if (!groups[tile.category]) {
+        groups[tile.category] = [];
+      }
+      groups[tile.category].push(tile);
+    });
+    return groups;
+  }, [displayedTiles]);
+
   const currentTimeStr = new Date().toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
 
   return (
-    <div className="min-h-screen bg-theme-base text-theme-body p-6 md:p-10 font-sans selection:bg-cyan-500 selection:text-theme-heading">
-      <div className="max-w-7xl mx-auto space-y-8 relative z-10">
-        {/* Launchpad Top Header (SAP Fiori Header Pattern) */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-theme-divider">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="px-3 py-1 text-xs font-semibold rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" /> SMRITI Launchpad v5.3
+    <div className="min-h-screen bg-theme-base text-theme-body p-6 md:p-8 font-sans selection:bg-[#0a6ed1] selection:text-white">
+      <div className="max-w-7xl mx-auto space-y-6 relative z-10">
+        {/* 1. SAP Fiori Shell Sub-Header / Welcome Banner */}
+        <div className="bg-theme-surface-1 border border-theme-divider rounded-lg p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 text-xs font-semibold rounded bg-[#354a5e] text-white border border-[#4c6680] flex items-center gap-1.5 font-mono shadow-xs">
+                <Sparkles className="w-3.5 h-3.5 text-[#6fa8dc]" /> SMRITI Launchpad v5.3
               </span>
-              <span className="text-xs text-theme-muted flex items-center gap-1">
+              <span className="text-xs text-theme-muted flex items-center gap-1 font-mono">
                 <Clock className="w-3.5 h-3.5" /> {currentTimeStr} IST
               </span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-theme-heading">
-              Welcome back,{" "}
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                {currentUser?.name || "Cashier"}
-              </span>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-theme-heading">
+              Welcome back, {currentUser?.name || "Cashier"}
             </h1>
-            <p className="text-theme-muted text-sm mt-1">
-              Role:{" "}
-              <span className="text-theme-body font-medium capitalize">
-                {currentUser?.role || "Staff"}
-              </span>{" "}
-              | Company: {currentUser?.companyId || "Default Org"} | Branch:{" "}
-              {currentUser?.branchId || "HQ"}
+            <p className="text-theme-muted text-xs flex flex-wrap items-center gap-2">
+              <span>Role: <strong className="text-theme-heading font-medium">{currentUser?.role || "Staff"}</strong></span>
+              <span className="text-theme-divider">•</span>
+              <span>Company: <strong className="text-theme-heading font-medium">{currentUser?.companyId || "Default Org"}</strong></span>
+              <span className="text-theme-divider">•</span>
+              <span>Branch: <strong className="text-theme-heading font-medium">{currentUser?.branchId || "HQ"}</strong></span>
             </p>
           </div>
 
-          {/* Quick Search Input */}
+          {/* Quick Search Input (SAP Fiori Shell Search Pattern) */}
           <div className="w-full md:w-80 relative">
-            <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-theme-muted" />
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-theme-muted" />
             <input
               type="text"
               placeholder="Search applications (Ctrl+K)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-theme-surface-1 border border-theme-divider rounded-xl pl-10 pr-4 py-2.5 text-sm text-theme-body placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-all shadow-inner"
+              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg pl-9 pr-4 py-2 text-xs text-theme-heading placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-[#0a6ed1] focus:border-[#0a6ed1] transition-all shadow-xs"
             />
           </div>
         </div>
 
-        {/* Category Pills Bar */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-          <div className="text-xs font-semibold text-theme-muted uppercase tracking-wider mr-2 flex items-center gap-1">
-            <Grid className="w-3.5 h-3.5" /> Domains:
+        {/* 2. SAP Fiori Segmented Control / Category Pills Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-theme-surface-1 border border-theme-divider p-2 rounded-lg shadow-xs">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+            <span className="text-xs font-bold text-theme-muted uppercase tracking-wider px-2 flex items-center gap-1.5">
+              <Grid className="w-3.5 h-3.5 text-[#0a6ed1]" /> Domains:
+            </span>
+            <div className="flex items-center gap-1 bg-theme-surface-2 p-1 rounded-md border border-theme-divider">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
+                    selectedCategory === cat
+                      ? "bg-[#0a6ed1] text-white shadow-xs"
+                      : "text-theme-muted hover:bg-theme-surface-hover hover:text-theme-heading"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                selectedCategory === cat
-                  ? "bg-cyan-500 text-theme-heading font-semibold shadow-lg shadow-cyan-500/20"
-                  : "bg-theme-surface-1 text-theme-muted hover:bg-theme-surface-2 hover:text-theme-heading border border-theme-divider"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+
+          <div className="text-xs font-mono text-theme-muted px-2 hidden sm:block">
+            Governance WNG-002 Certified (Max 12 Apps)
+          </div>
         </div>
 
-        {/* Dynamic Launchpad Grid (Max 12 Tiles) */}
+        {/* 3. SAP Fiori Launchpad Tiles Grid (Grouped by Category Section) */}
         {displayedTiles.length === 0 ? (
-          <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-12 text-center">
-            <p className="text-theme-muted text-sm">No applications found matching "{searchQuery}".</p>
+          <div className="bg-theme-surface-1 border border-theme-divider rounded-lg p-12 text-center shadow-xs">
+            <p className="text-theme-muted text-xs">No applications found matching "{searchQuery}".</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {displayedTiles.map((tile, idx) => {
-              const Icon = tile.icon;
-              return (
-                <motion.div
-                  key={tile.id}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25, delay: idx * 0.04 }}
-                  onClick={() => onSelectTab(tile.targetTab)}
-                  className={`group relative cursor-pointer bg-theme-surface-1 hover:bg-theme-surface-2 border border-theme-divider rounded-2xl p-5 transition-all duration-300 shadow-lg hover:shadow-cyan-500/10 hover:-translate-y-1 overflow-hidden ${tile.accentColor}`}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="p-3 rounded-xl bg-theme-surface-2 border border-theme-divider group-hover:scale-110 transition-transform duration-300">
-                      <Icon className="w-6 h-6" />
-                    </div>
-                    {tile.badge && (
-                      <span className="px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase rounded-md bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                        {tile.badge}
-                      </span>
-                    )}
-                  </div>
+          <div className="space-y-8">
+            {Object.keys(groupedTiles).map((catName) => (
+              <div key={catName} className="space-y-3">
+                {/* Section Header Banner */}
+                <div className="flex items-center justify-between border-b border-theme-divider pb-2">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-theme-muted flex items-center gap-2">
+                    <span className="w-1.5 h-3.5 bg-[#0a6ed1] rounded-xs" />
+                    {catName === "Operations" && "Operations & POS Transactions"}
+                    {catName === "Masters" && "Master Data & Registry Hub"}
+                    {catName === "Analytics" && "Analytics, Ledger & Reports"}
+                    {catName === "Administration" && "Administration & System RBAC"}
+                    {!["Operations", "Masters", "Analytics", "Administration"].includes(catName) && catName}
+                  </h2>
+                  <span className="text-[11px] font-mono text-theme-muted">
+                    {groupedTiles[catName].length} {groupedTiles[catName].length === 1 ? "App" : "Apps"}
+                  </span>
+                </div>
 
-                  <div>
-                    <h3 className="text-base font-semibold text-theme-heading group-hover:text-cyan-400 transition-colors flex items-center justify-between">
-                      {tile.title}
-                      <ChevronRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-cyan-400" />
-                    </h3>
-                    <p className="text-xs text-theme-muted mt-1 line-clamp-2 leading-relaxed">
-                      {tile.subtitle}
-                    </p>
-                  </div>
+                {/* Fiori Tiles Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {groupedTiles[catName].map((tile, idx) => {
+                    const Icon = tile.icon;
+                    return (
+                      <motion.div
+                        key={tile.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.15, delay: idx * 0.03 }}
+                        onClick={() => onSelectTab(tile.targetTab)}
+                        className="group relative cursor-pointer bg-theme-surface-1 hover:bg-theme-surface-2 border border-theme-divider hover:border-[#0a6ed1] rounded-lg p-4 transition-all duration-200 shadow-xs hover:shadow-md hover:-translate-y-0.5 overflow-hidden flex flex-col justify-between"
+                      >
+                        {/* Top Icon & Badge Row */}
+                        <div>
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="w-9 h-9 rounded-md bg-theme-surface-2 border border-theme-divider flex items-center justify-center text-[#0a6ed1] dark:text-[#6fa8dc] group-hover:scale-105 transition-transform duration-200">
+                              <Icon className="w-5 h-5" />
+                            </div>
+                            {tile.badge && (
+                              <span className="px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase rounded bg-[#0a6ed1]/15 text-[#0a6ed1] dark:text-[#6fa8dc] border border-[#0a6ed1]/30">
+                                {tile.badge}
+                              </span>
+                            )}
+                          </div>
 
-                  {/* Tile Footer Scope Tag */}
-                  <div className="mt-4 pt-3 border-t border-theme-divider flex items-center justify-between text-[11px] text-theme-muted">
-                    <span>{tile.category}</span>
-                    <span className="font-mono text-[10px] text-theme-muted">
-                      {tile.permissionScope}
-                    </span>
-                  </div>
-                </motion.div>
-              );
-            })}
+                          {/* Title & Subtitle */}
+                          <div>
+                            <h3 className="text-sm font-bold text-theme-heading group-hover:text-[#0a6ed1] dark:group-hover:text-[#6fa8dc] transition-colors flex items-center justify-between">
+                              {tile.title}
+                              <ChevronRight className="w-4 h-4 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-[#0a6ed1] dark:text-[#6fa8dc]" />
+                            </h3>
+                            <p className="text-xs text-theme-muted mt-1 line-clamp-2 leading-relaxed font-normal">
+                              {tile.subtitle}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* SAP Fiori Tile Footer */}
+                        <div className="mt-4 pt-2.5 border-t border-theme-divider flex items-center justify-between text-[11px] text-theme-muted">
+                          <span className="font-semibold uppercase tracking-wider text-[10px]">{tile.category}</span>
+                          <span className="font-mono text-[10px] text-theme-muted">
+                            {tile.permissionScope}
+                          </span>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Footer Governance Indicator */}
-        <div className="pt-6 border-t border-theme-divider flex flex-col sm:flex-row items-center justify-between text-xs text-theme-muted gap-4">
+        {/* 4. SAP Fiori Footer Governance Indicator */}
+        <div className="pt-4 border-t border-theme-divider flex flex-col sm:flex-row items-center justify-between text-xs text-theme-muted gap-3 font-mono">
           <p>© SMRITIBooks.com — SMRITI Business OS (Governance WNG-002 Certified)</p>
           <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
               <span className="w-2 h-2 rounded-full bg-emerald-500" /> System Operational
             </span>
             <span>Active Apps: {displayedTiles.length} / {ALL_LAUNCHPAD_TILES.length}</span>
