@@ -9,8 +9,9 @@
  */
 
 import React from "react";
-import { Search, Bell, Sparkles, User, HelpCircle, Shield } from "lucide-react";
+import { Search, Bell, Sparkles, User, HelpCircle, Shield, Sun, Moon, Palette } from "lucide-react";
 import { useSEEF } from "../../layout_engine/SEEFContext.tsx";
+import { SEEFTheme } from "../../layout_engine/SEEFTypes.ts";
 
 interface AdaptiveWorkspaceHeaderProps {
   currentUser?: {
@@ -29,8 +30,11 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
   onOpenHelp,
 }) => {
   const { config, updateSEEF } = useSEEF();
-  const theme = config.theme;
-  const toggleTheme = () => updateSEEF({ theme: theme === "dark" ? "enterprise" : "dark" });
+  const activeTheme = config.theme;
+
+  const handleThemeChange = (newTheme: SEEFTheme) => {
+    updateSEEF({ theme: newTheme });
+  };
 
   return (
     <header className="h-12 bg-[#354a5e] border-b border-white/10 px-4 flex items-center justify-between text-xs select-none z-30 shadow-md">
@@ -67,6 +71,21 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
 
       {/* 3. Right Enterprise Actions & User Profile */}
       <div className="flex items-center gap-2">
+        {/* SAP Fiori Interactive Theme Switcher */}
+        <div className="flex items-center gap-1 bg-white/10 border border-white/15 rounded-lg p-1">
+          <Palette size={14} className="text-[#6fa8dc] ml-1 shrink-0" />
+          <select
+            value={activeTheme}
+            onChange={(e) => handleThemeChange(e.target.value as SEEFTheme)}
+            className="bg-transparent text-white seds-text-caption font-semibold focus:outline-none cursor-pointer pr-1"
+            title="Switch SAP Fiori Theme"
+          >
+            <option value="dark" className="bg-[#1c222b] text-white">🌙 Quartz Dark</option>
+            <option value="enterprise" className="bg-white text-[#1d2d3e]">☀️ Horizon Light (Fiori)</option>
+            <option value="corporate" className="bg-[#0f1d2a] text-white">🏢 Corporate Navy</option>
+          </select>
+        </div>
+
         {/* Help Portal */}
         <button
           onClick={onOpenHelp}
