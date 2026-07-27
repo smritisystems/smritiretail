@@ -25,13 +25,14 @@
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 export type SEEFTheme =
-  | "enterprise"     // SAP Fiori Horizon-inspired clean light (default for Login/Settings)
+  | "enterprise"     // SAP Fiori Horizon-inspired clean light
+  | "fiori-light"    // Authentic SAP Fiori 3 / Morning Horizon Light
   | "light"          // Standard light mode
-  | "dark"           // Original SMRITI Navy (default for Workspace)
-  | "high-contrast"  // WCAG AAA accessible (forced-colors equivalent)
+  | "dark"           // SAP Fiori Quartz Dark Slate Navy
+  | "high-contrast"  // WCAG AAA accessible
   | "corporate"      // Deep navy professional
   | "minimal"        // Clean distraction-free
-  | "custom";        // Company branding override (color tokens from branding config)
+  | "custom";        // Company branding override
 
 // ── Density / Spacing ───────────────────────────────────────────────────────
 export type SEEFDensity =

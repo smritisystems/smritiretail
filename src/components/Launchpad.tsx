@@ -245,17 +245,17 @@ export const Launchpad: React.FC<LaunchpadProps> = ({
         <div className="bg-theme-surface-1 border border-theme-divider rounded-lg p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 mb-1">
-              <span className="px-2.5 py-0.5 text-xs font-semibold rounded bg-[#354a5e] text-white border border-[#4c6680] flex items-center gap-1.5 font-mono shadow-xs">
+              <span className="px-2.5 py-0.5 seds-text-overline rounded bg-[#354a5e] text-white border border-[#4c6680] flex items-center gap-1.5 shadow-xs">
                 <Sparkles className="w-3.5 h-3.5 text-[#6fa8dc]" /> SMRITI Launchpad v5.3
               </span>
-              <span className="text-xs text-theme-muted flex items-center gap-1 font-mono">
+              <span className="seds-text-caption text-theme-muted flex items-center gap-1 font-mono">
                 <Clock className="w-3.5 h-3.5" /> {currentTimeStr} IST
               </span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-theme-heading">
+            <h1 className="seds-text-display tracking-tight text-theme-heading">
               Welcome back, {currentUser?.name || "Cashier"}
             </h1>
-            <p className="text-theme-muted text-xs flex flex-wrap items-center gap-2">
+            <p className="text-theme-muted seds-text-small flex flex-wrap items-center gap-2">
               <span>Role: <strong className="text-theme-heading font-medium">{currentUser?.role || "Staff"}</strong></span>
               <span className="text-theme-divider">•</span>
               <span>Company: <strong className="text-theme-heading font-medium">{currentUser?.companyId || "Default Org"}</strong></span>
@@ -272,7 +272,7 @@ export const Launchpad: React.FC<LaunchpadProps> = ({
               placeholder="Search applications (Ctrl+K)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg pl-9 pr-4 py-2 text-xs text-theme-heading placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-[#0a6ed1] focus:border-[#0a6ed1] transition-all shadow-xs"
+              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg pl-9 pr-4 py-2 seds-text-small text-theme-heading placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-[#0a6ed1] focus:border-[#0a6ed1] transition-all shadow-xs"
             />
           </div>
         </div>
@@ -280,7 +280,7 @@ export const Launchpad: React.FC<LaunchpadProps> = ({
         {/* 2. SAP Fiori Segmented Control / Category Pills Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 bg-theme-surface-1 border border-theme-divider p-2 rounded-lg shadow-xs">
           <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
-            <span className="text-xs font-bold text-theme-muted uppercase tracking-wider px-2 flex items-center gap-1.5">
+            <span className="seds-text-overline text-theme-muted px-2 flex items-center gap-1.5">
               <Grid className="w-3.5 h-3.5 text-[#0a6ed1]" /> Domains:
             </span>
             <div className="flex items-center gap-1 bg-theme-surface-2 p-1 rounded-md border border-theme-divider">
@@ -288,7 +288,7 @@ export const Launchpad: React.FC<LaunchpadProps> = ({
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
+                  className={`px-3 py-1 rounded seds-text-button transition-all ${
                     selectedCategory === cat
                       ? "bg-[#0a6ed1] text-white shadow-xs"
                       : "text-theme-muted hover:bg-theme-surface-hover hover:text-theme-heading"

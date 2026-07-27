@@ -228,31 +228,32 @@
 	}
 
 	/* ═══════════════════════════════════════════════════════════════════════
-	   SEEF THEME: "enterprise" — SAP Fiori Horizon-Inspired Clean Light
+	   SEEF THEME: "fiori-light" & "enterprise" — Authentic SAP Fiori Horizon Light
 	   ═══════════════════════════════════════════════════════════════════════ */
+	[data-seef-theme="fiori-light"],
 	[data-seef-theme="enterprise"] {
-		--c-theme-base:          #f4f4f4;
+		--c-theme-base:          #f4f6f9;
 		--c-theme-surface-1:     #ffffff;
-		--c-theme-surface-2:     #f9f9f9;
-		--c-theme-surface-3:     #f4f4f4;
-		--c-theme-surface-4:     #ededed;
-		--c-theme-surface-hover: #e8e8e8;
-		--c-theme-divider:       #e0e0e0;
-		--c-theme-muted:         #6a6d70;
-		--c-theme-primary:       #32363a;
-		--c-theme-body:          #32363a;
+		--c-theme-surface-2:     #f8fafc;
+		--c-theme-surface-3:     #f1f5f9;
+		--c-theme-surface-4:     #e2e8f0;
+		--c-theme-surface-hover: #edf2f7;
+		--c-theme-divider:       #e2e8f0;
+		--c-theme-muted:         #556b82;
+		--c-theme-primary:       #1d2d3e;
+		--c-theme-body:          #1d2d3e;
 
-		--c-seef-success: #188038;
-		--c-seef-warning: #df6e0c;
+		--c-seef-success: #107e3e;
+		--c-seef-warning: #e66000;
 		--c-seef-error:   #bb0000;
-		--c-seef-info:    #0854a0;
+		--c-seef-info:    #0a6ed1;
 		--c-seef-brand:   #354a5e;
-		--c-seef-accent:  #0064d9;
-		--c-seef-neutral: #89919a;
-		--c-seef-overlay: rgba(0, 0, 0, 0.5);
+		--c-seef-accent:  #0a6ed1;
+		--c-seef-neutral: #8996a5;
+		--c-seef-overlay: rgba(0, 0, 0, 0.4);
 
 		--seef-card-bg:     #ffffff;
-		--seef-card-border: 1px solid #e0e0e0;
+		--seef-card-border: 1px solid #e2e8f0;
 		--seef-card-shadow: var(--seef-elevation-1);
 	}
 
@@ -529,6 +530,149 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   SEDS CENTRALIZED TYPOGRAPHY SCALE UTILITIES
+   Single source of truth for every typography element across SMRITI OS.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.seds-text-display {
+	font-family: var(--font-display, "Space Grotesk", sans-serif);
+	font-size: 32px;
+	font-weight: 700;
+	line-height: 1.2;
+	letter-spacing: -0.02em;
+}
+
+.seds-text-h1 {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 24px;
+	font-weight: 700;
+	line-height: 1.25;
+	letter-spacing: -0.015em;
+}
+
+.seds-text-h2 {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 20px;
+	font-weight: 600;
+	line-height: 1.3;
+	letter-spacing: -0.01em;
+}
+
+.seds-text-h3 {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 16px;
+	font-weight: 600;
+	line-height: 1.35;
+	letter-spacing: 0;
+}
+
+.seds-text-title {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 14px;
+	font-weight: 700;
+	line-height: 1.4;
+	letter-spacing: 0;
+}
+
+.seds-text-subtitle {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 13px;
+	font-weight: 500;
+	line-height: 1.4;
+	letter-spacing: 0;
+}
+
+.seds-text-body-lg {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 16px;
+	font-weight: 400;
+	line-height: 1.5;
+	letter-spacing: 0;
+}
+
+.seds-text-body {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 14px;
+	font-weight: 400;
+	line-height: 1.5;
+	letter-spacing: 0;
+}
+
+.seds-text-small {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 1.4;
+	letter-spacing: 0;
+}
+
+.seds-text-caption {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 11px;
+	font-weight: 400;
+	line-height: 1.35;
+	letter-spacing: 0.01em;
+}
+
+.seds-text-overline {
+	font-family: var(--font-mono, "JetBrains Mono", monospace);
+	font-size: 10px;
+	font-weight: 700;
+	line-height: 1.3;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.seds-text-button {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.2;
+	letter-spacing: 0.02em;
+}
+
+.seds-text-table-header {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.3;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.seds-text-table-cell {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 1.4;
+	letter-spacing: 0;
+}
+
+.seds-text-label {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.3;
+	letter-spacing: 0;
+}
+
+.seds-text-helper {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 11px;
+	font-weight: 400;
+	line-height: 1.35;
+	letter-spacing: 0;
+}
+
+.seds-text-error {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 1.35;
+	letter-spacing: 0;
+	color: var(--c-seef-error);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    MATERIAL SYMBOLS (preserved from original)
    ═══════════════════════════════════════════════════════════════════════════ */
 .material-symbols-outlined {
@@ -568,7 +712,4 @@
   }
 }
 @media screen {
-  .print-only-container {
-    display: none !important;
-  }
-}
+  .print-only-con

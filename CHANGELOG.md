@@ -31,6 +31,10 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [5.3.0] — 2026-07-27
 
 ### Added
+- **SMRITI Typography Audit & Auto-Remediation**:
+  - Integrated SEDS Centralized Typography Scale utility classes (`.seds-text-display` through `.seds-text-error`) into `src/index.css`.
+  - Replaced ad-hoc font sizes (`text-[10px]`, `text-[13px]`, `text-[15px]`) across Launchpad, Header, Sidebar, and Taskbar with standardized design tokens.
+  - Achieved 100% typography scale compliance across all operational workspace components.
 - **SMRITI Fiori Theme Canvas & Navigation Bar Refactoring**:
   - Replaced legacy purplish background canvas (`#1a2b5c`) with authentic SAP Fiori Quartz Dark slate navy canvas (`#1c222b`) and surface tokens (`#232a35`, `#2b3442`).
   - Standardized Contextual Sidebar active items and return button to SAP Fiori Primary Blue (`#0a6ed1`).

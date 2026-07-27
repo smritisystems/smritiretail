@@ -41,10 +41,10 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
             <div key={i} className="w-[4px] h-[4px] rounded-[1px] bg-white" />
           ))}
         </div>
-        <span className="font-bold text-sm text-white font-display tracking-wide flex items-center gap-2">
+        <span className="seds-text-title text-white flex items-center gap-2">
           SMRITI <span className="text-[#6fa8dc] font-mono text-xs">Retail OS</span>
         </span>
-        <span className="px-2 py-0.5 rounded bg-white/12 text-white border border-white/10 font-mono text-[10px] font-semibold hidden sm:inline-block">
+        <span className="px-2 py-0.5 rounded bg-white/12 text-white border border-white/10 seds-text-overline hidden sm:inline-block">
           v5.3 Enterprise
         </span>
       </div>
@@ -53,13 +53,13 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
       <div className="flex-1 max-w-md mx-4">
         <button
           onClick={onOpenGlobalSearch}
-          className="w-full flex items-center justify-between bg-[#243343] border border-white/15 hover:border-white/30 rounded-xl px-3 py-1.5 text-blue-200/60 hover:text-white transition-all text-xs"
+          className="w-full flex items-center justify-between bg-[#243343] border border-white/15 hover:border-white/30 rounded-xl px-3 py-1.5 text-blue-200/60 hover:text-white transition-all seds-text-small"
         >
           <div className="flex items-center gap-2">
             <Search size={14} className="text-blue-200/60" />
-            <span>Search applications, SKU, customers...</span>
+            <span className="seds-text-small">Search applications, SKU, customers...</span>
           </div>
-          <kbd className="px-1.5 py-0.2 text-[9px] font-mono rounded bg-white/10 border border-white/15 text-blue-200/80">
+          <kbd className="px-1.5 py-0.2 seds-text-overline rounded bg-white/10 border border-white/15 text-blue-200/80">
             Ctrl+K
           </kbd>
         </button>
