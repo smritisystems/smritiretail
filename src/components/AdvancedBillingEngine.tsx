@@ -189,7 +189,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
   const { config: seefConfig } = useSEEF();
   const posRowPadding = seefConfig.density === "compact" ? "py-1.5" : seefConfig.density === "spacious" ? "py-3" : "py-2";
   // Gate motion/react transitions on SEEF animation config (respects reducedMotion user preference)
-  const motionProps = seefConfig.animation === "none" ? {} : { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } };
+  const motionProps = (seefConfig.animationPolicy === "none" || seefConfig.reducedMotion) ? {} : { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } };
 
   // Local Cart State when cart prop is empty
   const [localCart, setLocalCart] = useState<{ product: Product; quantity: number }[]>([

@@ -1,5 +1,6 @@
 /**
  * Project      : SMRITI Retail OS
+ * Organization : SmritiSys
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
@@ -20,7 +21,7 @@ import {
 } from "lucide-react";
 import { AttributeGroup, AttributeDefinition } from "../types.js";
 import { ExpandedCellEditor, ExpandContextMenu } from "./ExpandedCellEditor";
-import { generateSkuCode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
+import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
 
 interface ExcelGridEntrySectionProps {
   onRefreshProducts: () => Promise<void>;

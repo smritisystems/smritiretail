@@ -1,5 +1,6 @@
 /**
  * Project      : SMRITI Retail OS
+ * Organization : SmritiSys
  * Module       : SAP Fiori Enterprise Slim Header (WNG-002 Compliant)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -27,7 +28,9 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
   onOpenNotifications,
   onOpenHelp,
 }) => {
-  const { theme, toggleTheme } = useSEEF();
+  const { config, updateSEEF } = useSEEF();
+  const theme = config.theme;
+  const toggleTheme = () => updateSEEF({ theme: theme === "dark" ? "enterprise" : "dark" });
 
   return (
     <header className="h-12 bg-theme-surface-1 border-b border-theme-divider px-4 flex items-center justify-between text-xs select-none z-30 shadow-sm">

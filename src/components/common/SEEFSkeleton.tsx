@@ -1,5 +1,6 @@
 /**
  * Project      : SMRITI Retail OS
+ * Organization : SmritiSys
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
@@ -86,8 +87,10 @@ export interface SEEFSkeletonProps {
   variant?: "text" | "card" | "table" | "kpi" | "list" | "spinner";
   /** For "text" — number of text lines */
   lines?: number;
-  /** For "card" — height in px */
-  height?: number;
+  /** Height in px or CSS string */
+  height?: number | string;
+  /** Width in px or CSS string */
+  width?: number | string;
   /** For "table" — number of rows */
   rows?: number;
   /** For "table" — number of columns */
@@ -95,6 +98,7 @@ export interface SEEFSkeletonProps {
   /** Additional CSS class */
   className?: string;
   id?: string;
+  style?: React.CSSProperties;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────

@@ -28,6 +28,16 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [5.3.0] — 2026-07-27
+
+### Fixed
+- **UI/UX & Component Governance Cleanup**:
+  - Disambiguated duplicate `print-studio` workspace ID collision in `layout_store.tsx`.
+  - Added metadata auto-registration override in `MetadataRegistry` to support explicit component metadata enrichment.
+  - Aligned prop interfaces across `ImageDisplayPolicyModal`, `ExpandedCellEditor`, `SEEFDataTable`, `SEEFSkeleton`, `SalesStudioTab`, and `CustomerMasterTab`.
+  - Resolved all `tsc --noEmit` compilation warnings and ensured 100% test pass rate across all 13 Vitest test suites (69 tests).
+
+
 ## [5.2.2] — 2026-07-21
 
 ### Added

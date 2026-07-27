@@ -1,5 +1,6 @@
 /**
  * Project      : SMRITI Retail OS
+ * Organization : SmritiSys
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
@@ -241,7 +242,7 @@ export function SEEFDataTable<TRow = Record<string, unknown>>({
   const density = densityOverride ?? config.density;
   const rowH = ROW_HEIGHT[density];
   const headerH = HEADER_HEIGHT[density];
-  const animate = config.animation !== "none";
+  const animate = config.animationPolicy !== "none" && !config.reducedMotion;
 
   // Column visibility
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());

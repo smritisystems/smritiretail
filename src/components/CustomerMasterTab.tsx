@@ -190,7 +190,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
     };
 
     try {
-      const valResult = await validateCustomerProfile(payload);
+      const valResult = validateCustomerProfile(payload, customers);
       if (!valResult.valid) {
         setValidationErrors(valResult.errors);
         setIsValidating(false);
@@ -208,6 +208,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
         customerGroupId: payload.customerGroupId || "CG-Retail",
         outstanding: 0,
         status: payload.status || "Active",
+        createdDate: new Date().toISOString().slice(0, 10),
         code: payload.code,
         shortName: payload.shortName,
         notes: payload.notes,
@@ -556,17 +557,15 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
           columns={COLUMNS}
           onRowClick={(c) => setSelectedCustomerId(c.id)}
           searchPlaceholder="Search customers by name, mobile, GSTIN, or ID..."
-          primaryAction={
+          onCreateNew={
             !isReadOnly
-              ? {
-                  label: "Register New Customer",
-                  onClick: () => {
-                    setValidationErrors([]);
-                    setIsAddingCustomer(true);
-                  },
+              ? () => {
+                  setValidationErrors([]);
+                  setIsAddingCustomer(true);
                 }
               : undefined
           }
+          primaryActionLabel="Register New Customer"
           filterOptions={[
             {
               key: "status",

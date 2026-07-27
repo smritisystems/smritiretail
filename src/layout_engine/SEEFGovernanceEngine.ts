@@ -1,5 +1,6 @@
 /**
  * Project      : SMRITI Retail OS
+ * Organization : SmritiSys
  * Module       : SEEF Governance Engine v1.0
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
