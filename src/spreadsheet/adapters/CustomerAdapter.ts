@@ -33,17 +33,20 @@ export class CustomerAdapter {
   }
 
   public static toGridRows(customers: Customer[]): Record<string, any>[] {
-    return customers.map((c) => ({
-      id: c.id,
-      code: c.code || "",
-      name: c.name || "",
-      mobile: c.phone || c.mobile || "",
-      email: c.email || "",
-      gstin: c.gstin || "",
-      city: c.city || "",
-      pinCode: c.pinCode || "",
-      loyaltyPoints: c.loyaltyPoints !== undefined ? c.loyaltyPoints.toString() : "0",
-    }));
+    return customers.map((c) => {
+      const cust = c as any;
+      return {
+        id: c.id,
+        code: c.code || "",
+        name: c.name || "",
+        mobile: c.mobile || c.phone || "",
+        email: c.email || "",
+        gstin: c.gstNumber || cust.gstin || "",
+        city: cust.city || "",
+        pinCode: cust.pinCode || cust.pincode || "",
+        loyaltyPoints: cust.loyaltyPoints !== undefined ? cust.loyaltyPoints.toString() : "0",
+      };
+    });
   }
 
   public static fromGridRows(rows: Record<string, any>[]): Partial<Customer>[] {
@@ -54,10 +57,10 @@ export class CustomerAdapter {
       phone: r.mobile || "",
       mobile: r.mobile || "",
       email: r.email || "",
-      gstin: r.gstin || "",
+      gstNumber: r.gstin || "",
       city: r.city || "",
       pinCode: r.pinCode || "",
       loyaltyPoints: parseInt(r.loyaltyPoints, 10) || 0,
-    }));
+    } as any));
   }
 }
