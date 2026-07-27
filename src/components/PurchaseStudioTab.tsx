@@ -1,12 +1,13 @@
 /**
  * Project      : SMRITI Retail OS
+ * Organization : SmritiSys
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 4.0.0  (SEEF Phase 6 — Density Cascade Integration)
  * Created      : 2026-07-10
- * Modified     : 2026-07-16
+ * Modified     : 2026-07-27
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -1386,7 +1387,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 
                     <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/40 text-left">
                       <span className="text-[10px] font-mono text-theme-muted block">AGGREGATE VALUE BOUGHT</span>
-                      <span className="text-lg font-bold text-emerald-400 font-mono mt-1 block">â‚¹{supplierDetails.summary.totalValue}</span>
+                      <span className="text-lg font-bold text-emerald-500 dark:text-emerald-400 font-mono mt-1 block">₹{supplierDetails.summary.totalValue}</span>
                       <span className="text-[9px] text-emerald-500 mt-1 block">Fully Confirmed contracts value</span>
                     </div>
 

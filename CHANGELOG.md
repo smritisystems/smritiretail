@@ -31,6 +31,11 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [5.3.0] — 2026-07-27
 
 ### Added
+- **SMRITI Fiori Theme Canvas & Navigation Bar Refactoring**:
+  - Replaced legacy purplish background canvas (`#1a2b5c`) with authentic SAP Fiori Quartz Dark slate navy canvas (`#1c222b`) and surface tokens (`#232a35`, `#2b3442`).
+  - Standardized Contextual Sidebar active items and return button to SAP Fiori Primary Blue (`#0a6ed1`).
+  - Updated Taskbar (`WorkspaceTaskbar.tsx`) launcher buttons, indicators, and window tags to `#0a6ed1` accents.
+  - Aligned Launchpad outer viewport layout dimensions to 100% width and height (`w-full h-full overflow-y-auto`).
 - **SAP HANA Fiori Theme Alignment & Launchpad UI Standardization**:
   - Refactored `Launchpad.tsx` to match 100% authentic SAP HANA Fiori 3 (Quartz) & Fiori Horizon Theme design specifications.
   - Converted category buttons to SAP Fiori Segmented Control buttons (`bg-theme-surface-2`, active segment `#0a6ed1` SAP Fiori Blue).
