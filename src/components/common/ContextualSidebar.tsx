@@ -1,10 +1,11 @@
 /**
  * Project      : SMRITI Retail OS
- * Module       : SAP Fiori Context-Aware Navigation Sidebar (WNG-002 Compliant)
+ * Organization : SmritiSys
+ * Module       : SMRITI Context-Aware Navigation Sidebar (WNG-002 Compliant)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * Version      : 5.1.0 (SEEF Phase 8 — Token Upgrade)
+ * Version      : 5.3.0 (SMRITI Launchpad Upgrade)
  */
 
 import React, { useState } from "react";
@@ -128,10 +129,10 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
           className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/20 transition-all ${
             collapsed ? "justify-center px-0" : ""
           }`}
-          title="Return to Fiori Launchpad"
+          title="Return to SMRITI Launchpad"
         >
           <Grid size={18} className="shrink-0" />
-          {!collapsed && <span>Fiori Launchpad</span>}
+          {!collapsed && <span>SMRITI Launchpad</span>}
         </button>
       </div>
 

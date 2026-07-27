@@ -30,6 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-07-27 | v5.3.0 | SMRITI Launchpad Refactoring & Brand Upgrade | [Walkthrough](./foundation/Foundation_Smriti_Launchpad_Refactor_v5.3.0.md) | — | Completed |
 | 2026-07-27 | v5.3.0 | SMRITI Enterprise Experience Framework (SEEF) UI/UX & Component Governance Cleanup | [Walkthrough](./foundation/Foundation_SEEF_UI_UX_Governance_Debug_v5.3.0.md) | — | Completed |
 | 2026-07-26 | v6.0.0 | SMRITI Enterprise Design System (SEDS) Platform Architecture & Legacy UI Elimination | [Walkthrough](./foundation/Foundation_SEDS_Enterprise_Design_System_Elimination_v1.0.md) | [Plan](../../brain/98e34894-1acb-4bb4-8000-17173dfa1ee4/implementation_plan.md) | Completed |
 | 2026-07-26 | v5.0.0 | SAP Fiori WNG-002 Workspace-First UI Architecture (Phase 3) — Launchpad, FioriListReport, FioriObjectPage, StockLedger Migration | [Walkthrough](./foundation/SAP_Fiori_WNG002_Workspace_UI_Architecture_v5.0.0.md) | [Plan](../../brain/8cff0196-7616-41be-a58d-dba8209ecbae/implementation_plan.md) | Completed |

@@ -1,10 +1,11 @@
 /**
  * Project      : SMRITI Retail OS
- * Module       : SAP Fiori Workspace-First Launchpad (WNG-002 Compliant)
+ * Organization : SmritiSys
+ * Module       : SMRITI Workspace-First Launchpad (WNG-002 Compliant)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * Version      : 5.1.0 (SEEF Phase 8 — Token Upgrade)
+ * Version      : 5.3.0 (SMRITI Launchpad Upgrade)
  */
 
 import React, { useState, useMemo } from "react";
@@ -231,7 +232,7 @@ export const Launchpad: React.FC<LaunchpadProps> = ({
           <div>
             <div className="flex items-center gap-3 mb-2">
               <span className="px-3 py-1 text-xs font-semibold rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" /> SMRITI Retail OS v5.1 Fiori
+                <Sparkles className="w-3.5 h-3.5" /> SMRITI Launchpad v5.3
               </span>
               <span className="text-xs text-theme-muted flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" /> {currentTimeStr} IST

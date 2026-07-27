@@ -31,7 +31,9 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [5.3.0] — 2026-07-27
 
 ### Fixed
-- **UI/UX & Component Governance Cleanup**:
+- **SMRITI Launchpad Refactoring**:
+  - Rebranded Launchpad and ContextualSidebar from legacy Fiori labels to SMRITI Launchpad (`SMRITI Launchpad v5.3`).
+  - Added Luhn Modulus 36 GSTIN checksum validation in `validators.ts` and inline SVG favicon in `index.html`.
   - Disambiguated duplicate `print-studio` workspace ID collision in `layout_store.tsx`.
   - Added metadata auto-registration override in `MetadataRegistry` to support explicit component metadata enrichment.
   - Aligned prop interfaces across `ImageDisplayPolicyModal`, `ExpandedCellEditor`, `SEEFDataTable`, `SEEFSkeleton`, `SalesStudioTab`, and `CustomerMasterTab`.
