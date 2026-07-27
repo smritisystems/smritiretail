@@ -31,6 +31,8 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [5.3.0] — 2026-07-27
 
 ### Added
+- **SMRITI Global Keyboard Escape Key Remediation**:
+  - Standardized window-level `Escape` key event handling across SEEF Command Palette, Context Dialogs, Bottom Sheets, Lookup Pickers, Explain Modals, and Workspace Window Engine.
 - **SMRITI Fiori Multi-Theme Engine & Switcher**:
   - Integrated authentic `fiori-light` / `enterprise` theme tokens (`#ffffff` surfaces, `#f4f6f9` canvas, `#0a6ed1` Fiori Horizon Blue accents).
   - Added interactive Fiori Theme Switcher dropdown control directly in `AdaptiveWorkspaceHeader.tsx` allowing single-click switching between SAP Fiori Horizon Light, SAP Fiori Quartz Dark, and SAP Fiori Corporate Navy.
