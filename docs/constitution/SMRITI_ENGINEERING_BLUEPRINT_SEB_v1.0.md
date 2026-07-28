@@ -19,6 +19,10 @@
 9. **GR-008 — KISS (Keep It Simple)**: Prioritize clear, maintainable code over complex abstractions.
 10. **GR-009 — YAGNI (You Aren't Gonna Need It)**: Implement only verified, explicit business requirements.
 11. **GR-010 — Production-First**: Zero mock data or static fallback bypasses in production environments.
+12. **GR-011 — Canonical Ownership**: One authoritative owner service per capability (Tax, Barcode, Pricing).
+13. **GR-012 — No Silent Duplication**: Upgrade existing; never create `ServiceV2` parallel implementations.
+14. **GR-013 — Backward Compatibility**: API and DB schema contracts follow 4-stage deprecation lifecycle.
+15. **GR-014 — Code-First Review**: No new code without completing a reuse analysis and Gap Analysis Report.
 
 ---
 
@@ -145,3 +149,37 @@ Automated enforcement tooling:
 - **Layout Governance Linter**: `scripts/validate_layout_tokens.py`
 - **TypeScript Compiler**: `npx tsc --noEmit`
 - **Playwright Suite**: `node tests/e2e/playwright_e2e_runner.cjs`
+
+---
+
+## 15. GR-014: Mandatory AI Code-First Review Order
+
+Every engineering task MUST follow this review sequence before writing code:
+
+```text
+1. Existing Code        (scan modules, services, repos)
+        ↓
+2. Existing Architecture (SEB, ADRs, GR rules)
+        ↓
+3. Existing APIs        (OpenAPI contracts, /api/v1/ routes)
+        ↓
+4. Existing Components  (React, SEEF primitives)
+        ↓
+5. Existing Database    (models, migrations, canonical schema)
+        ↓
+6. Existing Tests       (test coverage, patterns)
+        ↓
+7. Existing Docs        (walkthroughs, ADRs, governance)
+        ↓
+8. Write New Code       (only genuinely new capabilities)
+```
+
+### Gap Analysis Report Template (Required Before Implementation)
+```text
+CODE REVIEW REPORT
+Files Reviewed:    [every file scanned]
+Already Exists:    [✓ reusable items]
+Needs Extension:   [✓ items to extend]
+New Code Required: [✗ genuinely new items + justification]
+Duplicate Risk:    LOW / MEDIUM / HIGH
+```

@@ -237,8 +237,40 @@ Before writing ANY new code or creating files, all AI agents and engineers MUST 
 - **GR-011 (Canonical Ownership)**: Every business capability has exactly ONE authoritative owner service. GST calculations belong to `TaxService`. Barcodes belong to `BarcodeService`. Pricing belongs to `PricingService`. No capability may be silently re-implemented in a different module.
 - **GR-012 (No Silent Duplication)**: Upgrading a service means modifying the existing canonical service, never creating `ProductServiceV2`, `NewProductService`, or `BetterProductService` as parallel implementations.
 - **GR-013 (Backward Compatibility)**: Public APIs (`/api/public/v1/*`) and database schema contracts (columns, table names, FK relationships) must never break existing client contracts within the same major version. Use the 4-stage deprecation lifecycle (`Experimental` → `Supported` → `Deprecated` → `Removed`) before any removal.
+- **GR-014 (Code-First Review)**: No new code shall be written until the existing implementation has been reviewed and a reuse analysis has been completed. Every implementation proposal must identify what already exists, what can be reused, what must be extended, and what genuinely needs to be created.
+
+### AI Agent Mandatory 5-Phase Review Protocol (MANDATORY — ALL FEATURES)
+
+Before implementing any feature, AI agents MUST execute the following protocol in order:
+
+**Phase 1 — Discovery**
+- Scan project structure (`list_dir`, `grep_search`)
+- Identify affected modules and cross-module dependencies
+
+**Phase 2 — Existing Code Review (Search First)**
+Search for existing: Service · Repository · API Endpoint · React Component · Hook · Utility · Validator · Domain Event · Tests
+> Critical question: **"Does this functionality already exist?"** If YES → Reuse. If PARTIALLY → Extend. Only if NO → Create.
+
+**Phase 3 — Gap Analysis Report**
+Produce a structured report before writing a single line of new code:
+```text
+CODE REVIEW REPORT
+Files Reviewed: [list every file examined]
+Already Exists: [✓ list reusable items]
+Needs Extension: [✓ list items to extend]
+New Code Required: [✗ list genuinely new items with justification]
+Duplicate Risk: LOW / MEDIUM / HIGH
+```
+
+**Phase 4 — Architecture Compliance Check**
+Verify against: SEB v1.0 · GR-001 (SSOT) · Relevant ADR · SLGP-001 Layout Rules · API Gateway Rules · Repository Pattern (ADR-006)
+
+**Phase 5 — Implementation**
+Write new code only for items in "New Code Required" from the Gap Analysis.
 
 ---
+
+
 
 # LEVEL 2: ENGINEERING STANDARDS (VERSIONED STANDARDS)
 

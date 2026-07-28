@@ -40,3 +40,18 @@ Before writing ANY new code or creating files, all AI agents and engineers MUST 
 8. **GR-008 — Keep It Simple (KISS)**: Prioritize clear, maintainable code over complex abstractions.
 9. **GR-009 — You Aren't Gonna Need It (YAGNI)**: Implement only verified, explicit business requirements.
 10. **GR-010 — Production-First**: Zero mock data or fallback bypasses in production environments.
+11. **GR-011 — Canonical Ownership**: Every business capability has exactly ONE authoritative owner service.
+12. **GR-012 — No Silent Duplication**: Upgrade existing canonical services; never create parallel V2 implementations.
+13. **GR-013 — Backward Compatibility**: APIs and DB contracts follow the 4-stage deprecation lifecycle before removal.
+14. **GR-014 — Code-First Review**: No new code written until a complete reuse analysis has been completed and documented.
+
+---
+
+## 4. The 5-Phase Review Protocol
+
+All engineering output must pass these phases:
+1. **Reuse Audit**: Verify non-existence of equivalent logic.
+2. **Architecture Compliance**: Verify adherence to SSOT and Boundary rules.
+3. **Domain Integrity**: Verify no cross-domain leaking.
+4. **Lifecycle Check**: Verify backward compatibility for existing contracts.
+5. **Standardization Validation**: Ensure naming and structure conventions are met.
