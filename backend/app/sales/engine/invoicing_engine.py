@@ -27,6 +27,8 @@ from app.api.deps import TenantContext
 from app.models.sales import SalesOrder, SalesOrderItem, SalesInvoice, SalesInvoiceItem, SalesPayment
 from app.models.crm import Customer
 from app.models.inventory import Product
+# ADR-007: Domain Event Bus — SaleCompleted + InvoiceCancelled publishers
+from app.core.events.domain_events import publish_sale_completed, publish_invoice_cancelled
 
 
 class SalesInvoicingEngine:
@@ -149,6 +151,24 @@ class SalesInvoicingEngine:
         self.db.add(invoice)
         self.db.add_all(invoice_items)
         await self.db.commit()
+
+        # ADR-007: Publish SaleCompleted AFTER successful commit
+        # → Accounting module subscribes to update ledger
+        # → Analytics module subscribes for revenue dashboards
+        # → Loyalty module subscribes to award points
+        try:
+            await publish_sale_completed(
+                invoice_number=invoice_no,
+                total_amount=float(grand_total),
+                item_count=len(invoice_items),
+                customer_id=str(order.customer_id) if order.customer_id else None
+            )
+        except Exception as _evt_err:
+            import logging
+            logging.getLogger("smriti.sales.invoicing").warning(
+                f"[INVOICE_EVENT] Domain event publish failed (non-critical): {_evt_err}"
+            )
+
         return invoice
 
     async def record_payment(

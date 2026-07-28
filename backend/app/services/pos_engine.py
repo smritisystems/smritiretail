@@ -27,6 +27,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import TenantContext
 from app.models.inventory import Product
 from app.models.pos import PosSession, PosTransaction, PosTransactionItem, PosOfflineSyncQueue
+# ADR-007: Domain Event Bus — SaleCompleted + StockAdjusted publishers
+from app.core.events.domain_events import publish_sale_completed, publish_stock_adjusted
 
 
 class PosEngine:
@@ -208,6 +210,31 @@ class PosEngine:
         self.db.add_all(tx_items)
         self.db.add(session)
         await self.db.commit()
+
+        # ADR-007: Publish domain events AFTER successful DB commit (fire-and-forget, non-blocking)
+        try:
+            # SaleCompleted → triggers Accounting ledger update + Analytics + Loyalty
+            await publish_sale_completed(
+                invoice_number=receipt_no,
+                total_amount=float(grand_total),
+                item_count=len(tx_items),
+                customer_id=customer_id
+            )
+            # StockAdjusted → triggers Inventory ledger + Reorder level checks
+            for item in tx_items:
+                await publish_stock_adjusted(
+                    product_id=str(item.product_id),
+                    warehouse_id=str(self.tenant.branch_id),
+                    quantity_delta=-float(item.quantity),
+                    reason=f"POS_CHECKOUT:{receipt_no}"
+                )
+        except Exception as _evt_err:
+            # GR-003: Event bus failure MUST NOT roll back or block the completed transaction
+            import logging
+            logging.getLogger("smriti.pos").warning(
+                f"[POS_EVENT] Domain event publish failed (non-critical): {_evt_err}"
+            )
+
         return tx
 
     async def close_session(

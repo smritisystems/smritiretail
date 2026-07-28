@@ -25,6 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import TenantContext
 from app.models.inventory import Product, StockCount, StockCountItem, StockAdjustment
+# ADR-007: Domain Event Bus — StockAdjusted publisher
+from app.core.events.domain_events import publish_stock_adjusted
 
 
 class StockAuditEngine:
@@ -216,7 +218,25 @@ class StockAuditEngine:
         self.db.add(stock_count)
 
         await self.db.commit()
+
+        # ADR-007: Publish StockAdjusted per reconciled product line AFTER successful commit
+        # → Inventory module subscribes to update ledger and reorder alerts
+        try:
+            for item in stock_count.items:
+                if item.physical_count is not None:
+                    await publish_stock_adjusted(
+                        product_id=str(item.product_id),
+                        warehouse_id=str(self.tenant.branch_id),
+                        quantity_delta=float(item.variance_qty or 0),
+                        reason=f"STOCK_AUDIT:{adj_no}"
+                    )
+        except Exception as _evt_err:
+            import logging
+            logging.getLogger("smriti.inventory.audit").warning(
+                f"[AUDIT_EVENT] Domain event publish failed (non-critical): {_evt_err}"
+            )
+
         return {
             "stock_count": stock_count,
-            "stock_adjustment": adjustment
+            "adjustment": adjustment
         }

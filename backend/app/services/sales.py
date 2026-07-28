@@ -43,6 +43,8 @@ from ..schemas.sales import (
 from .crm import CrmService
 from .inventory import InventoryService
 from ..api.deps import TenantContext
+# ADR-007: Domain Event Bus — InvoiceCancelled publisher
+from app.core.events.domain_events import publish_invoice_cancelled
 
 
 def _uid() -> str:
@@ -307,6 +309,20 @@ class SalesService:
         invoice.is_deleted = True
         invoice.status = "Cancelled"
         await self.db.commit()
+
+        # ADR-007: Publish InvoiceCancelled AFTER successful commit
+        # → Accounting module subscribes to post reversal ledger entry
+        try:
+            await publish_invoice_cancelled(
+                invoice_number=str(getattr(invoice, "invoice_no", invoice_id)),
+                refund_amount=float(getattr(invoice, "grand_total", 0) or 0),
+                reason="User cancellation via API"
+            )
+        except Exception as _evt_err:
+            import logging
+            logging.getLogger("smriti.sales").warning(
+                f"[CANCEL_EVENT] Domain event publish failed (non-critical): {_evt_err}"
+            )
 
     # ──────────────────────────────────────────────────────────────
     # Sales Quotation
