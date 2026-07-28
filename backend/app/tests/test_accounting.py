@@ -85,7 +85,9 @@ async def test_advanced_accounting_posting_unit_mock(monkeypatch):
     mock_repo = AsyncMock()
     mock_repo.get_account_by_code = AsyncMock(side_effect=lambda code: cash_coa if code == Accounts.CASH else (sales_coa if code == Accounts.SALES_REVENUE else None))
     mock_repo.get_all_accounts = AsyncMock(return_value=[cash_coa, sales_coa])
+    mock_repo.is_posting_locked_for_date = AsyncMock(return_value=False)
     service.repo = mock_repo
+
 
     voucher = JournalVoucher(
         ref_document_type="SalesInvoice",
