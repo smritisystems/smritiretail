@@ -36,7 +36,10 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Razorpay and Cashfree payment gateway webhook handlers in `backend/app/api/v1/webhooks.py`.
   - `ECommerceSyncPipeline` in `backend/app/services/ecommerce_sync.py` for real-time stock push and channel order processing.
   - REST endpoints for e-commerce channel sync in `backend/app/api/v1/ecommerce.py`.
+  - **Performance & Latency Benchmark Suite**:
+    - Added `scripts/benchmark_performance.py` automated API performance benchmarking tool (measuring Avg, Min, Max, P95, P99 latencies against enterprise SLA <100ms).
   - **Full-Stack Operational Health Check Utility**:
+
     - Added `scripts/health_check.py` diagnostic script for full-stack Docker, UI, and API health monitoring.
   - **Public API Gateway Router Mount**:
     - Mounted `public_gateway_router` (`/api/public/v1/*`) in `backend/app/main.py` per AOP-002 & AOP-005.
