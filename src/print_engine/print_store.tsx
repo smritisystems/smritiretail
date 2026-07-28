@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -73,7 +73,9 @@ export interface PrintHistoryItem {
   printerName: string;
   status: "success" | "warning" | "failed";
   details?: string;
+  documentData?: Record<string, unknown>; // GR-010: actual document payload for reprint (replaces MOCK_DATA)
 }
+
 
 interface PrintState {
   print: (request: PrintRequest) => void;

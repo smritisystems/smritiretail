@@ -234,6 +234,9 @@ Before writing ANY new code or creating files, all AI agents and engineers MUST 
 - **GR-008 (KISS)**: Keep implementation simple, readable, and maintainable.
 - **GR-009 (YAGNI)**: Implement only verified business requirements.
 - **GR-010 (Production-First)**: Zero business mock data or static fallback bypasses in production environments.
+- **GR-011 (Canonical Ownership)**: Every business capability has exactly ONE authoritative owner service. GST calculations belong to `TaxService`. Barcodes belong to `BarcodeService`. Pricing belongs to `PricingService`. No capability may be silently re-implemented in a different module.
+- **GR-012 (No Silent Duplication)**: Upgrading a service means modifying the existing canonical service, never creating `ProductServiceV2`, `NewProductService`, or `BetterProductService` as parallel implementations.
+- **GR-013 (Backward Compatibility)**: Public APIs (`/api/public/v1/*`) and database schema contracts (columns, table names, FK relationships) must never break existing client contracts within the same major version. Use the 4-stage deprecation lifecycle (`Experimental` → `Supported` → `Deprecated` → `Removed`) before any removal.
 
 ---
 

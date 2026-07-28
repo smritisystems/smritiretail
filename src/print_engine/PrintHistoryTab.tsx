@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -47,23 +47,6 @@ import {
 import { usePrintEngine, PrintHistoryItem } from "./print_store.tsx";
 import { SmritiScrollArea } from "../components/SmritiScrollArea.tsx";
 
-const MOCK_DATA = {
-  invoiceNo: "INV-2023-0891",
-  date: "2023-10-25",
-  companyName: "SMRITI Enterprise Co.",
-  customerName: "Acme Corp Ltd.",
-  items: [
-    { name: "Wireless Keyboard", qty: 2, rate: 45.00 },
-    { name: "Optical Mouse", qty: 5, rate: 15.50 },
-    { name: "USB-C Hub", qty: 1, rate: 25.00 }
-  ],
-  subtotal: 192.50,
-  tax: 17.32,
-  total: 209.82,
-  cashier: "John D.",
-  paymentMethod: "CARD",
-  paid: 209.82
-};
 
 export const PrintHistoryTab: React.FC = () => {
   const { printHistory, clearPrintHistory, print, printerStatus } = usePrintEngine();
@@ -110,9 +93,10 @@ export const PrintHistoryTab: React.FC = () => {
   }, [printHistory]);
 
   const handleReprint = (log: PrintHistoryItem) => {
+    // GR-010: Use actual log document data; no hardcoded mock fallback
     print({
       templateId: log.templateId,
-      data: MOCK_DATA
+      data: log.documentData ?? { documentName: log.documentName }
     });
   };
 
