@@ -240,6 +240,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-26 | v1.0.0 | SMRITI Enterprise Design System (SEDS) UI Redesign — Fiori UX Principles (Launchpad, Object Page, List Report, Worklist, Flexible Column Layout, Wizard, FilterBar) + SEDS Component Library | [Walkthrough](./foundation/SEDS_Fiori_Design_System_Redesign_v1.0.md) | [Plan](../../brain/98e34894-1acb-4bb4-8000-17173dfa1ee4/implementation_plan.md) | Completed |
 | 2026-07-28 | v1.0.0 | Database Blueprint Governance v1.0 — ADR-012, DBP-001..004, Canonical Data Model, Table Ownership Registry, 5 Mermaid ERDs, Table Health Matrix (20 Tier-1 tables, avg 78%), FinancialYear model + migration v1211 | [Walkthrough](./foundation/DBB_v1_Domain_Events_M1_Foundation_v1.0.0.md) | — | Completed |
 | 2026-07-28 | v1.0.0 | M1 Foundation Integrity — ADR-013 (canonical event bus), InventoryRepository, PurchaseRepository, CrmRepository (ADR-006), domain_events.py deprecated, PurchaseOrderCreated/GRNCompleted/CustomerCreated events wired | [Walkthrough](./foundation/DBB_v1_Domain_Events_M1_Foundation_v1.0.0.md) | [Roadmap](../../../brain/d3b67074-34fe-41fc-ba9c-10821ef3d960/implementation_plan.md) | Completed |
+| 2026-07-28 | v1.0.0 | M2 & M3 Accounting Completion, Full CRM Pipeline & Statutory GST Reports — Bank Accounts, Cost Centers, TDS, Period Lock, AP/AR Ageing, Leads, Opportunities, Campaigns, Support Tickets, GSTR-3B | [Walkthrough](./foundation/M2_M3_Accounting_CRM_GST_v1.0.0.md) | [Roadmap](../../../brain/d3b67074-34fe-41fc-ba9c-10821ef3d960/implementation_plan.md) | Completed |
+
 
 
 

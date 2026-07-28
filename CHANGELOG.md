@@ -28,7 +28,24 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [5.5.0] — 2026-07-28
+
+### Added
+- **SMRITI Accounting Expansion (Milestone 2)**:
+  - Models for Bank Accounts, Cost Centers, TDS Entry tracking, and GST Return Locks in `backend/app/models/accounting.py`.
+  - Alembic migration `v1213_accounting_expansion.py` creating `bank_accounts`, `cost_centers`, `tds_entries`, `gst_return_locks` tables.
+  - Financial Period Lock enforcement in `post_journal()` service raising 422 HTTP error on locked dates.
+  - REST endpoints for Bank Accounts, Cost Centers, TDS Entries, AP/AR Ageing Reports in `backend/app/api/v1/accounting.py`.
+- **SMRITI Full CRM Pipeline & Support Desk (Milestone 3)**:
+  - Models for Leads, Opportunities, Marketing Campaigns, Support Tickets, Ticket Comments, and Customer Activity Logs in `backend/app/models/crm.py`.
+  - Alembic migration `v1214_crm_expansion.py` creating `crm_leads`, `crm_opportunities`, `crm_campaigns`, `crm_support_tickets`, `crm_ticket_comments`, `crm_customer_activities` tables.
+  - Lead-to-Customer conversion engine in `backend/app/services/crm.py`.
+  - REST endpoints for Leads, Opportunities, Campaigns, and Support Tickets in `backend/app/api/v1/crm.py`.
+- **Statutory Indian GST Compliance**:
+  - `GSTR3BReport` dataclass and `compile_gstr3b_report` compiler in `backend/app/services/indian_gst_reports.py`.
+
 ## [5.4.0] — 2026-07-28
+
 
 ### Added
 - **SMRITI Database Blueprint v1.0 & Governance (ADR-012)**:

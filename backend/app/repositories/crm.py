@@ -28,7 +28,9 @@ from ..models.crm import (
     Customer, CustomerGroup, PricingGroup,
     CustomerAddress, CustomerContact,
     CustomerCreditProfile, CustomerTaxProfile,
+    Lead, Opportunity, Campaign, SupportTicket, CustomerActivity,
 )
+
 from ..api.deps import TenantContext
 from .base import BaseRepository
 
@@ -166,3 +168,36 @@ class PricingGroupRepository(BaseRepository[PricingGroup]):
         )
         result = await self.db.execute(stmt)
         return result.scalars().first()
+
+
+class LeadRepository(BaseRepository[Lead]):
+    def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
+        super().__init__(Lead, db, tenant_ctx)
+
+    async def get_by_lead_no(self, lead_no: str) -> Optional[Lead]:
+        stmt = select(Lead).filter(Lead.lead_no == lead_no, Lead.is_deleted == False)
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            stmt = stmt.filter(Lead.company_id == self.tenant_ctx.company_id)
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
+
+
+class OpportunityRepository(BaseRepository[Opportunity]):
+    def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
+        super().__init__(Opportunity, db, tenant_ctx)
+
+
+class CampaignRepository(BaseRepository[Campaign]):
+    def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
+        super().__init__(Campaign, db, tenant_ctx)
+
+
+class SupportTicketRepository(BaseRepository[SupportTicket]):
+    def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
+        super().__init__(SupportTicket, db, tenant_ctx)
+
+
+class CustomerActivityRepository(BaseRepository[CustomerActivity]):
+    def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
+        super().__init__(CustomerActivity, db, tenant_ctx)
+

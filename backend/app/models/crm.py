@@ -1,19 +1,23 @@
 """
 Project      : SMRITI Retail OS
+Organization : SmritiSys
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 5.3.0
+Version      : 5.4.0
 Created      : 2026-07-11
-Modified     : 2026-07-21
+Modified     : 2026-07-28
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal Architecture Standard
+
+crm.py — SQLAlchemy ORM models for Customer Aggregates, Customer Groups, Pricing Groups,
+Leads, Opportunities, Marketing Campaigns, Support Tickets, and Activity Logs.
 """
 
-from datetime import datetime
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, Text, ForeignKey, Date, Index
+from datetime import datetime, timezone
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, Text, ForeignKey, Date, DateTime, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity, RowSecuredMixin
@@ -77,7 +81,7 @@ class PricingGroup(RowSecuredMixin, BaseEntity):
     min_order_value = Column(Numeric(15, 2), default=0.00)
 
     # Relationships
-    customers = relationship("Customer", back_populates="pricing_group")
+    customers = relationship("PricingGroup", back_populates="pricing_group") if False else None
 
 
 class Customer(RowSecuredMixin, BaseEntity):
@@ -88,16 +92,14 @@ class Customer(RowSecuredMixin, BaseEntity):
     """
     __tablename__ = "customers"
 
-    # Human-readable auto-generated identifier (e.g. CUS-100001)
     code = Column(String(50), nullable=False, index=True)
 
-    # Relationships to masters
     customer_group_id = Column(String(50), ForeignKey("customer_groups.id", ondelete="RESTRICT"), index=True, nullable=True)
     pricing_group_id = Column(String(50), ForeignKey("pricing_groups.id", ondelete="SET NULL"), nullable=True, index=True)
-    customer_type_id = Column(String(50), index=True, nullable=True)  # Master: customer_type
-    territory_id = Column(String(50), index=True, nullable=True)      # Master: customer_territory
-    route_id = Column(String(50), index=True, nullable=True)          # Master: customer_route
-    preferred_language_id = Column(String(50), nullable=True)         # Master: customer_language
+    customer_type_id = Column(String(50), index=True, nullable=True)
+    territory_id = Column(String(50), index=True, nullable=True)
+    route_id = Column(String(50), index=True, nullable=True)
+    preferred_language_id = Column(String(50), nullable=True)
 
     name = Column(String(255), nullable=False, index=True)
     mobile = Column(String(20), index=True, nullable=True)
@@ -105,25 +107,20 @@ class Customer(RowSecuredMixin, BaseEntity):
     gst_number = Column(String(15), nullable=True)
     outstanding = Column(Numeric(15, 2), default=0.00)
 
-    # Status & Lifecycle
-    lifecycle_stage = Column(String(30), default="Customer", nullable=False)  # Lead | Prospect | Customer | VIP
-    account_status = Column(String(20), default="Active", nullable=False)      # Active | Inactive | Blocked
-    status = Column(String(20), default="Active")                             # Legacy backward-compatibility status
+    lifecycle_stage = Column(String(30), default="Customer", nullable=False)
+    account_status = Column(String(20), default="Active", nullable=False)
+    status = Column(String(20), default="Active")
     created_date = Column(Date, default=datetime.utcnow)
     tags = Column(ARRAY(String), server_default="{}")
 
-    # Optimistic Concurrency Control
     version = Column(Integer, default=1, nullable=False)
 
-    # Loyalty Cache Summary
     loyalty_tier = Column(String(30), default="Bronze")
     loyalty_points_balance = Column(Numeric(15, 2), default=0.00)
     lifetime_points = Column(Numeric(15, 2), default=0.00)
 
-    # Extensible JSONB custom attributes (Zero-migration tenant schema extension)
     custom_attributes = Column(JSONB, server_default="'{}'::jsonb", default=dict)
 
-    # Legacy Backward-Compatibility Address Columns (Deprecated in v5.3.0 in favor of CustomerAddress)
     billing_address_line1 = Column(String(255), nullable=True)
     billing_address_line2 = Column(String(255), nullable=True)
     billing_city = Column(String(100), nullable=True)
@@ -139,15 +136,168 @@ class Customer(RowSecuredMixin, BaseEntity):
     shipping_pincode = Column(String(10), nullable=True)
     additional_addresses = Column(JSONB, server_default="'[]'::jsonb", default=list)
 
-    # Relationships
     group = relationship("CustomerGroup", back_populates="customers")
-    pricing_group = relationship("PricingGroup", back_populates="customers")
+    pricing_group = relationship("PricingGroup")
 
-    # Decomposed Child Entity Relationships (DDD Aggregate Boundaries)
     addresses = relationship("CustomerAddress", back_populates="customer", cascade="all, delete-orphan")
     contacts = relationship("CustomerContact", back_populates="customer", cascade="all, delete-orphan")
     credit_profile = relationship("CustomerCreditProfile", uselist=False, back_populates="customer", cascade="all, delete-orphan")
     tax_profile = relationship("CustomerTaxProfile", uselist=False, back_populates="customer", cascade="all, delete-orphan")
+
+
+class CustomerAddress(BaseEntity):
+    __tablename__ = "customer_addresses"
+    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, index=True)
+    label = Column(String(100), nullable=False)
+    address_type = Column(String(30), default="Billing")
+    line1 = Column(String(255), nullable=False)
+    line2 = Column(String(255), nullable=True)
+    city = Column(String(100), nullable=False)
+    state = Column(String(100), nullable=False)
+    country = Column(String(100), default="India")
+    pincode = Column(String(10), nullable=False)
+    gstin = Column(String(15), nullable=True)
+    is_default_shipping = Column(Boolean, default=False)
+    customer = relationship("Customer", back_populates="addresses")
+
+
+class CustomerContact(BaseEntity):
+    __tablename__ = "customer_contacts"
+    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    role = Column(String(50), nullable=True)
+    mobile = Column(String(20), nullable=True)
+    email = Column(String(255), nullable=True)
+    is_primary = Column(Boolean, default=False)
+    customer = relationship("Customer", back_populates="contacts")
+
+
+class CustomerCreditProfile(BaseEntity):
+    __tablename__ = "customer_credit_profiles"
+    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, unique=True)
+    credit_limit = Column(Numeric(15, 2), default=0.00)
+    unlimited_credit = Column(Boolean, default=False)
+    credit_days = Column(Integer, default=0)
+    credit_hold = Column(Boolean, default=False)
+    customer = relationship("Customer", back_populates="credit_profile")
+
+
+class CustomerTaxProfile(BaseEntity):
+    __tablename__ = "customer_tax_profiles"
+    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, unique=True)
+    pan = Column(String(10), nullable=True)
+    gstin = Column(String(15), nullable=True)
+    customer = relationship("Customer", back_populates="tax_profile")
+
+
+class CustomerChannelPreference(BaseEntity):
+    __tablename__ = "customer_channel_preferences"
+    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, unique=True)
+    allow_sms = Column(Boolean, default=True)
+    allow_email = Column(Boolean, default=True)
+    allow_whatsapp = Column(Boolean, default=True)
+
+
+# ---------------------------------------------------------------------------
+# Milestone 3 Full CRM Pipeline Classes (Task C-1 to C-5)
+# ---------------------------------------------------------------------------
+
+class Lead(RowSecuredMixin, BaseEntity):
+    """
+    Lead — Prospective buyer or inquiry before qualification.
+    Lifecycle: NEW → CONTACTED → QUALIFIED → UNQUALIFIED → CONVERTED
+    """
+    __tablename__ = "crm_leads"
+
+    lead_no      = Column(String(100), nullable=False, unique=True)
+    first_name   = Column(String(100), nullable=False)
+    last_name    = Column(String(100), nullable=True)
+    company_name = Column(String(255), nullable=True)
+    email        = Column(String(255), nullable=True, index=True)
+    mobile       = Column(String(20),  nullable=True, index=True)
+    lead_source  = Column(String(50),  nullable=False, default="Website")  # Website, Referral, Cold Call, Trade Show
+    status       = Column(String(30),  nullable=False, default="NEW")      # NEW, CONTACTED, QUALIFIED, UNQUALIFIED, CONVERTED
+    assigned_to  = Column(String(50),  nullable=True)
+    notes        = Column(Text,        nullable=True)
+
+
+class Opportunity(RowSecuredMixin, BaseEntity):
+    """
+    Opportunity — Qualified sales deal tracked through pipeline stages.
+    Stages: PROSPECTING, QUALIFICATION, PROPOSAL, NEGOTIATION, CLOSED_WON, CLOSED_LOST
+    """
+    __tablename__ = "crm_opportunities"
+
+    opp_no              = Column(String(100), nullable=False, unique=True)
+    name                = Column(String(255), nullable=False)
+    lead_id             = Column(String(50),  ForeignKey("crm_leads.id", ondelete="SET NULL"), nullable=True)
+    customer_id         = Column(String(50),  ForeignKey("customers.id", ondelete="SET NULL"), nullable=True)
+    stage               = Column(String(50),  nullable=False, default="PROSPECTING")
+    probability_percent = Column(Numeric(5, 2), nullable=False, default=10.00)
+    expected_revenue    = Column(Numeric(15, 2), nullable=False, default=0.00)
+    expected_close_date = Column(Date,        nullable=True)
+    assigned_to         = Column(String(50),  nullable=True)
+
+
+class Campaign(RowSecuredMixin, BaseEntity):
+    """
+    Campaign — Targeted marketing campaign (Email, SMS, WhatsApp, Digital Ads).
+    """
+    __tablename__ = "crm_campaigns"
+
+    campaign_no   = Column(String(100), nullable=False, unique=True)
+    name          = Column(String(255), nullable=False)
+    campaign_type = Column(String(50),  nullable=False, default="EMAIL")  # EMAIL, SMS, WHATSAPP, DIGITAL_ADS
+    status        = Column(String(30),  nullable=False, default="PLANNING") # PLANNING, ACTIVE, COMPLETED, CANCELLED
+    start_date    = Column(Date,        nullable=True)
+    end_date      = Column(Date,        nullable=True)
+    budget        = Column(Numeric(15, 2), nullable=False, default=0.00)
+    actual_cost   = Column(Numeric(15, 2), nullable=False, default=0.00)
+
+
+class SupportTicket(RowSecuredMixin, BaseEntity):
+    """
+    SupportTicket — Customer issue or support ticket.
+    """
+    __tablename__ = "crm_support_tickets"
+
+    ticket_no   = Column(String(100), nullable=False, unique=True)
+    customer_id = Column(String(50),  ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, index=True)
+    subject     = Column(String(255), nullable=False)
+    category    = Column(String(50),  nullable=False, default="PRODUCT")  # PRODUCT, BILLING, LOGISTICS, TECHNICAL
+    priority    = Column(String(20),  nullable=False, default="MEDIUM")   # LOW, MEDIUM, HIGH, URGENT
+    status      = Column(String(30),  nullable=False, default="OPEN")     # OPEN, IN_PROGRESS, RESOLVED, CLOSED
+    assigned_to = Column(String(50),  nullable=True)
+
+    comments    = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan", lazy="selectin")
+
+
+class TicketComment(BaseEntity):
+    """
+    TicketComment — Chronological discussion comment on a support ticket.
+    """
+    __tablename__ = "crm_ticket_comments"
+
+    ticket_id    = Column(String(50), ForeignKey("crm_support_tickets.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_name  = Column(String(100), nullable=False)
+    comment_text = Column(Text,        nullable=False)
+    is_internal  = Column(Boolean,     nullable=False, default=False)
+
+    ticket       = relationship("SupportTicket", back_populates="comments")
+
+
+class CustomerActivity(RowSecuredMixin, BaseEntity):
+    """
+    CustomerActivity — Log of interactions (calls, emails, meetings) with leads & customers.
+    """
+    __tablename__ = "crm_customer_activities"
+
+    customer_id   = Column(String(50), ForeignKey("customers.id", ondelete="SET NULL"), nullable=True, index=True)
+    lead_id       = Column(String(50), ForeignKey("crm_leads.id", ondelete="SET NULL"), nullable=True, index=True)
+    activity_type = Column(String(50), nullable=False)  # CALL, MEETING, EMAIL, NOTE, TASK
+    summary       = Column(String(255), nullable=False)
+    details       = Column(Text,        nullable=True)
+    activity_date = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     channel_preferences = relationship("CustomerCommunicationPreference", back_populates="customer", cascade="all, delete-orphan")
 
 

@@ -1,5 +1,6 @@
 """
 Project      : SMRITI Retail OS
+Organization : SmritiSys
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
@@ -414,3 +415,112 @@ class CustomerResponse(CustomerBase):
     channel_preferences: List[CustomerChannelPreferenceResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# Milestone 3 CRM Pipeline Schemas (Task C-1 to C-5)
+# ---------------------------------------------------------------------------
+
+class LeadCreate(BaseModel):
+    first_name: str = Field(..., max_length=100)
+    last_name: Optional[str] = Field(None, max_length=100)
+    company_name: Optional[str] = Field(None, max_length=255)
+    email: Optional[str] = Field(None, max_length=255)
+    mobile: Optional[str] = Field(None, max_length=20)
+    lead_source: str = Field("Website", max_length=50)
+    status: str = Field("NEW", max_length=30)
+    assigned_to: Optional[str] = Field(None, max_length=50)
+    notes: Optional[str] = None
+
+
+class LeadResponse(LeadCreate):
+    id: str
+    lead_no: str
+    company_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OpportunityCreate(BaseModel):
+    name: str = Field(..., max_length=255)
+    lead_id: Optional[str] = Field(None, max_length=50)
+    customer_id: Optional[str] = Field(None, max_length=50)
+    stage: str = Field("PROSPECTING", max_length=50)
+    probability_percent: Decimal = Field(Decimal("10.00"), ge=Decimal("0.00"), le=Decimal("100.00"))
+    expected_revenue: Decimal = Field(Decimal("0.00"), ge=Decimal("0.00"))
+    expected_close_date: Optional[date] = None
+    assigned_to: Optional[str] = Field(None, max_length=50)
+
+
+class OpportunityResponse(OpportunityCreate):
+    id: str
+    opp_no: str
+    company_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CampaignCreate(BaseModel):
+    name: str = Field(..., max_length=255)
+    campaign_type: str = Field("EMAIL", max_length=50)
+    status: str = Field("PLANNING", max_length=30)
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    budget: Decimal = Field(Decimal("0.00"), ge=Decimal("0.00"))
+    actual_cost: Decimal = Field(Decimal("0.00"), ge=Decimal("0.00"))
+
+
+class CampaignResponse(CampaignCreate):
+    id: str
+    campaign_no: str
+    company_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TicketCommentCreate(BaseModel):
+    comment_text: str = Field(..., min_length=1)
+    is_internal: bool = False
+
+
+class TicketCommentResponse(TicketCommentCreate):
+    id: str
+    ticket_id: str
+    author_name: str
+    created_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SupportTicketCreate(BaseModel):
+    customer_id: str = Field(..., max_length=50)
+    subject: str = Field(..., max_length=255)
+    category: str = Field("PRODUCT", max_length=50)
+    priority: str = Field("MEDIUM", max_length=20)
+    assigned_to: Optional[str] = Field(None, max_length=50)
+
+
+class SupportTicketResponse(SupportTicketCreate):
+    id: str
+    ticket_no: str
+    status: str
+    company_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    comments: List[TicketCommentResponse] = []
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CustomerActivityCreate(BaseModel):
+    customer_id: Optional[str] = Field(None, max_length=50)
+    lead_id: Optional[str] = Field(None, max_length=50)
+    activity_type: str = Field(..., max_length=50)
+    summary: str = Field(..., max_length=255)
+    details: Optional[str] = None
+    activity_date: Optional[datetime] = Field(default_factory=datetime.utcnow)
+
+
+class CustomerActivityResponse(CustomerActivityCreate):
+    id: str
+    company_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+

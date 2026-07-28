@@ -29,7 +29,9 @@ from ..models.crm import (
     Customer, CustomerGroup, PricingGroup,
     CustomerAddress, CustomerContact, CustomerCreditProfile,
     CustomerTaxProfile, CustomerCommunicationPreference,
+    Lead, Opportunity, Campaign, SupportTicket, TicketComment, CustomerActivity,
 )
+
 from ..schemas.crm import (
     CustomerCreate, CustomerUpdate, CustomerGroupCreate,
     PricingGroupCreate, PricingGroupUpdate,
@@ -432,3 +434,177 @@ class CrmService:
                         f"Limit: ₹{limit:,.2f}, Outstanding: ₹{current_outstanding:,.2f}, New Invoice: ₹{new_invoice_amount:,.2f}"
                     ),
                 )
+
+
+    # ---------------------------------------------------------------------------
+    # Lead Management & Lead -> Customer Conversion (Task C-1 / C-6)
+    # ---------------------------------------------------------------------------
+
+    async def create_lead(self, data: dict) -> Lead:
+        lead_id = f"LEAD-{uuid.uuid4().hex[:8]}"
+        lead_no = f"LD-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+        lead = Lead(
+            id=lead_id,
+            uuid=str(uuid.uuid4()),
+            tenant_id=self.tenant_ctx.tenant_id if self.tenant_ctx else "default",
+            company_id=self.tenant_ctx.company_id if self.tenant_ctx else "comp-default",
+            branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else "br-default",
+            lead_no=lead_no,
+            first_name=data["first_name"],
+            last_name=data.get("last_name"),
+            company_name=data.get("company_name"),
+            email=data.get("email"),
+            mobile=data.get("mobile"),
+            lead_source=data.get("lead_source", "Website"),
+            status=data.get("status", "NEW"),
+            assigned_to=data.get("assigned_to"),
+            notes=data.get("notes"),
+        )
+        self.db.add(lead)
+        await self.db.flush()
+        return lead
+
+    async def list_leads(self) -> List[Lead]:
+        stmt = select(Lead).where(Lead.is_deleted == False)
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            stmt = stmt.where(Lead.company_id == self.tenant_ctx.company_id)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def convert_lead_to_customer(self, lead_id: str) -> Customer:
+        """
+        Converts a qualified Lead into an active Customer. (Task C-6)
+        """
+        stmt = select(Lead).where(Lead.id == lead_id, Lead.is_deleted == False)
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            stmt = stmt.where(Lead.company_id == self.tenant_ctx.company_id)
+        result = await self.db.execute(stmt)
+        lead = result.scalars().first()
+        if not lead:
+            raise HTTPException(status_code=404, detail="Lead not found.")
+
+        full_name = f"{lead.first_name} {lead.last_name or ''}".strip()
+        cust_create = CustomerCreate(
+            name=full_name,
+            mobile=lead.mobile or "",
+            email=lead.email,
+            customerGroupId="CG-Retail",
+        )
+        customer = await self.create_customer(cust_create)
+        lead.status = "CONVERTED"
+        self.db.add(lead)
+        return customer
+
+    # ---------------------------------------------------------------------------
+    # Opportunity Management (Task C-2)
+    # ---------------------------------------------------------------------------
+
+    async def create_opportunity(self, data: dict) -> Opportunity:
+        opp_id = f"OPP-{uuid.uuid4().hex[:8]}"
+        opp_no = f"OPP-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+        opp = Opportunity(
+            id=opp_id,
+            uuid=str(uuid.uuid4()),
+            tenant_id=self.tenant_ctx.tenant_id if self.tenant_ctx else "default",
+            company_id=self.tenant_ctx.company_id if self.tenant_ctx else "comp-default",
+            branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else "br-default",
+            opp_no=opp_no,
+            name=data["name"],
+            lead_id=data.get("lead_id"),
+            customer_id=data.get("customer_id"),
+            stage=data.get("stage", "PROSPECTING"),
+            probability_percent=data.get("probability_percent", 10.0),
+            expected_revenue=data.get("expected_revenue", 0.0),
+            expected_close_date=data.get("expected_close_date"),
+            assigned_to=data.get("assigned_to"),
+        )
+        self.db.add(opp)
+        await self.db.flush()
+        return opp
+
+    async def list_opportunities(self) -> List[Opportunity]:
+        stmt = select(Opportunity).where(Opportunity.is_deleted == False)
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            stmt = stmt.where(Opportunity.company_id == self.tenant_ctx.company_id)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    # ---------------------------------------------------------------------------
+    # Campaign Management (Task C-3 / C-7)
+    # ---------------------------------------------------------------------------
+
+    async def create_campaign(self, data: dict) -> Campaign:
+        cmp_id = f"CMP-{uuid.uuid4().hex[:8]}"
+        cmp_no = f"CMP-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+        cmp = Campaign(
+            id=cmp_id,
+            uuid=str(uuid.uuid4()),
+            tenant_id=self.tenant_ctx.tenant_id if self.tenant_ctx else "default",
+            company_id=self.tenant_ctx.company_id if self.tenant_ctx else "comp-default",
+            branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else "br-default",
+            campaign_no=cmp_no,
+            name=data["name"],
+            campaign_type=data.get("campaign_type", "EMAIL"),
+            status=data.get("status", "PLANNING"),
+            start_date=data.get("start_date"),
+            end_date=data.get("end_date"),
+            budget=data.get("budget", 0.0),
+            actual_cost=data.get("actual_cost", 0.0),
+        )
+        self.db.add(cmp)
+        await self.db.flush()
+        return cmp
+
+    async def list_campaigns(self) -> List[Campaign]:
+        stmt = select(Campaign).where(Campaign.is_deleted == False)
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            stmt = stmt.where(Campaign.company_id == self.tenant_ctx.company_id)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    # ---------------------------------------------------------------------------
+    # Support Ticket Management (Task C-4 / C-8)
+    # ---------------------------------------------------------------------------
+
+    async def create_support_ticket(self, data: dict) -> SupportTicket:
+        ticket_id = f"TCK-{uuid.uuid4().hex[:8]}"
+        ticket_no = f"TCK-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+        ticket = SupportTicket(
+            id=ticket_id,
+            uuid=str(uuid.uuid4()),
+            tenant_id=self.tenant_ctx.tenant_id if self.tenant_ctx else "default",
+            company_id=self.tenant_ctx.company_id if self.tenant_ctx else "comp-default",
+            branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else "br-default",
+            ticket_no=ticket_no,
+            customer_id=data["customer_id"],
+            subject=data["subject"],
+            category=data.get("category", "PRODUCT"),
+            priority=data.get("priority", "MEDIUM"),
+            status="OPEN",
+            assigned_to=data.get("assigned_to"),
+        )
+        self.db.add(ticket)
+        await self.db.flush()
+        return ticket
+
+    async def list_support_tickets(self) -> List[SupportTicket]:
+        stmt = select(SupportTicket).where(SupportTicket.is_deleted == False)
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            stmt = stmt.where(SupportTicket.company_id == self.tenant_ctx.company_id)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def add_ticket_comment(self, ticket_id: str, author_name: str, comment_text: str, is_internal: bool = False) -> TicketComment:
+        cmt_id = f"CMT-{uuid.uuid4().hex[:8]}"
+        comment = TicketComment(
+            id=cmt_id,
+            uuid=str(uuid.uuid4()),
+            ticket_id=ticket_id,
+            author_name=author_name,
+            comment_text=comment_text,
+            is_internal=is_internal,
+        )
+        self.db.add(comment)
+        await self.db.flush()
+        return comment
+

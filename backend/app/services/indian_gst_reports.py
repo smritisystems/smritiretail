@@ -1,15 +1,17 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
+Organization : SmritiSys
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 4.13.0
+Version      : 4.14.0
 Created      : 2026-07-20
-Modified     : 2026-07-20
-Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
+Modified     : 2026-07-28
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
+
 
 """
 SMRITI Indian Compliance Core Layer (ICCL) - Indian GST Report Engines
@@ -292,3 +294,69 @@ def re_match_pincode(pincode: str) -> bool:
     """Helper to check if pincode is a valid 6-digit Indian Pin Code."""
     import re
     return bool(re.match(r"^[1-9][0-9]{5}$", pincode.strip()))
+
+
+@dataclass
+class GSTR3BReport:
+    """Statutory Indian GSTR-3B monthly/quarterly summary return representation."""
+    return_period: str                      # MM-YYYY
+    taxable_outward_supplies: Decimal       # Table 3.1(a) Taxable value
+    cgst_outward: Decimal                   # Table 3.1(a) CGST
+    sgst_outward: Decimal                   # Table 3.1(a) SGST
+    igst_outward: Decimal                   # Table 3.1(a) IGST
+    cess_outward: Decimal = Decimal("0.00") # Table 3.1(a) Cess
+    itc_available_cgst: Decimal = Decimal("0.00") # Table 4(A)(5) CGST ITC
+    itc_available_sgst: Decimal = Decimal("0.00") # Table 4(A)(5) SGST ITC
+    itc_available_igst: Decimal = Decimal("0.00") # Table 4(A)(5) IGST ITC
+    net_gst_payable_cgst: Decimal = Decimal("0.00") # Table 6.1 CGST net payable
+    net_gst_payable_sgst: Decimal = Decimal("0.00") # Table 6.1 SGST net payable
+    net_gst_payable_igst: Decimal = Decimal("0.00") # Table 6.1 IGST net payable
+
+
+def compile_gstr3b_report(
+    return_period: str,
+    outward_invoices: List[Dict[str, Any]],
+    inward_receipts: List[Dict[str, Any]] = None
+) -> GSTR3BReport:
+    """
+    Compiles statutory Indian GSTR-3B return summary from outward sales invoices and inward purchase receipts.
+    """
+    tot_taxable = Decimal("0.00")
+    cgst_out = Decimal("0.00")
+    sgst_out = Decimal("0.00")
+    igst_out = Decimal("0.00")
+
+    for inv in outward_invoices:
+        tot_taxable += Decimal(str(inv.get("subtotal", 0)))
+        cgst_out += Decimal(str(inv.get("cgst", 0)))
+        sgst_out += Decimal(str(inv.get("sgst", 0)))
+        igst_out += Decimal(str(inv.get("igst", 0)))
+
+    itc_cgst = Decimal("0.00")
+    itc_sgst = Decimal("0.00")
+    itc_igst = Decimal("0.00")
+
+    if inward_receipts:
+        for rec in inward_receipts:
+            itc_cgst += Decimal(str(rec.get("cgst", 0)))
+            itc_sgst += Decimal(str(rec.get("sgst", 0)))
+            itc_igst += Decimal(str(rec.get("igst", 0)))
+
+    net_cgst = max(Decimal("0.00"), cgst_out - itc_cgst)
+    net_sgst = max(Decimal("0.00"), sgst_out - itc_sgst)
+    net_igst = max(Decimal("0.00"), igst_out - itc_igst)
+
+    return GSTR3BReport(
+        return_period=return_period,
+        taxable_outward_supplies=tot_taxable,
+        cgst_outward=cgst_out,
+        sgst_outward=sgst_out,
+        igst_outward=igst_out,
+        itc_available_cgst=itc_cgst,
+        itc_available_sgst=itc_sgst,
+        itc_available_igst=itc_igst,
+        net_gst_payable_cgst=net_cgst,
+        net_gst_payable_sgst=net_sgst,
+        net_gst_payable_igst=net_igst,
+    )
+
