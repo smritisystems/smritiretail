@@ -36,7 +36,12 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Razorpay and Cashfree payment gateway webhook handlers in `backend/app/api/v1/webhooks.py`.
   - `ECommerceSyncPipeline` in `backend/app/services/ecommerce_sync.py` for real-time stock push and channel order processing.
   - REST endpoints for e-commerce channel sync in `backend/app/api/v1/ecommerce.py`.
+  - **Task 3-1: MSME Delayed Payment Interest Calculator (CR-2026-1659)**:
+    - Executed Task 3-1 under SMRITI Change Studio (SCS v4.0).
+    - Updated `msme_compliance.py` in `backend/app/core/` for MSMED Act Section 15 45-day payment timer and 3x RBI bank rate compound interest calculation.
+    - Added unit test suite `backend/app/tests/test_msme_compliance.py`.
   - **Task 2-4: GS1 Barcode AI Scanner & Parsing Engine (CR-2026-1655)**:
+
     - Executed Task 2-4 under SMRITI Change Studio (SCS v4.0).
     - Updated `gs1_barcode_parser.py` in `backend/app/core/` for GS1-128 and DataMatrix 2D barcode Application Identifier (AI-01, AI-10, AI-17, AI-21) parsing.
     - Added unit test suite `backend/app/tests/test_gs1_barcode.py`.
