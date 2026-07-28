@@ -1,17 +1,19 @@
 """
 Project      : SMRITI Retail OS
+Organization : SmritiSys
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 12.0.0
+Version      : 12.1.0
 Created      : 2026-07-21
-Modified     : 2026-07-21
+Modified     : 2026-07-28
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal Architecture Standard
 
-accounting.py — REST API endpoints for General Ledger, Double-Entry Vouchers, and Financial Statements.
+accounting.py — REST API endpoints for General Ledger, Double-Entry Vouchers, Financial Statements,
+Bank Accounts, Cost Centers, TDS Entries, AP/AR Ageing Reports, and Financial Year Locking.
 """
 
 from typing import List, Optional
@@ -24,7 +26,11 @@ from app.services.accounting import AccountingService, JournalVoucher, JournalEn
 from app.schemas.accounting import (
     ChartOfAccountsCreate, ChartOfAccountsResponse,
     JournalVoucherCreate, JournalVoucherResponse,
-    TrialBalanceResponse, ProfitLossResponse, BalanceSheetResponse
+    TrialBalanceResponse, ProfitLossResponse, BalanceSheetResponse,
+    BankAccountCreate, BankAccountResponse,
+    CostCenterCreate, CostCenterResponse,
+    TdsEntryCreate, TdsEntryResponse,
+    AgeingReportResponse,
 )
 
 router = APIRouter(prefix="/accounting", tags=["General Ledger & Financial Accounting"])
@@ -40,7 +46,6 @@ async def get_accounting_settings():
         "is_enabled": mode != "DISABLED",
         "description": "SMRITI Retail OS Standalone Platform. Accounting is a plug-in module."
     }
-
 
 
 @router.get("/accounts", response_model=List[ChartOfAccountsResponse])
@@ -120,6 +125,91 @@ async def post_journal_voucher(
     return {"id": voucher_id, "message": "Journal Voucher posted successfully.", "is_balanced": True}
 
 
+# ---------------------------------------------------------------------------
+# Bank Account Endpoints (Task B-1 / B-2)
+# ---------------------------------------------------------------------------
+
+@router.get("/bank-accounts", response_model=List[BankAccountResponse])
+async def list_bank_accounts(
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant)
+):
+    """Lists company bank accounts."""
+    service = AccountingService(db, tenant)
+    return await service.list_bank_accounts()
+
+
+@router.post("/bank-accounts", response_model=BankAccountResponse, status_code=status.HTTP_201_CREATED)
+async def create_bank_account(
+    payload: BankAccountCreate,
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant)
+):
+    """Registers a new bank account."""
+    service = AccountingService(db, tenant)
+    res = await service.create_bank_account(payload.model_dump())
+    await db.commit()
+    return res
+
+
+# ---------------------------------------------------------------------------
+# Cost Center Endpoints (Task B-6)
+# ---------------------------------------------------------------------------
+
+@router.get("/cost-centers", response_model=List[CostCenterResponse])
+async def list_cost_centers(
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant)
+):
+    """Lists cost centers."""
+    service = AccountingService(db, tenant)
+    return await service.list_cost_centers()
+
+
+@router.post("/cost-centers", response_model=CostCenterResponse, status_code=status.HTTP_201_CREATED)
+async def create_cost_center(
+    payload: CostCenterCreate,
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant)
+):
+    """Creates a new cost center."""
+    service = AccountingService(db, tenant)
+    res = await service.create_cost_center(payload.model_dump())
+    await db.commit()
+    return res
+
+
+# ---------------------------------------------------------------------------
+# TDS Entry Endpoints (Task B-5)
+# ---------------------------------------------------------------------------
+
+@router.get("/tds", response_model=List[TdsEntryResponse])
+async def list_tds_entries(
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant)
+):
+    """Lists Tax Deducted at Source (TDS) entries."""
+    service = AccountingService(db, tenant)
+    return await service.list_tds_entries()
+
+
+@router.post("/tds", response_model=TdsEntryResponse, status_code=status.HTTP_201_CREATED)
+async def create_tds_entry(
+    payload: TdsEntryCreate,
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant)
+):
+    """Registers a TDS deduction entry."""
+    service = AccountingService(db, tenant)
+    res = await service.create_tds_entry(payload.model_dump())
+    await db.commit()
+    return res
+
+
+# ---------------------------------------------------------------------------
+# Financial Statements & Ageing Reports (Task B-7, B-8)
+# ---------------------------------------------------------------------------
+
 @router.get("/reports/trial-balance", response_model=TrialBalanceResponse)
 async def get_trial_balance(
     as_of_date: Optional[str] = Query(None, description="ISO date format YYYY-MM-DD"),
@@ -152,3 +242,23 @@ async def get_balance_sheet(
     """Generates Balance Sheet report (Assets = Liabilities + Equity)."""
     service = AccountingService(db, tenant)
     return await service.get_balance_sheet(as_of_date=as_of_date)
+
+
+@router.get("/reports/ap-ageing", response_model=AgeingReportResponse)
+async def get_ap_ageing_report(
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant)
+):
+    """Generates Accounts Payable (AP) Ageing report."""
+    service = AccountingService(db, tenant)
+    return await service.get_ap_ageing_report()
+
+
+@router.get("/reports/ar-ageing", response_model=AgeingReportResponse)
+async def get_ar_ageing_report(
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant)
+):
+    """Generates Accounts Receivable (AR) Ageing report."""
+    service = AccountingService(db, tenant)
+    return await service.get_ar_ageing_report()

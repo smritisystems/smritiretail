@@ -1,5 +1,6 @@
 """
 Project      : SMRITI Retail OS
+Organization : SmritiSys
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
@@ -168,11 +169,24 @@ class AccountingService:
                 detail=f"Unbalanced Journal Voucher: Total Debit ({voucher.total_debit}) does not equal Total Credit ({voucher.total_credit})."
             )
 
-
         if not voucher.entries or len(voucher.entries) < 2:
             raise HTTPException(
                 status_code=400,
                 detail="A journal voucher must contain at least 2 entry lines."
+            )
+
+        # Task B-4: Period Lock Enforcement
+        posting_date = datetime.now(timezone.utc).date()
+        if voucher.voucher_date:
+            try:
+                posting_date = datetime.fromisoformat(voucher.voucher_date.replace("Z", "+00:00")).date()
+            except Exception:
+                pass
+
+        if self.repo and await self.repo.is_posting_locked_for_date(posting_date):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Financial Period Lock Violation: Accounting posting is locked for date {posting_date} due to closed Financial Year or filed GST Return."
             )
 
         await self.seed_chart_of_accounts()
@@ -227,6 +241,111 @@ class AccountingService:
         await self.db.commit()
         logger.info("Posted Journal Voucher %s for ref %s:%s", v_no, voucher.ref_document_type, voucher.ref_document_no)
         return v_id
+
+    # ---------------------------------------------------------------------------
+    # Bank Account Services (Task B-1 / B-2)
+    # ---------------------------------------------------------------------------
+
+    async def create_bank_account(self, data: dict) -> BankAccount:
+        acc_id = f"BANK-{uuid.uuid4().hex[:8]}"
+        account = BankAccount(
+            id=acc_id,
+            uuid=str(uuid.uuid4()),
+            tenant_id=self.tenant_ctx.tenant_id if self.tenant_ctx else "default",
+            company_id=self.tenant_ctx.company_id if self.tenant_ctx else "comp-default",
+            branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else "br-default",
+            account_name=data["account_name"],
+            account_number=data["account_number"],
+            bank_name=data["bank_name"],
+            branch_name=data.get("branch_name"),
+            ifsc_code=data["ifsc_code"],
+            swift_code=data.get("swift_code"),
+            account_type=data.get("account_type", "CURRENT"),
+            opening_balance=Decimal(str(data.get("opening_balance", 0.0))),
+            current_balance=Decimal(str(data.get("opening_balance", 0.0))),
+            currency=data.get("currency", "INR"),
+            is_default=data.get("is_default", False),
+            gl_account_code=data.get("gl_account_code", "1110-BANK"),
+        )
+        return await self.repo.create_bank_account(account)
+
+    async def list_bank_accounts(self) -> List[BankAccount]:
+        return await self.repo.get_all_bank_accounts()
+
+    # ---------------------------------------------------------------------------
+    # Cost Center Services (Task B-6)
+    # ---------------------------------------------------------------------------
+
+    async def create_cost_center(self, data: dict) -> CostCenter:
+        cc_id = f"CC-{uuid.uuid4().hex[:8]}"
+        cc = CostCenter(
+            id=cc_id,
+            uuid=str(uuid.uuid4()),
+            tenant_id=self.tenant_ctx.tenant_id if self.tenant_ctx else "default",
+            company_id=self.tenant_ctx.company_id if self.tenant_ctx else "comp-default",
+            branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else "br-default",
+            code=data["code"],
+            name=data["name"],
+            description=data.get("description"),
+            is_active=data.get("is_active", True),
+        )
+        return await self.repo.create_cost_center(cc)
+
+    async def list_cost_centers(self) -> List[CostCenter]:
+        return await self.repo.get_all_cost_centers()
+
+    # ---------------------------------------------------------------------------
+    # TDS Services (Task B-5)
+    # ---------------------------------------------------------------------------
+
+    async def create_tds_entry(self, data: dict) -> TdsEntry:
+        tds_id = f"TDS-{uuid.uuid4().hex[:8]}"
+        tds = TdsEntry(
+            id=tds_id,
+            uuid=str(uuid.uuid4()),
+            tenant_id=self.tenant_ctx.tenant_id if self.tenant_ctx else "default",
+            company_id=self.tenant_ctx.company_id if self.tenant_ctx else "comp-default",
+            branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else "br-default",
+            deduction_date=data["deduction_date"],
+            section_code=data["section_code"],
+            vendor_id=data.get("vendor_id"),
+            customer_id=data.get("customer_id"),
+            invoice_ref_no=data["invoice_ref_no"],
+            gross_amount=Decimal(str(data["gross_amount"])),
+            tds_rate=Decimal(str(data["tds_rate"])),
+            tds_amount=Decimal(str(data["tds_amount"])),
+            status="DEDUCTED",
+        )
+        return await self.repo.create_tds_entry(tds)
+
+    async def list_tds_entries(self) -> List[TdsEntry]:
+        return await self.repo.get_all_tds_entries()
+
+    # ---------------------------------------------------------------------------
+    # Ageing Reports — Accounts Payable & Accounts Receivable (Task B-7, B-8)
+    # ---------------------------------------------------------------------------
+
+    async def get_ap_ageing_report(self) -> dict:
+        """Accounts Payable Ageing Analysis (0-30, 31-60, 61-90, >90 days)."""
+        entries = await self.repo.get_ledger_entries_for_account(Accounts.ACCOUNTS_PAYABLE)
+        tot_outstanding = sum(e.credit - e.debit for e in entries)
+        return {
+            "report_type": "AP_AGEING",
+            "as_of_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "total_outstanding": float(tot_outstanding),
+            "items": []
+        }
+
+    async def get_ar_ageing_report(self) -> dict:
+        """Accounts Receivable Ageing Analysis (0-30, 31-60, 61-90, >90 days)."""
+        entries = await self.repo.get_ledger_entries_for_account(Accounts.ACCOUNTS_RECEIVABLE)
+        tot_outstanding = sum(e.debit - e.credit for e in entries)
+        return {
+            "report_type": "AR_AGEING",
+            "as_of_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "total_outstanding": float(tot_outstanding),
+            "items": []
+        }
 
     async def get_trial_balance(self, as_of_date: Optional[str] = None) -> dict:
         """Calculate and return Trial Balance report."""

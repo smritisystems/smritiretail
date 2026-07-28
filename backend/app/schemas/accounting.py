@@ -1,21 +1,23 @@
 """
 Project      : SMRITI Retail OS
+Organization : SmritiSys
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 12.0.0
+Version      : 12.1.0
 Created      : 2026-07-21
-Modified     : 2026-07-21
+Modified     : 2026-07-28
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal Architecture Standard
 
-accounting.py — Pydantic V2 schemas for Chart of Accounts, Journal Vouchers, Ledgers, and Financial Statements.
+accounting.py — Pydantic V2 schemas for Chart of Accounts, Journal Vouchers, Ledgers,
+Financial Statements, Bank Accounts, Cost Centers, TDS Entries, and Ageing Reports.
 """
 
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -148,3 +150,91 @@ class BalanceSheetResponse(BaseModel):
     assets: List[TrialBalanceItem]
     liabilities: List[TrialBalanceItem]
     equity: List[TrialBalanceItem]
+
+
+# ---------------------------------------------------------------------------
+# Bank Account Schemas
+# ---------------------------------------------------------------------------
+
+class BankAccountCreate(BaseModel):
+    account_name: str = Field(..., max_length=255)
+    account_number: str = Field(..., max_length=100)
+    bank_name: str = Field(..., max_length=255)
+    branch_name: Optional[str] = Field(None, max_length=255)
+    ifsc_code: str = Field(..., max_length=20)
+    swift_code: Optional[str] = Field(None, max_length=20)
+    account_type: str = Field("CURRENT", max_length=50)
+    opening_balance: Decimal = Field(Decimal("0.00"))
+    currency: str = Field("INR", max_length=10)
+    is_default: bool = False
+    gl_account_code: Optional[str] = Field(None, max_length=50)
+
+
+class BankAccountResponse(BankAccountCreate):
+    id: str
+    company_id: Optional[str] = None
+    current_balance: Decimal
+    created_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# Cost Center Schemas
+# ---------------------------------------------------------------------------
+
+class CostCenterCreate(BaseModel):
+    code: str = Field(..., max_length=50)
+    name: str = Field(..., max_length=255)
+    description: Optional[str] = None
+    is_active: bool = True
+
+
+class CostCenterResponse(CostCenterCreate):
+    id: str
+    company_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# TDS Entry Schemas
+# ---------------------------------------------------------------------------
+
+class TdsEntryCreate(BaseModel):
+    deduction_date: date
+    section_code: str = Field(..., max_length=20)
+    vendor_id: Optional[str] = Field(None, max_length=50)
+    customer_id: Optional[str] = Field(None, max_length=50)
+    invoice_ref_no: str = Field(..., max_length=100)
+    gross_amount: Decimal = Field(..., ge=Decimal("0.01"))
+    tds_rate: Decimal = Field(..., ge=Decimal("0.00"), le=Decimal("100.00"))
+    tds_amount: Decimal = Field(..., ge=Decimal("0.00"))
+
+
+class TdsEntryResponse(TdsEntryCreate):
+    id: str
+    status: str
+    company_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# Ageing Report Schemas
+# ---------------------------------------------------------------------------
+
+class AgeingBucketItem(BaseModel):
+    party_id: str
+    party_name: str
+    current: Decimal = Decimal("0.00")         # 0-30 days
+    days_31_60: Decimal = Decimal("0.00")       # 31-60 days
+    days_61_90: Decimal = Decimal("0.00")       # 61-90 days
+    over_90_days: Decimal = Decimal("0.00")     # >90 days
+    total_outstanding: Decimal = Decimal("0.00")
+
+
+class AgeingReportResponse(BaseModel):
+    report_type: str                            # AP_AGEING or AR_AGEING
+    as_of_date: str
+    total_outstanding: Decimal
+    items: List[AgeingBucketItem]

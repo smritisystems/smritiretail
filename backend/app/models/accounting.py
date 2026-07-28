@@ -1,17 +1,19 @@
 """
 Project      : SMRITI Retail OS
+Organization : SmritiSys
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 12.0.0
+Version      : 12.1.0
 Created      : 2026-07-21
-Modified     : 2026-07-21
+Modified     : 2026-07-28
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal Architecture Standard
 
-accounting.py — SQLAlchemy ORM models for General Ledger, Double-Entry Journal Vouchers, Ledgers & Fiscal Periods.
+accounting.py — SQLAlchemy ORM models for General Ledger, Double-Entry Journal Vouchers, Ledgers,
+Fiscal Periods, Bank Accounts, Cost Centers, TDS Deduction Tracking & GST Return Locks.
 """
 
 from decimal import Decimal
@@ -115,4 +117,69 @@ class FinancialYear(RowSecuredMixin, BaseEntity):
     status            = Column(String(30), nullable=False, default="OPEN")  # OPEN, CLOSED, ARCHIVED
 
     fiscal_periods = relationship("FiscalPeriod", primaryjoin="foreign(FiscalPeriod.fiscal_year) == FinancialYear.name", lazy="selectin", viewonly=True)
+
+
+class BankAccount(RowSecuredMixin, BaseEntity):
+    """
+    BankAccount — Commercial & retail banking accounts owned by tenant company.
+    Supports bank reconciliation, payment gateway settlement, and cheque management.
+    """
+    __tablename__ = "bank_accounts"
+
+    account_name    = Column(String(255), nullable=False)
+    account_number  = Column(String(100), nullable=False)
+    bank_name       = Column(String(255), nullable=False)
+    branch_name     = Column(String(255), nullable=True)
+    ifsc_code       = Column(String(20),  nullable=False)
+    swift_code      = Column(String(20),  nullable=True)
+    account_type    = Column(String(50),  nullable=False, default="CURRENT")  # CURRENT, SAVINGS, OVERDRAFT
+    opening_balance = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    current_balance = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    currency        = Column(String(10),  nullable=False, default="INR")
+    is_default      = Column(Boolean,     nullable=False, default=False)
+    gl_account_code = Column(String(50),  nullable=True)
+
+
+class CostCenter(RowSecuredMixin, BaseEntity):
+    """
+    CostCenter — Organizational responsibility centers for cost/profit allocation.
+    """
+    __tablename__ = "cost_centers"
+
+    code        = Column(String(50),  nullable=False, unique=True)
+    name        = Column(String(255), nullable=False)
+    description = Column(Text,        nullable=True)
+    is_active   = Column(Boolean,     nullable=False, default=True)
+
+
+class TdsEntry(RowSecuredMixin, BaseEntity):
+    """
+    TdsEntry — Tax Deducted at Source (TDS) entries under Indian Income Tax Act.
+    Sections: 194C (Contractor), 194J (Professional), 194Q (Goods purchase), etc.
+    """
+    __tablename__ = "tds_entries"
+
+    deduction_date = Column(Date,          nullable=False)
+    section_code   = Column(String(20),   nullable=False)  # 194C, 194J, 194Q, 194I, etc.
+    vendor_id      = Column(String(50),   nullable=True)
+    customer_id    = Column(String(50),   nullable=True)
+    invoice_ref_no = Column(String(100),  nullable=False)
+    gross_amount   = Column(Numeric(15, 2), nullable=False)
+    tds_rate       = Column(Numeric(5, 2),  nullable=False)
+    tds_amount     = Column(Numeric(15, 2), nullable=False)
+    status         = Column(String(30),   nullable=False, default="DEDUCTED")  # DEDUCTED, REMITTED, CERTIFIED
+
+
+class GstReturnLock(RowSecuredMixin, BaseEntity):
+    """
+    GstReturnLock — Locks accounting postings for periods where GST returns (GSTR-1, GSTR-3B) are filed.
+    """
+    __tablename__ = "gst_return_locks"
+
+    return_type   = Column(String(20),  nullable=False)  # GSTR1, GSTR3B, GSTR9
+    return_period = Column(String(20),  nullable=False)  # MM-YYYY e.g. "04-2026"
+    filed_at      = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    filed_by      = Column(String(100), nullable=True)
+    arn_number    = Column(String(100), nullable=True)
+    is_locked     = Column(Boolean,     nullable=False, default=True)
 
