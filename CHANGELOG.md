@@ -36,7 +36,10 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Razorpay and Cashfree payment gateway webhook handlers in `backend/app/api/v1/webhooks.py`.
   - `ECommerceSyncPipeline` in `backend/app/services/ecommerce_sync.py` for real-time stock push and channel order processing.
   - REST endpoints for e-commerce channel sync in `backend/app/api/v1/ecommerce.py`.
+  - **Database Backup & Restore Automation**:
+    - Added `scripts/backup_restore.py` CLI utility for PostgreSQL database backup, integrity verification, and point-in-time restore automation (conforming to AOP-004).
   - **Analytics & WMS Router Import Fix**:
+
     - Added missing `get_tenant_context` imports in `backend/app/api/v1/analytics.py` and `backend/app/api/v1/wms.py`.
   - **CRM API List Import Fix**:
 
