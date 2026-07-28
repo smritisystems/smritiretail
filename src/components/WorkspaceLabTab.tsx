@@ -17,12 +17,23 @@ import {
   SEDSTable
 } from '../design-system/components';
 import { SEDSObjectPage } from '../design-system/components/patterns/SEDSObjectPage';
+import { SEDSListReport } from '../design-system/components/patterns/SEDSListReport';
 
 export const WorkspaceLabTab: React.FC = () => {
   const [activeTheme, setActiveTheme] = useState<string>('fiori-lite');
   const [densityMode, setDensityMode] = useState<'simple' | 'hybrid' | 'advanced'>('hybrid');
   const [activeTab, setActiveTab] = useState<string>('components');
-  const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+  
+  // Metadata Form Engine Preview State
+  const [schemaJson, setSchemaJson] = useState<string>(JSON.stringify({
+    fields: [
+      { id: "item_code", label: "SKU / Item Code", type: "text", required: true, defaultValue: "SKU-DELHI-001" },
+      { id: "item_name", label: "Product Name", type: "text", required: true, defaultValue: "Cotton Silk Kurta" },
+      { id: "price", label: "Unit Price (INR)", type: "number", required: true, defaultValue: "2499.00" },
+      { id: "category", label: "Category", type: "select", options: ["Apparel", "Footwear", "Pharma", "Grocery"], defaultValue: "Apparel" },
+      { id: "is_active", label: "Active Status", type: "select", options: ["Active", "Inactive"], defaultValue: "Active" }
+    ]
+  }, null, 2));
 
   // Apply theme to root data-theme attribute dynamically
   const handleThemeChange = (theme: string) => {
@@ -30,7 +41,7 @@ export const WorkspaceLabTab: React.FC = () => {
     document.documentElement.setAttribute('data-theme', theme);
   };
 
-  // Sample data for Enterprise DataGrid
+  // Sample data for Enterprise DataGrid & List Report
   const sampleTableColumns = [
     { key: 'code', title: 'SKU / Code', width: '130px' },
     { key: 'name', title: 'Product Name', width: '220px' },
@@ -47,6 +58,15 @@ export const WorkspaceLabTab: React.FC = () => {
     { id: '4', code: 'SKU-DELHI-004', name: 'Wireless Barcode Scanner USB', category: 'Hardware', price: '₹3,200.00', stock: '0', status: 'Cancelled' }
   ];
 
+  // Parse metadata form schema safely
+  const parsedSchema = React.useMemo(() => {
+    try {
+      return JSON.parse(schemaJson);
+    } catch {
+      return { fields: [] };
+    }
+  }, [schemaJson]);
+
   return (
     <div className="flex flex-col h-full bg-[var(--sds-color-background)] text-[var(--sds-color-text-main)] font-[var(--sds-font-family)] p-6 overflow-y-auto">
       {/* Header Banner */}
@@ -55,11 +75,11 @@ export const WorkspaceLabTab: React.FC = () => {
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold tracking-tight">SMRITI Workspace Lab</h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-              SDS v1.0 Playground
+              SDS v1.0 & SUXG Playground
             </span>
           </div>
           <p className="text-sm text-[var(--sds-color-text-secondary)] mt-1">
-            Internal UI Harness for SDS Component Library, Theme Tokens & SUXG Compliance Testing
+            Internal UI Platform Harness: Theme Inspector, Enterprise DataGrid, Patterns & Metadata Form Engine
           </p>
         </div>
 
@@ -102,18 +122,19 @@ export const WorkspaceLabTab: React.FC = () => {
 
       {/* Workspace Lab Tabs Navigation */}
       <div className="mb-6 border-b border-[var(--sds-color-border)]">
-        <nav className="flex gap-6">
+        <nav className="flex gap-6 overflow-x-auto">
           {[
             { id: 'components', label: 'Component Catalog' },
-            { id: 'object-header', label: 'Object Header & Patterns' },
+            { id: 'patterns', label: 'Enterprise Patterns' },
+            { id: 'metadata-form', label: 'Metadata Form Engine' },
             { id: 'datagrid', label: 'Enterprise DataGrid' },
-            { id: 'tokens', label: 'Theme Tokens & Palette' },
+            { id: 'tokens', label: 'Theme Tokens & Inspector' },
             { id: 'suxg-audit', label: 'SUXG Audit Checklist' }
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-semibold border-b-2 transition-colors ${
+              className={`pb-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
                 activeTab === tab.id
                   ? 'border-[var(--sds-color-primary)] text-[var(--sds-color-primary)]'
                   : 'border-transparent text-[var(--sds-color-text-secondary)] hover:text-[var(--sds-color-text-main)]'
@@ -177,50 +198,74 @@ export const WorkspaceLabTab: React.FC = () => {
         </div>
       )}
 
-      {/* Tab Content 2: Object Header & Patterns */}
-      {activeTab === 'object-header' && (
+      {/* Tab Content 2: Enterprise Patterns (SEDSObjectPage & SEDSListReport) */}
+      {activeTab === 'patterns' && (
         <div className="space-y-6">
           <div className="bg-[var(--sds-color-surface)] p-6 rounded-xl border border-[var(--sds-color-border)] shadow-xs">
-            <div className="flex justify-between items-start mb-4 border-b border-[var(--sds-color-border)] pb-4">
-              <div>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-xl font-bold">Connaught Place Flagship Branch</h2>
-                  <SEDSStatusBadge status="Active">Operational</SEDSStatusBadge>
-                </div>
-                <p className="text-sm text-[var(--sds-color-text-secondary)] mt-1">
-                  Branch ID: br-delhi-cp | GSTIN: 07AAAAA0000A1Z5 | Region: Delhi NCR
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <SEDSButton variant="secondary">Edit Branch</SEDSButton>
-                <SEDSButton variant="primary">New Warehouse</SEDSButton>
-              </div>
-            </div>
+            <h3 className="text-base font-bold mb-2">Pattern 1: SEDSObjectPage Pattern</h3>
+            <p className="text-xs text-[var(--sds-color-text-secondary)] mb-4">
+              Fixed summary header banner, status badge, key stat row, and horizontal navigation tabs for Master Entities.
+            </p>
+            <SEDSObjectPage
+              title="Connaught Place Flagship Branch"
+              subtitle="Branch ID: br-delhi-cp | GSTIN: 07AAAAA0000A1Z5 | Region: Delhi NCR"
+              status={{ type: "Active", label: "Operational" }}
+              headerAttributes={[
+                { label: "Active POS Terminals", value: "12 Terminals" },
+                { label: "Total Inventory Value", value: "₹1.42 Cr" },
+                { label: "Daily Sales Register", value: "₹3,45,800" },
+                { label: "Assigned Manager", value: "Ramesh Kumar" }
+              ]}
+              tabs={[
+                { id: "overview", label: "Overview & Bins", content: <div className="p-4 bg-[var(--sds-color-background)] rounded-lg text-xs">Branch Overview Content</div> },
+                { id: "terminals", label: "POS Terminals", content: <div className="p-4 bg-[var(--sds-color-background)] rounded-lg text-xs">Terminals List</div> },
+                { id: "history", label: "Audit Ledger", content: <div className="p-4 bg-[var(--sds-color-background)] rounded-lg text-xs">Audit History Records</div> }
+              ]}
+            />
+          </div>
+        </div>
+      )}
 
-            {/* Header KPI Summary Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
-              <div className="p-3 bg-[var(--sds-color-background)] rounded-lg">
-                <div className="text-xs text-[var(--sds-color-text-secondary)]">Active POS Terminals</div>
-                <div className="text-lg font-bold mt-1 text-[var(--sds-color-primary)]">12 Terminals</div>
-              </div>
-              <div className="p-3 bg-[var(--sds-color-background)] rounded-lg">
-                <div className="text-xs text-[var(--sds-color-text-secondary)]">Total Inventory Value</div>
-                <div className="text-lg font-bold mt-1">₹1.42 Cr</div>
-              </div>
-              <div className="p-3 bg-[var(--sds-color-background)] rounded-lg">
-                <div className="text-xs text-[var(--sds-color-text-secondary)]">Daily Sales Register</div>
-                <div className="text-lg font-bold mt-1 text-green-600">₹3,45,800</div>
-              </div>
-              <div className="p-3 bg-[var(--sds-color-background)] rounded-lg">
-                <div className="text-xs text-[var(--sds-color-text-secondary)]">Assigned Manager</div>
-                <div className="text-lg font-bold mt-1">Ramesh Kumar</div>
-              </div>
+      {/* Tab Content 3: Metadata-Driven Form Engine Preview */}
+      {activeTab === 'metadata-form' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-[var(--sds-color-surface)] p-5 rounded-xl border border-[var(--sds-color-border)] shadow-xs">
+            <h3 className="text-base font-bold mb-2">JSON Schema Input</h3>
+            <p className="text-xs text-[var(--sds-color-text-secondary)] mb-3">
+              Define JSON schema fields to render forms dynamically
+            </p>
+            <textarea
+              value={schemaJson}
+              onChange={(e) => setSchemaJson(e.target.value)}
+              rows={12}
+              className="w-full font-mono text-xs p-3 rounded-lg border border-[var(--sds-color-border)] bg-[var(--sds-color-background)] text-[var(--sds-color-text-main)] focus:outline-none focus:ring-1 focus:ring-[var(--sds-color-primary)]"
+            />
+          </div>
+
+          <div className="bg-[var(--sds-color-surface)] p-5 rounded-xl border border-[var(--sds-color-border)] shadow-xs">
+            <h3 className="text-base font-bold mb-2">Live Metadata Form Output</h3>
+            <p className="text-xs text-[var(--sds-color-text-secondary)] mb-4">
+              Dynamically generated form inputs adhering to active AWE mode ({densityMode})
+            </p>
+            <div className={`grid gap-4 ${
+              densityMode === 'simple' ? 'grid-cols-1 md:grid-cols-2' :
+              densityMode === 'hybrid' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-3'
+            }`}>
+              {(parsedSchema.fields || []).map((f: any, idx: number) => (
+                <div key={idx}>
+                  {f.type === 'select' ? (
+                    <SEDSSelect label={f.label} options={f.options || []} />
+                  ) : (
+                    <SEDSInput label={f.label} value={f.defaultValue} type={f.type} />
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* Tab Content 3: Enterprise DataGrid */}
+      {/* Tab Content 4: Enterprise DataGrid */}
       {activeTab === 'datagrid' && (
         <div className="bg-[var(--sds-color-surface)] p-5 rounded-xl border border-[var(--sds-color-border)] shadow-xs">
           <div className="flex justify-between items-center mb-4">
@@ -236,10 +281,16 @@ export const WorkspaceLabTab: React.FC = () => {
         </div>
       )}
 
-      {/* Tab Content 4: Theme Tokens */}
+      {/* Tab Content 5: Theme Tokens & Theme Inspector */}
       {activeTab === 'tokens' && (
         <div className="bg-[var(--sds-color-surface)] p-6 rounded-xl border border-[var(--sds-color-border)] shadow-xs space-y-6">
-          <h3 className="text-base font-bold">Active Theme CSS Variables (`var(--sds-*)`)</h3>
+          <div className="flex justify-between items-center">
+            <h3 className="text-base font-bold">Active Theme Inspector (`var(--sds-*)`)</h3>
+            <span className="text-xs font-mono px-2.5 py-1 rounded bg-[var(--sds-color-primary-light)] text-[var(--sds-color-primary)] font-semibold">
+              Current Theme: {activeTheme}
+            </span>
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-4 rounded-lg border border-[var(--sds-color-border)] bg-[var(--sds-color-primary)] text-white">
               <div className="text-xs font-mono opacity-80">--sds-color-primary</div>
@@ -261,7 +312,7 @@ export const WorkspaceLabTab: React.FC = () => {
         </div>
       )}
 
-      {/* Tab Content 5: SUXG Audit Checklist */}
+      {/* Tab Content 6: SUXG Audit Checklist */}
       {activeTab === 'suxg-audit' && (
         <div className="bg-[var(--sds-color-surface)] p-6 rounded-xl border border-[var(--sds-color-border)] shadow-xs">
           <h3 className="text-base font-bold mb-4">SUXG Quantitative Governance Checklist</h3>
