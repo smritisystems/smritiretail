@@ -49,6 +49,7 @@ import { LaunchpadConfigTab } from "./launchpad/index.ts";
 import { CustomerMasterTab } from "./components/CustomerMasterTab.tsx";
 import { CustomerDashboardTab } from "./components/CustomerDashboardTab.tsx";
 import { WorkspaceLabTab } from "./components/WorkspaceLabTab.tsx";
+import { OperationalWorkspacesTab } from "./components/OperationalWorkspacesTab.tsx";
 import { ConsignmentStudioTab } from "./components/ConsignmentStudioTab.tsx";
 import { CrmStudioTab } from "./components/CrmStudioTab.tsx";
 import { LoyaltyStudioTab } from "./components/LoyaltyStudioTab.tsx";
@@ -522,6 +523,8 @@ const AppContent: React.FC = () => {
         return <AIConfigurationTab onNotification={addNotification} />;
       case "workspace-lab":
         return <WorkspaceLabTab />;
+      case "operational-workspaces":
+        return <OperationalWorkspacesTab />;
       case "launchpad-config":
         return <LaunchpadConfigTab onNotification={addNotification} />;
       case "document-series":
