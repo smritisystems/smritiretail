@@ -28,7 +28,26 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.0.0] — 2026-07-28
+
+### Added
+- **SMRITI Change Verification Engine (CVE v6.0) Architecture & 17-Step Constitution**:
+  - Implemented `verify` subcommand in `scripts/smriti_change_engine.py` with "No Code Until Green" gatekeeper policy.
+- **Task 4-1: Inter-Store Stock Transfer & In-Transit Reservation Engine (CR-2026-1741)**:
+  - Created `StockTransferEngine` in `backend/app/core/stock_transfer.py` for multi-store movement and in-transit stock locking.
+  - Added unit test suite `backend/app/tests/test_stock_transfer.py`.
+- **Task 4-2: Automated GST E-WayBill Distance & Validity Calculator (CR-2026-1742)**:
+  - Created `calculate_ewaybill_validity` in `backend/app/core/ewaybill_calculator.py` for NIC Rule 138(10) statutory validity calculation.
+  - Added unit test suite `backend/app/tests/test_ewaybill_calculator.py`.
+- **Task 4-3: Statutory Tax Audit Trail & Immutable Change Ledger (CR-2026-1743)**:
+  - Created `ImmutableAuditLedger` in `backend/app/core/immutable_audit_ledger.py` for MCA Notification G.S.R. 235(E) SHA-256 hash-chained audit trail.
+  - Added unit test suite `backend/app/tests/test_immutable_audit_ledger.py`.
+- **Task 4-4: Multi-Currency Exchange Rate & Forex Realization Engine (CR-2026-1744)**:
+  - Created `ForexGainLossCalculator` in `backend/app/core/forex_engine.py` for Ind AS 21 realized & unrealized foreign exchange gain/loss calculation.
+  - Added unit test suite `backend/app/tests/test_forex_engine.py`.
+
 ## [5.7.1] — 2026-07-28
+
 
 ### Fixed
 - **HSN & SAC Validator Compatibility Fix**: Added `is_sac` property to `HSNValidationResult` and aliased `validate_hsn_code` to `validate_hsn` in `backend/app/core/hsn_validator.py`.
