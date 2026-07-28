@@ -249,6 +249,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-28 | v1.0.0 | Task 3: Production Deployment Infrastructure (`docker-compose.prod.yml`, Nginx SSL proxy, systemd, `deploy_prod.sh`) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1635_Production_Deployment_v1.0.0.md) | — | Completed |
 | 2026-07-28 | v1.0.0 | Task 4: POS Touch UI & Thermal Print Engine (`POSTouchLayout.tsx`, `ESCPOSThermalPrinter`, thermal receipt bytes) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1637_POS_Touch_Thermal_v1.0.0.md) | — | Completed |
 | 2026-07-28 | v1.0.0 | Task 2-1: E-Invoice & NIC GSTN Gateway (`NICEInvoiceGatewayService`, SHA256 IRN, Schema v1.03) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1641_NIC_EInvoice_v1.0.0.md) | — | Completed |
+| 2026-07-28 | v1.0.0 | Task 2-2: WhatsApp & SMS Receipt Notification Gateway (`WhatsAppGatewayService`, template encoder) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1651_WhatsApp_Gateway_v1.0.0.md) | — | Completed |
+
 
 
 
