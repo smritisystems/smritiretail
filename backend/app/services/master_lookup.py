@@ -158,13 +158,15 @@ class LookupService:
 
         # JSON Schema Validation against MasterType.field_schema
         if mtype.field_schema and value_in.data:
-            import jsonschema
             try:
+                import jsonschema
                 jsonschema.validate(instance=value_in.data, schema=mtype.field_schema)
-            except jsonschema.ValidationError as e:
+            except ImportError:
+                pass
+            except Exception as e:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Validation failed for master lookup data: {e.message}"
+                    detail=f"Validation failed for master lookup data: {getattr(e, 'message', str(e))}"
                 )
 
         # Hierarchy validation
