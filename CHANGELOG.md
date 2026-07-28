@@ -36,6 +36,8 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Razorpay and Cashfree payment gateway webhook handlers in `backend/app/api/v1/webhooks.py`.
   - `ECommerceSyncPipeline` in `backend/app/services/ecommerce_sync.py` for real-time stock push and channel order processing.
   - REST endpoints for e-commerce channel sync in `backend/app/api/v1/ecommerce.py`.
+  - **CRM Model Deduplication Refactoring**:
+    - Consolidated duplicate `CustomerAddress`, `CustomerContact`, `CustomerCreditProfile`, `CustomerTaxProfile`, `CustomerChannelPreference` definitions in `backend/app/models/crm.py`.
   - Full SMRITI Retail OS Enterprise Implementation Roadmap v1.0 (Milestones 1 through 6) completed and verified.
 
 ## [5.6.0] — 2026-07-28

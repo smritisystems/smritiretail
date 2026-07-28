@@ -145,62 +145,10 @@ class Customer(RowSecuredMixin, BaseEntity):
     tax_profile = relationship("CustomerTaxProfile", uselist=False, back_populates="customer", cascade="all, delete-orphan")
 
 
-class CustomerAddress(BaseEntity):
-    __tablename__ = "customer_addresses"
-    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, index=True)
-    label = Column(String(100), nullable=False)
-    address_type = Column(String(30), default="Billing")
-    line1 = Column(String(255), nullable=False)
-    line2 = Column(String(255), nullable=True)
-    city = Column(String(100), nullable=False)
-    state = Column(String(100), nullable=False)
-    country = Column(String(100), default="India")
-    pincode = Column(String(10), nullable=False)
-    gstin = Column(String(15), nullable=True)
-    is_default_shipping = Column(Boolean, default=False)
-    customer = relationship("Customer", back_populates="addresses")
-
-
-class CustomerContact(BaseEntity):
-    __tablename__ = "customer_contacts"
-    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, index=True)
-    name = Column(String(100), nullable=False)
-    role = Column(String(50), nullable=True)
-    mobile = Column(String(20), nullable=True)
-    email = Column(String(255), nullable=True)
-    is_primary = Column(Boolean, default=False)
-    customer = relationship("Customer", back_populates="contacts")
-
-
-class CustomerCreditProfile(BaseEntity):
-    __tablename__ = "customer_credit_profiles"
-    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, unique=True)
-    credit_limit = Column(Numeric(15, 2), default=0.00)
-    unlimited_credit = Column(Boolean, default=False)
-    credit_days = Column(Integer, default=0)
-    credit_hold = Column(Boolean, default=False)
-    customer = relationship("Customer", back_populates="credit_profile")
-
-
-class CustomerTaxProfile(BaseEntity):
-    __tablename__ = "customer_tax_profiles"
-    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, unique=True)
-    pan = Column(String(10), nullable=True)
-    gstin = Column(String(15), nullable=True)
-    customer = relationship("Customer", back_populates="tax_profile")
-
-
-class CustomerChannelPreference(BaseEntity):
-    __tablename__ = "customer_channel_preferences"
-    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, unique=True)
-    allow_sms = Column(Boolean, default=True)
-    allow_email = Column(Boolean, default=True)
-    allow_whatsapp = Column(Boolean, default=True)
-
-
 # ---------------------------------------------------------------------------
 # Milestone 3 Full CRM Pipeline Classes (Task C-1 to C-5)
 # ---------------------------------------------------------------------------
+
 
 class Lead(RowSecuredMixin, BaseEntity):
     """
