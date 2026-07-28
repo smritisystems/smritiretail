@@ -41,7 +41,10 @@ Document the completion of Milestone 6 (Ecosystem & External Integrations), comp
 | `backend/app/api/v1/webhooks.py` | Razorpay and Cashfree payment webhook callback handlers |
 | `backend/app/services/ecommerce_sync.py` | ECommerceSyncPipeline for stock push and channel order processing |
 | `backend/app/api/v1/ecommerce.py` | REST API routes for e-commerce channel sync |
+| `backend/app/api/v1/analytics.py` | Added missing get_tenant_context import |
+| `backend/app/api/v1/wms.py` | Added missing get_tenant_context import |
 | `backend/app/api/v1/crm.py` | Added missing List import from typing |
+
 | `backend/app/services/accounting.py` | Added missing BankAccount, CostCenter, TdsEntry, GstReturnLock imports |
 
 | `backend/app/models/crm.py` | Consolidated duplicate ORM model definitions |

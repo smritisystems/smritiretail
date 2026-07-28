@@ -19,7 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.db.session import get_db
-from app.api.deps import get_current_tenant, TenantContext
+from app.api.deps import get_current_tenant, TenantContext, get_tenant_context
+
 from app.core.analytics.financial_analytics import FinancialAnalyticsEngine
 from app.core.analytics.retail_kpi_engine import RetailKPIEngine
 from app.core.analytics.trend_analyzer import TrendAnalyzer
