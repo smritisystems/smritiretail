@@ -33,6 +33,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.compliance.api import router as compliance_router
+from app.api.public.v1.gateway import router as public_gateway_router
+
 
 from .api.v1 import (
     ai,
@@ -285,6 +287,8 @@ app.include_router(academy_courses.router,      prefix=settings.API_V1_STR,     
 app.include_router(global_search.router,        prefix=settings.API_V1_STR,                    tags=["Global Unified Search Service"])
 app.include_router(website_marketing.router,    prefix=settings.API_V1_STR,                    tags=["Official Product Website & Marketing"])
 app.include_router(live_docs.router,            prefix=settings.API_V1_STR,                    tags=["Live Documentation Portal & Knowledge Engine"])
+app.include_router(public_gateway_router)
+
 
 
 
