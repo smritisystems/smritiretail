@@ -49,7 +49,8 @@ export const POSTouchLayout: React.FC = () => {
   const totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
   return (
-    <div className="flex flex-col h-screen bg-slate-900 text-white font-sans p-4">
+    <div className="flex flex-col h-full bg-slate-900 text-white font-sans p-4">
+
       {/* Header */}
       <header className="flex justify-between items-center bg-slate-800 p-4 rounded-xl mb-4 border border-slate-700 shadow-md">
         <h1 className="text-xl font-bold text-emerald-400">SMRITI Touch POS — Quick Billing</h1>
