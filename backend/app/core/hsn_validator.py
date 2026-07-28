@@ -92,6 +92,11 @@ class HSNValidationResult:
     is_service: bool
     error_message: Optional[str] = None
 
+    @property
+    def is_sac(self) -> bool:
+        return self.is_service
+
+
 
 def validate_hsn(code: str) -> HSNValidationResult:
     """
@@ -174,3 +179,6 @@ def get_hsn_description(chapter: str) -> str:
         "99": "Services (SAC Codes)",
     }
     return _DESCRIPTIONS.get(chapter, f"Chapter {chapter}")
+
+
+validate_hsn_code = validate_hsn
