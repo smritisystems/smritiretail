@@ -28,7 +28,13 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [5.7.1] — 2026-07-28
+
+### Fixed
+- **HSN & SAC Validator Compatibility Fix**: Added `is_sac` property to `HSNValidationResult` and aliased `validate_hsn_code` to `validate_hsn` in `backend/app/core/hsn_validator.py`.
+
 ## [5.7.0] — 2026-07-28
+
 
 ### Added
 - **SMRITI Public Gateway & Ecosystem Integrations (Milestone 6)**:
