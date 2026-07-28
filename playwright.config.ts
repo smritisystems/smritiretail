@@ -13,8 +13,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
-    headless: true,
-    executablePath: 'C:\\Users\\netma\\AppData\\Local\\ms-playwright\\chromium-1228\\chrome-win64\\chrome.exe'
+    headless: true
   },
   projects: [
     {

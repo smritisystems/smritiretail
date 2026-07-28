@@ -1,10 +1,9 @@
-const { chromium } = require('C:/Users/netma/AppData/Local/npm-cache/_npx/e41f203b7505f1fb/node_modules/playwright-core');
+const { chromium } = require('playwright');
 
 (async () => {
   console.log('=== SMRITI RETAIL OS — PLAYWRIGHT END-TO-END AUTOMATION SUITE ===\n');
 
   const browser = await chromium.launch({
-    executablePath: 'C:\\Users\\netma\\AppData\\Local\\ms-playwright\\chromium-1228\\chrome-win64\\chrome.exe',
     headless: true
   });
 
@@ -12,7 +11,7 @@ const { chromium } = require('C:/Users/netma/AppData/Local/npm-cache/_npx/e41f20
     { name: 'E2E-001: Store Manager Login', username: 'manager', password: 'Password@123', expectedRole: 'MANAGER' },
     { name: 'E2E-002: POS Cashier Login', username: 'cashier', password: 'Cashier@1234', expectedRole: 'CASHIER' },
     { name: 'E2E-003: System Admin Login', username: 'super', password: 'Smriti@1234', expectedRole: 'SYSADMIN' },
-    { name: 'E2E-004: Invalid Password Rejection', username: 'manager', password: 'WrongPassword99', shouldFail: true }
+    { name: 'E2E-004: Invalid Credentials Rejection', username: 'invalid_user_99', password: 'WrongPassword99', shouldFail: true }
   ];
 
   for (const tc of testCases) {
