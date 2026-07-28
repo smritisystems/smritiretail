@@ -30,6 +30,7 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-07-28 | v5.4.0 | 200-Year Engineering Constitution & 11 ADR Suite | [Walkthrough](./foundation/Foundation_200Year_Engineering_Constitution_And_11_ADR_Suite_v5.4.0.md) | [Plan](../../brain/d3b67074-34fe-41fc-ba9c-10821ef3d960/implementation_plan.md) | Completed |
 | 2026-07-28 | v5.4.0 | Product Master Pattern C Master-Detail Refactoring & Multi-UOM Matrix | [Walkthrough](./foundation/Foundation_ItemMaster_PatternC_Refactor_v5.4.0.md) | [Plan](../../brain/d3b67074-34fe-41fc-ba9c-10821ef3d960/implementation_plan.md) | Completed |
 | 2026-07-28 | v5.4.0 | SLGP-001 Viewport & Layout Governance Framework (Patterns A/B/C) | [Walkthrough](./foundation/Foundation_SLGP001_Viewport_And_Layout_Governance_v5.4.0.md) | [Plan](../../brain/d3b67074-34fe-41fc-ba9c-10821ef3d960/implementation_plan.md) | Completed |
 | 2026-07-28 | v5.4.0 | SLP-001 SMRITI Launchpad Digital Business Desktop & Composition Framework | [Walkthrough](./foundation/Foundation_SLP001_Digital_Business_Desktop_v5.4.0.md) | [Plan](../../brain/d3b67074-34fe-41fc-ba9c-10821ef3d960/implementation_plan.md) | Completed |

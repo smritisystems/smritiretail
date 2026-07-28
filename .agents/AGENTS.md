@@ -215,6 +215,26 @@ The Launchpad shall never directly import or invoke business-domain logic. All i
 ### Rule SLGP-R6: Modules Shall Never Control the Viewport (MANDATORY)
 Business modules must not define viewport dimensions (`100vh`, `100vw`, `h-screen`, `w-screen`) or application-level overflow behavior. Only the Layout Manager and Workspace Framework may control viewport sizing and scroll behavior. Modules shall consume the allocated workspace boundaries and render within Pattern A (Scrollable), Pattern B (Fixed Studio), or Pattern C (Master-Detail) contracts.
 
+### Rule GR-000: Business Capability Before Technology Principle (MANDATORY)
+Technology frameworks (`FastAPI`, `React`, `Postgres`) are execution details. SMRITI Retail OS is designed exclusively around permanent retail business capabilities (`Inventory`, `Sales`, `Purchase`, `Accounting`, `CRM`, `POS`). Frameworks change; business capabilities endure for 200 years.
+
+### Rule GR-001: Single Source of Truth (SSOT) Principle (MANDATORY)
+Every business rule, calculation, validation, configuration, UI component, API contract, and data definition shall have **EXACTLY ONE** authoritative implementation. Duplication is strictly prohibited. Reuse is mandatory across GST calculations, pricing engines, barcode generators, customer selectors, design tokens, and API endpoints.
+
+### AI Agent Mandatory Code Reuse Directive (MANDATORY)
+Before writing ANY new code or creating files, all AI agents and engineers MUST execute the 5-step search chain: `Search Project` ──► `Find Existing Implementation` ──► `Reuse` ──► `Else Extend` ──► `Else Create & Document Justification`.
+
+### SMRITI Engineering Core Principles (GR-002 — GR-010)
+- **GR-002 (DRY)**: Don't Repeat Yourself across modules or layers.
+- **GR-003 (High Cohesion / Low Coupling)**: Modules communicate exclusively via Published Service Interfaces or Domain Event Bus (`DomainEvents`).
+- **GR-004 (Separation of Concerns)**: Clear boundaries between Presentation (React), API Controllers (FastAPI), Business Logic (Services), and Persistence (Repositories).
+- **GR-005 (Composition Over Inheritance)**: Favor modular composable contracts over deep class hierarchies.
+- **GR-006 (Open-Closed Principle)**: Modules open for capability extension, closed for breaking modifications.
+- **GR-007 (Convention Over Configuration)**: Standardized naming and folder structure (`backend/app/modules/`).
+- **GR-008 (KISS)**: Keep implementation simple, readable, and maintainable.
+- **GR-009 (YAGNI)**: Implement only verified business requirements.
+- **GR-010 (Production-First)**: Zero business mock data or static fallback bypasses in production environments.
+
 ---
 
 # LEVEL 2: ENGINEERING STANDARDS (VERSIONED STANDARDS)
