@@ -28,7 +28,20 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [5.6.0] — 2026-07-28
+
+### Added
+- **SMRITI WMS Multi-Bin Location Management (Milestone 5)**:
+  - Models for `WarehouseZone`, `WarehouseBin`, and `StockBinAssignment` in `backend/app/models/wms.py`.
+  - Alembic migration `v1215_wms_loyalty_expansion.py` creating `warehouse_zones`, `warehouse_bins`, `stock_bin_assignments`, `loyalty_point_transactions` tables.
+  - REST endpoints for WMS Zones and Bins in `backend/app/api/v1/wms.py`.
+- **SMRITI Customer Loyalty & Rewards Engine (Milestone 5)**:
+  - `LoyaltyEngineService` in `backend/app/services/loyalty.py` implementing point accrual (₹100=1pt), redemption (1pt=₹1 discount), and automated tier upgrades (BRONZE, SILVER, GOLD, PLATINUM).
+  - `LoyaltyTransactionModel` in `backend/app/models/loyalty.py`.
+  - REST endpoints for Loyalty account, points earn, and points redeem in `backend/app/api/v1/loyalty.py`.
+
 ## [5.5.0] — 2026-07-28
+
 
 ### Added
 - **SMRITI Accounting Expansion (Milestone 2)**:
@@ -43,6 +56,12 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - REST endpoints for Leads, Opportunities, Campaigns, and Support Tickets in `backend/app/api/v1/crm.py`.
 - **Statutory Indian GST Compliance**:
   - `GSTR3BReport` dataclass and `compile_gstr3b_report` compiler in `backend/app/services/indian_gst_reports.py`.
+- **Event-Driven Core & Executive Analytics (Milestone 4)**:
+  - Event listeners for stock alerts, purchase order creation, and customer credit block in `backend/app/services/event_listeners.py`.
+  - Dead Letter Queue (DLQ) logger `log_event_to_dlq()`.
+  - Executive Sales & Profitability Dashboard API `/analytics/dashboard/executive`.
+  - Inventory Turnaround & Stock Valuation Analytics API `/analytics/inventory-turnaround`.
+
 
 ## [5.4.0] — 2026-07-28
 

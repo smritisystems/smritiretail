@@ -1,48 +1,73 @@
 """
 Project      : SMRITI Retail OS
+Organization : SmritiSys
+Module       : Customer Loyalty & Rewards REST API Gateway (Milestone 5 — Tasks H-1 to H-5)
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
-Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 22.0.0
-Created      : 2026-07-21
-Modified     : 2026-07-21
+Version      : 22.2.0
+Created      : 2026-07-28
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
-Classification: Customer Loyalty & Promotions REST API Gateway
+
+Purpose:
+    REST API endpoints for customer loyalty accounts, point accrual, and point redemption.
 """
 
 from typing import Dict, Any
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.loyalty.loyalty_manager import LoyaltyManager
-from app.core.loyalty.promotion_engine import PromotionEngine
-from app.core.loyalty.giftcard_ledger import GiftCardLedger
+from app.db.session import get_db
+from app.api.deps import get_current_tenant, TenantContext
+from app.services.loyalty import LoyaltyEngineService
 
-router = APIRouter(prefix="/loyalty", tags=["Domain Release: Customer Loyalty & Promotions Engine (v22.0.0)"])
-
-
-@router.post("/accounts")
-async def get_or_create_loyalty_account(customer_id: str = Body(...), customer_name: str = Body(...)):
-    """Gets or registers a customer loyalty account."""
-    acc = LoyaltyManager.get_or_create_account(customer_id, customer_name)
-    return acc.to_dict()
+router = APIRouter(prefix="/loyalty", tags=["Customer Loyalty & Rewards Engine"])
 
 
-@router.post("/promotions/apply")
-async def apply_promotion_coupon(coupon_code: str = Body(...), cart_total: float = Body(...)):
-    """Validates and applies a coupon code promotion."""
-    return PromotionEngine.apply_coupon(coupon_code, cart_total)
+@router.get("/account/{customer_id}")
+async def get_loyalty_account(
+    customer_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant),
+):
+    """Retrieves customer loyalty points balance and tier status."""
+    service = LoyaltyEngineService(db, tenant)
+    acc = await service.get_or_create_account(customer_id)
+    return {
+        "customer_id": acc.customer_id,
+        "customer_name": acc.customer_name,
+        "tier": acc.tier,
+        "points_balance": acc.points_balance,
+        "total_lifetime_spend": acc.total_lifetime_spend,
+    }
 
 
-@router.post("/giftcards/issue")
-async def issue_gift_card(card_number: str = Body(...), initial_balance: float = Body(...)):
-    """Issues a new digital gift card."""
-    card = GiftCardLedger.issue_card(card_number, initial_balance)
-    return {"card_number": card.card_number, "balance": card.balance_amount, "status": card.status}
+@router.post("/earn")
+async def earn_loyalty_points(
+    customer_id: str = Body(...),
+    invoice_amount: float = Body(..., ge=0.01),
+    reference_doc_no: str = Body(...),
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant),
+):
+    """Accrues loyalty points on a purchase (₹100 = 1 point)."""
+    service = LoyaltyEngineService(db, tenant)
+    res = await service.earn_points(customer_id, invoice_amount, reference_doc_no)
+    await db.commit()
+    return res
 
 
-@router.post("/giftcards/redeem")
-async def redeem_gift_card(card_number: str = Body(...), amount: float = Body(...)):
-    """Redeems funds from a digital gift card."""
-    return GiftCardLedger.redeem_card(card_number, amount)
+@router.post("/redeem")
+async def redeem_loyalty_points(
+    customer_id: str = Body(...),
+    points: int = Body(..., ge=1),
+    reference_doc_no: str = Body(...),
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_current_tenant),
+):
+    """Redeems loyalty points for an invoice discount (1 point = ₹1)."""
+    service = LoyaltyEngineService(db, tenant)
+    res = await service.redeem_points(customer_id, points, reference_doc_no)
+    await db.commit()
+    return res

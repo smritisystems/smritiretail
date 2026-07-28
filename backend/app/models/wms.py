@@ -1,50 +1,72 @@
 """
 Project      : SMRITI Retail OS
+Organization : SmritiSys
+Module       : Warehouse Management System (WMS) Multi-Bin Location Models
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
-Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 18.0.0
-Created      : 2026-07-21
-Modified     : 2026-07-21
+Version      : 18.1.0
+Created      : 2026-07-28
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
-Classification: Database Models for Enterprise WMS & Multi-Bin Location Engine
+Classification: Internal Architecture Standard
+
+wms.py — Warehouse Zones, Multi-Bin Location Master, and Stock Bin Assignment Models.
 """
 
-import uuid
-from datetime import datetime
-from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Text
-from app.db.base import Base
+from decimal import Decimal
+from datetime import datetime, timezone
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, DateTime, Text
+from sqlalchemy.orm import relationship
+from app.db.base import BaseEntity, RowSecuredMixin
 
 
-class BinLocationModel(Base):
-    """Hierarchical Bin Location Model (Aisle-Rack-Shelf-Bin)."""
-    __tablename__ = "wms_bin_locations"
+class WarehouseZone(RowSecuredMixin, BaseEntity):
+    """
+    WarehouseZone — Logical zone breakdown inside a physical warehouse.
+    Types: STORAGE, PICKING, RECEIVING, PACKING, COLD_STORAGE
+    """
+    __tablename__ = "warehouse_zones"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    warehouse_id = Column(String(50), nullable=False, index=True)
-    zone = Column(String(50), nullable=False, default="MAIN")
-    aisle = Column(String(20), nullable=False)
-    rack = Column(String(20), nullable=False)
-    shelf = Column(String(20), nullable=False)
-    bin_code = Column(String(50), nullable=False, unique=True, index=True)
-    max_capacity_units = Column(Integer, nullable=False, default=1000)
-    current_occupancy_units = Column(Integer, nullable=False, default=0)
-    is_active = Column(String(10), nullable=False, default="ACTIVE")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    warehouse_id = Column(String(50), ForeignKey("warehouses.id", ondelete="CASCADE"), nullable=False, index=True)
+    zone_code    = Column(String(50), nullable=False, unique=True)
+    zone_name    = Column(String(200), nullable=False)
+    zone_type    = Column(String(50), nullable=False, default="STORAGE")  # STORAGE, PICKING, RECEIVING, PACKING, COLD_STORAGE
+    is_active    = Column(Boolean, nullable=False, default=True)
+
+    bins         = relationship("WarehouseBin", back_populates="zone", cascade="all, delete-orphan")
 
 
-class StockTransferModel(Base):
-    """Multi-Warehouse In-Transit Stock Transfer Model."""
-    __tablename__ = "wms_stock_transfers"
+class WarehouseBin(RowSecuredMixin, BaseEntity):
+    """
+    WarehouseBin — Granular bin location (Aisle-Rack-Shelf-Bin) for precise stock picking and putaway.
+    """
+    __tablename__ = "warehouse_bins"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    transfer_number = Column(String(50), nullable=False, unique=True, index=True)
-    from_warehouse_id = Column(String(50), nullable=False)
-    to_warehouse_id = Column(String(50), nullable=False)
-    status = Column(String(30), nullable=False, default="INITIATED")  # INITIATED, SHIPPED, IN_TRANSIT, RECEIVED
-    shipped_at = Column(DateTime, nullable=True)
-    received_at = Column(DateTime, nullable=True)
-    notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    warehouse_id      = Column(String(50), ForeignKey("warehouses.id", ondelete="CASCADE"), nullable=False, index=True)
+    zone_id           = Column(String(50), ForeignKey("warehouse_zones.id", ondelete="SET NULL"), nullable=True, index=True)
+    bin_code          = Column(String(50), nullable=False, unique=True)  # e.g. A01-R02-S03-B04
+    aisle             = Column(String(20), nullable=True)
+    rack              = Column(String(20), nullable=True)
+    shelf             = Column(String(20), nullable=True)
+    bin_type          = Column(String(50), nullable=False, default="STANDARD")  # STANDARD, PALLET, FAST_PICK, BULK
+    max_weight_kg     = Column(Numeric(10, 2), nullable=False, default=Decimal("500.00"))
+    current_weight_kg = Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
+    is_occupied       = Column(Boolean, nullable=False, default=False)
+    is_active         = Column(Boolean, nullable=False, default=True)
+
+    zone              = relationship("WarehouseZone", back_populates="bins")
+    assignments       = relationship("StockBinAssignment", back_populates="bin", cascade="all, delete-orphan")
+
+
+class StockBinAssignment(BaseEntity):
+    """
+    StockBinAssignment — Maps physical inventory units of a product to specific warehouse bins.
+    """
+    __tablename__ = "stock_bin_assignments"
+
+    product_id = Column(String(50), ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    bin_id     = Column(String(50), ForeignKey("warehouse_bins.id", ondelete="CASCADE"), nullable=False, index=True)
+    quantity   = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+
+    bin        = relationship("WarehouseBin", back_populates="assignments")
