@@ -36,7 +36,13 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Razorpay and Cashfree payment gateway webhook handlers in `backend/app/api/v1/webhooks.py`.
   - `ECommerceSyncPipeline` in `backend/app/services/ecommerce_sync.py` for real-time stock push and channel order processing.
   - REST endpoints for e-commerce channel sync in `backend/app/api/v1/ecommerce.py`.
+  - **Task 2-1: E-Invoice & NIC GSTN Gateway (CR-2026-1641)**:
+    - Executed Task 2-1 under SMRITI Change Studio (SCS v4.0).
+    - Created `NICEInvoiceGatewayService` in `backend/app/services/nic_einvoice_gateway.py` with 64-char SHA256 IRN hash computation and Schema v1.03 payload compilation.
+    - Created REST API router `backend/app/api/v1/nic_gst.py`.
+    - Added unit test suite `backend/app/tests/test_nic_einvoice.py`.
   - **Task 4: POS Touch UI & Thermal Print Engine (CR-2026-1637)**:
+
     - Executed Task 4 under SMRITI Change Studio (SCS v4.0).
     - Created `ESCPOSThermalPrinter` byte encoder in `backend/app/services/esc_pos_printer.py` for 80mm/58mm thermal receipts.
     - Created `POSTouchLayout.tsx` touch-screen quick billing interface in `frontend/src/modules/pos/`.
