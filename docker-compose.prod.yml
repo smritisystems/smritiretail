@@ -1,0 +1,72 @@
+# Project      : SMRITI Retail OS
+# Organization : SmritiSys
+# Author       : Jawahar Ramkripal Mallah
+# Copyright    : © SMRITIBooks.com. All Rights Reserved.
+# Docker Compose Production Deployment Configuration (AOP-002 & AOP-005)
+
+version: '3.8'
+
+services:
+  smriti-db-prod:
+    image: postgres:15-alpine
+    container_name: smriti-db-prod
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-smritidb}
+      POSTGRES_USER: ${POSTGRES_USER:-smritiuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_prod_password}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-smritiuser} -d ${POSTGRES_DB:-smritidb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  smriti-api-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: smriti-api-prod
+    restart: always
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-smritiuser}:${POSTGRES_PASSWORD:-secure_prod_password}@smriti-db-prod:5432/${POSTGRES_DB:-smritidb}
+      ENVIRONMENT: production
+      WORKERS: 4
+    depends_on:
+      smriti-db-prod:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  smriti-workspace-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile.workspace
+    container_name: smriti-workspace-prod
+    restart: always
+    environment:
+      VITE_API_URL: https://api.smritisys.com
+    depends_on:
+      - smriti-api-prod
+
+  smriti-nginx-prod:
+    image: nginx:alpine
+    container_name: smriti-nginx-prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - certs_data:/etc/letsencrypt
+    depends_on:
+      - smriti-workspace-prod
+      - smriti-api-prod
+
+volumes:
+  postgres_prod_data:
+  certs_data:

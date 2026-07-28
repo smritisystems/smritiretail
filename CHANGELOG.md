@@ -36,7 +36,14 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Razorpay and Cashfree payment gateway webhook handlers in `backend/app/api/v1/webhooks.py`.
   - `ECommerceSyncPipeline` in `backend/app/services/ecommerce_sync.py` for real-time stock push and channel order processing.
   - REST endpoints for e-commerce channel sync in `backend/app/api/v1/ecommerce.py`.
+  - **Task 3: Production Deployment Infrastructure (CR-2026-1635)**:
+    - Executed Task 3 under SMRITI Change Studio (SCS v4.0).
+    - Created `docker-compose.prod.yml` multi-container production stack with PostgreSQL 15, FastAPI, React Workspace, and Nginx.
+    - Created `deploy/nginx/nginx.conf` Nginx reverse proxy & SSL termination config.
+    - Created `deploy/systemd/smriti-retail.service` Linux systemd service unit.
+    - Created `scripts/deploy_prod.sh` zero-downtime deployment script.
   - **Task 2: Apparel Color / Size Variant Grid Engine (CR-2026-1632)**:
+
     - Executed Task 2 under SMRITI Change Studio (SCS v4.0).
     - Added `ApparelMatrixVariantModel` in `backend/app/models/apparel.py` and migration `v1216_new_table_apparelvariantgrid_apparel_matrix_grid.py`.
     - Added `ApparelMatrixService` in `backend/app/services/apparel_matrix.py` for 2D Color x Size SKU variant generation.

@@ -246,6 +246,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-28 | v1.0.0 | CR-2026-1615 Sales Executive Field Extension (`sales_person_id` on `SalesInvoice`) executed via SMRITI Change Studio (SCS v4.0) | [Walkthrough](./foundation/CR_2026_1615_Sales_Person_ID_v1.0.0.md) | — | Completed |
 | 2026-07-28 | v1.0.0 | Task 1: Pharma FEFO & Batch Expiry Tracker (`PharmaBatchModel`, `PharmaFEFOService`, FEFO stock allocation) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1629_Pharma_FEFO_v1.0.0.md) | — | Completed |
 | 2026-07-28 | v1.0.0 | Task 2: Apparel Color / Size Variant Grid Engine (`ApparelMatrixVariantModel`, `ApparelMatrixService`, 2D SKU matrix) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1632_Apparel_Matrix_v1.0.0.md) | — | Completed |
+| 2026-07-28 | v1.0.0 | Task 3: Production Deployment Infrastructure (`docker-compose.prod.yml`, Nginx SSL proxy, systemd, `deploy_prod.sh`) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1635_Production_Deployment_v1.0.0.md) | — | Completed |
+
 
 
 
