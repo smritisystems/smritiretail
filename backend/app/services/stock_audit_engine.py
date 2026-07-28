@@ -238,5 +238,6 @@ class StockAuditEngine:
 
         return {
             "stock_count": stock_count,
-            "adjustment": adjustment
+            "adjustment": adjustment,
+            "stock_adjustment": adjustment
         }
