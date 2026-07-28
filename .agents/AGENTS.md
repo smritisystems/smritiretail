@@ -116,11 +116,12 @@ Before presenting a verification report, the agent should confirm:
 
 ### Workflow
 
-1. Write all code in the active Development repository workspace.
-2. Commit and push from Development workspace.
+1. Write all code in the active Development repository workspace (`f:\SMRITRretailNXmgrt`).
+2. Commit and push from Development workspace ONLY.
 3. Pull/sync into `F:\SMRITI9TEST` to deploy and execute tests in the dedicated test environment.
 4. NEVER perform testing execution inside the development/coding folder.
 5. NEVER write code directly in `F:\SMRITI9TEST`.
+6. **NEVER execute `git push` from `F:\SMRITI9TEST` under any circumstances.** Pushes happen EXCLUSIVELY from Development workspace (`f:\SMRITRretailNXmgrt`). `F:\SMRITI9TEST` operates strictly read-only via `git pull --rebase`.
 
 ---
 
