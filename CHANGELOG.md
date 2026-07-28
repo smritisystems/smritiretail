@@ -28,7 +28,18 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [5.7.0] — 2026-07-28
+
+### Added
+- **SMRITI Public Gateway & Ecosystem Integrations (Milestone 6)**:
+  - Public API Gateway router in `backend/app/api/public/v1/gateway.py` with `verify_public_api_key` authentication and `/catalog` and `/inventory/availability` endpoints (AOP-002 & AOP-005).
+  - Razorpay and Cashfree payment gateway webhook handlers in `backend/app/api/v1/webhooks.py`.
+  - `ECommerceSyncPipeline` in `backend/app/services/ecommerce_sync.py` for real-time stock push and channel order processing.
+  - REST endpoints for e-commerce channel sync in `backend/app/api/v1/ecommerce.py`.
+  - Full SMRITI Retail OS Enterprise Implementation Roadmap v1.0 (Milestones 1 through 6) completed and verified.
+
 ## [5.6.0] — 2026-07-28
+
 
 ### Added
 - **SMRITI WMS Multi-Bin Location Management (Milestone 5)**:
