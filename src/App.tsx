@@ -50,6 +50,7 @@ import { CustomerMasterTab } from "./components/CustomerMasterTab.tsx";
 import { CustomerDashboardTab } from "./components/CustomerDashboardTab.tsx";
 import { WorkspaceLabTab } from "./components/WorkspaceLabTab.tsx";
 import { OperationalWorkspacesTab } from "./components/OperationalWorkspacesTab.tsx";
+import { TransactionWorkspacesTab } from "./components/TransactionWorkspacesTab.tsx";
 import { ConsignmentStudioTab } from "./components/ConsignmentStudioTab.tsx";
 import { CrmStudioTab } from "./components/CrmStudioTab.tsx";
 import { LoyaltyStudioTab } from "./components/LoyaltyStudioTab.tsx";
@@ -525,6 +526,8 @@ const AppContent: React.FC = () => {
         return <WorkspaceLabTab />;
       case "operational-workspaces":
         return <OperationalWorkspacesTab />;
+      case "transaction-workspaces":
+        return <TransactionWorkspacesTab />;
       case "launchpad-config":
         return <LaunchpadConfigTab onNotification={addNotification} />;
       case "document-series":
