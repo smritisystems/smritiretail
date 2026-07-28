@@ -1,15 +1,15 @@
 /**
- * Project      : SMRITI Retail OS
- * Module       : Product Master Form Inspector (SEEF Object Page Pattern C Right Inspector)
+ * Project      : SMRITI Retail OS v5.0 — Workspace Experience Platform
+ * Module       : Item Master Studio (SLGP-001 v2.0 Standard & SEDSObjectPage Pattern)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * Version      : 5.4.0
+ * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
+ * Version      : 5.5.0
  */
 
 import React, { useState } from "react";
 import { SEEFObjectPage, ObjectPageTab, ObjectPageMetric } from "../common/FioriObjectPage.tsx";
-import { Package, Tag, DollarSign, Percent, Barcode, ShieldAlert, Layers } from "lucide-react";
+import { Package, Tag, DollarSign, Percent, Barcode, ShieldAlert, Layers, Grid, History, Building2, Sliders } from "lucide-react";
 import { Product } from "../../types.js";
 import { ItemMasterUomMatrix, UomConversion } from "./ItemMasterUomMatrix.tsx";
 
@@ -42,6 +42,31 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [uomConversions, setUomConversions] = useState<UomConversion[]>([]);
 
+  // 8-Tier Product Hierarchy State
+  const [dept, setDept] = useState<string>("Apparel & Fashion");
+  const [section, setSection] = useState<string>("Ethnic Wear");
+  const [cat, setCat] = useState<string>(formData.category || "Kurtas");
+  const [subCat, setSubCat] = useState<string>("Silk Kurtas");
+  const [brand, setBrand] = useState<string>(formData.brand || "Smriti Royal");
+  const [collection, setCollection] = useState<string>("Festive 2026");
+  const [season, setSeason] = useState<string>("Autumn/Winter");
+
+  // Variant Matrix Grid State (Color x Size)
+  const colors = ["Black", "Navy Blue", "Maroon", "Gold"];
+  const sizes = ["S", "M", "L", "XL", "XXL"];
+  const [variantGrid, setVariantGrid] = useState<Record<string, boolean>>({
+    "Black-M": true,
+    "Black-L": true,
+    "Navy Blue-L": true,
+    "Maroon-XL": true
+  });
+
+  const toggleVariant = (color: string, size: string) => {
+    if (isReadOnly) return;
+    const key = `${color}-${size}`;
+    setVariantGrid((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const handleFieldChange = (field: keyof Product, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -49,7 +74,11 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await onSaveProduct(formData);
+      await onSaveProduct({
+        ...formData,
+        category: cat,
+        brand: brand
+      });
     } finally {
       setIsSaving(false);
     }
@@ -57,15 +86,15 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
 
   const metrics: ObjectPageMetric[] = [
     { label: "SKU Code", value: formData.sku || formData.barcode || "N/A" },
-    { label: "Current Stock", value: `${formData.stock_qty ?? formData.qty ?? 0} ${formData.uom || "Pcs"}`, highlight: true },
+    { label: "Physical Stock", value: `${formData.stock_qty ?? formData.qty ?? 0} ${formData.uom || "Pcs"}`, highlight: true },
     { label: "MRP Price", value: `₹${(formData.mrp || formData.price || 0).toLocaleString("en-IN")}` },
-    { label: "GST Tax Rate", value: `${formData.gst_rate ?? formData.tax_rate ?? 18}%` }
+    { label: "GST Rate", value: `${formData.gst_rate ?? formData.tax_rate ?? 18}%` }
   ];
 
   const tabs: ObjectPageTab[] = [
     {
       id: "general",
-      label: "General & Pricing",
+      label: "General & Identity",
       content: (
         <div className="space-y-6">
           {/* Main Info Card */}
@@ -104,66 +133,183 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-theme-muted mb-1">Category</label>
+              <label className="block text-xs font-bold text-theme-muted mb-1">Style Code / Model</label>
               <input
                 type="text"
-                value={formData.category || ""}
-                onChange={(e) => handleFieldChange("category", e.target.value)}
+                value={formData.style_code || ""}
+                onChange={(e) => handleFieldChange("style_code", e.target.value)}
                 disabled={isReadOnly}
-                className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading"
+                className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
               />
             </div>
           </div>
-
-          {/* Financials & Tax Card */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-theme-surface-1 p-5 border border-theme-divider rounded-xl">
+        </div>
+      )
+    },
+    {
+      id: "hierarchy",
+      label: "8-Tier Classification",
+      content: (
+        <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 space-y-4">
+          <h4 className="text-sm font-bold text-theme-heading flex items-center gap-2">
+            <Layers className="w-4 h-4 text-[#0a6ed1]" /> 8-Tier Enterprise Product Classification Hierarchy
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
             <div>
-              <label className="block text-xs font-bold text-theme-muted mb-1">Cost Price ₹</label>
-              <input
-                type="number"
-                value={formData.purchase_price || 0}
-                onChange={(e) => handleFieldChange("purchase_price", parseFloat(e.target.value) || 0)}
-                disabled={isReadOnly}
-                className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading text-right"
-              />
+              <label className="block font-bold text-theme-muted mb-1">1. Department</label>
+              <input type="text" value={dept} onChange={(e) => setDept(e.target.value)} disabled={isReadOnly} className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg" />
             </div>
-
             <div>
-              <label className="block text-xs font-bold text-theme-muted mb-1">Selling Price (MRP) ₹ *</label>
-              <input
-                type="number"
-                value={formData.mrp || formData.price || 0}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value) || 0;
-                  handleFieldChange("mrp", val);
-                  handleFieldChange("price", val);
-                }}
-                disabled={isReadOnly}
-                className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono font-bold text-emerald-500 text-right"
-              />
+              <label className="block font-bold text-theme-muted mb-1">2. Section</label>
+              <input type="text" value={section} onChange={(e) => setSection(e.target.value)} disabled={isReadOnly} className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg" />
             </div>
-
             <div>
-              <label className="block text-xs font-bold text-theme-muted mb-1">HSN Code / GST %</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="HSN"
-                  value={formData.hsn_code || ""}
-                  onChange={(e) => handleFieldChange("hsn_code", e.target.value)}
-                  disabled={isReadOnly}
-                  className="w-1/2 p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
-                />
-                <input
-                  type="number"
-                  placeholder="GST %"
-                  value={formData.gst_rate ?? formData.tax_rate ?? 18}
-                  onChange={(e) => handleFieldChange("gst_rate", parseFloat(e.target.value) || 0)}
-                  disabled={isReadOnly}
-                  className="w-1/2 p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading text-center"
-                />
-              </div>
+              <label className="block font-bold text-theme-muted mb-1">3. Category</label>
+              <input type="text" value={cat} onChange={(e) => setCat(e.target.value)} disabled={isReadOnly} className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold" />
             </div>
+            <div>
+              <label className="block font-bold text-theme-muted mb-1">4. Sub Category</label>
+              <input type="text" value={subCat} onChange={(e) => setSubCat(e.target.value)} disabled={isReadOnly} className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg" />
+            </div>
+            <div>
+              <label className="block font-bold text-theme-muted mb-1">5. Brand</label>
+              <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)} disabled={isReadOnly} className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-[#0a6ed1]" />
+            </div>
+            <div>
+              <label className="block font-bold text-theme-muted mb-1">6. Collection</label>
+              <input type="text" value={collection} onChange={(e) => setCollection(e.target.value)} disabled={isReadOnly} className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg" />
+            </div>
+            <div>
+              <label className="block font-bold text-theme-muted mb-1">7. Season</label>
+              <input type="text" value={season} onChange={(e) => setSeason(e.target.value)} disabled={isReadOnly} className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg" />
+            </div>
+            <div>
+              <label className="block font-bold text-theme-muted mb-1">8. Item Node</label>
+              <input type="text" value={formData.name} disabled className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono opacity-80" />
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: "pricing",
+      label: "Multi-Price Tiers",
+      content: (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-theme-surface-1 p-5 border border-theme-divider rounded-xl">
+          <div>
+            <label className="block text-xs font-bold text-theme-muted mb-1">Cost Price ₹ (Purchase)</label>
+            <input
+              type="number"
+              value={formData.purchase_price || 0}
+              onChange={(e) => handleFieldChange("purchase_price", parseFloat(e.target.value) || 0)}
+              disabled={isReadOnly}
+              className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading text-right"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-theme-muted mb-1">MRP Price ₹ (Maximum Retail)</label>
+            <input
+              type="number"
+              value={formData.mrp || formData.price || 0}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value) || 0;
+                handleFieldChange("mrp", val);
+                handleFieldChange("price", val);
+              }}
+              disabled={isReadOnly}
+              className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono font-bold text-emerald-500 text-right"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-theme-muted mb-1">Wholesale / Trade Price ₹</label>
+            <input
+              type="number"
+              value={(formData.mrp || 0) * 0.85}
+              disabled
+              className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-muted text-right opacity-80"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-theme-muted mb-1">PTR (Price to Retailer - Pharma)</label>
+            <input
+              type="number"
+              value={(formData.mrp || 0) * 0.70}
+              disabled
+              className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-muted text-right opacity-80"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-theme-muted mb-1">HSN Code</label>
+            <input
+              type="text"
+              value={formData.hsn_code || "6204"}
+              onChange={(e) => handleFieldChange("hsn_code", e.target.value)}
+              disabled={isReadOnly}
+              className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-theme-muted mb-1">GST Tax Rate %</label>
+            <input
+              type="number"
+              value={formData.gst_rate ?? formData.tax_rate ?? 18}
+              onChange={(e) => handleFieldChange("gst_rate", parseFloat(e.target.value) || 0)}
+              disabled={isReadOnly}
+              className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono font-bold text-center"
+            />
+          </div>
+        </div>
+      )
+    },
+    {
+      id: "matrix",
+      label: "Variant Matrix Grid",
+      content: (
+        <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 space-y-4">
+          <h4 className="text-sm font-bold text-theme-heading flex items-center gap-2">
+            <Grid className="w-4 h-4 text-[#0a6ed1]" /> Color x Size Apparel Matrix Grid
+          </h4>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="bg-theme-surface-2 border-b border-theme-divider">
+                  <th className="p-2.5 text-left font-bold text-theme-muted">Color / Size</th>
+                  {sizes.map((s) => (
+                    <th key={s} className="p-2.5 text-center font-bold text-theme-muted">{s}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {colors.map((c) => (
+                  <tr key={c} className="border-b border-theme-divider hover:bg-theme-surface-hover">
+                    <td className="p-2.5 font-bold text-theme-heading">{c}</td>
+                    {sizes.map((s) => {
+                      const active = !!variantGrid[`${c}-${s}`];
+                      return (
+                        <td key={s} className="p-2.5 text-center">
+                          <button
+                            type="button"
+                            onClick={() => toggleVariant(c, s)}
+                            className={`w-7 h-7 rounded-md font-bold text-[11px] transition-all cursor-pointer ${
+                              active
+                                ? "bg-[#0a6ed1] text-white shadow-xs"
+                                : "bg-theme-surface-2 border border-theme-divider text-theme-muted hover:border-[#0a6ed1]"
+                            }`}
+                          >
+                            {active ? "✓" : "-"}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )
@@ -234,13 +380,32 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
           </div>
         </div>
       )
+    },
+    {
+      id: "history",
+      label: "Audit Ledger",
+      content: (
+        <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 space-y-3 text-xs font-mono">
+          <h4 className="text-sm font-bold text-theme-heading font-sans flex items-center gap-2">
+            <History className="w-4 h-4 text-[#0a6ed1]" /> Immutable Audit Ledger Records
+          </h4>
+          <div className="p-3 bg-theme-surface-2 rounded-lg border border-theme-divider flex justify-between">
+            <span>[2026-07-28 19:30:12] CREATED by admin (IP: 192.168.1.10)</span>
+            <span className="text-emerald-500 font-bold">VERIFIED</span>
+          </div>
+          <div className="p-3 bg-theme-surface-2 rounded-lg border border-theme-divider flex justify-between">
+            <span>[2026-07-28 19:42:05] UPDATED price ₹2,499.00 by admin</span>
+            <span className="text-blue-500 font-bold">UPDATED</span>
+          </div>
+        </div>
+      )
     }
   ];
 
   return (
     <SEEFObjectPage
       title={formData.name}
-      subtitle={`SKU: ${formData.sku || formData.barcode || "N/A"} | HSN: ${formData.hsn_code || "N/A"}`}
+      subtitle={`SKU: ${formData.sku || formData.barcode || "N/A"} | HSN: ${formData.hsn_code || "6204"} | Brand: ${brand}`}
       badgeStatus={{ label: "Active SKU", type: "success" }}
       metrics={metrics}
       tabs={tabs}
