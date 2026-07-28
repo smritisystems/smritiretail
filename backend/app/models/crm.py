@@ -143,6 +143,8 @@ class Customer(RowSecuredMixin, BaseEntity):
     contacts = relationship("CustomerContact", back_populates="customer", cascade="all, delete-orphan")
     credit_profile = relationship("CustomerCreditProfile", uselist=False, back_populates="customer", cascade="all, delete-orphan")
     tax_profile = relationship("CustomerTaxProfile", uselist=False, back_populates="customer", cascade="all, delete-orphan")
+    channel_preferences = relationship("CustomerCommunicationPreference", back_populates="customer", cascade="all, delete-orphan")
+
 
 
 # ---------------------------------------------------------------------------
@@ -246,7 +248,7 @@ class CustomerActivity(RowSecuredMixin, BaseEntity):
     summary       = Column(String(255), nullable=False)
     details       = Column(Text,        nullable=True)
     activity_date = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
-    channel_preferences = relationship("CustomerCommunicationPreference", back_populates="customer", cascade="all, delete-orphan")
+
 
 
 class CustomerAddress(RowSecuredMixin, BaseEntity):
