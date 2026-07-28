@@ -28,7 +28,25 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [5.4.0] — 2026-07-28
+
+### Added
+- **SMRITI Database Blueprint v1.0 & Governance (ADR-012)**:
+  - Created authoritative `SMRITI_DATABASE_BLUEPRINT_v1.0.md` documenting all 204 PostgreSQL tables across 46 model files.
+  - Formulated `SMRITI_CANONICAL_DATA_MODEL_v1.0.md`, `TABLE_OWNERSHIP_REGISTRY.md`, and `SMRITI_TABLE_HEALTH_MATRIX_v1.0.md` (20 Tier-1 tables scored, 78% baseline average).
+  - Created 5 Mermaid ERD diagrams (`ERD_core.mmd`, `ERD_accounting.mmd`, `ERD_inventory.mmd`, `ERD_sales.mmd`, `ERD_purchase.mmd`).
+  - Added Alembic migration `v1211_financial_year.py` and `FinancialYear` model for GST financial period locking.
+- **Repository Architecture Expansion (ADR-006)**:
+  - Implemented `ProductRepository`, `StockMovementRepository`, and `WarehouseRepository` in `backend/app/repositories/inventory.py`.
+  - Implemented `SupplierRepository`, `PurchaseOrderRepository`, and `PurchaseReceiptRepository` in `backend/app/repositories/purchase.py`.
+  - Implemented `CustomerRepository`, `CustomerGroupRepository`, and `PricingGroupRepository` in `backend/app/repositories/crm.py`.
+- **Canonical Event Bus Selection (ADR-013)**:
+  - Authored `ADR-013-Canonical-Event-Bus.md` selecting transactional `SmritiEventBus` (`event_bus.py`) as the canonical event bus.
+  - Deprecated legacy fire-and-forget `domain_events.py`.
+  - Wired domain events `PurchaseOrderCreated` and `GRNCompleted` into `purchase.py`, and `CustomerCreated` into `crm.py`.
+
 ## [5.3.0] — 2026-07-27
+
 
 ### Added
 - **SMRITI Global Keyboard Escape Key Remediation**:

@@ -1,11 +1,30 @@
 """
 Project      : SMRITI Retail OS
-Module       : Strongly-Typed Domain Event Bus & Publishers (ADR-007 & GR-003)
+Organization : SmritiSys
+Module       : Domain Event Publishers — DEPRECATED (ADR-013)
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
-Version      : 5.4.0
+Version      : 5.4.0 — DEPRECATED
+
+⚠️  DEPRECATION NOTICE (ADR-013, 2026-07-28):
+    This module is deprecated. The canonical event bus is:
+        backend/app/services/event_bus.py → SmritiEventBus
+
+    DO NOT add new publisher functions here.
+    DO NOT add new subscribers to DomainEventBus.
+
+    Migration plan:
+      Phase 1 (now)    — Freeze: no new publishers/subscribers here.
+      Phase 2 (M1-C)   — Replace all 6 call sites with SmritiEventBus.publish().
+      Phase 3 (cleanup) — Delete this file.
+
+    Reason: DomainEventBus has no DB session coupling, no typed constants,
+    and no registered subscribers. SmritiEventBus is transactional, typed,
+    and supports the Celery/Redis upgrade path. See ADR-013.
 """
+
 
 import asyncio
 import logging

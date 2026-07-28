@@ -1,5 +1,6 @@
 """
 Project      : SMRITI Retail OS
+Organization : SmritiSys
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
@@ -42,7 +43,7 @@ class PosSession(RowSecuredMixin, BaseEntity):
     expected_cash     = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
     actual_cash_count = Column(Numeric(15, 2), nullable=True)
     cash_variance     = Column(Numeric(15, 2), nullable=True, default=Decimal("0.00"))
-    status            = Column(String(30), nullable=False, default="OPEN")  # OPEN, CLOSED, RECONCILED
+    status            = Column(String(30), nullable=False, default="OPEN", index=True)  # OPEN, CLOSED, RECONCILED
     notes             = Column(Text, nullable=True)
 
     transactions      = relationship("PosTransaction", back_populates="session", lazy="selectin")
@@ -54,7 +55,7 @@ class PosTransaction(RowSecuredMixin, BaseEntity):
     """
     __tablename__ = "pos_transactions"
 
-    session_id        = Column(String(50), ForeignKey("pos_sessions.id", ondelete="RESTRICT"), nullable=False)
+    session_id        = Column(String(50), ForeignKey("pos_sessions.id", ondelete="RESTRICT"), nullable=False, index=True)
     receipt_no        = Column(String(100), nullable=False, unique=True)
     client_tx_uuid    = Column(String(100), nullable=True, unique=True)
     customer_id       = Column(String(50), nullable=True)

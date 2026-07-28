@@ -179,8 +179,8 @@ class PurchaseOrder(RowSecuredMixin, BaseEntity):
     __tablename__ = "purchase_orders"
 
     order_no    = Column(String(100), nullable=False, unique=True)
-    supplier_id = Column(String(50),  ForeignKey("suppliers.id",   ondelete="RESTRICT"), nullable=False)
-    status      = Column(String(20),  nullable=False, default="DRAFT")
+    supplier_id = Column(String(50),  ForeignKey("suppliers.id",   ondelete="RESTRICT"), nullable=False, index=True)
+    status      = Column(String(20),  nullable=False, default="DRAFT", index=True)
     notes       = Column(Text,        nullable=True)
     # Totals — populated by the service layer on create/update
     subtotal    = Column(Numeric(15, 2), nullable=False, default=0.00)

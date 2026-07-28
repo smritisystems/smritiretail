@@ -1,4 +1,12 @@
+<!--
+  Project      : SMRITI Retail OS
+  Organization : SmritiSys
+  Author       : Jawahar Ramkripal Mallah
+  Copyright    : © SMRITIBooks.com. All Rights Reserved.
+-->
+
 # SMRITI Table Health Matrix v1.0 — Tier 1 Tables
+
 
 **Generated:** 2026-07-28  
 **ADR Reference:** ADR-012 · DBP-001  
