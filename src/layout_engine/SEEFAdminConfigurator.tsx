@@ -251,7 +251,7 @@ export const SEEFAdminConfigurator: React.FC<SEEFAdminConfiguratorProps> = ({
     top: 0,
     right: 0,
     width: "320px",
-    height: "100vh",
+    height: "100%",
     background: "var(--c-theme-surface-1)",
     borderLeft: "1px solid var(--c-theme-divider)",
     boxShadow: "var(--seef-elevation-5)",

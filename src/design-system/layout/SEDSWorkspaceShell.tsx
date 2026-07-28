@@ -112,7 +112,7 @@ export const SEDSWorkspaceShell: React.FC<SEDSWorkspaceShellProps> = ({
   const [showAIPanel, setShowAIPanel] = useState(false);
 
   return (
-    <div className={`flex flex-col min-h-[calc(100vh-3.5rem)] bg-theme-base text-theme-body font-mono text-xs select-none ${className}`}>
+    <div className={`flex flex-col h-full bg-theme-base text-theme-body font-mono text-xs select-none ${className}`}>
       
       {/* ── 1. Breadcrumbs Bar ────────────────────────────────────────────── */}
       <div className="flex items-center gap-1.5 px-4 py-2 border-b border-theme-divider/50 text-[11px] text-theme-muted bg-theme-surface-1">

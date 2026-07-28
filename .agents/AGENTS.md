@@ -211,6 +211,9 @@ The Launchpad shall not contain business logic. It shall compose its interface e
 ### Rule SLP-003: Launchpad Independence Principle (MANDATORY)
 The Launchpad shall never directly import or invoke business-domain logic. All interactions with business modules must occur through published manifests, registries, providers, or capability interfaces. This guarantees modularity, testability, and the independent evolution of the platform and business applications.
 
+### Rule SLGP-R6: Modules Shall Never Control the Viewport (MANDATORY)
+Business modules must not define viewport dimensions (`100vh`, `100vw`, `h-screen`, `w-screen`) or application-level overflow behavior. Only the Layout Manager and Workspace Framework may control viewport sizing and scroll behavior. Modules shall consume the allocated workspace boundaries and render within Pattern A (Scrollable), Pattern B (Fixed Studio), or Pattern C (Master-Detail) contracts.
+
 ---
 
 # LEVEL 2: ENGINEERING STANDARDS (VERSIONED STANDARDS)

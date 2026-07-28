@@ -14,6 +14,7 @@ import { ContextualSidebar, DomainCategory } from "../components/common/Contextu
 import { NotificationCenter } from "../notifications/NotificationCenter.tsx";
 import { useNotifications } from "../notifications/notification_store.tsx";
 import { SEEFCommandPalette } from "./SEEFCommandPalette.tsx";
+import { LayoutInspectorOverlay } from "./components/LayoutInspectorOverlay.tsx";
 
 interface LayoutManagerProps {
   activeTab: string;
@@ -126,11 +127,13 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
             onReturnToLaunchpad={() => onTabSelect("launchpad")}
           />
         )}
-
         {/* Operational Viewport Content Area */}
-        <main className="flex-1 h-full overflow-hidden bg-theme-base relative">
+        <main className="flex-1 min-h-0 flex flex-col overflow-hidden bg-theme-base relative">
           {children}
         </main>
+
+        {/* Developer Layout Inspector Overlay */}
+        <LayoutInspectorOverlay />
       </div>
     </div>
   );

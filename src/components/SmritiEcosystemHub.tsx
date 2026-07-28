@@ -101,7 +101,7 @@ export const SmritiEcosystemHub: React.FC = () => {
   });
 
   return (
-    <div className="p-6 bg-theme-surface-2 text-white min-h-screen font-sans">
+    <div className="p-6 bg-theme-surface-2 text-white w-full h-full font-sans">
       {/* Header Banner */}
       <div className="mb-8 border-b border-theme-divider pb-6 flex justify-between items-center">
         <div>

@@ -15,7 +15,7 @@ export const ScreenStudioTab: React.FC = () => {
   const { pack, setActivePack } = useSAEFExperience();
 
   return (
-    <div className="p-6 bg-theme-base min-h-screen text-theme-body font-sans space-y-6 select-none">
+    <div className="p-6 bg-theme-base w-full h-full text-theme-body font-sans space-y-6 select-none">
       {/* Header */}
       <div className="flex justify-between items-center bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider">
         <div>

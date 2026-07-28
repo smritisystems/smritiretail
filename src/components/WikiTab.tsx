@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -196,7 +196,7 @@ export const WikiTab: React.FC<WikiTabProps> = ({ onNotification }) => {
   }, {} as Record<string, WikiDoc[]>);
 
   return (
-    <div className="flex-1 flex flex-col lg:flex-row h-[calc(100vh-80px)] overflow-hidden bg-[#121c3e]" id="smriti-wiki-desk">
+    <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden bg-[#121c3e]" id="smriti-wiki-desk">
       
       {/* LEFT COLUMN: Sidebar Navigation & Search */}
       <div className="w-full lg:w-80 bg-theme-surface-1 border-b lg:border-b-0 lg:border-r border-theme-divider flex flex-col h-1/3 lg:h-full">

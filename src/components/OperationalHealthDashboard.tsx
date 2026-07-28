@@ -34,7 +34,7 @@ export const OperationalHealthDashboard: React.FC = () => {
   });
 
   return (
-    <div className="p-6 bg-theme-base min-h-screen text-theme-body font-sans space-y-6">
+    <div className="p-6 bg-theme-base w-full h-full text-theme-body font-sans space-y-6">
       {/* Top Banner */}
       <div className="flex justify-between items-center bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider backdrop-blur-md">
         <div>

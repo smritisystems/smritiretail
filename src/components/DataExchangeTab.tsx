@@ -438,7 +438,7 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
   );
 
   return (
-    <div className="p-6 bg-[#f8fafc] min-h-screen">
+    <div className="p-6 bg-[#f8fafc] w-full h-full">
       {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-theme-divider pb-5 mb-6">
         <div>
