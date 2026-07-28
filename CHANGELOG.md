@@ -28,7 +28,13 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.0.1] — 2026-07-28
+
+### Fixed
+- **Immutable Audit Ledger JSON Serialization Fix**: Fixed `json.dumps` parameter in `backend/app/core/immutable_audit_ledger.py` (`default=str`).
+
 ## [6.0.0] — 2026-07-28
+
 
 ### Added
 - **SMRITI Change Verification Engine (CVE v6.0) Architecture & 17-Step Constitution**:
