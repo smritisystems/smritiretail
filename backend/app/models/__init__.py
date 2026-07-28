@@ -1,19 +1,26 @@
 """
 Project      : SMRITI Retail OS
+Organization : SmritiSys
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.27.0
+Version      : 5.6.0
 Created      : 2026-07-11
-Modified     : 2026-07-19
+Modified     : 2026-07-28
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 # SMRITI database models init
-from .crm import CustomerGroup, PricingGroup, Customer
+from .crm import (
+    CustomerGroup, PricingGroup, Customer,
+    Lead, Opportunity, Campaign, SupportTicket, TicketComment, CustomerActivity,
+)
 from .inventory import Product, StockMovement
+from .wms import WarehouseZone, WarehouseBin, StockBinAssignment
+from .loyalty import CustomerLoyaltyModel, GiftCardModel, LoyaltyTransactionModel
+
 from .sales import (
     SalesInvoice, SalesInvoiceItem, SalesPayment,
     SalesQuotation, SalesQuotationItem,
