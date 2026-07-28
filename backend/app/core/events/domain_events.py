@@ -85,3 +85,70 @@ async def publish_invoice_cancelled(invoice_number: str, refund_amount: float, r
         }
     )
     await event_bus.publish(event)
+
+async def publish_purchase_order_created(
+    order_id: str,
+    order_no: str,
+    supplier_id: str,
+    grand_total: float,
+    item_count: int,
+    company_id: str,
+):
+    event = DomainEvent(
+        event_id=f"evt_po_{int(datetime.utcnow().timestamp())}",
+        event_type="PurchaseOrderCreated",
+        payload={
+            "order_id": order_id,
+            "order_no": order_no,
+            "supplier_id": supplier_id,
+            "grand_total": grand_total,
+            "item_count": item_count,
+            "company_id": company_id,
+        }
+    )
+    await event_bus.publish(event)
+
+async def publish_grn_completed(
+    receipt_id: str,
+    receipt_no: str,
+    supplier_id: str,
+    order_id: str,
+    grand_total: float,
+    item_count: int,
+    company_id: str,
+):
+    event = DomainEvent(
+        event_id=f"evt_grn_{int(datetime.utcnow().timestamp())}",
+        event_type="GRNCompleted",
+        payload={
+            "receipt_id": receipt_id,
+            "receipt_no": receipt_no,
+            "supplier_id": supplier_id,
+            "order_id": order_id,
+            "grand_total": grand_total,
+            "item_count": item_count,
+            "company_id": company_id,
+        }
+    )
+    await event_bus.publish(event)
+
+async def publish_customer_created(
+    customer_id: str,
+    customer_name: str,
+    mobile: str = None,
+    email: str = None,
+    company_id: str = None,
+):
+    event = DomainEvent(
+        event_id=f"evt_cust_{int(datetime.utcnow().timestamp())}",
+        event_type="CustomerCreated",
+        payload={
+            "customer_id": customer_id,
+            "customer_name": customer_name,
+            "mobile": mobile,
+            "email": email,
+            "company_id": company_id,
+        }
+    )
+    await event_bus.publish(event)
+

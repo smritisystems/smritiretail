@@ -34,6 +34,7 @@ from ..schemas.crm import (
     PricingGroupCreate, PricingGroupUpdate,
 )
 from ..api.deps import TenantContext
+from ..core.events.domain_events import publish_customer_created
 
 
 class CrmService:
@@ -342,7 +343,21 @@ class CrmService:
             .filter(Customer.id == customer_id)
         )
         res_full = await self.db.execute(stmt_full)
-        return res_full.scalars().first()
+        customer = res_full.scalars().first()
+
+        # Fire-and-forget: CustomerCreated domain event (ADR-007, GR-003)
+        try:
+            await publish_customer_created(
+                customer_id=customer_id,
+                customer_name=customer_in.name,
+                mobile=customer_in.mobile or None,
+                email=customer_in.email or None,
+                company_id=self.tenant_ctx.company_id,
+            )
+        except Exception as _evt_err:
+            logger.warning("[EVENT] CustomerCreated publish failed (non-blocking): %s", _evt_err)
+
+        return customer
 
     async def check_credit_limit(self, customer_id: Optional[str], new_invoice_amount: float) -> None:
         if not customer_id:

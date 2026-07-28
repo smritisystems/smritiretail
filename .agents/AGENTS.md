@@ -296,8 +296,61 @@ Write new code only for items in "New Code Required" from the Gap Analysis.
 | **SMRITI Website** | v1.0.0 | Independent | Marketing Product |
 | **SMRITI SDK** | v3.0.0 | v3.x | Public & Internal SDK |
 
+---
 
+# SMRITI Database Blueprint Governance Policy (DBP) — ADR-012
 
+**Status:** FROZEN — Level 2 Engineering Standard (2026-07-28)
+**Documents:** `docs/database/SMRITI_DATABASE_BLUEPRINT_v1.0.md` · `docs/database/SMRITI_CANONICAL_DATA_MODEL_v1.0.md` · `docs/database/TABLE_OWNERSHIP_REGISTRY.md`
+
+## DBP-001 — Database Blueprint is Authoritative
+The `SMRITI_DATABASE_BLUEPRINT_v1.0.md` is the single authoritative reference for all database schema decisions.
+**No new Alembic migration shall be committed unless:**
+1. The corresponding table/column is documented in the Database Blueprint.
+2. The change is reviewed against the Canonical Data Model.
+3. The migration docstring references the Blueprint section and ADR number.
+
+## DBP-002 — Canonical Table Ownership
+Every database table has exactly **ONE** owning module. Other modules consume data only through:
+- Repository Pattern (ADR-006)
+- Published Service Interface
+- Published API Contract (`/api/internal/v1/*`)
+
+**Cross-module direct table access and parallel duplicate schemas are prohibited (GR-001 + GR-011).**
+
+> **Supplier Ownership Decision (ADR-012):** `suppliers` is owned by **Purchase**. CRM reads supplier data exclusively via `/api/internal/v1/purchase/suppliers`. No `Supplier` model in `crm.py` or any other module.
+
+## DBP-003 — Migration Traceability (MANDATORY)
+Every Alembic migration file MUST include a docstring header:
+```python
+"""<Migration description>
+
+DBP Reference : SMRITI_DATABASE_BLUEPRINT_v1.0.md §<section>
+CDM Reference : SMRITI_CANONICAL_DATA_MODEL_v1.0.md — <Entity> (if applicable)
+ADR Reference : ADR-<number>
+Revision ID   : <alembic revision id>
+"""
+```
+Migrations committed without this header on or after 2026-07-28 are non-compliant.
+
+## DBP-004 — BaseEntity Inheritance (MANDATORY)
+All new SQLAlchemy models MUST inherit `BaseEntity` or `RowSecuredMixin` from `backend/app/db/base.py`.
+This automatically provides: `id`, `uuid`, `tenant_id`, `company_id`, `branch_id`, `created_at`, `modified_at`, `created_by`, `updated_by`, `is_active`, `is_deleted`, `deleted_at`, `deleted_by`, `version`.
+**Never redefine these fields in individual model classes.**
+
+## ERD Maintenance
+Five module ERDs are maintained in `docs/database/`:
+- `ERD_core.mmd` — Tier 1 core entities
+- `ERD_inventory.mmd` — Inventory module
+- `ERD_sales.mmd` — Sales module
+- `ERD_purchase.mmd` — Purchase module
+- `ERD_accounting.mmd` — Accounting module (current + Phase 1 planned)
+
+Update the relevant ERD whenever a structural schema change is committed.
+
+---
+
+# SMRITI Walkthrough Governance Policy (WGP) - Agent Rules
 
 
 

@@ -25,9 +25,12 @@ Classification: Internal
 """
 
 import uuid
+import logging
 from typing import Optional, List
 from decimal import Decimal
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
@@ -42,6 +45,7 @@ from ..models.purchase import (
 )
 from ..models.inventory import Product, StockMovement
 from ..api.deps import TenantContext
+from ..core.events.domain_events import publish_purchase_order_created, publish_grn_completed
 from ..schemas.purchase import (
     SupplierCreate, SupplierUpdate,
     PurchaseOrderCreate, PurchaseOrderAmendRequest,
@@ -241,6 +245,20 @@ class PurchaseService:
             )
         await self.db.refresh(order)
         order.items = item_rows          # attach items for response serialisation
+
+        # Fire-and-forget: PurchaseOrderCreated domain event (ADR-007, GR-003)
+        try:
+            await publish_purchase_order_created(
+                order_id=order.id,
+                order_no=order.order_no,
+                supplier_id=order.supplier_id,
+                grand_total=float(order.grand_total),
+                item_count=len(item_rows),
+                company_id=order.company_id,
+            )
+        except Exception as _evt_err:
+            logger.warning("[EVENT] PurchaseOrderCreated publish failed (non-blocking): %s", _evt_err)
+
         return order
 
     async def list_purchase_orders(self) -> list[PurchaseOrder]:
@@ -411,6 +429,21 @@ class PurchaseService:
                 detail="A purchase receipt with this receipt number already exists.",
             )
         await self.db.refresh(receipt)
+
+        # Fire-and-forget: GRNCompleted domain event (ADR-007, GR-003)
+        try:
+            await publish_grn_completed(
+                receipt_id=receipt.id,
+                receipt_no=receipt.receipt_no,
+                supplier_id=receipt.supplier_id,
+                order_id=receipt.order_id or "",
+                grand_total=float(receipt.grand_total),
+                item_count=len(item_rows),
+                company_id=receipt.company_id,
+            )
+        except Exception as _evt_err:
+            logger.warning("[EVENT] GRNCompleted publish failed (non-blocking): %s", _evt_err)
+
         return receipt
 
     async def list_purchase_receipts(self) -> list[PurchaseReceipt]:
