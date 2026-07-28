@@ -162,6 +162,18 @@ async def lifespan(_app: FastAPI):
             f"[SMRITI] DB auto-seed skipped (DB may not be ready yet): {_seed_err}"
         )
 
+    # ADR-007: Register domain event subscriptions for all active modules
+    try:
+        from app.modules.inventory.events import register_subscriptions as inv_events
+        from app.modules.sales.events import register_subscriptions as sales_events
+        from app.modules.accounting.events import register_subscriptions as acc_events
+        inv_events()
+        sales_events()
+        acc_events()
+        logger.info("[SMRITI] Domain event subscriptions registered (ADR-007 compliant).")
+    except Exception as _evt_err:
+        logger.warning(f"[SMRITI] Domain event subscription registration skipped: {_evt_err}")
+
     yield
 
 # Initialize FastAPI instance
