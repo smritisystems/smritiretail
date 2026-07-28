@@ -270,7 +270,7 @@ class LookupService:
             )
 
         mtype = await self.repo.get_type_by_id(val.master_type_id)
-        if mtype and mtype.is_system and getattr(val, "is_system", False):
+        if mtype and mtype.is_system:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"System category lookup code '{val.code}' is protected and cannot be deactivated."
