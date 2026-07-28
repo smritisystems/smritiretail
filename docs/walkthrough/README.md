@@ -255,6 +255,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-28 | v1.0.0 | Task 3-1: MSME Delayed Payment Interest Calculator (`msme_compliance.py`, 45-day timer, 3x RBI bank rate) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1659_MSME_Compliance_v1.0.0.md) | — | Completed |
 | 2026-07-28 | v1.0.0 | Task 3-2: Indian State GST Jurisdiction Registry (`indian_state_registry.py`, 38 state codes) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1715_Indian_State_Registry_v1.0.0.md) | — | Completed |
 | 2026-07-28 | v1.0.0 | Task 3-3: NPCI UPI Dynamic QR Code Generator (`DynamicUPIQRGenerator`, UPI v1.6 QR string) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1717_UPI_QR_Generator_v1.0.0.md) | — | Completed |
+| 2026-07-28 | v1.0.0 | Task 3-4: HSN & SAC Statutory Tax Rate Validator (`hsn_validator.py`, HSN 4/6/8-digit & SAC) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1718_HSN_Validator_v1.0.0.md) | — | Completed |
+
 
 
 
