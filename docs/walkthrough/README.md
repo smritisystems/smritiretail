@@ -245,6 +245,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-28 | v1.0.0 | M6 Ecosystem & External Integrations — Public Gateway Authentication (/api/public/v1/*), Razorpay/Cashfree Webhooks, E-Commerce Sync Pipeline, Tally ERP Export, Health & SLA Benchmarks | [Walkthrough](./foundation/M6_Ecosystem_Public_Gateway_Webhooks_v1.0.0.md) | [Roadmap](../../../brain/d3b67074-34fe-41fc-ba9c-10821ef3d960/implementation_plan.md) | Completed |
 | 2026-07-28 | v1.0.0 | CR-2026-1615 Sales Executive Field Extension (`sales_person_id` on `SalesInvoice`) executed via SMRITI Change Studio (SCS v4.0) | [Walkthrough](./foundation/CR_2026_1615_Sales_Person_ID_v1.0.0.md) | — | Completed |
 | 2026-07-28 | v1.0.0 | Task 1: Pharma FEFO & Batch Expiry Tracker (`PharmaBatchModel`, `PharmaFEFOService`, FEFO stock allocation) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1629_Pharma_FEFO_v1.0.0.md) | — | Completed |
+| 2026-07-28 | v1.0.0 | Task 2: Apparel Color / Size Variant Grid Engine (`ApparelMatrixVariantModel`, `ApparelMatrixService`, 2D SKU matrix) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1632_Apparel_Matrix_v1.0.0.md) | — | Completed |
+
 
 
 
