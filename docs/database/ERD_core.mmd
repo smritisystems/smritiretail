@@ -1,0 +1,178 @@
+---
+title: SMRITI Retail OS — Core Entity Relationship Diagram (Tier 1)
+---
+erDiagram
+    companies {
+        string id PK
+        string name
+        string gstin
+        string pan
+        string currency
+        boolean is_active
+    }
+    branches {
+        string id PK
+        string company_id FK
+        string name
+        string gstin
+        string address
+        boolean is_active
+    }
+    users {
+        string id PK
+        string company_id FK
+        string branch_id FK
+        string email
+        string full_name
+        string hashed_password
+        boolean is_active
+        boolean is_deleted
+    }
+    products {
+        string id PK
+        string company_id FK
+        string code
+        string name
+        string barcode
+        numeric price
+        integer stock
+        string category
+        string hsn_code
+        numeric gst_percentage
+        boolean is_active
+        boolean is_deleted
+    }
+    customers {
+        string id PK
+        string company_id FK
+        string name
+        string mobile
+        string email
+        string gstin
+        string customer_group_id FK
+        numeric outstanding
+        boolean is_active
+        boolean is_deleted
+    }
+    suppliers {
+        string id PK
+        string company_id FK
+        string name
+        string gstin
+        string pan
+        integer credit_days
+        boolean is_active
+        boolean is_deleted
+    }
+    sales_invoices {
+        string id PK
+        string company_id FK
+        string customer_id FK
+        string invoice_no
+        datetime invoice_date
+        numeric subtotal
+        numeric cgst_amount
+        numeric sgst_amount
+        numeric grand_total
+        numeric balance_due
+        string status
+    }
+    sales_invoice_items {
+        string id PK
+        string invoice_id FK
+        string product_id FK
+        numeric quantity
+        numeric unit_price
+        numeric line_total
+        numeric gst_percentage
+    }
+    purchase_orders {
+        string id PK
+        string company_id FK
+        string supplier_id FK
+        string po_number
+        datetime order_date
+        numeric grand_total
+        string status
+    }
+    purchase_receipts {
+        string id PK
+        string company_id FK
+        string po_id FK
+        string grn_number
+        datetime receipt_date
+        string status
+    }
+    stock_movements {
+        string id PK
+        string company_id FK
+        string product_id FK
+        string warehouse_id FK
+        string movement_type
+        numeric quantity
+        string reference_no
+    }
+    pos_sessions {
+        string id PK
+        string company_id FK
+        string branch_id FK
+        string cashier_id FK
+        string terminal_id
+        string status
+        numeric opening_balance
+        numeric total_sales
+    }
+    pos_transactions {
+        string id PK
+        string company_id FK
+        string session_id FK
+        string customer_id FK
+        string receipt_no
+        numeric grand_total
+        string payment_method
+        string status
+    }
+    chart_of_accounts {
+        string id PK
+        string company_id FK
+        string account_code
+        string account_name
+        string account_type
+        boolean is_active
+    }
+    ledger_entries {
+        string id PK
+        string company_id FK
+        string account_id FK
+        numeric debit_amount
+        numeric credit_amount
+        string narration
+        string ref_document_type
+        string ref_document_id
+        datetime posting_date
+    }
+    warehouses {
+        string id PK
+        string company_id FK
+        string branch_id FK
+        string name
+        boolean is_default
+    }
+
+    companies ||--o{ branches : "has"
+    branches ||--o{ users : "assigned to"
+    companies ||--o{ products : "owns"
+    companies ||--o{ customers : "owns"
+    companies ||--o{ suppliers : "owns"
+    customers ||--o{ sales_invoices : "billed in"
+    sales_invoices ||--o{ sales_invoice_items : "contains"
+    sales_invoice_items }o--|| products : "references"
+    suppliers ||--o{ purchase_orders : "receives"
+    purchase_orders ||--o{ purchase_receipts : "fulfilled by"
+    products ||--o{ stock_movements : "tracks"
+    warehouses ||--o{ stock_movements : "location"
+    companies ||--o{ warehouses : "has"
+    pos_sessions ||--o{ pos_transactions : "contains"
+    pos_transactions }o--o| customers : "serves"
+    chart_of_accounts ||--o{ ledger_entries : "recorded in"
+    branches ||--o{ pos_sessions : "runs"

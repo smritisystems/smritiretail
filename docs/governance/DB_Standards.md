@@ -41,3 +41,34 @@
 - Zero raw SQL in service or controller layers.
 - All `SELECT`, `INSERT`, `UPDATE`, `DELETE` live in `backend/app/repositories/`.
 - All queries use parameterized bindings; zero f-string SQL construction.
+
+---
+
+## 7. Database Blueprint Governance Rules (ADR-012)
+
+### DBP-001 — Blueprint is Authoritative
+No new Alembic migration shall be committed unless the corresponding table/column is documented in `docs/database/SMRITI_DATABASE_BLUEPRINT_v1.0.md` and reviewed against the Canonical Data Model.
+
+### DBP-002 — Canonical Ownership
+Every database table has exactly ONE owning module. Other modules consume through Repository/Service/API only. Cross-module direct table access and parallel duplicate schemas are prohibited (GR-001 + GR-011).
+
+### DBP-003 — Migration Traceability
+Every Alembic migration file MUST include a docstring header referencing:
+- Database Blueprint section
+- Canonical Data Model entity (if applicable)
+- ADR number (for structural changes)
+
+```python
+"""Add journal_entries table
+
+DBP Reference : SMRITI_DATABASE_BLUEPRINT_v1.0.md §3 — Accounting
+CDM Reference : SMRITI_CANONICAL_DATA_MODEL_v1.0.md — LedgerEntry
+ADR Reference : ADR-012
+"""
+```
+
+## 8. BaseEntity Inheritance (Mandatory)
+All new models MUST inherit `BaseEntity` or `RowSecuredMixin` from `backend/app/db/base.py`.
+This automatically provides: `id`, `uuid`, `tenant_id`, `company_id`, `branch_id`, `created_at`, `modified_at`, `created_by`, `updated_by`, `is_active`, `is_deleted`, `deleted_at`, `version`.
+Never redefine these fields in individual models.
+

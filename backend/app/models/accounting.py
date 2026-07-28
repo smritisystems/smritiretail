@@ -90,3 +90,29 @@ class FiscalPeriod(RowSecuredMixin, BaseEntity):
     start_date  = Column(Date, nullable=False)
     end_date    = Column(Date, nullable=False)
     is_closed   = Column(Boolean, nullable=False, default=False)
+
+
+class FinancialYear(RowSecuredMixin, BaseEntity):
+    """
+    FinancialYear — Formal financial year entity with period locking for GST filing,
+    ledger close, and Alembic-tracked schema changes.
+
+    DBP Reference : SMRITI_DATABASE_BLUEPRINT_v1.0.md §2.10 — Accounting
+    CDM Reference : SMRITI_CANONICAL_DATA_MODEL_v1.0.md — FinancialYear
+    ADR Reference : ADR-012 (Database Blueprint Governance — Phase 1 Gap)
+    """
+    __tablename__ = "financial_year"
+
+    name              = Column(String(50), nullable=False)           # e.g. "2025-26"
+    label             = Column(String(100), nullable=True)           # e.g. "FY 2025-2026"
+    start_date        = Column(Date, nullable=False)                 # April 1
+    end_date          = Column(Date, nullable=False)                 # March 31
+    is_current        = Column(Boolean, nullable=False, default=False)  # Currently active year
+    is_locked         = Column(Boolean, nullable=False, default=False)  # Locked for new posting
+    locked_at         = Column(DateTime(timezone=True), nullable=True)
+    locked_by         = Column(String(100), nullable=True)
+    gst_period_code   = Column(String(20), nullable=True)           # e.g. "2025-2026"
+    status            = Column(String(30), nullable=False, default="OPEN")  # OPEN, CLOSED, ARCHIVED
+
+    fiscal_periods = relationship("FiscalPeriod", primaryjoin="foreign(FiscalPeriod.fiscal_year) == FinancialYear.name", lazy="selectin", viewonly=True)
+
