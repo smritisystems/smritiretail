@@ -1,0 +1,25 @@
+/*
+  SMRITI Design System (SDS v1.0) — SAP Fiori Lite Theme Specification
+  Inspired by SAP Horizon / Belize Enterprise Visual Language
+*/
+
+[data-theme="fiori-lite"] {
+  --sds-color-primary: #0056b3;
+  --sds-color-primary-hover: #004085;
+  --sds-color-primary-active: #002752;
+  --sds-color-primary-light: #e6f0fa;
+
+  --sds-color-surface: #ffffff;
+  --sds-color-surface-hover: #f5f7fa;
+  --sds-color-background: #edeff2;
+  --sds-color-background-alt: #e2e6eb;
+
+  --sds-color-text-main: #32363a;
+  --sds-color-text-secondary: #556b82;
+  --sds-color-text-muted: #6a7d93;
+  --sds-color-text-inverse: #ffffff;
+
+  --sds-color-border: #b8c4d1;
+  --sds-color-border-subtle: #d3dc6;
+  --sds-color-border-focus: #0056b3;
+}

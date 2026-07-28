@@ -1,0 +1,25 @@
+/*
+  SMRITI Design System (SDS v1.0) — High Contrast Theme Specification
+  WCAG AAA Accessibility Compliant
+*/
+
+[data-theme="high-contrast"] {
+  --sds-color-primary: #ffff00;
+  --sds-color-primary-hover: #ffffff;
+  --sds-color-primary-active: #d0d000;
+  --sds-color-primary-light: #1a1a00;
+
+  --sds-color-surface: #000000;
+  --sds-color-surface-hover: #1a1a1a;
+  --sds-color-background: #000000;
+  --sds-color-background-alt: #1a1a1a;
+
+  --sds-color-text-main: #ffffff;
+  --sds-color-text-secondary: #ffff00;
+  --sds-color-text-muted: #cccccc;
+  --sds-color-text-inverse: #000000;
+
+  --sds-color-border: #ffffff;
+  --sds-color-border-subtle: #888888;
+  --sds-color-border-focus: #ffff00;
+}

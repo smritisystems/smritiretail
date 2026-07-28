@@ -1,0 +1,24 @@
+/*
+  SMRITI Design System (SDS v1.0) — Dark Obsidian Theme Specification
+*/
+
+[data-theme="dark"] {
+  --sds-color-primary: #388bfd;
+  --sds-color-primary-hover: #58a6ff;
+  --sds-color-primary-active: #1f6beb;
+  --sds-color-primary-light: #1c2d42;
+
+  --sds-color-surface: #161b22;
+  --sds-color-surface-hover: #21262d;
+  --sds-color-background: #0d1117;
+  --sds-color-background-alt: #161b22;
+
+  --sds-color-text-main: #c9d1d9;
+  --sds-color-text-secondary: #8b949e;
+  --sds-color-text-muted: #6e7681;
+  --sds-color-text-inverse: #0d1117;
+
+  --sds-color-border: #30363d;
+  --sds-color-border-subtle: #21262d;
+  --sds-color-border-focus: #58a6ff;
+}

@@ -31,6 +31,13 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
+@import './styles/smriti-tokens.css';
+@import './styles/smriti-theme-light.css';
+@import './styles/smriti-theme-fiori-lite.css';
+@import './styles/smriti-theme-dark.css';
+@import './styles/smriti-theme-high-contrast.css';
+
+
 @import "tailwindcss";
 @import "./smriti_scroll.css";
 
