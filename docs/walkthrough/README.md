@@ -30,6 +30,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-07-28 | v5.4.0 | SLP-001 SMRITI Launchpad Digital Business Desktop & Composition Framework | [Walkthrough](./foundation/Foundation_SLP001_Digital_Business_Desktop_v5.4.0.md) | [Plan](../../brain/d3b67074-34fe-41fc-ba9c-10821ef3d960/implementation_plan.md) | Completed |
+| 2026-07-28 | v5.4.0 | Rule AI-001 — AI Optional Architecture | [Walkthrough](./foundation/Foundation_Rule_AI001_AI_Optional_Architecture_v5.4.0.md) | [Plan](../../brain/d3b67074-34fe-41fc-ba9c-10821ef3d960/implementation_plan.md) | Completed |
 | 2026-07-27 | v5.3.0 | SMRITI Global Keyboard Escape Key Remediation | [Walkthrough](./foundation/SMRITI_Global_Keyboard_Escape_Remediation_v5.3.0.md) | — | Completed |
 | 2026-07-27 | v5.3.0 | SMRITI Fiori Multi-Theme Engine & Switcher | [Walkthrough](./foundation/SMRITI_Fiori_Multi_Theme_Engine_v5.3.0.md) | — | Completed |
 | 2026-07-27 | v5.3.0 | SMRITI Typography Audit & Auto-Remediation | [Walkthrough](./foundation/SMRITI_Typography_Audit_And_Auto_Remediation_v5.3.0.md) | [Plan](../../brain/525436da-7942-4024-8b9a-39c08a42dd71/implementation_plan.md) | Completed |

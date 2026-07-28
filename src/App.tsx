@@ -44,6 +44,8 @@ import { ItemMasterTab } from "./components/ItemMasterTab.tsx";
 import { WikiTab } from "./components/WikiTab.tsx";
 import { PurchaseStudioTab } from "./components/PurchaseStudioTab.tsx";
 import { MasterManagementTab } from "./components/MasterManagementTab.tsx";
+import { AIConfigurationTab } from "./components/AIConfigurationTab.tsx";
+import { LaunchpadConfigTab } from "./launchpad/index.ts";
 import { CustomerMasterTab } from "./components/CustomerMasterTab.tsx";
 import { CustomerDashboardTab } from "./components/CustomerDashboardTab.tsx";
 import { ConsignmentStudioTab } from "./components/ConsignmentStudioTab.tsx";
@@ -514,6 +516,11 @@ const AppContent: React.FC = () => {
         return <WikiTab onNotification={addNotification} />;
       case "masters":
         return <MasterManagementTab onNotification={addNotification} />;
+      case "ai-config":
+      case "ai-configuration":
+        return <AIConfigurationTab onNotification={addNotification} />;
+      case "launchpad-config":
+        return <LaunchpadConfigTab onNotification={addNotification} />;
       case "document-series":
         return <DocumentSeriesTab />;
       case "approval-matrix":

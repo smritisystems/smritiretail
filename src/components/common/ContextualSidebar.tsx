@@ -32,7 +32,8 @@ import {
   BookOpen,
   FileCode,
   Truck,
-  Layers
+  Layers,
+  Bot
 } from "lucide-react";
 
 export type DomainCategory = "Sales" | "Inventory" | "Purchase" | "Finance" | "Administration" | "Analytics";
@@ -71,6 +72,8 @@ const DOMAIN_SUBMODULES: Record<DomainCategory, ContextualMenuItem[]> = {
   Administration: [
     { id: "staff", title: "User & Role RBAC", icon: ShieldCheck, targetTab: "staff" },
     { id: "master-management", title: "System Config", icon: Settings, targetTab: "master-management" },
+    { id: "ai-config", title: "AI Configuration", icon: Bot, targetTab: "ai-config" },
+    { id: "launchpad-config", title: "Launchpad Config", icon: Grid, targetTab: "launchpad-config" },
     { id: "terms-engine", title: "Terms Engine", icon: Sliders, targetTab: "terms-engine" },
     { id: "data-exchange", title: "Data Exchange", icon: FileCode, targetTab: "data-exchange" },
   ],

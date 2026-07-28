@@ -161,8 +161,8 @@ This rule applies to ALL sessions, ALL agents, all tasks. No exceptions.
 
 # LEVEL 1: SMRITI ARCHITECTURE CONSTITUTION (FROZEN — PERMANENT)
 
-### AOP-001: AI Optionality Principle
-Artificial Intelligence services shall never be mandatory for any core business transaction. All AI capabilities must operate as optional advisory services. The absence, failure, or disablement of AI must not impact the correctness, availability, performance, or completion of any core workflow.
+### AOP-001: AI Optionality Principle (Rule AI-001 — AI Optional Architecture)
+Artificial Intelligence services shall never be mandatory for any core business transaction. SMRITI Retail OS must operate 100% standalone and offline-first without AI. All AI capabilities must operate strictly as optional advisory services. On default installation, AI Engine is disabled (`AI_ENABLED=false`), API keys are unconfigured, zero AI SDKs/runtimes are initialized, and AI elements/tiles are completely hidden from the UI. AI features shall only be activated through explicit administrator configuration under Settings → AI Configuration with appropriate RBAC permissions (`AI_ADMIN`, `AI_CONFIGURATION`, `AI_CHAT`, `AI_REPORTS`, `AI_AUTOMATION`, `AI_PROMPTS`). The absence, failure, network disconnect, or disablement of AI must not impact the correctness, availability, performance, or completion of any core retail workflow.
 
 ### AOP-002: Four-Tier Enterprise Architecture & Independence Principle
 1. **The Four Independent Tier Products**:
@@ -204,6 +204,12 @@ Every API request across Platform Services, Workspace, and Portal MUST generate 
 
 ### AOP-007: Mandatory Architecture Decision Record (ADR) Governance
 Any constitutional or fundamental architectural change (Level 1 modification) MUST be preceded by an approved Architecture Decision Record (`docs/adr/ADR-xxx.md`) detailing problem context, options considered, decisions made, and trade-offs accepted.
+
+### Rule SLP-002: Launchpad Composition Framework Principle
+The Launchpad shall not contain business logic. It shall compose its interface exclusively from registered modules, widgets, services, and metadata. Application modules may contribute tiles, quick actions, widgets, search providers, notification providers, and status providers through standardized registration interfaces.
+
+### Rule SLP-003: Launchpad Independence Principle (MANDATORY)
+The Launchpad shall never directly import or invoke business-domain logic. All interactions with business modules must occur through published manifests, registries, providers, or capability interfaces. This guarantees modularity, testability, and the independent evolution of the platform and business applications.
 
 ---
 
