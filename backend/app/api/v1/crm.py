@@ -12,7 +12,8 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Any
+from typing import Any, List
+
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel

@@ -36,7 +36,10 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Razorpay and Cashfree payment gateway webhook handlers in `backend/app/api/v1/webhooks.py`.
   - `ECommerceSyncPipeline` in `backend/app/services/ecommerce_sync.py` for real-time stock push and channel order processing.
   - REST endpoints for e-commerce channel sync in `backend/app/api/v1/ecommerce.py`.
+  - **CRM API List Import Fix**:
+    - Added missing `List` import from `typing` in `backend/app/api/v1/crm.py`.
   - **Accounting Service Import Fix**:
+
     - Added missing `BankAccount`, `CostCenter`, `TdsEntry`, `GstReturnLock` imports in `backend/app/services/accounting.py`.
   - **CRM Model Deduplication Refactoring**:
 
