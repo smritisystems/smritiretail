@@ -4,9 +4,9 @@ Organization : SmritiSys
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
+Copyright    : ┬® SMRITIBooks.com. All Rights Reserved.
 
-ADR-015: Foundation Platform v3.0 — Sprint 1 Database Migration
+ADR-015: Foundation Platform v3.0 ÔÇö Sprint 1 Database Migration
 Revision ID : v1217_adr015_foundation_platform_v3
 Revises     : v1216_new_table_apparelvariantgrid_apparel_matrix_grid
 Create Date : 2026-07-28
@@ -30,15 +30,15 @@ Migrations (13 logical groups):
 from alembic import op
 import sqlalchemy as sa
 
-revision = 'v1217_adr015_foundation_platform_v3'
-down_revision = 'v1216_new_table_apparelvariantgrid_apparel_matrix_grid'
+revision = 'v1217_foundation_platform_v3'
+down_revision = 'v1216_apparel_matrix_grid'
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
 
-    # ── M-001: organizations ──────────────────────────────────────────────────
+    # ÔöÇÔöÇ M-001: organizations ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     op.execute("""
         CREATE TABLE IF NOT EXISTS organizations (
             id          VARCHAR(50)  PRIMARY KEY,
@@ -52,7 +52,7 @@ def upgrade() -> None:
     """)
     op.execute("CREATE INDEX IF NOT EXISTS idx_org_tenant ON organizations(tenant_id);")
 
-    # ── M-002: Extend companies (AOP-004 — additive only) ────────────────────
+    # ÔöÇÔöÇ M-002: Extend companies (AOP-004 ÔÇö additive only) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     op.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS organization_id VARCHAR(50) REFERENCES organizations(id) ON DELETE SET NULL;")
     op.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS company_code VARCHAR(20) UNIQUE;")
     op.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS legal_name VARCHAR(255);")
@@ -74,14 +74,14 @@ def upgrade() -> None:
         ON companies(tenant_id) WHERE is_default = TRUE;
     """)
 
-    # ── M-003: Extend branches (AOP-004 — additive only) ────────────────────
+    # ÔöÇÔöÇ M-003: Extend branches (AOP-004 ÔÇö additive only) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     op.execute("ALTER TABLE branches ADD COLUMN IF NOT EXISTS branch_type VARCHAR(30) DEFAULT 'RETAIL';")
     op.execute("ALTER TABLE branches ADD COLUMN IF NOT EXISTS gstin VARCHAR(15);")
     op.execute("ALTER TABLE branches ADD COLUMN IF NOT EXISTS phone VARCHAR(20);")
     op.execute("ALTER TABLE branches ADD COLUMN IF NOT EXISTS email VARCHAR(255);")
     op.execute("ALTER TABLE branches ADD COLUMN IF NOT EXISTS manager_user_id VARCHAR(50);")
 
-    # ── M-004: smriti_entity_registry ────────────────────────────────────────
+    # ÔöÇÔöÇ M-004: smriti_entity_registry ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     op.execute("""
         CREATE TABLE IF NOT EXISTS smriti_entity_registry (
             id           VARCHAR(50)  PRIMARY KEY,
@@ -100,7 +100,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX IF NOT EXISTS idx_entity_registry_type    ON smriti_entity_registry(entity_type);")
     op.execute("CREATE INDEX IF NOT EXISTS idx_entity_registry_source  ON smriti_entity_registry(source_table, source_id);")
 
-    # ── M-005: smriti_addresses ───────────────────────────────────────────────
+    # ÔöÇÔöÇ M-005: smriti_addresses ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     op.execute("""
         CREATE TABLE IF NOT EXISTS smriti_addresses (
             id                   VARCHAR(50)   PRIMARY KEY,
@@ -145,7 +145,7 @@ def upgrade() -> None:
         WHERE is_primary = TRUE AND is_active = TRUE;
     """)
 
-    # ── M-006: smriti_contacts ────────────────────────────────────────────────
+    # ÔöÇÔöÇ M-006: smriti_contacts ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     op.execute("""
         CREATE TABLE IF NOT EXISTS smriti_contacts (
             id                     VARCHAR(50)  PRIMARY KEY,
@@ -178,7 +178,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX IF NOT EXISTS idx_contact_email  ON smriti_contacts(email);")
     op.execute("CREATE INDEX IF NOT EXISTS idx_contact_mobile ON smriti_contacts(mobile);")
 
-    # ── M-007: smriti_banks (master + seed) ──────────────────────────────────
+    # ÔöÇÔöÇ M-007: smriti_banks (master + seed) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     op.execute("""
         CREATE TABLE IF NOT EXISTS smriti_banks (
             id              VARCHAR(50)  PRIMARY KEY,
@@ -220,7 +220,7 @@ def upgrade() -> None:
         ON CONFLICT (bank_code) DO NOTHING;
     """)
 
-    # ── M-008: smriti_bank_accounts ───────────────────────────────────────────
+    # ÔöÇÔöÇ M-008: smriti_bank_accounts ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     op.execute("""
         CREATE TABLE IF NOT EXISTS smriti_bank_accounts (
             id                    VARCHAR(50)  PRIMARY KEY,
@@ -257,7 +257,7 @@ def upgrade() -> None:
         WHERE is_default_payments = TRUE AND is_active = TRUE;
     """)
 
-    # ── M-009: smriti_comm_channels ───────────────────────────────────────────
+    # ÔöÇÔöÇ M-009: smriti_comm_channels ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     op.execute("""
         CREATE TABLE IF NOT EXISTS smriti_comm_channels (
             id                   VARCHAR(50)  PRIMARY KEY,
@@ -287,7 +287,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX IF NOT EXISTS idx_comm_company_type ON smriti_comm_channels(company_id, channel_type);")
     op.execute("CREATE INDEX IF NOT EXISTS idx_comm_health       ON smriti_comm_channels(health_status);")
 
-    # ── M-010: smriti_settings ────────────────────────────────────────────────
+    # ÔöÇÔöÇ M-010: smriti_settings ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     op.execute("""
         CREATE TABLE IF NOT EXISTS smriti_settings (
             id                  VARCHAR(50)   PRIMARY KEY,
@@ -316,7 +316,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX IF NOT EXISTS idx_settings_owner    ON smriti_settings(owner_type, owner_id);")
     op.execute("CREATE INDEX IF NOT EXISTS idx_settings_category ON smriti_settings(category);")
 
-    # ── M-011: smriti_themes + smriti_theme_variants ─────────────────────────
+    # ÔöÇÔöÇ M-011: smriti_themes + smriti_theme_variants ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     op.execute("""
         CREATE TABLE IF NOT EXISTS smriti_themes (
             id               VARCHAR(50)  PRIMARY KEY,
@@ -355,7 +355,7 @@ def upgrade() -> None:
         );
     """)
 
-    # ── M-012: smriti_branding + smriti_report_templates + smriti_social_profiles ──
+    # ÔöÇÔöÇ M-012: smriti_branding + smriti_report_templates + smriti_social_profiles ÔöÇÔöÇ
     op.execute("""
         CREATE TABLE IF NOT EXISTS smriti_branding (
             id              VARCHAR(50)  PRIMARY KEY,
@@ -403,7 +403,7 @@ def upgrade() -> None:
     """)
     op.execute("CREATE INDEX IF NOT EXISTS idx_social_company ON smriti_social_profiles(company_id);")
 
-    # ── M-013: company_tax_profiles + company_financial_years + smriti_audit_log ──
+    # ÔöÇÔöÇ M-013: company_tax_profiles + company_financial_years + smriti_audit_log ÔöÇÔöÇ
     op.execute("""
         CREATE TABLE IF NOT EXISTS company_tax_profiles (
             id                     VARCHAR(50)  PRIMARY KEY,

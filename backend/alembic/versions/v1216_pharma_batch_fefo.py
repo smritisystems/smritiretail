@@ -1,23 +1,14 @@
 """
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-
-Change Request CR-2026-1629: new_table pharma_batch_fefo on PharmaBatch
-Revision ID: v1216_new_table_pharmabatch_pharma_batch_fefo
-Revises: v1215_wms_loyalty_expansion
-Create Date: 2026-07-28T16:29:39.606197
+CR-2026-1629: Create pharma_batches table
+Revision ID: v1216_pharma_batch_fefo
+Revises: v1216_sales_person_id
 """
 
 from alembic import op
 import sqlalchemy as sa
 
-revision = 'v1216_new_table_pharmabatch_pharma_batch_fefo'
-down_revision = 'v1216_new_field_salesinvoice_sales_person_id'
+revision = 'v1216_pharma_batch_fefo'
+down_revision = 'v1216_sales_person_id'
 branch_labels = None
 depends_on = None
 
@@ -41,4 +32,3 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS pharma_batches;")
-

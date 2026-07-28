@@ -1,23 +1,14 @@
 """
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-
-Change Request CR-2026-1632: new_table apparel_matrix_grid on ApparelVariantGrid
-Revision ID: v1216_new_table_apparelvariantgrid_apparel_matrix_grid
-Revises: v1215_wms_loyalty_expansion
-Create Date: 2026-07-28T16:32:11.041082
+CR-2026-1632: Create apparel_matrix_variants table
+Revision ID: v1216_apparel_matrix_grid
+Revises: v1216_pharma_batch_fefo
 """
 
 from alembic import op
 import sqlalchemy as sa
 
-revision = 'v1216_new_table_apparelvariantgrid_apparel_matrix_grid'
-down_revision = 'v1216_new_table_pharmabatch_pharma_batch_fefo'
+revision = 'v1216_apparel_matrix_grid'
+down_revision = 'v1216_pharma_batch_fefo'
 branch_labels = None
 depends_on = None
 
@@ -39,4 +30,3 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS apparel_matrix_variants;")
-
