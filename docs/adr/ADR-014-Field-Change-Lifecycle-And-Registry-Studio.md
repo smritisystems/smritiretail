@@ -5,7 +5,7 @@
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
 -->
 
-# ADR-014 — Field Change Lifecycle (FCL) & Field Registry Studio (FRS) Architecture
+# ADR-014 — SMRITI Change Studio (SCS) & Change Engine (SCE) Architecture
 
 **Status:** ACCEPTED  
 **Date:** 2026-07-28  
@@ -17,31 +17,34 @@
 
 ## Context
 
-Adding or modifying entity attributes without structured impact assessment leads to technical debt, broken reporting pipelines, unindexed search queries, missing export columns, and security oversights. Tier-1 enterprise ERP systems (SAP DDIC, Dynamics 365, Oracle Fusion) enforce a formal **Change Management Process** for schema evolution.
+Enterprise ERP platforms (SAP DDIC, Dynamics 365, Oracle Fusion) maintain 20-year stability because **all platform modifications follow a unified Change Management Engine**.
 
-SMRITI Retail OS requires a permanent governance framework where **neither developers nor AI coding agents add fields on an ad-hoc basis**. Every schema modification must be registered as a formal Change Request and evaluated across the **13-Layer Impact Chain**.
+Treating schema, API, report, workflow, screen, or print format additions as uncoordinated code edits introduces silent breakages, broken reports, unindexed search queries, missing export columns, and security risks.
+
+SMRITI Retail OS requires a unified, automated **SMRITI Change Studio (SCS)** and **SMRITI Change Engine (SCE)** to govern all 11 change types.
 
 ---
 
 ## Decision
 
-1. **Mandatory Field Change Lifecycle (FCL)**:
-   - Every field addition, modification, or removal MUST follow the 7-stage Field Change Lifecycle:
-     `Business Request (CR)` ──► `13-Layer Impact Analysis` ──► `9-Point Property Clarification` ──► `Auto Task Graph` ──► `Implementation` ──► `13-Layer Verification Gate` ──► `Release Certification`.
+1. **Mandatory SMRITI Change Studio (SCS)**:
+   - All platform changes (fields, tables, APIs, screens, reports, print formats, workflows, integrations) MUST be registered through the SMRITI Change Engine CLI (`scripts/smriti_change_engine.py`).
 
-2. **The 13-Layer Impact Chain**:
-   - Every field change MUST explicitly evaluate and update:
-     `Database Schema` · `Alembic Migration` · `ORM Model` · `Repository` · `Domain Service` · `REST API Schema` · `UI Form/Pattern` · `Global Unified Search` · `Reports & BI` · `Barcode Engine` · `Data Exchange (Excel/CSV)` · `Print Framework` · `RBAC & Security`.
+2. **Unified Change Types Catalog**:
+   - SCE natively supports 11 change types: `new_field`, `modify_field`, `delete_field`, `new_table`, `modify_table`, `new_api`, `new_screen`, `new_report`, `new_print_format`, `new_workflow`, `new_integration`.
 
-3. **Field Registry Catalog (`FIELD_REGISTRY`)**:
-   - All fields MUST be registered in the Central Field Registry (`backend/app/core/metadata/field_registry.py`) recording CR ID, target table, data type, version added, author, and impact graph.
+3. **6-Step Universal Change Protocol**:
+   - `Requirement` ──► `AI Impact Analysis` ──► `Task Generation & Approval` ──► `Implementation` ──► `Automated Validation` ──► `Release`.
 
-4. **AI Agent Execution Rules**:
-   - AI agents are strictly prohibited from generating field modification code without first creating a Change Request (CR) and completing 13-Layer Impact Analysis (Rule FCL-001).
+4. **SCS Registry Catalog Architecture**:
+   - `SMRITI Change Studio` integrates: Change Requests, Impact Analyzer, Task Generator, Field Registry, API Registry, Report Registry, Workflow Registry, Validation Center, and Release Center.
+
+5. **AI Agent Enforcement (Rule SCE-001)**:
+   - AI coding agents MUST NOT write code for any architectural or schema change without registering a Change Request (CR) and generating an Impact Analysis report.
 
 ---
 
 ## Consequences
 
-- **Positive**: Zero hidden breakages, predictable 10-year ERP evolution, automated task generation, future-safe refactoring.
-- **Trade-off**: Requires registering a Change Request (CR) before writing code.
+- **Positive**: Single unified engine for fields, reports, APIs, workflows, and screens; zero hidden breakages; automated scaffolding.
+- **Trade-off**: Requires running `python scripts/smriti_change_engine.py` to register Change Requests.
