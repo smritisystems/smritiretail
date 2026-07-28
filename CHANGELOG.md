@@ -43,6 +43,12 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Task 6-4: Data Archival & Cold-Storage Export Engine (CR-2026-1764, AOP-004)**:
   - Created `DataArchivalEngine` in `backend/app/core/data_archival.py`.
   - Supports dry-run manifest, blocked dependency protection, and FK-safe JSON cold-storage export.
+- **ADR-015: SMRITI Foundation Platform v3.0 — Sprint 1 Database Layer**:
+  - Created `backend/app/models/foundation.py` — 10 Foundation Engine ORM models: `SmritiEntityRegistry`, `SmritiAddress`, `SmritiContact`, `SmritiBank`, `SmritiBankAccount`, `SmritiCommChannel`, `SmritiSetting`, `SmritiTheme`, `SmritiThemeVariant`, `SmritiBranding`, `SmritiReportTemplate`, `SmritiSocialProfile`, `SmritiAuditLog`.
+  - Created `backend/app/models/company_master.py` — `Organization`, `CompanyTaxProfile`, `CompanyFinancialYear`.
+  - Extended `backend/app/models/tenant.py` — Company + Branch additive columns (AOP-004).
+  - Created Alembic migration `v1217_adr015_foundation_platform_v3.py` — 13 DDL groups, 20 tables created, 20+ indexes, seed data for 20 Indian banks.
+  - Architecture governed by ADR-015 (Foundation Platform v3.0 FREEZE).
 
 ## [7.0.0] — 2026-07-28
 

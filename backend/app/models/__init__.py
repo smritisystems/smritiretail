@@ -89,4 +89,24 @@ from .analytics_bi import (
     DashboardDefinitionModel, KPIMetricModel, ReportBuilderQueryModel
 )
 
-
+# ADR-015: SMRITI Foundation Platform v3.0 (2026-07-28)
+from .foundation import (
+    SmritiEntityRegistry,
+    SmritiAddress,
+    SmritiContact,
+    SmritiBank,
+    SmritiBankAccount,
+    SmritiCommChannel,
+    SmritiSetting,
+    SmritiTheme,
+    SmritiThemeVariant,
+    SmritiBranding,
+    SmritiReportTemplate,
+    SmritiSocialProfile,
+    SmritiAuditLog,
+)
+from .company_master import (
+    Organization,
+    CompanyTaxProfile,
+    CompanyFinancialYear,
+)
