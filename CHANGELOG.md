@@ -36,7 +36,12 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Razorpay and Cashfree payment gateway webhook handlers in `backend/app/api/v1/webhooks.py`.
   - `ECommerceSyncPipeline` in `backend/app/services/ecommerce_sync.py` for real-time stock push and channel order processing.
   - REST endpoints for e-commerce channel sync in `backend/app/api/v1/ecommerce.py`.
+  - **Task 3-2: Indian State GST Jurisdiction Registry (CR-2026-1715)**:
+    - Executed Task 3-2 under SMRITI Change Studio (SCS v4.0).
+    - Updated `indian_state_registry.py` in `backend/app/core/` for 38 GST state/UT code mappings and Place of Supply rules.
+    - Added unit test suite `backend/app/tests/test_indian_state_registry.py`.
   - **Task 3-1: MSME Delayed Payment Interest Calculator (CR-2026-1659)**:
+
     - Executed Task 3-1 under SMRITI Change Studio (SCS v4.0).
     - Updated `msme_compliance.py` in `backend/app/core/` for MSMED Act Section 15 45-day payment timer and 3x RBI bank rate compound interest calculation.
     - Added unit test suite `backend/app/tests/test_msme_compliance.py`.
