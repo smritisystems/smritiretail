@@ -23,7 +23,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.db.session import get_db
-from app.api.deps import get_current_tenant, TenantContext
+from app.api.deps import get_current_tenant, TenantContext, get_tenant_context
+
 from app.models.wms import WarehouseZone, WarehouseBin, StockBinAssignment
 
 router = APIRouter(prefix="/wms", tags=["Warehouse Management System (WMS) Multi-Bin"])
