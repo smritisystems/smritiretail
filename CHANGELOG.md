@@ -36,7 +36,12 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Razorpay and Cashfree payment gateway webhook handlers in `backend/app/api/v1/webhooks.py`.
   - `ECommerceSyncPipeline` in `backend/app/services/ecommerce_sync.py` for real-time stock push and channel order processing.
   - REST endpoints for e-commerce channel sync in `backend/app/api/v1/ecommerce.py`.
+  - **Task 3-3: NPCI UPI Dynamic QR Code Generator (CR-2026-1717)**:
+    - Executed Task 3-3 under SMRITI Change Studio (SCS v4.0).
+    - Created `DynamicUPIQRGenerator` in `backend/app/services/upi_qr_generator.py` for NPCI UPI specification v1.6 QR string formatting.
+    - Added unit test suite `backend/app/tests/test_upi_qr.py`.
   - **Task 3-2: Indian State GST Jurisdiction Registry (CR-2026-1715)**:
+
     - Executed Task 3-2 under SMRITI Change Studio (SCS v4.0).
     - Updated `indian_state_registry.py` in `backend/app/core/` for 38 GST state/UT code mappings and Place of Supply rules.
     - Added unit test suite `backend/app/tests/test_indian_state_registry.py`.
