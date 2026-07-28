@@ -36,7 +36,12 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Razorpay and Cashfree payment gateway webhook handlers in `backend/app/api/v1/webhooks.py`.
   - `ECommerceSyncPipeline` in `backend/app/services/ecommerce_sync.py` for real-time stock push and channel order processing.
   - REST endpoints for e-commerce channel sync in `backend/app/api/v1/ecommerce.py`.
+  - **Task 2-4: GS1 Barcode AI Scanner & Parsing Engine (CR-2026-1655)**:
+    - Executed Task 2-4 under SMRITI Change Studio (SCS v4.0).
+    - Updated `gs1_barcode_parser.py` in `backend/app/core/` for GS1-128 and DataMatrix 2D barcode Application Identifier (AI-01, AI-10, AI-17, AI-21) parsing.
+    - Added unit test suite `backend/app/tests/test_gs1_barcode.py`.
   - **Task 2-3: Franchise Royalty & Settlement Engine (CR-2026-1653)**:
+
     - Executed Task 2-3 under SMRITI Change Studio (SCS v4.0).
     - Created `FranchiseRoyaltyService` in `backend/app/services/franchise_royalty.py` for store sales royalty % fee and marketing fund calculation.
     - Added unit test suite `backend/app/tests/test_franchise_royalty.py`.

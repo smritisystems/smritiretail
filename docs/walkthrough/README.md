@@ -251,6 +251,8 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-07-28 | v1.0.0 | Task 2-1: E-Invoice & NIC GSTN Gateway (`NICEInvoiceGatewayService`, SHA256 IRN, Schema v1.03) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1641_NIC_EInvoice_v1.0.0.md) | — | Completed |
 | 2026-07-28 | v1.0.0 | Task 2-2: WhatsApp & SMS Receipt Notification Gateway (`WhatsAppGatewayService`, template encoder) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1651_WhatsApp_Gateway_v1.0.0.md) | — | Completed |
 | 2026-07-28 | v1.0.0 | Task 2-3: Franchise & Multi-Store Royalty Settlement Engine (`FranchiseRoyaltyService`, net payout split) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1653_Franchise_Royalty_v1.0.0.md) | — | Completed |
+| 2026-07-28 | v1.0.0 | Task 2-4: GS1 Barcode AI Scanner & Parsing Engine (`gs1_barcode_parser.py`, GTIN/Batch/Expiry AIs) executed via SMRITI Change Studio | [Walkthrough](./foundation/CR_2026_1655_GS1_Barcode_v1.0.0.md) | — | Completed |
+
 
 
 
