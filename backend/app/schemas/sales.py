@@ -1,6 +1,8 @@
 """
 Project      : SMRITI Retail OS
+Organization : SmritiSys
 Author       : Jawahar Ramkripal Mallah
+
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
@@ -62,6 +64,8 @@ class SalesInvoiceBase(BaseModel):
     invoice_no: Optional[str] = Field(None, max_length=100)
     date: datetime_date = Field(default_factory=datetime_date.today)
     customer_id: str = Field(..., max_length=50, validation_alias=AliasChoices("customer_id", "customerId"))
+    sales_person_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("sales_person_id", "salesPersonId"))
+
     tax_total: Decimal = Decimal("0.00")
     grand_total: Decimal = Decimal("0.00")
     is_interstate: bool = Field(False, validation_alias=AliasChoices("is_interstate", "isInterstate"))

@@ -1,6 +1,8 @@
 """
 Project      : SMRITI Retail OS
+Organization : SmritiSys
 Author       : Jawahar Ramkripal Mallah
+
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
@@ -27,6 +29,8 @@ class SalesInvoice(RowSecuredMixin, BaseEntity):
     invoice_no      = Column(String(100), nullable=False, unique=True)
     order_id        = Column(String(50), ForeignKey("sales_orders.id", ondelete="RESTRICT"), nullable=True)
     customer_id     = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=True)
+    sales_person_id = Column(String(50), nullable=True, index=True)
+
     invoice_date    = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     due_date        = Column(DateTime(timezone=True), nullable=True)
     subtotal        = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))

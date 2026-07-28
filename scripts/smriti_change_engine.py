@@ -149,9 +149,15 @@ def generate_change(cr_id, change_type, module, entity, name, reason):
   Project      : SMRITI Retail OS
   Organization : SmritiSys
   Author       : Jawahar Ramkripal Mallah
+  Designation  : Chief Systems Architect & Creator
+  Email        : support@smritibooks.com
+  Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+  Copyright    : © SMRITIBooks.com. All Rights Reserved.
+  License      : Proprietary Commercial Software
 -->
 
 # Change Request: {cr_id} — {change_type.upper().replace('_', ' ')} `{name}`
+
 
 - **CR ID:** {cr_id}
 - **Date:** {datetime.date.today().isoformat()}
@@ -205,11 +211,20 @@ def generate_change(cr_id, change_type, module, entity, name, reason):
         filepath = os.path.join(versions_dir, filename)
 
         mig_content = f"""\"\"\"
+Project      : SMRITI Retail OS
+Organization : SmritiSys
+Author       : Jawahar Ramkripal Mallah
+Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
+Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
+
 Change Request {cr_id}: {change_type} {name} on {entity}
 Revision ID: {revision_id}
 Revises: v1215_wms_loyalty_expansion
 Create Date: {datetime.datetime.now().isoformat()}
 \"\"\"
+
 from alembic import op
 import sqlalchemy as sa
 

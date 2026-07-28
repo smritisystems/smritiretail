@@ -36,7 +36,12 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Razorpay and Cashfree payment gateway webhook handlers in `backend/app/api/v1/webhooks.py`.
   - `ECommerceSyncPipeline` in `backend/app/services/ecommerce_sync.py` for real-time stock push and channel order processing.
   - REST endpoints for e-commerce channel sync in `backend/app/api/v1/ecommerce.py`.
+  - **Change Request CR-2026-1615 (Sales Executive Field)**:
+    - Executed Change Request CR-2026-1615 under SMRITI Change Studio (SCS v4.0).
+    - Added `sales_person_id` column to `sales_invoices` via migration `v1216_new_field_salesinvoice_sales_person_id.py`.
+    - Updated ORM Model `SalesInvoice`, Pydantic Schema `SalesInvoiceBase`, and Central Field Catalog `field_registry.py`.
   - **Field Change Lifecycle (FCL) & Field Registry Studio (FRS) (ADR-014 & AOP-008)**:
+
     - Implemented Level 1 SMRITI Architecture Constitution Principle AOP-008 for enterprise field change management.
     - Created ADR-014 (`docs/adr/ADR-014-Field-Change-Lifecycle-And-Registry-Studio.md`).
     - Added automated 13-layer field impact analyzer tool (`scripts/fcl_impact_analyzer.py`).
