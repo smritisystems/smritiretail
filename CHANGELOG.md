@@ -28,7 +28,24 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.1.0] — 2026-07-28
+
+### Added
+- **Task 5-1: GST GSTR-2B vs Purchase Register Automated Reconciliation Engine (CR-2026-1751)**:
+  - Created `GstReconciliationEngine` in `backend/app/core/gstr2b_reconciler.py` for CGST Act Section 16(2)(aa) Input Tax Credit (ITC) reconciliation.
+  - Added unit test suite `backend/app/tests/test_gstr2b_reconciler.py`.
+- **Task 5-2: Multi-Tier Promotional Pricing & Discount Matrix Engine (CR-2026-1752)**:
+  - Created `PromotionalPricingEngine` in `backend/app/core/promotional_pricing.py` for tiered volume pricing, BOGO free items, and promo code discounts.
+  - Added unit test suite `backend/app/tests/test_promotional_pricing.py`.
+- **Task 5-3: Customer Credit Limit & Soft/Hard Block Rule Engine (CR-2026-1753)**:
+  - Created `CustomerCreditControlEngine` in `backend/app/core/customer_credit_control.py` for B2B credit risk & hard block enforcement.
+  - Added unit test suite `backend/app/tests/test_customer_credit_control.py`.
+- **Task 5-4: Fixed Asset Management & Depreciation Engine (CR-2026-1754)**:
+  - Created `FixedAssetDepreciationEngine` in `backend/app/core/fixed_asset_depreciation.py` for SLM & WDV depreciation under Income Tax Act 1961 & Companies Act 2013.
+  - Added unit test suite `backend/app/tests/test_fixed_asset_depreciation.py`.
+
 ## [6.0.1] — 2026-07-28
+
 
 ### Fixed
 - **Immutable Audit Ledger JSON Serialization Fix**: Fixed `json.dumps` parameter in `backend/app/core/immutable_audit_ledger.py` (`default=str`).
