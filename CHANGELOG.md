@@ -28,7 +28,17 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [7.0.0] — 2026-07-28
+
+### Added
+- **SMRITI Engineering Intelligence Platform (SEIP v7.0)**:
+  - Created `scripts/system_health.py` master CLI engine unifying SCS, CVE, AGE, AIE, GVE, and RRE engines.
+  - Implemented dynamic Architecture Quality Score KPI calculation (96.9%).
+  - Added trend & history tracking in `docs/architecture/ARCHITECTURE_HISTORY_LOG.json`.
+  - Added automated evidence generation script `scripts/generate_architecture_report.py`.
+
 ## [6.1.0] — 2026-07-28
+
 
 ### Added
 - **Task 5-1: GST GSTR-2B vs Purchase Register Automated Reconciliation Engine (CR-2026-1751)**:

@@ -6,7 +6,7 @@
   Email        : support@smritibooks.com
   Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
   Version      : 6.1.0
-  Generated    : 2026-07-28 17:56:03
+  Generated    : 2026-07-28 18:02:54
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Auto-Generated System Architecture Inventory Report
@@ -15,7 +15,7 @@
 # SMRITI Retail OS — System Architecture & Database Inventory Report
 
 > **Auto-Generated Evidence Artifact**: Produced by `scripts/generate_architecture_report.py`  
-> **Timestamp**: `2026-07-28 17:56:03`  
+> **Timestamp**: `2026-07-28 18:02:54`  
 > **Repository Path**: `f:\SMRITRretailNXmgrt`
 
 ---

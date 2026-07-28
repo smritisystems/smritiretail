@@ -1,0 +1,13 @@
+[
+  {
+    "version": "v7.0.0",
+    "timestamp": "2026-07-28 18:02:55",
+    "files": 591,
+    "loc": 87311,
+    "tables": 217,
+    "api_endpoints": 511,
+    "test_functions": 209,
+    "quality_score": 96.9,
+    "governance_status": "PASS"
+  }
+]
