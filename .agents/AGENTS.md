@@ -207,6 +207,10 @@ Every API request across Platform Services, Workspace, and Portal MUST generate 
 ### AOP-007: Mandatory Architecture Decision Record (ADR) Governance
 Any constitutional or fundamental architectural change (Level 1 modification) MUST be preceded by an approved Architecture Decision Record (`docs/adr/ADR-xxx.md`) detailing problem context, options considered, decisions made, and trade-offs accepted.
 
+### AOP-008: Field Change Lifecycle (FCL) & Field Registry Studio Principle (Rule FCL-001 — ADR-014)
+Neither developers nor AI coding agents shall add, modify, or remove an entity field on an ad-hoc basis as a simple UI or model edit. Every field change MUST follow the formal 7-stage **Field Change Lifecycle (FCL)**: `Business Request (CR)` ──► `13-Layer Field Impact Analysis` ──► `9-Point Property Clarification` ──► `Auto Task Graph` ──► `Implementation` ──► `13-Layer Verification Gate` ──► `Field Registry Catalog Update`. Every field modification MUST evaluate and update the 13 impacted layers: Database Schema, Alembic Migration, ORM Model Class, Repository Layer, Domain Service, REST API Schema, UI Form/Pattern, Global Search Index, Reports & BI, Barcode Engine, Data Exchange Hub (Excel), Print Framework, and RBAC/Security. Direct uncoordinated field additions without a registered Change Request are strictly prohibited.
+
+
 ### Rule SLP-002: Launchpad Composition Framework Principle
 The Launchpad shall not contain business logic. It shall compose its interface exclusively from registered modules, widgets, services, and metadata. Application modules may contribute tiles, quick actions, widgets, search providers, notification providers, and status providers through standardized registration interfaces.
 

@@ -36,7 +36,12 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Razorpay and Cashfree payment gateway webhook handlers in `backend/app/api/v1/webhooks.py`.
   - `ECommerceSyncPipeline` in `backend/app/services/ecommerce_sync.py` for real-time stock push and channel order processing.
   - REST endpoints for e-commerce channel sync in `backend/app/api/v1/ecommerce.py`.
+  - **Field Change Lifecycle (FCL) & Field Registry Studio (FRS) (ADR-014 & AOP-008)**:
+    - Implemented Level 1 SMRITI Architecture Constitution Principle AOP-008 for enterprise field change management.
+    - Created ADR-014 (`docs/adr/ADR-014-Field-Change-Lifecycle-And-Registry-Studio.md`).
+    - Added automated 13-layer field impact analyzer tool (`scripts/fcl_impact_analyzer.py`).
   - **Performance & Latency Benchmark Suite**:
+
     - Added `scripts/benchmark_performance.py` automated API performance benchmarking tool (measuring Avg, Min, Max, P95, P99 latencies against enterprise SLA <100ms).
   - **Full-Stack Operational Health Check Utility**:
 
