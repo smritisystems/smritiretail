@@ -30,7 +30,9 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-07-28 | v7.1.0 | Phase 6 Enterprise Modules (AI Advisory, BOM Kitting, Financial Consolidation, Data Archival) | [Walkthrough](./foundation/CR_2026_1761_Phase6_Enterprise_v7.1.0.md) | — | Completed |
 | 2026-07-28 | v7.0.0 | SEIP v7.0 Engineering Intelligence Platform & Master Health CLI | [Walkthrough](./foundation/SEIP_v7.0.0_Engineering_Intelligence_Platform.md) | — | Completed |
+
 | 2026-07-28 | v6.1.0 | Phase 5 Enterprise Modules & GSTR-2B Reconciler | [Walkthrough](./foundation/CR_2026_1751_Phase5_Enterprise_v6.1.0.md) | [Plan](../../brain/d3b67074-34fe-41fc-ba9c-10821ef3d960/implementation_plan.md) | Completed |
 
 | 2026-07-28 | v6.0.1 | Immutable Audit Ledger JSON Fix | [Walkthrough](./foundation/CR_2026_1741_Phase4_Enterprise_v6.0.0.md) | — | Completed |

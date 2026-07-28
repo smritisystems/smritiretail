@@ -28,7 +28,24 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [7.1.0] — 2026-07-28
+
+### Added
+- **Task 6-1: AI Advisory Settings & Key Registry (CR-2026-1761, Rule AOP-001)**:
+  - Created `AiAdvisoryConfigEngine` in `backend/app/core/ai_advisory_config.py`.
+  - Enforces offline-first default (`AI_ENABLED=false`), RBAC gate (`AI_ADMIN`/`AI_CONFIGURATION`), and API key obscuration.
+- **Task 6-2: Production & BOM Kitting Assembly Engine (CR-2026-1762)**:
+  - Created `BillOfMaterialsEngine` in `backend/app/core/bom_kitting.py`.
+  - Supports BOM definition, component availability audit, and atomic raw material deduction + finished good stock addition.
+- **Task 6-3: Multi-Company Financial Consolidation Engine (CR-2026-1763)**:
+  - Created `FinancialConsolidationEngine` in `backend/app/core/financial_consolidation.py`.
+  - Consolidates Trial Balances across parent/subsidiary companies with Ind AS 110 inter-company elimination.
+- **Task 6-4: Data Archival & Cold-Storage Export Engine (CR-2026-1764, AOP-004)**:
+  - Created `DataArchivalEngine` in `backend/app/core/data_archival.py`.
+  - Supports dry-run manifest, blocked dependency protection, and FK-safe JSON cold-storage export.
+
 ## [7.0.0] — 2026-07-28
+
 
 ### Added
 - **SMRITI Engineering Intelligence Platform (SEIP v7.0)**:
