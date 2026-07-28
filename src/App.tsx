@@ -51,6 +51,7 @@ import { CustomerDashboardTab } from "./components/CustomerDashboardTab.tsx";
 import { WorkspaceLabTab } from "./components/WorkspaceLabTab.tsx";
 import { OperationalWorkspacesTab } from "./components/OperationalWorkspacesTab.tsx";
 import { TransactionWorkspacesTab } from "./components/TransactionWorkspacesTab.tsx";
+import { BiReportingAndPrintingTab } from "./components/BiReportingAndPrintingTab.tsx";
 import { ConsignmentStudioTab } from "./components/ConsignmentStudioTab.tsx";
 import { CrmStudioTab } from "./components/CrmStudioTab.tsx";
 import { LoyaltyStudioTab } from "./components/LoyaltyStudioTab.tsx";
@@ -528,6 +529,8 @@ const AppContent: React.FC = () => {
         return <OperationalWorkspacesTab />;
       case "transaction-workspaces":
         return <TransactionWorkspacesTab />;
+      case "bi-reporting":
+        return <BiReportingAndPrintingTab />;
       case "launchpad-config":
         return <LaunchpadConfigTab onNotification={addNotification} />;
       case "document-series":
