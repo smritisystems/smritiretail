@@ -36,7 +36,13 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Razorpay and Cashfree payment gateway webhook handlers in `backend/app/api/v1/webhooks.py`.
   - `ECommerceSyncPipeline` in `backend/app/services/ecommerce_sync.py` for real-time stock push and channel order processing.
   - REST endpoints for e-commerce channel sync in `backend/app/api/v1/ecommerce.py`.
+  - **Task 1: Pharma FEFO & Batch Expiry Tracker (CR-2026-1629)**:
+    - Executed Task 1 under SMRITI Change Studio (SCS v4.0).
+    - Added `PharmaBatchModel` in `backend/app/models/pharma.py` and migration `v1216_new_table_pharmabatch_pharma_batch_fefo.py`.
+    - Added `PharmaFEFOService` in `backend/app/services/pharma_fefo.py` with automated FEFO batch sorting and allocation.
+    - Added unit test suite `backend/app/tests/test_pharma_fefo.py`.
   - **Change Request CR-2026-1615 (Sales Executive Field)**:
+
     - Executed Change Request CR-2026-1615 under SMRITI Change Studio (SCS v4.0).
     - Added `sales_person_id` column to `sales_invoices` via migration `v1216_new_field_salesinvoice_sales_person_id.py`.
     - Updated ORM Model `SalesInvoice`, Pydantic Schema `SalesInvoiceBase`, and Central Field Catalog `field_registry.py`.
