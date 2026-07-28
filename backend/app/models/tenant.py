@@ -16,6 +16,7 @@ ADR-015: Extended with Foundation Platform v3.0 additive fields (AOP-004).
 """
 
 
+import uuid as uuid_pkg
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Boolean, DateTime, SmallInteger, Date, ForeignKey
 from sqlalchemy.orm import relationship
