@@ -11,6 +11,7 @@ import { SEDSButton } from '../design-system/components/SEDSButton';
 import { SEDSStatusBadge } from '../design-system/components/SEDSStatusBadge';
 import { BarChart3, Printer, FileText, QrCode, Sliders, Download, CheckCircle2 } from 'lucide-react';
 import { PivotBuilder } from '../analytics/pivot/PivotBuilder.tsx';
+import { MyWork } from '../workflow/inbox/MyWork.tsx';
 
 export type ReportCategory = 'sales' | 'purchase' | 'stock' | 'gst' | 'labels' | 'thermal';
 
@@ -92,6 +93,9 @@ export const BiReportingAndPrintingTab: React.FC = () => {
       <div className="flex-1 p-6 overflow-y-auto space-y-6">
         {/* SUPAE v3.1 Universal Pivot Builder */}
         <PivotBuilder />
+
+        {/* SUWINE v2.1 Universal My Work Studio */}
+        <MyWork />
 
         {/* KPI Analytics Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
