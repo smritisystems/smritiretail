@@ -63,6 +63,7 @@ import { ExplainModal } from "./components/ExplainModal.tsx";
 import { DrillDownProvider } from "./components/drilldown/drilldown_store.tsx";
 import { DrillDownBreadcrumbs } from "./components/drilldown/DrillDownBreadcrumbs.tsx";
 import { DrillDownSidePanel } from "./components/drilldown/DrillDownSidePanel.tsx";
+import { SUNEFKernel } from "./navigation/SUNEFKernel.ts";
 import { GlobalSearch } from "./components/drilldown/GlobalSearch.tsx";
 import { ApprovalMatrixTab } from "./components/ApprovalMatrixTab.tsx";
 import { QuickActionsMenu } from "./components/QuickActionsMenu.tsx";
@@ -358,6 +359,7 @@ const AppContent: React.FC = () => {
   };
 
   useEffect(() => {
+    SUNEFKernel.initialize((t) => setActiveWorkspace(t), addNotification);
     registerAllDefaultActions((n: any) => {
       addNotification(n.title, n.message, n.type === "alert" || n.type === "error" ? "error" : "success");
     });
