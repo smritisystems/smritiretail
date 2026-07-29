@@ -280,7 +280,7 @@ const AppContent: React.FC = () => {
     }
     const resolvedTab = normalizeTab(
       isSetupCompleted && tab === "company-setup" ? "launchpad" : tab,
-    );
+    ) || "dashboard";
     setActiveTab(resolvedTab);
     addToRecentlyUsed(resolvedTab);
   };
