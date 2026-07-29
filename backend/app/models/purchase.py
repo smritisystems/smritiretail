@@ -40,9 +40,15 @@ class Supplier(RowSecuredMixin, BaseEntity):
     code               = Column(String(50),  nullable=False)
     name               = Column(String(255), nullable=False)
     trade_name         = Column(String(255), nullable=True)
+    legal_name         = Column(String(255), nullable=True)
+    display_name       = Column(String(255), nullable=True)
     supplier_type_id   = Column(String(50),  nullable=True)
     supplier_group_id  = Column(String(50),  nullable=True)
     gst_number         = Column(String(20),  nullable=True)
+    tan_number         = Column(String(20),  nullable=True)
+    cin_number         = Column(String(30),  nullable=True)
+    place_of_supply    = Column(String(100), nullable=True)
+    gst_type           = Column(String(50),  nullable=True)
     mobile             = Column(String(20),  nullable=True)
     email              = Column(String(255), nullable=True)
     address            = Column(Text,        nullable=True)
@@ -55,6 +61,16 @@ class Supplier(RowSecuredMixin, BaseEntity):
     custom_attributes  = Column(JSON, nullable=True, default=dict)
     performance_rating  = Column(Numeric(5, 2), nullable=True)
     tier_classification = Column(String(30), nullable=True)  # PREFERRED, APPROVED, CONDITIONAL, SUSPENDED
+    lead_time_days     = Column(Integer,     nullable=True, default=0)
+    min_order_qty      = Column(Numeric(15, 3), nullable=True, default=1.000)
+    max_order_qty      = Column(Numeric(15, 3), nullable=True)
+    order_multiple     = Column(Numeric(15, 3), nullable=True, default=1.000)
+    preferred_language = Column(String(30),  nullable=True, default="English")
+    transport_name     = Column(String(150), nullable=True)
+    transporter_gstin  = Column(String(20),  nullable=True)
+    freight_terms      = Column(String(100), nullable=True)
+    default_label_template = Column(String(100), nullable=True, default="50x25mm")
+    default_barcode_type   = Column(String(50),  nullable=True, default="CODE128")
 
     # Relationships to aggregate child entities
     tax_profile        = relationship("SupplierTaxProfile", back_populates="supplier", uselist=False, cascade="all, delete-orphan", lazy="selectin")
@@ -64,6 +80,9 @@ class Supplier(RowSecuredMixin, BaseEntity):
     bank_details       = relationship("SupplierBankDetails", back_populates="supplier", cascade="all, delete-orphan", lazy="selectin")
     addresses          = relationship("SupplierAddress", back_populates="supplier", cascade="all, delete-orphan", lazy="selectin")
     contacts           = relationship("SupplierContact", back_populates="supplier", cascade="all, delete-orphan", lazy="selectin")
+    gst_registrations  = relationship("SupplierGSTRegistration", back_populates="supplier", cascade="all, delete-orphan", lazy="selectin")
+    documents          = relationship("SupplierDocument", back_populates="supplier", cascade="all, delete-orphan", lazy="selectin")
+    logistics          = relationship("SupplierLogistics", back_populates="supplier", uselist=False, cascade="all, delete-orphan", lazy="selectin")
 
 
 class SupplierTaxProfile(RowSecuredMixin, BaseEntity):
@@ -168,6 +187,46 @@ class SupplierContact(RowSecuredMixin, BaseEntity):
     is_primary      = Column(Boolean, nullable=False, default=False)
 
     supplier = relationship("Supplier", back_populates="contacts")
+
+
+class SupplierGSTRegistration(RowSecuredMixin, BaseEntity):
+    __tablename__ = "supplier_gst_registrations"
+
+    supplier_id     = Column(String(50), ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False)
+    state_code      = Column(String(10), nullable=False)
+    state_name      = Column(String(100), nullable=False)
+    gstin           = Column(String(15), nullable=False)
+    gst_type        = Column(String(50), nullable=False, default="Regular")
+    is_primary      = Column(Boolean, nullable=False, default=False)
+
+    supplier = relationship("Supplier", back_populates="gst_registrations")
+
+
+class SupplierDocument(RowSecuredMixin, BaseEntity):
+    __tablename__ = "supplier_documents"
+
+    supplier_id     = Column(String(50), ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False)
+    document_type   = Column(String(50), nullable=False) # GST_CERTIFICATE, PAN_CARD, MSME_UDYAM, AGREEMENT, CANCELLED_CHEQUE
+    document_name   = Column(String(255), nullable=False)
+    file_url        = Column(Text, nullable=False)
+    file_size_kb    = Column(Integer, nullable=True)
+    expiry_date     = Column(DateTime(timezone=True), nullable=True)
+
+    supplier = relationship("Supplier", back_populates="documents")
+
+
+class SupplierLogistics(RowSecuredMixin, BaseEntity):
+    __tablename__ = "supplier_logistics"
+
+    supplier_id          = Column(String(50), ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False, unique=True)
+    preferred_transporter = Column(String(150), nullable=True)
+    transporter_gstin    = Column(String(20), nullable=True)
+    freight_terms        = Column(String(100), nullable=True, default="Prepaid")
+    loading_charges_rule  = Column(String(100), nullable=True, default="Supplier Scope")
+    unloading_charges_rule= Column(String(100), nullable=True, default="Buyer Scope")
+    dispatch_location    = Column(String(255), nullable=True)
+
+    supplier = relationship("Supplier", back_populates="logistics")
 
 
 

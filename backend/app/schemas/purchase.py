@@ -180,9 +180,15 @@ class SupplierCreate(BaseModel):
     name: str
     code: Optional[str] = None
     trade_name: Optional[str] = None
+    legal_name: Optional[str] = None
+    display_name: Optional[str] = None
     supplier_type_id: Optional[str] = None
     supplier_group_id: Optional[str] = None
     gst_number: Optional[str] = None
+    tan_number: Optional[str] = None
+    cin_number: Optional[str] = None
+    place_of_supply: Optional[str] = None
+    gst_type: Optional[str] = None
     mobile: Optional[str] = None
     email: Optional[str] = None
     address: Optional[str] = None
@@ -192,6 +198,16 @@ class SupplierCreate(BaseModel):
     lifecycle_stage: str = "Active"
     account_status: str = "Active"
     custom_attributes: Optional[dict] = None
+    lead_time_days: Optional[int] = 0
+    min_order_qty: Optional[Decimal] = Decimal("1.000")
+    max_order_qty: Optional[Decimal] = None
+    order_multiple: Optional[Decimal] = Decimal("1.000")
+    preferred_language: Optional[str] = "English"
+    transport_name: Optional[str] = None
+    transporter_gstin: Optional[str] = None
+    freight_terms: Optional[str] = None
+    default_label_template: Optional[str] = "50x25mm"
+    default_barcode_type: Optional[str] = "CODE128"
 
     tax_profile: Optional[SupplierTaxProfileCreate] = None
     compliance_profile: Optional[SupplierComplianceProfileCreate] = None
@@ -205,9 +221,15 @@ class SupplierCreate(BaseModel):
 class SupplierUpdate(BaseModel):
     name: Optional[str] = None
     trade_name: Optional[str] = None
+    legal_name: Optional[str] = None
+    display_name: Optional[str] = None
     supplier_type_id: Optional[str] = None
     supplier_group_id: Optional[str] = None
     gst_number: Optional[str] = None
+    tan_number: Optional[str] = None
+    cin_number: Optional[str] = None
+    place_of_supply: Optional[str] = None
+    gst_type: Optional[str] = None
     mobile: Optional[str] = None
     email: Optional[str] = None
     lifecycle_stage: Optional[str] = None
@@ -228,9 +250,15 @@ class SupplierResponse(BaseModel):
     code: str
     name: str
     trade_name: Optional[str] = None
+    legal_name: Optional[str] = None
+    display_name: Optional[str] = None
     supplier_type_id: Optional[str] = None
     supplier_group_id: Optional[str] = None
     gst_number: Optional[str] = None
+    tan_number: Optional[str] = None
+    cin_number: Optional[str] = None
+    place_of_supply: Optional[str] = None
+    gst_type: Optional[str] = None
     mobile: Optional[str] = None
     email: Optional[str] = None
     address: Optional[str] = None
@@ -240,6 +268,28 @@ class SupplierResponse(BaseModel):
     outstanding: Decimal
     lifecycle_stage: str
     account_status: str
+    performance_rating: Optional[Decimal] = None
+    tier_classification: Optional[str] = None
+    lead_time_days: Optional[int] = 0
+    min_order_qty: Optional[Decimal] = Decimal("1.000")
+    max_order_qty: Optional[Decimal] = None
+    order_multiple: Optional[Decimal] = Decimal("1.000")
+    preferred_language: Optional[str] = "English"
+    transport_name: Optional[str] = None
+    transporter_gstin: Optional[str] = None
+    freight_terms: Optional[str] = None
+    default_label_template: Optional[str] = "50x25mm"
+    default_barcode_type: Optional[str] = "CODE128"
+
+    tax_profile: Optional[SupplierTaxProfileResponse] = None
+    compliance_profile: Optional[SupplierComplianceProfileResponse] = None
+    payment_profile: Optional[SupplierPaymentProfileResponse] = None
+    credit_profile: Optional[SupplierCreditProfileResponse] = None
+    bank_details: Optional[List[SupplierBankDetailsResponse]] = None
+    addresses: Optional[List[SupplierAddressResponse]] = None
+    contacts: Optional[List[SupplierContactResponse]] = None
+
+    model_config = ConfigDict(from_attributes=True)
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
 
