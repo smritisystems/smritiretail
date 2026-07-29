@@ -1,14 +1,14 @@
 /**
  * Project      : SMRITI Retail OS v6.5 — Platform Architecture Constitution
- * Module       : SUNEF NavigationRegistry (Versioned Entity Manifests v3.1)
+ * Module       : SUNEF NavigationRegistry (Versioned Entity Manifests v3.2 SUNEF-GOV-015)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
- * Version      : 3.1.0
+ * Version      : 3.2.0
  */
 
 export interface EntityManifestV3 {
-  version: "3.1";
+  version: "3.1" | "3.2";
   entity: string;
   workspace: string;
   primaryKey: string;
@@ -46,7 +46,7 @@ export interface EntityManifestV3 {
 
 export const ENTITY_REGISTRY_V3: Record<string, EntityManifestV3> = {
   Customer: {
-    version: "3.1",
+    version: "3.2",
     entity: "Customer",
     workspace: "customers",
     primaryKey: "customerId",
@@ -77,7 +77,7 @@ export const ENTITY_REGISTRY_V3: Record<string, EntityManifestV3> = {
   },
 
   Supplier: {
-    version: "3.1",
+    version: "3.2",
     entity: "Supplier",
     workspace: "supplier-mgmt",
     primaryKey: "supplierId",
@@ -105,7 +105,7 @@ export const ENTITY_REGISTRY_V3: Record<string, EntityManifestV3> = {
   },
 
   Item: {
-    version: "3.1",
+    version: "3.2",
     entity: "Item",
     workspace: "items",
     primaryKey: "itemId",
@@ -133,7 +133,7 @@ export const ENTITY_REGISTRY_V3: Record<string, EntityManifestV3> = {
   },
 
   Warehouse: {
-    version: "3.1",
+    version: "3.2",
     entity: "Warehouse",
     workspace: "stock-ledger",
     primaryKey: "warehouseId",
@@ -154,6 +154,110 @@ export const ENTITY_REGISTRY_V3: Record<string, EntityManifestV3> = {
     ],
     actions: [
       { id: "stock-transfer", label: "Stock Transfer", icon: "truck" }
+    ]
+  },
+
+  SalesOrder: {
+    version: "3.2",
+    entity: "SalesOrder",
+    workspace: "sales",
+    primaryKey: "orderId",
+    displayField: "orderNo",
+    icon: "shopping-bag",
+    color: "blue",
+    permission: "VIEW_SALES",
+    quickPreview: true,
+    searchable: true,
+    deepLink: "smriti://order/{id}",
+    aliases: ["salesorder", "order", "so"],
+    capabilities: {
+      preview: true, workspace: true, create: true, edit: true, delete: false,
+      analytics: true, timeline: true, documents: true, print: true, export: true
+    },
+    relationships: [
+      { entity: "Customer", type: "ManyToOne" },
+      { entity: "SalesInvoice", type: "OneToMany" }
+    ],
+    actions: [
+      { id: "convert-invoice", label: "Convert to Invoice", icon: "file-text", targetTab: "sales" }
+    ]
+  },
+
+  SalesInvoice: {
+    version: "3.2",
+    entity: "SalesInvoice",
+    workspace: "sales",
+    primaryKey: "invoiceId",
+    displayField: "invoiceNo",
+    icon: "file-text",
+    color: "emerald",
+    permission: "VIEW_SALES",
+    quickPreview: true,
+    searchable: true,
+    deepLink: "smriti://invoice/{id}",
+    aliases: ["salesinvoice", "invoice", "si", "bill"],
+    capabilities: {
+      preview: true, workspace: true, create: true, edit: false, delete: false,
+      analytics: true, timeline: true, documents: true, print: true, export: true
+    },
+    relationships: [
+      { entity: "Customer", type: "ManyToOne" },
+      { entity: "Ledger", type: "OneToMany" }
+    ],
+    actions: [
+      { id: "print-invoice", label: "Print Invoice", icon: "printer" }
+    ]
+  },
+
+  PurchaseOrder: {
+    version: "3.2",
+    entity: "PurchaseOrder",
+    workspace: "purchase",
+    primaryKey: "poId",
+    displayField: "poNo",
+    icon: "briefcase",
+    color: "purple",
+    permission: "VIEW_PURCHASE",
+    quickPreview: true,
+    searchable: true,
+    deepLink: "smriti://po/{id}",
+    aliases: ["purchaseorder", "po"],
+    capabilities: {
+      preview: true, workspace: true, create: true, edit: true, delete: false,
+      analytics: true, timeline: true, documents: true, print: true, export: true
+    },
+    relationships: [
+      { entity: "Supplier", type: "ManyToOne" },
+      { entity: "GRN", type: "OneToMany" }
+    ],
+    actions: [
+      { id: "create-grn", label: "Create GRN", icon: "truck", targetTab: "purchase" }
+    ]
+  },
+
+  Ledger: {
+    version: "3.2",
+    entity: "Ledger",
+    workspace: "psv",
+    primaryKey: "ledgerId",
+    displayField: "voucherNo",
+    icon: "book-open",
+    color: "cyan",
+    permission: "VIEW_ACCOUNTS",
+    quickPreview: true,
+    searchable: true,
+    deepLink: "smriti://ledger/{id}",
+    aliases: ["ledger", "financial-ledger", "journal", "voucher"],
+    capabilities: {
+      preview: true, workspace: true, create: false, edit: false, delete: false,
+      analytics: true, timeline: true, documents: true, print: true, export: true
+    },
+    relationships: [
+      { entity: "Customer", type: "ManyToOne" },
+      { entity: "Supplier", type: "ManyToOne" }
+    ],
+    actions: [
+      { id: "print-voucher", label: "Print Voucher", icon: "printer" }
     ]
   }
 };
