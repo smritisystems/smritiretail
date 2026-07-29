@@ -33,6 +33,14 @@ SMRITI Retail OS is an enterprise-grade AI-powered Retail ERP platform built as 
 
 ---
 
+## Documentation
+
+Long-form documentation is maintained in the GitHub Wiki. Drafts and source pages are available in `docs/wiki/` and can be copied into the Wiki as needed.
+
+- Wiki Home: https://github.com/smritisystems/smritiretail/wiki
+- Local docs: `docs/wiki/`
+
+
 ## 1. Product Description
 SMRITI Retail OS acts as a centralized retail system-of-record. It enables high-volume retail locations to manage cash register shifts, barcode scan inventory, record sales, automate tax calculations, print billing receipts, and aggregate real-time analytical reports from multiple business branches under a unified corporate group structure.
 
