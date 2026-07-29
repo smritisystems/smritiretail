@@ -1,0 +1,111 @@
+name: Package
+
+on:
+  workflow_call:
+    inputs:
+      release_version:
+        description: 'Release version'
+        required: true
+        type: string
+      release_type:
+        description: 'Release type'
+        required: false
+        type: string
+        default: patch
+
+jobs:
+  package:
+    name: Create Release Packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend bundle
+        run: npm run build
+
+      - name: Generate build metadata
+        env:
+          VERSION: ${{ inputs.release_version }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          GIT_SHA: ${{ github.sha }}
+          GIT_REF: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import json, os, subprocess, datetime
+          version = os.environ['VERSION']
+          release_type = os.environ['RELEASE_TYPE']
+          git_sha = os.environ['GIT_SHA']
+          git_ref = os.environ['GIT_REF']
+          build_info = {
+              'version': version,
+              'release_type': release_type,
+              'commit': git_sha,
+              'branch': git_ref,
+              'build_date': datetime.datetime.utcnow().isoformat() + 'Z',
+              'builder': 'GitHub Actions'
+          }
+          with open('build-info.json', 'w', encoding='utf-8') as f:
+              json.dump(build_info, f, indent=2)
+
+          manifest = {
+              'version': version,
+              'git_sha': git_sha,
+              'docker_frontend': f'ghcr.io/${{ github.repository }}/frontend:{version}',
+              'docker_backend': f'ghcr.io/${{ github.repository }}/backend:{version}',
+              'release_type': release_type,
+              'artifact_files': [
+                  f'smriti-release-{version}.tar.gz',
+                  f'smriti-release-{version}.zip',
+                  f'smriti-rollback-{version}.tar.gz',
+                  f'smriti-rollback-{version}.zip'
+              ]
+          }
+          with open('release-manifest.json', 'w', encoding='utf-8') as f:
+              json.dump(manifest, f, indent=2)
+          PY
+
+      - name: Package release archive
+        run: |
+          VERSION=${{ inputs.release_version }}
+          tar -czf smriti-release-$VERSION.tar.gz dist/ package.json docker-compose.prod.yml REPOSITORY_CONSTITUTION.md docs/ build-info.json release-manifest.json
+          zip -r smriti-release-$VERSION.zip dist/ package.json docker-compose.prod.yml REPOSITORY_CONSTITUTION.md docs/ build-info.json release-manifest.json
+
+      - name: Package rollback archive
+        run: |
+          VERSION=${{ inputs.release_version }}
+          tar -czf smriti-rollback-$VERSION.tar.gz backend/alembic/ docker-compose.prod.yml
+          zip -r smriti-rollback-$VERSION.zip backend/alembic/ docker-compose.prod.yml
+
+      - name: Generate checksums
+        run: |
+          VERSION=${{ inputs.release_version }}
+          sha256sum smriti-release-$VERSION.tar.gz > sha256_checksums.txt
+          sha256sum smriti-release-$VERSION.zip >> sha256_checksums.txt
+          sha256sum smriti-rollback-$VERSION.tar.gz >> sha256_checksums.txt
+          sha256sum smriti-rollback-$VERSION.zip >> sha256_checksums.txt
+          sha256sum build-info.json >> sha256_checksums.txt
+          sha256sum release-manifest.json >> sha256_checksums.txt
+          cat sha256_checksums.txt
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: |
+            smriti-release-${{ inputs.release_version }}.tar.gz
+            smriti-release-${{ inputs.release_version }}.zip
+            smriti-rollback-${{ inputs.release_version }}.tar.gz
+            smriti-rollback-${{ inputs.release_version }}.zip
+            sha256_checksums.txt
+            build-info.json
+            release-manifest.json

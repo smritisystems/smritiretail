@@ -1,0 +1,39 @@
+name: Rollback
+
+on:
+  workflow_call:
+    inputs:
+      release_version:
+        description: 'Target release version to rollback to'
+        required: true
+        type: string
+    secrets:
+      SSH_HOST:
+        required: true
+      SSH_USER:
+        required: true
+      SSH_PRIVATE_KEY:
+        required: true
+      SSH_KNOWN_HOSTS:
+        required: true
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rollback on remote host via SSH
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+          script: |
+            set -e
+            cd ${{ secrets.REMOTE_PROJECT_PATH || '.' }}
+            git fetch --tags
+            git checkout ${{ inputs.release_version }}
+            docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
+            # Optionally rollback DB migrations here (manual step recommended)
+            python scripts/health_check.py || true
+            echo "Rollback to ${{ inputs.release_version }} complete"

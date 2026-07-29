@@ -1,0 +1,53 @@
+name: Publish
+
+on:
+  workflow_call:
+    inputs:
+      release_version:
+        description: 'Release version'
+        required: true
+        type: string
+    secrets:
+      GITHUB_TOKEN:
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download image artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: image-artifacts
+
+      - name: Load and push frontend image
+        env:
+          VERSION: ${{ inputs.release_version }}
+        run: |
+          ls -la
+          if [ -f frontend-${VERSION}.tar.gz ]; then
+            gunzip -c frontend-${VERSION}.tar.gz | docker load
+            docker tag ghcr.io/${{ github.repository }}/frontend:${VERSION} ghcr.io/${{ github.repository }}/frontend:${VERSION}
+            docker push ghcr.io/${{ github.repository }}/frontend:${VERSION}
+            docker push ghcr.io/${{ github.repository }}/frontend:latest
+          else
+            echo "frontend-${VERSION}.tar.gz not found"
+            exit 1
+          fi
+
+      - name: Load and push backend image
+        env:
+          VERSION: ${{ inputs.release_version }}
+        run: |
+          if [ -f backend-${VERSION}.tar.gz ]; then
+            gunzip -c backend-${VERSION}.tar.gz | docker load
+            docker tag ghcr.io/${{ github.repository }}/backend:${VERSION} ghcr.io/${{ github.repository }}/backend:${VERSION}
+            docker push ghcr.io/${{ github.repository }}/backend:${VERSION}
+            docker push ghcr.io/${{ github.repository }}/backend:latest
+          else
+            echo "backend-${VERSION}.tar.gz not found"
+            exit 1
+          fi

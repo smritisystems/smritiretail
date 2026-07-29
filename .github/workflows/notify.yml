@@ -1,0 +1,29 @@
+name: Notify
+
+on:
+  workflow_call:
+    inputs:
+      release_version:
+        description: 'Release version'
+        required: true
+        type: string
+      status:
+        description: 'Status message'
+        required: true
+        type: string
+    secrets:
+      SLACK_WEBHOOK:
+        required: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification
+        if: ${{ secrets.SLACK_WEBHOOK != '' }}
+        run: |
+          payload=$(jq -n --arg v "${{ inputs.release_version }}" --arg s "${{ inputs.status }}" '{text: ("Release " + $v + ": " + $s)}')
+          curl -s -X POST -H 'Content-type: application/json' --data "$payload" ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Print notification
+        run: echo "Release ${{ inputs.release_version }} status: ${{ inputs.status }}"
