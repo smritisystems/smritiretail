@@ -89,6 +89,8 @@ async def clear_db(db_session: AsyncSession):
         "print_histories", "barcode_layouts",
         "print_profiles", "print_templates",
         "system_configs",
+        "system_bootstrap_states",
+
         "document_series", "numbering_audit_logs",
         "approval_workflow_logs",
         "tally_configs",

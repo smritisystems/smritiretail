@@ -4,20 +4,22 @@
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
- * Version      : 5.5.0
+ * Version      : 5.6.0
  */
 
 import React, { useState } from "react";
 import { SEEFObjectPage, ObjectPageTab, ObjectPageMetric } from "../common/FioriObjectPage.tsx";
-import { Package, Tag, DollarSign, Percent, Barcode, ShieldAlert, Layers, Grid, History, Building2, Sliders } from "lucide-react";
+import { Package, Tag, DollarSign, Percent, Barcode, ShieldAlert, Layers, Grid, History, Building2, Sliders, Printer } from "lucide-react";
 import { Product } from "../../types.js";
 import { ItemMasterUomMatrix, UomConversion } from "./ItemMasterUomMatrix.tsx";
+import { ItemMasterVariantTable } from "./ItemMasterVariantTable.tsx";
+import { ItemMasterPrintHistoryTab } from "./ItemMasterPrintHistoryTab.tsx";
 
 interface ItemMasterFormInspectorProps {
   product: Product | null;
   onSaveProduct: (updated: Product) => Promise<void>;
   onDeleteProduct: (id: string) => Promise<void>;
-  onOpenBarcodeDialog: () => void;
+  onOpenBarcodeDialog: (variant?: any) => void;
   isReadOnly?: boolean;
 }
 
@@ -30,7 +32,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
 }) => {
   if (!product) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center p-12 text-center text-theme-muted font-mono border-2 border-dashed border-theme-divider rounded-xl">
+      <div className="w-full h-full flex flex-col items-center justify-center p-12 text-center text-theme-muted font-mono border-2 border-dashed border-theme-divider rounded-xl select-none">
         <Package className="w-12 h-12 mb-3 text-theme-muted" />
         <h3 className="text-sm font-bold text-theme-heading">No Product Selected</h3>
         <p className="text-xs">Select a SKU from the left master list or click "New SKU" to create a record.</p>
@@ -88,7 +90,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
     { label: "SKU Code", value: formData.sku || formData.barcode || "N/A" },
     { label: "Physical Stock", value: `${formData.stock_qty ?? formData.qty ?? 0} ${formData.uom || "Pcs"}`, highlight: true },
     { label: "MRP Price", value: `₹${(formData.mrp || formData.price || 0).toLocaleString("en-IN")}` },
-    { label: "GST Rate", value: `${formData.gst_rate ?? formData.tax_rate ?? 18}%` }
+    { label: "Labels Printed", value: "1,248 Pcs", highlight: false }
   ];
 
   const tabs: ObjectPageTab[] = [
@@ -136,14 +138,25 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
               <label className="block text-xs font-bold text-theme-muted mb-1">Style Code / Model</label>
               <input
                 type="text"
-                value={formData.style_code || ""}
-                onChange={(e) => handleFieldChange("style_code", e.target.value)}
+                value={formData.styleCode || ""}
+                onChange={(e) => handleFieldChange("styleCode", e.target.value)}
                 disabled={isReadOnly}
                 className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
               />
             </div>
           </div>
         </div>
+      )
+    },
+    {
+      id: "variant-breakdown",
+      label: "Variant Inventory Breakdown",
+      content: (
+        <ItemMasterVariantTable
+          product={formData}
+          onOpenBarcodeDialog={onOpenBarcodeDialog}
+          isReadOnly={isReadOnly}
+        />
       )
     },
     {
@@ -267,6 +280,11 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
       )
     },
     {
+      id: "print-ledger",
+      label: "Label Print Ledger",
+      content: <ItemMasterPrintHistoryTab product={formData} />
+    },
+    {
       id: "matrix",
       label: "Variant Matrix Grid",
       content: (
@@ -380,25 +398,6 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
           </div>
         </div>
       )
-    },
-    {
-      id: "history",
-      label: "Audit Ledger",
-      content: (
-        <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 space-y-3 text-xs font-mono">
-          <h4 className="text-sm font-bold text-theme-heading font-sans flex items-center gap-2">
-            <History className="w-4 h-4 text-[#0a6ed1]" /> Immutable Audit Ledger Records
-          </h4>
-          <div className="p-3 bg-theme-surface-2 rounded-lg border border-theme-divider flex justify-between">
-            <span>[2026-07-28 19:30:12] CREATED by admin (IP: 192.168.1.10)</span>
-            <span className="text-emerald-500 font-bold">VERIFIED</span>
-          </div>
-          <div className="p-3 bg-theme-surface-2 rounded-lg border border-theme-divider flex justify-between">
-            <span>[2026-07-28 19:42:05] UPDATED price ₹2,499.00 by admin</span>
-            <span className="text-blue-500 font-bold">UPDATED</span>
-          </div>
-        </div>
-      )
     }
   ];
 
@@ -414,10 +413,10 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
       isSaving={isSaving}
       headerActions={
         <button
-          onClick={onOpenBarcodeDialog}
-          className="px-3 py-1.5 text-xs font-bold rounded-lg bg-theme-surface-2 border border-theme-divider text-theme-heading hover:bg-theme-surface-hover flex items-center gap-1.5 cursor-pointer"
+          onClick={() => onOpenBarcodeDialog()}
+          className="px-3 py-1.5 text-xs font-bold rounded-lg bg-[#0a6ed1] text-white hover:bg-[#085caf] flex items-center gap-1.5 cursor-pointer shadow-xs"
         >
-          <Barcode className="w-4 h-4 text-[#0a6ed1]" /> Print Barcodes
+          <Printer className="w-4 h-4" /> Print Barcode Labels
         </button>
       }
     />

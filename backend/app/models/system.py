@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -35,3 +35,38 @@ class SystemConfig(BaseEntity):
     key      = Column(String(100), nullable=False, unique=True, index=True)
     value    = Column(Text, nullable=False)
     category = Column(String(100), nullable=False, default="General")
+
+
+from enum import Enum
+from sqlalchemy import DateTime
+
+
+class BootstrapTask(str, Enum):
+    INITIAL_SCHEMA                 = "initial_schema"
+    SEED_ROLES                     = "seed_roles"
+    SEED_PERMISSIONS               = "seed_permissions"
+    SEED_SUPER_USER                = "seed_super_user"
+    LEGACY_PASSWORD_RECONCILIATION = "legacy_password_reconciliation"
+    SETUP_WIZARD_INITIALIZED       = "setup_wizard_initialized"
+    DATABASE_MIGRATION             = "database_migration"
+    LICENSE_UPGRADE                = "license_upgrade"
+    INDEX_REBUILD                  = "index_rebuild"
+    DATA_REPAIR                    = "data_repair"
+
+
+
+class SystemBootstrapState(BaseEntity):
+    """
+    Explicit structured tracking of completed installation/bootstrap initialization tasks.
+    """
+    __tablename__ = "system_bootstrap_states"
+
+    task_name         = Column(String(100), nullable=False, unique=True, index=True)
+    status            = Column(String(50), nullable=False, default="Pending") # Pending, Complete, Skipped, Failed
+    started_at        = Column(DateTime(timezone=True), nullable=True)
+    completed_at      = Column(DateTime(timezone=True), nullable=True)
+    duration_ms       = Column(Integer, nullable=True)
+    bootstrap_version = Column(String(20), nullable=False, default="1.0.0")
+    execution_count   = Column(Integer, nullable=False, default=0)
+    error_message     = Column(Text, nullable=True)
+
