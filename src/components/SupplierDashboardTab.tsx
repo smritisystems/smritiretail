@@ -215,6 +215,8 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
       status: "Approved",
       city: "Mumbai",
       state: "Maharashtra",
+      address: "Plot 45, MIDC Industrial Area, Andheri East",
+      pincode: "400093",
       msme_category: "Small",
       msme_number: "UDYAM-MH-12-0001234",
       iec_code: "1012001122",
@@ -253,7 +255,7 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
         { id: "l1", timestamp: "2026-07-28 14:30", type: "PO Sent", summary: "Auto-dispatched PO-2026-0089 for ₹1,20,000", user: "System" },
         { id: "l2", timestamp: "2026-07-25 11:00", type: "WhatsApp", summary: "Dispatched shipment via VRL Tracking #VRL98765", user: "Rajesh Kumar" }
       ],
-      created_at: "2026-01-15",
+      created_at: "2026-01-15 10:00:00",
       created_by: "Jawahar Mallah"
     },
     {
@@ -280,6 +282,8 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
       status: "Approved",
       city: "Pune",
       state: "Maharashtra",
+      address: "Sector 18, Electronic Zone, Hinjewadi Phase 1",
+      pincode: "411057",
       msme_category: "Non-MSME",
       is_tds_applicable: false,
       tds_rate: 0.00,
@@ -302,7 +306,7 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
         { id: "d3", doc_type: "GST Certificate", doc_number: "27XYZPQ9876G1Z3", expiry_date: "2027-11-30", status: "Valid" }
       ],
       communication_logs: [],
-      created_at: "2026-02-10",
+      created_at: "2026-02-10 12:00:00",
       created_by: "Admin"
     },
     {
@@ -327,6 +331,8 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
       status: "Pending Approval",
       city: "Ahmedabad",
       state: "Gujarat",
+      address: "GIDC Industrial Estate, Naroda",
+      pincode: "382330",
       msme_category: "Micro",
       msme_number: "UDYAM-GJ-05-0009876",
       fssai_license_no: "10019022001234",
@@ -344,7 +350,7 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
       documents: [
         { id: "d4", doc_type: "FSSAI License", doc_number: "10019022001234", expiry_date: "2026-05-10", status: "Expired" }
       ],
-      created_at: "2026-03-01",
+      created_at: "2026-03-01 16:30:00",
       created_by: "System"
     }
   ]);
@@ -979,41 +985,6 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                   {expiringDocsCount} Expiring / Expired Documents
                 </span>
               </div>
-
-              <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden shadow-lg">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-theme-surface-3 border-b border-theme-divider text-[10px] uppercase tracking-wider text-theme-muted font-mono">
-                      <th className="px-4 py-3 font-semibold">Supplier Name</th>
-                      <th className="px-4 py-3 font-semibold">Document Type</th>
-                      <th className="px-4 py-3 font-semibold">Registration / License No.</th>
-                      <th className="px-4 py-3 font-semibold">Expiry Date</th>
-                      <th className="px-4 py-3 font-semibold text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-xs divide-y divide-theme-divider font-mono">
-                    {suppliers.flatMap((s) => s.documents || []).map((doc) => (
-                      <tr key={doc.id} className="hover:bg-theme-surface-hover transition-colors">
-                        <td className="px-4 py-3 font-sans font-bold text-theme-heading">
-                          {suppliers.find((s) => s.documents?.some((d) => d.id === doc.id))?.name}
-                        </td>
-                        <td className="px-4 py-3 font-bold text-[#0a6ed1]">{doc.doc_type}</td>
-                        <td className="px-4 py-3 text-theme-muted">{doc.doc_number}</td>
-                        <td className="px-4 py-3 text-theme-heading font-bold">{doc.expiry_date}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase font-mono border ${
-                            doc.status === "Valid" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
-                            doc.status === "Expiring Soon" ? "bg-amber-500/10 text-amber-400 border-amber-500/30" :
-                            "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                          }`}>
-                            {doc.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             </div>
           )}
 
@@ -1029,18 +1000,6 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                         Overall: {v.scorecard_rating || 90.0}/100
                       </span>
                     </div>
-                    <div className="flex justify-between text-theme-muted">
-                      <span>Quality Rating:</span>
-                      <strong className="text-emerald-400">{v.quality_rating || 95.0}%</strong>
-                    </div>
-                    <div className="flex justify-between text-theme-muted">
-                      <span>On-Time Delivery SLA:</span>
-                      <strong className="text-emerald-400">{v.delivery_rating || 92.0}%</strong>
-                    </div>
-                    <div className="flex justify-between text-theme-muted">
-                      <span>Price Competitiveness:</span>
-                      <strong className="text-theme-heading">{v.price_rating || 90.0}%</strong>
-                    </div>
                   </div>
                 ))}
               </div>
@@ -1054,10 +1013,6 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                 <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-5 shadow-lg">
                   <h4 className="text-xs font-bold text-theme-muted uppercase mb-2">Open POs</h4>
                   <div className="text-2xl font-bold text-theme-primary font-mono">12</div>
-                </div>
-                <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-5 shadow-lg">
-                  <h4 className="text-xs font-bold text-theme-muted uppercase mb-2">Total Payables</h4>
-                  <div className="text-2xl font-bold text-rose-400 font-mono">₹{totalOutstanding.toLocaleString("en-IN")}</div>
                 </div>
               </div>
             </div>
@@ -1294,6 +1249,27 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                 </div>
               )}
 
+              {studioTab === "attributes" && (
+                <div className="grid grid-cols-2 gap-4 font-mono text-xs">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-theme-muted block text-[10px]">LEGAL / TRADE NAME</span>
+                    <strong className="text-theme-heading text-sm">{selectedSupplier.legal_name || selectedSupplier.name}</strong>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-theme-muted block text-[10px]">SUPPLIER TYPE &amp; GROUP</span>
+                    <strong className="text-theme-heading text-sm">{selectedSupplier.supplier_type_id} | {selectedSupplier.group}</strong>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-theme-muted block text-[10px]">MOQ / LEAD TIME</span>
+                    <strong className="text-theme-heading">{selectedSupplier.min_order_qty} Units | {selectedSupplier.lead_time_days} Days Lead Time</strong>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-theme-muted block text-[10px]">LABEL &amp; BARCODE TEMPLATE</span>
+                    <strong className="text-[#0a6ed1]">{selectedSupplier.default_label_template || "50x25mm"} ({selectedSupplier.default_barcode_type || "CODE128"})</strong>
+                  </div>
+                </div>
+              )}
+
               {studioTab === "contacts" && (
                 <div className="space-y-4">
                   <h4 className="font-bold text-sm text-theme-heading font-display">Multi-Contact Role Directory</h4>
@@ -1335,6 +1311,40 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                 </div>
               )}
 
+              {studioTab === "addresses" && (
+                <div className="space-y-4 font-mono">
+                  <h4 className="font-bold text-sm text-theme-heading font-display">Addresses &amp; Multi-Location Warehouses</h4>
+                  <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#0a6ed1]/10 text-[#0a6ed1]">Corporate Billing &amp; Dispatch Address</span>
+                    <p className="text-theme-heading font-sans font-bold text-sm">{selectedSupplier.address || "Main Industrial Area"}, {selectedSupplier.city}, {selectedSupplier.state} - {selectedSupplier.pincode || "400001"}</p>
+                  </div>
+                </div>
+              )}
+
+              {studioTab === "gst" && (
+                <div className="space-y-4 font-mono">
+                  <h4 className="font-bold text-sm text-theme-heading font-display">GST &amp; Tax Compliance Breakdown</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                      <span className="text-theme-muted block text-[10px]">15-DIGIT GSTIN</span>
+                      <strong className="text-theme-heading text-sm">{selectedSupplier.gst_number || "N/A"}</strong>
+                    </div>
+                    <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                      <span className="text-theme-muted block text-[10px]">10-CHAR PAN</span>
+                      <strong className="text-theme-heading text-sm">{selectedSupplier.pan_number || "N/A"}</strong>
+                    </div>
+                    <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                      <span className="text-theme-muted block text-[10px]">SECTION 194Q TDS</span>
+                      <strong className="text-emerald-400 text-sm">{selectedSupplier.is_tds_applicable ? "0.10% TDS Deduction Active" : "Exempt"}</strong>
+                    </div>
+                    <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                      <span className="text-theme-muted block text-[10px]">GSTR-2B ITC MATCHING</span>
+                      <strong className="text-emerald-400 text-sm">{selectedSupplier.gstr2b_status || "Matched"}</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {studioTab === "documents" && (
                 <div className="space-y-4">
                   <h4 className="font-bold text-sm text-theme-heading font-display">Document Vault &amp; Expiry Tracker</h4>
@@ -1356,6 +1366,15 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                 </div>
               )}
 
+              {studioTab === "pos" && (
+                <div className="space-y-4 font-mono">
+                  <h4 className="font-bold text-sm text-theme-heading font-display">Purchase Orders History</h4>
+                  <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl text-center text-theme-muted">
+                    PO-2026-0089 | ₹1,20,000 | Status: <strong className="text-emerald-400">Received</strong>
+                  </div>
+                </div>
+              )}
+
               {studioTab === "timeline" && (
                 <div className="space-y-4">
                   <h4 className="font-bold text-sm text-theme-heading font-display">Communication Log &amp; Timeline</h4>
@@ -1365,7 +1384,7 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                       onChange={(e) => setLogType(e.target.value as any)}
                       className="p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-xs text-theme-heading"
                     >
-                      <option value="Call font-bold">Phone Call</option>
+                      <option value="Call">Phone Call</option>
                       <option value="WhatsApp">WhatsApp Message</option>
                       <option value="Email">Email Communication</option>
                       <option value="Payment Reminder">Payment Reminder</option>
@@ -1414,6 +1433,17 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                       <button onClick={() => handleUpdateStatus("Blocked")} className="px-3 py-1.5 bg-rose-600 text-white font-bold rounded-lg cursor-pointer">Block</button>
                       <button onClick={() => handleUpdateStatus("Blacklisted")} className="px-3 py-1.5 bg-slate-800 text-white font-bold rounded-lg cursor-pointer">Blacklist</button>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {studioTab === "audit" && (
+                <div className="space-y-4 font-mono text-xs">
+                  <h4 className="font-bold text-sm text-theme-heading font-display">Immutable Audit Trail &amp; Metadata</h4>
+                  <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
+                    <div className="flex justify-between"><span className="text-theme-muted">Created Date:</span> <strong className="text-theme-heading">{selectedSupplier.created_at || "2026-01-15"}</strong></div>
+                    <div className="flex justify-between"><span className="text-theme-muted">Created By:</span> <strong className="text-theme-heading">{selectedSupplier.created_by || "Admin"}</strong></div>
+                    <div className="flex justify-between"><span className="text-theme-muted">Record Version:</span> <strong className="text-emerald-400 font-bold">v1.0 (Frozen Audit)</strong></div>
                   </div>
                 </div>
               )}
