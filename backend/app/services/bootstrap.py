@@ -158,15 +158,10 @@ class BootstrapService:
             logger.info("[Bootstrap] Super administrator exists")
             return "Complete", None
 
-        # Check if any user exists
-        any_user_res = await self.db.execute(select(User).limit(1))
-        if any_user_res.scalars().first() is not None:
-            logger.info("[Bootstrap] Other users exist in database; skipping default super admin creation")
-            return "Complete", "Super admin skipped: other users present"
-
         if not self._is_dev_login_enabled():
             logger.info("[Bootstrap] Non-development profile detected; default super admin creation skipped")
             return "Skipped", "Production profile: default super admin creation disabled"
+
 
         # Create default super user for dev/demo
         admin = User(
