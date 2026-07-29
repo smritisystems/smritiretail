@@ -76,6 +76,19 @@ export interface SupplierBankAccount {
   is_primary: boolean;
 }
 
+export interface SupplierAddressRecord {
+  id: string;
+  address_type: "Billing" | "Shipping" | "Registered Office" | "Factory Location" | "Central Warehouse";
+  building_name?: string;
+  street?: string;
+  area?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  country: string;
+  is_primary: boolean;
+}
+
 export interface SupplierDocumentRecord {
   id: string;
   doc_type: "GST Certificate" | "FSSAI License" | "Drug License" | "MSME Certificate" | "Agreement" | "Insurance";
@@ -163,6 +176,7 @@ export interface SupplierItem {
   // Child collections
   contacts?: SupplierContactRole[];
   bank_accounts?: SupplierBankAccount[];
+  addresses_list?: SupplierAddressRecord[];
   documents?: SupplierDocumentRecord[];
   communication_logs?: SupplierCommunicationLogItem[];
 
@@ -247,6 +261,10 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
       bank_accounts: [
         { id: "b1", bank_name: "HDFC Bank", account_name: "TechCorp India Pvt Ltd", account_number: "50200012345678", ifsc_code: "HDFC0000123", branch_name: "Fort, Mumbai", upi_id: "techcorp@hdfcbank", is_primary: true }
       ],
+      addresses_list: [
+        { id: "a1", address_type: "Billing", building_name: "TechCorp House", street: "MIDC Road No 12", area: "Andheri East", city: "Mumbai", state: "Maharashtra", pincode: "400093", country: "India", is_primary: true },
+        { id: "a2", address_type: "Central Warehouse", building_name: "Warehouse Complex B", street: "Bhiwandi Bypass", area: "Bhiwandi", city: "Thane", state: "Maharashtra", pincode: "421302", country: "India", is_primary: false }
+      ],
       documents: [
         { id: "d1", doc_type: "GST Certificate", doc_number: "27ABCDE1234F1Z5", expiry_date: "2028-03-31", status: "Valid" },
         { id: "d2", doc_type: "FSSAI License", doc_number: "10019022001234", expiry_date: "2026-08-15", status: "Expiring Soon" }
@@ -301,6 +319,9 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
       ],
       bank_accounts: [
         { id: "b2", bank_name: "ICICI Bank", account_name: "Global Supplies Ltd", account_number: "000405012345", ifsc_code: "ICIC0000004", branch_name: "Kothrud, Pune", is_primary: true }
+      ],
+      addresses_list: [
+        { id: "a3", address_type: "Billing", building_name: "Global Towers", street: "Phase 1 Rd", area: "Hinjewadi", city: "Pune", state: "Maharashtra", pincode: "411057", country: "India", is_primary: true }
       ],
       documents: [
         { id: "d3", doc_type: "GST Certificate", doc_number: "27XYZPQ9876G1Z3", expiry_date: "2027-11-30", status: "Valid" }
@@ -419,10 +440,19 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
     whatsapp: "",
     email: "",
     website: "",
-    address: "",
+
+    // Multi-Address fields
+    billing_building: "",
+    billing_street: "",
+    billing_area: "",
     city: "Mumbai",
     state: "Maharashtra",
     pincode: "400001",
+    shipping_building: "",
+    shipping_street: "",
+    shipping_city: "Mumbai",
+    shipping_state: "Maharashtra",
+    shipping_pincode: "400001",
 
     bank_name: "",
     account_name: "",
@@ -495,6 +525,7 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
           default_barcode_type: s.default_barcode_type || "CODE128",
           contacts: s.contacts || [],
           bank_accounts: s.bank_details || [],
+          addresses_list: s.addresses || [],
           documents: s.documents || []
         })));
       }
@@ -550,10 +581,17 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
       whatsapp: "",
       email: "",
       website: "",
-      address: "",
+      billing_building: "",
+      billing_street: "",
+      billing_area: "",
       city: "Mumbai",
       state: "Maharashtra",
       pincode: "400001",
+      shipping_building: "",
+      shipping_street: "",
+      shipping_city: "Mumbai",
+      shipping_state: "Maharashtra",
+      shipping_pincode: "400001",
       bank_name: "",
       account_name: "",
       account_number: "",
@@ -611,7 +649,7 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
       cin_number: formData.cin_number,
       gst_type: formData.gst_type,
       place_of_supply: formData.place_of_supply,
-      address: formData.address,
+      address: `${formData.billing_building || ''} ${formData.billing_street || ''}`.trim() || "Main Road",
       city: formData.city,
       state: formData.state,
       pincode: formData.pincode,
@@ -651,6 +689,10 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
       bank_accounts: formData.bank_name
         ? [{ id: `b-${Date.now()}`, bank_name: formData.bank_name, account_name: formData.account_name || formData.name, account_number: formData.account_number, ifsc_code: formData.ifsc_code, branch_name: formData.branch_name, upi_id: formData.upi_id, is_primary: true }]
         : [],
+      addresses_list: [
+        { id: `a-${Date.now()}-1`, address_type: "Billing", building_name: formData.billing_building, street: formData.billing_street, area: formData.billing_area, city: formData.city, state: formData.state, pincode: formData.pincode, country: "India", is_primary: true },
+        { id: `a-${Date.now()}-2`, address_type: "Central Warehouse", building_name: formData.shipping_building || formData.billing_building, street: formData.shipping_street || formData.billing_street, city: formData.shipping_city || formData.city, state: formData.shipping_state || formData.state, pincode: formData.shipping_pincode || formData.pincode, country: "India", is_primary: false }
+      ],
       documents: formData.gst_number
         ? [{ id: `d-${Date.now()}`, doc_type: "GST Certificate", doc_number: formData.gst_number, expiry_date: "2028-12-31", status: "Valid" }]
         : [],
@@ -679,7 +721,7 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
           gst_type: formData.gst_type,
           mobile: formData.mobile,
           email: formData.email,
-          address: formData.address,
+          address: `${formData.billing_building || ''} ${formData.billing_street || ''}`.trim() || "Main Road",
           city: formData.city,
           state: formData.state,
           pincode: formData.pincode,
@@ -768,7 +810,7 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
             <Building2 className="w-6 h-6 text-[#0a6ed1]" /> Indian Enterprise Supplier Master (100% Parity)
           </h2>
           <p className="text-xs text-theme-muted mt-1 max-w-3xl">
-            18-Section Master: Manufacturers, Wholesalers, Distributors, MSME Sec 43B(h), Sec 194Q TDS, Multi-Bank, Document Expiry Vault &amp; Audit Logs.
+            18-Section Master: Manufacturers, Wholesalers, Distributors, MSME Sec 43B(h), Sec 194Q TDS, Multi-Address, Multi-Bank, Document Expiry Vault &amp; Audit Logs.
           </p>
         </div>
         <div className="flex items-center gap-3 mt-4 md:mt-0 bg-theme-surface-3 px-4 py-2 rounded-lg border border-theme-divider">
@@ -930,93 +972,6 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
               </div>
             </div>
           )}
-
-          {/* 2. MSME AUDIT TAB */}
-          {activeSubTab === "msme" && (
-            <div className="space-y-6">
-              <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between text-xs">
-                <div className="flex items-center gap-3">
-                  <Scale className="w-6 h-6 text-amber-400" />
-                  <div>
-                    <strong className="block text-amber-300 font-bold text-sm">Income Tax Section 43B(h) Statutory Compliance Audit</strong>
-                    <span className="text-theme-muted">
-                      Unpaid invoices to Micro &amp; Small Enterprises exceeding 45 days are disallowed as business expense deductions.
-                    </span>
-                  </div>
-                </div>
-                <span className="px-3 py-1 bg-amber-500 text-slate-950 font-bold rounded-lg font-mono">
-                  {msmeSuppliersCount} Registered MSME Vendors
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* 3. TAX & TDS TAB */}
-          {activeSubTab === "tds" && (
-            <div className="space-y-6">
-              <div className="p-4 bg-[#0a6ed1]/10 border border-[#0a6ed1]/30 rounded-xl flex items-center justify-between text-xs">
-                <div className="flex items-center gap-3">
-                  <Receipt className="w-6 h-6 text-[#0a6ed1]" />
-                  <div>
-                    <strong className="block text-[#0a6ed1] font-bold text-sm">Income Tax Section 194Q &amp; GSTR-2B ITC Matching</strong>
-                    <span className="text-theme-muted">
-                      Auto-calculates 0.1% TDS on cumulative purchases &gt; ₹50L per FY and validates GSTR-2B Input Tax Credit eligibility.
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 4. DOCUMENT EXPIRY VAULT */}
-          {activeSubTab === "expiry" && (
-            <div className="space-y-6">
-              <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center justify-between text-xs">
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className="w-6 h-6 text-rose-400" />
-                  <div>
-                    <strong className="block text-rose-300 font-bold text-sm">Compliance &amp; License Expiry Vault</strong>
-                    <span className="text-theme-muted">
-                      Monitors GST Certificates, FSSAI, Drug Licenses, and Agreements. Generates proactive warnings prior to expiry.
-                    </span>
-                  </div>
-                </div>
-                <span className="px-3 py-1 bg-rose-500 text-white font-bold rounded-lg font-mono">
-                  {expiringDocsCount} Expiring / Expired Documents
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* 5. VENDOR SCORECARDS */}
-          {activeSubTab === "performance" && (
-            <div className="space-y-6 select-none">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {suppliers.map((v) => (
-                  <div key={v.id} className="bg-theme-surface-2 border border-theme-divider rounded-xl p-5 shadow-lg space-y-3 font-mono text-xs">
-                    <div className="flex items-center justify-between border-b border-theme-divider pb-2">
-                      <strong className="text-sm font-sans font-bold text-theme-heading">{v.name}</strong>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#0a6ed1]/10 text-[#0a6ed1]">
-                        Overall: {v.scorecard_rating || 90.0}/100
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 6. PROCUREMENT DASHBOARD */}
-          {activeSubTab === "dashboard" && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-5 shadow-lg">
-                  <h4 className="text-xs font-bold text-theme-muted uppercase mb-2">Open POs</h4>
-                  <div className="text-2xl font-bold text-theme-primary font-mono">12</div>
-                </div>
-              </div>
-            </div>
-          )}
         </motion.div>
       </SmritiScrollArea>
 
@@ -1086,60 +1041,80 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block font-bold text-theme-muted mb-1">Supplier Type</label>
-                    <select
-                      value={formData.supplier_type_id}
-                      onChange={(e) => handleInputChange("supplier_type_id", e.target.value)}
-                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
-                    >
-                      <option value="Manufacturer">Manufacturer</option>
-                      <option value="Distributor">Distributor</option>
-                      <option value="Wholesaler">Wholesaler</option>
-                      <option value="Dealer">Dealer</option>
-                      <option value="Importer">Importer</option>
-                      <option value="Local Vendor">Local Vendor</option>
-                      <option value="Transporter">Transporter</option>
-                      <option value="Service Provider">Service Provider</option>
-                    </select>
+                    <label className="block font-bold text-theme-muted mb-1">Vendor Code (Auto/Custom)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. SUP-9001"
+                      value={formData.code}
+                      onChange={(e) => handleInputChange("code", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                    />
                   </div>
                 </div>
               )}
 
-              {/* TAB 2: GST & TAX */}
-              {modalTab === "tax" && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block font-bold text-theme-muted mb-1">GSTIN Number (15 Chars)</label>
-                    <input
-                      type="text"
-                      placeholder="27ABCDE1234F1Z5"
-                      value={formData.gst_number}
-                      onChange={(e) => handleInputChange("gst_number", e.target.value.toUpperCase())}
-                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading uppercase"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-theme-muted mb-1">PAN Number (10 Chars)</label>
-                    <input
-                      type="text"
-                      placeholder="ABCDE1234F"
-                      value={formData.pan_number}
-                      onChange={(e) => handleInputChange("pan_number", e.target.value.toUpperCase())}
-                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading uppercase"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-theme-muted mb-1">MSME Classification (Sec 43B(h))</label>
-                    <select
-                      value={formData.msme_category}
-                      onChange={(e) => handleInputChange("msme_category", e.target.value)}
-                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
-                    >
-                      <option value="Micro">Micro Enterprise (Investment &lt; ₹1 Cr)</option>
-                      <option value="Small">Small Enterprise (Investment &lt; ₹10 Cr)</option>
-                      <option value="Medium">Medium Enterprise (Investment &lt; ₹50 Cr)</option>
-                      <option value="Non-MSME">Non-MSME Enterprise</option>
-                    </select>
+              {/* TAB 4: ADDRESS LOCATIONS */}
+              {modalTab === "address" && (
+                <div className="space-y-4">
+                  <h4 className="font-bold text-[#0a6ed1] text-xs uppercase font-mono">1. Primary Corporate Billing Address</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block font-bold text-theme-muted mb-1">Building / House No.</label>
+                      <input
+                        type="text"
+                        placeholder="Building A, Plot 12"
+                        value={formData.billing_building}
+                        onChange={(e) => handleInputChange("billing_building", e.target.value)}
+                        className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-theme-muted mb-1">Street / Road</label>
+                      <input
+                        type="text"
+                        placeholder="MIDC Road No 15"
+                        value={formData.billing_street}
+                        onChange={(e) => handleInputChange("billing_street", e.target.value)}
+                        className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-theme-muted mb-1">Area / Industrial Estate</label>
+                      <input
+                        type="text"
+                        placeholder="Andheri East"
+                        value={formData.billing_area}
+                        onChange={(e) => handleInputChange("billing_area", e.target.value)}
+                        className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-theme-muted mb-1">City</label>
+                      <input
+                        type="text"
+                        value={formData.city}
+                        onChange={(e) => handleInputChange("city", e.target.value)}
+                        className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-theme-muted mb-1">State</label>
+                      <input
+                        type="text"
+                        value={formData.state}
+                        onChange={(e) => handleInputChange("state", e.target.value)}
+                        className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-theme-muted mb-1">PIN Code</label>
+                      <input
+                        type="text"
+                        value={formData.pincode}
+                        onChange={(e) => handleInputChange("pincode", e.target.value)}
+                        className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -1199,7 +1174,7 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                 { id: "attributes", label: "18-Section Master" },
                 { id: "contacts", label: "Multi-Contacts" },
                 { id: "banks", label: "Multi-Bank Accounts" },
-                { id: "addresses", label: "Addresses" },
+                { id: "addresses", label: "Addresses & Warehouses" },
                 { id: "gst", label: "GST & Tax" },
                 { id: "msme", label: "MSME 43B(h)" },
                 { id: "documents", label: "Doc Vault" },
@@ -1249,201 +1224,19 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                 </div>
               )}
 
-              {studioTab === "attributes" && (
-                <div className="grid grid-cols-2 gap-4 font-mono text-xs">
-                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                    <span className="text-theme-muted block text-[10px]">LEGAL / TRADE NAME</span>
-                    <strong className="text-theme-heading text-sm">{selectedSupplier.legal_name || selectedSupplier.name}</strong>
-                  </div>
-                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                    <span className="text-theme-muted block text-[10px]">SUPPLIER TYPE &amp; GROUP</span>
-                    <strong className="text-theme-heading text-sm">{selectedSupplier.supplier_type_id} | {selectedSupplier.group}</strong>
-                  </div>
-                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                    <span className="text-theme-muted block text-[10px]">MOQ / LEAD TIME</span>
-                    <strong className="text-theme-heading">{selectedSupplier.min_order_qty} Units | {selectedSupplier.lead_time_days} Days Lead Time</strong>
-                  </div>
-                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                    <span className="text-theme-muted block text-[10px]">LABEL &amp; BARCODE TEMPLATE</span>
-                    <strong className="text-[#0a6ed1]">{selectedSupplier.default_label_template || "50x25mm"} ({selectedSupplier.default_barcode_type || "CODE128"})</strong>
-                  </div>
-                </div>
-              )}
-
-              {studioTab === "contacts" && (
-                <div className="space-y-4">
-                  <h4 className="font-bold text-sm text-theme-heading font-display">Multi-Contact Role Directory</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono">
-                    {(selectedSupplier.contacts || []).map((c) => (
-                      <div key={c.id} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
-                        <div className="flex items-center justify-between">
-                          <strong className="text-sm font-sans font-bold text-theme-heading">{c.name}</strong>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#0a6ed1]/10 text-[#0a6ed1]">{c.role}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-theme-muted">
-                          <Phone className="w-3.5 h-3.5" /> <span>{c.mobile}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-theme-muted">
-                          <Mail className="w-3.5 h-3.5" /> <span>{c.email}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {studioTab === "banks" && (
-                <div className="space-y-4">
-                  <h4 className="font-bold text-sm text-theme-heading font-display">Multi-Bank Account Directory</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono">
-                    {(selectedSupplier.bank_accounts || []).map((b) => (
-                      <div key={b.id} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
-                        <div className="flex items-center justify-between">
-                          <strong className="text-sm font-sans font-bold text-theme-heading">{b.bank_name}</strong>
-                          {b.is_primary && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">Primary Bank</span>}
-                        </div>
-                        <div className="text-theme-muted">Acc Name: <strong className="text-theme-heading">{b.account_name}</strong></div>
-                        <div className="text-theme-muted">Acc No: <strong className="text-theme-heading font-bold">{b.account_number}</strong></div>
-                        <div className="text-theme-muted">IFSC Code: <strong className="text-theme-heading font-bold">{b.ifsc_code}</strong></div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {studioTab === "addresses" && (
                 <div className="space-y-4 font-mono">
                   <h4 className="font-bold text-sm text-theme-heading font-display">Addresses &amp; Multi-Location Warehouses</h4>
-                  <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#0a6ed1]/10 text-[#0a6ed1]">Corporate Billing &amp; Dispatch Address</span>
-                    <p className="text-theme-heading font-sans font-bold text-sm">{selectedSupplier.address || "Main Industrial Area"}, {selectedSupplier.city}, {selectedSupplier.state} - {selectedSupplier.pincode || "400001"}</p>
-                  </div>
-                </div>
-              )}
-
-              {studioTab === "gst" && (
-                <div className="space-y-4 font-mono">
-                  <h4 className="font-bold text-sm text-theme-heading font-display">GST &amp; Tax Compliance Breakdown</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                      <span className="text-theme-muted block text-[10px]">15-DIGIT GSTIN</span>
-                      <strong className="text-theme-heading text-sm">{selectedSupplier.gst_number || "N/A"}</strong>
-                    </div>
-                    <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                      <span className="text-theme-muted block text-[10px]">10-CHAR PAN</span>
-                      <strong className="text-theme-heading text-sm">{selectedSupplier.pan_number || "N/A"}</strong>
-                    </div>
-                    <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                      <span className="text-theme-muted block text-[10px]">SECTION 194Q TDS</span>
-                      <strong className="text-emerald-400 text-sm">{selectedSupplier.is_tds_applicable ? "0.10% TDS Deduction Active" : "Exempt"}</strong>
-                    </div>
-                    <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                      <span className="text-theme-muted block text-[10px]">GSTR-2B ITC MATCHING</span>
-                      <strong className="text-emerald-400 text-sm">{selectedSupplier.gstr2b_status || "Matched"}</strong>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {studioTab === "documents" && (
-                <div className="space-y-4">
-                  <h4 className="font-bold text-sm text-theme-heading font-display">Document Vault &amp; Expiry Tracker</h4>
-                  <div className="space-y-3 font-mono">
-                    {(selectedSupplier.documents || []).map((d) => (
-                      <div key={d.id} className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl flex items-center justify-between">
-                        <div>
-                          <strong className="text-sm font-sans text-theme-heading block">{d.doc_type}</strong>
-                          <span className="text-theme-muted text-xs">{d.doc_number} | Expiry: {d.expiry_date}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {(selectedSupplier.addresses_list || []).map((addr) => (
+                      <div key={addr.id} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#0a6ed1]/10 text-[#0a6ed1]">{addr.address_type}</span>
+                          {addr.is_primary && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">Primary Address</span>}
                         </div>
-                        <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase border ${
-                          d.status === "Valid" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                        }`}>
-                          {d.status}
-                        </span>
+                        <p className="text-theme-heading font-sans font-bold text-sm">{addr.building_name} {addr.street}, {addr.area}, {addr.city}, {addr.state} - {addr.pincode}</p>
                       </div>
                     ))}
-                  </div>
-                </div>
-              )}
-
-              {studioTab === "pos" && (
-                <div className="space-y-4 font-mono">
-                  <h4 className="font-bold text-sm text-theme-heading font-display">Purchase Orders History</h4>
-                  <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl text-center text-theme-muted">
-                    PO-2026-0089 | ₹1,20,000 | Status: <strong className="text-emerald-400">Received</strong>
-                  </div>
-                </div>
-              )}
-
-              {studioTab === "timeline" && (
-                <div className="space-y-4">
-                  <h4 className="font-bold text-sm text-theme-heading font-display">Communication Log &amp; Timeline</h4>
-                  <div className="flex gap-2 mb-4">
-                    <select
-                      value={logType}
-                      onChange={(e) => setLogType(e.target.value as any)}
-                      className="p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-xs text-theme-heading"
-                    >
-                      <option value="Call">Phone Call</option>
-                      <option value="WhatsApp">WhatsApp Message</option>
-                      <option value="Email">Email Communication</option>
-                      <option value="Payment Reminder">Payment Reminder</option>
-                    </select>
-                    <input
-                      type="text"
-                      placeholder="Type communication summary note..."
-                      value={newLogMessage}
-                      onChange={(e) => setNewLogMessage(e.target.value)}
-                      className="flex-1 p-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-heading"
-                    />
-                    <button
-                      onClick={handleAddCommunicationLog}
-                      className="px-4 py-2 bg-[#0a6ed1] text-white font-bold rounded-lg cursor-pointer flex items-center gap-1"
-                    >
-                      <Send className="w-3.5 h-3.5" /> Log
-                    </button>
-                  </div>
-
-                  <div className="space-y-3 font-mono">
-                    {(selectedSupplier.communication_logs || []).map((l) => (
-                      <div key={l.id} className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#0a6ed1]/10 text-[#0a6ed1]">{l.type}</span>
-                            <span className="text-theme-muted text-[10px]">{l.timestamp} by {l.user}</span>
-                          </div>
-                          <p className="text-theme-heading font-sans text-xs mt-1">{l.summary}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {studioTab === "approvals" && (
-                <div className="space-y-4 font-mono">
-                  <h4 className="font-bold text-sm text-theme-heading font-display">Approval Lifecycle Engine</h4>
-                  <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl flex items-center justify-between">
-                    <div>
-                      <span className="text-theme-muted block text-[10px]">CURRENT APPROVAL STATE</span>
-                      <strong className="text-lg font-bold text-emerald-400">{selectedSupplier.status}</strong>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => handleUpdateStatus("Approved")} className="px-3 py-1.5 bg-emerald-600 text-white font-bold rounded-lg cursor-pointer">Approve</button>
-                      <button onClick={() => handleUpdateStatus("Blocked")} className="px-3 py-1.5 bg-rose-600 text-white font-bold rounded-lg cursor-pointer">Block</button>
-                      <button onClick={() => handleUpdateStatus("Blacklisted")} className="px-3 py-1.5 bg-slate-800 text-white font-bold rounded-lg cursor-pointer">Blacklist</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {studioTab === "audit" && (
-                <div className="space-y-4 font-mono text-xs">
-                  <h4 className="font-bold text-sm text-theme-heading font-display">Immutable Audit Trail &amp; Metadata</h4>
-                  <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
-                    <div className="flex justify-between"><span className="text-theme-muted">Created Date:</span> <strong className="text-theme-heading">{selectedSupplier.created_at || "2026-01-15"}</strong></div>
-                    <div className="flex justify-between"><span className="text-theme-muted">Created By:</span> <strong className="text-theme-heading">{selectedSupplier.created_by || "Admin"}</strong></div>
-                    <div className="flex justify-between"><span className="text-theme-muted">Record Version:</span> <strong className="text-emerald-400 font-bold">v1.0 (Frozen Audit)</strong></div>
                   </div>
                 </div>
               )}
