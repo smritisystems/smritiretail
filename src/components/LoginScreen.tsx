@@ -536,43 +536,45 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
                     <AnimatePresence>
                       {showDevPanel && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="p-3 space-y-2">
-                        <p className="text-[10px] mb-2" style={{ color: "#89919a" }}>
-                          Click any account to auto-fill. Visible in DEV build only.
-                        </p>
-                        {DEV_ACCOUNTS.map(acc => (
-                          <button
-                            key={acc.username}
-                            type="button"
-                            onClick={() => fillCredentials(acc)}
-                            className="w-full flex items-center justify-between px-3 py-2 rounded transition-all text-left border hover:border-[#0854a0]"
-                            style={{ borderColor: "#e5e5e5", backgroundColor: "#fff" }}
-                          >
-                            <div>
-                              <span className="text-[12px] font-semibold block text-[#32363a] leading-none mb-0.5">{acc.label}</span>
-                              <span className="text-[10px] font-mono" style={{ color: "#89919a" }}>
-                                {acc.username} / {acc.password}
-                              </span>
-                            </div>
-                            <span
-                              className="text-[9px] font-bold px-2 py-0.5 rounded-full text-white shrink-0"
-                              style={{ backgroundColor: acc.color }}
-                            >
-                              {acc.role}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="p-3 space-y-2">
+                            <p className="text-[10px] mb-2" style={{ color: "#89919a" }}>
+                              Click any account to auto-fill. Visible in DEV build only.
+                            </p>
+                            {DEV_ACCOUNTS.map(acc => (
+                              <button
+                                key={acc.username}
+                                type="button"
+                                onClick={() => fillCredentials(acc)}
+                                className="w-full flex items-center justify-between px-3 py-2 rounded transition-all text-left border hover:border-[#0854a0]"
+                                style={{ borderColor: "#e5e5e5", backgroundColor: "#fff" }}
+                              >
+                                <div>
+                                  <span className="text-[12px] font-semibold block text-[#32363a] leading-none mb-0.5">{acc.label}</span>
+                                  <span className="text-[10px] font-mono" style={{ color: "#89919a" }}>
+                                    {acc.username} / {acc.password}
+                                  </span>
+                                </div>
+                                <span
+                                  className="text-[9px] font-bold px-2 py-0.5 rounded-full text-white shrink-0"
+                                  style={{ backgroundColor: acc.color }}
+                                >
+                                  {acc.role}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </>
+                )}
               </div>
             )}
 

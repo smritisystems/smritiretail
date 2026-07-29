@@ -4,8 +4,6 @@
 # Copyright    : © SMRITIBooks.com. All Rights Reserved.
 # Docker Compose Production Deployment Configuration (AOP-002 & AOP-005)
 
-version: '3.8'
-
 services:
   smriti-db-prod:
     image: postgres:15-alpine
@@ -25,14 +23,21 @@ services:
 
   smriti-api-prod:
     build:
-      context: .
-      dockerfile: Dockerfile.api
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: smriti-api-prod
     restart: always
+    env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-smritiuser}:${POSTGRES_PASSWORD:-secure_prod_password}@smriti-db-prod:5432/${POSTGRES_DB:-smritidb}
       ENVIRONMENT: production
-      WORKERS: 4
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-CHANGE_ME_FOR_DEVELOPMENT_ONLY_JWT}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-CHANGE_ME_FOR_DEVELOPMENT_ONLY_INTERNAL}
+      SGIP_VAULT_MASTER_KEY: ${SGIP_VAULT_MASTER_KEY:-CHANGE_ME_FOR_DEVELOPMENT_ONLY_VAULT}
+    volumes:
+      - ./.env:/app/.env:ro
+      - ./backend:/app
+      - ./CHANGELOG.md:/app/CHANGELOG.md
     depends_on:
       smriti-db-prod:
         condition: service_healthy
@@ -45,9 +50,10 @@ services:
   smriti-workspace-prod:
     build:
       context: .
-      dockerfile: Dockerfile.workspace
+      dockerfile: Dockerfile
     container_name: smriti-workspace-prod
     restart: always
+    env_file: .env
     environment:
       VITE_API_URL: https://api.smritisys.com
     depends_on:
