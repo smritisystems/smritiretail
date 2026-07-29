@@ -1,0 +1,51 @@
+name: Job Summary
+
+on:
+  workflow_call:
+    inputs:
+      release_version:
+        description: 'Release version'
+        required: true
+        type: string
+      commit_sha:
+        description: 'Commit SHA'
+        required: true
+        type: string
+      branch:
+        description: 'Branch'
+        required: true
+        type: string
+    secrets: {}
+
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (for context)
+        uses: actions/checkout@v3
+
+      - name: Download artifacts (optional)
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: release_artifacts || true
+
+      - name: Build job summary
+        run: |
+          echo "# Release Summary" > summary.md
+          echo "- Version: ${{ inputs.release_version }}" >> summary.md
+          echo "- Commit: ${{ inputs.commit_sha }}" >> summary.md
+          echo "- Branch: ${{ inputs.branch }}" >> summary.md
+          echo "" >> summary.md
+          echo "Artifacts:" >> summary.md
+          ls -la release_artifacts || true >> summary.md
+          echo "" >> summary.md
+          cat summary.md
+          echo "## Summary" >> $GITHUB_STEP_SUMMARY || true
+          cat summary.md >> $GITHUB_STEP_SUMMARY || true
+
+      - name: Upload job summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: job-summary
+          path: summary.md

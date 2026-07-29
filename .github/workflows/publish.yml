@@ -51,3 +51,31 @@ jobs:
             echo "backend-${VERSION}.tar.gz not found"
             exit 1
           fi
+
+      - name: Pull pushed images to resolve digests
+        env:
+          VERSION: ${{ inputs.release_version }}
+        run: |
+          docker pull ghcr.io/${{ github.repository }}/frontend:${VERSION}
+          docker pull ghcr.io/${{ github.repository }}/backend:${VERSION}
+
+      - name: Get image digests
+        env:
+          VERSION: ${{ inputs.release_version }}
+        run: |
+          FRONT_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository }}/frontend:${VERSION} 2>/dev/null || true)
+          BACK_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository }}/backend:${VERSION} 2>/dev/null || true)
+          # Fallback using docker images if RepoDigests not available
+          if [ -z "$FRONT_DIGEST" ]; then
+            FRONT_DIGEST=$(docker images --digests --format '{{.Repository}}@{{.Digest}}' | grep "ghcr.io/${{ github.repository }}/frontend" | head -n1 || true)
+          fi
+          if [ -z "$BACK_DIGEST" ]; then
+            BACK_DIGEST=$(docker images --digests --format '{{.Repository}}@{{.Digest}}' | grep "ghcr.io/${{ github.repository }}/backend" | head -n1 || true)
+          fi
+          jq -n --arg f "$FRONT_DIGEST" --arg b "$BACK_DIGEST" '{frontend:$f,backend:$b}' > image-digests.json
+
+      - name: Upload image digests
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-digests
+          path: image-digests.json
