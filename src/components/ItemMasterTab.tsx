@@ -336,11 +336,11 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
       } else if (activeFilter.type === "FAVORITES") {
         matchFilter = !!p.isFavorite;
       } else if (activeFilter.type === "DEPARTMENT") {
-        matchFilter = p.category === activeFilter.value || (p.attributes && p.attributes.department === activeFilter.value);
+        matchFilter = p.category === activeFilter.value || Boolean(p.attributes?.department === activeFilter.value);
       } else if (activeFilter.type === "SUPPLIER") {
-        matchFilter = !p.attributes?.supplier || p.attributes?.supplier === activeFilter.value;
+        matchFilter = Boolean(!p.attributes?.supplier || p.attributes?.supplier === activeFilter.value);
       } else if (activeFilter.type === "WAREHOUSE") {
-        matchFilter = !p.attributes?.warehouse || p.attributes?.warehouse === activeFilter.value;
+        matchFilter = Boolean(!p.attributes?.warehouse || p.attributes?.warehouse === activeFilter.value);
       }
 
       return matchSearch && matchFilter;
