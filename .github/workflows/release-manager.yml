@@ -82,8 +82,16 @@ on:
           secrets:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-        publish:
+        image_scan:
           needs: build
+          uses: ./.github/workflows/image-scan.yml
+          with:
+            release_version: ${{ needs.set_version.outputs.version }}
+          secrets:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        publish:
+          needs: image_scan
           uses: ./.github/workflows/publish.yml
           with:
             release_version: ${{ needs.set_version.outputs.version }}

@@ -1,0 +1,80 @@
+name: Image Scan
+
+on:
+  workflow_call:
+    inputs:
+      release_version:
+        description: 'Release version'
+        required: true
+        type: string
+    secrets:
+      GITHUB_TOKEN:
+        required: true
+
+jobs:
+  trivy_scan:
+    name: Trivy Image Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Download image artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: image-artifacts
+
+      - name: Install Trivy
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Load frontend image
+        run: |
+          VERSION=${{ inputs.release_version }}
+          if [ -f frontend-${VERSION}.tar.gz ]; then
+            gunzip -c frontend-${VERSION}.tar.gz | docker load
+          else
+            echo "frontend-${VERSION}.tar.gz not found"
+            exit 1
+          fi
+
+      - name: Run Trivy scan on frontend
+        env:
+          VERSION: ${{ inputs.release_version }}
+        run: |
+          trivy image --format json --output trivy-frontend-${VERSION}.json --exit-code 1 --severity CRITICAL,HIGH ghcr.io/${{ github.repository }}/frontend:${{ inputs.release_version }} || true
+          # Fail explicitly if findings contain HIGH or CRITICAL
+          if jq '[.Results[].Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length' trivy-frontend-${VERSION}.json | grep -qv '^0$'; then
+            echo "Trivy found HIGH/CRITICAL vulnerabilities in frontend"
+            cat trivy-frontend-${VERSION}.json
+            exit 1
+          fi
+
+      - name: Load backend image
+        run: |
+          VERSION=${{ inputs.release_version }}
+          if [ -f backend-${VERSION}.tar.gz ]; then
+            gunzip -c backend-${VERSION}.tar.gz | docker load
+          else
+            echo "backend-${VERSION}.tar.gz not found"
+            exit 1
+          fi
+
+      - name: Run Trivy scan on backend
+        env:
+          VERSION: ${{ inputs.release_version }}
+        run: |
+          trivy image --format json --output trivy-backend-${VERSION}.json --exit-code 1 --severity CRITICAL,HIGH ghcr.io/${{ github.repository }}/backend:${{ inputs.release_version }} || true
+          if jq '[.Results[].Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length' trivy-backend-${VERSION}.json | grep -qv '^0$'; then
+            echo "Trivy found HIGH/CRITICAL vulnerabilities in backend"
+            cat trivy-backend-${VERSION}.json
+            exit 1
+          fi
+
+      - name: Upload Trivy reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-reports
+          path: |
+            trivy-frontend-${{ inputs.release_version }}.json
+            trivy-backend-${{ inputs.release_version }}.json
