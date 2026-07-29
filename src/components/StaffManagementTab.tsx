@@ -50,6 +50,7 @@ import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 import { SEEFSkeleton } from "./common/SEEFSkeleton.tsx";
 import { SEEFEmptyState } from "./common/SEEFEmptyState.tsx";
+import { UniversalPersonWorkspace } from "../people/workspace/UniversalPersonWorkspace.tsx";
 
 interface StaffManagementTabProps {
   currentUser?: { role: string; name: string } | null;
@@ -427,6 +428,9 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
           <Plus size={16} /> Add Employee
         </button>
       </div>
+
+      {/* SUPOE v2.0 Universal Person 360 Studio */}
+      <UniversalPersonWorkspace personId="PER-1001" />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Staff Directory */}
