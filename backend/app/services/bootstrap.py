@@ -247,16 +247,18 @@ class BootstrapService:
         Main entry point for installation bootstrap lifecycle at startup.
         Acquires PostgreSQL advisory lock, executes task phases, and logs final operational summary.
         """
+        is_test_env = str(getattr(settings, "ENVIRONMENT", "")).lower() in {"test"}
         lock_acquired = False
-        try:
-            lock_res = await self.db.execute(text(f"SELECT pg_try_advisory_lock({self.BOOTSTRAP_LOCK_KEY})"))
-            lock_acquired = bool(lock_res.scalar())
-        except Exception:
-            lock_acquired = True  # Fall back to single-instance mode if advisory lock unavailable
+        if not is_test_env:
+            try:
+                lock_res = await self.db.execute(text(f"SELECT pg_try_advisory_lock({self.BOOTSTRAP_LOCK_KEY})"))
+                lock_acquired = bool(lock_res.scalar())
+                if not lock_acquired:
+                    logger.info("[Bootstrap] Another instance holds the installation bootstrap lock. Skipping execution.")
+                    return
+            except Exception:
+                lock_acquired = False
 
-        if not lock_acquired:
-            logger.info("[Bootstrap] Another instance holds the installation bootstrap lock. Skipping execution.")
-            return
 
         overall_start = time.time()
         logger.info("[Bootstrap] Starting installation bootstrap (v%s)", self.version)

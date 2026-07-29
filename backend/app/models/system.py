@@ -42,11 +42,17 @@ from sqlalchemy import DateTime
 
 
 class BootstrapTask(str, Enum):
-    INITIAL_SCHEMA = "initial_schema"
-    SEED_ROLES = "seed_roles"
-    SEED_PERMISSIONS = "seed_permissions"
-    SEED_SUPER_USER = "seed_super_user"
+    INITIAL_SCHEMA                 = "initial_schema"
+    SEED_ROLES                     = "seed_roles"
+    SEED_PERMISSIONS               = "seed_permissions"
+    SEED_SUPER_USER                = "seed_super_user"
     LEGACY_PASSWORD_RECONCILIATION = "legacy_password_reconciliation"
+    SETUP_WIZARD_INITIALIZED       = "setup_wizard_initialized"
+    DATABASE_MIGRATION             = "database_migration"
+    LICENSE_UPGRADE                = "license_upgrade"
+    INDEX_REBUILD                  = "index_rebuild"
+    DATA_REPAIR                    = "data_repair"
+
 
 
 class SystemBootstrapState(BaseEntity):
