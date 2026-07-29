@@ -455,17 +455,17 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     >
       <div className="flex h-full w-full overflow-hidden bg-theme-base text-theme-body">
         <ItemMasterContextSidebar
+          products={products}
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
           categories={categories}
           brands={brands}
-          activeFilter={activeFilter}
-          onSelectFilter={setActiveFilter}
           lowStockCount={lowStockCount}
-          totalCount={products.length}
         />
 
         <ItemMasterMasterList
           products={filteredProducts}
-          selectedProduct={selectedProduct}
+          selectedProductId={selectedProduct ? selectedProduct.id : null}
           onSelectProduct={setSelectedProduct}
           checkedProductIds={checkedProductIds}
           onToggleCheckProduct={(id, e) => {
@@ -499,7 +499,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
         <BarcodePrintDialog
           isOpen={isBarcodeDialogOpen}
           onClose={() => setIsBarcodeDialogOpen(false)}
-          selectedProducts={checkedProductIds.length > 0 ? products.filter((p) => checkedProductIds.includes(p.id)) : selectedProduct ? [selectedProduct] : []}
+          product={selectedProduct}
           onNotification={onNotification}
         />
       </div>

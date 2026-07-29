@@ -48,7 +48,6 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [uomConversions, setUomConversions] = useState<UomConversion[]>([]);
 
-  // Update local state when selected product changes
   useEffect(() => {
     setFormData({ ...product });
   }, [product]);
@@ -56,7 +55,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
   // Pricing Matrix Calculations
   const mrp = formData.mrp || formData.price || 0;
   const salePrice = formData.price || 0;
-  const purchaseCost = formData.purchase_price || formData.cost_price || 0;
+  const purchaseCost = formData.purchase_price || formData.costPrice || 0;
   const marginPercent = mrp > 0 ? (((mrp - purchaseCost) / mrp) * 100).toFixed(1) : "0.0";
   const markupPercent = purchaseCost > 0 ? (((salePrice - purchaseCost) / purchaseCost) * 100).toFixed(1) : "0.0";
 
@@ -93,7 +92,6 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
       label: "Overview",
       content: (
         <div className="space-y-6 max-w-5xl font-sans text-xs">
-          {/* AI Recommendations Banner */}
           <div className="p-4 bg-gradient-to-r from-purple-950/40 to-blue-950/40 border border-purple-500/30 rounded-xl space-y-2">
             <div className="flex items-center gap-2 text-purple-400 font-bold uppercase font-mono text-[11px]">
               <Sparkles className="w-4 h-4" /> AI Smart Recommendations &amp; Margin Nudges
@@ -119,8 +117,8 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                 ["Barcode", formData.barcode || "N/A"],
                 ["Category", formData.category || "General"],
                 ["Brand", formData.brand || "Smriti Standard"],
-                ["HSN / SAC Code", formData.hsn_code || "8471"],
-                ["GST Rate", `${formData.gst_rate || 18}%`],
+                ["HSN / SAC Code", formData.hsn_code || formData.hsnCode || "8471"],
+                ["GST Rate", `${formData.gst_rate || formData.gstPercentage || 18}%`],
                 ["Unit of Measure (UOM)", formData.uom || "Pcs"],
               ].map(([k, v]) => (
                 <div key={k as string} className="flex justify-between text-xs border-b border-theme-divider/40 pb-1.5">
@@ -173,7 +171,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
             </div>
             <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
               <span className="text-theme-muted text-[10px] uppercase font-bold block">Purchase Cost / Rate</span>
-              <input type="number" step="0.01" value={formData.purchase_price || 0} onChange={(e) => handleFieldChange("purchase_price", parseFloat(e.target.value))} className="w-full p-2 bg-theme-surface-1 border border-theme-divider rounded text-purple-400 font-bold text-base" />
+              <input type="number" step="0.01" value={formData.purchase_price || formData.costPrice || 0} onChange={(e) => handleFieldChange("purchase_price", parseFloat(e.target.value))} className="w-full p-2 bg-theme-surface-1 border border-theme-divider rounded text-purple-400 font-bold text-base" />
             </div>
           </div>
 
@@ -181,7 +179,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
             <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Wholesale Price</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.price || 0) * 0.9).toFixed(2)}</strong></div>
             <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Dealer Price</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.price || 0) * 0.85).toFixed(2)}</strong></div>
             <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Distributor Price</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.price || 0) * 0.8).toFixed(2)}</strong></div>
-            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Landed Cost</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.purchase_price || 0) * 1.05).toFixed(2)}</strong></div>
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Landed Cost</span><strong className="text-sm font-bold text-theme-heading">₹{((purchaseCost) * 1.05).toFixed(2)}</strong></div>
           </div>
         </div>
       )
@@ -213,14 +211,14 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
             </div>
           </div>
 
-          <ItemMasterUomMatrix uomConversions={uomConversions} onUpdateConversions={setUomConversions} isReadOnly={isReadOnly} />
+          <ItemMasterUomMatrix baseUom={formData.uom || "Pcs"} conversions={uomConversions} onChange={setUomConversions} isReadOnly={isReadOnly} />
         </div>
       )
     },
     {
       id: "variants",
       label: "Variant Matrix",
-      content: <ItemMasterVariantTable isReadOnly={isReadOnly} onOpenBarcodeDialog={onOpenBarcodeDialog} />
+      content: <ItemMasterVariantTable product={formData} onOpenBarcodeDialog={onOpenBarcodeDialog} isReadOnly={isReadOnly} />
     },
     {
       id: "suppliers",
@@ -230,7 +228,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
           <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><Building2 className="w-5 h-5 text-[#0a6ed1]" /> Preferred Vendors &amp; Purchase History</h4>
           <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
             <div className="flex items-center justify-between"><strong className="font-sans text-theme-heading text-xs">TechCorp Distributors (VND-1002)</strong><span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px] font-bold border border-emerald-500/30">Primary Vendor</span></div>
-            <p className="text-theme-muted text-xs">Lead Time: 3 Days | MOQ: 10 Pcs | Last Purchase Rate: ₹{(formData.purchase_price || 60).toFixed(2)} | Date: 2026-07-20</p>
+            <p className="text-theme-muted text-xs">Lead Time: 3 Days | MOQ: 10 Pcs | Last Purchase Rate: ₹{(purchaseCost || 60).toFixed(2)} | Date: 2026-07-20</p>
           </div>
         </div>
       )
@@ -238,7 +236,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
     {
       id: "barcode",
       label: "Barcode & Labels",
-      content: <ItemMasterPrintHistoryTab onOpenBarcodeDialog={onOpenBarcodeDialog} />
+      content: <ItemMasterPrintHistoryTab product={formData} />
     },
     {
       id: "analytics",
