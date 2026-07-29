@@ -135,7 +135,7 @@ export const BiReportingAndPrintingTab: React.FC = () => {
           </div>
 
           <SEDSTable
-            rowKey="id"
+            rowKey={(row: any) => row.id}
             columns={(activeCategory === 'labels' ? labelPrintColumns : salesReportColumns) as any}
             data={(activeCategory === 'labels' ? labelPrintJobs : salesReportData) as any}
           />
