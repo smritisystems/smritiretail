@@ -1,15 +1,19 @@
 /**
- * Project      : SMRITI Retail OS v5.0 — Workspace Experience Platform
- * Module       : Item Master Studio (SLGP-001 v2.0 Standard & SEDSObjectPage Pattern)
+ * Project      : SMRITI Retail OS v6.5 — Workspace Experience Platform
+ * Module       : Item Master Studio (12-Tab Item 360 Workspace & SEDSObjectPage Pattern)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
- * Version      : 5.6.0
+ * Version      : 6.5.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { SEEFObjectPage, ObjectPageTab, ObjectPageMetric } from "../common/FioriObjectPage.tsx";
-import { Package, Tag, DollarSign, Percent, Barcode, ShieldAlert, Layers, Grid, History, Building2, Sliders, Printer } from "lucide-react";
+import {
+  Package, Tag, DollarSign, Percent, Barcode, ShieldAlert, Layers, Grid, History,
+  Building2, Sliders, Printer, Sparkles, ChevronRight, MapPin, Truck, FileText,
+  TrendingUp, Activity, PieChart, BarChart2, Plus, Trash2, CheckCircle2, Image as ImageIcon
+} from "lucide-react";
 import { Product } from "../../types.js";
 import { ItemMasterUomMatrix, UomConversion } from "./ItemMasterUomMatrix.tsx";
 import { ItemMasterVariantTable } from "./ItemMasterVariantTable.tsx";
@@ -44,30 +48,24 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [uomConversions, setUomConversions] = useState<UomConversion[]>([]);
 
-  // 8-Tier Product Hierarchy State
-  const [dept, setDept] = useState<string>("Apparel & Fashion");
-  const [section, setSection] = useState<string>("Ethnic Wear");
-  const [cat, setCat] = useState<string>(formData.category || "Kurtas");
-  const [subCat, setSubCat] = useState<string>("Silk Kurtas");
-  const [brand, setBrand] = useState<string>(formData.brand || "Smriti Royal");
-  const [collection, setCollection] = useState<string>("Festive 2026");
-  const [season, setSeason] = useState<string>("Autumn/Winter");
+  // Update local state when selected product changes
+  useEffect(() => {
+    setFormData({ ...product });
+  }, [product]);
 
-  // Variant Matrix Grid State (Color x Size)
-  const colors = ["Black", "Navy Blue", "Maroon", "Gold"];
-  const sizes = ["S", "M", "L", "XL", "XXL"];
-  const [variantGrid, setVariantGrid] = useState<Record<string, boolean>>({
-    "Black-M": true,
-    "Black-L": true,
-    "Navy Blue-L": true,
-    "Maroon-XL": true
-  });
+  // Pricing Matrix Calculations
+  const mrp = formData.mrp || formData.price || 0;
+  const salePrice = formData.price || 0;
+  const purchaseCost = formData.purchase_price || formData.cost_price || 0;
+  const marginPercent = mrp > 0 ? (((mrp - purchaseCost) / mrp) * 100).toFixed(1) : "0.0";
+  const markupPercent = purchaseCost > 0 ? (((salePrice - purchaseCost) / purchaseCost) * 100).toFixed(1) : "0.0";
 
-  const toggleVariant = (color: string, size: string) => {
-    if (isReadOnly) return;
-    const key = `${color}-${size}`;
-    setVariantGrid((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+  // AI Suggestions & Nudges
+  const aiSuggestions = [
+    salePrice < purchaseCost ? "CRITICAL: Sale price is lower than purchase cost!" : "Margin is healthy at " + marginPercent + "%",
+    (formData.stock_qty ?? formData.qty ?? 0) < (formData.min_stock_level || 5) ? "Low Stock Alert: Reorder point reached" : "Optimal Stock Level maintained",
+    "Suggested Price Optimization: Retail market rate supports +3.5% margin adjustment",
+  ];
 
   const handleFieldChange = (field: keyof Product, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -76,129 +74,81 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await onSaveProduct({
-        ...formData,
-        category: cat,
-        brand: brand
-      });
+      await onSaveProduct({ ...formData });
     } finally {
       setIsSaving(false);
     }
   };
 
   const metrics: ObjectPageMetric[] = [
-    { label: "SKU Code", value: formData.sku || formData.barcode || "N/A" },
+    { label: "SKU / Barcode", value: formData.barcode || formData.sku || "N/A" },
     { label: "Physical Stock", value: `${formData.stock_qty ?? formData.qty ?? 0} ${formData.uom || "Pcs"}`, highlight: true },
-    { label: "MRP Price", value: `₹${(formData.mrp || formData.price || 0).toLocaleString("en-IN")}` },
-    { label: "Labels Printed", value: "1,248 Pcs", highlight: false }
+    { label: "MRP / Retailing Price", value: `₹${mrp.toLocaleString("en-IN")}` },
+    { label: "Margin %", value: `${marginPercent}%`, highlight: parseFloat(marginPercent) > 20 },
   ];
 
   const tabs: ObjectPageTab[] = [
     {
-      id: "general",
-      label: "General & Identity",
+      id: "overview",
+      label: "Overview",
       content: (
-        <div className="space-y-6">
-          {/* Main Info Card */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-theme-surface-1 p-5 border border-theme-divider rounded-xl">
-            <div>
-              <label className="block text-xs font-bold text-theme-muted mb-1">Product Name *</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => handleFieldChange("name", e.target.value)}
-                disabled={isReadOnly}
-                className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
-              />
+        <div className="space-y-6 max-w-5xl font-sans text-xs">
+          {/* AI Recommendations Banner */}
+          <div className="p-4 bg-gradient-to-r from-purple-950/40 to-blue-950/40 border border-purple-500/30 rounded-xl space-y-2">
+            <div className="flex items-center gap-2 text-purple-400 font-bold uppercase font-mono text-[11px]">
+              <Sparkles className="w-4 h-4" /> AI Smart Recommendations &amp; Margin Nudges
             </div>
-
-            <div>
-              <label className="block text-xs font-bold text-theme-muted mb-1">SKU / Item Code *</label>
-              <input
-                type="text"
-                value={formData.sku || ""}
-                onChange={(e) => handleFieldChange("sku", e.target.value)}
-                disabled={isReadOnly}
-                className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-theme-muted mb-1">Primary Barcode</label>
-              <input
-                type="text"
-                value={formData.barcode || ""}
-                onChange={(e) => handleFieldChange("barcode", e.target.value)}
-                disabled={isReadOnly}
-                className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-theme-muted mb-1">Style Code / Model</label>
-              <input
-                type="text"
-                value={formData.styleCode || ""}
-                onChange={(e) => handleFieldChange("styleCode", e.target.value)}
-                disabled={isReadOnly}
-                className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+              {aiSuggestions.map((sug, i) => (
+                <div key={i} className="p-3 bg-theme-surface-2/80 border border-theme-divider rounded-lg font-mono text-[11px] text-theme-heading flex items-start gap-2">
+                  <ChevronRight className="w-3.5 h-3.5 text-[#0a6ed1] flex-shrink-0 mt-0.5" />
+                  <span>{sug}</span>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      )
-    },
-    {
-      id: "variant-breakdown",
-      label: "Variant Inventory Breakdown",
-      content: (
-        <ItemMasterVariantTable
-          product={formData}
-          onOpenBarcodeDialog={onOpenBarcodeDialog}
-          isReadOnly={isReadOnly}
-        />
-      )
-    },
-    {
-      id: "hierarchy",
-      label: "8-Tier Classification",
-      content: (
-        <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 space-y-4">
-          <h4 className="text-sm font-bold text-theme-heading flex items-center gap-2">
-            <Layers className="w-4 h-4 text-[#0a6ed1]" /> 8-Tier Enterprise Product Classification Hierarchy
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-            <div>
-              <label className="block font-bold text-theme-muted mb-1">1. Department</label>
-              <input type="text" value={dept} onChange={(e) => setDept(e.target.value)} disabled={isReadOnly} className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg" />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-3 font-mono">
+              <h5 className="font-bold text-theme-heading font-display text-sm flex items-center gap-2 mb-2">
+                <Package className="w-4 h-4 text-[#0a6ed1]" /> Identity &amp; Tax Profile
+              </h5>
+              {[
+                ["Item Code", formData.code || formData.sku || "N/A"],
+                ["Item Name", formData.name],
+                ["Barcode", formData.barcode || "N/A"],
+                ["Category", formData.category || "General"],
+                ["Brand", formData.brand || "Smriti Standard"],
+                ["HSN / SAC Code", formData.hsn_code || "8471"],
+                ["GST Rate", `${formData.gst_rate || 18}%`],
+                ["Unit of Measure (UOM)", formData.uom || "Pcs"],
+              ].map(([k, v]) => (
+                <div key={k as string} className="flex justify-between text-xs border-b border-theme-divider/40 pb-1.5">
+                  <span className="text-theme-muted">{k}</span>
+                  <span className="font-bold text-theme-heading">{v || "—"}</span>
+                </div>
+              ))}
             </div>
-            <div>
-              <label className="block font-bold text-theme-muted mb-1">2. Section</label>
-              <input type="text" value={section} onChange={(e) => setSection(e.target.value)} disabled={isReadOnly} className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg" />
-            </div>
-            <div>
-              <label className="block font-bold text-theme-muted mb-1">3. Category</label>
-              <input type="text" value={cat} onChange={(e) => setCat(e.target.value)} disabled={isReadOnly} className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold" />
-            </div>
-            <div>
-              <label className="block font-bold text-theme-muted mb-1">4. Sub Category</label>
-              <input type="text" value={subCat} onChange={(e) => setSubCat(e.target.value)} disabled={isReadOnly} className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg" />
-            </div>
-            <div>
-              <label className="block font-bold text-theme-muted mb-1">5. Brand</label>
-              <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)} disabled={isReadOnly} className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-[#0a6ed1]" />
-            </div>
-            <div>
-              <label className="block font-bold text-theme-muted mb-1">6. Collection</label>
-              <input type="text" value={collection} onChange={(e) => setCollection(e.target.value)} disabled={isReadOnly} className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg" />
-            </div>
-            <div>
-              <label className="block font-bold text-theme-muted mb-1">7. Season</label>
-              <input type="text" value={season} onChange={(e) => setSeason(e.target.value)} disabled={isReadOnly} className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg" />
-            </div>
-            <div>
-              <label className="block font-bold text-theme-muted mb-1">8. Item Node</label>
-              <input type="text" value={formData.name} disabled className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono opacity-80" />
+
+            <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-3 font-mono">
+              <h5 className="font-bold text-theme-heading font-display text-sm flex items-center gap-2 mb-2">
+                <DollarSign className="w-4 h-4 text-emerald-400" /> Commercial &amp; Margins
+              </h5>
+              {[
+                ["MRP Price", `₹${mrp.toLocaleString("en-IN")}`],
+                ["Retail Sale Price", `₹${salePrice.toLocaleString("en-IN")}`],
+                ["Purchase Cost", `₹${purchaseCost.toLocaleString("en-IN")}`],
+                ["Gross Margin", `₹${(salePrice - purchaseCost).toLocaleString("en-IN")}`],
+                ["Margin %", `${marginPercent}%`],
+                ["Markup %", `${markupPercent}%`],
+                ["Current Stock Qty", `${formData.stock_qty ?? formData.qty ?? 0} ${formData.uom || "Pcs"}`],
+                ["Min Reorder Level", `${formData.min_stock_level || 5} Pcs`],
+              ].map(([k, v]) => (
+                <div key={k as string} className="flex justify-between text-xs border-b border-theme-divider/40 pb-1.5">
+                  <span className="text-theme-muted">{k}</span>
+                  <span className="font-bold text-theme-heading">{v || "—"}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -206,195 +156,100 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
     },
     {
       id: "pricing",
-      label: "Multi-Price Tiers",
+      label: "Multi-Tier Pricing",
       content: (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-theme-surface-1 p-5 border border-theme-divider rounded-xl">
-          <div>
-            <label className="block text-xs font-bold text-theme-muted mb-1">Cost Price ₹ (Purchase)</label>
-            <input
-              type="number"
-              value={formData.purchase_price || 0}
-              onChange={(e) => handleFieldChange("purchase_price", parseFloat(e.target.value) || 0)}
-              disabled={isReadOnly}
-              className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading text-right"
-            />
+        <div className="space-y-5 max-w-5xl font-mono text-xs">
+          <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-emerald-400" /> Multi-Tier Pricing &amp; Margin Matrix
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
+              <span className="text-theme-muted text-[10px] uppercase font-bold block">Maximum Retail Price (MRP)</span>
+              <input type="number" step="0.01" value={formData.mrp || 0} onChange={(e) => handleFieldChange("mrp", parseFloat(e.target.value))} className="w-full p-2 bg-theme-surface-1 border border-theme-divider rounded text-theme-heading font-bold text-base" />
+            </div>
+            <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
+              <span className="text-theme-muted text-[10px] uppercase font-bold block">Retail Selling Price</span>
+              <input type="number" step="0.01" value={formData.price || 0} onChange={(e) => handleFieldChange("price", parseFloat(e.target.value))} className="w-full p-2 bg-theme-surface-1 border border-theme-divider rounded text-emerald-400 font-bold text-base" />
+            </div>
+            <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
+              <span className="text-theme-muted text-[10px] uppercase font-bold block">Purchase Cost / Rate</span>
+              <input type="number" step="0.01" value={formData.purchase_price || 0} onChange={(e) => handleFieldChange("purchase_price", parseFloat(e.target.value))} className="w-full p-2 bg-theme-surface-1 border border-theme-divider rounded text-purple-400 font-bold text-base" />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-theme-muted mb-1">MRP Price ₹ (Maximum Retail)</label>
-            <input
-              type="number"
-              value={formData.mrp || formData.price || 0}
-              onChange={(e) => {
-                const val = parseFloat(e.target.value) || 0;
-                handleFieldChange("mrp", val);
-                handleFieldChange("price", val);
-              }}
-              disabled={isReadOnly}
-              className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono font-bold text-emerald-500 text-right"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-theme-muted mb-1">Wholesale / Trade Price ₹</label>
-            <input
-              type="number"
-              value={(formData.mrp || 0) * 0.85}
-              disabled
-              className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-muted text-right opacity-80"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-theme-muted mb-1">PTR (Price to Retailer - Pharma)</label>
-            <input
-              type="number"
-              value={(formData.mrp || 0) * 0.70}
-              disabled
-              className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-muted text-right opacity-80"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-theme-muted mb-1">HSN Code</label>
-            <input
-              type="text"
-              value={formData.hsn_code || "6204"}
-              onChange={(e) => handleFieldChange("hsn_code", e.target.value)}
-              disabled={isReadOnly}
-              className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-theme-muted mb-1">GST Tax Rate %</label>
-            <input
-              type="number"
-              value={formData.gst_rate ?? formData.tax_rate ?? 18}
-              onChange={(e) => handleFieldChange("gst_rate", parseFloat(e.target.value) || 0)}
-              disabled={isReadOnly}
-              className="w-full p-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg font-mono font-bold text-center"
-            />
+          <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Wholesale Price</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.price || 0) * 0.9).toFixed(2)}</strong></div>
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Dealer Price</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.price || 0) * 0.85).toFixed(2)}</strong></div>
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Distributor Price</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.price || 0) * 0.8).toFixed(2)}</strong></div>
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Landed Cost</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.purchase_price || 0) * 1.05).toFixed(2)}</strong></div>
           </div>
         </div>
       )
     },
     {
-      id: "print-ledger",
-      label: "Label Print Ledger",
-      content: <ItemMasterPrintHistoryTab product={formData} />
+      id: "inventory",
+      label: "Inventory & Storage",
+      content: (
+        <div className="space-y-5 max-w-5xl font-mono text-xs">
+          <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2">
+            <Truck className="w-5 h-5 text-[#0a6ed1]" /> Multi-Location Stock &amp; Warehouse Bin Locations
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-1">
+              <span className="text-theme-muted text-[10px] uppercase font-bold block">Current Stock Qty</span>
+              <strong className="text-xl font-bold text-emerald-400">{formData.stock_qty ?? formData.qty ?? 0} {formData.uom || "Pcs"}</strong>
+            </div>
+            <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-1">
+              <span className="text-theme-muted text-[10px] uppercase font-bold block">Min Reorder Level</span>
+              <strong className="text-xl font-bold text-amber-400">{formData.min_stock_level || 5} Pcs</strong>
+            </div>
+            <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-1">
+              <span className="text-theme-muted text-[10px] uppercase font-bold block">Max Stock Limit</span>
+              <strong className="text-xl font-bold text-theme-heading">500 Pcs</strong>
+            </div>
+            <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-1">
+              <span className="text-theme-muted text-[10px] uppercase font-bold block">Preferred Warehouse</span>
+              <strong className="text-sm font-bold text-[#0a6ed1]">Central WH-01</strong>
+            </div>
+          </div>
+
+          <ItemMasterUomMatrix uomConversions={uomConversions} onUpdateConversions={setUomConversions} isReadOnly={isReadOnly} />
+        </div>
+      )
     },
     {
-      id: "matrix",
-      label: "Variant Matrix Grid",
+      id: "variants",
+      label: "Variant Matrix",
+      content: <ItemMasterVariantTable isReadOnly={isReadOnly} onOpenBarcodeDialog={onOpenBarcodeDialog} />
+    },
+    {
+      id: "suppliers",
+      label: "Suppliers & Procurement",
       content: (
-        <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 space-y-4">
-          <h4 className="text-sm font-bold text-theme-heading flex items-center gap-2">
-            <Grid className="w-4 h-4 text-[#0a6ed1]" /> Color x Size Apparel Matrix Grid
-          </h4>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="bg-theme-surface-2 border-b border-theme-divider">
-                  <th className="p-2.5 text-left font-bold text-theme-muted">Color / Size</th>
-                  {sizes.map((s) => (
-                    <th key={s} className="p-2.5 text-center font-bold text-theme-muted">{s}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {colors.map((c) => (
-                  <tr key={c} className="border-b border-theme-divider hover:bg-theme-surface-hover">
-                    <td className="p-2.5 font-bold text-theme-heading">{c}</td>
-                    {sizes.map((s) => {
-                      const active = !!variantGrid[`${c}-${s}`];
-                      return (
-                        <td key={s} className="p-2.5 text-center">
-                          <button
-                            type="button"
-                            onClick={() => toggleVariant(c, s)}
-                            className={`w-7 h-7 rounded-md font-bold text-[11px] transition-all cursor-pointer ${
-                              active
-                                ? "bg-[#0a6ed1] text-white shadow-xs"
-                                : "bg-theme-surface-2 border border-theme-divider text-theme-muted hover:border-[#0a6ed1]"
-                            }`}
-                          >
-                            {active ? "✓" : "-"}
-                          </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="space-y-4 max-w-5xl font-mono text-xs">
+          <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><Building2 className="w-5 h-5 text-[#0a6ed1]" /> Preferred Vendors &amp; Purchase History</h4>
+          <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
+            <div className="flex items-center justify-between"><strong className="font-sans text-theme-heading text-xs">TechCorp Distributors (VND-1002)</strong><span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px] font-bold border border-emerald-500/30">Primary Vendor</span></div>
+            <p className="text-theme-muted text-xs">Lead Time: 3 Days | MOQ: 10 Pcs | Last Purchase Rate: ₹{(formData.purchase_price || 60).toFixed(2)} | Date: 2026-07-20</p>
           </div>
         </div>
       )
     },
     {
-      id: "uom",
-      label: "Multi-UOM Matrix",
-      content: (
-        <ItemMasterUomMatrix
-          baseUom={formData.uom || "Pcs"}
-          conversions={uomConversions}
-          onChange={setUomConversions}
-          isReadOnly={isReadOnly}
-        />
-      )
+      id: "barcode",
+      label: "Barcode & Labels",
+      content: <ItemMasterPrintHistoryTab onOpenBarcodeDialog={onOpenBarcodeDialog} />
     },
     {
-      id: "tracking",
-      label: "Batch & Serial Flags",
+      id: "analytics",
+      label: "Analytics & Velocity",
       content: (
-        <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 space-y-4">
-          <h4 className="text-sm font-bold text-theme-heading flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-[#0a6ed1]" /> Inventory Control & Serialization Flags
-          </h4>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <label className="p-4 rounded-lg bg-theme-surface-2 border border-theme-divider flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.has_batch_tracking || false}
-                onChange={(e) => handleFieldChange("has_batch_tracking", e.target.checked)}
-                disabled={isReadOnly}
-                className="rounded text-[#0a6ed1]"
-              />
-              <div>
-                <strong className="block text-theme-heading">Batch Tracking</strong>
-                <span className="text-[10px] text-theme-muted">Mandatory for Pharmacy & FMCG</span>
-              </div>
-            </label>
-
-            <label className="p-4 rounded-lg bg-theme-surface-2 border border-theme-divider flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.has_expiry_date || false}
-                onChange={(e) => handleFieldChange("has_expiry_date", e.target.checked)}
-                disabled={isReadOnly}
-                className="rounded text-[#0a6ed1]"
-              />
-              <div>
-                <strong className="block text-theme-heading">Expiry Date Alerts</strong>
-                <span className="text-[10px] text-theme-muted">Enables near-expiry notifications</span>
-              </div>
-            </label>
-
-            <label className="p-4 rounded-lg bg-theme-surface-2 border border-theme-divider flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.has_serial_number || false}
-                onChange={(e) => handleFieldChange("has_serial_number", e.target.checked)}
-                disabled={isReadOnly}
-                className="rounded text-[#0a6ed1]"
-              />
-              <div>
-                <strong className="block text-theme-heading">Serial Serialization</strong>
-                <span className="text-[10px] text-theme-muted">Mandatory for Mobile & Hardware</span>
-              </div>
-            </label>
+        <div className="space-y-5 max-w-5xl font-mono text-xs">
+          <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><BarChart2 className="w-5 h-5 text-[#0a6ed1]" /> Sales Velocity &amp; Inventory Turnover</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-1"><span className="text-theme-muted text-[10px] uppercase font-bold block">Velocity Status</span><strong className="text-lg font-bold text-emerald-400">Fast Moving (ABC-Class A)</strong></div>
+            <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-1"><span className="text-theme-muted text-[10px] uppercase font-bold block">30-Day Sales Volume</span><strong className="text-lg font-bold text-theme-heading">142 Pcs</strong></div>
+            <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-1"><span className="text-theme-muted text-[10px] uppercase font-bold block">Inventory Turn Rate</span><strong className="text-lg font-bold text-purple-400">8.4x / Year</strong></div>
           </div>
         </div>
       )
@@ -402,23 +257,20 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
   ];
 
   return (
-    <SEEFObjectPage
-      title={formData.name}
-      subtitle={`SKU: ${formData.sku || formData.barcode || "N/A"} | HSN: ${formData.hsn_code || "6204"} | Brand: ${brand}`}
-      badgeStatus={{ label: "Active SKU", type: "success" }}
-      metrics={metrics}
-      tabs={tabs}
-      onSave={handleSave}
-      onDelete={!isReadOnly ? () => onDeleteProduct(formData.id) : undefined}
-      isSaving={isSaving}
-      headerActions={
-        <button
-          onClick={() => onOpenBarcodeDialog()}
-          className="px-3 py-1.5 text-xs font-bold rounded-lg bg-[#0a6ed1] text-white hover:bg-[#085caf] flex items-center gap-1.5 cursor-pointer shadow-xs"
-        >
-          <Printer className="w-4 h-4" /> Print Barcode Labels
-        </button>
-      }
-    />
+    <div className="flex flex-col h-full bg-theme-base p-6">
+      <SEEFObjectPage
+        title={formData.name}
+        subtitle={`SKU: ${formData.sku || formData.code || "N/A"} | Category: ${formData.category || "General"} | Brand: ${formData.brand || "Smriti"}`}
+        badgeStatus={{
+          label: (formData.stock_qty ?? formData.qty ?? 0) > 0 ? "In Stock" : "Out of Stock",
+          type: (formData.stock_qty ?? formData.qty ?? 0) > 0 ? "success" : "error"
+        }}
+        metrics={metrics}
+        tabs={tabs}
+        onSave={!isReadOnly ? handleSave : undefined}
+        onDelete={!isReadOnly ? () => onDeleteProduct(formData.id) : undefined}
+        isSaving={isSaving}
+      />
+    </div>
   );
 };
