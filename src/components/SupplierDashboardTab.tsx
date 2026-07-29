@@ -630,7 +630,7 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                   <div>
                     <strong className="block text-[#0a6ed1] font-bold text-sm">Income Tax Section 194Q & GSTR-2B ITC Matching</strong>
                     <span className="text-theme-muted">
-                      Auto-calculates 0.1% TDS on cumulative purchases > ₹50L per FY and validates GSTR-2B Input Tax Credit eligibility.
+                      Auto-calculates 0.1% TDS on cumulative purchases &gt; ₹50L per FY and validates GSTR-2B Input Tax Credit eligibility.
                     </span>
                   </div>
                 </div>
@@ -890,7 +890,7 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                         onChange={(e) => handleInputChange("is_tds_applicable", e.target.checked)}
                         className="rounded text-[#0a6ed1]"
                       />
-                      <span>Section 194Q TDS Applicable (0.10% on purchases > ₹50L)</span>
+                      <span>Section 194Q TDS Applicable (0.10% on purchases &gt; ₹50L)</span>
                     </label>
                   </div>
                 </div>
