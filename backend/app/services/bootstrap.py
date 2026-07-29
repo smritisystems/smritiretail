@@ -3,7 +3,7 @@ Project      : SMRITI Retail OS
 Repository   : SMRITIRetailNX
 Organization : AITDL NETWORKS
 
-Version      : 3.30.0
+Version      : 3.31.0
 Created      : 2026-07-29
 Modified     : 2026-07-29
 Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
@@ -14,6 +14,7 @@ import logging
 import time
 import uuid
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Callable, Awaitable, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,7 +30,18 @@ from ..models.system import BootstrapTask, SystemBootstrapState
 logger = logging.getLogger(__name__)
 
 
+class BootstrapPhase(str, Enum):
+    PHASE_1_DATABASE          = "Phase 1: Database Initialization"
+    PHASE_2_SECURITY          = "Phase 2: Security & Authentication"
+    PHASE_3_MASTER_DATA       = "Phase 3: Master Data & Lookup Seeding"
+    PHASE_4_PLATFORM_SERVICES = "Phase 4: Platform Services & Workflows"
+    PHASE_5_POST_INSTALL      = "Phase 5: Post-Installation & Reconciliation"
+    PHASE_6_VERIFICATION      = "Phase 6: Health & Verification"
+
+
 class BootstrapService:
+    BOOTSTRAP_LOCK_KEY: int = 891230491
+
     def __init__(self, db: AsyncSession):
         self.db = db
         self.version = getattr(settings, "BOOTSTRAP_VERSION", "1.0.0")
@@ -47,7 +59,6 @@ class BootstrapService:
             await self.db.execute(text("SELECT 1 FROM system_bootstrap_states LIMIT 1"))
         except SQLAlchemyError:
             await self.db.rollback()
-            # Table does not exist in current session schema — create table
             await self.db.execute(text("""
                 CREATE TABLE IF NOT EXISTS system_bootstrap_states (
                     id VARCHAR(50) PRIMARY KEY,
@@ -138,6 +149,9 @@ class BootstrapService:
             logger.exception("[Bootstrap] Task '%s' failed: %s", task_name, exc)
             raise
 
+    # ------------------------------------------------------------------
+    # Individual Task Handlers
+    # ------------------------------------------------------------------
     async def _task_initial_schema(self) -> tuple[str, Optional[str]]:
         logger.info("[Bootstrap] Database initialized")
         return "Complete", None
@@ -162,8 +176,6 @@ class BootstrapService:
             logger.info("[Bootstrap] Non-development profile detected; default super admin creation skipped")
             return "Skipped", "Production profile: default super admin creation disabled"
 
-
-        # Create default super user for dev/demo
         admin = User(
             id=f"usr-{uuid.uuid4().hex[:6]}",
             username="super",
@@ -202,7 +214,6 @@ class BootstrapService:
             logger.info("[Bootstrap] Super administrator account not found for legacy reconciliation")
             return "Complete", "No super user found"
 
-        # Check if already using convenience password
         if verify_password("whynothing", user.hashed_password):
             logger.info("[Bootstrap] Super administrator already using convenience password")
             return "Complete", "Already using convenience password"
@@ -224,17 +235,71 @@ class BootstrapService:
         logger.info("[Bootstrap] Legacy admin password reconciled")
         return "Complete", "Reconciled legacy password to convenience password"
 
+    async def _task_setup_wizard_initialized(self) -> tuple[str, Optional[str]]:
+        logger.info("[Bootstrap] Setup wizard initialization state registered")
+        return "Complete", None
+
+    # ------------------------------------------------------------------
+    # Main Execution Runner with Advisory Locking and Summary Output
+    # ------------------------------------------------------------------
     async def run(self) -> None:
         """
         Main entry point for installation bootstrap lifecycle at startup.
-        Executes all bootstrap tasks in proper dependency order.
+        Acquires PostgreSQL advisory lock, executes task phases, and logs final operational summary.
         """
+        lock_acquired = False
+        try:
+            lock_res = await self.db.execute(text(f"SELECT pg_try_advisory_lock({self.BOOTSTRAP_LOCK_KEY})"))
+            lock_acquired = bool(lock_res.scalar())
+        except Exception:
+            lock_acquired = True  # Fall back to single-instance mode if advisory lock unavailable
+
+        if not lock_acquired:
+            logger.info("[Bootstrap] Another instance holds the installation bootstrap lock. Skipping execution.")
+            return
+
+        overall_start = time.time()
         logger.info("[Bootstrap] Starting installation bootstrap (v%s)", self.version)
-        
-        await self.execute_task(BootstrapTask.INITIAL_SCHEMA, self._task_initial_schema)
-        await self.execute_task(BootstrapTask.SEED_ROLES, self._task_seed_roles)
-        await self.execute_task(BootstrapTask.SEED_PERMISSIONS, self._task_seed_permissions)
-        await self.execute_task(BootstrapTask.SEED_SUPER_USER, self._task_seed_super_user)
-        await self.execute_task(BootstrapTask.LEGACY_PASSWORD_RECONCILIATION, self._task_legacy_password_reconciliation)
-        
+
+        tasks_to_run = [
+            (BootstrapPhase.PHASE_1_DATABASE, BootstrapTask.INITIAL_SCHEMA, self._task_initial_schema),
+            (BootstrapPhase.PHASE_2_SECURITY, BootstrapTask.SEED_ROLES, self._task_seed_roles),
+            (BootstrapPhase.PHASE_2_SECURITY, BootstrapTask.SEED_PERMISSIONS, self._task_seed_permissions),
+            (BootstrapPhase.PHASE_2_SECURITY, BootstrapTask.SEED_SUPER_USER, self._task_seed_super_user),
+            (BootstrapPhase.PHASE_5_POST_INSTALL, BootstrapTask.LEGACY_PASSWORD_RECONCILIATION, self._task_legacy_password_reconciliation),
+            (BootstrapPhase.PHASE_5_POST_INSTALL, BootstrapTask.SETUP_WIZARD_INITIALIZED, self._task_setup_wizard_initialized),
+        ]
+
+        executed_states = []
+        for phase, task_enum, task_fn in tasks_to_run:
+            st = await self.execute_task(task_enum, task_fn)
+            executed_states.append((phase, task_enum.value, st.status))
+
+        overall_duration_ms = int((time.time() - overall_start) * 1000)
+
+        completed_count = sum(1 for _, _, status in executed_states if status == "Complete")
+        skipped_count   = sum(1 for _, _, status in executed_states if status == "Skipped")
+        failed_count    = sum(1 for _, _, status in executed_states if status == "Failed")
+
+        summary_lines = [
+            "",
+            "==================================================",
+            "[Bootstrap Summary]",
+            f"Version  : {self.version}",
+            f"Completed: {completed_count} | Skipped: {skipped_count} | Failed: {failed_count}",
+            f"Duration : {overall_duration_ms} ms",
+        ]
+        for _, tname, status in executed_states:
+            symbol = "✓" if status in {"Complete", "Skipped"} else "✗"
+            summary_lines.append(f"  {symbol} {tname} [{status}]")
+        summary_lines.append("==================================================")
+        summary_lines.append("")
+
+        logger.info("\n".join(summary_lines))
         logger.info("[Bootstrap] Bootstrap completed")
+
+        if lock_acquired:
+            try:
+                await self.db.execute(text(f"SELECT pg_advisory_unlock({self.BOOTSTRAP_LOCK_KEY})"))
+            except Exception:
+                pass
