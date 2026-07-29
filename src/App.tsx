@@ -257,12 +257,30 @@ const AppContent: React.FC = () => {
       ? "launchpad"
       : preferences.lastWorkspace);
 
-  const activeTab = isSetupCompleted ? (safeLastWorkspace || "launchpad") : "company-setup";
-  const setActiveTab = (tab: string) => {
+  const normalizeTab = (tab: string | null) => {
+    if (!tab) return tab;
+    return tab === "suppliers" ? "supplier-mgmt" : tab;
+  };
+
+  const [activeTab, setActiveTab] = useState<string>("launchpad");
+
+  useEffect(() => {
+    if (!isSetupCompleted) {
+      setActiveTab("company-setup");
+      return;
+    }
+    const resolvedTab = normalizeTab(safeLastWorkspace || "launchpad") || "launchpad";
+    setActiveTab(resolvedTab);
+  }, [isSetupCompleted, safeLastWorkspace]);
+
+  const setActiveWorkspace = (tab: string) => {
     if (!isSetupCompleted && tab !== "company-setup") {
       return;
     }
-    const resolvedTab = isSetupCompleted && tab === "company-setup" ? "launchpad" : tab;
+    const resolvedTab = normalizeTab(
+      isSetupCompleted && tab === "company-setup" ? "launchpad" : tab,
+    );
+    setActiveTab(resolvedTab);
     addToRecentlyUsed(resolvedTab);
   };
 
@@ -439,7 +457,7 @@ const AppContent: React.FC = () => {
         return (
           <Launchpad
             currentUser={currentUser}
-            onSelectTab={(t) => setActiveTab(t)}
+            onSelectTab={(t) => setActiveWorkspace(t)}
           />
         );
       case "dashboard":
@@ -504,7 +522,8 @@ const AppContent: React.FC = () => {
           />
         );
       case "supplier-mgmt":
-        return <SupplierDashboardTab currentUser={currentUser} />;
+      case "suppliers":
+        return <SupplierDashboardTab currentUser={currentUser} onNotification={addNotification} />;
       case "report-designer":
         return <ReportDesignerTab currentUser={currentUser} />;
       case "screen-studio":
@@ -584,7 +603,7 @@ const AppContent: React.FC = () => {
             onComplete={() => {
               markSetupCompleted();
               addNotification("Setup Complete", "Welcome to SMRITI Retail OS dashboard!", "success");
-              setActiveTab("dashboard");
+              setActiveWorkspace("dashboard");
             }} 
           />
         );
@@ -771,7 +790,7 @@ const AppContent: React.FC = () => {
         onClose={() => setSeefPaletteOpen(false)}
         onNavigate={(id) => {
           addToRecentlyUsed(id);
-          setActiveTab(id);
+          setActiveWorkspace(id);
         }}
       />
     </div>
