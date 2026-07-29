@@ -149,8 +149,21 @@ on:
             SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
             SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
 
-        deploy_production:
+        smoke_tests:
           needs: deploy_staging
+          if: ${{ github.event.inputs.deploy == 'true' }}
+          uses: ./.github/workflows/smoke-tests.yml
+          with:
+            release_version: ${{ needs.set_version.outputs.version }}
+          secrets:
+            SSH_HOST: ${{ secrets.SSH_HOST }}
+            SSH_USER: ${{ secrets.SSH_USER }}
+            SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+            SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+            REMOTE_PROJECT_PATH: ${{ secrets.REMOTE_PROJECT_PATH }}
+
+        deploy_production:
+          needs: smoke_tests
           if: ${{ github.event.inputs.deploy == 'true' }}
           uses: ./.github/workflows/deploy-production.yml
           with:
