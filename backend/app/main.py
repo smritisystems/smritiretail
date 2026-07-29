@@ -65,7 +65,6 @@ from .api.v1 import (
     procurement_requisition,
     procurement_qc,
     procurement_scorecard,
-    pos,
     replenishment,
     reports,
     roles,
@@ -234,7 +233,6 @@ app.include_router(procurement_bpa.router, prefix=settings.API_V1_STR,          
 app.include_router(procurement_requisition.router, prefix=settings.API_V1_STR,        tags=["Procurement Purchase Requisitions"])
 app.include_router(procurement_qc.router, prefix=settings.API_V1_STR,                 tags=["Procurement Quality Control & Debit Notes"])
 app.include_router(procurement_scorecard.router, prefix=settings.API_V1_STR,          tags=["Procurement Supplier Performance Scorecards"])
-app.include_router(pos.router,              prefix=settings.API_V1_STR,                    tags=["POS Shift"])
 app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,                    tags=["Supplier Payments"])
 app.include_router(reports.router,          prefix=settings.API_V1_STR,                    tags=["Reports"])
 app.include_router(master_lookup.router,    prefix=settings.API_V1_STR + "/masters",       tags=["Masters"])

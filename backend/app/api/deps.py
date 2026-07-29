@@ -143,6 +143,8 @@ async def get_current_user_optional(
         return None
     token = header.split(" ", 1)[1].strip()
     if not token or token == "dev-bypass-token":
+        # dev-bypass-token is never treated as a valid backend session token.
+        # Frontend may allow it in dev/demo mode, but backend auth keeps it local-only.
         return None
     try:
         payload = decode_token(token)

@@ -3,6 +3,10 @@
   "version": "3.16.0",
   "description": "Enterprise Retail Experience & Intelligence Layer",
   "homepage": "https://smritisys.com",
+  "engines": {
+    "node": ">=20 <21",
+    "npm": ">=9"
+  },
   "author": {
     "name": "Jawahar Ramkripal Mallah",
     "email": "support@smritisys.com",

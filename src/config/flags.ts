@@ -28,4 +28,9 @@ export const FLAGS = {
   USE_FASTAPI_MASTERS:     true,
   USE_FASTAPI_ATTRIBUTES:  true,
   USE_FASTAPI_ROLES:       true,
-};
+  // Demo / development flags
+  ENABLE_DEMO_MODE:        false,
+  ENABLE_DEV_LOGIN:        false,
+  ENABLE_DEMO_DATA:        false,
+  ENABLE_SETUP_DEMO:       false,
+  ENABLE_SEED_SAMPLE_DATA: false,};

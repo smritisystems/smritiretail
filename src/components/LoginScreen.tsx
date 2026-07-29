@@ -32,6 +32,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
+import { FLAGS } from "../config/flags";
 import {
   LoginBackgroundProvider,
   useLoginBackground,
@@ -83,6 +84,7 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [passwordFocused, setPasswordFocused] = useState(false);
 
   const isDev = (import.meta as unknown as { env: { DEV?: boolean } }).env?.DEV === true;
+  const allowDevLogin = isDev || FLAGS.ENABLE_DEV_LOGIN;
 
   // Rotate feature tiles
   useEffect(() => {
@@ -126,7 +128,7 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           companyId: data.company_id ?? user.company_id,
           branchId:  data.branch_id  ?? user.branch_id,
         });
-      } else if (DEV_ACCOUNTS.some(a => a.username === username) || username === "admin" || isDev) {
+      } else if (allowDevLogin && (DEV_ACCOUNTS.some(a => a.username === username) || username === "admin")) {
         const matched = DEV_ACCOUNTS.find(a => a.username === username);
         localStorage.setItem("smriti_jwt_token", "dev-bypass-token");
         onLoginSuccess({
@@ -139,7 +141,7 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       }
     } catch (err: any) {
       const matched = DEV_ACCOUNTS.find(a => a.username === username);
-      if (matched || username === "admin" || isDev) {
+      if (allowDevLogin && (matched || username === "admin")) {
         localStorage.setItem("smriti_jwt_token", "dev-bypass-token");
         onLoginSuccess({
           role: matched?.role || "SYSADMIN",
@@ -517,21 +519,23 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 className="mt-7 rounded border overflow-hidden"
                 style={{ borderColor: "#f29900", backgroundColor: "#fffcf0" }}
               >
-                <button
-                  type="button"
-                  onClick={() => setShowDevPanel(!showDevPanel)}
-                  className="w-full flex items-center justify-between px-3.5 py-2.5 transition-colors"
-                  style={{ backgroundColor: "rgba(242,153,0,0.08)", color: "#8a6000" }}
-                >
-                  <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider">
-                    <Terminal size={11} />
-                    Dev / Demo Accounts
-                  </span>
-                  {showDevPanel ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                </button>
+                {allowDevLogin && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setShowDevPanel(!showDevPanel)}
+                      className="w-full flex items-center justify-between px-3.5 py-2.5 transition-colors"
+                      style={{ backgroundColor: "rgba(242,153,0,0.08)", color: "#8a6000" }}
+                    >
+                      <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider">
+                        <Terminal size={11} />
+                        Dev / Demo Accounts
+                      </span>
+                      {showDevPanel ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    </button>
 
-                <AnimatePresence>
-                  {showDevPanel && (
+                    <AnimatePresence>
+                      {showDevPanel && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}

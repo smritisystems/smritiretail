@@ -21,6 +21,7 @@ import { BarcodePrintDialog } from "./item_master/BarcodePrintDialog.tsx";
 import { AttributeManagerSection } from "./AttributeManagerSection.tsx";
 import { VariantTemplateSection } from "./VariantTemplateSection.tsx";
 import { BulkImportSection } from "./BulkImportSection.tsx";
+import { ExcelGridEntrySection } from "./ExcelGridEntrySection.tsx";
 import { AttributeAnalyticsSection } from "./AttributeAnalyticsSection.tsx";
 import { SmritiSpreadsheetPlatform } from "../spreadsheet/SmritiSpreadsheetPlatform.tsx";
 import { ItemMasterAdapter } from "../spreadsheet/adapters/ItemMasterAdapter.ts";
@@ -139,11 +140,8 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           />
         }
       >
-        <SmritiSpreadsheetPlatform
-          title="Product Master Spreadsheet Studio"
-          subtitle="Bulk SKU Data Entry & Grid Formula Operations"
-          columns={spreadsheetColumns}
-          initialData={spreadsheetRows}
+        <ExcelGridEntrySection
+          onRefreshProducts={onRefreshProducts}
           onNotification={onNotification}
         />
       </WorkspaceLayout>
