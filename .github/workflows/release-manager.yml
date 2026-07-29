@@ -128,7 +128,27 @@ on:
                 echo "#### Commits" >> RELEASE_NOTES.md
                 git log --pretty=format:'* %s (%h)' -n 20 >> RELEASE_NOTES.md
 
-            - name: Create GitHub release
+            - name: Ensure required artifacts exist
+              run: |
+                REQUIRED=( \
+                  "smriti-release-${{ needs.set_version.outputs.version }}.tar.gz" \
+                  "smriti-release-${{ needs.set_version.outputs.version }}.zip" \
+                  "smriti-rollback-${{ needs.set_version.outputs.version }}.tar.gz" \
+                  "smriti-rollback-${{ needs.set_version.outputs.version }}.zip" \
+                  "build-info.json" \
+                  "release-manifest.json" \
+                  "SHA256SUMS" \
+                  "sbom.spdx.json" \
+                  "sbom.cyclonedx.json" \
+                  "image-digests.json" \
+                )
+                MISSING=0
+                for f in "${REQUIRED[@]}"; do
+                  if [ ! -f "$f" ]; then echo "Missing required artifact: $f"; MISSING=1; fi
+                done
+                if [ $MISSING -eq 1 ]; then exit 1; fi
+
+            - name: Create GitHub release and attach artifacts
               uses: softprops/action-gh-release@v1
               with:
                 tag_name: ${{ needs.set_version.outputs.version }}
@@ -141,9 +161,24 @@ on:
                   smriti-rollback-${{ needs.set_version.outputs.version }}.zip
                   build-info.json
                   release-manifest.json
-                  sha256_checksums.txt
+                  SHA256SUMS
+                  sbom.spdx.json
+                  sbom.cyclonedx.json
+                  image-digests.json
               env:
                 GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        job_summary:
+          needs: release_create
+          if: always()
+          runs-on: ubuntu-latest
+          steps:
+            - name: Invoke job summary workflow
+              uses: ./.github/workflows/job-summary.yml
+              with:
+                release_version: ${{ needs.set_version.outputs.version }}
+                commit_sha: ${{ github.sha }}
+                branch: ${{ github.ref_name }}
 
         deploy_staging:
           needs: release_create

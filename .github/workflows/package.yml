@@ -125,6 +125,9 @@ jobs:
           if [ -f sbom.spdx.json ]; then sha256sum sbom.spdx.json >> sha256_checksums.txt; fi
           if [ -f sbom.cyclonedx.json ]; then sha256sum sbom.cyclonedx.json >> sha256_checksums.txt; fi
           cat sha256_checksums.txt
+      - name: Create SHA256SUMS file
+        run: |
+          if [ -f sha256_checksums.txt ]; then cp sha256_checksums.txt SHA256SUMS; fi
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
@@ -136,5 +139,11 @@ jobs:
             smriti-rollback-${{ inputs.release_version }}.tar.gz
             smriti-rollback-${{ inputs.release_version }}.zip
             sha256_checksums.txt
+            SHA256SUMS
             build-info.json
             release-manifest.json
+            sbom.spdx.json
+            sbom.cyclonedx.json
+            ./image_digests/image-digests.json
+            ./trivy_reports/trivy-frontend-${{ inputs.release_version }}.json
+            ./trivy_reports/trivy-backend-${{ inputs.release_version }}.json
