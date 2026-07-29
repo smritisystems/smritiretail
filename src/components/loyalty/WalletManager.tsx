@@ -61,7 +61,7 @@ export const WalletManager: React.FC<WalletManagerProps> = ({ wallets, isReadOnl
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                     w.tier === "Platinum" ? "bg-purple-900/50 text-purple-400 border border-purple-500/30" :
                     w.tier === "Gold" ? "bg-amber-900/50 text-amber-400 border border-amber-500/30" :
-                    "bg-slate-700 text-slate-300 border border-slate-500/30"
+                    "bg-theme-surface-3 text-theme-body border border-theme-divider/30"
                   }`}>
                     {w.tier}
                   </span>

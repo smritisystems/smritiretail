@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -15,7 +15,8 @@ Classification: Internal
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import TenantContext, get_db, get_tenant_context, require_permission
+from ...api.deps import TenantContext, get_db, get_tenant_context, require_permission, require_role
+from ...models.auth import UserRole
 from ...repositories.sales import SalesInvoiceRepository
 from ...schemas.sales import (
     SalesInvoiceCreate,
@@ -57,6 +58,16 @@ async def create_sales_invoice_contract(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Create a sales invoice — canonical contract URL."""
+    updates = {}
+    if not invoice_in.id:
+        import uuid
+        updates["id"] = f"inv-{uuid.uuid4().hex[:8]}"
+    if not invoice_in.invoice_no:
+        import uuid
+        from datetime import datetime
+        updates["invoice_no"] = f"INV-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+    if updates:
+        invoice_in = invoice_in.model_copy(update=updates)
     return await SalesService(db, tenant_ctx).create_sales_invoice(invoice_in)
 
 
@@ -92,6 +103,24 @@ async def get_sales_invoice_contract(
     service = SalesService(db, tenant_ctx)
     invoice, _ = await service.get_sales_invoice(invoice_id)
     return invoice
+
+
+@router.delete(
+    "/invoices/{invoice_id}",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+@router.delete(
+    "/{invoice_id}",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def delete_sales_invoice_contract(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Soft-delete a sales invoice. Requires Manager/Admin role."""
+    await SalesService(db, tenant_ctx).delete_sales_invoice(invoice_id)
+    return {"success": True, "invoice_id": invoice_id, "status": "Cancelled"}
 
 
 # ─────────────────────────── Sales Quotation ───────────────────────────

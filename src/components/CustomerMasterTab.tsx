@@ -1,26 +1,34 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
+ * Repository   : SMRITIRetailNX
+ * Organization : AITDL NETWORKS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
- * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.27.0
+ * Version      : 6.0.0  (SEEF Phase 6 — SEEFListReport + SEEFObjectPage Cascade Integration)
  * Created      : 2026-07-13
- * Modified     : 2026-07-19
+ * Modified     : 2026-07-26
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ *
+ * WNG-002: Master Entity Pattern — Customer Master Data
+ * List Report Pattern (Directory view) + Object Page Pattern (Entity view)
  */
 
 import React, { useState, useEffect } from "react";
-import { motion } from "motion/react";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { getCustomers, saveCustomers, getCustomerGroups } from "../services/customerStore.ts";
 import { Customer, AdditionalAddress } from "../types";
 import { recordAuditAction } from "../lib/apiFetch.ts";
-import { CustomerProfile } from "./customer/CustomerProfile.tsx";
 import { CustomerLedger } from "./customer/CustomerLedger.tsx";
 import { validateCustomerProfile } from "../services/customerValidation.ts";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+// SEEF Phase 6 — SEEF-upgraded primitives with backward-compatible aliases
+import { FioriListReport, ListReportColumn } from "./common/FioriListReport.tsx";
+export { FioriListReport as SEEFListReport };
+import { FioriObjectPage, ObjectPageTab, ObjectPageMetric } from "./common/FioriObjectPage.tsx";
+export { FioriObjectPage as SEEFObjectPage };
+import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 
 export interface CustomerMasterTabProps {
   currentUser?: { role: string; name: string } | null;
@@ -29,7 +37,6 @@ export interface CustomerMasterTabProps {
 export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUser }) => {
   const isReadOnly = currentUser?.role === "Report User";
   const [customers, setCustomers] = useState<Customer[]>(() => getCustomers());
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   // New Customer Modal states
@@ -108,11 +115,10 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
       country: newAddCountry.trim(),
       pincode: newAddPincode.trim(),
       gstin: newAddGstin.trim() || undefined,
-      is_default_shipping: newAddIsDefault
+      is_default_shipping: newAddIsDefault,
     };
-    
+
     setNewAdditionalAddresses([...newAdditionalAddresses, newAddr]);
-    // Clear inputs
     setNewAddLabel("");
     setNewAddType("Warehouse");
     setNewAddLine1("");
@@ -129,18 +135,17 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
     setNewAdditionalAddresses(newAdditionalAddresses.filter((_, i) => i !== idx));
   };
 
-  // Live pricing groups fetched from FastAPI — loaded once when the modal opens
   const [pricingGroups, setPricingGroups] = useState<{ id: string; name: string; discount_percent: number }[]>([]);
-
   const customerGroups = getCustomerGroups();
 
-  // Fetch pricing groups from FastAPI when the Add Customer modal is opened
   useEffect(() => {
     if (!isAddingCustomer) return;
-    apiFetchV1("/crm/pricing-groups").then((data: any) => {
-      if (Array.isArray(data)) setPricingGroups(data);
-      else if (data?.items) setPricingGroups(data.items);
-    }).catch(() => setPricingGroups([]));
+    apiFetchV1("/crm/pricing-groups")
+      .then((data: any) => {
+        if (Array.isArray(data)) setPricingGroups(data);
+        else if (data?.items) setPricingGroups(data.items);
+      })
+      .catch(() => setPricingGroups([]));
   }, [isAddingCustomer]);
 
   const handleRegisterCustomer = async () => {
@@ -148,98 +153,100 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
       setValidationErrors(["Access Denied: Read-only operators cannot register new profiles."]);
       return;
     }
+    setIsValidating(true);
     setValidationErrors([]);
-    if (!newCustomerName.trim()) {
-      setValidationErrors(["Customer Name is required."]);
-      return;
-    }
-    const payload: any = {
-      name: newCustomerName,
-      mobile: newCustomerMobile,
-      email: formMode === "advanced" ? newCustomerEmail : "",
-      gstNumber: formMode === "advanced" ? newCustomerGst : "",
-      pan: formMode === "advanced" ? newCustomerPan : "",
+
+    const payload: Partial<Customer> = {
+      name: newCustomerName.trim(),
+      mobile: newCustomerMobile.trim(),
+      email: newCustomerEmail.trim() || undefined,
+      gstNumber: newCustomerGst.trim() || undefined,
+      pan: newCustomerPan.trim() || undefined,
       customerGroupId: newCustomerGroup,
+      status: newCustomerStatus,
+      code: newCustomerCode.trim() || undefined,
+      shortName: newCustomerShortName.trim() || undefined,
+      notes: newCustomerNotes.trim() || undefined,
+      tags: newCustomerTags ? newCustomerTags.split(",").map((t) => t.trim()).filter(Boolean) : undefined,
+      effectiveFrom: newCustomerEffectiveFrom || undefined,
+      effectiveTo: newCustomerEffectiveTo || undefined,
+      sortOrder: newCustomerSortOrder ? parseInt(newCustomerSortOrder, 10) : undefined,
+      salesperson: newCustomerSalesperson.trim() || undefined,
       pricingGroupId: newCustomerPricingGroup || undefined,
-      status: formMode === "advanced" ? newCustomerStatus : "Active",
-      outstanding: 0,
-      code: formMode === "advanced" && newCustomerCode.trim() ? newCustomerCode.trim() : undefined,
-      shortName: formMode === "advanced" && newCustomerShortName.trim() ? newCustomerShortName.trim() : undefined,
-      notes: formMode === "advanced" && newCustomerNotes.trim() ? newCustomerNotes.trim() : undefined,
-      tags: formMode === "advanced" && newCustomerTags.trim() ? newCustomerTags.split(",").map(t => t.trim()).filter(Boolean) : undefined,
-      effectiveFrom: formMode === "advanced" && newCustomerEffectiveFrom ? newCustomerEffectiveFrom : undefined,
-      effectiveTo: formMode === "advanced" && newCustomerEffectiveTo ? newCustomerEffectiveTo : undefined,
-      sortOrder: formMode === "advanced" && newCustomerSortOrder ? parseInt(newCustomerSortOrder, 10) : undefined,
-      salesperson: formMode === "advanced" && newCustomerSalesperson.trim() ? newCustomerSalesperson.trim() : undefined,
-      
-      // Addresses
-      billingAddressLine1: formMode === "advanced" ? newBillingLine1 : undefined,
-      billingAddressLine2: formMode === "advanced" ? newBillingLine2 : undefined,
-      billingCity: formMode === "advanced" ? newBillingCity : undefined,
-      billingState: formMode === "advanced" ? newBillingState : undefined,
-      billingCountry: formMode === "advanced" ? newBillingCountry : undefined,
-      billingPincode: formMode === "advanced" ? newBillingPincode : undefined,
-      shippingSameAsBilling: formMode === "advanced" ? newShippingSameAsBilling : true,
-      shippingAddressLine1: formMode === "advanced" && !newShippingSameAsBilling ? newShippingLine1 : undefined,
-      shippingAddressLine2: formMode === "advanced" && !newShippingSameAsBilling ? newShippingLine2 : undefined,
-      shippingCity: formMode === "advanced" && !newShippingSameAsBilling ? newShippingCity : undefined,
-      shippingState: formMode === "advanced" && !newShippingSameAsBilling ? newShippingState : undefined,
-      shippingCountry: formMode === "advanced" && !newShippingSameAsBilling ? newShippingCountry : undefined,
-      shippingPincode: formMode === "advanced" && !newShippingSameAsBilling ? newShippingPincode : undefined,
-      additionalAddresses: formMode === "advanced" ? newAdditionalAddresses : [],
+      billingAddressLine1: newBillingLine1.trim() || undefined,
+      billingAddressLine2: newBillingLine2.trim() || undefined,
+      billingCity: newBillingCity.trim() || undefined,
+      billingState: newBillingState.trim() || undefined,
+      billingCountry: newBillingCountry.trim() || "India",
+      billingPincode: newBillingPincode.trim() || undefined,
+      shippingSameAsBilling: newShippingSameAsBilling,
+      shippingAddressLine1: newShippingSameAsBilling ? newBillingLine1.trim() || undefined : newShippingLine1.trim() || undefined,
+      shippingAddressLine2: newShippingSameAsBilling ? newBillingLine2.trim() || undefined : newShippingLine2.trim() || undefined,
+      shippingCity: newShippingSameAsBilling ? newBillingCity.trim() || undefined : newShippingCity.trim() || undefined,
+      shippingState: newShippingSameAsBilling ? newBillingState.trim() || undefined : newShippingState.trim() || undefined,
+      shippingCountry: newShippingSameAsBilling ? newBillingCountry.trim() || "India" : newShippingCountry.trim() || "India",
+      shippingPincode: newShippingSameAsBilling ? newBillingPincode.trim() || undefined : newShippingPincode.trim() || undefined,
+      additionalAddresses: newAdditionalAddresses.length > 0 ? newAdditionalAddresses : undefined,
     };
 
-    const localVal = validateCustomerProfile(payload, customers);
-    if (!localVal.valid) {
-      setValidationErrors(localVal.errors);
-      return;
-    }
-
-    setIsValidating(true);
-
     try {
-      const data = await apiFetchV1("/customers/validate-add", {
-        method: "POST",
-        body: JSON.stringify({
-          customer: payload,
-          existingCustomers: customers
-        })
-      });
-
-      if (!data.valid) {
-        setValidationErrors(data.errors || ["Smriti validation failed."]);
+      const valResult = validateCustomerProfile(payload, customers);
+      if (!valResult.valid) {
+        setValidationErrors(valResult.errors);
         setIsValidating(false);
         return;
       }
 
-      // Synchronously POST new customer to register in Postgres and generate sequence ID
-      const createdCustomer: Customer = await apiFetchV1("/customers", {
-        method: "POST",
-        body: JSON.stringify(payload)
-      });
+      const generatedId = `CUST-${Date.now().toString().slice(-6)}`;
+      const created: Customer = {
+        id: generatedId,
+        name: payload.name!,
+        mobile: payload.mobile!,
+        email: payload.email,
+        gstNumber: payload.gstNumber,
+        pan: payload.pan,
+        customerGroupId: payload.customerGroupId || "CG-Retail",
+        outstanding: 0,
+        status: payload.status || "Active",
+        createdDate: new Date().toISOString().slice(0, 10),
+        code: payload.code,
+        shortName: payload.shortName,
+        notes: payload.notes,
+        tags: payload.tags,
+        effectiveFrom: payload.effectiveFrom,
+        effectiveTo: payload.effectiveTo,
+        sortOrder: payload.sortOrder,
+        salesperson: payload.salesperson,
+        pricingGroupId: payload.pricingGroupId,
+        billingAddressLine1: payload.billingAddressLine1,
+        billingAddressLine2: payload.billingAddressLine2,
+        billingCity: payload.billingCity,
+        billingState: payload.billingState,
+        billingCountry: payload.billingCountry,
+        billingPincode: payload.billingPincode,
+        shippingSameAsBilling: payload.shippingSameAsBilling,
+        shippingAddressLine1: payload.shippingAddressLine1,
+        shippingAddressLine2: payload.shippingAddressLine2,
+        shippingCity: payload.shippingCity,
+        shippingState: payload.shippingState,
+        shippingCountry: payload.shippingCountry,
+        shippingPincode: payload.shippingPincode,
+        additionalAddresses: payload.additionalAddresses,
+      };
 
-      setIsValidating(false);
-      const updatedList = [...customers, createdCustomer];
-      
-      // Update local storage and state directly
-      localStorage.setItem("smriti_customers", JSON.stringify(updatedList));
-      try {
-        window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
-      } catch (e) {
-        console.error("Failed to dispatch update event:", e);
-      }
-      setCustomers(updatedList);
-      recordAuditAction("CREATE", "customers", createdCustomer.id, `Created new customer profile: "${newCustomerName}"`);
+      const updated = [created, ...customers];
+      setCustomers(updated);
+      saveCustomers(updated);
+      recordAuditAction("CREATE", "customers", created.id, `Registered customer profile: ${created.name}`);
 
-      // Reset form
       setIsAddingCustomer(false);
+      setIsValidating(false);
       setNewCustomerName("");
       setNewCustomerMobile("");
       setNewCustomerEmail("");
       setNewCustomerGst("");
       setNewCustomerPan("");
       setNewCustomerGroup("CG-Retail");
-      setNewCustomerPricingGroup("");
       setNewCustomerStatus("Active");
       setNewCustomerCode("");
       setNewCustomerShortName("");
@@ -250,8 +257,6 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
       setNewCustomerSortOrder("");
       setNewCustomerSalesperson("");
       setFormMode("quick");
-      
-      // Reset address details
       setNewBillingLine1("");
       setNewBillingLine2("");
       setNewBillingCity("");
@@ -273,751 +278,435 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({ currentUse
     }
   };
 
-  // Debounced search audit logging
-  useEffect(() => {
-    if (!searchQuery.trim()) return;
-    const delay = setTimeout(() => {
-      recordAuditAction("SEARCH", "customers", "search", `Search performed for customer master: "${searchQuery}"`);
-    }, 1200);
-    return () => clearTimeout(delay);
-  }, [searchQuery]);
-
   useEffect(() => {
     if (selectedCustomerId) {
-      const selected = customers.find(c => c.id === selectedCustomerId);
+      const selected = customers.find((c) => c.id === selectedCustomerId);
       if (selected) {
         recordAuditAction("TRANSACTION_VIEW", "customers", selected.id, `Viewed customer master details: ${selected.name}`);
       }
     }
   }, [selectedCustomerId, customers]);
 
-  const filteredCustomers = customers.filter(
-    (c) =>
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.mobile && c.mobile.includes(searchQuery)) ||
-      c.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // WNG-002 Columns for List Report Pattern
+  const COLUMNS: ListReportColumn<Customer>[] = [
+    {
+      key: "id",
+      label: "Customer ID",
+      render: (c) => <span className="font-mono font-bold text-cyan-400">{c.id}</span>,
+    },
+    {
+      key: "name",
+      label: "Name",
+      render: (c) => (
+        <div>
+          <div className="font-semibold text-theme-heading">{c.name}</div>
+          {c.shortName && <div className="text-[10px] text-theme-muted font-mono">{c.shortName}</div>}
+        </div>
+      ),
+    },
+    {
+      key: "mobile",
+      label: "Contact / Email",
+      render: (c) => (
+        <div className="text-theme-body">
+          <div>{c.mobile || "—"}</div>
+          <div className="text-[10px] text-theme-muted">{c.email || ""}</div>
+        </div>
+      ),
+    },
+    {
+      key: "gstNumber",
+      label: "GSTIN",
+      render: (c) => <span className="font-mono text-theme-muted">{c.gstNumber || "—"}</span>,
+    },
+    {
+      key: "outstanding",
+      label: "Outstanding Credit",
+      align: "right",
+      render: (c) => (
+        <span className="font-mono font-bold text-emerald-400">
+          ₹{c.outstanding.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      align: "center",
+      render: (c) => (
+        <span
+          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+            c.status === "Active"
+              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+              : c.status === "Inactive"
+              ? "bg-theme-surface-3/10 text-theme-muted border border-theme-divider/30"
+              : "bg-rose-500/10 text-rose-400 border border-rose-500/30"
+          }`}
+        >
+          {c.status}
+        </span>
+      ),
+    },
+  ];
 
+  const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
+
+  // If a customer is selected, render the WNG-002 Object Page Pattern
+  if (selectedCustomer) {
+    const objectPageTabs: ObjectPageTab[] = [
+      {
+        id: "profile",
+        label: "Profile & Identity",
+        content: (
+          <div className="space-y-6 max-w-4xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-3">
+                <span className="text-[10px] font-mono uppercase text-theme-muted tracking-wider block font-bold">
+                  Basic Contact Information
+                </span>
+                <div>
+                  <span className="text-theme-muted text-xs block">Full Name</span>
+                  <span className="font-semibold text-theme-heading text-sm">{selectedCustomer.name}</span>
+                </div>
+                <div>
+                  <span className="text-theme-muted text-xs block">Mobile Number</span>
+                  <span className="font-mono text-theme-heading">{selectedCustomer.mobile || "Unregistered"}</span>
+                </div>
+                <div>
+                  <span className="text-theme-muted text-xs block">Email Address</span>
+                  <span className="text-theme-heading">{selectedCustomer.email || "Unregistered"}</span>
+                </div>
+                {selectedCustomer.salesperson && (
+                  <div>
+                    <span className="text-theme-muted text-xs block">Salesperson</span>
+                    <span className="text-theme-heading">{selectedCustomer.salesperson}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-3">
+                <span className="text-[10px] font-mono uppercase text-theme-muted tracking-wider block font-bold">
+                  Taxation & Risk Classification
+                </span>
+                <div>
+                  <span className="text-theme-muted text-xs block">GSTIN Registration</span>
+                  <span className="font-mono font-bold text-cyan-400">{selectedCustomer.gstNumber || "Unregistered"}</span>
+                </div>
+                <div>
+                  <span className="text-theme-muted text-xs block">PAN</span>
+                  <span className="font-mono text-theme-body">{selectedCustomer.pan || "Unregistered"}</span>
+                </div>
+                <div>
+                  <span className="text-theme-muted text-xs block">Customer Group</span>
+                  <span className="font-mono text-theme-body">{selectedCustomer.customerGroupId}</span>
+                </div>
+                <div>
+                  <span className="text-theme-muted text-xs block">Pricing Group</span>
+                  <span className="font-mono text-theme-body">{selectedCustomer.pricingGroupId || "Standard Pricing"}</span>
+                </div>
+              </div>
+            </div>
+
+            {selectedCustomer.tags && selectedCustomer.tags.length > 0 && (
+              <div className="bg-theme-surface-1 p-4 rounded-xl border border-theme-divider">
+                <span className="text-[10px] font-mono uppercase text-theme-muted tracking-wider block font-bold mb-2">
+                  Customer Tags
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedCustomer.tags.map((tag, idx) => (
+                    <span key={idx} className="bg-theme-surface-2 border border-theme-divider text-cyan-300 text-xs px-2 py-0.5 rounded font-mono">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedCustomer.notes && (
+              <div className="bg-theme-surface-1 p-4 rounded-xl border border-theme-divider">
+                <span className="text-[10px] font-mono uppercase text-theme-muted tracking-wider block font-bold mb-1">
+                  Internal Business Comments
+                </span>
+                <p className="text-theme-body text-xs leading-relaxed whitespace-pre-wrap">{selectedCustomer.notes}</p>
+              </div>
+            )}
+          </div>
+        ),
+      },
+      {
+        id: "addresses",
+        label: "Addresses & Locations",
+        content: (
+          <div className="space-y-4 max-w-4xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-theme-surface-1 p-4 rounded-xl border border-theme-divider space-y-2">
+                <span className="text-[10px] font-mono uppercase text-theme-muted tracking-wider font-bold block">
+                  Billing Address
+                </span>
+                {selectedCustomer.billingAddressLine1 ? (
+                  <p className="text-theme-body text-xs leading-relaxed">
+                    {selectedCustomer.billingAddressLine1}
+                    {selectedCustomer.billingAddressLine2 ? `, ${selectedCustomer.billingAddressLine2}` : ""}
+                    <br />
+                    {selectedCustomer.billingCity}, {selectedCustomer.billingState} - {selectedCustomer.billingPincode}
+                    {selectedCustomer.billingCountry && `, ${selectedCustomer.billingCountry}`}
+                  </p>
+                ) : (
+                  <p className="text-theme-muted italic text-xs">No billing address listed.</p>
+                )}
+              </div>
+
+              <div className="bg-theme-surface-1 p-4 rounded-xl border border-theme-divider space-y-2">
+                <span className="text-[10px] font-mono uppercase text-theme-muted tracking-wider font-bold block">
+                  Shipping Address
+                </span>
+                {selectedCustomer.shippingSameAsBilling !== false ? (
+                  <p className="text-theme-muted italic text-xs">Same as Billing Address</p>
+                ) : selectedCustomer.shippingAddressLine1 ? (
+                  <p className="text-theme-body text-xs leading-relaxed">
+                    {selectedCustomer.shippingAddressLine1}
+                    {selectedCustomer.shippingAddressLine2 ? `, ${selectedCustomer.shippingAddressLine2}` : ""}
+                    <br />
+                    {selectedCustomer.shippingCity}, {selectedCustomer.shippingState} - {selectedCustomer.shippingPincode}
+                    {selectedCustomer.shippingCountry && `, ${selectedCustomer.shippingCountry}`}
+                  </p>
+                ) : (
+                  <p className="text-theme-muted italic text-xs">No shipping address listed.</p>
+                )}
+              </div>
+            </div>
+
+            {selectedCustomer.additionalAddresses && selectedCustomer.additionalAddresses.length > 0 && (
+              <div className="bg-theme-surface-1 p-4 rounded-xl border border-theme-divider space-y-3">
+                <span className="text-[10px] font-mono uppercase text-theme-muted tracking-wider font-bold block">
+                  Additional Linked Locations ({selectedCustomer.additionalAddresses.length})
+                </span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {selectedCustomer.additionalAddresses.map((addr, idx) => (
+                    <div key={idx} className="bg-theme-surface-2 p-3 rounded-lg border border-theme-divider text-xs space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-theme-body">{addr.label}</span>
+                        <span className="bg-theme-surface-3 text-theme-muted px-1.5 py-0.5 rounded text-[9px] font-mono uppercase">
+                          {addr.address_type}
+                        </span>
+                      </div>
+                      <p className="text-theme-muted leading-snug">
+                        {addr.line1}, {addr.city}, {addr.state} - {addr.pincode}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ),
+      },
+      {
+        id: "ledger",
+        label: "Financial Ledger & History",
+        content: (
+          <div className="max-w-4xl">
+            <CustomerLedger customer={selectedCustomer} />
+          </div>
+        ),
+      },
+    ];
+
+    const metrics: ObjectPageMetric[] = [
+      { label: "Outstanding Credit", value: `₹${selectedCustomer.outstanding.toLocaleString("en-IN")}`, highlight: true },
+      { label: "GSTIN", value: selectedCustomer.gstNumber || "Unregistered" },
+      { label: "Customer Group", value: selectedCustomer.customerGroupId || "CG-Retail" },
+      { label: "Pricing Tier", value: selectedCustomer.pricingGroupId || "Standard" },
+    ];
+
+    return (
+      <div className="flex flex-col h-full bg-theme-base p-6">
+        <FioriObjectPage
+          title={selectedCustomer.name}
+          subtitle={`Customer ID: ${selectedCustomer.id} | Mobile: ${selectedCustomer.mobile || "Unregistered"}`}
+          badgeStatus={{
+            label: selectedCustomer.status,
+            type: selectedCustomer.status === "Active" ? "success" : selectedCustomer.status === "Inactive" ? "warning" : "error",
+          }}
+          metrics={metrics}
+          tabs={objectPageTabs}
+          onBack={() => setSelectedCustomerId(null)}
+        />
+      </div>
+    );
+  }
+
+  // WNG-002 Directory view: List Report Pattern
   return (
-    <div className="flex flex-col h-full bg-theme-surface-1 text-theme-primary font-sans">
+    <div className="flex flex-col h-full bg-theme-base text-theme-body">
+      {/* Read-Only Banner */}
       {isReadOnly && (
-        <div className="bg-amber-950/40 border-b border-amber-500/30 px-6 py-2.5 flex items-center space-x-2 text-amber-400 text-xs">
+        <div className="bg-amber-950/40 border-b border-amber-500/30 px-6 py-2.5 flex items-center space-x-2 text-amber-400 text-xs flex-shrink-0">
           <span className="material-symbols-outlined text-sm">warning</span>
           <span className="font-mono uppercase tracking-wider font-bold">Read-Only Mode:</span>
           <span>Operating under a Read-Only Report User role. Modifying customer profiles is prohibited.</span>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-theme-divider bg-theme-surface-2 px-6 py-4">
-        <div>
-          <h2 className="text-xl font-bold font-display text-theme-primary tracking-tight">
-            Customer Master Data
-          </h2>
-          <p className="text-xs text-theme-muted mt-1 max-w-2xl">
-            Single source of truth for customer contacts, addresses, credit profiles, and tax registration records.
-          </p>
-        </div>
-      </div>
-
-      <SmritiScrollArea className="flex-1 bg-theme-base p-6">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-theme-primary font-display uppercase tracking-wider">
-              Customer Directory
-            </h3>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search customers..."
-                className="bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-blue-500 w-64"
-              />
-              <button 
-                onClick={() => {
-                  if (isReadOnly) return;
+      {/* List Report View */}
+      <div className="flex-1 overflow-hidden">
+        <FioriListReport<Customer>
+          title="Customer Master Data"
+          subtitle="Single source of truth for customer contacts, addresses, credit profiles, and tax registration records"
+          data={customers}
+          columns={COLUMNS}
+          onRowClick={(c) => setSelectedCustomerId(c.id)}
+          searchPlaceholder="Search customers by name, mobile, GSTIN, or ID..."
+          onCreateNew={
+            !isReadOnly
+              ? () => {
                   setValidationErrors([]);
                   setIsAddingCustomer(true);
-                }}
-                disabled={isReadOnly}
-                className={`bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${
-                  isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-                }`}
-              >
-                <span>+ New Customer</span>
-              </button>
-            </div>
-          </div>
+                }
+              : undefined
+          }
+          primaryActionLabel="Register New Customer"
+          filterOptions={[
+            {
+              key: "status",
+              label: "Status",
+              options: [
+                { label: "Active", value: "Active" },
+                { label: "Inactive", value: "Inactive" },
+                { label: "Blocked", value: "Blocked" },
+              ],
+            },
+            {
+              key: "customerGroupId",
+              label: "Group",
+              options: customerGroups.map((g) => ({ label: g.name, value: g.id })),
+            },
+          ]}
+        />
+      </div>
 
-          {/* Add Customer Modal Overlay */}
-          {isAddingCustomer && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-lg shadow-2xl p-6 relative">
+      {/* Add Customer Modal Overlay */}
+      {isAddingCustomer && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-lg shadow-2xl p-6 relative text-theme-body">
+            <button
+              onClick={() => setIsAddingCustomer(false)}
+              className="absolute top-4 right-4 text-theme-muted hover:text-theme-heading"
+            >
+              <span className="material-symbols-outlined text-lg">close</span>
+            </button>
+
+            <div className="flex justify-between items-center border-b border-theme-divider pb-3 mb-4">
+              <h3 className="text-sm font-bold text-theme-heading uppercase tracking-wider">
+                Register New Customer Profile
+              </h3>
+              <div className="flex bg-theme-surface-2 border border-theme-divider rounded-lg p-0.5">
                 <button
-                  onClick={() => setIsAddingCustomer(false)}
-                  className="absolute top-4 right-4 text-theme-muted hover:text-theme-body"
+                  type="button"
+                  onClick={() => setFormMode("quick")}
+                  className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-colors ${
+                    formMode === "quick" ? "bg-cyan-500 text-theme-heading" : "text-theme-muted hover:text-theme-body"
+                  }`}
                 >
-                  <span className="material-symbols-outlined text-lg">close</span>
+                  Quick
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setFormMode("advanced")}
+                  className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-colors ${
+                    formMode === "advanced" ? "bg-cyan-500 text-theme-heading" : "text-theme-muted hover:text-theme-body"
+                  }`}
+                >
+                  Advanced
+                </button>
+              </div>
+            </div>
 
-                <div className="flex justify-between items-center border-b border-theme-divider/50 pb-3 mb-4">
-                  <h3 className="text-sm font-bold text-theme-primary uppercase tracking-wider">
-                    Register New Customer
-                  </h3>
-                  <div className="flex bg-theme-surface-2 border border-theme-divider rounded-lg p-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setFormMode("quick")}
-                      className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-colors ${
-                        formMode === "quick"
-                          ? "bg-blue-600 text-white"
-                          : "text-theme-muted hover:text-theme-body"
-                      }`}
-                    >
-                      Quick
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormMode("advanced")}
-                      className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-colors ${
-                        formMode === "advanced"
-                          ? "bg-blue-600 text-white"
-                          : "text-theme-muted hover:text-theme-body"
-                      }`}
-                    >
-                      Advanced
-                    </button>
-                  </div>
+            {validationErrors.length > 0 && (
+              <div className="bg-rose-950/40 border border-rose-500/30 text-rose-300 p-3 rounded-lg text-xs mb-4 space-y-1 font-mono">
+                {validationErrors.map((err, idx) => (
+                  <div key={idx}>• {err}</div>
+                ))}
+              </div>
+            )}
+
+            <SmritiScrollArea maxHeight="60vh" className="text-xs">
+              <div className="space-y-4 pr-2">
+                <div>
+                  <label className="block text-theme-muted mb-1 font-bold">Full Name *</label>
+                  <input
+                    type="text"
+                    value={newCustomerName}
+                    onChange={(e) => setNewCustomerName(e.target.value)}
+                    placeholder="e.g. John Doe"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-heading focus:outline-none focus:border-cyan-500"
+                  />
                 </div>
-
-                {validationErrors.length > 0 && (
-                  <div className="bg-rose-950/40 border border-rose-500/30 text-rose-300 p-3 rounded-lg text-xs mb-4 space-y-1 font-mono">
-                    {validationErrors.map((err, idx) => (
-                      <div key={idx}>• {err}</div>
-                    ))}
-                  </div>
-                )}
-
-                <SmritiScrollArea maxHeight="60vh" className="text-xs" fadeColorClass="from-theme-surface-1">
-                  <div className="space-y-4 pr-2">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-theme-muted mb-1 font-bold">Full Name *</label>
+                    <label className="block text-theme-muted mb-1 font-bold">Mobile *</label>
                     <input
                       type="text"
-                      value={newCustomerName}
-                      onChange={(e) => setNewCustomerName(e.target.value)}
-                      placeholder="e.g. John Doe"
-                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
+                      value={newCustomerMobile}
+                      onChange={(e) => setNewCustomerMobile(e.target.value)}
+                      placeholder="10-digit number"
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-heading focus:outline-none focus:border-cyan-500 font-mono"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-theme-muted mb-1 font-bold">Mobile *</label>
-                      <input
-                        type="text"
-                        value={newCustomerMobile}
-                        onChange={(e) => setNewCustomerMobile(e.target.value)}
-                        placeholder="10-digit number"
-                        className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-theme-muted mb-1 font-bold">Customer Group</label>
-                      <select
-                        value={newCustomerGroup}
-                        onChange={(e) => setNewCustomerGroup(e.target.value)}
-                        className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                      >
-                        {customerGroups.map((cg) => (
-                          <option key={cg.id} value={cg.id}>
-                            {cg.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Pricing Group selector — visible in both Quick and Advanced modes */}
                   <div>
-                    <label className="block text-theme-muted mb-1 font-bold flex items-center gap-1.5">
-                      Pricing Group
-                      <span className="text-[9px] bg-blue-900/60 text-blue-300 border border-blue-500/30 rounded px-1.5 py-0.5 uppercase tracking-wider font-mono">
-                        Optional
-                      </span>
-                    </label>
+                    <label className="block text-theme-muted mb-1 font-bold">Customer Group</label>
                     <select
-                      id="new-customer-pricing-group"
-                      value={newCustomerPricingGroup}
-                      onChange={(e) => setNewCustomerPricingGroup(e.target.value)}
-                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
+                      value={newCustomerGroup}
+                      onChange={(e) => setNewCustomerGroup(e.target.value)}
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-heading focus:outline-none focus:border-cyan-500"
                     >
-                      <option value="">— Standard Price (no group) —</option>
-                      {pricingGroups.map((pg) => (
-                        <option key={pg.id} value={pg.id}>
-                          {pg.name}{pg.discount_percent > 0 ? ` (${pg.discount_percent}% off)` : ""}
+                      {customerGroups.map((cg) => (
+                        <option key={cg.id} value={cg.id}>
+                          {cg.name}
                         </option>
                       ))}
                     </select>
-                    <p className="text-[10px] text-theme-muted mt-1 font-mono">
-                      Controls automatic discount, rounding, and scheme eligibility on every invoice.
-                    </p>
                   </div>
-
-                  {formMode === "advanced" && (
-                    <>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-theme-muted mb-1 font-bold">Email Address</label>
-                          <input
-                            type="email"
-                            value={newCustomerEmail}
-                            onChange={(e) => setNewCustomerEmail(e.target.value)}
-                            placeholder="name@domain.com"
-                            className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-theme-muted mb-1 font-bold">Profile Status</label>
-                          <select
-                            value={newCustomerStatus}
-                            onChange={(e) => setNewCustomerStatus(e.target.value as any)}
-                            className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                          >
-                            <option value="Active">Active</option>
-                            <option value="Inactive">Inactive</option>
-                            <option value="Blocked">Blocked</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-theme-muted mb-1 font-bold">GSTIN</label>
-                          <input
-                            type="text"
-                            value={newCustomerGst}
-                            onChange={(e) => setNewCustomerGst(e.target.value)}
-                            placeholder="15-character GSTIN"
-                            className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-theme-muted mb-1 font-bold">PAN</label>
-                          <input
-                            type="text"
-                            value={newCustomerPan}
-                            onChange={(e) => setNewCustomerPan(e.target.value)}
-                            placeholder="10-character PAN card"
-                            className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-theme-muted mb-1 font-bold">Customer Code</label>
-                          <input
-                            type="text"
-                            value={newCustomerCode}
-                            onChange={(e) => setNewCustomerCode(e.target.value)}
-                            placeholder="e.g. CUST-MANUAL"
-                            className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-theme-muted mb-1 font-bold">Short Name</label>
-                          <input
-                            type="text"
-                            value={newCustomerShortName}
-                            onChange={(e) => setNewCustomerShortName(e.target.value)}
-                            placeholder="Alias name"
-                            className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-theme-muted mb-1 font-bold">Salesperson</label>
-                          <input
-                            type="text"
-                            value={newCustomerSalesperson}
-                            onChange={(e) => setNewCustomerSalesperson(e.target.value)}
-                            placeholder="Sales agent name"
-                            className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-theme-muted mb-1 font-bold">Effective From</label>
-                          <input
-                            type="date"
-                            value={newCustomerEffectiveFrom}
-                            onChange={(e) => setNewCustomerEffectiveFrom(e.target.value)}
-                            className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-theme-muted mb-1 font-bold">Effective To</label>
-                          <input
-                            type="date"
-                            value={newCustomerEffectiveTo}
-                            onChange={(e) => setNewCustomerEffectiveTo(e.target.value)}
-                            className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-theme-muted mb-1 font-bold">Sort Order</label>
-                          <input
-                            type="number"
-                            value={newCustomerSortOrder}
-                            onChange={(e) => setNewCustomerSortOrder(e.target.value)}
-                            placeholder="0"
-                            className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Advanced Address Management Section */}
-                      <div className="border-t border-theme-divider/50 pt-4 mt-2 space-y-4">
-                        <h4 className="text-[10px] font-bold text-blue-400 uppercase tracking-wider font-mono">
-                          Address &amp; Locations
-                        </h4>
-                        
-                        {/* Billing Address Block */}
-                        <div className="bg-theme-surface-2/40 border border-theme-divider/30 rounded-xl p-3 space-y-3">
-                          <span className="text-[10px] font-bold text-theme-muted uppercase tracking-wider block border-b border-theme-divider/30 pb-1">
-                            Billing Address
-                          </span>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Line 1</label>
-                              <input
-                                type="text"
-                                value={newBillingLine1}
-                                onChange={(e) => setNewBillingLine1(e.target.value)}
-                                placeholder="Street address, P.O. box"
-                                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Line 2</label>
-                              <input
-                                type="text"
-                                value={newBillingLine2}
-                                onChange={(e) => setNewBillingLine2(e.target.value)}
-                                placeholder="Apartment, suite, unit"
-                                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                              />
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-3 gap-3">
-                            <div>
-                              <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">City</label>
-                              <input
-                                type="text"
-                                value={newBillingCity}
-                                onChange={(e) => setNewBillingCity(e.target.value)}
-                                placeholder="City"
-                                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">State</label>
-                              <input
-                                type="text"
-                                value={newBillingState}
-                                onChange={(e) => setNewBillingState(e.target.value)}
-                                placeholder="State"
-                                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Pincode</label>
-                              <input
-                                type="text"
-                                value={newBillingPincode}
-                                onChange={(e) => setNewBillingPincode(e.target.value)}
-                                placeholder="Postal code"
-                                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Country</label>
-                            <input
-                              type="text"
-                              value={newBillingCountry}
-                              onChange={(e) => setNewBillingCountry(e.target.value)}
-                              placeholder="India"
-                              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Same as billing checkbox */}
-                        <div className="flex items-center gap-2 px-1">
-                          <input
-                            type="checkbox"
-                            id="shipping-same-as-billing-checkbox"
-                            checked={newShippingSameAsBilling}
-                            onChange={(e) => setNewShippingSameAsBilling(e.target.checked)}
-                            className="bg-theme-surface-2 border-theme-divider rounded focus:ring-0 w-4 h-4 cursor-pointer"
-                          />
-                          <label htmlFor="shipping-same-as-billing-checkbox" className="text-[10px] text-theme-body font-semibold cursor-pointer">
-                            Shipping address is the same as billing address
-                          </label>
-                        </div>
-
-                        {/* Shipping Address Block */}
-                        {!newShippingSameAsBilling && (
-                          <div className="bg-theme-surface-2/40 border border-theme-divider/30 rounded-xl p-3 space-y-3">
-                            <span className="text-[10px] font-bold text-theme-muted uppercase tracking-wider block border-b border-theme-divider/30 pb-1">
-                              Shipping Address
-                            </span>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Line 1</label>
-                                <input
-                                  type="text"
-                                  value={newShippingLine1}
-                                  onChange={(e) => setNewShippingLine1(e.target.value)}
-                                  placeholder="Street address, P.O. box"
-                                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Line 2</label>
-                                <input
-                                  type="text"
-                                  value={newShippingLine2}
-                                  onChange={(e) => setNewShippingLine2(e.target.value)}
-                                  placeholder="Apartment, suite, unit"
-                                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                                />
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-3">
-                              <div>
-                                <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">City</label>
-                                <input
-                                  type="text"
-                                  value={newShippingCity}
-                                  onChange={(e) => setNewShippingCity(e.target.value)}
-                                  placeholder="City"
-                                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">State</label>
-                                <input
-                                  type="text"
-                                  value={newShippingState}
-                                  onChange={(e) => setNewShippingState(e.target.value)}
-                                  placeholder="State"
-                                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Pincode</label>
-                                <input
-                                  type="text"
-                                  value={newShippingPincode}
-                                  onChange={(e) => setNewShippingPincode(e.target.value)}
-                                  placeholder="Postal code"
-                                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                                />
-                              </div>
-                            </div>
-                            <div>
-                              <label className="block text-[10px] text-theme-muted mb-0.5 font-bold">Country</label>
-                              <input
-                                type="text"
-                                value={newShippingCountry}
-                                onChange={(e) => setNewShippingCountry(e.target.value)}
-                                placeholder="India"
-                                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Additional Addresses List & Form */}
-                        <div className="bg-theme-surface-2/40 border border-theme-divider/30 rounded-xl p-3 space-y-3">
-                          <div className="flex justify-between items-center border-b border-theme-divider/30 pb-1">
-                            <span className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
-                              Additional Locations ({newAdditionalAddresses.length}/10)
-                            </span>
-                          </div>
-
-                          {/* Existing Cards */}
-                          {newAdditionalAddresses.length > 0 && (
-                            <div className="grid grid-cols-1 gap-2">
-                              {newAdditionalAddresses.map((addr, idx) => (
-                                <div key={idx} className="bg-theme-surface-3 border border-theme-divider/40 p-2.5 rounded-lg flex justify-between items-start font-sans">
-                                  <div>
-                                    <div className="flex items-center gap-1.5 mb-1">
-                                      <span className="font-bold text-theme-body">{addr.label}</span>
-                                      <span className="text-[8px] bg-blue-950 text-blue-400 border border-blue-500/20 px-1 rounded uppercase font-bold tracking-wider font-mono">
-                                        {addr.address_type}
-                                      </span>
-                                      {addr.is_default_shipping && (
-                                        <span className="text-[8px] bg-emerald-950 text-emerald-400 border border-emerald-500/20 px-1 rounded uppercase font-bold tracking-wider font-mono">
-                                          Default Ship
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="text-theme-muted text-[10px] leading-tight">
-                                      {addr.line1}{addr.line2 ? `, ${addr.line2}` : ""}, {addr.city}, {addr.state} - {addr.pincode}
-                                    </p>
-                                    {addr.gstin && <p className="text-theme-muted text-[9px] font-mono mt-0.5">GSTIN: {addr.gstin}</p>}
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveAdditionalAddress(idx)}
-                                    className="text-rose-500 hover:text-rose-400 p-1 flex items-center justify-center cursor-pointer"
-                                  >
-                                    <span className="material-symbols-outlined text-sm">delete</span>
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Add Form Container */}
-                          {newAdditionalAddresses.length < 10 && (
-                            <div className="bg-theme-surface-3/50 border border-dashed border-theme-divider/50 p-2.5 rounded-lg space-y-2 mt-2">
-                              <span className="text-[9px] font-bold text-theme-muted uppercase tracking-wider block font-mono">
-                                Add Custom Location
-                              </span>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <label className="block text-[8px] text-theme-muted font-bold">Location Label *</label>
-                                  <input
-                                    type="text"
-                                    value={newAddLabel}
-                                    onChange={(e) => setNewAddLabel(e.target.value)}
-                                    placeholder="e.g. Warehouse 1, Site Office"
-                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[8px] text-theme-muted font-bold">Location Type</label>
-                                  <select
-                                    value={newAddType}
-                                    onChange={(e) => setNewAddType(e.target.value as any)}
-                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none"
-                                  >
-                                    <option value="Warehouse">Warehouse</option>
-                                    <option value="Branch">Branch</option>
-                                    <option value="Plant">Plant</option>
-                                    <option value="Office">Office</option>
-                                    <option value="Billing">Billing Address</option>
-                                    <option value="Shipping">Shipping Address</option>
-                                    <option value="Other">Other</option>
-                                  </select>
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <label className="block text-[8px] text-theme-muted font-bold">Line 1 *</label>
-                                  <input
-                                    type="text"
-                                    value={newAddLine1}
-                                    onChange={(e) => setNewAddLine1(e.target.value)}
-                                    placeholder="Address Line 1"
-                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[8px] text-theme-muted font-bold">Line 2</label>
-                                  <input
-                                    type="text"
-                                    value={newAddLine2}
-                                    onChange={(e) => setNewAddLine2(e.target.value)}
-                                    placeholder="Address Line 2"
-                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none"
-                                  />
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-3 gap-2">
-                                <div>
-                                  <label className="block text-[8px] text-theme-muted font-bold">City *</label>
-                                  <input
-                                    type="text"
-                                    value={newAddCity}
-                                    onChange={(e) => setNewAddCity(e.target.value)}
-                                    placeholder="City"
-                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[8px] text-theme-muted font-bold">State *</label>
-                                  <input
-                                    type="text"
-                                    value={newAddState}
-                                    onChange={(e) => setNewAddState(e.target.value)}
-                                    placeholder="State"
-                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[8px] text-theme-muted font-bold">Pincode *</label>
-                                  <input
-                                    type="text"
-                                    value={newAddPincode}
-                                    onChange={(e) => setNewAddPincode(e.target.value)}
-                                    placeholder="Zipcode"
-                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none font-mono"
-                                  />
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <label className="block text-[8px] text-theme-muted font-bold">GSTIN (Optional)</label>
-                                  <input
-                                    type="text"
-                                    value={newAddGstin}
-                                    onChange={(e) => setNewAddGstin(e.target.value)}
-                                    placeholder="15-char ID"
-                                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-1.5 text-theme-body focus:outline-none font-mono"
-                                  />
-                                </div>
-                                <div className="flex items-center gap-1.5 mt-4">
-                                  <input
-                                    type="checkbox"
-                                    id="new-add-is-default-checkbox"
-                                    checked={newAddIsDefault}
-                                    onChange={(e) => setNewAddIsDefault(e.target.checked)}
-                                    className="bg-theme-surface-2 border-theme-divider rounded focus:ring-0 w-3.5 h-3.5 cursor-pointer"
-                                  />
-                                  <label htmlFor="new-add-is-default-checkbox" className="text-[8px] text-theme-body font-semibold cursor-pointer">
-                                    Default Delivery Point
-                                  </label>
-                                </div>
-                              </div>
-                              <div className="pt-2 text-right">
-                                <button
-                                  type="button"
-                                  onClick={handleAddAdditionalAddress}
-                                  className="bg-slate-700 hover:bg-slate-600 text-white font-semibold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider transition-colors cursor-pointer"
-                                >
-                                  + Link Address
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-theme-muted mb-1 font-bold">Tags (comma-separated)</label>
-                        <input
-                          type="text"
-                          value={newCustomerTags}
-                          onChange={(e) => setNewCustomerTags(e.target.value)}
-                          placeholder="e.g. VIP, Retail"
-                          className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-theme-muted mb-1 font-bold">Notes / Description</label>
-                        <textarea
-                          value={newCustomerNotes}
-                          onChange={(e) => setNewCustomerNotes(e.target.value)}
-                          placeholder="Internal business comments..."
-                          rows={3}
-                          className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-body focus:outline-none focus:border-blue-500"
-                        />
-                      </div>
-                    </>
-                  )}
-                  </div>
-                </SmritiScrollArea>
-
-                <div className="flex justify-end gap-2 mt-6 border-t border-theme-divider/50 pt-4">
-                  <button
-                    onClick={() => setIsAddingCustomer(false)}
-                    className="px-4 py-2 border border-theme-divider hover:bg-theme-surface-hover text-theme-muted rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleRegisterCustomer}
-                    disabled={isValidating}
-                    className="bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white px-5 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                  >
-                    {isValidating ? "Validating..." : "Register Profile"}
-                  </button>
                 </div>
-              </div>
-            </div>
-          )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className={`${selectedCustomerId ? "lg:col-span-2" : "lg:col-span-3"} transition-all duration-300`}>
-              <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden shadow-lg">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-theme-surface-3 border-b border-theme-divider text-[10px] uppercase tracking-wider text-theme-muted font-mono">
-                      <th className="px-6 py-4 font-semibold">Customer ID</th>
-                      <th className="px-6 py-4 font-semibold">Name</th>
-                      <th className="px-6 py-4 font-semibold">Contact / Email</th>
-                      <th className="px-6 py-4 font-semibold">GSTIN</th>
-                      <th className="px-6 py-4 font-semibold text-right">Outstanding Credit</th>
-                      <th className="px-6 py-4 font-semibold text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-xs divide-y divide-theme-divider">
-                    {filteredCustomers.map((c) => (
-                      <tr 
-                        key={c.id} 
-                        onClick={() => setSelectedCustomerId(c.id)}
-                        className={`hover:bg-theme-surface-hover transition-colors cursor-pointer ${selectedCustomerId === c.id ? "bg-theme-surface-3" : ""}`}
-                      >
-                        <td className="px-6 py-4 font-mono font-bold text-blue-400">{c.id}</td>
-                        <td className="px-6 py-4 font-medium text-theme-body font-display">{c.name}</td>
-                        <td className="px-6 py-4 text-theme-muted">
-                          <div>{c.mobile || "—"}</div>
-                          <div className="text-[10px] opacity-80">{c.email || ""}</div>
-                        </td>
-                        <td className="px-6 py-4 font-mono">{c.gstNumber || "—"}</td>
-                        <td className="px-6 py-4 text-right font-mono text-emerald-400 font-medium">
-                          ₹{c.outstanding.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            c.status === "Active" ? "bg-emerald-950 text-emerald-400 border border-emerald-500/30" :
-                            c.status === "Inactive" ? "bg-slate-700 text-slate-300" :
-                            "bg-rose-950 text-rose-400 border border-rose-500/30 font-bold animate-pulse"
-                          }`}>
-                            {c.status}
-                          </span>
-                        </td>
-                      </tr>
+                <div>
+                  <label className="block text-theme-muted mb-1 font-bold flex items-center gap-1.5">
+                    Pricing Group
+                  </label>
+                  <select
+                    value={newCustomerPricingGroup}
+                    onChange={(e) => setNewCustomerPricingGroup(e.target.value)}
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-theme-heading focus:outline-none focus:border-cyan-500"
+                  >
+                    <option value="">Standard Retail Price</option>
+                    {pricingGroups.map((pg) => (
+                      <option key={pg.id} value={pg.id}>
+                        {pg.name} ({pg.discount_percent}% off)
+                      </option>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {selectedCustomerId && (() => {
-              const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
-              return selectedCustomer ? (
-                <div className="space-y-6 lg:col-span-1">
-                  <CustomerProfile 
-                    customer={selectedCustomer} 
-                    isReadOnly={isReadOnly} 
-                    onClose={() => setSelectedCustomerId(null)} 
-                  />
-                  <CustomerLedger customer={selectedCustomer} />
+                  </select>
                 </div>
-              ) : null;
-            })()}
+              </div>
+            </SmritiScrollArea>
+
+            <div className="flex justify-end gap-2 mt-6 border-t border-theme-divider pt-4">
+              <button
+                onClick={() => setIsAddingCustomer(false)}
+                className="px-4 py-2 border border-theme-divider hover:bg-theme-surface-hover text-theme-body rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRegisterCustomer}
+                disabled={isValidating}
+                className="bg-cyan-500 hover:bg-cyan-400 text-theme-heading font-bold px-5 py-2 rounded-lg text-xs transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isValidating ? "Validating..." : "Register Profile"}
+              </button>
+            </div>
           </div>
         </div>
-      </SmritiScrollArea>
+      )}
     </div>
   );
 };

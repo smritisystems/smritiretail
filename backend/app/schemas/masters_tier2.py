@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -48,12 +48,22 @@ class BranchCreate(BaseModel):
     company: str  # Maps to company_id
     name: str
     code: str
+    branch_type: str | None = "RETAIL"
+    gstin: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    manager_user_id: str | None = None
 
 
 class BranchUpdate(BaseModel):
     company: str | None = None
     name: str | None = None
     code: str | None = None
+    branch_type: str | None = None
+    gstin: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    manager_user_id: str | None = None
 
 
 class BranchResponse(BaseModel):
@@ -61,6 +71,11 @@ class BranchResponse(BaseModel):
     name: str
     code: str
     company: str  # Maps to company_id
+    branch_type: str | None = "RETAIL"
+    gstin: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    manager_user_id: str | None = None
 
     @classmethod
     def from_orm_model(cls, obj):
@@ -68,7 +83,40 @@ class BranchResponse(BaseModel):
             id=obj.id,
             name=obj.name,
             code=obj.code,
-            company=obj.company_id
+            company=obj.company_id,
+            branch_type=getattr(obj, "branch_type", "RETAIL") or "RETAIL",
+            gstin=getattr(obj, "gstin", None),
+            phone=getattr(obj, "phone", None),
+            email=getattr(obj, "email", None),
+            manager_user_id=getattr(obj, "manager_user_id", None)
+        )
+
+
+class OrganizationCreate(BaseModel):
+    name: str
+    org_type: str | None = "STANDALONE"
+    is_active: bool | None = True
+
+
+class OrganizationUpdate(BaseModel):
+    name: str | None = None
+    org_type: str | None = None
+    is_active: bool | None = None
+
+
+class OrganizationResponse(BaseModel):
+    id: str
+    name: str
+    org_type: str
+    is_active: bool
+
+    @classmethod
+    def from_orm_model(cls, obj):
+        return cls(
+            id=obj.id,
+            name=obj.name,
+            org_type=getattr(obj, "org_type", "STANDALONE") or "STANDALONE",
+            is_active=obj.is_active if obj.is_active is not None else True
         )
 
 

@@ -1,0 +1,84 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      release_version:
+        description: 'Release version'
+        required: true
+        type: string
+    secrets:
+      GITHUB_TOKEN:
+        required: true
+
+jobs:
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend bundle
+        run: npm run build
+
+      - name: Build frontend Docker image
+        run: |
+          VERSION=${{ inputs.release_version }}
+          docker build -t smriti-frontend:$VERSION -f Dockerfile .
+          docker tag smriti-frontend:$VERSION ghcr.io/${{ github.repository }}/frontend:$VERSION
+          docker tag smriti-frontend:$VERSION ghcr.io/${{ github.repository }}/frontend:latest
+
+      - name: Save frontend image artifact
+        run: |
+          VERSION=${{ inputs.release_version }}
+          docker save ghcr.io/${{ github.repository }}/frontend:$VERSION | gzip > frontend-${VERSION}.tar.gz
+      - name: Upload frontend image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-artifacts
+          path: frontend-${{ inputs.release_version }}.tar.gz
+
+  backend-build:
+    name: Backend Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Build backend Docker image
+        run: |
+          VERSION=${{ inputs.release_version }}
+          docker build -t smriti-backend:$VERSION -f backend/Dockerfile backend/
+          docker tag smriti-backend:$VERSION ghcr.io/${{ github.repository }}/backend:$VERSION
+          docker tag smriti-backend:$VERSION ghcr.io/${{ github.repository }}/backend:latest
+
+      - name: Save backend image artifact
+        run: |
+          VERSION=${{ inputs.release_version }}
+          docker save ghcr.io/${{ github.repository }}/backend:$VERSION | gzip > backend-${VERSION}.tar.gz
+      - name: Upload backend image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-artifacts
+          path: backend-${{ inputs.release_version }}.tar.gz

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -36,6 +36,9 @@ export interface Product {
   name: string;
   price: number;
   stock: number;
+  stock_qty?: number;
+  qty?: number;
+  min_stock_level?: number;
   category: string;
   isFavorite?: boolean;
   barcode: string;
@@ -45,11 +48,19 @@ export interface Product {
   color?: string;
   size?: string;
   mrp?: number;
-  gstPercentage?: number;
-  styleCode?: string;
   costPrice?: number; // Added for variant cost price support
+  purchase_price?: number;
   sku?: string; // Added for variant SKU support
   hsnCode?: string; // Added for HSN Code support
+  hsn_code?: string;
+  gstPercentage?: number;
+  gst_rate?: number;
+  tax_rate?: number;
+  uom?: string;
+  has_batch_tracking?: boolean;
+  has_expiry_date?: boolean;
+  has_serial_number?: boolean;
+  styleCode?: string;
   // Extensible Attribute fields
   attributes?: Record<string, string>; // e.g. { "Sole Type": "Rubber", "Color": "Navy", "Size": "M" }
   pricingMode?: "Fixed" | "Weight-based" | "Negotiated" | "Service";
@@ -509,6 +520,7 @@ export interface Customer {
 
   // Pricing overrides
   priceListId?: string;
+  pricingGroupId?: string;
   discountPercent?: number;
 
   // Payment overrides

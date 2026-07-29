@@ -21,10 +21,10 @@ from app.models.security import (
     PermissionType,
     SMRITIMenu,
     SMRITIPermission,
-    SMRITIPolicy,
-    SMRITIPolicyPermission,
+    SMRITIPermissionSet,
+    SMRITIPermissionSetPermission,
     SMRITIRole,
-    SMRITIRolePolicy,
+    SMRITIRolePermissionSet,
     SMRITIUserRole,
 )
 from app.services.security import SecurityService, clear_all_permissions_cache
@@ -33,9 +33,9 @@ _SECURITY_TEST_TABLES = [
     "smriti_security_audits",
     "smriti_menus",
     "smriti_user_roles",
-    "smriti_policy_permissions",
-    "smriti_role_policies",
-    "smriti_policies",
+    "smriti_permission_set_permissions",
+    "smriti_role_permission_sets",
+    "smriti_permission_sets",
     "smriti_permissions",
     "smriti_roles",
 ]
@@ -56,7 +56,7 @@ async def clean_security_tables(db_session):
 
 async def _setup_test_environment(db):
     """
-    Helper to set up default dynamic roles, permissions, policies, and a test user.
+    Helper to set up default dynamic roles, permissions, permission sets, and a test user.
     """
     # 1. Create permissions
     perm_sales_create = SMRITIPermission(
@@ -77,32 +77,32 @@ async def _setup_test_environment(db):
     )
     db.add_all([perm_sales_create, perm_sales_approve])
 
-    # 2. Create policies
-    policy_cashier = SMRITIPolicy(
+    # 2. Create permission sets
+    permission_set_cashier = SMRITIPermissionSet(
         id="policy-cashier",
         code="POL-CASHIER",
         name="Cashier Policy"
     )
-    policy_manager = SMRITIPolicy(
+    permission_set_manager = SMRITIPermissionSet(
         id="policy-manager",
         code="POL-MANAGER",
         name="Manager Policy"
     )
-    db.add_all([policy_cashier, policy_manager])
+    db.add_all([permission_set_cashier, permission_set_manager])
     await db.commit()
 
-    # Map permissions to policies
-    # Cashier policy allows SALES.CREATE
-    pp_cashier = SMRITIPolicyPermission(
+    # Map permissions to permission sets
+    # Cashier permission set allows SALES.CREATE
+    pp_cashier = SMRITIPermissionSetPermission(
         id="pp-1",
-        policy_id="policy-cashier",
+        permission_set_id="policy-cashier",
         permission_id="perm-sales-create",
         permission_type=PermissionType.ALLOW
     )
-    # Manager policy allows SALES.APPROVE
-    pp_mgr = SMRITIPolicyPermission(
+    # Manager permission set allows SALES.APPROVE
+    pp_mgr = SMRITIPermissionSetPermission(
         id="pp-2",
-        policy_id="policy-manager",
+        permission_set_id="policy-manager",
         permission_id="perm-sales-approve",
         permission_type=PermissionType.ALLOW
     )
@@ -129,16 +129,16 @@ async def _setup_test_environment(db):
     db.add_all([role_guest, role_cashier, role_manager])
     await db.commit()
 
-    # Map roles to policies
-    rp_cashier = SMRITIRolePolicy(
+    # Map roles to permission sets
+    rp_cashier = SMRITIRolePermissionSet(
         id="rp-1",
         role_id="role-test-cashier",
-        policy_id="policy-cashier"
+        permission_set_id="policy-cashier"
     )
-    rp_mgr = SMRITIRolePolicy(
+    rp_mgr = SMRITIRolePermissionSet(
         id="rp-2",
         role_id="role-test-manager",
-        policy_id="policy-manager"
+        permission_set_id="policy-manager"
     )
     db.add_all([rp_cashier, rp_mgr])
 
@@ -196,10 +196,10 @@ async def test_permissions_resolution_precedence(db_session):
     assert "SALES.CREATE" in perms
     assert "SALES.APPROVE" in perms
 
-    # Add an explicit DENY on SALES.CREATE in manager policy
-    deny_perm = SMRITIPolicyPermission(
+    # Add an explicit DENY on SALES.CREATE in manager permission set
+    deny_perm = SMRITIPermissionSetPermission(
         id="pp-deny",
-        policy_id="policy-manager",
+        permission_set_id="policy-manager",
         permission_id="perm-sales-create",
         permission_type=PermissionType.DENY
     )
@@ -383,45 +383,45 @@ async def test_multi_policy_aggregation(db_session):
         {"id": f"ur-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "role_id": role_id}
     )
 
-    # 3. Create two policies
+    # 3. Create two permission sets
     pol_id_1 = f"pol-{uuid.uuid4().hex[:6]}"
     pol_id_2 = f"pol-{uuid.uuid4().hex[:6]}"
     await db_session.execute(
-        text("INSERT INTO smriti_policies (id, uuid, code, name, description, is_active, is_deleted, created_at, modified_at) "
+        text("INSERT INTO smriti_permission_sets (id, uuid, code, name, description, is_active, is_deleted, created_at, modified_at) "
              "VALUES (:id, :uuid, :code, :name, 'desc', true, false, now(), now())"),
         {"id": pol_id_1, "uuid": str(uuid.uuid4()), "code": "POL_TEST_1", "name": "Policy 1"}
     )
     await db_session.execute(
-        text("INSERT INTO smriti_policies (id, uuid, code, name, description, is_active, is_deleted, created_at, modified_at) "
+        text("INSERT INTO smriti_permission_sets (id, uuid, code, name, description, is_active, is_deleted, created_at, modified_at) "
              "VALUES (:id, :uuid, :code, :name, 'desc', true, false, now(), now())"),
         {"id": pol_id_2, "uuid": str(uuid.uuid4()), "code": "POL_TEST_2", "name": "Policy 2"}
     )
 
-    # 4. Map policies to role
+    # 4. Map permission sets to role
     await db_session.execute(
-        text("INSERT INTO smriti_role_policies (id, uuid, role_id, policy_id, created_at, modified_at) "
-             "VALUES (:id, :uuid, :role_id, :policy_id, now(), now())"),
-        {"id": f"rp-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "role_id": role_id, "policy_id": pol_id_1}
+        text("INSERT INTO smriti_role_permission_sets (id, uuid, role_id, permission_set_id, created_at, modified_at) "
+             "VALUES (:id, :uuid, :role_id, :permission_set_id, now(), now())"),
+        {"id": f"rp-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "role_id": role_id, "permission_set_id": pol_id_1}
     )
     await db_session.execute(
-        text("INSERT INTO smriti_role_policies (id, uuid, role_id, policy_id, created_at, modified_at) "
-             "VALUES (:id, :uuid, :role_id, :policy_id, now(), now())"),
-        {"id": f"rp-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "role_id": role_id, "policy_id": pol_id_2}
+        text("INSERT INTO smriti_role_permission_sets (id, uuid, role_id, permission_set_id, created_at, modified_at) "
+             "VALUES (:id, :uuid, :role_id, :permission_set_id, now(), now())"),
+        {"id": f"rp-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "role_id": role_id, "permission_set_id": pol_id_2}
     )
 
-    # 5. Map permissions to policies
+    # 5. Map permissions to permission sets
     perm_create_id = await db_session.scalar(text("SELECT id FROM smriti_permissions WHERE code = 'SALES.CREATE'"))
     perm_approve_id = await db_session.scalar(text("SELECT id FROM smriti_permissions WHERE code = 'SALES.APPROVE'"))
 
     await db_session.execute(
-        text("INSERT INTO smriti_policy_permissions (id, uuid, policy_id, permission_id, permission_type, created_at, modified_at) "
-             "VALUES (:id, :uuid, :policy_id, :perm_id, 'ALLOW', now(), now())"),
-        {"id": f"pp-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "policy_id": pol_id_1, "perm_id": perm_create_id}
+        text("INSERT INTO smriti_permission_set_permissions (id, uuid, permission_set_id, permission_id, permission_type, created_at, modified_at) "
+             "VALUES (:id, :uuid, :permission_set_id, :perm_id, 'ALLOW', now(), now())"),
+        {"id": f"pp-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "permission_set_id": pol_id_1, "perm_id": perm_create_id}
     )
     await db_session.execute(
-        text("INSERT INTO smriti_policy_permissions (id, uuid, policy_id, permission_id, permission_type, created_at, modified_at) "
-             "VALUES (:id, :uuid, :policy_id, :perm_id, 'ALLOW', now(), now())"),
-        {"id": f"pp-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "policy_id": pol_id_2, "perm_id": perm_approve_id}
+        text("INSERT INTO smriti_permission_set_permissions (id, uuid, permission_set_id, permission_id, permission_type, created_at, modified_at) "
+             "VALUES (:id, :uuid, :permission_set_id, :perm_id, 'ALLOW', now(), now())"),
+        {"id": f"pp-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "permission_set_id": pol_id_2, "perm_id": perm_approve_id}
     )
 
     await db_session.commit()
@@ -435,9 +435,9 @@ async def test_multi_policy_aggregation(db_session):
 
 
 @pytest.mark.asyncio
-async def test_cache_invalidation_after_policy_change(db_session):
+async def test_cache_invalidation_after_permission_set_change(db_session):
     """
-    Verify that cache is successfully invalidated when permissions/policy changes.
+    Verify that cache is successfully invalidated when permissions/permission set changes.
     """
     from app.services.cache import PermissionCacheFactory
     from app.services.security import invalidate_user_permission_cache

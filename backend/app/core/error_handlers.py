@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -142,11 +142,14 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
     explanation = exc.detail
     suggested_action = None
+    ref_id = None
     if isinstance(exc.detail, dict):
         explanation = exc.detail.get("explanation") or exc.detail.get("detail")
         suggested_action = exc.detail.get("suggested_action")
         if exc.detail.get("title"):
             title = exc.detail.get("title")
+        if exc.detail.get("reference_id"):
+            ref_id = exc.detail.get("reference_id")
 
     res = build_error_response(
         error_code=code,
@@ -154,6 +157,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         custom_action=suggested_action,
         reference_msg=str(exc.detail),
         custom_title=title,
+        custom_reference_id=ref_id,
     )
     return dispatch_response(request, exc, exc.status_code, res)
 

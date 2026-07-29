@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -11,7 +11,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from sqlalchemy import Column, String, Boolean, Text, Integer
+from sqlalchemy import Column, String, Boolean, Text, Integer, Numeric
 from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import BaseEntity
 

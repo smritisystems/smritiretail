@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -6,15 +6,22 @@ Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.24.0
 Created      : 2026-07-11
-Modified     : 2026-07-18
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+import sys
+import os
 import asyncio
 from logging.config import fileConfig
 from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
+
+# Ensure backend root is in sys.path for app module imports
+backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if backend_root not in sys.path:
+    sys.path.insert(0, backend_root)
 
 # Import our settings and base metadata
 from app.core.config import settings
@@ -37,7 +44,7 @@ from app.models.purchase import (
     PurchaseReceipt, PurchaseReceiptItem,
     PurchaseReorderConfig, PurchaseJurisdictionConfig,
 )
-from app.models.pos import CashRegister, Shift
+from app.models.pos import PosSession, PosTransaction, PosTransactionItem, PosOfflineSyncQueue
 from app.models.supplier_payment import SupplierPayment
 from app.compliance.models import (
     GovernmentService,
@@ -57,9 +64,9 @@ from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignme
 from app.models.security import (
     SMRITIRole,
     SMRITIPermission,
-    SMRITIPolicy,
-    SMRITIRolePolicy,
-    SMRITIPolicyPermission,
+    SMRITIPermissionSet,
+    SMRITIRolePermissionSet,
+    SMRITIPermissionSetPermission,
     SMRITIUserRole,
     SMRITIMenu,
     SMRITISecurityAudit,
@@ -136,9 +143,9 @@ def include_object(object, name, type_, reflected, compare_to):
             "purchase_jurisdiction_configs",
             "smriti_roles",
             "smriti_permissions",
-            "smriti_policies",
-            "smriti_role_policies",
-            "smriti_policy_permissions",
+            "smriti_permission_sets",
+            "smriti_role_permission_sets",
+            "smriti_permission_set_permissions",
             "smriti_user_roles",
             "smriti_menus",
             "smriti_security_audits",
@@ -161,6 +168,11 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 def do_run_migrations(connection) -> None:
+    try:
+        connection.execute(sa.text("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255);"))
+        connection.commit()
+    except Exception:
+        pass
     context.configure(
         connection=connection, 
         target_metadata=target_metadata,

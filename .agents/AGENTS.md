@@ -1,5 +1,6 @@
-﻿<!--
+<!--
   Project      : SMRITI Retail OS
+  Organization : SmritiSys
   Author       : Jawahar Ramkripal Mallah
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
@@ -77,6 +78,19 @@ Every verification report must structure its conclusions into three explicitly l
 ## 10. Evidence Policy (MANDATORY)
 Every completion claim must be backed by directly observable evidence. If evidence is unavailable, the agent must report the status as "claimed but unverified" rather than marking it complete.
 
+## 11. Workspace UI Navigation Governance (WNG-002)
+1. **Single Purpose Screens**:
+   - **Login**: Authenticates user identity.
+   - **Launchpad**: Renders ONLY authorized application domain tiles (Max 12 tiles).
+   - **Workspace**: Single-domain operational workspace.
+   - **Dashboard**: Analytic views shown ONLY when user explicitly enters that application.
+2. **Role-Based Dynamic Generation**:
+   - Launchpad tiles MUST be generated dynamically from backend RBAC permission scopes.
+   - Disabled/greyed-out application tiles MUST NOT be rendered.
+3. **Consistent UI Structure**:
+   - Master entities MUST implement the **Object Page Pattern** (Fixed summary header + horizontal tabs).
+   - Transaction domains MUST implement the **List Report Pattern** (Filter bar + Search + Actionable Data Table).
+
 ---
 
 
@@ -94,23 +108,256 @@ Before presenting a verification report, the agent should confirm:
 
 ---
 
-## Environment Rule: DEV vs TEST (MANDATORY â€” PERMANENT)
+## Environment Rule: DEV vs TEST (MANDATORY — PERMANENT)
 
-| Drive | Purpose | Rule |
+| Location / Path | Purpose | Rule |
 |---|---|---|
-| `D:\Smriti_Retail_OS` | **Development** â€” all code is written here | All edits, new files, git commits happen here |
-| `F:\Smriti9` | **Testing** â€” receives code via git pull only | Never write code directly here; always sync via `git pull` |
+| Development Workspace | **Development** — all code is written and committed here | All edits, new files, and git commits happen in the development workspace |
+| `F:\SMRITI9TEST` | **Testing** — receives code via git sync for testing only | ALWAYS use `F:\SMRITI9TEST` for testing. NEVER use the development/coding folder for testing execution |
 
 ### Workflow
 
-1. Write all code in `D:\Smriti_Retail_OS\apps\smriti_retail_os`
-2. Commit and push from `D:\Smriti_Retail_OS\apps\smriti_retail_os`
-3. Pull into `F:\Smriti9\apps\smriti_retail_os` to deploy to the test environment
-4. Never edit files directly in `F:\Smriti9`
-
-This rule applies to ALL sessions, ALL agents, and ALL tasks. No exceptions.
+1. Write all code in the active Development repository workspace (`f:\SMRITRretailNXmgrt`).
+2. Commit and push from Development workspace ONLY.
+3. Pull/sync into `F:\SMRITI9TEST` to deploy and execute tests in the dedicated test environment.
+4. NEVER perform testing execution inside the development/coding folder.
+5. NEVER write code directly in `F:\SMRITI9TEST`.
+6. **NEVER execute `git push` from `F:\SMRITI9TEST` under any circumstances.** Pushes happen EXCLUSIVELY from Development workspace (`f:\SMRITRretailNXmgrt`). `F:\SMRITI9TEST` operates strictly read-only via `git pull --rebase`.
 
 ---
+
+## Environment Rule: Docker Execution Policy (MANDATORY — PERMANENT)
+
+> [!IMPORTANT]
+> **STRICT USER DIRECTIVE:** DO NOT start or use host Vite dev server under any circumstances until the user explicitly requests to use it. ALL frontend applications, backend services, and databases MUST execute exclusively inside Docker containers (`docker compose up`).
+
+| Service | Execution Mode | Rule |
+|---|---|---|
+| Workspace & Frontend | **Docker Container (`smriti-workspace`)** | ALWAYS run and serve frontend via Docker container (`docker compose up workspace`). NEVER use host Vite dev server. |
+| Core API | **Docker Container (`smriti-api`)** | ALWAYS run and serve backend API via Docker container (`docker compose up api`). |
+| Database | **Docker Container (`smriti-db`)** | ALWAYS run PostgreSQL database via Docker container (`docker compose up db`). |
+
+This rule applies to ALL sessions, ALL agents, all tasks. No exceptions.
+
+---
+
+# SMRITI Three-Tier Governance Hierarchy & Architecture Constitution
+
+**Status:** FROZEN — Level 1 SMRITI Architecture Constitution v1.0 (2026-07-22)
+
+```text
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │ LEVEL 1: SMRITI ARCHITECTURE CONSTITUTION (FROZEN - PERMANENT RULES)   │
+ │  AOP-001 (AI Optionality) | AOP-002 (Four-Tier Apps) | AOP-003 (Contracts)│
+ │  AOP-004 (Additive DB)   | AOP-005 (Auth Isolation) | AOP-006 (Trace ID)  │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ LEVEL 2: ENGINEERING STANDARDS (VERSIONED STANDARDS)                   │
+ │  Verification Evidence (Rules 1-10) | DGP | WGP | IPGP | HREP | DEV/TEST│
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ LEVEL 3: OPERATIONAL PROCEDURES (EVOLVING DAILY WORKFLOWS)             │
+ │  Git Workflows | Docker Compose | Alembic Migrations | Vite Pipelines   │
+ └────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+# LEVEL 1: SMRITI ARCHITECTURE CONSTITUTION (FROZEN — PERMANENT)
+
+### AOP-001: AI Optionality Principle (Rule AI-001 — AI Optional Architecture)
+Artificial Intelligence services shall never be mandatory for any core business transaction. SMRITI Retail OS must operate 100% standalone and offline-first without AI. All AI capabilities must operate strictly as optional advisory services. On default installation, AI Engine is disabled (`AI_ENABLED=false`), API keys are unconfigured, zero AI SDKs/runtimes are initialized, and AI elements/tiles are completely hidden from the UI. AI features shall only be activated through explicit administrator configuration under Settings → AI Configuration with appropriate RBAC permissions (`AI_ADMIN`, `AI_CONFIGURATION`, `AI_CHAT`, `AI_REPORTS`, `AI_AUTOMATION`, `AI_PROMPTS`). The absence, failure, network disconnect, or disablement of AI must not impact the correctness, availability, performance, or completion of any core retail workflow.
+
+### AOP-002: Four-Tier Enterprise Architecture & Independence Principle
+1. **The Four Independent Tier Products**:
+   - **SMRITI Website (Marketing)**: Public website (`www.smritisys.com`), Pricing, Features, Blog, Contact, Public Documentation.
+     > **SMRITI Website is NOT a part of the Retail Platform. It is an independent marketing product.** It can be hosted on a completely different server, repository, technology stack, database, and deployment pipeline.
+   - **SMRITI Portal (Customer Self-Service)**: Customer Account Portal (`portal.smritisys.com`), Software Downloads, License Management, Subscriptions, Support Tickets, Device Activation, Billing. Consumes Platform API over published contracts.
+   - **SMRITI Workspace (Retail Operations App)**: Retail Operations App (`workspace.smritisys.com` / `localhost:3000`), POS, Inventory, Purchase, Sales, CRM, Accounting, Reports. Consumes Platform API over published contracts.
+   - **SMRITI Platform API (Core Engine)**: Headless backend system-of-record (`api.smritisys.com` / `backend/app/`), PostgreSQL Database.
+     - **Modular Platform Services**: Identity, License, Organization, Notification, Integration, Retail, Accounting, Workflow.
+     - **Independent Service Evolution**: Each Platform Service is independently deployable. A service may evolve from an in-process module to an independent service without changing client contracts.
+     - **API Gateway Routing**: `/api/public/v1/*` (Portal/Website/Mobile) and `/api/internal/v1/*` (Workspace).
+
+2. **The Golden Rules of Application Independence**:
+   - **Rule 1**: No application shall directly depend on another application. Every application communicates ONLY with the Platform API through published contracts (`Workspace ──► Platform API ◄── Portal`).
+   - **Rule 2**: Every SMRITI application must be installable, deployable, upgradeable, and removable independently without affecting any other application.
+   - **Rule 3**: Platform owns business logic. Applications own user experience.
+   - **Rule 4**: Each business domain has exactly one authoritative owner.
+   - **Rule 5**: Applications are replaceable. Platform services are reusable. Business data is permanent.
+
+3. **Ecosystem Capabilities & Zero Database Cross-Contamination**:
+   - **SMRITI SDK**: Applications consume Platform API via `SMRITI SDK` handling JWT tokens, retries, offline queues, and contract compatibility.
+   - **Event Bus Integration**: Platform services communicate asynchronously via Event Bus (`Invoice Created` → `Accounting` + `Notification` + `Audit` + `Analytics`).
+   - **Plugin Architecture**: Extensions (GST, POS, WhatsApp, Tally, Barcode, Gateways, AI) register dynamically with the Platform API Plugin Registry.
+   - **Zero Cross-Contamination**: Website/Portal MUST NEVER access the Retail Application's database (`smriti-db`). Cloud/portal interactions operate strictly as optional advisory HTTP API calls.
+
+### AOP-003: Backward Compatibility & Deprecation Lifecycle Principle
+Platform APIs are binding contracts. Published APIs (`/api/public/v1/*` and `/api/internal/v1/*`) shall not introduce breaking payload changes within the same major version. All API endpoints, plugins, and SDK components MUST adhere to the formal 4-stage deprecation lifecycle:
+`Experimental` ──► `Supported` ──► `Deprecated` (6-month min. deprecation lifecycle) ──► `Removed`
+
+### AOP-004: Additive Schema Evolution & Data Safety Principle
+Database schema evolution shall be additive whenever possible (`ADD COLUMN IF NOT EXISTS`). Columns must be marked deprecated before removal. Any destructive migration requires a verified rollback plan and pre-migration backup assertion.
+
+### AOP-005: Security & API Authorization Isolation Principle
+- **Public API Gateway (`/api/public/v1/*`)**: Enforces OAuth2 / JWT authentication, IP rate limiting, CORS origin isolation, and granular token scopes.
+- **Internal API Gateway (`/api/internal/v1/*`)**: Enforces mutual service authentication (`X-Internal-Service-Key`), network isolation, and internal RBAC.
+
+### AOP-006: Distributed Observability & Tracing Principle
+Every API request across Platform Services, Workspace, and Portal MUST generate and propagate a unique `Trace-ID`, `Correlation-ID`, `Span-ID`, and `Audit-ID` in HTTP response headers and structured logs.
+
+### AOP-007: Mandatory Architecture Decision Record (ADR) Governance
+Any constitutional or fundamental architectural change (Level 1 modification) MUST be preceded by an approved Architecture Decision Record (`docs/adr/ADR-xxx.md`) detailing problem context, options considered, decisions made, and trade-offs accepted.
+
+### AOP-008: Field Change Lifecycle (FCL) & Field Registry Studio Principle (Rule FCL-001 — ADR-014)
+Neither developers nor AI coding agents shall add, modify, or remove an entity field on an ad-hoc basis as a simple UI or model edit. Every field change MUST follow the formal 7-stage **Field Change Lifecycle (FCL)**: `Business Request (CR)` ──► `13-Layer Field Impact Analysis` ──► `9-Point Property Clarification` ──► `Auto Task Graph` ──► `Implementation` ──► `13-Layer Verification Gate` ──► `Field Registry Catalog Update`. Every field modification MUST evaluate and update the 13 impacted layers: Database Schema, Alembic Migration, ORM Model Class, Repository Layer, Domain Service, REST API Schema, UI Form/Pattern, Global Search Index, Reports & BI, Barcode Engine, Data Exchange Hub (Excel), Print Framework, and RBAC/Security. Direct uncoordinated field additions without a registered Change Request are strictly prohibited.
+
+
+### Rule SLP-002: Launchpad Composition Framework Principle
+The Launchpad shall not contain business logic. It shall compose its interface exclusively from registered modules, widgets, services, and metadata. Application modules may contribute tiles, quick actions, widgets, search providers, notification providers, and status providers through standardized registration interfaces.
+
+### Rule SLP-003: Launchpad Independence Principle (MANDATORY)
+The Launchpad shall never directly import or invoke business-domain logic. All interactions with business modules must occur through published manifests, registries, providers, or capability interfaces. This guarantees modularity, testability, and the independent evolution of the platform and business applications.
+
+### Rule SLGP-R6: Modules Shall Never Control the Viewport (MANDATORY)
+Business modules must not define viewport dimensions (`100vh`, `100vw`, `h-screen`, `w-screen`) or application-level overflow behavior. Only the Layout Manager and Workspace Framework may control viewport sizing and scroll behavior. Modules shall consume the allocated workspace boundaries and render within Pattern A (Scrollable), Pattern B (Fixed Studio), or Pattern C (Master-Detail) contracts.
+
+### Rule GR-000: Business Capability Before Technology Principle (MANDATORY)
+Technology frameworks (`FastAPI`, `React`, `Postgres`) are execution details. SMRITI Retail OS is designed exclusively around permanent retail business capabilities (`Inventory`, `Sales`, `Purchase`, `Accounting`, `CRM`, `POS`). Frameworks change; business capabilities endure for 200 years.
+
+### Rule GR-001: Single Source of Truth (SSOT) Principle (MANDATORY)
+Every business rule, calculation, validation, configuration, UI component, API contract, and data definition shall have **EXACTLY ONE** authoritative implementation. Duplication is strictly prohibited. Reuse is mandatory across GST calculations, pricing engines, barcode generators, customer selectors, design tokens, and API endpoints.
+
+### AI Agent Mandatory Code Reuse Directive (MANDATORY)
+Before writing ANY new code or creating files, all AI agents and engineers MUST execute the 5-step search chain: `Search Project` ──► `Find Existing Implementation` ──► `Reuse` ──► `Else Extend` ──► `Else Create & Document Justification`.
+
+### SMRITI Engineering Core Principles (GR-002 — GR-010)
+- **GR-002 (DRY)**: Don't Repeat Yourself across modules or layers.
+- **GR-003 (High Cohesion / Low Coupling)**: Modules communicate exclusively via Published Service Interfaces or Domain Event Bus (`DomainEvents`).
+- **GR-004 (Separation of Concerns)**: Clear boundaries between Presentation (React), API Controllers (FastAPI), Business Logic (Services), and Persistence (Repositories).
+- **GR-005 (Composition Over Inheritance)**: Favor modular composable contracts over deep class hierarchies.
+- **GR-006 (Open-Closed Principle)**: Modules open for capability extension, closed for breaking modifications.
+- **GR-007 (Convention Over Configuration)**: Standardized naming and folder structure (`backend/app/modules/`).
+- **GR-008 (KISS)**: Keep implementation simple, readable, and maintainable.
+- **GR-009 (YAGNI)**: Implement only verified business requirements.
+- **GR-010 (Production-First)**: Zero business mock data or static fallback bypasses in production environments.
+- **GR-011 (Canonical Ownership)**: Every business capability has exactly ONE authoritative owner service. GST calculations belong to `TaxService`. Barcodes belong to `BarcodeService`. Pricing belongs to `PricingService`. No capability may be silently re-implemented in a different module.
+- **GR-012 (No Silent Duplication)**: Upgrading a service means modifying the existing canonical service, never creating `ProductServiceV2`, `NewProductService`, or `BetterProductService` as parallel implementations.
+- **GR-013 (Backward Compatibility)**: Public APIs (`/api/public/v1/*`) and database schema contracts (columns, table names, FK relationships) must never break existing client contracts within the same major version. Use the 4-stage deprecation lifecycle (`Experimental` → `Supported` → `Deprecated` → `Removed`) before any removal.
+- **GR-014 (Code-First Review)**: No new code shall be written until the existing implementation has been reviewed and a reuse analysis has been completed. Every implementation proposal must identify what already exists, what can be reused, what must be extended, and what genuinely needs to be created.
+
+### AI Agent Mandatory 5-Phase Review Protocol (MANDATORY — ALL FEATURES)
+
+Before implementing any feature, AI agents MUST execute the following protocol in order:
+
+**Phase 1 — Discovery**
+- Scan project structure (`list_dir`, `grep_search`)
+- Identify affected modules and cross-module dependencies
+
+**Phase 2 — Existing Code Review (Search First)**
+Search for existing: Service · Repository · API Endpoint · React Component · Hook · Utility · Validator · Domain Event · Tests
+> Critical question: **"Does this functionality already exist?"** If YES → Reuse. If PARTIALLY → Extend. Only if NO → Create.
+
+**Phase 3 — Gap Analysis Report**
+Produce a structured report before writing a single line of new code:
+```text
+CODE REVIEW REPORT
+Files Reviewed: [list every file examined]
+Already Exists: [✓ list reusable items]
+Needs Extension: [✓ list items to extend]
+New Code Required: [✗ list genuinely new items with justification]
+Duplicate Risk: LOW / MEDIUM / HIGH
+```
+
+**Phase 4 — Architecture Compliance Check**
+Verify against: SEB v1.0 · GR-001 (SSOT) · Relevant ADR · SLGP-001 Layout Rules · API Gateway Rules · Repository Pattern (ADR-006)
+
+**Phase 5 — Implementation**
+Write new code only for items in "New Code Required" from the Gap Analysis.
+
+---
+
+
+
+# LEVEL 2: ENGINEERING STANDARDS (VERSIONED STANDARDS)
+
+## 1. Platform Capability & Plugin Registry Governance
+- **Capability Registry Metadata Schema**: Every Platform Service registers: `[Service ID, Version, Owner, Status, Public API Endpoints, Internal API Endpoints, Event Bus Subjects, Service Dependencies]`.
+- **Plugin Certification & Governance**: Every dynamic extension plugin MUST declare: `[Plugin ID, Version, Target API Version, Cryptographic Signature, Scoped Permissions, Certification Status]`.
+
+## 2. Standardized Ecosystem Terminology Governance
+- **Mandatory Terms**:
+  - ✅ **SMRITI Platform API** (Backend System-of-Record)
+  - ✅ **Platform Services** (Domain Modules)
+  - ✅ **System-of-Record** (Authoritative DB Engine)
+- **Prohibited Terms (Deprecated)**:
+  - ❌ `Core Engine` (Ambiguous; replace with **SMRITI Platform API**)
+  - ❌ `Python Core` (Implementation detail; replace with **Platform API**)
+
+## 3. Release Compatibility Matrix
+| Application / Tier | Current Version | Target Platform API | Contract Compatibility |
+| :--- | :--- | :--- | :--- |
+| **SMRITI Platform API** | v3.29.0 | v3.x | System-of-Record Core |
+| **SMRITI Workspace** | v3.29.0 | v3.x | `/api/internal/v1/*` |
+| **SMRITI Portal** | v2.9.0 | v3.x | `/api/public/v1/*` |
+| **SMRITI Website** | v1.0.0 | Independent | Marketing Product |
+| **SMRITI SDK** | v3.0.0 | v3.x | Public & Internal SDK |
+
+---
+
+# SMRITI Database Blueprint Governance Policy (DBP) — ADR-012
+
+**Status:** FROZEN — Level 2 Engineering Standard (2026-07-28)
+**Documents:** `docs/database/SMRITI_DATABASE_BLUEPRINT_v1.0.md` · `docs/database/SMRITI_CANONICAL_DATA_MODEL_v1.0.md` · `docs/database/TABLE_OWNERSHIP_REGISTRY.md`
+
+## DBP-001 — Database Blueprint is Authoritative
+The `SMRITI_DATABASE_BLUEPRINT_v1.0.md` is the single authoritative reference for all database schema decisions.
+**No new Alembic migration shall be committed unless:**
+1. The corresponding table/column is documented in the Database Blueprint.
+2. The change is reviewed against the Canonical Data Model.
+3. The migration docstring references the Blueprint section and ADR number.
+
+## DBP-002 — Canonical Table Ownership
+Every database table has exactly **ONE** owning module. Other modules consume data only through:
+- Repository Pattern (ADR-006)
+- Published Service Interface
+- Published API Contract (`/api/internal/v1/*`)
+
+**Cross-module direct table access and parallel duplicate schemas are prohibited (GR-001 + GR-011).**
+
+> **Supplier Ownership Decision (ADR-012):** `suppliers` is owned by **Purchase**. CRM reads supplier data exclusively via `/api/internal/v1/purchase/suppliers`. No `Supplier` model in `crm.py` or any other module.
+
+## DBP-003 — Migration Traceability (MANDATORY)
+Every Alembic migration file MUST include a docstring header:
+```python
+"""<Migration description>
+
+DBP Reference : SMRITI_DATABASE_BLUEPRINT_v1.0.md §<section>
+CDM Reference : SMRITI_CANONICAL_DATA_MODEL_v1.0.md — <Entity> (if applicable)
+ADR Reference : ADR-<number>
+Revision ID   : <alembic revision id>
+"""
+```
+Migrations committed without this header on or after 2026-07-28 are non-compliant.
+
+## DBP-004 — BaseEntity Inheritance (MANDATORY)
+All new SQLAlchemy models MUST inherit `BaseEntity` or `RowSecuredMixin` from `backend/app/db/base.py`.
+This automatically provides: `id`, `uuid`, `tenant_id`, `company_id`, `branch_id`, `created_at`, `modified_at`, `created_by`, `updated_by`, `is_active`, `is_deleted`, `deleted_at`, `deleted_by`, `version`.
+**Never redefine these fields in individual model classes.**
+
+## ERD Maintenance
+Five module ERDs are maintained in `docs/database/`:
+- `ERD_core.mmd` — Tier 1 core entities
+- `ERD_inventory.mmd` — Inventory module
+- `ERD_sales.mmd` — Sales module
+- `ERD_purchase.mmd` — Purchase module
+- `ERD_accounting.mmd` — Accounting module (current + Phase 1 planned)
+
+Update the relevant ERD whenever a structural schema change is committed.
+
+---
+
+# SMRITI Walkthrough Governance Policy (WGP) - Agent Rules
+
+
 
 # SMRITI Walkthrough Governance Policy (WGP) - Agent Rules
 
@@ -217,9 +464,18 @@ License changes are governance changes. Any modification to licensing, copyright
 - Knowledge Base update
 - CHANGELOG entry
 
+# AI Optionality Principle (AOP-001)
+
+**Policy ID:** AOP-001  
+**Status:** MANDATORY — PERMANENT — ALL agents, ALL sessions, ALL modules  
+**Effective:** 2026-07-20
+
+Artificial Intelligence services shall never be mandatory for any core business transaction. All AI capabilities must operate as optional advisory services. The absence, failure, or disablement of AI must not impact the correctness, availability, performance, or completion of any core workflow.
+
 ---
 
 # SMRITI Implementation Plan Governance Policy (IPGP)
+
 
 ## 1. Mandatory Implementation Plan (Rules 1-2)
 Before implementing any significant feature, enhancement, optimization, migration, refactoring, framework, SDK component, studio, API, security improvement, or infrastructure change, the AI must create or update an Implementation Plan.

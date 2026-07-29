@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -24,7 +24,7 @@ from ...schemas.consignment import (
     ConsignmentReturnCreate, ConsignmentReturnResponse
 )
 from ...services.consignment import ConsignmentService
-from ...api.deps import get_db, get_tenant_context, TenantContext
+from ...api.deps import get_db, get_tenant_context, TenantContext, require_permission
 
 router = APIRouter()
 
@@ -33,7 +33,7 @@ router = APIRouter()
 # Consignment Partners
 # ──────────────────────────────────────────────────────────────
 
-@router.post("/partners", response_model=ConsignmentPartnerResponse)
+@router.post("/partners", response_model=ConsignmentPartnerResponse, dependencies=[Depends(require_permission("CONSIGNMENT.MANAGE_PARTNER"))])
 async def create_partner(
     partner_in: ConsignmentPartnerCreate,
     db: AsyncSession = Depends(get_db),
@@ -43,7 +43,7 @@ async def create_partner(
     return await service.create_partner(partner_in)
 
 
-@router.get("/partners", response_model=List[ConsignmentPartnerResponse])
+@router.get("/partners", response_model=List[ConsignmentPartnerResponse], dependencies=[Depends(require_permission("CONSIGNMENT.VIEW"))])
 async def get_partners(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context)
@@ -52,7 +52,7 @@ async def get_partners(
     return await service.get_partners()
 
 
-@router.get("/partners/{partner_id}", response_model=ConsignmentPartnerResponse)
+@router.get("/partners/{partner_id}", response_model=ConsignmentPartnerResponse, dependencies=[Depends(require_permission("CONSIGNMENT.VIEW"))])
 async def get_partner(
     partner_id: str,
     db: AsyncSession = Depends(get_db),
@@ -69,7 +69,7 @@ async def get_partner(
 # Consignment Stock Transfers
 # ──────────────────────────────────────────────────────────────
 
-@router.post("/transfers", response_model=ConsignmentTransferResponse)
+@router.post("/transfers", response_model=ConsignmentTransferResponse, dependencies=[Depends(require_permission("CONSIGNMENT.TRANSFER"))])
 async def create_transfer(
     transfer_in: ConsignmentTransferCreate,
     db: AsyncSession = Depends(get_db),
@@ -79,7 +79,7 @@ async def create_transfer(
     return await service.create_transfer(transfer_in)
 
 
-@router.get("/transfers", response_model=List[ConsignmentTransferResponse])
+@router.get("/transfers", response_model=List[ConsignmentTransferResponse], dependencies=[Depends(require_permission("CONSIGNMENT.VIEW"))])
 async def get_transfers(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context)
@@ -88,7 +88,7 @@ async def get_transfers(
     return await service.get_transfers()
 
 
-@router.get("/transfers/{transfer_id}", response_model=ConsignmentTransferResponse)
+@router.get("/transfers/{transfer_id}", response_model=ConsignmentTransferResponse, dependencies=[Depends(require_permission("CONSIGNMENT.VIEW"))])
 async def get_transfer(
     transfer_id: str,
     db: AsyncSession = Depends(get_db),
@@ -101,7 +101,7 @@ async def get_transfer(
     return transfer
 
 
-@router.post("/transfers/{transfer_id}/dispatch", response_model=ConsignmentTransferResponse)
+@router.post("/transfers/{transfer_id}/dispatch", response_model=ConsignmentTransferResponse, dependencies=[Depends(require_permission("CONSIGNMENT.TRANSFER"))])
 async def dispatch_transfer(
     transfer_id: str,
     db: AsyncSession = Depends(get_db),
@@ -115,7 +115,7 @@ async def dispatch_transfer(
 # Consignment Sales Reports
 # ──────────────────────────────────────────────────────────────
 
-@router.post("/sale-reports", response_model=ConsignmentSaleReportResponse)
+@router.post("/sale-reports", response_model=ConsignmentSaleReportResponse, dependencies=[Depends(require_permission("CONSIGNMENT.REPORT_SALE"))])
 async def submit_sale_report(
     report_in: ConsignmentSaleReportCreate,
     db: AsyncSession = Depends(get_db),
@@ -125,7 +125,7 @@ async def submit_sale_report(
     return await service.submit_sale_report(report_in)
 
 
-@router.get("/sale-reports", response_model=List[ConsignmentSaleReportResponse])
+@router.get("/sale-reports", response_model=List[ConsignmentSaleReportResponse], dependencies=[Depends(require_permission("CONSIGNMENT.VIEW"))])
 async def get_sale_reports(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context)
@@ -134,7 +134,7 @@ async def get_sale_reports(
     return await service.get_sale_reports()
 
 
-@router.post("/sale-reports/{report_id}/process", response_model=ConsignmentSaleReportResponse)
+@router.post("/sale-reports/{report_id}/process", response_model=ConsignmentSaleReportResponse, dependencies=[Depends(require_permission("CONSIGNMENT.REPORT_SALE"))])
 async def process_sale_report(
     report_id: str,
     db: AsyncSession = Depends(get_db),
@@ -148,7 +148,7 @@ async def process_sale_report(
 # Consignment Settlements
 # ──────────────────────────────────────────────────────────────
 
-@router.post("/settlements", response_model=ConsignmentSettlementResponse)
+@router.post("/settlements", response_model=ConsignmentSettlementResponse, dependencies=[Depends(require_permission("CONSIGNMENT.SETTLE"))])
 async def create_settlement(
     settlement_in: ConsignmentSettlementCreate,
     db: AsyncSession = Depends(get_db),
@@ -158,7 +158,7 @@ async def create_settlement(
     return await service.create_settlement(settlement_in)
 
 
-@router.get("/settlements", response_model=List[ConsignmentSettlementResponse])
+@router.get("/settlements", response_model=List[ConsignmentSettlementResponse], dependencies=[Depends(require_permission("CONSIGNMENT.VIEW"))])
 async def get_settlements(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context)
@@ -171,7 +171,7 @@ async def get_settlements(
 # Consignment Returns
 # ──────────────────────────────────────────────────────────────
 
-@router.post("/returns", response_model=ConsignmentReturnResponse)
+@router.post("/returns", response_model=ConsignmentReturnResponse, dependencies=[Depends(require_permission("CONSIGNMENT.TRANSFER"))])
 async def process_return(
     return_in: ConsignmentReturnCreate,
     db: AsyncSession = Depends(get_db),
@@ -181,7 +181,7 @@ async def process_return(
     return await service.process_return(return_in)
 
 
-@router.get("/returns", response_model=List[ConsignmentReturnResponse])
+@router.get("/returns", response_model=List[ConsignmentReturnResponse], dependencies=[Depends(require_permission("CONSIGNMENT.VIEW"))])
 async def get_returns(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context)

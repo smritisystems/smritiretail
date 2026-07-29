@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -21,6 +21,7 @@ from sqlalchemy.future import select
 
 from ...api.deps import get_current_user, get_db, require_permission
 from ...models.auth import User
+from ...models.company_master import Organization
 from ...models.inventory import Store, Warehouse
 from ...models.tenant import Branch, Company
 from ...schemas.masters_tier2 import (
@@ -30,6 +31,9 @@ from ...schemas.masters_tier2 import (
     CompanyCreate,
     CompanyResponse,
     CompanyUpdate,
+    OrganizationCreate,
+    OrganizationResponse,
+    OrganizationUpdate,
     StoreCreate,
     StoreResponse,
     StoreUpdate,
@@ -43,6 +47,8 @@ router = APIRouter()
 
 def normalize_type(et: str) -> str:
     val = et.lower().strip()
+    if val in ["organizations", "organization", "org"]:
+        return "organization"
     if val in ["companies", "company"]:
         return "company"
     if val in ["branches", "branch"]:
@@ -68,7 +74,12 @@ async def list_masters(
     """
     norm_type = normalize_type(entity_type)
     
-    if norm_type == "company":
+    if norm_type == "organization":
+        q_org = select(Organization).order_by(Organization.name.asc())
+        res = await db.execute(q_org)
+        return [OrganizationResponse.from_orm_model(x) for x in res.scalars().all()]
+
+    elif norm_type == "company":
         q_company = select(Company).where(Company.is_deleted.is_(False)).order_by(Company.name.asc())
         res = await db.execute(q_company)
         return [CompanyResponse.from_orm_model(x) for x in res.scalars().all()]
@@ -108,7 +119,21 @@ async def create_master(
     norm_type = normalize_type(entity_type)
     timestamp_ms = int(datetime.now(UTC).timestamp() * 1000)
 
-    if norm_type == "company":
+    if norm_type == "organization":
+        req_org = OrganizationCreate(**payload)
+        new_id = f"org-{timestamp_ms}"
+        item_org = Organization(
+            id=new_id,
+            name=req_org.name,
+            org_type=req_org.org_type or "STANDALONE",
+            is_active=req_org.is_active if req_org.is_active is not None else True
+        )
+        db.add(item_org)
+        await db.commit()
+        await db.refresh(item_org)
+        return OrganizationResponse.from_orm_model(item_org)
+
+    elif norm_type == "company":
         req_company = CompanyCreate(**payload)
         new_id = f"comp-{timestamp_ms}"
         item_company = Company()
@@ -138,6 +163,11 @@ async def create_master(
         item_branch.company_id = req_branch.company
         item_branch.name = req_branch.name
         item_branch.code = req_branch.code
+        item_branch.branch_type = req_branch.branch_type or "RETAIL"
+        item_branch.gstin = req_branch.gstin
+        item_branch.phone = req_branch.phone
+        item_branch.email = req_branch.email
+        item_branch.manager_user_id = req_branch.manager_user_id
         item_branch.is_active = True
         item_branch.is_deleted = False
         db.add(item_branch)
@@ -219,7 +249,22 @@ async def update_master(
     """
     norm_type = normalize_type(entity_type)
 
-    if norm_type == "company":
+    if norm_type == "organization":
+        req_org = OrganizationUpdate(**payload)
+        item_org = await db.get(Organization, id)
+        if not item_org:
+            raise HTTPException(status_code=404, detail="Organization not found.")
+        if req_org.name is not None:
+            item_org.name = req_org.name
+        if req_org.org_type is not None:
+            item_org.org_type = req_org.org_type
+        if req_org.is_active is not None:
+            item_org.is_active = req_org.is_active
+        await db.commit()
+        await db.refresh(item_org)
+        return OrganizationResponse.from_orm_model(item_org)
+
+    elif norm_type == "company":
         req_company = CompanyUpdate(**payload)
         item_company = await db.get(Company, id)
         if not item_company or item_company.is_deleted:
@@ -255,6 +300,16 @@ async def update_master(
             item_branch.name = req_branch.name
         if req_branch.code is not None:
             item_branch.code = req_branch.code
+        if req_branch.branch_type is not None:
+            item_branch.branch_type = req_branch.branch_type
+        if req_branch.gstin is not None:
+            item_branch.gstin = req_branch.gstin
+        if req_branch.phone is not None:
+            item_branch.phone = req_branch.phone
+        if req_branch.email is not None:
+            item_branch.email = req_branch.email
+        if req_branch.manager_user_id is not None:
+            item_branch.manager_user_id = req_branch.manager_user_id
             
         await db.commit()
         await db.refresh(item_branch)
@@ -342,7 +397,16 @@ async def delete_master(
     """
     norm_type = normalize_type(entity_type)
 
-    if norm_type == "company":
+    if norm_type == "organization":
+        item_org = await db.get(Organization, id)
+        if not item_org:
+            raise HTTPException(status_code=404, detail="Organization not found.")
+        item_org.is_active = False
+        item_org.modified_at = datetime.now(UTC)
+        await db.commit()
+        return {"success": True, "deletedId": id}
+
+    elif norm_type == "company":
         item_company = await db.get(Company, id)
         if not item_company or item_company.is_deleted:
             raise HTTPException(status_code=404, detail="Company not found.")

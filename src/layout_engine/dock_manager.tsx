@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -30,6 +30,8 @@ import { NavigationRenderer } from "./navigation_renderer.js";
 import { SmritiScrollArea } from "../components/SmritiScrollArea.tsx";
 import { useWorkspace } from "../contexts/WorkspaceContext.tsx";
 import { WorkspaceToolbar } from "../components/WorkspaceToolbar.tsx";
+// SEEF Phase 7 wiring: Admin Configurator → DockManager nav mode bridge
+import { useSEEFNavigation } from "./SEEFContext.tsx";
 
 interface DockManagerProps {
   activeTab: string;
@@ -46,9 +48,24 @@ export const DockManager: React.FC<DockManagerProps> = ({
   searchTerm,
   onSearchChange
 }) => {
-  const { preferences, setSidebarWidth } = useLayoutEngine();
+  const { preferences, setSidebarWidth, toggleSidebarVisibility } = useLayoutEngine();
+
+  // WNG-002: Launchpad is a single-purpose full-bleed screen — no sidebar, no toolbar, no padding
+  const isLaunchpad = activeTab === "launchpad";
   const { effectivePosition } = useResponsiveLayout(preferences.position);
   const { focusMode } = useWorkspace();
+
+  // SEEF Phase 7 wiring: resolve nav layout from Admin Configurator cascade
+  // seefNavMode is the single source of truth for navigation mode.
+  // preferences.position is still respected for sidebar left/right positioning.
+  const seefNavMode = useSEEFNavigation();
+  // Rail: 56px icon-only strip. Mega-menu: 56px hamburger strip. Sidebar: resizable 180–480px.
+  const RAIL_WIDTH     = 56;
+  const isRailMode     = seefNavMode === "rail";
+  const isMegaMenuMode = seefNavMode === "mega-menu";
+  const isTopNavMode   = seefNavMode === "top-nav";
+  // Both rail and mega-menu use the same 56px fixed-width trigger strip
+  const isFixedStripMode = isRailMode || isMegaMenuMode;
   
   const containerRef = useRef<HTMLDivElement>(null);
   const [isResizing, setIsResizing] = useState(false);
@@ -58,6 +75,12 @@ export const DockManager: React.FC<DockManagerProps> = ({
   useEffect(() => {
     setLocalWidth(preferences.sidebarWidth);
   }, [preferences.sidebarWidth]);
+
+  // Determine current width — Rail/MegaMenu locks to 56px, sidebar uses drag width
+  const isCollapsed = preferences.collapsed || preferences.iconOnly;
+  const currentWidth = isFixedStripMode ? RAIL_WIDTH : (isCollapsed ? 72 : localWidth);
+
+  const showNavigation = !focusMode && !preferences.hideSidebar && !isLaunchpad;
 
   // Drag-to-resize handlers
   const startResize = (e: React.MouseEvent) => {
@@ -100,16 +123,47 @@ export const DockManager: React.FC<DockManagerProps> = ({
     };
   }, [isResizing, effectivePosition, localWidth, preferences.sidebarWidth, setSidebarWidth]);
 
-  // Determine current width styled
-  const isCollapsed = preferences.collapsed || preferences.iconOnly;
-  const currentWidth = isCollapsed ? 72 : localWidth;
+  // WNG-002: Full-bleed Launchpad render — suppresses all chrome
+  if (isLaunchpad) {
+    return (
+      <div className="flex-1 overflow-auto bg-slate-950">
+        {children}
+      </div>
+    );
+  }
+
+  // Floating trigger button when sidebar is hidden
+  const renderSidebarUnhideTrigger = () => {
+    if (focusMode || !preferences.hideSidebar) return null;
+    const isHorizontal = effectivePosition === "top" || effectivePosition === "bottom";
+    const posClass =
+      effectivePosition === "right"
+        ? "right-2 top-1/2 -translate-y-1/2"
+        : effectivePosition === "top"
+        ? "top-2 left-1/2 -translate-x-1/2"
+        : effectivePosition === "bottom"
+        ? "bottom-2 left-1/2 -translate-x-1/2"
+        : "left-2 top-1/2 -translate-y-1/2";
+
+    return (
+      <button
+        onClick={toggleSidebarVisibility}
+        className={`fixed z-30 px-2.5 py-1 bg-theme-surface-2/90 hover:bg-indigo-600 text-xs font-semibold text-white rounded-lg shadow-xl border border-theme-divider flex items-center space-x-1.5 transition-all opacity-70 hover:opacity-100 cursor-pointer ${posClass}`}
+        title="Unhide Sidebar Navigation (Alt+Shift+S)"
+      >
+        <span className="material-symbols-outlined text-sm">dock_to_right</span>
+        <span>Show Sidebar</span>
+      </button>
+    );
+  };
 
   // Render Left Dock Layout
   const renderLeftDockLayout = () => {
     return (
       <div ref={containerRef} className="flex-1 flex overflow-hidden relative">
-        {/* Navigation Panel */}
-        {!focusMode && (
+        {renderSidebarUnhideTrigger()}
+        {/* Navigation Panel — width locked to 56px in Rail mode; resize handle hidden */}
+        {showNavigation && (
           <div 
             style={{ width: `${currentWidth}px` }} 
             className="h-full flex-shrink-0 transition-all duration-200 ease-in-out select-none relative z-10 animate-fade-in"
@@ -121,8 +175,8 @@ export const DockManager: React.FC<DockManagerProps> = ({
               onSearchChange={onSearchChange}
             />
             
-            {/* Resize handle (only if not collapsed) */}
-            {!isCollapsed && (
+            {/* Resize handle — hidden in Rail/MegaMenu mode (width is fixed) */}
+            {!isCollapsed && !isFixedStripMode && (
               <div 
                 onMouseDown={startResize}
                 className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-blue-600/50 hover:w-2 active:bg-blue-500 transition-colors z-20"
@@ -146,6 +200,7 @@ export const DockManager: React.FC<DockManagerProps> = ({
   const renderRightDockLayout = () => {
     return (
       <div ref={containerRef} className="flex-1 flex overflow-hidden relative">
+        {renderSidebarUnhideTrigger()}
         {/* Workspace content (first) */}
         <SmritiScrollArea className="flex-1 bg-theme-base select-text h-full relative flex flex-col" fadeColorClass="from-[#1A2B5C]">
           <WorkspaceToolbar currentTabId={activeTab} />
@@ -155,13 +210,13 @@ export const DockManager: React.FC<DockManagerProps> = ({
         </SmritiScrollArea>
 
         {/* Navigation Panel (second) */}
-        {!focusMode && (
+        {showNavigation && (
           <div 
             style={{ width: `${currentWidth}px` }} 
             className="h-full flex-shrink-0 transition-all duration-200 ease-in-out select-none relative z-10 animate-fade-in"
           >
-            {/* Resize handle (only if not collapsed) */}
-            {!isCollapsed && (
+            {/* Resize handle — hidden in Rail/MegaMenu mode (width is fixed) */}
+            {!isCollapsed && !isFixedStripMode && (
               <div 
                 onMouseDown={startResize}
                 className="absolute top-0 left-0 w-1.5 h-full cursor-col-resize hover:bg-blue-600/50 hover:w-2 active:bg-blue-500 transition-colors z-20"
@@ -183,9 +238,10 @@ export const DockManager: React.FC<DockManagerProps> = ({
   // Render Top Dock Layout
   const renderTopDockLayout = () => {
     return (
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {renderSidebarUnhideTrigger()}
         {/* Navigation Panel */}
-        {!focusMode && (
+        {showNavigation && (
           <NavigationRenderer 
             activeTab={activeTab} 
             onTabSelect={onTabSelect} 
@@ -208,7 +264,8 @@ export const DockManager: React.FC<DockManagerProps> = ({
   // Render Bottom Dock Layout
   const renderBottomDockLayout = () => {
     return (
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {renderSidebarUnhideTrigger()}
         {/* Workspace Content */}
         <SmritiScrollArea className="flex-1 bg-theme-base select-text h-full relative flex flex-col" fadeColorClass="from-[#1A2B5C]">
           <WorkspaceToolbar currentTabId={activeTab} />
@@ -218,7 +275,7 @@ export const DockManager: React.FC<DockManagerProps> = ({
         </SmritiScrollArea>
 
         {/* Navigation Panel */}
-        {!focusMode && (
+        {showNavigation && (
           <NavigationRenderer 
             activeTab={activeTab} 
             onTabSelect={onTabSelect} 
@@ -230,7 +287,12 @@ export const DockManager: React.FC<DockManagerProps> = ({
     );
   };
 
-  // Return specific position renderers
+  // SEEF Phase 7 wiring: navMode from Admin Configurator drives layout selector
+  // top-nav     → renderTopDockLayout regardless of preferences.position
+  // rail        → renderLeftDockLayout with RAIL_WIDTH=56 (NavigationRenderer handles icon rendering)
+  // mega-menu   → renderLeftDockLayout with RAIL_WIDTH=56 (NavigationRenderer renders trigger strip + overlay)
+  // sidebar     → respect preferences.position (left/right/top/bottom)
+  if (isTopNavMode)   return renderTopDockLayout();
   switch (effectivePosition) {
     case "right":
       return renderRightDockLayout();

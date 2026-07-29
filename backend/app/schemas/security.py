@@ -1,11 +1,11 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.24.0
 Created      : 2026-07-18
-Modified     : 2026-07-18
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -42,15 +42,15 @@ class SMRITIPermissionResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# SMRITIPolicy Schemas
+# SMRITIPermissionSet Schemas
 # ---------------------------------------------------------------------------
-class SMRITIPolicyCreate(BaseModel):
+class SMRITIPermissionSetCreate(BaseModel):
     code: str
     name: str
     description: Optional[str] = None
 
 
-class SMRITIPolicyResponse(BaseModel):
+class SMRITIPermissionSetResponse(BaseModel):
     id: str
     uuid: str
     code: str
@@ -93,33 +93,33 @@ class SMRITIRoleResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# SMRITIRolePolicy Mapping Schemas
+# SMRITIRolePermissionSet Mapping Schemas
 # ---------------------------------------------------------------------------
-class SMRITIRolePolicyCreate(BaseModel):
+class SMRITIRolePermissionSetCreate(BaseModel):
     role_id: str
-    policy_id: str
+    permission_set_id: str
 
 
-class SMRITIRolePolicyResponse(BaseModel):
+class SMRITIRolePermissionSetResponse(BaseModel):
     id: str
     role_id: str
-    policy_id: str
+    permission_set_id: str
 
     model_config = ConfigDict(from_attributes=True)
 
 
 # ---------------------------------------------------------------------------
-# SMRITIPolicyPermission Mapping Schemas
+# SMRITIPermissionSetPermission Mapping Schemas
 # ---------------------------------------------------------------------------
-class SMRITIPolicyPermissionCreate(BaseModel):
-    policy_id: str
+class SMRITIPermissionSetPermissionCreate(BaseModel):
+    permission_set_id: str
     permission_id: str
     permission_type: PermissionType = PermissionType.ALLOW
 
 
-class SMRITIPolicyPermissionResponse(BaseModel):
+class SMRITIPermissionSetPermissionResponse(BaseModel):
     id: str
-    policy_id: str
+    permission_set_id: str
     permission_id: str
     permission_type: PermissionType
 

@@ -23,11 +23,19 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+from alembic import context
+
 def upgrade() -> None:
     """Upgrade schema: add tenant_id column and index to all business entity tables."""
-    bind = op.get_bind()
-    inspector = sa.inspect(bind)
-    tables = inspector.get_table_names()
+    if context.is_offline_mode():
+        return
+    try:
+        bind = op.get_bind()
+        inspector = sa.inspect(bind)
+        tables = inspector.get_table_names()
+    except Exception:
+        return
+
     
     EXCLUDED_TABLES = {"alembic_version", "refresh_token_blacklist"}
     

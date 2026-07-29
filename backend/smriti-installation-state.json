@@ -1,0 +1,11 @@
+{
+  "sales": "ENABLED",
+  "pos": "ENABLED",
+  "inventory": "ENABLED",
+  "basic_accounting": "DISABLED",
+  "advanced_accounting": "DISABLED",
+  "accounting": "DISABLED",
+  "crm": "DISABLED",
+  "purchase": "DISABLED",
+  "test_pkg": "DISABLED"
+}

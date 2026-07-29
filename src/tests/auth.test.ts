@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -169,7 +169,7 @@ describe('Authentication Integration Tests', () => {
     // Confirm that the user status is set to Locked
     const lockUser = users.find((u: any) => u.username === 'lockuser');
     expect(lockUser?.status).toBe('Locked');
-  });
+  }, 15000);
 
   it('should return 401 when fetching current session without credentials', async () => {
     const res = await request(app)

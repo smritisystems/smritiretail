@@ -1,0 +1,70 @@
+---
+title: SMRITI — Accounting Module ERD (Current + Phase 1 Planned)
+---
+erDiagram
+    chart_of_accounts {
+        string id PK
+        string company_id FK
+        string account_code
+        string account_name
+        string account_type
+        string parent_account_id FK
+        boolean is_active
+        boolean is_deleted
+    }
+    ledger_entries {
+        string id PK
+        string company_id FK
+        string account_id FK
+        string journal_id FK
+        numeric debit_amount
+        numeric credit_amount
+        string narration
+        string ref_document_type
+        string ref_document_id
+        datetime posting_date
+    }
+    accounting_periods {
+        string id PK
+        string company_id FK
+        string period_name
+        datetime start_date
+        datetime end_date
+        boolean is_locked
+    }
+    payment_allocations {
+        string id PK
+        string company_id FK
+        string payment_id FK
+        string invoice_id FK
+        numeric allocated_amount
+        datetime allocation_date
+    }
+    financial_year {
+        string id PK
+        string company_id FK
+        string name
+        date start_date
+        date end_date
+        boolean is_active
+        boolean is_locked
+        string status
+    }
+    journal_entries {
+        string id PK
+        string company_id FK
+        string financial_year_id FK
+        string journal_no
+        string journal_type
+        date posting_date
+        string narration
+        string ref_document_type
+        string ref_document_id
+        string status
+    }
+
+    chart_of_accounts ||--o{ ledger_entries : "records"
+    chart_of_accounts ||--o| chart_of_accounts : "parent"
+    financial_year ||--o{ journal_entries : "contains"
+    journal_entries ||--o{ ledger_entries : "generates"
+    accounting_periods }o--|| financial_year : "subdivides"

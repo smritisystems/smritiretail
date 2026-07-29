@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -23,6 +23,15 @@ class SalesInvoiceRepository(BaseRepository[SalesInvoice]):
     def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
         super().__init__(SalesInvoice, db, tenant_ctx)
 
+    async def get_all(self, skip: int = 0, limit: int = 100) -> List[SalesInvoice]:
+        from sqlalchemy.orm import selectinload
+        stmt = select(SalesInvoice).filter(SalesInvoice.is_deleted == False)
+        stmt = self._apply_tenant_filter(stmt)
+        stmt = stmt.options(selectinload(SalesInvoice.items))
+        stmt = stmt.offset(skip).limit(limit)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
     async def search(
         self, invoice_no: Optional[str] = None, customer_id: Optional[str] = None,
         status: Optional[str] = None, date_from: Optional[date] = None, date_to: Optional[date] = None,
@@ -40,9 +49,9 @@ class SalesInvoiceRepository(BaseRepository[SalesInvoice]):
         if status:
             stmt = stmt.filter(SalesInvoice.status == status)
         if date_from:
-            stmt = stmt.filter(SalesInvoice.date >= date_from)
+            stmt = stmt.filter(SalesInvoice.invoice_date >= date_from)
         if date_to:
-            stmt = stmt.filter(SalesInvoice.date <= date_to)
+            stmt = stmt.filter(SalesInvoice.invoice_date <= date_to)
         stmt = stmt.offset(skip).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())

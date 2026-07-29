@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -641,4 +641,143 @@ async def save_printer_settings(
         "port": req.port,
         "usb_target": req.usb_target
     }
+
+
+# ── Barcode Label Raw Print Dispatch Endpoint ─────────────────────────────────
+# Sends raw ZPL / TSPL / XPML script directly to a TCP/IP thermal printer
+# via Python raw socket on port 9100. No QZ Tray, no Windows driver needed.
+# Called by qzTrayService.ts Mode 1 (TCP/IP Network Printer).
+
+class RawPrintDispatchRequest:
+    """Inline schema — parsed manually from Body dict to avoid circular imports."""
+    pass
+
+@router.post("/dispatch")
+async def dispatch_raw_print_job(
+    request: dict = Body(...),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Dispatch raw ZPL/TSPL/XPML script to a TCP/IP thermal barcode printer.
+    Opens a direct raw socket connection to printer_ip:printer_port and streams
+    the raw_payload bytes. Works with Zebra, TSC, Godex, Brother, and any
+    RFC-2910 compatible thermal printer with Ethernet or Wi-Fi.
+    """
+    printer_ip: str = request.get("printer_ip", "")
+    printer_port: int = int(request.get("printer_port", 9100))
+    raw_payload: str = request.get("raw_payload", "")
+    copies: int = int(request.get("copies", 1))
+
+    if not printer_ip:
+        raise HTTPException(status_code=400, detail="printer_ip is required")
+    if not raw_payload:
+        raise HTTPException(status_code=400, detail="raw_payload is required")
+
+    errors = []
+    sent_bytes = 0
+
+    for copy_num in range(copies):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(5.0)
+                sock.connect((printer_ip, printer_port))
+                payload_bytes = raw_payload.encode("utf-8", errors="replace")
+                sock.sendall(payload_bytes)
+                sent_bytes += len(payload_bytes)
+        except socket.timeout:
+            errors.append(f"Copy {copy_num + 1}: Connection timed out to {printer_ip}:{printer_port}")
+        except ConnectionRefusedError:
+            errors.append(f"Copy {copy_num + 1}: Printer refused connection at {printer_ip}:{printer_port}")
+        except OSError as e:
+            errors.append(f"Copy {copy_num + 1}: Network error: {str(e)}")
+
+    if errors and sent_bytes == 0:
+        raise HTTPException(status_code=502, detail=f"Print dispatch failed: {'; '.join(errors)}")
+
+    return {
+        "success": True,
+        "printer_ip": printer_ip,
+        "printer_port": printer_port,
+        "copies_requested": copies,
+        "bytes_sent": sent_bytes,
+        "warnings": errors if errors else None,
+        "message": f"Dispatched {copies} label(s) to {printer_ip}:{printer_port} ({sent_bytes} bytes)"
+    }
+
+
+# ── Core Barcode & Print Framework Endpoints ───────────────────────────────
+
+@router.get("/tokens")
+async def get_barcode_token_registry(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get registered token metadata dictionary for thermal barcode label field mappings.
+    """
+    from ...services.barcode_engine import BarcodeEngineService
+    return {
+        "success": True,
+        "tokens": BarcodeEngineService.get_token_reference()
+    }
+
+
+@router.get("/printers")
+async def list_registered_printers(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List all registered hardware printers and connection profiles.
+    """
+    from ...services.barcode_engine import BarcodeEngineService
+    return {
+        "success": True,
+        "printers": BarcodeEngineService.list_printers()
+    }
+
+
+@router.post("/generate-prn")
+async def generate_prn_endpoint(
+    req: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate raw ZPL/TSPL PRN label script from items list and template.
+    """
+    from ...services.barcode_engine import BarcodeEngineService
+    items = req.get("items") or []
+    raw_template = req.get("raw_template")
+    protocol = req.get("protocol") or "ZPL"
+    label_size = req.get("label_size") or "50x25"
+    company_name = req.get("company_name") or "SMRITI RETAIL"
+
+    res = BarcodeEngineService.generate_prn(
+        items=items,
+        raw_template=raw_template,
+        protocol=protocol,
+        label_size=label_size,
+        company_name=company_name
+    )
+    return {
+        "success": True,
+        **res
+    }
+
+
+@router.post("/test-printer")
+async def test_printer_endpoint(
+    req: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Test TCP/IP socket ping to a target printer IP and port.
+    """
+    from ...services.barcode_engine import BarcodeEngineService
+    printer_ip = req.get("printer_ip")
+    printer_port = int(req.get("printer_port") or 9100)
+
+    if not printer_ip:
+        raise HTTPException(status_code=400, detail="printer_ip is required")
+
+    res = BarcodeEngineService.test_printer_connection(printer_ip=printer_ip, printer_port=printer_port)
+    return res
 

@@ -1,12 +1,13 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
+ * Organization : AITDL NETWORKS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.16.1
+ * Version      : 5.0.0
  * Created      : 2026-07-10
- * Modified     : 2026-07-14
+ * Modified     : 2026-07-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -247,13 +248,46 @@ const DEFAULT_SHORTCUTS: KeyboardShortcut[] = [
     roles: ["Shop Owner", "Cashier", "Warehouse Staff", "Purchase Executive", "Sales Executive", "Store Manager", "Branch Manager", "Distributor", "Franchise Owner", "Accountant (Operational)", "Admin"],
     actionType: "workspace",
     actionValue: "minimize"
+  },
+  {
+    id: "toggle_navbar",
+    name: "Toggle Application Navbar",
+    description: "Hide or show the top application header navbar",
+    defaultKey: { key: "n", ctrl: false, alt: true, shift: true, meta: false }, // Alt + Shift + N
+    currentKey: { key: "n", ctrl: false, alt: true, shift: true, meta: false },
+    category: "Global",
+    roles: ["Shop Owner", "Cashier", "Warehouse Staff", "Purchase Executive", "Sales Executive", "Store Manager", "Branch Manager", "Distributor", "Franchise Owner", "Accountant (Operational)", "Admin"],
+    actionType: "layout",
+    actionValue: "navbar"
+  },
+  {
+    id: "toggle_sidebar",
+    name: "Toggle Navigation Sidebar",
+    description: "Hide or show the side navigation menu panel",
+    defaultKey: { key: "s", ctrl: false, alt: true, shift: true, meta: false }, // Alt + Shift + S
+    currentKey: { key: "s", ctrl: false, alt: true, shift: true, meta: false },
+    category: "Global",
+    roles: ["Shop Owner", "Cashier", "Warehouse Staff", "Purchase Executive", "Sales Executive", "Store Manager", "Branch Manager", "Distributor", "Franchise Owner", "Accountant (Operational)", "Admin"],
+    actionType: "layout",
+    actionValue: "sidebar_vis"
+  },
+  {
+    id: "toggle_bottombar",
+    name: "Toggle Workspace Bottombar",
+    description: "Hide or show the bottom taskbar",
+    defaultKey: { key: "b", ctrl: false, alt: true, shift: true, meta: false }, // Alt + Shift + B
+    currentKey: { key: "b", ctrl: false, alt: true, shift: true, meta: false },
+    category: "Global",
+    roles: ["Shop Owner", "Cashier", "Warehouse Staff", "Purchase Executive", "Sales Executive", "Store Manager", "Branch Manager", "Distributor", "Franchise Owner", "Accountant (Operational)", "Admin"],
+    actionType: "layout",
+    actionValue: "bottombar"
   }
 ];
 
 const ShortcutContext = createContext<ShortcutContextType | undefined>(undefined);
 
 export const ShortcutProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { addToRecentlyUsed, toggleSidebar } = useLayoutEngine();
+  const { addToRecentlyUsed, toggleSidebar, toggleNavbar, toggleSidebarVisibility, toggleBottombar } = useLayoutEngine();
   const { toggleFocusMode, activeWindowId, floatingWindows, closeWindow, maximizeWindow, restoreWindow, minimizeWindow } = useWorkspace();
   const { setSearchOpen } = useDrillDown();
 
@@ -336,6 +370,12 @@ export const ShortcutProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       case "layout":
         if (shortcut.actionValue === "sidebar") {
           toggleSidebar();
+        } else if (shortcut.actionValue === "sidebar_vis") {
+          toggleSidebarVisibility();
+        } else if (shortcut.actionValue === "navbar") {
+          toggleNavbar();
+        } else if (shortcut.actionValue === "bottombar") {
+          toggleBottombar();
         } else if (shortcut.actionValue === "focus") {
           toggleFocusMode();
         }
@@ -360,7 +400,7 @@ export const ShortcutProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       default:
         break;
     }
-  }, [activeRole, activeWindowId, floatingWindows, closeWindow, maximizeWindow, restoreWindow, minimizeWindow, toggleSidebar, toggleFocusMode, addToRecentlyUsed, setSearchOpen]);
+  }, [activeRole, activeWindowId, floatingWindows, closeWindow, maximizeWindow, restoreWindow, minimizeWindow, toggleSidebar, toggleNavbar, toggleSidebarVisibility, toggleBottombar, toggleFocusMode, addToRecentlyUsed, setSearchOpen]);
 
   // Central Event Listener
   useEffect(() => {

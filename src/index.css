@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -16,12 +16,27 @@
  *
  * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 2.1.1
+ * * Version    : 5.2.0  (SEEF Phase 1 — Design Token Expansion)
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-11
+ * * Modified   : 2026-07-26
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * SMRITI Enterprise Experience Framework (SEEF) — Design Token Layer v1.0
+ * Single source of truth for every color, space, radius, shadow, motion,
+ * and typography value in SMRITI Retail OS.
+ * No hardcoded colors or spacing values anywhere in the application.
+ * All values are resolved through this token chain.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
+
+@import './styles/smriti-tokens.css';
+@import './styles/smriti-theme-light.css';
+@import './styles/smriti-theme-fiori-lite.css';
+@import './styles/smriti-theme-dark.css';
+@import './styles/smriti-theme-high-contrast.css';
+
 
 @import "tailwindcss";
 @import "./smriti_scroll.css";
@@ -29,52 +44,395 @@
 /* Tailwind v4 class-based dark mode */
 @custom-variant dark (&:is(.dark *));
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   SEEF DESIGN TOKENS — Tailwind v4 @theme bridge
+   Every SEEF semantic token is accessible as a Tailwind utility class.
+   ═══════════════════════════════════════════════════════════════════════════ */
 @theme {
-	--font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-	--font-display: "Space Grotesk", sans-serif;
-	--font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+	/* Typography Families */
+	--font-sans:    "Inter", "72", ui-sans-serif, system-ui, sans-serif;
+	--font-display: "Space Grotesk", "72full", sans-serif;
+	--font-mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-	--color-theme-base: var(--c-theme-base);
-	--color-theme-surface-1: var(--c-theme-surface-1);
-	--color-theme-surface-2: var(--c-theme-surface-2);
-	--color-theme-surface-3: var(--c-theme-surface-3);
-	--color-theme-surface-4: var(--c-theme-surface-4);
+	/* ── Semantic Surface Colors (resolved from CSS vars per active theme) ── */
+	--color-theme-base:          var(--c-theme-base);
+	--color-theme-surface-1:     var(--c-theme-surface-1);
+	--color-theme-surface-2:     var(--c-theme-surface-2);
+	--color-theme-surface-3:     var(--c-theme-surface-3);
+	--color-theme-surface-4:     var(--c-theme-surface-4);
 	--color-theme-surface-hover: var(--c-theme-surface-hover);
-	--color-theme-divider: var(--c-theme-divider);
-	--color-theme-muted: var(--c-theme-muted);
-	--color-theme-primary: var(--c-theme-primary);
-	--color-theme-body: var(--c-theme-body);
+	--color-theme-divider:       var(--c-theme-divider);
+	--color-theme-muted:         var(--c-theme-muted);
+	--color-theme-primary:       var(--c-theme-primary);
+	--color-theme-body:          var(--c-theme-body);
+
+	/* ── SEEF Status / Brand Colors ─────────────────────────────────────── */
+	--color-seef-success: var(--c-seef-success);
+	--color-seef-warning: var(--c-seef-warning);
+	--color-seef-error:   var(--c-seef-error);
+	--color-seef-info:    var(--c-seef-info);
+	--color-seef-brand:   var(--c-seef-brand);
+	--color-seef-accent:  var(--c-seef-accent);
+	--color-seef-neutral: var(--c-seef-neutral);
+
+	/* ── SEEF Spacing (8-point grid, static Tailwind utilities) ─────────── */
+	--spacing-seef-1:  4px;
+	--spacing-seef-2:  8px;
+	--spacing-seef-3:  12px;
+	--spacing-seef-4:  16px;
+	--spacing-seef-5:  20px;
+	--spacing-seef-6:  24px;
+	--spacing-seef-8:  32px;
+	--spacing-seef-10: 40px;
+	--spacing-seef-12: 48px;
+	--spacing-seef-14: 56px;
+	--spacing-seef-16: 64px;
+
+	/* ── SEEF Border Radius ──────────────────────────────────────────────── */
+	--radius-seef-xs:   2px;
+	--radius-seef-sm:   4px;
+	--radius-seef-md:   6px;
+	--radius-seef-lg:   8px;
+	--radius-seef-xl:   12px;
+	--radius-seef-2xl:  16px;
+	--radius-seef-3xl:  24px;
+	--radius-seef-full: 9999px;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   SEEF BASE LAYER — CSS Custom Properties (full token set)
+   Applied to :root by default. Overridden by theme data-attributes.
+   SEEFContext.tsx writes data-seef-* attributes to <html> on config change.
+   ═══════════════════════════════════════════════════════════════════════════ */
 @layer base {
 	:root {
-		/* Light Mode Palette */
-		--c-theme-base: #f1f5f9; /* gray-100 */
-		--c-theme-surface-1: #ffffff;
-		--c-theme-surface-2: #f8fafc; /* gray-50 */
-		--c-theme-surface-3: #ffffff;
-		--c-theme-surface-4: #f1f5f9; /* gray-100 */
-		--c-theme-surface-hover: #e2e8f0; /* gray-200 */
-		--c-theme-divider: #e2e8f0;
-		--c-theme-muted: #64748b; /* gray-500 */
-		--c-theme-primary: #0f172a; /* gray-900 */
-		--c-theme-body: #0f172a; /* gray-900 */
+		/* ── Legacy Surface Tokens (preserved — light baseline) ──────────────── */
+		--c-theme-base:          #f1f5f9;
+		--c-theme-surface-1:     #ffffff;
+		--c-theme-surface-2:     #f8fafc;
+		--c-theme-surface-3:     #ffffff;
+		--c-theme-surface-4:     #f1f5f9;
+		--c-theme-surface-hover: #e2e8f0;
+		--c-theme-divider:       #e2e8f0;
+		--c-theme-muted:         #64748b;
+		--c-theme-primary:       #0f172a;
+		--c-theme-body:          #0f172a;
+
+		/* ── SEEF Status / Brand Tokens (light baseline) ─────────────────────── */
+		--c-seef-success: #188038;
+		--c-seef-warning: #f29900;
+		--c-seef-error:   #bb0000;
+		--c-seef-info:    #0854a0;
+		--c-seef-brand:   #354a5e;
+		--c-seef-accent:  #1a73e8;
+		--c-seef-neutral: #89919a;
+		--c-seef-overlay: rgba(0, 0, 0, 0.5);
+
+		/* ── SEEF Elevation / Shadow Tokens ──────────────────────────────────── */
+		--seef-elevation-0: none;
+		--seef-elevation-1: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+		--seef-elevation-2: 0 4px 6px -1px rgba(0,0,0,0.10), 0 2px 4px -1px rgba(0,0,0,0.06);
+		--seef-elevation-3: 0 10px 15px -3px rgba(0,0,0,0.10), 0 4px 6px -2px rgba(0,0,0,0.05);
+		--seef-elevation-4: 0 20px 25px -5px rgba(0,0,0,0.10), 0 10px 10px -5px rgba(0,0,0,0.04);
+		--seef-elevation-5: 0 25px 50px -12px rgba(0,0,0,0.25);
+
+		/* ── SEEF Motion Tokens ───────────────────────────────────────────────── */
+		--seef-motion-instant:  0ms;
+		--seef-motion-fast:     100ms;
+		--seef-motion-normal:   200ms;
+		--seef-motion-slow:     350ms;
+		--seef-motion-xslow:    500ms;
+		--seef-ease-standard:   cubic-bezier(0.4, 0, 0.2, 1);
+		--seef-ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+		--seef-ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+		--seef-ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
+
+		/* ── SEEF Typography Scale — Compact variant ─────────────────────────── */
+		--seef-font-size-xs-compact: 10px;
+		--seef-font-size-sm-compact: 11px;
+		--seef-font-size-md-compact: 12px;
+		--seef-font-size-lg-compact: 13px;
+		--seef-font-size-xl-compact: 15px;
+
+		/* ── SEEF Typography Scale — Comfortable variant (default) ──────────── */
+		--seef-font-size-xs-comfortable: 11px;
+		--seef-font-size-sm-comfortable: 12px;
+		--seef-font-size-md-comfortable: 14px;
+		--seef-font-size-lg-comfortable: 16px;
+		--seef-font-size-xl-comfortable: 20px;
+
+		/* ── SEEF Typography Scale — Spacious variant ────────────────────────── */
+		--seef-font-size-xs-spacious: 12px;
+		--seef-font-size-sm-spacious: 13px;
+		--seef-font-size-md-spacious: 15px;
+		--seef-font-size-lg-spacious: 18px;
+		--seef-font-size-xl-spacious: 24px;
+
+		/* ── Active Typography (overridden by density data-attribute) ────────── */
+		--seef-font-size-xs: var(--seef-font-size-xs-comfortable);
+		--seef-font-size-sm: var(--seef-font-size-sm-comfortable);
+		--seef-font-size-md: var(--seef-font-size-md-comfortable);
+		--seef-font-size-lg: var(--seef-font-size-lg-comfortable);
+		--seef-font-size-xl: var(--seef-font-size-xl-comfortable);
+
+		/* ── Active Spacing (overridden by density data-attribute) ───────────── */
+		--seef-space-xs:  4px;
+		--seef-space-sm:  8px;
+		--seef-space-md:  12px;
+		--seef-space-lg:  16px;
+		--seef-space-xl:  24px;
+		--seef-space-2xl: 32px;
+
+		/* ── Active Border Radius (overridden by theme data-attribute) ───────── */
+		--seef-radius-active-sm: 4px;
+		--seef-radius-active-md: 6px;
+		--seef-radius-active-lg: 8px;
+		--seef-radius-active-xl: 12px;
+
+		/* ── Active Card Surface Tokens (overridden by cardStyle data-attribute) */
+		--seef-card-bg:     #ffffff;
+		--seef-card-border: 1px solid #e2e8f0;
+		--seef-card-shadow: var(--seef-elevation-1);
+		--seef-card-radius: var(--seef-radius-active-lg);
+		--seef-card-backdrop: none;
 	}
 
-	.dark {
-		/* Dark Mode Palette (original SMRITI hex values) */
-		--c-theme-base: #1a2b5c;
-		--c-theme-surface-1: #16213e;
-		--c-theme-surface-2: #121c35;
-		--c-theme-surface-3: #1a2744;
-		--c-theme-surface-4: #111827;
-		--c-theme-surface-hover: #20315a;
-		--c-theme-divider: #2a3a5c;
-		--c-theme-muted: #8892a4;
-		--c-theme-primary: #e2e8f0;
-		--c-theme-body: #ffffff;
+	/* ═══════════════════════════════════════════════════════════════════════
+	   SEEF THEME: "dark" — Original SMRITI Navy
+	   Applied when: class="dark" OR data-seef-theme="dark"
+	   ═══════════════════════════════════════════════════════════════════════ */
+	.dark,
+	[data-seef-theme="dark"] {
+		--c-theme-base:          #1c222b;
+		--c-theme-surface-1:     #232a35;
+		--c-theme-surface-2:     #2b3442;
+		--c-theme-surface-3:     #323d4e;
+		--c-theme-surface-4:     #181f28;
+		--c-theme-surface-hover: #2c3746;
+		--c-theme-divider:       #364253;
+		--c-theme-muted:         #8996a5;
+		--c-theme-primary:       #e9edf0;
+		--c-theme-body:          #ffffff;
+
+		--c-seef-success: #1aab48;
+		--c-seef-warning: #f5a623;
+		--c-seef-error:   #e53935;
+		--c-seef-info:    #0a6ed1;
+		--c-seef-brand:   #354a5e;
+		--c-seef-accent:  #0a6ed1;
+		--c-seef-neutral: #8996a5;
+		--c-seef-overlay: rgba(0, 0, 0, 0.7);
+
+		--seef-elevation-1: 0 1px 3px rgba(0,0,0,0.30), 0 1px 2px rgba(0,0,0,0.20);
+		--seef-elevation-2: 0 4px 6px -1px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.20);
+		--seef-elevation-3: 0 10px 20px rgba(0,0,0,0.40);
+		--seef-elevation-4: 0 20px 40px rgba(0,0,0,0.50);
+		--seef-elevation-5: 0 30px 60px rgba(0,0,0,0.60);
+
+		--seef-card-bg:     rgba(35, 42, 53, 0.95);
+		--seef-card-border: 1px solid #364253;
+		--seef-card-shadow: var(--seef-elevation-2);
 	}
 
+	/* ═══════════════════════════════════════════════════════════════════════
+	   SEEF THEME: "fiori-light" & "enterprise" — Authentic SAP Fiori Horizon Light
+	   ═══════════════════════════════════════════════════════════════════════ */
+	[data-seef-theme="fiori-light"],
+	[data-seef-theme="enterprise"] {
+		--c-theme-base:          #f4f6f9;
+		--c-theme-surface-1:     #ffffff;
+		--c-theme-surface-2:     #f8fafc;
+		--c-theme-surface-3:     #f1f5f9;
+		--c-theme-surface-4:     #e2e8f0;
+		--c-theme-surface-hover: #edf2f7;
+		--c-theme-divider:       #e2e8f0;
+		--c-theme-muted:         #556b82;
+		--c-theme-primary:       #1d2d3e;
+		--c-theme-body:          #1d2d3e;
+
+		--c-seef-success: #107e3e;
+		--c-seef-warning: #e66000;
+		--c-seef-error:   #bb0000;
+		--c-seef-info:    #0a6ed1;
+		--c-seef-brand:   #354a5e;
+		--c-seef-accent:  #0a6ed1;
+		--c-seef-neutral: #8996a5;
+		--c-seef-overlay: rgba(0, 0, 0, 0.4);
+
+		--seef-card-bg:     #ffffff;
+		--seef-card-border: 1px solid #e2e8f0;
+		--seef-card-shadow: var(--seef-elevation-1);
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   SEEF THEME: "corporate" — Deep Navy, Professional Blue
+	   ═══════════════════════════════════════════════════════════════════════ */
+	[data-seef-theme="corporate"] {
+		--c-theme-base:          #0d1b2a;
+		--c-theme-surface-1:     #142335;
+		--c-theme-surface-2:     #0d1b2a;
+		--c-theme-surface-3:     #1a2f45;
+		--c-theme-surface-4:     #0a1520;
+		--c-theme-surface-hover: #1e3550;
+		--c-theme-divider:       #1e3550;
+		--c-theme-muted:         #6b8cae;
+		--c-theme-primary:       #e8f0f8;
+		--c-theme-body:          #ffffff;
+
+		--c-seef-success: #2ecc71;
+		--c-seef-warning: #f39c12;
+		--c-seef-error:   #e74c3c;
+		--c-seef-info:    #3498db;
+		--c-seef-brand:   #2980b9;
+		--c-seef-accent:  #1abc9c;
+		--c-seef-neutral: #6b8cae;
+		--c-seef-overlay: rgba(0, 0, 0, 0.75);
+
+		--seef-elevation-1: 0 1px 4px rgba(0,0,0,0.40);
+		--seef-elevation-2: 0 4px 12px rgba(0,0,0,0.50);
+		--seef-elevation-3: 0 12px 24px rgba(0,0,0,0.55);
+		--seef-elevation-4: 0 24px 48px rgba(0,0,0,0.65);
+
+		--seef-card-bg:     rgba(20, 35, 53, 0.90);
+		--seef-card-border: 1px solid #1e3550;
+		--seef-card-shadow: var(--seef-elevation-2);
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   SEEF THEME: "minimal" — Clean, Distraction-Free
+	   ═══════════════════════════════════════════════════════════════════════ */
+	[data-seef-theme="minimal"] {
+		--c-theme-base:          #fafafa;
+		--c-theme-surface-1:     #ffffff;
+		--c-theme-surface-2:     #fafafa;
+		--c-theme-surface-3:     #f5f5f5;
+		--c-theme-surface-4:     #eeeeee;
+		--c-theme-surface-hover: #f0f0f0;
+		--c-theme-divider:       #ebebeb;
+		--c-theme-muted:         #9e9e9e;
+		--c-theme-primary:       #212121;
+		--c-theme-body:          #212121;
+
+		--c-seef-success: #43a047;
+		--c-seef-warning: #f9a825;
+		--c-seef-error:   #e53935;
+		--c-seef-info:    #1e88e5;
+		--c-seef-brand:   #424242;
+		--c-seef-accent:  #1976d2;
+		--c-seef-neutral: #9e9e9e;
+
+		--seef-elevation-0: none;
+		--seef-elevation-1: 0 1px 2px rgba(0,0,0,0.05);
+		--seef-elevation-2: 0 2px 4px rgba(0,0,0,0.08);
+		--seef-elevation-3: 0 4px 8px rgba(0,0,0,0.10);
+
+		--seef-card-bg:     #ffffff;
+		--seef-card-border: 1px solid #ebebeb;
+		--seef-card-shadow: none;
+		--seef-radius-active-sm: 2px;
+		--seef-radius-active-md: 4px;
+		--seef-radius-active-lg: 4px;
+		--seef-radius-active-xl: 6px;
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   SEEF THEME: "high-contrast" — WCAG AAA Accessibility
+	   ═══════════════════════════════════════════════════════════════════════ */
+	[data-seef-theme="high-contrast"] {
+		--c-theme-base:          #000000;
+		--c-theme-surface-1:     #000000;
+		--c-theme-surface-2:     #1a1a1a;
+		--c-theme-surface-3:     #1a1a1a;
+		--c-theme-surface-4:     #000000;
+		--c-theme-surface-hover: #333333;
+		--c-theme-divider:       #ffffff;
+		--c-theme-muted:         #cccccc;
+		--c-theme-primary:       #ffffff;
+		--c-theme-body:          #ffffff;
+
+		--c-seef-success: #00ff41;
+		--c-seef-warning: #ffff00;
+		--c-seef-error:   #ff6b6b;
+		--c-seef-info:    #74b9ff;
+		--c-seef-brand:   #ffffff;
+		--c-seef-accent:  #ffff00;
+		--c-seef-neutral: #cccccc;
+		--c-seef-overlay: rgba(0, 0, 0, 0.90);
+
+		/* All animations disabled in high-contrast mode */
+		--seef-motion-fast:   0ms;
+		--seef-motion-normal: 0ms;
+		--seef-motion-slow:   0ms;
+		--seef-motion-xslow:  0ms;
+
+		--seef-card-bg:     #000000;
+		--seef-card-border: 2px solid #ffffff;
+		--seef-card-shadow: none;
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   SEEF DENSITY: Compact  (data-seef-density="compact" on <html>)
+	   ═══════════════════════════════════════════════════════════════════════ */
+	[data-seef-density="compact"] {
+		--seef-font-size-xs: var(--seef-font-size-xs-compact);
+		--seef-font-size-sm: var(--seef-font-size-sm-compact);
+		--seef-font-size-md: var(--seef-font-size-md-compact);
+		--seef-font-size-lg: var(--seef-font-size-lg-compact);
+		--seef-font-size-xl: var(--seef-font-size-xl-compact);
+		--seef-space-xs:  2px;
+		--seef-space-sm:  4px;
+		--seef-space-md:  8px;
+		--seef-space-lg:  10px;
+		--seef-space-xl:  14px;
+		--seef-space-2xl: 20px;
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   SEEF DENSITY: Spacious  (data-seef-density="spacious" on <html>)
+	   ═══════════════════════════════════════════════════════════════════════ */
+	[data-seef-density="spacious"] {
+		--seef-font-size-xs: var(--seef-font-size-xs-spacious);
+		--seef-font-size-sm: var(--seef-font-size-sm-spacious);
+		--seef-font-size-md: var(--seef-font-size-md-spacious);
+		--seef-font-size-lg: var(--seef-font-size-lg-spacious);
+		--seef-font-size-xl: var(--seef-font-size-xl-spacious);
+		--seef-space-xs:  6px;
+		--seef-space-sm:  12px;
+		--seef-space-md:  16px;
+		--seef-space-lg:  24px;
+		--seef-space-xl:  32px;
+		--seef-space-2xl: 48px;
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   SEEF ANIMATION POLICY — System preference auto-override
+	   ═══════════════════════════════════════════════════════════════════════ */
+	@media (prefers-reduced-motion: reduce) {
+		:root {
+			--seef-motion-fast:   0ms;
+			--seef-motion-normal: 0ms;
+			--seef-motion-slow:   0ms;
+			--seef-motion-xslow:  0ms;
+		}
+	}
+
+	[data-seef-animation="none"] {
+		--seef-motion-fast:   0ms;
+		--seef-motion-normal: 0ms;
+		--seef-motion-slow:   0ms;
+		--seef-motion-xslow:  0ms;
+	}
+
+	[data-seef-animation="subtle"] {
+		--seef-motion-fast:   80ms;
+		--seef-motion-normal: 150ms;
+		--seef-motion-slow:   250ms;
+		--seef-motion-xslow:  350ms;
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	   BASE RESETS (preserved from original)
+	   ═══════════════════════════════════════════════════════════════════════ */
 	html, body, #root {
 		margin: 0 !important;
 		padding: 0 !important;
@@ -87,13 +445,243 @@
 		background-color: var(--c-theme-base);
 		color: var(--c-theme-primary);
 		font-family: var(--font-sans);
+		font-size: var(--seef-font-size-md);
 		transition:
-			background-color 0.3s ease,
-			color 0.3s ease;
+			background-color var(--seef-motion-slow) var(--seef-ease-standard),
+			color var(--seef-motion-slow) var(--seef-ease-standard);
 	}
 }
 
-/* Material Symbols configuration */
+/* ═══════════════════════════════════════════════════════════════════════════
+   SEEF GLOBAL UTILITY CLASSES
+   These classes are used by SEEF primitive components (SEEFCard, SEEFDialog…)
+   and may be used by module-level components that have not yet migrated.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* SEEF Card surface — respects active cardStyle */
+.seef-card {
+	background: var(--seef-card-bg);
+	border: var(--seef-card-border);
+	box-shadow: var(--seef-card-shadow);
+	border-radius: var(--seef-card-radius);
+	transition:
+		box-shadow var(--seef-motion-normal) var(--seef-ease-standard),
+		background var(--seef-motion-normal) var(--seef-ease-standard);
+}
+
+/* Glass card variant (applied when data-seef-card="glass" is on html/body) */
+[data-seef-card="glass"] .seef-card {
+	background: rgba(255, 255, 255, 0.07);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	box-shadow: var(--seef-elevation-3);
+}
+
+/* Floating card variant */
+[data-seef-card="floating"] .seef-card {
+	box-shadow: var(--seef-elevation-4);
+}
+
+/* Flat card variant */
+[data-seef-card="flat"] .seef-card {
+	box-shadow: none;
+	border: var(--seef-card-border);
+}
+
+/* Outlined card variant */
+[data-seef-card="outlined"] .seef-card {
+	box-shadow: none;
+	border: 1px solid var(--c-theme-divider);
+}
+
+/* SEEF interactive element base transition */
+.seef-interactive {
+	transition:
+		background-color var(--seef-motion-fast) var(--seef-ease-standard),
+		border-color     var(--seef-motion-fast) var(--seef-ease-standard),
+		color            var(--seef-motion-fast) var(--seef-ease-standard),
+		box-shadow       var(--seef-motion-fast) var(--seef-ease-standard),
+		opacity          var(--seef-motion-fast) var(--seef-ease-standard),
+		transform        var(--seef-motion-fast) var(--seef-ease-standard);
+}
+
+/* SEEF accessible focus ring — keyboard navigation indicator */
+.seef-focus-ring:focus-visible {
+	outline: 2px solid var(--c-seef-info);
+	outline-offset: 2px;
+	border-radius: var(--seef-radius-active-sm);
+}
+
+/* SEEF status indicator classes */
+.seef-status-success { color: var(--c-seef-success); }
+.seef-status-warning { color: var(--c-seef-warning); }
+.seef-status-error   { color: var(--c-seef-error); }
+.seef-status-info    { color: var(--c-seef-info); }
+
+.seef-bg-success { background-color: var(--c-seef-success); }
+.seef-bg-warning { background-color: var(--c-seef-warning); }
+.seef-bg-error   { background-color: var(--c-seef-error); }
+.seef-bg-info    { background-color: var(--c-seef-info); }
+
+/* SEEF Divider */
+.seef-divider {
+	border: none;
+	border-top: 1px solid var(--c-theme-divider);
+}
+
+/* SEEF muted text */
+.seef-muted {
+	color: var(--c-theme-muted);
+	font-size: var(--seef-font-size-sm);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SEDS CENTRALIZED TYPOGRAPHY SCALE UTILITIES
+   Single source of truth for every typography element across SMRITI OS.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.seds-text-display {
+	font-family: var(--font-display, "Space Grotesk", sans-serif);
+	font-size: 32px;
+	font-weight: 700;
+	line-height: 1.2;
+	letter-spacing: -0.02em;
+}
+
+.seds-text-h1 {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 24px;
+	font-weight: 700;
+	line-height: 1.25;
+	letter-spacing: -0.015em;
+}
+
+.seds-text-h2 {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 20px;
+	font-weight: 600;
+	line-height: 1.3;
+	letter-spacing: -0.01em;
+}
+
+.seds-text-h3 {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 16px;
+	font-weight: 600;
+	line-height: 1.35;
+	letter-spacing: 0;
+}
+
+.seds-text-title {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 14px;
+	font-weight: 700;
+	line-height: 1.4;
+	letter-spacing: 0;
+}
+
+.seds-text-subtitle {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 13px;
+	font-weight: 500;
+	line-height: 1.4;
+	letter-spacing: 0;
+}
+
+.seds-text-body-lg {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 16px;
+	font-weight: 400;
+	line-height: 1.5;
+	letter-spacing: 0;
+}
+
+.seds-text-body {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 14px;
+	font-weight: 400;
+	line-height: 1.5;
+	letter-spacing: 0;
+}
+
+.seds-text-small {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 1.4;
+	letter-spacing: 0;
+}
+
+.seds-text-caption {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 11px;
+	font-weight: 400;
+	line-height: 1.35;
+	letter-spacing: 0.01em;
+}
+
+.seds-text-overline {
+	font-family: var(--font-mono, "JetBrains Mono", monospace);
+	font-size: 10px;
+	font-weight: 700;
+	line-height: 1.3;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.seds-text-button {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.2;
+	letter-spacing: 0.02em;
+}
+
+.seds-text-table-header {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.3;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.seds-text-table-cell {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 1.4;
+	letter-spacing: 0;
+}
+
+.seds-text-label {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.3;
+	letter-spacing: 0;
+}
+
+.seds-text-helper {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 11px;
+	font-weight: 400;
+	line-height: 1.35;
+	letter-spacing: 0;
+}
+
+.seds-text-error {
+	font-family: var(--font-sans, "Inter", sans-serif);
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 1.35;
+	letter-spacing: 0;
+	color: var(--c-seef-error);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MATERIAL SYMBOLS (preserved from original)
+   ═══════════════════════════════════════════════════════════════════════════ */
 .material-symbols-outlined {
 	font-family: "Material Symbols Outlined";
 	font-weight: normal;
@@ -109,6 +697,9 @@
 	-webkit-font-smoothing: antialiased;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRINT RULES (preserved from original)
+   ═══════════════════════════════════════════════════════════════════════════ */
 @media print {
   body * {
     visibility: hidden;
@@ -132,4 +723,3 @@
     display: none !important;
   }
 }
-

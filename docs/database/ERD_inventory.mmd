@@ -1,0 +1,166 @@
+---
+title: SMRITI — Inventory Module ERD
+---
+erDiagram
+    products {
+        string id PK
+        string company_id FK
+        string branch_id FK
+        string code
+        string name
+        string barcode
+        numeric price
+        numeric mrp
+        numeric cost_price
+        integer stock
+        string category
+        string brand
+        string hsn_code
+        numeric gst_percentage
+        string sku
+        string tracking_mode
+        string variant_template_id FK
+        string size_scale_id FK
+        boolean is_active
+        boolean is_deleted
+    }
+    product_barcodes {
+        string id PK
+        string product_id FK
+        string barcode
+        boolean is_primary
+        string barcode_type
+    }
+    product_tax_profiles {
+        string id PK
+        string product_id FK
+        numeric gst_percentage
+        string hsn_code
+        date effective_from
+        boolean is_active
+    }
+    product_vendors {
+        string id PK
+        string product_id FK
+        string supplier_id FK
+        numeric purchase_price
+        boolean is_primary
+        string vendor_sku
+    }
+    product_inventory_policies {
+        string id PK
+        string product_id FK
+        integer min_stock_level
+        integer max_stock_level
+        integer reorder_point
+        integer reorder_quantity
+        boolean auto_reorder
+    }
+    warehouses {
+        string id PK
+        string company_id FK
+        string branch_id FK
+        string name
+        string address
+        boolean is_default
+        boolean is_active
+    }
+    stores {
+        string id PK
+        string company_id FK
+        string branch_id FK
+        string name
+        string store_type
+        boolean is_active
+    }
+    stock_movements {
+        string id PK
+        string company_id FK
+        string product_id FK
+        string warehouse_id FK
+        string movement_type
+        numeric quantity
+        numeric balance_after
+        string reference_no
+        string narration
+        datetime movement_date
+    }
+    stock_counts {
+        string id PK
+        string company_id FK
+        string warehouse_id FK
+        string count_no
+        string status
+        datetime count_date
+        numeric total_variance_qty
+        numeric total_variance_value
+    }
+    stock_count_items {
+        string id PK
+        string count_id FK
+        string product_id FK
+        numeric system_stock
+        numeric physical_count
+        numeric variance_qty
+        string status
+    }
+    stock_adjustments {
+        string id PK
+        string company_id FK
+        string count_id FK
+        string adjustment_no
+        datetime adjustment_date
+        string reason
+        numeric total_adjustment_qty
+        numeric total_adjustment_value
+        string status
+    }
+    stock_transfers {
+        string id PK
+        string company_id FK
+        string from_warehouse_id FK
+        string to_warehouse_id FK
+        string transfer_no
+        string status
+        datetime transfer_date
+    }
+    stock_transfer_items {
+        string id PK
+        string transfer_id FK
+        string product_id FK
+        numeric quantity_requested
+        numeric quantity_dispatched
+        numeric quantity_received
+    }
+    replenishment_plans {
+        string id PK
+        string company_id FK
+        string warehouse_id FK
+        string plan_no
+        string status
+        datetime plan_date
+    }
+    replenishment_items {
+        string id PK
+        string plan_id FK
+        string product_id FK
+        numeric current_stock
+        numeric reorder_point
+        numeric suggested_qty
+    }
+
+    products ||--o{ product_barcodes : "has barcodes"
+    products ||--o{ product_tax_profiles : "has tax profiles"
+    products ||--o{ product_vendors : "sourced from"
+    products ||--o| product_inventory_policies : "governed by"
+    products ||--o{ stock_movements : "tracked in"
+    products ||--o{ stock_count_items : "counted in"
+    products ||--o{ stock_transfer_items : "transferred as"
+    products ||--o{ replenishment_items : "replenished in"
+    warehouses ||--o{ stock_movements : "location"
+    warehouses ||--o{ stock_counts : "audited in"
+    warehouses ||--o{ replenishment_plans : "plans for"
+    stock_counts ||--o{ stock_count_items : "contains"
+    stock_counts ||--o| stock_adjustments : "generates"
+    stock_transfers ||--o{ stock_transfer_items : "contains"
+    replenishment_plans ||--o{ replenishment_items : "contains"

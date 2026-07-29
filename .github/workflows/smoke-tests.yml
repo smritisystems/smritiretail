@@ -1,0 +1,47 @@
+name: Smoke Tests
+
+on:
+  workflow_call:
+    inputs:
+      release_version:
+        description: 'Release version'
+        required: true
+        type: string
+    secrets:
+      SSH_HOST:
+        required: true
+      SSH_USER:
+        required: true
+      SSH_PRIVATE_KEY:
+        required: true
+      SSH_KNOWN_HOSTS:
+        required: true
+      REMOTE_PROJECT_PATH:
+        required: false
+
+jobs:
+  smoke_tests:
+    name: Run smoke tests on remote host
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run remote smoke tests via SSH
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.REMOTE_PROJECT_PATH || '.' }}"
+            echo "Waiting for containers to stabilize..."
+            sleep 3
+            echo "Running API health-check script inside container"
+            docker compose -f docker-compose.prod.yml exec -T smriti-api-prod python scripts/health_check.py
+            echo "Checking /health endpoint"
+            docker compose -f docker-compose.prod.yml exec -T smriti-api-prod sh -c 'curl -sSf http://127.0.0.1:8000/health'
+            echo "Checking /ready endpoint"
+            docker compose -f docker-compose.prod.yml exec -T smriti-api-prod sh -c 'curl -sSf http://127.0.0.1:8000/ready'
+            echo "Verifying DB connectivity"
+            docker exec smriti-db-prod pg_isready -U postgres -d smriti_retail_db
+            echo "Smoke tests passed"

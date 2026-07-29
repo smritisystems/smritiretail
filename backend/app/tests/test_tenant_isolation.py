@@ -221,6 +221,7 @@ async def test_service_layer_isolation(db_session):
     )
     cust_b = Customer(
         id=f"cust-b-{suffix_b}",
+        code=f"CUST-B-{suffix_b}",
         name=f"Customer B {suffix_b}",
         customer_group_id=group_b.id,
         company_id=comp_b.id,

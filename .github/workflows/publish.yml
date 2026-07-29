@@ -1,0 +1,81 @@
+name: Publish
+
+on:
+  workflow_call:
+    inputs:
+      release_version:
+        description: 'Release version'
+        required: true
+        type: string
+    secrets:
+      GITHUB_TOKEN:
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download image artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: image-artifacts
+
+      - name: Load and push frontend image
+        env:
+          VERSION: ${{ inputs.release_version }}
+        run: |
+          ls -la
+          if [ -f frontend-${VERSION}.tar.gz ]; then
+            gunzip -c frontend-${VERSION}.tar.gz | docker load
+            docker tag ghcr.io/${{ github.repository }}/frontend:${VERSION} ghcr.io/${{ github.repository }}/frontend:${VERSION}
+            docker push ghcr.io/${{ github.repository }}/frontend:${VERSION}
+            docker push ghcr.io/${{ github.repository }}/frontend:latest
+          else
+            echo "frontend-${VERSION}.tar.gz not found"
+            exit 1
+          fi
+
+      - name: Load and push backend image
+        env:
+          VERSION: ${{ inputs.release_version }}
+        run: |
+          if [ -f backend-${VERSION}.tar.gz ]; then
+            gunzip -c backend-${VERSION}.tar.gz | docker load
+            docker tag ghcr.io/${{ github.repository }}/backend:${VERSION} ghcr.io/${{ github.repository }}/backend:${VERSION}
+            docker push ghcr.io/${{ github.repository }}/backend:${VERSION}
+            docker push ghcr.io/${{ github.repository }}/backend:latest
+          else
+            echo "backend-${VERSION}.tar.gz not found"
+            exit 1
+          fi
+
+      - name: Pull pushed images to resolve digests
+        env:
+          VERSION: ${{ inputs.release_version }}
+        run: |
+          docker pull ghcr.io/${{ github.repository }}/frontend:${VERSION}
+          docker pull ghcr.io/${{ github.repository }}/backend:${VERSION}
+
+      - name: Get image digests
+        env:
+          VERSION: ${{ inputs.release_version }}
+        run: |
+          FRONT_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository }}/frontend:${VERSION} 2>/dev/null || true)
+          BACK_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository }}/backend:${VERSION} 2>/dev/null || true)
+          # Fallback using docker images if RepoDigests not available
+          if [ -z "$FRONT_DIGEST" ]; then
+            FRONT_DIGEST=$(docker images --digests --format '{{.Repository}}@{{.Digest}}' | grep "ghcr.io/${{ github.repository }}/frontend" | head -n1 || true)
+          fi
+          if [ -z "$BACK_DIGEST" ]; then
+            BACK_DIGEST=$(docker images --digests --format '{{.Repository}}@{{.Digest}}' | grep "ghcr.io/${{ github.repository }}/backend" | head -n1 || true)
+          fi
+          jq -n --arg f "$FRONT_DIGEST" --arg b "$BACK_DIGEST" '{frontend:$f,backend:$b}' > image-digests.json
+
+      - name: Upload image digests
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-digests
+          path: image-digests.json

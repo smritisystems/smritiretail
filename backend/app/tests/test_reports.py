@@ -27,7 +27,8 @@ from app.main import app
 from app.models.auth import User, RefreshTokenBlacklist, UserRole
 from app.models.tenant import Company, Branch
 from app.models.inventory import Product, StockMovement
-from app.models.sales import SalesInvoice, SalesInvoiceItem
+from app.models.crm import Customer
+from app.models.sales import SalesInvoice, SalesInvoiceItem, SalesPayment
 from app.models.purchase import (
     Supplier, PurchaseOrder, PurchaseOrderItem,
     PurchaseReceipt, PurchaseReceiptItem,
@@ -47,6 +48,7 @@ async def override_db_and_tenant(db_session):
 
     async def _cleanup():
         await db_session.execute(sa_delete(SupplierPayment))
+        await db_session.execute(sa_delete(SalesPayment))
         await db_session.execute(sa_delete(SalesInvoiceItem))
         await db_session.execute(sa_delete(SalesInvoice))
         await db_session.execute(sa_delete(PurchaseReceiptItem))
@@ -128,16 +130,30 @@ async def _make_product(db_session, suffix, comp_id, br_id, stock, cost_price):
 
 
 async def _make_invoice(db_session, suffix, comp_id, br_id, mode, amount, inv_date=None):
-    inv_date = inv_date or datetime.date.today()
+    inv_dt = datetime.datetime.combine(inv_date, datetime.time.min, tzinfo=datetime.timezone.utc) if isinstance(inv_date, datetime.date) and not isinstance(inv_date, datetime.datetime) else (inv_date or datetime.datetime.now(datetime.timezone.utc))
+    cust = Customer(
+        id=f"cust-{suffix}", code=f"CUST-{suffix}", name=f"Customer {suffix}",
+        company_id=comp_id, branch_id=br_id,
+    )
+    db_session.add(cust)
     inv = SalesInvoice(
         id=f"inv-{suffix}", invoice_no=f"INV-{suffix}",
-        date=inv_date, payment_mode=mode,
+        customer_id=cust.id,
+        invoice_date=inv_dt,
         grand_total=Decimal(amount),
-        status="Draft",
+        status="Paid",
         is_active=True, is_deleted=False,
         company_id=comp_id, branch_id=br_id,
     )
     db_session.add(inv)
+    pmt = SalesPayment(
+        id=f"spmt-{suffix}", payment_no=f"SPMT-{suffix}",
+        invoice_id=inv.id, customer_id=cust.id,
+        payment_mode=mode, amount=Decimal(amount),
+        company_id=comp_id, branch_id=br_id,
+        is_active=True, is_deleted=False,
+    )
+    db_session.add(pmt)
     await db_session.commit()
     return inv
 

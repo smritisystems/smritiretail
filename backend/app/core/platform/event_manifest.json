@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "event_contracts": [
+    {
+      "name": "Sales.Invoice.Posted:v1",
+      "category": "Domain",
+      "description": "Fired when a customer sales invoice is confirmed and posted."
+    },
+    {
+      "name": "Inventory.Stock.Adjusted:v1",
+      "category": "Domain",
+      "description": "Fired when inventory stock level is adjusted."
+    },
+    {
+      "name": "Customer.Created:v1",
+      "category": "Domain",
+      "description": "Fired when a new customer record is created."
+    },
+    {
+      "name": "Purchase.Receipt.Received:v1",
+      "category": "Domain",
+      "description": "Fired when goods are received into warehouse."
+    },
+    {
+      "name": "System.Module.Enabled:v1",
+      "category": "Platform",
+      "description": "Fired when a module is enabled at runtime."
+    },
+    {
+      "name": "System.Module.Disabled:v1",
+      "category": "Platform",
+      "description": "Fired when a module is disabled at runtime."
+    },
+    {
+      "name": "System.Startup.Completed:v1",
+      "category": "Platform",
+      "description": "Fired when SPK kernel completes startup phase."
+    }
+  ]
+}

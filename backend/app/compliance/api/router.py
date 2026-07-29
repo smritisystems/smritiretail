@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 
-from typing import Any
+from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
@@ -22,6 +22,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import TenantContext, get_db, get_tenant_context
 from app.compliance.exceptions import PolicyViolationException
 from app.compliance.schemas.compliance import ComplianceOutboxOut, DebugOutboxIn, HealthStatusOut
+from app.compliance.schemas.nic import (
+    NICEWayBillRequest,
+    NICEWayBillResponse,
+    NICEInvoiceRequest,
+    NICEInvoiceResponse,
+)
+from app.compliance.connectors.nic import NICEWayBillConnectorV1, NICEInvoiceConnectorV1
 from app.compliance.services.compliance_service import ComplianceService
 from app.compliance.services.policy_service import PolicyService
 from app.compliance.services.registry_service import RegistryService
@@ -117,3 +124,139 @@ async def insert_debug_outbox(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         ) from e
+
+
+@router.post(
+    "/ewaybill/generate",
+    response_model=NICEWayBillResponse,
+    summary="Generate NIC E-Way Bill",
+    description="Submits invoice details to NIC Gateway to generate 12-digit E-Way Bill."
+)
+async def generate_ewaybill(
+    payload: NICEWayBillRequest,
+    db: AsyncSession = Depends(get_db),
+) -> NICEWayBillResponse:
+    connector = NICEWayBillConnectorV1(environment="sandbox")
+    creds = {"username": "SGIP_NIC_USER", "password": "SGIP_NIC_PASSWORD"}
+    token = connector.authenticate(creds)
+    res = connector.submit(payload.model_dump(), token)
+    return NICEWayBillResponse(**res)
+
+
+@router.post(
+    "/einvoice/generate",
+    response_model=NICEInvoiceResponse,
+    summary="Generate NIC E-Invoice (IRN)",
+    description="Submits invoice to IRP Gateway to generate 64-char IRN and signed QR code."
+)
+async def generate_einvoice(
+    payload: NICEInvoiceRequest,
+    db: AsyncSession = Depends(get_db),
+) -> NICEInvoiceResponse:
+    connector = NICEInvoiceConnectorV1(environment="sandbox")
+    creds = {"username": "SGIP_IRP_USER", "password": "SGIP_IRP_PASSWORD"}
+    token = connector.authenticate(creds)
+    res = connector.submit(payload.model_dump(), token)
+    return NICEInvoiceResponse(**res)
+
+
+@router.post(
+    "/queue/process",
+    summary="Process Pending Outbox Events",
+    description="Trigger background retry queue processing for queued compliance events."
+)
+async def process_queue(
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    from app.compliance.services.queue_engine import ComplianceQueueEngine
+    engine = ComplianceQueueEngine(db)
+    return await engine.process_pending_outbox(limit=limit)
+
+
+@router.post(
+    "/gst/reconcile",
+    summary="Execute GST GSTR-2B ITC Reconciliation",
+    description="Automate matching of Purchase Register entries against GSTR-2B statements."
+)
+async def reconcile_gst_invoices(
+    payload: Dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    from app.compliance.services.gst_recon_service import GSTReconciliationService
+    svc = GSTReconciliationService()
+    recs = await svc.reconcile_gstr2b(
+        db=db,
+        gstin=payload.get("gstin", "27AAAAA0000A1Z5"),
+        financial_period=payload.get("financial_period", "072026"),
+        purchase_invoices=payload.get("purchase_invoices", []),
+        gstr2b_invoices=payload.get("gstr2b_invoices", []),
+    )
+    return {
+        "success": True,
+        "total_processed": len(recs),
+        "records": [
+            {
+                "id": r.id,
+                "supplier_gstin": r.supplier_gstin,
+                "invoice_number": r.invoice_number,
+                "status": r.reconciliation_status,
+                "variance": float(r.variance_amount),
+            }
+            for r in recs
+        ],
+    }
+
+
+@router.post(
+    "/gst/auto-pull",
+    summary="GSTR-2B Portal Auto-Pull Background Worker",
+    description="Auto-pulls GSTR-2B monthly statement from GSTN portal and triggers reconciliation."
+)
+async def auto_pull_gstr2b(
+    payload: Dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    from app.compliance.services.gstr_autopull_service import GSTRAutoPullService
+    svc = GSTRAutoPullService()
+    return await svc.execute_gstr2b_auto_pull(
+        db=db,
+        gstin=payload.get("gstin", "27AAAAA0000A1Z5"),
+        financial_period=payload.get("financial_period", "072026"),
+        mock_gstr2b_payload=payload.get("gstr2b_invoices", []),
+        purchase_invoices=payload.get("purchase_invoices", []),
+    )
+
+
+@router.post(
+    "/gst/filing/submit",
+    summary="GSTR-1 / GSTR-3B Monthly Return Filing Submit",
+    description="Assembles monthly return payload, calculates net tax liabilities, verifies DSC/EVC digital signature, and issues ARN."
+)
+async def submit_gstr_return(
+    payload: Dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    from app.compliance.services.gstr_filing_service import GSTRFilingService
+    svc = GSTRFilingService()
+    filing = await svc.prepare_and_submit_return(
+        db=db,
+        gstin=payload.get("gstin", "27AAAAA0000A1Z5"),
+        financial_period=payload.get("financial_period", "072026"),
+        return_type=payload.get("return_type", "GSTR1"),
+        sales_invoices=payload.get("sales_invoices", []),
+        verification_mode=payload.get("verification_mode", "DSC"),
+        dsc_signature_bytes=payload.get("dsc_signature_bytes", "DSC_BYTES_VALID"),
+    )
+    return {
+        "success": True,
+        "filing_id": filing.id,
+        "gstin": filing.gstin,
+        "financial_period": filing.financial_period,
+        "return_type": filing.return_type,
+        "arn_number": filing.arn_number,
+        "digital_signature_hash": filing.digital_signature_hash,
+        "status": filing.filing_status,
+    }
+
+

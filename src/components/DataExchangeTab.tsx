@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -438,19 +438,19 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
   );
 
   return (
-    <div className="p-6 bg-[#f8fafc] min-h-screen">
+    <div className="p-6 bg-[#f8fafc] w-full h-full">
       {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-200 pb-5 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-theme-divider pb-5 mb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="p-1.5 bg-slate-900 text-white rounded-md">
+            <span className="p-1.5 bg-theme-surface-2 text-white rounded-md">
               <Activity className="h-5 w-5" />
             </span>
-            <h1 className="text-2xl font-sans font-medium tracking-tight text-slate-900">
+            <h1 className="text-2xl font-sans font-medium tracking-tight text-theme-heading">
               Data Exchange & Integration Engine
             </h1>
           </div>
-          <p className="text-sm text-slate-500 max-w-2xl">
+          <p className="text-sm text-theme-muted max-w-2xl">
             Secure partner integration hub for SMRITI Retail OS. Manage isolated operational data exchanges with malls, franchises, distributors, and logistics partners.
           </p>
         </div>
@@ -458,13 +458,13 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
         <div className="mt-4 md:mt-0 flex gap-2">
           <button
             onClick={() => { fetchPartners(); fetchLogs(); onNotification("Refresh", "State pulled from SMRITI databases.", "success"); }}
-            className="flex items-center gap-1 text-xs font-medium text-slate-600 bg-white border border-slate-200 px-3 py-2 rounded-lg hover:bg-slate-50 transition"
+            className="flex items-center gap-1 text-xs font-medium text-theme-muted bg-white border border-theme-divider px-3 py-2 rounded-lg hover:bg-theme-surface-2 transition"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Refresh State
           </button>
           <button
             onClick={startNewPartner}
-            className="flex items-center gap-1.5 text-xs font-medium text-white bg-slate-900 px-3 py-2 rounded-lg hover:bg-slate-800 transition"
+            className="flex items-center gap-1.5 text-xs font-medium text-white bg-theme-surface-2 px-3 py-2 rounded-lg hover:bg-theme-surface-hover transition"
           >
             <Plus className="h-4 w-4" /> Add Partner Profile
           </button>
@@ -472,13 +472,13 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
       </div>
 
       {/* Main Tabs bar */}
-      <div className="flex border-b border-slate-200 mb-6 gap-2">
+      <div className="flex border-b border-theme-divider mb-6 gap-2">
         <button
           onClick={() => { setActiveSubTab("partners"); setIsEditingPartner(false); }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
             activeSubTab === "partners" && !isEditingPartner
-              ? "border-slate-900 text-slate-900 font-semibold"
-              : "border-transparent text-slate-500 hover:text-slate-900"
+              ? "border-theme-divider text-theme-heading font-semibold"
+              : "border-transparent text-theme-muted hover:text-theme-heading"
           }`}
         >
           Partner Directory ({partners.length})
@@ -487,8 +487,8 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
           onClick={() => { setActiveSubTab("exchange"); setIsEditingPartner(false); }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
             activeSubTab === "exchange"
-              ? "border-slate-900 text-slate-900 font-semibold"
-              : "border-transparent text-slate-500 hover:text-slate-900"
+              ? "border-theme-divider text-theme-heading font-semibold"
+              : "border-transparent text-theme-muted hover:text-theme-heading"
           }`}
         >
           Exchange & Import Center
@@ -497,8 +497,8 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
           onClick={() => { setActiveSubTab("approvals"); setIsEditingPartner(false); }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition relative ${
             activeSubTab === "approvals"
-              ? "border-slate-900 text-slate-900 font-semibold"
-              : "border-transparent text-slate-500 hover:text-slate-900"
+              ? "border-theme-divider text-theme-heading font-semibold"
+              : "border-transparent text-theme-muted hover:text-theme-heading"
           }`}
         >
           Approvals Waiting
@@ -512,8 +512,8 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
           onClick={() => { setActiveSubTab("logs"); setIsEditingPartner(false); }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
             activeSubTab === "logs"
-              ? "border-slate-900 text-slate-900 font-semibold"
-              : "border-transparent text-slate-500 hover:text-slate-900"
+              ? "border-theme-divider text-theme-heading font-semibold"
+              : "border-transparent text-theme-muted hover:text-theme-heading"
           }`}
         >
           Security Audit Logs
@@ -525,21 +525,21 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
       {/* 1. Partner Profile Creation & Listing */}
       {activeSubTab === "partners" && !isEditingPartner && (
         <div className="space-y-6">
-          <div className="flex items-center gap-3 bg-white p-3.5 rounded-xl border border-slate-200">
+          <div className="flex items-center gap-3 bg-white p-3.5 rounded-xl border border-theme-divider">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-theme-muted" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by partner name, code, type (Mall, Vendor, Distributor, etc.)..."
-                className="w-full text-sm pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 bg-slate-50/50"
+                className="w-full text-sm pl-9 pr-4 py-2 border border-theme-divider rounded-lg focus:outline-none focus:ring-1 focus:ring-theme-divider bg-theme-surface-2/50"
               />
             </div>
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="text-xs text-slate-500 hover:text-slate-900"
+                className="text-xs text-theme-muted hover:text-theme-heading"
               >
                 Clear
               </button>
@@ -548,17 +548,17 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredPartners.map((partner) => (
-              <div key={partner.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition">
+              <div key={partner.id} className="bg-white rounded-xl border border-theme-divider shadow-sm overflow-hidden flex flex-col hover:shadow-md transition">
                 <div className="p-5 flex-1">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <span className="px-2 py-0.5 text-[10px] font-semibold tracking-wider rounded-md bg-slate-100 text-slate-800 uppercase">
+                      <span className="px-2 py-0.5 text-[10px] font-semibold tracking-wider rounded-md bg-theme-surface-2 text-theme-heading uppercase">
                         {partner.type}
                       </span>
-                      <h3 className="text-base font-sans font-medium text-slate-900 mt-1.5">
+                      <h3 className="text-base font-sans font-medium text-theme-heading mt-1.5">
                         {partner.name}
                       </h3>
-                      <p className="text-xs text-slate-500 font-mono mt-0.5">
+                      <p className="text-xs text-theme-muted font-mono mt-0.5">
                         Code: {partner.code}
                       </p>
                     </div>
@@ -571,48 +571,48 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                     </span>
                   </div>
 
-                  <div className="space-y-3.5 border-t border-slate-100 pt-4 text-xs text-slate-600">
+                  <div className="space-y-3.5 border-t border-theme-divider pt-4 text-xs text-theme-muted">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400 flex items-center gap-1">
+                      <span className="text-theme-muted flex items-center gap-1">
                         <Sliders className="h-3 w-3" /> Communication:
                       </span>
-                      <span className="font-medium bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 font-mono text-slate-800">
+                      <span className="font-medium bg-theme-surface-2 px-1.5 py-0.5 rounded border border-theme-divider font-mono text-theme-heading">
                         {partner.communication}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400 flex items-center gap-1">
+                      <span className="text-theme-muted flex items-center gap-1">
                         <Clock className="h-3 w-3" /> Sync Schedule:
                       </span>
-                      <span className="font-medium text-slate-800">
+                      <span className="font-medium text-theme-heading">
                         {partner.schedule}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400 flex items-center gap-1">
+                      <span className="text-theme-muted flex items-center gap-1">
                         <Globe className="h-3 w-3" /> IP Restriction:
                       </span>
-                      <span className="font-mono text-slate-700 truncate max-w-[150px]" title={partner.ipAllowlist}>
+                      <span className="font-mono text-theme-body truncate max-w-[150px]" title={partner.ipAllowlist}>
                         {partner.ipAllowlist}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400 flex items-center gap-1">
+                      <span className="text-theme-muted flex items-center gap-1">
                         <Shield className="h-3 w-3" /> Branches allowed:
                       </span>
-                      <span className="font-medium text-slate-800">
+                      <span className="font-medium text-theme-heading">
                         {partner.allowedBranches.join(", ")}
                       </span>
                     </div>
 
-                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 mt-2">
-                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono uppercase tracking-wider mb-1">
+                    <div className="bg-theme-surface-2 p-2.5 rounded-lg border border-theme-divider mt-2">
+                      <div className="flex items-center gap-1.5 text-[10px] text-theme-muted font-mono uppercase tracking-wider mb-1">
                         <Key className="h-2.5 w-2.5" /> API Credential
                       </div>
-                      <div className="flex items-center justify-between font-mono text-xs bg-white border border-slate-200 rounded px-1.5 py-1 text-slate-700">
+                      <div className="flex items-center justify-between font-mono text-xs bg-white border border-theme-divider rounded px-1.5 py-1 text-theme-body">
                         <span className="truncate max-w-[170px]" title={partner.apiKey}>
                           ••••••••••••{partner.apiKey.slice(-6)}
                         </span>
@@ -630,8 +630,8 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                   </div>
                 </div>
 
-                <div className="bg-slate-50 px-5 py-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <span className="text-slate-400">
+                <div className="bg-theme-surface-2 px-5 py-3 border-t border-theme-divider flex items-center justify-between text-xs">
+                  <span className="text-theme-muted">
                     Last sync: {partner.lastSync !== "-" ? new Date(partner.lastSync).toLocaleDateString() : "Never"}
                   </span>
                   <button
@@ -649,47 +649,47 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
 
       {/* Editor Screen: New Partner or Existing Edit */}
       {isEditingPartner && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <h2 className="text-lg font-medium text-slate-900 mb-6">
+        <div className="bg-white rounded-xl border border-theme-divider shadow-sm p-6">
+          <h2 className="text-lg font-medium text-theme-heading mb-6">
             {editingPartnerId ? "Edit Mapping Rules & Partner Settings" : "Configure Partner Profile & Schema Mappings"}
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             {/* Identity & Security Column */}
             <div className="space-y-4">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider border-b pb-1">
+              <h3 className="text-xs font-semibold text-theme-muted uppercase tracking-wider border-b pb-1">
                 Identity & Access Credentials
               </h3>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Partner Organization Name *</label>
+                <label className="block text-xs font-medium text-theme-muted mb-1">Partner Organization Name *</label>
                 <input
                   type="text"
                   value={partnerForm.name}
                   onChange={(e) => setPartnerForm({ ...partnerForm, name: e.target.value })}
                   placeholder="e.g. Phoenix Mall Authority"
-                  className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50/50"
+                  className="w-full text-sm border border-theme-divider rounded-lg px-3 py-2 bg-theme-surface-2/50"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Partner Code Identifier *</label>
+                  <label className="block text-xs font-medium text-theme-muted mb-1">Partner Code Identifier *</label>
                   <input
                     type="text"
                     value={partnerForm.code}
                     onChange={(e) => setPartnerForm({ ...partnerForm, code: e.target.value })}
                     placeholder="e.g. PHOENIX-MUM"
-                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50/50"
+                    className="w-full text-sm border border-theme-divider rounded-lg px-3 py-2 bg-theme-surface-2/50"
                     disabled={!!editingPartnerId}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Partner Type</label>
+                  <label className="block text-xs font-medium text-theme-muted mb-1">Partner Type</label>
                   <select
                     value={partnerForm.type}
                     onChange={(e) => setPartnerForm({ ...partnerForm, type: e.target.value })}
-                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50/50"
+                    className="w-full text-sm border border-theme-divider rounded-lg px-3 py-2 bg-theme-surface-2/50"
                   >
                     <option value="Mall">Mall Authority</option>
                     <option value="Franchise">Franchise Store</option>
@@ -703,11 +703,11 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Communication Driver</label>
+                  <label className="block text-xs font-medium text-theme-muted mb-1">Communication Driver</label>
                   <select
                     value={partnerForm.communication}
                     onChange={(e) => setPartnerForm({ ...partnerForm, communication: e.target.value })}
-                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50/50"
+                    className="w-full text-sm border border-theme-divider rounded-lg px-3 py-2 bg-theme-surface-2/50"
                   >
                     <option value="CSV">CSV File Interchange</option>
                     <option value="API">REST API Endpoint</option>
@@ -718,11 +718,11 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Schedules Synchronization</label>
+                  <label className="block text-xs font-medium text-theme-muted mb-1">Schedules Synchronization</label>
                   <select
                     value={partnerForm.schedule}
                     onChange={(e) => setPartnerForm({ ...partnerForm, schedule: e.target.value })}
-                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50/50"
+                    className="w-full text-sm border border-theme-divider rounded-lg px-3 py-2 bg-theme-surface-2/50"
                   >
                     <option value="Real-Time">Real-Time (Continuous)</option>
                     <option value="Hourly">Hourly Synchronizer</option>
@@ -734,34 +734,34 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Allowed IP Address Allowlist (comma separated)</label>
+                <label className="block text-xs font-medium text-theme-muted mb-1">Allowed IP Address Allowlist (comma separated)</label>
                 <input
                   type="text"
                   value={partnerForm.ipAllowlist}
                   onChange={(e) => setPartnerForm({ ...partnerForm, ipAllowlist: e.target.value })}
                   placeholder="e.g. 192.168.1.1, 10.0.0.0/24 or *"
-                  className="w-full font-mono text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50/50"
+                  className="w-full font-mono text-sm border border-theme-divider rounded-lg px-3 py-2 bg-theme-surface-2/50"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Authorized Branches</label>
+                  <label className="block text-xs font-medium text-theme-muted mb-1">Authorized Branches</label>
                   <input
                     type="text"
                     value={partnerForm.allowedBranches}
                     onChange={(e) => setPartnerForm({ ...partnerForm, allowedBranches: e.target.value })}
                     placeholder="e.g. MUM,DEL,BLR"
-                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50/50"
+                    className="w-full text-sm border border-theme-divider rounded-lg px-3 py-2 bg-theme-surface-2/50"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Contract Expiration Date</label>
+                  <label className="block text-xs font-medium text-theme-muted mb-1">Contract Expiration Date</label>
                   <input
                     type="date"
                     value={partnerForm.expiryDate}
                     onChange={(e) => setPartnerForm({ ...partnerForm, expiryDate: e.target.value })}
-                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50/50"
+                    className="w-full text-sm border border-theme-divider rounded-lg px-3 py-2 bg-theme-surface-2/50"
                   />
                 </div>
               </div>
@@ -770,7 +770,7 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
             {/* Field Mapping Engine column */}
             <div className="space-y-4">
               <div className="flex items-center justify-between border-b pb-1">
-                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <h3 className="text-xs font-semibold text-theme-muted uppercase tracking-wider">
                   Transformation & Field Mapping Engine (No-Code)
                 </h3>
                 <button
@@ -782,13 +782,13 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                 </button>
               </div>
 
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-theme-muted">
                 Direct the engine how to parse column headers from files uploaded by this partner. Map partner fields on the left to standard SMRITI internal properties on the right.
               </p>
 
               <div className="space-y-2 max-h-[350px] overflow-y-auto pr-2">
                 {mappingPairs.map((pair, idx) => (
-                  <div key={idx} className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200/60">
+                  <div key={idx} className="flex items-center gap-2 bg-theme-surface-2 p-2 rounded-lg border border-theme-divider/60">
                     <div className="flex-1">
                       <input
                         type="text"
@@ -799,10 +799,10 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                           setMappingPairs(updated);
                         }}
                         placeholder="Partner column header name"
-                        className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white font-mono"
+                        className="w-full text-xs border border-theme-divider rounded px-2 py-1.5 bg-theme-surface-1 text-theme-body font-mono"
                       />
                     </div>
-                    <ArrowRight className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <ArrowRight className="h-3.5 w-3.5 text-theme-muted flex-shrink-0" />
                     <div className="flex-1">
                       <select
                         value={pair.internal}
@@ -811,7 +811,7 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                           updated[idx].internal = e.target.value;
                           setMappingPairs(updated);
                         }}
-                        className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 bg-white"
+                        className="w-full text-xs border border-theme-divider rounded px-2 py-1.5 bg-theme-surface-1 text-theme-body"
                       >
                         <option value="">-- Choose SMRITI Field --</option>
                         {SMRITI_INTERNAL_FIELDS.map(f => (
@@ -832,17 +832,17 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 border-t border-slate-100 pt-5">
+          <div className="flex justify-end gap-3 border-t border-theme-divider pt-5">
             <button
               onClick={() => setIsEditingPartner(false)}
-              className="px-4 py-2 border border-slate-200 text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50 transition"
+              className="px-4 py-2 border border-theme-divider text-sm font-medium rounded-lg text-theme-body hover:bg-theme-surface-hover transition"
             >
               Cancel
             </button>
             <button
               onClick={savePartner}
               disabled={loading}
-              className="px-5 py-2 text-sm font-medium rounded-lg text-white bg-slate-900 hover:bg-slate-800 transition disabled:opacity-50"
+              className="px-5 py-2 text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-500 transition disabled:opacity-50"
             >
               {loading ? "Saving Config..." : "Verify & Issue Policy"}
             </button>
@@ -855,17 +855,17 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left sidebar upload box */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-5">
-              <h3 className="text-sm font-medium text-slate-900 border-b pb-2">
+            <div className="bg-theme-surface-1 rounded-xl border border-theme-divider shadow-sm p-5 space-y-5">
+              <h3 className="text-sm font-medium text-theme-heading border-b border-theme-divider pb-2">
                 Initiate Inbound Transmission
               </h3>
 
               <div className="space-y-3">
-                <label className="block text-xs font-medium text-slate-600">Select Active Partner</label>
+                <label className="block text-xs font-medium text-theme-muted">Select Active Partner</label>
                 <select
                   value={selectedPartnerId}
                   onChange={(e) => setSelectedPartnerId(e.target.value)}
-                  className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50/50"
+                  className="w-full text-sm border border-theme-divider rounded-lg px-3 py-2 bg-theme-surface-2 text-theme-body"
                 >
                   <option value="">-- Select Partner --</option>
                   {partners.map(p => (
@@ -876,11 +876,11 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Payload Format</label>
+                  <label className="block text-xs font-medium text-theme-muted mb-1">Payload Format</label>
                   <select
                     value={selectedFormat}
                     onChange={(e) => setSelectedFormat(e.target.value)}
-                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50/50"
+                    className="w-full text-sm border border-theme-divider rounded-lg px-3 py-2 bg-theme-surface-2 text-theme-body"
                   >
                     <option value="CSV">CSV Document</option>
                     <option value="JSON">JSON Stream</option>
@@ -888,25 +888,25 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Source Intermediary</label>
-                  <div className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 bg-slate-100 font-mono text-slate-600">
+                  <label className="block text-xs font-medium text-theme-muted mb-1">Source Intermediary</label>
+                  <div className="w-full text-xs border border-theme-divider rounded-lg px-3 py-2 bg-theme-surface-2 font-mono text-theme-body">
                     SMRITI Gateway Secure-Ingress
                   </div>
                 </div>
               </div>
 
               {/* Sandbox Template quick trigger for easier audit testing */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-3">
-                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1">
+              <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-3">
+                <span className="text-[10px] uppercase tracking-wider text-theme-muted font-semibold flex items-center gap-1">
                   <Sliders className="h-3 w-3" /> Sandbox Quick Load
                 </span>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-theme-muted">
                   Select a preloaded testing payload containing clean & faulty rows to trace mapping and instant corrections:
                 </p>
                 <div className="flex flex-col gap-2">
                   <button
                     onClick={() => loadTestingTemplate("reliance")}
-                    className="w-full text-left text-xs bg-white hover:bg-blue-50/50 border border-slate-200 px-3 py-2 rounded-lg flex items-center justify-between text-slate-700 hover:text-blue-700 transition"
+                    className="w-full text-left text-xs bg-theme-surface-1 hover:bg-blue-500/10 border border-theme-divider px-3 py-2 rounded-lg flex items-center justify-between text-theme-body hover:text-blue-400 transition"
                   >
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-orange-400"></span>
@@ -916,7 +916,7 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                   </button>
                   <button
                     onClick={() => loadTestingTemplate("smarttech")}
-                    className="w-full text-left text-xs bg-white hover:bg-emerald-50/50 border border-slate-200 px-3 py-2 rounded-lg flex items-center justify-between text-slate-700 hover:text-emerald-700 transition"
+                    className="w-full text-left text-xs bg-theme-surface-1 hover:bg-emerald-500/10 border border-theme-divider px-3 py-2 rounded-lg flex items-center justify-between text-theme-body hover:text-emerald-400 transition"
                   >
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -929,19 +929,19 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
             </div>
 
             {/* Validation output and interactive live grid */}
-            <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
-              <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+            <div className="lg:col-span-2 bg-theme-surface-1 rounded-xl border border-theme-divider shadow-sm overflow-hidden flex flex-col min-h-[500px]">
+              <div className="p-5 border-b border-theme-divider flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-medium text-slate-900">
+                  <h3 className="text-sm font-medium text-theme-heading">
                     Live Field Mapping & Validation Pipeline
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-theme-muted">
                     Interactive sandbox. Update data inline directly inside table cells to resolve warnings before syncing.
                   </p>
                 </div>
                 {validationResult && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-mono text-slate-400">
+                    <span className="text-xs font-mono text-theme-muted">
                       Checksum: {validationResult.checksum.slice(0, 15)}...
                     </span>
                   </div>
@@ -949,13 +949,13 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
               </div>
 
               {!validationResult ? (
-                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 space-y-3 bg-slate-50/50">
-                  <div className="p-4 bg-white rounded-full border border-slate-200 shadow-sm">
-                    <Upload className="h-6 w-6 text-slate-400" />
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-theme-muted space-y-3 bg-theme-surface-2">
+                  <div className="p-4 bg-theme-surface-1 rounded-full border border-theme-divider shadow-sm">
+                    <Upload className="h-6 w-6 text-theme-muted" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium text-slate-700 mb-0.5">No Transmission Loaded</h4>
-                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    <h4 className="text-sm font-medium text-theme-heading mb-0.5">No Transmission Loaded</h4>
+                    <p className="text-xs text-theme-muted max-w-sm mx-auto">
                       Select a partner and click a "Sandbox Quick Load" template above to load test payloads instantly.
                     </p>
                   </div>
@@ -963,10 +963,10 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
               ) : (
                 <div className="flex-1 flex flex-col justify-between">
                   {/* Validation stats banner */}
-                  <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs">
+                  <div className="px-5 py-3.5 bg-theme-surface-2 border-b border-theme-divider flex items-center justify-between text-xs">
                     <div className="flex items-center gap-4">
-                      <span className="text-slate-500 font-medium">
-                        Total Rows: <strong className="text-slate-800">{validationResult.rowCount}</strong>
+                      <span className="text-theme-muted font-medium">
+                        Total Rows: <strong className="text-theme-heading">{validationResult.rowCount}</strong>
                       </span>
                       <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">
                         <CheckCircle className="h-3.5 w-3.5" /> Approved / Valid: {validationResult.successCount}
@@ -987,12 +987,12 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                   <div className="flex-1 overflow-x-auto">
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-medium">
+                        <tr className="bg-theme-surface-2 border-b border-theme-divider text-theme-muted font-medium">
                           <th className="p-3 w-12 text-center">Row</th>
                           {Object.keys(rawRows[0] || {}).map((col) => (
                             <th key={col} className="p-3">
                               <div className="flex flex-col">
-                                <span className="font-mono text-slate-700">{col}</span>
+                                <span className="font-mono text-theme-body">{col}</span>
                                 <span className="text-[9px] text-blue-600 uppercase font-bold tracking-wider">
                                   ↓ maps to: {DEMO_MAPPINGS[selectedPartnerId]?.[col] || "Unmapped"}
                                 </span>
@@ -1008,11 +1008,11 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                           return (
                             <tr 
                               key={rowIdx} 
-                              className={`border-b border-slate-100 ${
-                                isError ? "bg-red-50/20 hover:bg-red-50/40" : "hover:bg-slate-50/50"
+                              className={`border-b border-theme-divider ${
+                                isError ? "bg-red-50/20 hover:bg-red-50/40" : "hover:bg-theme-surface-2/50"
                               }`}
                             >
-                              <td className="p-3 text-center text-slate-400 font-mono">{rowIdx + 1}</td>
+                              <td className="p-3 text-center text-theme-muted font-mono">{rowIdx + 1}</td>
                               {Object.entries(rawRows[rowIdx] || {}).map(([col, val]: any) => (
                                 <td key={col} className="p-2 min-w-[120px]">
                                   <input
@@ -1026,7 +1026,7 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                                         ? "border-red-400 bg-red-50/40 text-red-700"
                                         : isError && col === "Barcode Code" && !val
                                         ? "border-red-400 bg-red-50/40"
-                                        : "border-transparent hover:border-slate-300 focus:bg-white text-slate-800"
+                                        : "border-transparent hover:border-theme-divider focus:bg-white text-theme-heading"
                                     }`}
                                   />
                                 </td>
@@ -1066,10 +1066,10 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                   )}
 
                   {/* Actions footer */}
-                  <div className="bg-slate-50 px-5 py-4 border-t border-slate-200 flex justify-between items-center">
+                  <div className="bg-theme-surface-2 px-5 py-4 border-t border-theme-divider flex justify-between items-center">
                     <button
                       onClick={() => { setValidationResult(null); setRawRows([]); }}
-                      className="px-4 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-medium"
+                      className="px-4 py-1.5 border border-theme-divider rounded-lg text-theme-muted hover:bg-theme-surface-2 text-xs font-medium"
                     >
                       Clear Batch
                     </button>
@@ -1077,14 +1077,14 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                     <div className="flex gap-2">
                       <button
                         onClick={() => triggerValidate(rawRows, selectedPartnerId)}
-                        className="px-4 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-medium flex items-center gap-1"
+                        className="px-4 py-1.5 border border-theme-divider bg-white hover:bg-theme-surface-2 text-theme-body rounded-lg text-xs font-medium flex items-center gap-1"
                       >
                         <RefreshCw className="h-3.5 w-3.5" /> Re-Validate
                       </button>
                       <button
                         onClick={commitImport}
                         disabled={validationResult.errorCount > 0}
-                        className="px-5 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-medium hover:bg-slate-800 disabled:opacity-40 transition flex items-center gap-1"
+                        className="px-5 py-1.5 bg-theme-surface-2 text-white rounded-lg text-xs font-medium hover:bg-theme-surface-hover disabled:opacity-40 transition flex items-center gap-1"
                       >
                         <CheckSquare className="h-4 w-4" /> Dispatched to Ledger Queue
                       </button>
@@ -1100,64 +1100,64 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
       {/* 3. Inbound Approval Queue */}
       {activeSubTab === "approvals" && (
         <div className="space-y-6">
-          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex gap-3 text-xs text-slate-600">
-            <Shield className="h-5 w-5 text-slate-400 mt-0.5 flex-shrink-0" />
+          <div className="bg-theme-surface-2 border border-theme-divider/80 rounded-xl p-4 flex gap-3 text-xs text-theme-muted">
+            <Shield className="h-5 w-5 text-theme-muted mt-0.5 flex-shrink-0" />
             <div>
-              <strong className="text-slate-800">Mall Consignment Verification Mode:</strong> 
+              <strong className="text-theme-heading">Mall Consignment Verification Mode:</strong> 
               <p className="mt-0.5">
                 Under MALL rules, validated daily sales files are locked in the approval queue to prevent unauthorized inventory ledger updates or incorrect Tally exports. As a Manager, you must authorize releasing the validated transactions.
               </p>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-slate-200">
-              <h3 className="text-sm font-medium text-slate-900">
+          <div className="bg-white rounded-xl border border-theme-divider shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-theme-divider">
+              <h3 className="text-sm font-medium text-theme-heading">
                 Pending Manager Approvals
               </h3>
             </div>
 
             {logs.filter(l => l.status === "Pending Approval").length === 0 ? (
-              <div className="p-12 text-center text-slate-400 space-y-2">
-                <CheckCircle className="h-8 w-8 text-slate-300 mx-auto" />
-                <h4 className="text-sm font-medium text-slate-700">Approval Queue Empty</h4>
-                <p className="text-xs text-slate-400">All inbound transactions have been synchronized.</p>
+              <div className="p-12 text-center text-theme-muted space-y-2">
+                <CheckCircle className="h-8 w-8 text-theme-body mx-auto" />
+                <h4 className="text-sm font-medium text-theme-body">Approval Queue Empty</h4>
+                <p className="text-xs text-theme-muted">All inbound transactions have been synchronized.</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-theme-divider">
                 {logs.filter(l => l.status === "Pending Approval").map((log) => (
-                  <div key={log.id} className="p-5 hover:bg-slate-50/50 transition flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div key={log.id} className="p-5 hover:bg-theme-surface-2/50 transition flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 rounded">
                           {log.status}
                         </span>
-                        <h4 className="text-sm font-medium text-slate-900">
+                        <h4 className="text-sm font-medium text-theme-heading">
                           {log.fileName}
                         </h4>
                       </div>
-                      <div className="flex flex-wrap gap-4 text-xs text-slate-500 font-mono">
-                        <span>Partner: <strong className="text-slate-800">{log.partnerName}</strong></span>
+                      <div className="flex flex-wrap gap-4 text-xs text-theme-muted font-mono">
+                        <span>Partner: <strong className="text-theme-heading">{log.partnerName}</strong></span>
                         <span>Loaded: {new Date(log.timestamp).toLocaleString()}</span>
                         <span>Rows: {log.rowCount} (Success: {log.successCount}, Warnings: {log.errorCount})</span>
                       </div>
-                      <div className="text-xs text-slate-400 font-mono">
+                      <div className="text-xs text-theme-muted font-mono">
                         Checksum SHA-256: {log.checksum}
                       </div>
 
                       {/* Show detail rows for transparency */}
-                      <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mt-2 max-w-xl">
-                        <span className="text-[10px] text-slate-400 font-mono uppercase font-bold tracking-wide">
+                      <div className="bg-theme-surface-2 p-3 rounded-lg border border-theme-divider mt-2 max-w-xl">
+                        <span className="text-[10px] text-theme-muted font-mono uppercase font-bold tracking-wide">
                           Mapped Data Preview
                         </span>
-                        <div className="space-y-1 mt-1 font-mono text-[11px] text-slate-600">
+                        <div className="space-y-1 mt-1 font-mono text-[11px] text-theme-muted">
                           {log.rowsData?.slice(0, 3).map((r, i) => (
                             <div key={i} className="truncate">
                               SKU: {r.__mapped?.sku || r["Item Code"]} | Qty: {r.__mapped?.quantity || r["Sales Qty"]} | MRP: {r.__mapped?.mrp || r["MRP Price"]} | Store: {r.__mapped?.storeId || r["Branch Code"]}
                             </div>
                           ))}
                           {log.rowsData?.length > 3 && (
-                            <div className="text-[10px] text-slate-400">...and {log.rowsData.length - 3} more records</div>
+                            <div className="text-[10px] text-theme-muted">...and {log.rowsData.length - 3} more records</div>
                           )}
                         </div>
                       </div>
@@ -1167,7 +1167,7 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                       <button
                         onClick={() => approveLog(log.id)}
                         disabled={loading}
-                        className="px-4 py-2 bg-slate-950 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition shadow-sm flex items-center gap-1"
+                        className="px-4 py-2 bg-theme-surface-3 text-white rounded-lg text-xs font-semibold hover:bg-theme-surface-hover transition shadow-sm flex items-center gap-1"
                       >
                         <Check className="h-3.5 w-3.5" /> Approve & Update Ledgers
                       </button>
@@ -1183,12 +1183,12 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
       {/* 4. Security Audit Logs & Traceability */}
       {activeSubTab === "logs" && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-slate-200">
-              <h3 className="text-sm font-medium text-slate-900">
+          <div className="bg-white rounded-xl border border-theme-divider shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-theme-divider">
+              <h3 className="text-sm font-medium text-theme-heading">
                 Data Exchange & Synchronization Log
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-theme-muted">
                 Fully traceable operational event flow: Inbound File &rarr; Validation &rarr; Ledgers &rarr; Tally Queue.
               </p>
             </div>
@@ -1196,7 +1196,7 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-medium">
+                  <tr className="bg-theme-surface-2 border-b border-theme-divider text-theme-muted font-medium">
                     <th className="p-3">Reference ID</th>
                     <th className="p-3">Partner Name</th>
                     <th className="p-3">Timestamp</th>
@@ -1209,12 +1209,12 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                     <th className="p-3">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-theme-divider">
                   {logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50/50 transition">
-                      <td className="p-3 font-mono font-bold text-slate-700">{log.id}</td>
-                      <td className="p-3 font-medium text-slate-800">{log.partnerName}</td>
-                      <td className="p-3 text-slate-500">{new Date(log.timestamp).toLocaleString()}</td>
+                    <tr key={log.id} className="hover:bg-theme-surface-2/50 transition">
+                      <td className="p-3 font-mono font-bold text-theme-body">{log.id}</td>
+                      <td className="p-3 font-medium text-theme-heading">{log.partnerName}</td>
+                      <td className="p-3 text-theme-muted">{new Date(log.timestamp).toLocaleString()}</td>
                       <td className="p-3">
                         <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                           log.direction === "Inbound" 
@@ -1224,10 +1224,10 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                           {log.direction}
                         </span>
                       </td>
-                      <td className="p-3 font-mono text-slate-600 truncate max-w-[150px]" title={log.fileName}>
+                      <td className="p-3 font-mono text-theme-muted truncate max-w-[150px]" title={log.fileName}>
                         {log.fileName}
                       </td>
-                      <td className="p-3 text-center text-slate-800 font-mono">{log.rowCount} rows</td>
+                      <td className="p-3 text-center text-theme-heading font-mono">{log.rowCount} rows</td>
                       <td className="p-3 text-center font-mono">
                         {log.errorCount > 0 ? (
                           <span className="text-red-600 font-bold">{((log.errorCount / log.rowCount) * 100).toFixed(0)}% ({log.errorCount})</span>
@@ -1235,8 +1235,8 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
                           <span className="text-emerald-600">0%</span>
                         )}
                       </td>
-                      <td className="p-3 text-slate-600">{log.importedBy}</td>
-                      <td className="p-3 text-slate-600">{log.approvedBy}</td>
+                      <td className="p-3 text-theme-muted">{log.importedBy}</td>
+                      <td className="p-3 text-theme-muted">{log.approvedBy}</td>
                       <td className="p-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                           log.status === "Success"

@@ -15,7 +15,7 @@ import React from "react";
 
 export const TierManager: React.FC = () => {
   const tiers = [
-    { name: "Silver Level", requirement: "Sign up registration", multiplier: "1.0x points", color: "border-slate-500" },
+    { name: "Silver Level", requirement: "Sign up registration", multiplier: "1.0x points", color: "border-theme-divider" },
     { name: "Gold Level", requirement: "Spend above ₹25,000 yearly", multiplier: "1.2x points bonus", color: "border-amber-500" },
     { name: "Platinum Level", requirement: "Spend above ₹75,000 yearly", multiplier: "1.5x points bonus", color: "border-purple-500" },
   ];

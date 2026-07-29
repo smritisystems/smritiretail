@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -23,7 +23,7 @@
  * * License    : Proprietary Commercial Software
  */
 
-import React, { useRef } from "react";
+import React, { useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useACAS } from "./ContextProvider.tsx";
 import { Star, Pin, Search, Sparkles, Check, X, ShieldAlert, Zap } from "lucide-react";
@@ -35,6 +35,17 @@ interface ContextBottomSheetProps {
 export const ContextBottomSheet: React.FC<ContextBottomSheetProps> = ({ onClose }) => {
   const { state, actions, setSearchQuery, toggleFavorite, togglePin, executeAction } = useACAS();
   const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [onClose]);
 
   if (!state.isOpen || !state.context) return null;
 

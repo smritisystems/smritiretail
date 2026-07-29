@@ -1,11 +1,11 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.24.0
 Created      : 2026-07-18
-Modified     : 2026-07-18
+Modified     : 2026-07-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -36,13 +36,13 @@ class SMRITIRole(BaseEntity):
 
     # Relationships
     parent_role = relationship("SMRITIRole", remote_side="SMRITIRole.id", backref="sub_roles")
-    policies = relationship("SMRITIRolePolicy", back_populates="role")
+    permission_sets = relationship("SMRITIRolePermissionSet", back_populates="role")
     user_roles = relationship("SMRITIUserRole", back_populates="role")
 
 
 class SMRITIPermission(BaseEntity):
     """
-    SMRITI Permission model. Decoupled from roles via policies.
+    SMRITI Permission model. Decoupled from roles via permission sets.
     """
     __tablename__ = "smriti_permissions"
 
@@ -54,47 +54,47 @@ class SMRITIPermission(BaseEntity):
     description = Column(Text, nullable=True)
 
 
-class SMRITIPolicy(BaseEntity):
+class SMRITIPermissionSet(BaseEntity):
     """
-    SMRITI Policy model. Groups permissions into reusable policies.
+    SMRITI PermissionSet model. Groups permissions into reusable sets.
     """
-    __tablename__ = "smriti_policies"
+    __tablename__ = "smriti_permission_sets"
 
     code        = Column(String(50), nullable=False, unique=True, index=True)
     name        = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
 
     # Relationships
-    roles = relationship("SMRITIRolePolicy", back_populates="policy")
-    permissions = relationship("SMRITIPolicyPermission", back_populates="policy")
+    roles = relationship("SMRITIRolePermissionSet", back_populates="permission_set")
+    permissions = relationship("SMRITIPermissionSetPermission", back_populates="permission_set")
 
 
-class SMRITIRolePolicy(BaseEntity):
+class SMRITIRolePermissionSet(BaseEntity):
     """
-    Junction table mapping Roles to Policies.
+    Junction table mapping Roles to PermissionSets.
     """
-    __tablename__ = "smriti_role_policies"
+    __tablename__ = "smriti_role_permission_sets"
 
-    role_id   = Column(String(50), ForeignKey("smriti_roles.id", ondelete="CASCADE"), nullable=False, index=True)
-    policy_id = Column(String(50), ForeignKey("smriti_policies.id", ondelete="CASCADE"), nullable=False, index=True)
+    role_id           = Column(String(50), ForeignKey("smriti_roles.id", ondelete="CASCADE"), nullable=False, index=True)
+    permission_set_id = Column(String(50), ForeignKey("smriti_permission_sets.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Relationships
-    role = relationship("SMRITIRole", back_populates="policies")
-    policy = relationship("SMRITIPolicy", back_populates="roles")
+    role = relationship("SMRITIRole", back_populates="permission_sets")
+    permission_set = relationship("SMRITIPermissionSet", back_populates="roles")
 
 
-class SMRITIPolicyPermission(BaseEntity):
+class SMRITIPermissionSetPermission(BaseEntity):
     """
-    Junction table mapping Policies to Permissions. Supports Explicit Deny vs. Allow.
+    Junction table mapping PermissionSets to Permissions. Supports Explicit Deny vs. Allow.
     """
-    __tablename__ = "smriti_policy_permissions"
+    __tablename__ = "smriti_permission_set_permissions"
 
-    policy_id       = Column(String(50), ForeignKey("smriti_policies.id", ondelete="CASCADE"), nullable=False, index=True)
-    permission_id   = Column(String(50), ForeignKey("smriti_permissions.id", ondelete="CASCADE"), nullable=False, index=True)
-    permission_type = Column(Enum(PermissionType), nullable=False, default=PermissionType.ALLOW)
+    permission_set_id = Column(String(50), ForeignKey("smriti_permission_sets.id", ondelete="CASCADE"), nullable=False, index=True)
+    permission_id     = Column(String(50), ForeignKey("smriti_permissions.id", ondelete="CASCADE"), nullable=False, index=True)
+    permission_type   = Column(Enum(PermissionType), nullable=False, default=PermissionType.ALLOW)
 
     # Relationships
-    policy = relationship("SMRITIPolicy", back_populates="permissions")
+    permission_set = relationship("SMRITIPermissionSet", back_populates="permissions")
     permission = relationship("SMRITIPermission")
 
 

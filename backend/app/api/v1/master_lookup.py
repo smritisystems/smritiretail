@@ -1,335 +1,296 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.17.0
-Created      : 2026-07-14
-Modified     : 2026-07-14
+Version      : 5.1.0
+Created      : 2026-07-21
+Modified     : 2026-07-21
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
-Classification: Internal
+Classification: Internal Architecture Standard
 """
 
-from typing import List, Any, cast
-from uuid import UUID
 from datetime import datetime, timezone
-import jsonschema  # type: ignore
-from fastapi import APIRouter, Depends, HTTPException
-
+from typing import List
+from uuid import UUID
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user, require_role
-from ...models.auth import User, UserRole
-from ...models.master_lookup import MasterType, MasterValue
+from ...api.deps import get_db, get_current_user, require_permission
+from ...models.auth import User
+from ...models.master_lookup import MasterValue
+from ...repositories.master_lookup import LookupRepository
+from ...services.master_lookup import LookupService
+import uuid
+from ...models.master_lookup import MasterType
 from ...schemas.master_lookup import (
-    MasterTypeCreate, MasterTypeResponse,
-    MasterValueCreate, MasterValueUpdate, MasterValueResponse
+    MasterTypeCreate,
+    MasterTypeResponse,
+    MasterValueCreate,
+    MasterValueUpdate,
+    MasterValueReplace,
+    MasterValueResponse,
+    MasterValueHistoryResponse
 )
 
 router = APIRouter()
 
-# Schema validation cache
-validator_cache = {}
 
-
-def get_validator(master_type_id: str, schema: dict, version: int):
-    cache_key = f"{master_type_id}:{version}"
-    if cache_key not in validator_cache:
-        validator_cache[cache_key] = jsonschema.Draft7Validator(schema)
-    return validator_cache[cache_key]
-
-
-@router.get(
-    "/lookup-types",
-    response_model=List[MasterTypeResponse],
-)
-async def list_lookup_types(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> List[MasterType]:
-    """
-    List all master lookup types.
-    """
-    q = select(MasterType).order_by(MasterType.code.asc())
-    res = await db.execute(q)
-    return list(res.scalars().all())
-
-
-@router.get(
-    "/lookup-types/{code}",
+@router.post(
+    "/master-lookups/types",
     response_model=MasterTypeResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("SETTINGS.MANAGE"))],
 )
-async def get_lookup_type(
-    code: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> MasterType:
-    """
-    Get a single master lookup type details by code.
-    """
-    q = select(MasterType).where(MasterType.code == code)
-    res = await db.execute(q)
-    item = res.scalar_one_or_none()
-    if not item:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Master type '{code}' not found."
-        )
-    return item
-
-
 @router.post(
     "/lookup-types",
     response_model=MasterTypeResponse,
-    status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
 )
 async def create_lookup_type(
     payload: MasterTypeCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> MasterType:
-    """
-    Register a new master lookup type definition.
-    """
-    q = select(MasterType).where(MasterType.code == payload.code)
-    res = await db.execute(q)
-    if res.scalar_one_or_none():
+):
+    """Register a new master lookup type."""
+    repo = LookupRepository(db)
+    existing = await repo.get_type_by_code(payload.code)
+    if existing:
         raise HTTPException(
-            status_code=400,
-            detail=f"Master type with code '{payload.code}' already exists."
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Master lookup type '{payload.code}' already exists."
         )
-
-    item = MasterType(
+    mtype = MasterType(
+        id=uuid.uuid4(),
         code=payload.code,
         label=payload.label,
+        category_type=payload.category_type or "SYSTEM",
+        is_system=payload.is_system if payload.is_system is not None else True,
         field_schema=payload.field_schema,
         ui_schema=payload.ui_schema,
-        used_in_modules=payload.used_in_modules or [],
+        used_in_modules=payload.used_in_modules,
         depends_on=payload.depends_on,
         version=payload.version or 1,
-        evidence_level=payload.evidence_level or 'D',
-        created_by=current_user.username
+        evidence_level=payload.evidence_level or "D",
+        created_by=current_user.id
     )
-    db.add(item)
-    await db.commit()
-    await db.refresh(item)
-    return item
+    return await repo.create_type(mtype)
 
 
 @router.get(
+    "/master-lookups/types",
+    response_model=List[MasterTypeResponse],
+    dependencies=[Depends(require_permission("SETTINGS.VIEW"))],
+)
+@router.get(
+    "/lookup-types",
+    response_model=List[MasterTypeResponse],
+    include_in_schema=False,
+)
+async def list_lookup_types(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all registered master lookup types."""
+    repo = LookupRepository(db)
+    types = await repo.get_all_types()
+    return types
+
+
+@router.get(
+    "/master-lookups/types/{code}",
+    response_model=MasterTypeResponse,
+    dependencies=[Depends(require_permission("SETTINGS.VIEW"))],
+)
+@router.get(
+    "/lookup-types/{code}",
+    response_model=MasterTypeResponse,
+    include_in_schema=False,
+)
+async def get_lookup_type(
+    code: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get details of a specific master lookup type by code."""
+    repo = LookupRepository(db)
+    mtype = await repo.get_type_by_code(code)
+    if not mtype:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Master lookup type '{code}' not found."
+        )
+    return mtype
+
+
+@router.get(
+    "/master-lookups/values/{type_code}",
+    response_model=List[MasterValueResponse],
+    dependencies=[Depends(require_permission("SETTINGS.VIEW"))],
+)
+@router.get(
     "/lookup/{type_code}/values",
     response_model=List[MasterValueResponse],
+    include_in_schema=False,
 )
 async def list_lookup_values(
     type_code: str,
-    activeOnly: bool = False,  # noqa: N803
+    active_only: bool = True,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> List[MasterValue]:
-    """
-    List all master values for a given master lookup type.
-    """
-    q_type = select(MasterType).where(MasterType.code == type_code)
-    res_type = await db.execute(q_type)
-    master_type = res_type.scalar_one_or_none()
-    if not master_type:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Master type with code '{type_code}' not found."
-        )
+):
+    """List lookup values for a given category."""
+    service = LookupService(db)
+    tenant_id = getattr(current_user, "tenant_id", None) or getattr(current_user, "company_id", None)
+    return await service.search_values(type_code, active_only=active_only, tenant_id=tenant_id)
 
-    q = select(MasterValue).where(
-        MasterValue.master_type_id == master_type.id,
-        MasterValue.is_deleted.is_(False)
-    )
-    if activeOnly:
-        q = q.where(MasterValue.active.is_(True))
 
-    q = q.order_by(MasterValue.sort_order.asc(), MasterValue.name.asc())
-    res = await db.execute(q)
-    return list(res.scalars().all())
+@router.get(
+    "/master-lookups/values/{type_code}/{id_or_code}",
+    response_model=MasterValueResponse,
+    dependencies=[Depends(require_permission("SETTINGS.VIEW"))],
+)
+async def get_lookup_value(
+    type_code: str,
+    id_or_code: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get single lookup value by UUID or Code."""
+    service = LookupService(db)
+    return await service.get_value(id_or_code, type_code=type_code)
 
 
 @router.post(
+    "/master-lookups/values/{type_code}",
+    response_model=MasterValueResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("SETTINGS.MANAGE"))],
+)
+@router.post(
     "/lookup/{type_code}/values",
     response_model=MasterValueResponse,
-    status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
 )
 async def create_lookup_value(
     type_code: str,
     payload: MasterValueCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> MasterValue:
-    """
-    Create a new master value record.
-    """
-    q_type = select(MasterType).where(MasterType.code == type_code)
-    res_type = await db.execute(q_type)
-    master_type = res_type.scalar_one_or_none()
-    if not master_type:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Master type with code '{type_code}' not found."
-        )
-
-    # Validate JSON Data Payload
-    data = payload.data or {}
-    try:
-        validator = get_validator(
-            str(master_type.id),
-            cast(dict, master_type.field_schema),
-            int(master_type.version)
-        )
-        validator.validate(data)
-    except jsonschema.ValidationError as err:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Validation failed: {err.message}"
-        ) from err
-
-    # Uniqueness check for code
-    q_val = select(MasterValue).where(
-        MasterValue.master_type_id == master_type.id,
-        MasterValue.code == payload.code,
-        MasterValue.is_deleted.is_(False)
-    )
-    res_val = await db.execute(q_val)
-    if res_val.scalar_one_or_none():
-        raise HTTPException(
-            status_code=400,
-            detail=f"Master value with code '{payload.code}' already exists for this type."
-        )
-
-    item = MasterValue(
-        master_type_id=master_type.id,
-        code=payload.code,
-        name=payload.name,
-        parent_value_id=payload.parent_value_id,
-        data=data,
-        active=payload.active if payload.active is not None else True,
-        sort_order=payload.sort_order or 0,
-        is_deleted=False
-    )
-    db.add(item)
-    await db.commit()
-    await db.refresh(item)
-    return item
+):
+    """Create a new lookup value in a given category."""
+    service = LookupService(db)
+    tenant_id = getattr(current_user, "tenant_id", None) or getattr(current_user, "company_id", None)
+    return await service.create_value(type_code, payload, tenant_id=tenant_id)
 
 
-@router.put(
-    "/lookup/{type_code}/values/{id}",
+@router.patch(
+    "/master-lookups/values/{value_id}",
     response_model=MasterValueResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("SETTINGS.MANAGE"))],
+)
+@router.put(
+    "/lookup/{type_code}/values/{value_id}",
+    response_model=MasterValueResponse,
+    include_in_schema=False,
 )
 async def update_lookup_value(
-    type_code: str,
-    id: UUID,
+    value_id: UUID,
     payload: MasterValueUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> MasterValue:
-    """
-    Update a master value record details.
-    """
-    q_type = select(MasterType).where(MasterType.code == type_code)
-    res_type = await db.execute(q_type)
-    master_type = res_type.scalar_one_or_none()
-    if not master_type:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Master type with code '{type_code}' not found."
-        )
-
-    q_val = select(MasterValue).where(
-        MasterValue.id == id,
-        MasterValue.master_type_id == master_type.id,
-        MasterValue.is_deleted.is_(False)
-    )
-    res_val = await db.execute(q_val)
-    item = res_val.scalar_one_or_none()
-    if not item:
-        raise HTTPException(
-            status_code=404,
-            detail="Master value not found or matched."
-        )
-
-    # Validate JSON Data Payload if updated
-    if payload.data is not None:
-        data = payload.data
-        try:
-            validator = get_validator(
-                str(master_type.id),
-                cast(dict, master_type.field_schema),
-                int(master_type.version)
-            )
-            validator.validate(data)
-        except jsonschema.ValidationError as err:
+):
+    """Update editable properties of a lookup value."""
+    service = LookupService(db)
+    val = await service.repo.get_value_by_id(value_id)
+    if val and getattr(val, "is_system", False):
+        if payload.name is not None:
             raise HTTPException(
-                status_code=400,
-                detail=f"Validation failed: {err.message}"
-            ) from err
-        setattr(item, "data", data)
+                status_code=403,
+                detail={
+                    "title": "Cannot Edit System Value",
+                    "explanation": f"'{val.name}' is a SMRITI standard value. Code and name cannot be changed.",
+                    "suggested_action": "You can change sort_order or active status only.",
+                    "reference_id": "SMRITI-VAL-021"
+                }
+            )
+    return await service.update_value(str(value_id), payload)
 
-    if payload.code is not None:
-        setattr(item, "code", payload.code)
-    if payload.name is not None:
-        setattr(item, "name", payload.name)
-    if payload.parent_value_id is not None:
-        setattr(item, "parent_value_id", payload.parent_value_id)
-    if payload.active is not None:
-        setattr(item, "active", payload.active)
-    if payload.sort_order is not None:
-        setattr(item, "sort_order", payload.sort_order)
 
-    setattr(item, "updated_at", datetime.now(timezone.utc))
-    await db.commit()
-    await db.refresh(item)
-    return item
+@router.post(
+    "/master-lookups/values/{value_id}/replace",
+    response_model=MasterValueResponse,
+    dependencies=[Depends(require_permission("SETTINGS.MANAGE"))],
+)
+async def replace_lookup_value(
+    value_id: UUID,
+    payload: MasterValueReplace,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Execute atomic replacement versioning for a lookup value."""
+    service = LookupService(db)
+    return await service.replace_value(str(value_id), payload)
 
 
 @router.delete(
-    "/lookup/{type_code}/values/{id}",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    "/master-lookups/values/{value_id}",
+    response_model=MasterValueResponse,
+    dependencies=[Depends(require_permission("SETTINGS.MANAGE"))],
 )
-async def delete_lookup_value(
+@router.delete(
+    "/lookup/{type_code}/values/{value_id}",
+    response_model=MasterValueResponse,
+    include_in_schema=False,
+)
+async def deactivate_lookup_value(
+    value_id: UUID,
+    type_code: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Deactivate a lookup value (protecting system codes)."""
+    service = LookupService(db)
+    return await service.deactivate_value(str(value_id))
+
+
+@router.patch("/lookup/{type_code}/values/{id}/toggle-active")
+async def toggle_lookup_value_active(
     type_code: str,
     id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> Any:
-    """
-    Soft-delete/Retire a master value record.
-    """
-    q_type = select(MasterType).where(MasterType.code == type_code)
-    res_type = await db.execute(q_type)
-    master_type = res_type.scalar_one_or_none()
-    if not master_type:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Master type with code '{type_code}' not found."
-        )
-
-    q_val = select(MasterValue).where(
+):
+    """Deactivate/reactivate a master value (works for system AND tenant values)."""
+    q = select(MasterValue).where(
         MasterValue.id == id,
-        MasterValue.master_type_id == master_type.id,
         MasterValue.is_deleted.is_(False)
     )
-    res_val = await db.execute(q_val)
-    item = res_val.scalar_one_or_none()
+    res = await db.execute(q)
+    item = res.scalar_one_or_none()
     if not item:
-        raise HTTPException(
-            status_code=404,
-            detail="Master value not found or matched."
-        )
-
-    setattr(item, "is_deleted", True)
-    setattr(item, "deleted_at", datetime.now(timezone.utc))
-    setattr(item, "deleted_by", current_user.username)
+        raise HTTPException(status_code=404, detail="Value not found.")
+    setattr(item, "active", not item.active)
+    setattr(item, "updated_at", datetime.now(timezone.utc))
     await db.commit()
-    return {"success": True, "deletedId": str(id)}
+    return {"id": str(id), "active": item.active, "name": item.name}
+
+
+@router.get(
+    "/master-lookups/values/{value_id}/history",
+    response_model=List[MasterValueHistoryResponse],
+    dependencies=[Depends(require_permission("SETTINGS.VIEW"))],
+)
+async def get_lookup_value_history(
+    value_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve audit history trail for versioned replacements."""
+    service = LookupService(db)
+    return await service.get_audit_history(str(value_id))

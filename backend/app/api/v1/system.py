@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_db, get_current_user, get_current_user_optional, require_role
 from ...core.security import hash_password
 from ...models.auth import User, UserRole
 from ...models.psv import PSVParty, PSVPartySkuTracking
@@ -48,7 +48,7 @@ DEFAULT_LAYOUT_PREFERENCES: Dict[str, Any] = {
     "collapsed": False,
     "iconOnly": False,
     "sidebarWidth": 260,
-    "lastWorkspace": "dashboard",
+    "lastWorkspace": "launchpad",
     "collapsedGroups": [],
     "favorites": ["pos", "sales"],
 }
@@ -449,7 +449,7 @@ async def save_layout_preferences(
         "collapsed": bool(payload.get("collapsed", layout_preferences.get("collapsed", False))),
         "iconOnly": bool(payload.get("iconOnly", payload.get("icon_only", layout_preferences.get("iconOnly", False)))),
         "sidebarWidth": int(payload.get("sidebarWidth", payload.get("sidebar_width", layout_preferences.get("sidebarWidth", 260)))),
-        "lastWorkspace": payload.get("lastWorkspace", payload.get("last_workspace", layout_preferences.get("lastWorkspace", "dashboard"))),
+        "lastWorkspace": payload.get("lastWorkspace", payload.get("last_workspace", layout_preferences.get("lastWorkspace", "launchpad"))),
         "collapsedGroups": payload.get("collapsedGroups", payload.get("collapsed_groups", layout_preferences.get("collapsedGroups", []))) or [],
         "favorites": payload.get("favorites", layout_preferences.get("favorites", ["pos", "sales"])) or ["pos", "sales"],
     }
@@ -465,7 +465,6 @@ async def save_layout_preferences(
 )
 async def get_setup_status(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     """
     Return whether the company setup wizard has already completed for this tenant.
@@ -602,7 +601,7 @@ def normalize_branch_code(code: str | None, idx: int) -> str:
 async def company_setup(
     payload: CompanySetupRequest = Body(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """
     Provision company setup from the onboarding wizard.
@@ -617,15 +616,15 @@ async def company_setup(
 
     existing_setup = await get_system_config(db, SETUP_COMPLETED_KEY)
     if existing_setup and existing_setup.value == "true":
-        if current_user.role != UserRole.SYSADMIN:
-            raise HTTPException(
-                status_code=403,
-                detail="Only a SYSADMIN can run the company setup after initialization."
-            )
-        raise HTTPException(
-            status_code=400,
-            detail="Company setup has already been completed."
-        )
+        return {
+            "success": True,
+            "message": "Company setup has already been completed.",
+            "alreadyCompleted": True,
+            "company": {
+                "name": company_name,
+                "id": "sys-co-default"
+            }
+        }
 
     if not branch_entries:
         branch_entries = [

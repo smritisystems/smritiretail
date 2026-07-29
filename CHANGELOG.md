@@ -1,4 +1,4 @@
-﻿<!--
+<!--
   Project      : SMRITI Retail OS
   Repository   : SMRITIRetailNX
   Organization : AITDL NETWORKS
@@ -16,9 +16,9 @@
 
   * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.25.3
+  * Version    : 3.33.0
   * Created    : 2026-07-11
-  * Modified   : 2026-07-19
+  * Modified   : 2026-07-20
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -27,6 +27,406 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+## [7.1.0] — 2026-07-28
+
+### Added
+- **Task 6-1: AI Advisory Settings & Key Registry (CR-2026-1761, Rule AOP-001)**:
+  - Created `AiAdvisoryConfigEngine` in `backend/app/core/ai_advisory_config.py`.
+  - Enforces offline-first default (`AI_ENABLED=false`), RBAC gate (`AI_ADMIN`/`AI_CONFIGURATION`), and API key obscuration.
+- **Task 6-2: Production & BOM Kitting Assembly Engine (CR-2026-1762)**:
+  - Created `BillOfMaterialsEngine` in `backend/app/core/bom_kitting.py`.
+  - Supports BOM definition, component availability audit, and atomic raw material deduction + finished good stock addition.
+- **Task 6-3: Multi-Company Financial Consolidation Engine (CR-2026-1763)**:
+  - Created `FinancialConsolidationEngine` in `backend/app/core/financial_consolidation.py`.
+  - Consolidates Trial Balances across parent/subsidiary companies with Ind AS 110 inter-company elimination.
+- **Task 6-4: Data Archival & Cold-Storage Export Engine (CR-2026-1764, AOP-004)**:
+  - Created `DataArchivalEngine` in `backend/app/core/data_archival.py`.
+  - Supports dry-run manifest, blocked dependency protection, and FK-safe JSON cold-storage export.
+- **ADR-015: SMRITI Foundation Platform v3.0 — Sprint 1 Database Layer**:
+  - Created `backend/app/models/foundation.py` — 10 Foundation Engine ORM models: `SmritiEntityRegistry`, `SmritiAddress`, `SmritiContact`, `SmritiBank`, `SmritiBankAccount`, `SmritiCommChannel`, `SmritiSetting`, `SmritiTheme`, `SmritiThemeVariant`, `SmritiBranding`, `SmritiReportTemplate`, `SmritiSocialProfile`, `SmritiAuditLog`.
+  - Created `backend/app/models/company_master.py` — `Organization`, `CompanyTaxProfile`, `CompanyFinancialYear`.
+  - Extended `backend/app/models/tenant.py` — Company + Branch additive columns (AOP-004).
+  - Created Alembic migration `v1217_adr015_foundation_platform_v3.py` — 13 DDL groups, 20 tables created, 20+ indexes, seed data for 20 Indian banks.
+  - Architecture governed by ADR-015 (Foundation Platform v3.0 FREEZE).
+
+## [7.0.0] — 2026-07-28
+
+
+### Added
+- **SMRITI Engineering Intelligence Platform (SEIP v7.0)**:
+  - Created `scripts/system_health.py` master CLI engine unifying SCS, CVE, AGE, AIE, GVE, and RRE engines.
+  - Implemented dynamic Architecture Quality Score KPI calculation (96.9%).
+  - Added trend & history tracking in `docs/architecture/ARCHITECTURE_HISTORY_LOG.json`.
+  - Added automated evidence generation script `scripts/generate_architecture_report.py`.
+
+## [6.1.0] — 2026-07-28
+
+
+### Added
+- **Task 5-1: GST GSTR-2B vs Purchase Register Automated Reconciliation Engine (CR-2026-1751)**:
+  - Created `GstReconciliationEngine` in `backend/app/core/gstr2b_reconciler.py` for CGST Act Section 16(2)(aa) Input Tax Credit (ITC) reconciliation.
+  - Added unit test suite `backend/app/tests/test_gstr2b_reconciler.py`.
+- **Task 5-2: Multi-Tier Promotional Pricing & Discount Matrix Engine (CR-2026-1752)**:
+  - Created `PromotionalPricingEngine` in `backend/app/core/promotional_pricing.py` for tiered volume pricing, BOGO free items, and promo code discounts.
+  - Added unit test suite `backend/app/tests/test_promotional_pricing.py`.
+- **Task 5-3: Customer Credit Limit & Soft/Hard Block Rule Engine (CR-2026-1753)**:
+  - Created `CustomerCreditControlEngine` in `backend/app/core/customer_credit_control.py` for B2B credit risk & hard block enforcement.
+  - Added unit test suite `backend/app/tests/test_customer_credit_control.py`.
+- **Task 5-4: Fixed Asset Management & Depreciation Engine (CR-2026-1754)**:
+  - Created `FixedAssetDepreciationEngine` in `backend/app/core/fixed_asset_depreciation.py` for SLM & WDV depreciation under Income Tax Act 1961 & Companies Act 2013.
+  - Added unit test suite `backend/app/tests/test_fixed_asset_depreciation.py`.
+
+## [6.0.1] — 2026-07-28
+
+
+### Fixed
+- **Immutable Audit Ledger JSON Serialization Fix**: Fixed `json.dumps` parameter in `backend/app/core/immutable_audit_ledger.py` (`default=str`).
+
+## [6.0.0] — 2026-07-28
+
+
+### Added
+- **SMRITI Change Verification Engine (CVE v6.0) Architecture & 17-Step Constitution**:
+  - Implemented `verify` subcommand in `scripts/smriti_change_engine.py` with "No Code Until Green" gatekeeper policy.
+- **Task 4-1: Inter-Store Stock Transfer & In-Transit Reservation Engine (CR-2026-1741)**:
+  - Created `StockTransferEngine` in `backend/app/core/stock_transfer.py` for multi-store movement and in-transit stock locking.
+  - Added unit test suite `backend/app/tests/test_stock_transfer.py`.
+- **Task 4-2: Automated GST E-WayBill Distance & Validity Calculator (CR-2026-1742)**:
+  - Created `calculate_ewaybill_validity` in `backend/app/core/ewaybill_calculator.py` for NIC Rule 138(10) statutory validity calculation.
+  - Added unit test suite `backend/app/tests/test_ewaybill_calculator.py`.
+- **Task 4-3: Statutory Tax Audit Trail & Immutable Change Ledger (CR-2026-1743)**:
+  - Created `ImmutableAuditLedger` in `backend/app/core/immutable_audit_ledger.py` for MCA Notification G.S.R. 235(E) SHA-256 hash-chained audit trail.
+  - Added unit test suite `backend/app/tests/test_immutable_audit_ledger.py`.
+- **Task 4-4: Multi-Currency Exchange Rate & Forex Realization Engine (CR-2026-1744)**:
+  - Created `ForexGainLossCalculator` in `backend/app/core/forex_engine.py` for Ind AS 21 realized & unrealized foreign exchange gain/loss calculation.
+  - Added unit test suite `backend/app/tests/test_forex_engine.py`.
+
+## [5.7.1] — 2026-07-28
+
+
+### Fixed
+- **HSN & SAC Validator Compatibility Fix**: Added `is_sac` property to `HSNValidationResult` and aliased `validate_hsn_code` to `validate_hsn` in `backend/app/core/hsn_validator.py`.
+
+## [5.7.0] — 2026-07-28
+
+
+### Added
+- **SMRITI Public Gateway & Ecosystem Integrations (Milestone 6)**:
+  - Public API Gateway router in `backend/app/api/public/v1/gateway.py` with `verify_public_api_key` authentication and `/catalog` and `/inventory/availability` endpoints (AOP-002 & AOP-005).
+  - Razorpay and Cashfree payment gateway webhook handlers in `backend/app/api/v1/webhooks.py`.
+  - `ECommerceSyncPipeline` in `backend/app/services/ecommerce_sync.py` for real-time stock push and channel order processing.
+  - REST endpoints for e-commerce channel sync in `backend/app/api/v1/ecommerce.py`.
+  - **Task 3-4: HSN & SAC Statutory Tax Rate Validator (CR-2026-1718)**:
+    - Executed Task 3-4 under SMRITI Change Studio (SCS v4.0).
+    - Updated `hsn_validator.py` in `backend/app/core/` for HSN 4/6/8-digit & SAC 99-series statutory rate slab lookup.
+    - Added unit test suite `backend/app/tests/test_hsn_validator.py`.
+  - **Task 3-3: NPCI UPI Dynamic QR Code Generator (CR-2026-1717)**:
+
+    - Executed Task 3-3 under SMRITI Change Studio (SCS v4.0).
+    - Created `DynamicUPIQRGenerator` in `backend/app/services/upi_qr_generator.py` for NPCI UPI specification v1.6 QR string formatting.
+    - Added unit test suite `backend/app/tests/test_upi_qr.py`.
+  - **Task 3-2: Indian State GST Jurisdiction Registry (CR-2026-1715)**:
+
+    - Executed Task 3-2 under SMRITI Change Studio (SCS v4.0).
+    - Updated `indian_state_registry.py` in `backend/app/core/` for 38 GST state/UT code mappings and Place of Supply rules.
+    - Added unit test suite `backend/app/tests/test_indian_state_registry.py`.
+  - **Task 3-1: MSME Delayed Payment Interest Calculator (CR-2026-1659)**:
+
+    - Executed Task 3-1 under SMRITI Change Studio (SCS v4.0).
+    - Updated `msme_compliance.py` in `backend/app/core/` for MSMED Act Section 15 45-day payment timer and 3x RBI bank rate compound interest calculation.
+    - Added unit test suite `backend/app/tests/test_msme_compliance.py`.
+  - **Task 2-4: GS1 Barcode AI Scanner & Parsing Engine (CR-2026-1655)**:
+
+    - Executed Task 2-4 under SMRITI Change Studio (SCS v4.0).
+    - Updated `gs1_barcode_parser.py` in `backend/app/core/` for GS1-128 and DataMatrix 2D barcode Application Identifier (AI-01, AI-10, AI-17, AI-21) parsing.
+    - Added unit test suite `backend/app/tests/test_gs1_barcode.py`.
+  - **Task 2-3: Franchise Royalty & Settlement Engine (CR-2026-1653)**:
+
+    - Executed Task 2-3 under SMRITI Change Studio (SCS v4.0).
+    - Created `FranchiseRoyaltyService` in `backend/app/services/franchise_royalty.py` for store sales royalty % fee and marketing fund calculation.
+    - Added unit test suite `backend/app/tests/test_franchise_royalty.py`.
+  - **Task 2-2: WhatsApp & SMS Receipt Notification Gateway (CR-2026-1651)**:
+
+    - Executed Task 2-2 under SMRITI Change Studio (SCS v4.0).
+    - Created `WhatsAppGatewayService` in `backend/app/services/whatsapp_gateway.py` with WhatsApp Cloud API template rendering and E.164 phone formatting.
+    - Added unit test suite `backend/app/tests/test_whatsapp_gateway.py`.
+  - **Task 2-1: E-Invoice & NIC GSTN Gateway (CR-2026-1641)**:
+
+    - Executed Task 2-1 under SMRITI Change Studio (SCS v4.0).
+    - Created `NICEInvoiceGatewayService` in `backend/app/services/nic_einvoice_gateway.py` with 64-char SHA256 IRN hash computation and Schema v1.03 payload compilation.
+    - Created REST API router `backend/app/api/v1/nic_gst.py`.
+    - Added unit test suite `backend/app/tests/test_nic_einvoice.py`.
+  - **Task 4: POS Touch UI & Thermal Print Engine (CR-2026-1637)**:
+
+    - Executed Task 4 under SMRITI Change Studio (SCS v4.0).
+    - Created `ESCPOSThermalPrinter` byte encoder in `backend/app/services/esc_pos_printer.py` for 80mm/58mm thermal receipts.
+    - Created `POSTouchLayout.tsx` touch-screen quick billing interface in `frontend/src/modules/pos/`.
+    - Added unit test suite `backend/app/tests/test_esc_pos.py`.
+  - **Task 3: Production Deployment Infrastructure (CR-2026-1635)**:
+
+    - Executed Task 3 under SMRITI Change Studio (SCS v4.0).
+    - Created `docker-compose.prod.yml` multi-container production stack with PostgreSQL 15, FastAPI, React Workspace, and Nginx.
+    - Created `deploy/nginx/nginx.conf` Nginx reverse proxy & SSL termination config.
+    - Created `deploy/systemd/smriti-retail.service` Linux systemd service unit.
+    - Created `scripts/deploy_prod.sh` zero-downtime deployment script.
+  - **Task 2: Apparel Color / Size Variant Grid Engine (CR-2026-1632)**:
+
+    - Executed Task 2 under SMRITI Change Studio (SCS v4.0).
+    - Added `ApparelMatrixVariantModel` in `backend/app/models/apparel.py` and migration `v1216_new_table_apparelvariantgrid_apparel_matrix_grid.py`.
+    - Added `ApparelMatrixService` in `backend/app/services/apparel_matrix.py` for 2D Color x Size SKU variant generation.
+    - Added unit test suite `backend/app/tests/test_apparel_matrix.py`.
+  - **Task 1: Pharma FEFO & Batch Expiry Tracker (CR-2026-1629)**:
+
+    - Executed Task 1 under SMRITI Change Studio (SCS v4.0).
+    - Added `PharmaBatchModel` in `backend/app/models/pharma.py` and migration `v1216_new_table_pharmabatch_pharma_batch_fefo.py`.
+    - Added `PharmaFEFOService` in `backend/app/services/pharma_fefo.py` with automated FEFO batch sorting and allocation.
+    - Added unit test suite `backend/app/tests/test_pharma_fefo.py`.
+  - **Change Request CR-2026-1615 (Sales Executive Field)**:
+
+    - Executed Change Request CR-2026-1615 under SMRITI Change Studio (SCS v4.0).
+    - Added `sales_person_id` column to `sales_invoices` via migration `v1216_new_field_salesinvoice_sales_person_id.py`.
+    - Updated ORM Model `SalesInvoice`, Pydantic Schema `SalesInvoiceBase`, and Central Field Catalog `field_registry.py`.
+  - **Field Change Lifecycle (FCL) & Field Registry Studio (FRS) (ADR-014 & AOP-008)**:
+
+    - Implemented Level 1 SMRITI Architecture Constitution Principle AOP-008 for enterprise field change management.
+    - Created ADR-014 (`docs/adr/ADR-014-Field-Change-Lifecycle-And-Registry-Studio.md`).
+    - Added automated 13-layer field impact analyzer tool (`scripts/fcl_impact_analyzer.py`).
+  - **Performance & Latency Benchmark Suite**:
+
+    - Added `scripts/benchmark_performance.py` automated API performance benchmarking tool (measuring Avg, Min, Max, P95, P99 latencies against enterprise SLA <100ms).
+  - **Full-Stack Operational Health Check Utility**:
+
+    - Added `scripts/health_check.py` diagnostic script for full-stack Docker, UI, and API health monitoring.
+  - **Public API Gateway Router Mount**:
+    - Mounted `public_gateway_router` (`/api/public/v1/*`) in `backend/app/main.py` per AOP-002 & AOP-005.
+  - **Database Backup & Restore Automation**:
+
+    - Added `scripts/backup_restore.py` CLI utility for PostgreSQL database backup, integrity verification, and point-in-time restore automation (conforming to AOP-004).
+  - **Analytics & WMS Router Import Fix**:
+
+    - Added missing `get_tenant_context` imports in `backend/app/api/v1/analytics.py` and `backend/app/api/v1/wms.py`.
+  - **CRM API List Import Fix**:
+
+    - Added missing `List` import from `typing` in `backend/app/api/v1/crm.py`.
+  - **Accounting Service Import Fix**:
+
+    - Added missing `BankAccount`, `CostCenter`, `TdsEntry`, `GstReturnLock` imports in `backend/app/services/accounting.py`.
+  - **CRM Model Deduplication Refactoring**:
+
+    - Consolidated duplicate `CustomerAddress`, `CustomerContact`, `CustomerCreditProfile`, `CustomerTaxProfile`, `CustomerChannelPreference` definitions in `backend/app/models/crm.py`.
+  - Full SMRITI Retail OS Enterprise Implementation Roadmap v1.0 (Milestones 1 through 6) completed and verified.
+
+## [5.6.0] — 2026-07-28
+
+
+### Added
+- **SMRITI WMS Multi-Bin Location Management (Milestone 5)**:
+  - Models for `WarehouseZone`, `WarehouseBin`, and `StockBinAssignment` in `backend/app/models/wms.py`.
+  - Alembic migration `v1215_wms_loyalty_expansion.py` creating `warehouse_zones`, `warehouse_bins`, `stock_bin_assignments`, `loyalty_point_transactions` tables.
+  - REST endpoints for WMS Zones and Bins in `backend/app/api/v1/wms.py`.
+- **SMRITI Customer Loyalty & Rewards Engine (Milestone 5)**:
+  - `LoyaltyEngineService` in `backend/app/services/loyalty.py` implementing point accrual (₹100=1pt), redemption (1pt=₹1 discount), and automated tier upgrades (BRONZE, SILVER, GOLD, PLATINUM).
+  - `LoyaltyTransactionModel` in `backend/app/models/loyalty.py`.
+  - REST endpoints for Loyalty account, points earn, and points redeem in `backend/app/api/v1/loyalty.py`.
+
+## [5.5.0] — 2026-07-28
+
+
+### Added
+- **SMRITI Accounting Expansion (Milestone 2)**:
+  - Models for Bank Accounts, Cost Centers, TDS Entry tracking, and GST Return Locks in `backend/app/models/accounting.py`.
+  - Alembic migration `v1213_accounting_expansion.py` creating `bank_accounts`, `cost_centers`, `tds_entries`, `gst_return_locks` tables.
+  - Financial Period Lock enforcement in `post_journal()` service raising 422 HTTP error on locked dates.
+  - REST endpoints for Bank Accounts, Cost Centers, TDS Entries, AP/AR Ageing Reports in `backend/app/api/v1/accounting.py`.
+- **SMRITI Full CRM Pipeline & Support Desk (Milestone 3)**:
+  - Models for Leads, Opportunities, Marketing Campaigns, Support Tickets, Ticket Comments, and Customer Activity Logs in `backend/app/models/crm.py`.
+  - Alembic migration `v1214_crm_expansion.py` creating `crm_leads`, `crm_opportunities`, `crm_campaigns`, `crm_support_tickets`, `crm_ticket_comments`, `crm_customer_activities` tables.
+  - Lead-to-Customer conversion engine in `backend/app/services/crm.py`.
+  - REST endpoints for Leads, Opportunities, Campaigns, and Support Tickets in `backend/app/api/v1/crm.py`.
+- **Statutory Indian GST Compliance**:
+  - `GSTR3BReport` dataclass and `compile_gstr3b_report` compiler in `backend/app/services/indian_gst_reports.py`.
+- **Event-Driven Core & Executive Analytics (Milestone 4)**:
+  - Event listeners for stock alerts, purchase order creation, and customer credit block in `backend/app/services/event_listeners.py`.
+  - Dead Letter Queue (DLQ) logger `log_event_to_dlq()`.
+  - Executive Sales & Profitability Dashboard API `/analytics/dashboard/executive`.
+  - Inventory Turnaround & Stock Valuation Analytics API `/analytics/inventory-turnaround`.
+
+
+## [5.4.0] — 2026-07-28
+
+
+### Added
+- **SMRITI Database Blueprint v1.0 & Governance (ADR-012)**:
+  - Created authoritative `SMRITI_DATABASE_BLUEPRINT_v1.0.md` documenting all 204 PostgreSQL tables across 46 model files.
+  - Formulated `SMRITI_CANONICAL_DATA_MODEL_v1.0.md`, `TABLE_OWNERSHIP_REGISTRY.md`, and `SMRITI_TABLE_HEALTH_MATRIX_v1.0.md` (20 Tier-1 tables scored, 78% baseline average).
+  - Created 5 Mermaid ERD diagrams (`ERD_core.mmd`, `ERD_accounting.mmd`, `ERD_inventory.mmd`, `ERD_sales.mmd`, `ERD_purchase.mmd`).
+  - Added Alembic migration `v1211_financial_year.py` and `FinancialYear` model for GST financial period locking.
+- **Repository Architecture Expansion (ADR-006)**:
+  - Implemented `ProductRepository`, `StockMovementRepository`, and `WarehouseRepository` in `backend/app/repositories/inventory.py`.
+  - Implemented `SupplierRepository`, `PurchaseOrderRepository`, and `PurchaseReceiptRepository` in `backend/app/repositories/purchase.py`.
+  - Implemented `CustomerRepository`, `CustomerGroupRepository`, and `PricingGroupRepository` in `backend/app/repositories/crm.py`.
+- **Canonical Event Bus Selection (ADR-013)**:
+  - Authored `ADR-013-Canonical-Event-Bus.md` selecting transactional `SmritiEventBus` (`event_bus.py`) as the canonical event bus.
+  - Deprecated legacy fire-and-forget `domain_events.py`.
+  - Wired domain events `PurchaseOrderCreated` and `GRNCompleted` into `purchase.py`, and `CustomerCreated` into `crm.py`.
+
+## [5.3.0] — 2026-07-27
+
+
+### Added
+- **SMRITI Global Keyboard Escape Key Remediation**:
+  - Standardized window-level `Escape` key event handling across SEEF Command Palette, Context Dialogs, Bottom Sheets, Lookup Pickers, Explain Modals, and Workspace Window Engine.
+- **SMRITI Fiori Multi-Theme Engine & Switcher**:
+  - Integrated authentic `fiori-light` / `enterprise` theme tokens (`#ffffff` surfaces, `#f4f6f9` canvas, `#0a6ed1` Fiori Horizon Blue accents).
+  - Added interactive Fiori Theme Switcher dropdown control directly in `AdaptiveWorkspaceHeader.tsx` allowing single-click switching between SAP Fiori Horizon Light, SAP Fiori Quartz Dark, and SAP Fiori Corporate Navy.
+- **SMRITI Typography Audit & Auto-Remediation**:
+  - Integrated SEDS Centralized Typography Scale utility classes (`.seds-text-display` through `.seds-text-error`) into `src/index.css`.
+  - Replaced ad-hoc font sizes (`text-[10px]`, `text-[13px]`, `text-[15px]`) across Launchpad, Header, Sidebar, and Taskbar with standardized design tokens.
+  - Achieved 100% typography scale compliance across all operational workspace components.
+- **SMRITI Fiori Theme Canvas & Navigation Bar Refactoring**:
+  - Replaced legacy purplish background canvas (`#1a2b5c`) with authentic SAP Fiori Quartz Dark slate navy canvas (`#1c222b`) and surface tokens (`#232a35`, `#2b3442`).
+  - Standardized Contextual Sidebar active items and return button to SAP Fiori Primary Blue (`#0a6ed1`).
+  - Updated Taskbar (`WorkspaceTaskbar.tsx`) launcher buttons, indicators, and window tags to `#0a6ed1` accents.
+  - Aligned Launchpad outer viewport layout dimensions to 100% width and height (`w-full h-full overflow-y-auto`).
+- **SAP HANA Fiori Theme Alignment & Launchpad UI Standardization**:
+  - Refactored `Launchpad.tsx` to match 100% authentic SAP HANA Fiori 3 (Quartz) & Fiori Horizon Theme design specifications.
+  - Converted category buttons to SAP Fiori Segmented Control buttons (`bg-theme-surface-2`, active segment `#0a6ed1` SAP Fiori Blue).
+  - Replaced rainbow card borders with 8px Fiori card geometry (`rounded-lg`), subtle Fiori elevation (`shadow-xs hover:shadow-md`), and SAP Fiori blue focus borders (`hover:border-[#0a6ed1]`).
+  - Added SAP Fiori Group Category Section Dividers ("Operations & POS Transactions", "Master Data & Registry Hub", "Analytics, Ledger & Reports", "Administration & System RBAC").
+
+### Fixed
+- **SMRITI Slate Navy Header & Original Theme Alignment**:
+  - Aligned `AdaptiveWorkspaceHeader.tsx` header navigation bar across all application workspace modules with the authentic SMRITI Slate Navy theme (`#354a5e`).
+  - Added Waffle matrix 9-dots app launcher icon, high-contrast search input, and slate blue brand badges.
+- **Indian Rupee (₹) Currency Standardization**:
+  - Replaced legacy dollar ($) symbols with Indian Rupee (₹) in `PrintPreviewModal.tsx` and across all spreadsheet data grid schemas.
+- **SMRITI Spreadsheet Platform (SSP)**:
+  - Implemented decoupled enterprise spreadsheet platform under `src/spreadsheet/` featuring `FormulaEngine.ts` (=GST, =MARGIN, =MRP, =ROUND), `ClipboardEngine.ts` (MS Excel 5,000+ row TSV/CSV parser), `ValidationEngine.ts`, `HistoryEngine.ts` (Ctrl+Z Undo / Ctrl+Y Redo), `TransactionEngine.ts` (Pending changes, Commit, Rollback), `PermissionEngine.ts`, and `AIAssistant.ts`.
+  - Created Domain Data Adapters (`ItemMasterAdapter.ts`, `CustomerAdapter.ts`, `SupplierAdapter.ts`) mapping domain entities to SSP grid schemas.
+  - Created universal `SmritiSpreadsheetPlatform.tsx` workspace UI component and wired into `ItemMasterTab.tsx` Live Excel Workspace tab.
+  - Created Vitest test suite `smritiSpreadsheetPlatform.test.ts` (100% pass rate).
+- **Barcode Print Studio & PRN Script Generator**:
+  - Built `prnGenerator.ts` supporting raw TSPL and ZPL thermal printer command mapping based on Item Master products.
+  - Created `BarcodePrintStudioModal.tsx` modal with live visual thermal label mockup, TSPL/ZPL language switcher, copy PRN script, and .PRN file downloader.
+  - Wired Barcode Print Studio launcher into `ItemMasterTab.tsx` toolbar and batch actions.
+- **SMRITI Launchpad Refactoring**:
+  - Rebranded Launchpad and ContextualSidebar from legacy Fiori labels to SMRITI Launchpad (`SMRITI Launchpad v5.3`).
+  - Added Luhn Modulus 36 GSTIN checksum validation in `validators.ts` and inline SVG favicon in `index.html`.
+  - Disambiguated duplicate `print-studio` workspace ID collision in `layout_store.tsx`.
+  - Added metadata auto-registration override in `MetadataRegistry` to support explicit component metadata enrichment.
+  - Aligned prop interfaces across `ImageDisplayPolicyModal`, `ExpandedCellEditor`, `SEEFDataTable`, `SEEFSkeleton`, `SalesStudioTab`, and `CustomerMasterTab`.
+  - Resolved all `tsc --noEmit` compilation warnings and ensured 100% test pass rate across all 13 Vitest test suites (69 tests).
+
+
+## [5.2.2] — 2026-07-21
+
+### Added
+- **Remediation Plan Phase 3 & Phase 4 Implementation**:
+  - **Phase 3 (Schema Consistency)**:
+    - Aligned `VariantTemplate` Pydantic schemas (`VariantTemplateCreate`, `VariantTemplateUpdate`, `VariantTemplateResponse`) to use `Decimal` for financial attributes (`basePrice`, `baseMrp`, `gstPercentage`).
+    - Configured explicit `primaryjoin="foreign(Product.variant_template_id) == VariantTemplate.id"` on `Product.variant_template` relationship for clean ORM query execution.
+  - **Phase 4 (Performance & Telemetry)**:
+    - Added `validate_batch` async method to `PlatformValidationEngine` for high-throughput bulk validation during multi-item POS billing and product imports.
+    - Added automated unit test `test_pve_batch_validation` verifying bulk batch entity validation.
+  - **Test Verification**: 55/55 tests passing across `test_sales.py`, `test_inventory.py`, `test_platform_validation_engine.py`, and `test_master_hybrid.py`.
+
+## [5.2.1] — 2026-07-21
+
+### Added
+- **Remediation Plan Phase 1 & Phase 2 Implementation**:
+  - **Phase 1 (Data Integrity)**:
+    - Canonical GST recalculation in Sales Billing using `InventoryService.resolve_effective_gst_percentage(product)`.
+    - Unified primary and secondary barcode uniqueness validation across `Product.barcode` and `ProductBarcode.barcode`.
+    - Eager loading (`selectinload(SalesInvoice.payments)`) in sales invoice queries.
+  - **Phase 2 (Tax & Transaction Validation)**:
+    - Made `gst_percentage` in Product Master nullable (`Numeric(5, 2), nullable=True`).
+    - Aligned GST resolution in Purchase Service with Product Master default rate.
+    - Added SQLAlchemy 2.0 query compilation cache isolation (`track_closure_variables=True`) for dynamic tenant RLS filtering.
+
+## [5.2.0] — 2026-07-21
+
+### Added
+- **SMRITI Universal Platform Validation Engine (PVE v5.2.0)**:
+  - Created `backend/app/core/validation/` framework containing `schemas.py`, `rules.py`, and `engine.py`.
+  - Supports 4 validation modes (`NONE`, `WARNING`, `STRICT`, `AUTO_CREATE`) and casing normalization rules (`UPPER`, `LOWER`, `TITLE`, `NONE`).
+  - Implemented priority-based conditional rule evaluator (`RuleEvaluator`) resolving multi-field rule conflicts deterministically.
+  - Implemented low-latency `ValidationPolicyCache` with TTL invalidation to avoid DB overhead during high-speed POS checkouts.
+  - Added role-based governance guardrails (`auto_create_allowed_roles`) for `AUTO_CREATE` mode.
+  - Integrated PVE into `backend/app/services/inventory.py` product creation.
+  - Created policy configuration REST API endpoints (`/api/v1/validation-policies/{entity_type}`) for GET policy, PUT policy, and POST reset.
+  - Created 6 unit & integration tests in `backend/app/tests/test_platform_validation_engine.py` (16/16 total suite passed).
+
+## [5.1.0] — 2026-07-21
+
+### Added
+- **Hybrid Master Values System (`is_system`, `tenant_id`)**:
+  - Implemented Alembic revision `add_hybrid_master_values` adding `is_system` (`Boolean`, default `False`) and `tenant_id` (`String(50)`, nullable `True`) to `master_values`.
+  - Updated `seed_default_users` to seed standard reference values (`product_color`, `product_size`, `product_brand`, `product_category`) as system defaults (`is_system=True`, `tenant_id=NULL`).
+  - Added system deletion guard (`SMRITI-VAL-020`) and system edit guard (`SMRITI-VAL-021`) returning HTTP 403 Access Denied.
+  - Exposed `/lookup/{type_code}/values/{id}/toggle-active` endpoint allowing tenants to deactivate system values without deleting them.
+- **Item Master Field Validation Engine & SKU Auto-Generation**:
+  - Implemented `_build_sku(p)` in `backend/app/services/inventory.py` to auto-generate SKUs from `style_code`, `color`, and `size` when blank.
+  - Implemented `_validate_master_field` in `backend/app/services/inventory.py` to normalize casing (`product_size` → `UPPER()`, others → Title Case) and validate input against system/tenant lookup values.
+  - Returns structured HREP error `SMRITI-VAL-010` (HTTP 422) listing valid lookup options on validation failure.
+- **Automated Verification Suite**:
+  - Created 10-test suite in `backend/app/tests/test_master_hybrid.py` covering hybrid lookups, tenant isolation, system value protection, toggle-active, casing normalization, item validation, and SKU auto-generation (10/10 passed).
+
+## [5.0.0] — 2026-07-20
+
+### Added
+- **Enterprise Billing Terminal Framework Refactoring (SMRITI Retail OS v5.0 Master Release)**:
+  - Decoupled POS Terminal (`PosTerminalTab`) and B2B Tax Invoice Terminal (`AdvancedBillingEngine`) from the administrative Sales Studio into true standalone fullscreen layouts.
+  - Implemented standalone fullscreen routing triggers in `App.tsx` utilizing `?terminal=pos` and `?terminal=tax` search parameters to bypass outer layout wrappers.
+  - Created global Keyboard Override Engine React hook `useTerminalShortcuts` to capture cashier F-keys (F2, F3, F12, Esc) and suppress native browser event defaults.
+  - Implemented **Salesperson & Commission Engine** in POS and Tax Invoice systems, supporting both "single salesperson per bill" and "line-level salesperson" assignment models mapped to Employee Masters.
+  - Configured Logistics & Transporter details input manager (E-Way bill number, vehicle number, LR/GR numbers, payment terms) and B2B Account/Sales Managers maps.
+  - Automated Statutory TCS (Tax Collected at Source) rate calculations and nearest rupee rounding.
+  - Added 12 fine-grained security permissions (`billing.pos`, `billing.tax`, `billing.return`, `billing.void`, `billing.import`, `billing.recall`, `billing.discount`, `billing.override`, `billing.reprint`, `billing.salesperson.view`, `billing.salesperson.assign`, `billing.salesperson.override`) to permissions registry manifest and seeded them automatically.
+  - Implemented **Hideable Navigation & UI Panels**:
+    - Independent visibility state controls for top Navbar, side Navigation Sidebar, and bottom Workspace Taskbar in `layout_store.tsx`.
+    - Added floating edge unhide trigger buttons (`Show Navbar`, `Show Sidebar`, `Show Bottombar`) when any panel is hidden.
+    - Added global hotkeys (`Alt+Shift+N` for Navbar, `Alt+Shift+S` for Sidebar, `Alt+Shift+B` for Bottombar) and controls in the Layout Configuration dropdown.
+
+### Fixed
+- **Advanced Billing Engine & Terminal Grid Fixes**:
+  - Resolved `ReferenceError: useMemo is not defined` inside `AdvancedBillingEngine.tsx` by importing `useMemo` from React.
+  - Added missing `totalQty` and `totalGstTax` properties to the returned totals object in `calculateInvoiceTotals` to resolve TypeScript compilation errors in the footer of `AdvancedBillingEngine.tsx`.
+  - Corrected `gst_percentage` to `gstPercentage` in `SMRITIGrid.tsx` to align with the `Product` type definition and resolve compiler errors.
+
+---
+
+## [3.39.0] — 2026-07-20
+
+### Added
+- **SGIP Phase 2: NIC E-Way Bill & E-Invoice Automated Integration Gateway**:
+  - Stateless NIC connectors `NICEWayBillConnectorV1` and `NICEInvoiceConnectorV1` in `backend/app/compliance/connectors/nic.py`.
+  - Pydantic models for E-Way Bill generation, 64-character SHA-256 IRN calculation, signed QR codes, and cancellation in `backend/app/compliance/schemas/nic.py`.
+  - Background task queue processing engine `ComplianceQueueEngine` (`backend/app/compliance/services/queue_engine.py`) with exponential backoff retries and audit logging (`ComplianceAuditLog`).
+  - FastAPI endpoints `/api/v1/compliance/ewaybill/generate`, `/api/v1/compliance/einvoice/generate`, and `/api/v1/compliance/queue/process`.
+  - Automated test suite `backend/app/compliance/tests/test_nic_compliance_gateway.py` (4/4 passed).
+
+---
+
+## [3.38.0] — 2026-07-20
+
+### Added
+- **Multi-Level Approval Engine (Phase 6)**: 12 ORM entities (`backend/app/models/approval.py`), AST DSL safe evaluator (`ASTSafeEvaluator`), FSM state machine (`ApprovalFSM`), and REST API router `/api/v1/approvals`.
+- **Scoped Service Account API Keys (Phase 7)**: 4 ORM entities (`backend/app/models/api_key.py`), HMAC-SHA256 secret hashing (`APIKeyService`), IP CIDR containment checks, sliding rate limiting, and REST API router `/api/v1/api-keys`.
+- **Security-Aware Studio UI (Phase 8)**: React component `ApiKeyManagementSection.tsx` and updated `ApprovalMatrixTab.tsx` with real-time approval queue fetching, single-view secret copy modals, key revocation, and audit logs drawer.
+- **High-Concurrency Stress Testing (Phase 9)**: Test suite `backend/app/tests/test_enterprise_stress_and_concurrency.py` verifying 50 concurrent API Key authentications, optimistic concurrency locking (`ValueError("Concurrency conflict...")`), and AST DSL performance (<0.1s over 100 evaluations).
+- **Governance Release & Synchronization (Phase 10)**: Updated master implementation plan index, master walkthrough index, IPGP plans, and WGP documentation.
+
+---
+
+## [3.33.0] — 2026-07-20
+
+### Added
+
+- **Permission Sets Composition**: Renamed and migrated policy models to `SMRITIPermissionSet`, `SMRITIRolePermissionSet`, and `SMRITIPermissionSetPermission` supporting dynamic role aggregation.
+- **Identity-Agnostic Platform Admin Bypass**: Extracted Platform Administrator bypass checks to a boolean database flag (`is_platform_admin`) in the `User` model, deprecating string-based SYSADMIN role checks.
+- **Enterprise Access Upgrade Alembic Migrations**: Added migrations `6a5a1f89c59e` and `382862b3ec00` representing the schema changes.
+- **Seeding and conftest cleanup**: Standardized database seeding routines to automatically populate roles, permissions, permission sets, and assignments on system initialize and test teardowns.
 
 ---
 

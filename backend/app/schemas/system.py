@@ -340,4 +340,15 @@ class CompanySetupRequest(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+
+class AIConfigDTO(BaseModel):
+    enabled: bool = False
+    provider: str = "none"
+    apiKey: Optional[str] = ""
+    defaultModel: str = "gemini-1.5-flash"
+    temperature: float = 0.3
+    maxTokens: int = 4096
+    timeoutSeconds: int = 30
+
     model_config = ConfigDict(populate_by_name=True)
+

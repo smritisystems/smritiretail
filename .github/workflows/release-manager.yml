@@ -1,0 +1,328 @@
+name: Release Manager
+
+on:
+  push:
+    tags:
+      name: Release Manager
+
+      on:
+        push:
+          tags:
+            - 'v*'
+        workflow_dispatch:
+          inputs:
+            version:
+              description: 'Release version (e.g. v3.16.0)'
+              required: true
+              type: string
+            release_type:
+              description: 'Release type'
+              required: true
+              type: choice
+              options:
+                - patch
+                - minor
+                - major
+            deploy:
+              description: 'Deploy to production after release'
+              required: false
+              type: boolean
+              default: false
+
+      permissions:
+        contents: write
+        packages: write
+
+      jobs:
+        set_version:
+          runs-on: ubuntu-latest
+          outputs:
+            version: ${{ steps.set.outputs.version }}
+            release_type: ${{ steps.set.outputs.release_type }}
+          steps:
+            - name: Determine version
+              id: set
+              run: |
+                if [[ "${{ github.event_name }}" == "push" ]]; then
+                  VERSION="${{ github.ref_name }}"
+                  RELEASE_TYPE="patch"
+                else
+                  VERSION="${{ github.event.inputs.version }}"
+                  RELEASE_TYPE="${{ github.event.inputs.release_type }}"
+                fi
+                echo "version=$VERSION" >> $GITHUB_OUTPUT
+                echo "release_type=$RELEASE_TYPE" >> $GITHUB_OUTPUT
+
+        verify:
+          needs: set_version
+          uses: ./.github/workflows/verify.yml
+          with:
+            release_version: ${{ needs.set_version.outputs.version }}
+            release_type: ${{ needs.set_version.outputs.release_type }}
+
+        security:
+          needs: verify
+          uses: ./.github/workflows/security-gate.yml
+          with:
+            release_version: ${{ needs.set_version.outputs.version }}
+          secrets:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        quality:
+          needs: security
+          uses: ./.github/workflows/quality-gate.yml
+          with:
+            release_version: ${{ needs.set_version.outputs.version }}
+
+        build:
+          needs: quality
+          uses: ./.github/workflows/build.yml
+          with:
+            release_version: ${{ needs.set_version.outputs.version }}
+          secrets:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        image_scan:
+          needs: build
+          uses: ./.github/workflows/image-scan.yml
+          with:
+            release_version: ${{ needs.set_version.outputs.version }}
+          secrets:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        publish:
+          needs: image_scan
+          uses: ./.github/workflows/publish.yml
+          with:
+            release_version: ${{ needs.set_version.outputs.version }}
+          secrets:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        package:
+          needs: publish
+          uses: ./.github/workflows/package.yml
+          with:
+            release_version: ${{ needs.set_version.outputs.version }}
+            release_type: ${{ needs.set_version.outputs.release_type }}
+
+        release_create:
+          needs: package
+          runs-on: ubuntu-latest
+          steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+
+            - name: Download packaged artifacts
+              uses: actions/download-artifact@v4
+              with:
+                name: release-artifacts
+
+            - name: Create release notes
+              id: changelog
+              run: |
+                VERSION=${{ needs.set_version.outputs.version }}
+                echo "### SMRITI Retail OS Release $VERSION" > RELEASE_NOTES.md
+                echo "" >> RELEASE_NOTES.md
+                echo "#### Release type: ${{ needs.set_version.outputs.release_type }}" >> RELEASE_NOTES.md
+                echo "" >> RELEASE_NOTES.md
+                echo "#### Commits" >> RELEASE_NOTES.md
+                git log --pretty=format:'* %s (%h)' -n 20 >> RELEASE_NOTES.md
+
+            - name: Ensure required artifacts exist
+              run: |
+                REQUIRED=( \
+                  "smriti-release-${{ needs.set_version.outputs.version }}.tar.gz" \
+                  "smriti-release-${{ needs.set_version.outputs.version }}.zip" \
+                  "smriti-rollback-${{ needs.set_version.outputs.version }}.tar.gz" \
+                  "smriti-rollback-${{ needs.set_version.outputs.version }}.zip" \
+                  "build-info.json" \
+                  "release-manifest.json" \
+                  "SHA256SUMS" \
+                  "sbom.spdx.json" \
+                  "sbom.cyclonedx.json" \
+                  "image-digests.json" \
+                )
+                MISSING=0
+                for f in "${REQUIRED[@]}"; do
+                  if [ ! -f "$f" ]; then echo "Missing required artifact: $f"; MISSING=1; fi
+                done
+                if [ $MISSING -eq 1 ]; then exit 1; fi
+
+            - name: Create GitHub release and attach artifacts
+              uses: softprops/action-gh-release@v1
+              with:
+                tag_name: ${{ needs.set_version.outputs.version }}
+                name: Release ${{ needs.set_version.outputs.version }}
+                body_path: RELEASE_NOTES.md
+                files: |
+                  smriti-release-${{ needs.set_version.outputs.version }}.tar.gz
+                  smriti-release-${{ needs.set_version.outputs.version }}.zip
+                  smriti-rollback-${{ needs.set_version.outputs.version }}.tar.gz
+                  smriti-rollback-${{ needs.set_version.outputs.version }}.zip
+                  build-info.json
+                  release-manifest.json
+                  SHA256SUMS
+                  sbom.spdx.json
+                  sbom.cyclonedx.json
+                  image-digests.json
+              env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        release_verify:
+          needs: release_create
+          runs-on: ubuntu-latest
+          steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+
+            - name: Run release verification
+              run: |
+                python3 scripts/release_verify.py --repo ${{ github.repository }} --tag ${{ needs.set_version.outputs.version }} --outdir ./release_verify_out --token ${{ secrets.GITHUB_TOKEN }}
+              env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Upload verification artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                name: release-verification
+                path: release_verify_out/release-validation.*
+
+        job_summary:
+          needs: release_verify
+          if: always()
+          runs-on: ubuntu-latest
+          steps:
+            - name: Invoke job summary workflow
+              uses: ./.github/workflows/job-summary.yml
+              with:
+                release_version: ${{ needs.set_version.outputs.version }}
+                commit_sha: ${{ github.sha }}
+                branch: ${{ github.ref_name }}
+
+        deploy_staging:
+          needs: release_verify
+          if: ${{ github.event.inputs.deploy == 'true' }}
+          uses: ./.github/workflows/deploy-staging.yml
+          with:
+            release_version: ${{ needs.set_version.outputs.version }}
+          secrets:
+            SSH_HOST: ${{ secrets.SSH_HOST }}
+            SSH_USER: ${{ secrets.SSH_USER }}
+            SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+            SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+
+        smoke_tests:
+          needs: deploy_staging
+          if: ${{ github.event.inputs.deploy == 'true' }}
+          uses: ./.github/workflows/smoke-tests.yml
+          with:
+            release_version: ${{ needs.set_version.outputs.version }}
+          secrets:
+            SSH_HOST: ${{ secrets.SSH_HOST }}
+            SSH_USER: ${{ secrets.SSH_USER }}
+            SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+            SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+            REMOTE_PROJECT_PATH: ${{ secrets.REMOTE_PROJECT_PATH }}
+
+        deploy_production:
+          needs: smoke_tests
+          if: ${{ github.event.inputs.deploy == 'true' }}
+          uses: ./.github/workflows/deploy-production.yml
+          with:
+            release_version: ${{ needs.set_version.outputs.version }}
+          secrets:
+            SSH_HOST: ${{ secrets.SSH_HOST }}
+            SSH_USER: ${{ secrets.SSH_USER }}
+            SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+            SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push frontend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:${{ steps.vars.outputs.version }}
+            ${{ env.FRONTEND_IMAGE }}:latest
+          file: Dockerfile
+          context: .
+
+      - name: Build and push backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:${{ steps.vars.outputs.version }}
+            ${{ env.BACKEND_IMAGE }}:latest
+          file: backend/Dockerfile
+          context: backend
+
+      - name: Generate release notes
+        id: changelog
+        run: |
+          VERSION=${{ steps.vars.outputs.version }}
+          echo "### SMRITI Retail OS Release $VERSION" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "#### Summary" >> RELEASE_NOTES.md
+          echo "- Release type: ${{ steps.vars.outputs.release_type }}" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "#### Recent commits" >> RELEASE_NOTES.md
+          git log --pretty=format:"* %s (%h)" -n 20 >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+
+      - name: Package release artifacts
+        run: |
+          VERSION=${{ steps.vars.outputs.version }}
+          tar -czf smriti-release-$VERSION.tar.gz dist/ package.json docker-compose.prod.yml REPOSITORY_CONSTITUTION.md docs/
+          zip -r smriti-release-$VERSION.zip dist/ package.json docker-compose.prod.yml REPOSITORY_CONSTITUTION.md docs/
+
+      - name: Create rollback package
+        run: |
+          VERSION=${{ steps.vars.outputs.version }}
+          tar -czf smriti-rollback-$VERSION.tar.gz backend/alembic/ docker-compose.prod.yml
+          zip -r smriti-rollback-$VERSION.zip backend/alembic/ docker-compose.prod.yml
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.vars.outputs.version }}
+          name: Release ${{ steps.vars.outputs.version }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            smriti-release-${{ steps.vars.outputs.version }}.tar.gz
+            smriti-release-${{ steps.vars.outputs.version }}.zip
+            smriti-rollback-${{ steps.vars.outputs.version }}.tar.gz
+            smriti-rollback-${{ steps.vars.outputs.version }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    name: Deploy to Production
+    needs: release
+    if: ${{ github.event.inputs.deploy == 'true' }}
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to remote host via SSH
+        if: ${{ github.event.inputs.deploy == 'true' }}
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+          script: |
+            set -e
+            cd ${{ secrets.REMOTE_PROJECT_PATH }}
+            git fetch origin --tags
+            git checkout ${{ needs.release.outputs.version }}
+            ./scripts/deploy_prod.sh

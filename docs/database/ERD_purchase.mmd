@@ -1,0 +1,232 @@
+---
+title: SMRITI — Purchase Module ERD
+---
+erDiagram
+    suppliers {
+        string id PK
+        string company_id FK
+        string name
+        string gstin
+        string pan
+        integer credit_days
+        string currency
+        boolean is_active
+        boolean is_deleted
+    }
+    supplier_addresses {
+        string id PK
+        string supplier_id FK
+        string address_type
+        string address_line1
+        string city
+        string state
+        string pincode
+        boolean is_default
+    }
+    supplier_contacts {
+        string id PK
+        string supplier_id FK
+        string name
+        string mobile
+        string email
+        string designation
+        boolean is_primary
+    }
+    supplier_bank_details {
+        string id PK
+        string supplier_id FK
+        string bank_name
+        string account_no
+        string ifsc_code
+        boolean is_primary
+    }
+    supplier_tax_profiles {
+        string id PK
+        string supplier_id FK
+        string gstin
+        string pan
+        string tds_category
+        boolean is_active
+    }
+    purchase_requisitions {
+        string id PK
+        string company_id FK
+        string branch_id FK
+        string requisition_no
+        datetime requisition_date
+        string requested_by FK
+        string status
+    }
+    purchase_requisition_lines {
+        string id PK
+        string requisition_id FK
+        string product_id FK
+        numeric quantity_required
+        datetime required_by
+        string justification
+    }
+    procurement_rfqs {
+        string id PK
+        string company_id FK
+        string requisition_id FK
+        string rfq_no
+        datetime rfq_date
+        datetime due_date
+        string status
+    }
+    procurement_rfq_items {
+        string id PK
+        string rfq_id FK
+        string product_id FK
+        numeric quantity
+        string specifications
+    }
+    procurement_rfq_vendors {
+        string id PK
+        string rfq_id FK
+        string supplier_id FK
+        string status
+        datetime invited_at
+    }
+    vendor_quotations {
+        string id PK
+        string rfq_id FK
+        string supplier_id FK
+        string quotation_no
+        datetime quotation_date
+        numeric grand_total
+        string status
+    }
+    vendor_quotation_items {
+        string id PK
+        string quotation_id FK
+        string product_id FK
+        numeric quantity
+        numeric unit_price
+        numeric gst_rate
+        numeric line_total
+    }
+    purchase_orders {
+        string id PK
+        string company_id FK
+        string supplier_id FK
+        string requisition_id FK
+        string po_number
+        datetime order_date
+        datetime expected_date
+        numeric subtotal
+        numeric tax_total
+        numeric grand_total
+        string status
+        boolean is_deleted
+    }
+    purchase_order_items {
+        string id PK
+        string order_id FK
+        string product_id FK
+        numeric ordered_quantity
+        numeric received_quantity
+        numeric unit_price
+        numeric gst_rate
+        numeric line_total
+    }
+    purchase_receipts {
+        string id PK
+        string company_id FK
+        string po_id FK
+        string supplier_id FK
+        string grn_number
+        datetime receipt_date
+        string status
+    }
+    purchase_receipt_items {
+        string id PK
+        string receipt_id FK
+        string product_id FK
+        numeric quantity_ordered
+        numeric quantity_received
+        numeric quantity_accepted
+        numeric quantity_rejected
+        string batch_no
+    }
+    quality_inspections {
+        string id PK
+        string company_id FK
+        string receipt_id FK
+        string inspection_no
+        datetime inspection_date
+        string result
+        string status
+    }
+    quality_inspection_items {
+        string id PK
+        string inspection_id FK
+        string product_id FK
+        numeric quantity_inspected
+        numeric quantity_passed
+        numeric quantity_failed
+        string failure_reason
+    }
+    three_way_matches {
+        string id PK
+        string company_id FK
+        string po_id FK
+        string receipt_id FK
+        string match_status
+        numeric po_amount
+        numeric receipt_amount
+        numeric variance_amount
+    }
+    supplier_debit_notes {
+        string id PK
+        string company_id FK
+        string supplier_id FK
+        string receipt_id FK
+        string debit_note_no
+        numeric amount
+        string reason
+        string status
+    }
+    supplier_scorecards {
+        string id PK
+        string supplier_id FK
+        string period
+        numeric overall_score
+        string rating
+    }
+    supplier_payments {
+        string id PK
+        string company_id FK
+        string supplier_id FK
+        string payment_no
+        numeric amount
+        string payment_mode
+        string reference_no
+        datetime payment_date
+        string status
+    }
+
+    suppliers ||--o{ supplier_addresses : "has"
+    suppliers ||--o{ supplier_contacts : "has"
+    suppliers ||--o{ supplier_bank_details : "has"
+    suppliers ||--o{ supplier_tax_profiles : "has"
+    suppliers ||--o{ procurement_rfq_vendors : "invited in"
+    suppliers ||--o{ vendor_quotations : "submits"
+    suppliers ||--o{ purchase_orders : "receives"
+    suppliers ||--o{ supplier_debit_notes : "debited"
+    suppliers ||--o{ supplier_scorecards : "scored"
+    suppliers ||--o{ supplier_payments : "paid via"
+    purchase_requisitions ||--o{ purchase_requisition_lines : "contains"
+    purchase_requisitions ||--o{ procurement_rfqs : "triggers"
+    purchase_requisitions ||--o{ purchase_orders : "converts to"
+    procurement_rfqs ||--o{ procurement_rfq_items : "contains"
+    procurement_rfqs ||--o{ procurement_rfq_vendors : "sent to"
+    procurement_rfqs ||--o{ vendor_quotations : "receives"
+    vendor_quotations ||--o{ vendor_quotation_items : "contains"
+    purchase_orders ||--o{ purchase_order_items : "contains"
+    purchase_orders ||--o{ purchase_receipts : "received via"
+    purchase_orders ||--o| three_way_matches : "matched in"
+    purchase_receipts ||--o{ purchase_receipt_items : "contains"
+    purchase_receipts ||--o{ quality_inspections : "inspected in"
+    purchase_receipts ||--o{ supplier_debit_notes : "raises"
+    quality_inspections ||--o{ quality_inspection_items : "contains"

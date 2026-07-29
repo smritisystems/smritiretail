@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -13,8 +13,8 @@ Classification: Internal
 """
 
 import uuid
-
 import pytest
+from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
 
 from app.api.deps import TenantContext, get_db, get_tenant_context
@@ -23,6 +23,8 @@ from app.main import app
 from app.models.auth import User, UserRole
 from app.models.inventory import Product
 from app.models.tenant import Branch, Company
+from app.services.inventory import InventoryService
+from app.schemas.inventory import ProductCreate
 from app.tests.conftest import clear_db
 
 
@@ -155,3 +157,101 @@ async def test_soft_delete_product_unauthorized_role(db_session):
     await db_session.refresh(product)
     assert product.is_deleted is False
     assert product.deleted_by is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_effective_gst_percentage(db_session):
+    from app.models.attributes import VariantTemplate
+    from app.services.inventory import InventoryService
+
+    comp, br = await _make_tenant(db_session, "s3")
+    tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
+    inv_service = InventoryService(db_session, tenant_ctx)
+
+    # 1. Create VariantTemplate with 12% GST
+    vt = VariantTemplate(
+        id=f"vt-{uuid.uuid4().hex[:8]}",
+        style_code="STYLE-VT-12",
+        name="12% Tax Style Template",
+        gst_percentage=12,
+        attribute_group_id="ag-default"
+    )
+    db_session.add(vt)
+    await db_session.commit()
+
+    # 2. Product linked to VariantTemplate inherits 12% GST rate
+    p1 = Product(
+        id="prod-hsn-1",
+        code="PROD-HSN-1",
+        name="HSN Linked Product",
+        price=100.0,
+        variant_template_id=vt.id,
+        gst_percentage=18.0,  # SKU level default override ignored in favor of VariantTemplate Classification
+        category="Apparel",
+        barcode="890000000001",
+        company_id=comp.id,
+        branch_id=br.id
+    )
+    db_session.add(p1)
+    await db_session.commit()
+
+    resolved_rate = await inv_service.resolve_effective_gst_percentage(p1)
+    assert resolved_rate == 12.0
+
+
+def test_build_sku_helper():
+    from types import SimpleNamespace
+    from app.services.inventory import _build_sku
+
+    p1 = SimpleNamespace(sku=None, style_code="CH-02-A", color="Red", size="XXL")
+    p2 = SimpleNamespace(sku="", style_code="CH-02-A", color=None, size="M")
+    p3 = SimpleNamespace(sku="MANUAL-001", style_code="CH-02-A", color="Blue", size="L")
+    p4 = SimpleNamespace(sku=None, style_code=None, color=None, size=None)
+
+    assert _build_sku(p1) == "CH-02-A-Red-XXL"
+    assert _build_sku(p2) == "CH-02-A-M"
+    assert _build_sku(p3) == "MANUAL-001"
+    assert _build_sku(p4) == ""
+
+
+@pytest.mark.asyncio
+async def test_create_product_barcode_cross_table_collision(db_session):
+    s = uuid.uuid4().hex[:6]
+    comp = Company(id=f"comp-bc-{s}", name=f"Comp BC {s}", gst_number="27ABCDE1234F1Z5", is_active=True)
+    br = Branch(id=f"br-bc-{s}", company_id=comp.id, name=f"Branch BC {s}", code=f"BR-{s}", is_active=True)
+    db_session.add_all([comp, br])
+    await db_session.commit()
+
+    tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
+    inv_service = InventoryService(db_session, tenant_ctx)
+
+    # Product 1 with secondary barcode 'SEC-8901'
+    p1_in = ProductCreate(
+        id=f"prod-bc1-{s}",
+        code=f"P-BC1-{s}",
+        name="Product Primary One",
+        price=100.00,
+        stock=10,
+        category="General",
+        barcode=f"PRI-8901-{s}",
+        secondary_barcodes=[f"SEC-8901-{s}"]
+    )
+    await inv_service.create_product(p1_in)
+
+    # Product 2 attempting to use Product 1's secondary barcode as its primary barcode
+    p2_in = ProductCreate(
+        id=f"prod-bc2-{s}",
+        code=f"P-BC2-{s}",
+        name="Product Collision Secondary to Primary",
+        price=150.00,
+        stock=5,
+        category="General",
+        barcode=f"SEC-8901-{s}"  # Collision!
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        await inv_service.create_product(p2_in)
+
+    assert exc_info.value.status_code == 400
+    assert "already exists" in exc_info.value.detail or "Secondary barcode" in exc_info.value.detail
+
+

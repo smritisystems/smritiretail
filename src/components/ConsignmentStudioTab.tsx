@@ -1,10 +1,10 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.27.0
+ * Version      : 4.0.0  (SEEF Phase 6 — SEEFDataTable + Cascade Integration)
  * Created      : 2026-07-19
  * Modified     : 2026-07-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -20,6 +20,11 @@ import {
   Building2, ArrowRightLeft, FileSpreadsheet, CreditCard, 
   RotateCcw, Landmark, Users, PackageCheck, Plus, AlertCircle, CheckCircle2 
 } from "lucide-react";
+// SEEF Phase 6 — SEEF-upgraded primitives
+import { FioriListReport } from "./common/FioriListReport.tsx";
+export { FioriListReport as SEEFListReport };
+import { SEEFDataTable, SEEFColumnDef } from "./common/SEEFDataTable.tsx";
+import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 
 interface ConsignmentStudioTabProps {
   currentUser?: any;
@@ -410,291 +415,139 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
         )}
 
         {activeSubTab === "transfers" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold text-theme-muted uppercase tracking-wider font-mono">
-                Consignment Dispatches &amp; Transfers
-              </h3>
-              <button
-                onClick={() => setShowAddTransfer(true)}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
-              >
-                <Plus size={14} /> New Dispatch Proposal
-              </button>
-            </div>
-
-            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden shadow-lg">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-theme-surface-3 border-b border-theme-divider text-[10px] uppercase tracking-wider text-theme-muted font-mono">
-                    <th className="px-6 py-4 font-semibold">Document No</th>
-                    <th className="px-6 py-4 font-semibold">Partner</th>
-                    <th className="px-6 py-4 font-semibold">Transfer Date</th>
-                    <th className="px-6 py-4 font-semibold text-right">Grand Total</th>
-                    <th className="px-6 py-4 font-semibold text-center">Status</th>
-                    <th className="px-6 py-4 font-semibold text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="text-xs divide-y divide-theme-divider">
-                  {transfers.map(t => {
-                    const partner = partners.find(p => p.id === t.partner_id);
-                    return (
-                      <tr key={t.id} className="hover:bg-theme-surface-hover transition-colors">
-                        <td className="px-6 py-4 font-mono font-bold text-blue-400">{t.transfer_no}</td>
-                        <td className="px-6 py-4">
-                          <span className="font-bold text-theme-body">{partner?.name || t.partner_id}</span>
-                        </td>
-                        <td className="px-6 py-4 font-mono">{t.transfer_date}</td>
-                        <td className="px-6 py-4 text-right font-mono text-emerald-400 font-semibold">
-                          ₹{parseFloat(t.grand_total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            t.status === "Draft" ? "bg-amber-950 text-amber-400 border border-amber-500/20" :
-                            t.status === "Dispatched" ? "bg-blue-950 text-blue-400 border border-blue-500/20" :
-                            "bg-emerald-950 text-emerald-400 border border-emerald-500/20"
-                          }`}>
-                            {t.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          {t.status === "Draft" ? (
-                            <button
-                              onClick={() => handleDispatchTransfer(t.id)}
-                              className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1 px-2.5 rounded text-[9px] uppercase tracking-wider transition-colors cursor-pointer"
-                            >
-                              Dispatch Stock
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-theme-muted font-mono">
-                              Invoice: {t.invoice_id ? "Linked" : "—"}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {transfers.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="text-center py-8 text-theme-muted italic">
-                        No consignment dispatches recorded.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <FioriListReport
+            title="Consignment Dispatches & Transfers"
+            subtitle="All stock dispatch proposals and confirmed consignment transfers to modern trade partners."
+            data={transfers.map(t => ({
+              ...t,
+              _partnerName: partners.find(p => p.id === t.partner_id)?.name || t.partner_id,
+            }))}
+            columns={[
+              { key: "transfer_no", label: "Document No", sortable: true, render: (t) => <span className="font-mono font-bold text-blue-400">{t.transfer_no}</span> },
+              { key: "_partnerName", label: "Partner", sortable: true, render: (t) => <span className="font-bold text-theme-body">{(t as any)._partnerName}</span> },
+              { key: "transfer_date", label: "Transfer Date", sortable: true, render: (t) => <span className="font-mono">{t.transfer_date}</span> },
+              { key: "grand_total", label: "Grand Total", align: "right", sortable: true, render: (t) => <span className="font-mono text-emerald-400 font-semibold">₹{parseFloat(t.grand_total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span> },
+              {
+                key: "status", label: "Status", align: "center",
+                render: (t) => (
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                    t.status === "Draft" ? "bg-amber-950 text-amber-400 border border-amber-500/20" :
+                    t.status === "Dispatched" ? "bg-blue-950 text-blue-400 border border-blue-500/20" :
+                    "bg-emerald-950 text-emerald-400 border border-emerald-500/20"
+                  }`}>{t.status}</span>
+                )
+              },
+              {
+                key: "actions", label: "Actions", align: "center",
+                render: (t) => t.status === "Draft" ? (
+                  <button onClick={(e) => { e.stopPropagation(); handleDispatchTransfer(t.id); }} className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1 px-2.5 rounded text-[9px] uppercase tracking-wider transition-colors cursor-pointer">Dispatch Stock</button>
+                ) : (
+                  <span className="text-[10px] text-theme-muted font-mono">Invoice: {t.invoice_id ? "Linked" : "—"}</span>
+                )
+              },
+            ]}
+            filterOptions={[{ key: "status", label: "Status", options: [{ label: "All", value: "ALL" }, { label: "Draft", value: "Draft" }, { label: "Dispatched", value: "Dispatched" }, { label: "Complete", value: "Complete" }] }]}
+            onRefresh={loadAllData}
+            onCreateNew={() => setShowAddTransfer(true)}
+            primaryActionLabel="New Dispatch Proposal"
+            searchPlaceholder="Search transfer no, partner..."
+            isLoading={loading}
+          />
         )}
 
         {activeSubTab === "reports" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold text-theme-muted uppercase tracking-wider font-mono">
-                Consignment Sales Reporting
-              </h3>
-              <button
-                onClick={() => setShowAddReport(true)}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
-              >
-                <Plus size={14} /> Submit Weekly Report
-              </button>
-            </div>
-
-            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden shadow-lg">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-theme-surface-3 border-b border-theme-divider text-[10px] uppercase tracking-wider text-theme-muted font-mono">
-                    <th className="px-6 py-4 font-semibold">Report No</th>
-                    <th className="px-6 py-4 font-semibold">Partner</th>
-                    <th className="px-6 py-4 font-semibold">Report Date</th>
-                    <th className="px-6 py-4 font-semibold text-right">Reported Sales</th>
-                    <th className="px-6 py-4 font-semibold text-center">Status</th>
-                    <th className="px-6 py-4 font-semibold text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="text-xs divide-y divide-theme-divider">
-                  {reports.map(r => {
-                    const partner = partners.find(p => p.id === r.partner_id);
-                    return (
-                      <tr key={r.id} className="hover:bg-theme-surface-hover transition-colors">
-                        <td className="px-6 py-4 font-mono font-bold text-blue-400">{r.report_no}</td>
-                        <td className="px-6 py-4">
-                          <span className="font-bold text-theme-body">{partner?.name || r.partner_id}</span>
-                        </td>
-                        <td className="px-6 py-4 font-mono">{r.report_date}</td>
-                        <td className="px-6 py-4 text-right font-mono text-emerald-400 font-semibold">
-                          ₹{parseFloat(r.total_sales_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            r.status === "Submitted" ? "bg-amber-950 text-amber-400 border border-amber-500/20" :
-                            "bg-emerald-950 text-emerald-400 border border-emerald-500/30"
-                          }`}>
-                            {r.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          {r.status === "Submitted" ? (
-                            <button
-                              onClick={() => handleProcessSaleReport(r.id)}
-                              className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1 px-2.5 rounded text-[9px] uppercase tracking-wider transition-colors cursor-pointer"
-                            >
-                              Process Report
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-theme-muted font-mono flex items-center justify-center gap-1 text-emerald-400 font-bold">
-                              <CheckCircle2 size={12} /> Sales Recognized
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {reports.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="text-center py-8 text-theme-muted italic">
-                        No sales reports recorded.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <FioriListReport
+            title="Consignment Sales Reporting"
+            subtitle="Weekly partner-submitted sales reports for consignment stock recognition and settlement."
+            data={reports.map(r => ({
+              ...r,
+              _partnerName: partners.find(p => p.id === r.partner_id)?.name || r.partner_id,
+            }))}
+            columns={[
+              { key: "report_no", label: "Report No", sortable: true, render: (r) => <span className="font-mono font-bold text-blue-400">{r.report_no}</span> },
+              { key: "_partnerName", label: "Partner", sortable: true, render: (r) => <span className="font-bold text-theme-body">{(r as any)._partnerName}</span> },
+              { key: "report_date", label: "Report Date", sortable: true, render: (r) => <span className="font-mono">{r.report_date}</span> },
+              { key: "total_sales_value", label: "Reported Sales", align: "right", sortable: true, render: (r) => <span className="font-mono text-emerald-400 font-semibold">₹{parseFloat(r.total_sales_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span> },
+              {
+                key: "status", label: "Status", align: "center",
+                render: (r) => (
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                    r.status === "Submitted" ? "bg-amber-950 text-amber-400 border border-amber-500/20" :
+                    "bg-emerald-950 text-emerald-400 border border-emerald-500/30"
+                  }`}>{r.status}</span>
+                )
+              },
+              {
+                key: "actions", label: "Actions", align: "center",
+                render: (r) => r.status === "Submitted" ? (
+                  <button onClick={(e) => { e.stopPropagation(); handleProcessSaleReport(r.id); }} className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1 px-2.5 rounded text-[9px] uppercase tracking-wider transition-colors cursor-pointer">Process Report</button>
+                ) : (
+                  <span className="text-[10px] font-mono flex items-center justify-center gap-1 text-emerald-400 font-bold"><CheckCircle2 size={12} /> Sales Recognized</span>
+                )
+              },
+            ]}
+            filterOptions={[{ key: "status", label: "Status", options: [{ label: "All", value: "ALL" }, { label: "Submitted", value: "Submitted" }, { label: "Processed", value: "Processed" }] }]}
+            onRefresh={loadAllData}
+            onCreateNew={() => setShowAddReport(true)}
+            primaryActionLabel="Submit Weekly Report"
+            searchPlaceholder="Search report no, partner..."
+            isLoading={loading}
+          />
         )}
 
         {activeSubTab === "settlements" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold text-theme-muted uppercase tracking-wider font-mono">
-                Modern Trade Settlements &amp; Ledger Reconciliations
-              </h3>
-              <button
-                onClick={() => setShowAddSettlement(true)}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
-              >
-                <Plus size={14} /> New Payment Settlement
-              </button>
-            </div>
-
-            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden shadow-lg">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-theme-surface-3 border-b border-theme-divider text-[10px] uppercase tracking-wider text-theme-muted font-mono">
-                    <th className="px-6 py-4 font-semibold">Settlement No</th>
-                    <th className="px-6 py-4 font-semibold">Partner</th>
-                    <th className="px-6 py-4 font-semibold">Reconciliation Date</th>
-                    <th className="px-6 py-4 font-semibold text-right">Amount Due</th>
-                    <th className="px-6 py-4 font-semibold text-right">Deductions</th>
-                    <th className="px-6 py-4 font-semibold text-right">Net Paid</th>
-                    <th className="px-6 py-4 font-semibold text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="text-xs divide-y divide-theme-divider">
-                  {settlements.map(s => {
-                    const partner = partners.find(p => p.id === s.partner_id);
-                    return (
-                      <tr key={s.id} className="hover:bg-theme-surface-hover transition-colors">
-                        <td className="px-6 py-4 font-mono font-bold text-blue-400">{s.settlement_no}</td>
-                        <td className="px-6 py-4">
-                          <span className="font-bold text-theme-body">{partner?.name || s.partner_id}</span>
-                        </td>
-                        <td className="px-6 py-4 font-mono">{s.settlement_date}</td>
-                        <td className="px-6 py-4 text-right font-mono">
-                          ₹{parseFloat(s.total_amount_due).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-right font-mono text-rose-400">
-                          ₹{parseFloat(s.total_deductions).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-right font-mono text-emerald-400 font-semibold">
-                          ₹{parseFloat(s.paid_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="bg-emerald-950 text-emerald-400 border border-emerald-500/25 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                            {s.status}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {settlements.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="text-center py-8 text-theme-muted italic">
-                        No settlements recorded.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <FioriListReport
+            title="Modern Trade Settlements & Ledger Reconciliations"
+            subtitle="Recorded payment settlements and deduction reconciliations with modern trade partners."
+            data={settlements.map(s => ({
+              ...s,
+              _partnerName: partners.find(p => p.id === s.partner_id)?.name || s.partner_id,
+            }))}
+            columns={[
+              { key: "settlement_no", label: "Settlement No", sortable: true, render: (s) => <span className="font-mono font-bold text-blue-400">{s.settlement_no}</span> },
+              { key: "_partnerName", label: "Partner", sortable: true, render: (s) => <span className="font-bold text-theme-body">{(s as any)._partnerName}</span> },
+              { key: "settlement_date", label: "Reconciliation Date", sortable: true, render: (s) => <span className="font-mono">{s.settlement_date}</span> },
+              { key: "total_amount_due", label: "Amount Due", align: "right", render: (s) => <span className="font-mono">₹{parseFloat(s.total_amount_due).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span> },
+              { key: "total_deductions", label: "Deductions", align: "right", render: (s) => <span className="font-mono text-rose-400">₹{parseFloat(s.total_deductions).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span> },
+              { key: "paid_amount", label: "Net Paid", align: "right", sortable: true, render: (s) => <span className="font-mono text-emerald-400 font-semibold">₹{parseFloat(s.paid_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span> },
+              { key: "status", label: "Status", align: "center", render: (s) => <span className="bg-emerald-950 text-emerald-400 border border-emerald-500/25 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{s.status}</span> },
+            ]}
+            onRefresh={loadAllData}
+            onCreateNew={() => setShowAddSettlement(true)}
+            primaryActionLabel="New Payment Settlement"
+            searchPlaceholder="Search settlement no, partner..."
+            isLoading={loading}
+          />
         )}
 
         {activeSubTab === "returns" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold text-theme-muted uppercase tracking-wider font-mono">
-                Consignment Stock Returns (Warehouse Receipt)
-              </h3>
-              <button
-                onClick={() => setShowAddReturn(true)}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
-              >
-                <Plus size={14} /> Record Return Delivery
-              </button>
-            </div>
-
-            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden shadow-lg">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-theme-surface-3 border-b border-theme-divider text-[10px] uppercase tracking-wider text-theme-muted font-mono">
-                    <th className="px-6 py-4 font-semibold">Return No</th>
-                    <th className="px-6 py-4 font-semibold">Partner</th>
-                    <th className="px-6 py-4 font-semibold">Return Date</th>
-                    <th className="px-6 py-4 font-semibold text-right">Returned Value</th>
-                    <th className="px-6 py-4 font-semibold text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="text-xs divide-y divide-theme-divider">
-                  {returns.map(r => {
-                    const partner = partners.find(p => p.id === r.partner_id);
-                    return (
-                      <tr key={r.id} className="hover:bg-theme-surface-hover transition-colors">
-                        <td className="px-6 py-4 font-mono font-bold text-blue-400">{r.return_no}</td>
-                        <td className="px-6 py-4">
-                          <span className="font-bold text-theme-body">{partner?.name || r.partner_id}</span>
-                        </td>
-                        <td className="px-6 py-4 font-mono">{r.return_date}</td>
-                        <td className="px-6 py-4 text-right font-mono text-emerald-400 font-semibold">
-                          ₹{parseFloat(r.total_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="bg-emerald-950 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 font-mono">
-                            <CheckCircle2 size={12} /> Stock Restored
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {returns.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="text-center py-8 text-theme-muted italic">
-                        No returns recorded.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <FioriListReport
+            title="Consignment Stock Returns (Warehouse Receipt)"
+            subtitle="Recorded consignment stock return deliveries received back at the warehouse."
+            data={returns.map(r => ({
+              ...r,
+              _partnerName: partners.find(p => p.id === r.partner_id)?.name || r.partner_id,
+            }))}
+            columns={[
+              { key: "return_no", label: "Return No", sortable: true, render: (r) => <span className="font-mono font-bold text-blue-400">{r.return_no}</span> },
+              { key: "_partnerName", label: "Partner", sortable: true, render: (r) => <span className="font-bold text-theme-body">{(r as any)._partnerName}</span> },
+              { key: "return_date", label: "Return Date", sortable: true, render: (r) => <span className="font-mono">{r.return_date}</span> },
+              { key: "total_value", label: "Returned Value", align: "right", sortable: true, render: (r) => <span className="font-mono text-emerald-400 font-semibold">₹{parseFloat(r.total_value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span> },
+              { key: "status", label: "Status", align: "center", render: (r) => <span className="bg-emerald-950 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 font-mono"><CheckCircle2 size={12} /> Stock Restored</span> },
+            ]}
+            onRefresh={loadAllData}
+            onCreateNew={() => setShowAddReturn(true)}
+            primaryActionLabel="Record Return Delivery"
+            searchPlaceholder="Search return no, partner..."
+            isLoading={loading}
+          />
         )}
       </SmritiScrollArea>
 
       {/* --- ADD PARTNER MODAL --- */}
       <AnimatePresence>
         {showAddPartner && (
-          <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-theme-surface-3 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -774,7 +627,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowAddPartner(false)}
-                    className="bg-slate-800 hover:bg-slate-700 text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
+                    className="bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -794,7 +647,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
       {/* --- ADD TRANSFER MODAL --- */}
       <AnimatePresence>
         {showAddTransfer && (
-          <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-theme-surface-3 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -874,48 +727,49 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                     <button
                       type="button"
                       onClick={addTransferLine}
-                      className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider cursor-pointer"
+                      className="bg-theme-surface-3 hover:bg-theme-surface-3 text-white font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider cursor-pointer"
                     >
                       + Add Item
                     </button>
                   </div>
                 </div>
 
-                {/* Added Items table */}
+                {/* SEEF Phase 6 — Transfer Items preview table */}
                 {newTransferItems.length > 0 && (
-                  <div className="border border-theme-divider rounded-lg overflow-hidden max-h-40 overflow-y-auto">
-                    <table className="w-full text-left">
-                      <thead className="bg-theme-surface-3 text-[8px] uppercase tracking-wider text-theme-muted">
-                        <tr>
-                          <th className="p-2">Product Name</th>
-                          <th className="p-2 text-right">Quantity</th>
-                          <th className="p-2 text-right">Consignment Rate</th>
-                          <th className="p-2 text-right">Taxable Value</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {newTransferItems.map((item, idx) => {
-                          const p = products.find(prod => prod.id === item.productId);
-                          const total = item.qty * item.rate;
-                          return (
-                            <tr key={idx} className="border-t border-theme-divider/50">
-                              <td className="p-2 font-bold">{p?.name}</td>
-                              <td className="p-2 text-right font-mono">{item.qty}</td>
-                              <td className="p-2 text-right font-mono">₹{item.rate}</td>
-                              <td className="p-2 text-right font-mono text-emerald-400 font-semibold">₹{total.toFixed(2)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <SEEFDataTable
+                    id="consignment-transfer-items"
+                    caption="Transfer Items"
+                    height={160}
+                    columns={[
+                      { key: "name", header: "Product Name", width: 200,
+                        render: (_v, _r, idx) => {
+                          const p = products.find(prod => prod.id === newTransferItems[idx]?.productId);
+                          return <span style={{ fontWeight: 700 }}>{p?.name ?? "—"}</span>;
+                        }
+                      },
+                      { key: "qty", header: "Quantity", align: "right", width: 90,
+                        render: (_v, _r, idx) => <span style={{ fontFamily: "monospace" }}>{newTransferItems[idx]?.qty}</span>
+                      },
+                      { key: "rate", header: "Consignment Rate", align: "right", width: 130,
+                        render: (_v, _r, idx) => <span style={{ fontFamily: "monospace" }}>₹{newTransferItems[idx]?.rate}</span>
+                      },
+                      { key: "total", header: "Taxable Value", align: "right", width: 120,
+                        render: (_v, _r, idx) => {
+                          const item = newTransferItems[idx];
+                          return <span style={{ fontFamily: "monospace", color: "var(--seef-success)", fontWeight: 600 }}>₹{(item ? item.qty * item.rate : 0).toFixed(2)}</span>;
+                        }
+                      },
+                    ] as SEEFColumnDef<typeof newTransferItems[0]>[]}
+                    rows={newTransferItems}
+                    rowKey={(_r, i) => i}
+                  />
                 )}
 
                 <div className="flex justify-end gap-2 border-t border-theme-divider/50 pt-4 mt-6">
                   <button
                     type="button"
                     onClick={() => setShowAddTransfer(false)}
-                    className="bg-slate-800 hover:bg-slate-700 text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
+                    className="bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -935,7 +789,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
       {/* --- ADD SALES REPORT MODAL --- */}
       <AnimatePresence>
         {showAddReport && (
-          <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -1048,7 +902,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                           setReportTransItemInput("");
                           setReportQtyInput("");
                         }}
-                        className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider cursor-pointer"
+                        className="bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-body font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider cursor-pointer"
                       >
                         + Add Reported Line
                       </button>
@@ -1056,39 +910,42 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                   </div>
                 )}
 
+                {/* SEEF Phase 6 — Report (Sales) Items preview table */}
                 {newReportItems.length > 0 && (
-                  <div className="border border-theme-divider rounded-lg overflow-hidden">
-                    <table className="w-full text-left">
-                      <thead className="bg-theme-surface-3 text-[8px] uppercase tracking-wider text-theme-muted">
-                        <tr>
-                          <th className="p-2">Item</th>
-                          <th className="p-2 text-right">Quantity Sold</th>
-                          <th className="p-2 text-right">Rate</th>
-                          <th className="p-2 text-right">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {newReportItems.map((item, idx) => {
-                          const tItem = getTransferItemsForPartner(newReportPartner).find(i => i.id === item.transferItemId);
-                          return (
-                            <tr key={idx} className="border-t border-theme-divider/50">
-                              <td className="p-2 font-bold">{tItem?.name || item.productId}</td>
-                              <td className="p-2 text-right font-mono">{item.qty}</td>
-                              <td className="p-2 text-right font-mono">₹{item.rate}</td>
-                              <td className="p-2 text-right font-mono text-emerald-400 font-semibold">₹{(item.qty * item.rate).toFixed(2)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <SEEFDataTable
+                    id="consignment-report-items"
+                    caption="Consignment Report Items"
+                    height={160}
+                    columns={[
+                      { key: "name", header: "Item", width: 200,
+                        render: (_v, _r, idx) => {
+                          const tItem = getTransferItemsForPartner(newReportPartner).find(i => i.id === newReportItems[idx]?.transferItemId);
+                          return <span style={{ fontWeight: 700 }}>{tItem?.name || newReportItems[idx]?.productId || "—"}</span>;
+                        }
+                      },
+                      { key: "qty", header: "Quantity Sold", align: "right", width: 110,
+                        render: (_v, _r, idx) => <span style={{ fontFamily: "monospace" }}>{newReportItems[idx]?.qty}</span>
+                      },
+                      { key: "rate", header: "Rate", align: "right", width: 90,
+                        render: (_v, _r, idx) => <span style={{ fontFamily: "monospace" }}>₹{newReportItems[idx]?.rate}</span>
+                      },
+                      { key: "total", header: "Total", align: "right", width: 110,
+                        render: (_v, _r, idx) => {
+                          const item = newReportItems[idx];
+                          return <span style={{ fontFamily: "monospace", color: "var(--seef-success)", fontWeight: 600 }}>₹{(item ? item.qty * item.rate : 0).toFixed(2)}</span>;
+                        }
+                      },
+                    ] as SEEFColumnDef<typeof newReportItems[0]>[]}
+                    rows={newReportItems}
+                    rowKey={(_r, i) => i}
+                  />
                 )}
 
                 <div className="flex justify-end gap-2 border-t border-theme-divider/50 pt-4 mt-6">
                   <button
                     type="button"
                     onClick={() => setShowAddReport(false)}
-                    className="bg-slate-800 hover:bg-slate-700 text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
+                    className="bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -1108,7 +965,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
       {/* --- ADD SETTLEMENT MODAL --- */}
       <AnimatePresence>
         {showAddSettlement && (
-          <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -1191,7 +1048,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowAddSettlement(false)}
-                    className="bg-slate-800 hover:bg-slate-700 text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
+                    className="bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -1211,7 +1068,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
       {/* --- ADD RETURN MODAL --- */}
       <AnimatePresence>
         {showAddReturn && (
-          <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -1296,7 +1153,7 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                           setReturnTransItemInput("");
                           setReturnQtyInput("");
                         }}
-                        className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider cursor-pointer"
+                        className="bg-theme-surface-3 hover:bg-theme-surface-hover text-theme-body font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider cursor-pointer"
                       >
                         + Add Returned Line
                       </button>
@@ -1304,39 +1161,42 @@ export const ConsignmentStudioTab: React.FC<ConsignmentStudioTabProps> = ({
                   </div>
                 )}
 
+                {/* SEEF Phase 6 — Return Items preview table */}
                 {newReturnItems.length > 0 && (
-                  <div className="border border-theme-divider rounded-lg overflow-hidden">
-                    <table className="w-full text-left">
-                      <thead className="bg-theme-surface-3 text-[8px] uppercase tracking-wider text-theme-muted">
-                        <tr>
-                          <th className="p-2">Item</th>
-                          <th className="p-2 text-right">Quantity Returned</th>
-                          <th className="p-2 text-right">Rate</th>
-                          <th className="p-2 text-right">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {newReturnItems.map((item, idx) => {
-                          const tItem = getTransferItemsForPartner(newReturnPartner).find(i => i.id === item.transferItemId);
-                          return (
-                            <tr key={idx} className="border-t border-theme-divider/50">
-                              <td className="p-2 font-bold">{tItem?.name || item.productId}</td>
-                              <td className="p-2 text-right font-mono">{item.qty}</td>
-                              <td className="p-2 text-right font-mono">₹{item.rate}</td>
-                              <td className="p-2 text-right font-mono text-rose-400 font-semibold">₹{(item.qty * item.rate).toFixed(2)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <SEEFDataTable
+                    id="consignment-return-items"
+                    caption="Consignment Return Items"
+                    height={160}
+                    columns={[
+                      { key: "name", header: "Item", width: 200,
+                        render: (_v, _r, idx) => {
+                          const tItem = getTransferItemsForPartner(newReturnPartner).find(i => i.id === newReturnItems[idx]?.transferItemId);
+                          return <span style={{ fontWeight: 700 }}>{tItem?.name || newReturnItems[idx]?.productId || "—"}</span>;
+                        }
+                      },
+                      { key: "qty", header: "Qty Returned", align: "right", width: 100,
+                        render: (_v, _r, idx) => <span style={{ fontFamily: "monospace" }}>{newReturnItems[idx]?.qty}</span>
+                      },
+                      { key: "rate", header: "Rate", align: "right", width: 90,
+                        render: (_v, _r, idx) => <span style={{ fontFamily: "monospace" }}>₹{newReturnItems[idx]?.rate}</span>
+                      },
+                      { key: "total", header: "Total", align: "right", width: 110,
+                        render: (_v, _r, idx) => {
+                          const item = newReturnItems[idx];
+                          return <span style={{ fontFamily: "monospace", color: "var(--seef-error)", fontWeight: 600 }}>₹{(item ? item.qty * item.rate : 0).toFixed(2)}</span>;
+                        }
+                      },
+                    ] as SEEFColumnDef<typeof newReturnItems[0]>[]}
+                    rows={newReturnItems}
+                    rowKey={(_r, i) => i}
+                  />
                 )}
 
                 <div className="flex justify-end gap-2 border-t border-theme-divider/50 pt-4 mt-6">
                   <button
                     type="button"
                     onClick={() => setShowAddReturn(false)}
-                    className="bg-slate-800 hover:bg-slate-700 text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
+                    className="bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body font-bold py-2 px-4 rounded-lg cursor-pointer"
                   >
                     Cancel
                   </button>

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -21,22 +21,6 @@ const DB_FILE = path.join(process.cwd(), "db_store.json");
 
 // Define state arrays
 
-// TODO: migrate to DB in Phase 2b
-export let tallyExportQueue: any[] = [];
-
-
-
-// TODO: migrate to DB in Phase 2b
-
-
-// TODO: migrate to DB in Phase 2b
-export let partnersList: any[] = [];
-
-// TODO: migrate to DB in Phase 2b
-export let transformationMappings: any[] = [];
-
-// TODO: migrate to DB in Phase 2b
-export let exchangeLogs: any[] = [];
 
 export let ledgerEntries: any[] = [];
 export let stockLedger: any[] = [];
@@ -51,17 +35,6 @@ export let salesOrders: SalesOrder[] = [];
 export let salesInvoices: SalesInvoice[] = [...initialSalesInvoices];
 export let salesReturns: SalesReturn[] = [...initialSalesReturns];
 
-// TODO: migrate to DB in Phase 2b
-export let fields: FieldInfo[] = [];
-
-// TODO: migrate to DB in Phase 2b
-export let formulas: Formula[] = [];
-
-// TODO: migrate to DB in Phase 2b
-export let psvParties: PSVParty[] = [];
-
-// TODO: migrate to DB in Phase 2b
-export let companyState: string | null = "DL";
 
 export let suppliers: any[] = [];
 export let purchaseOrders: any[] = [];
@@ -78,8 +51,6 @@ export let roles: { name: string; permissions: string[] }[] = [];
 export let companies: any[] = [];
 export let branches: any[] = [];
 
-// TODO: migrate to DB in Phase 2b
-export let reportSchedules: any[] = [];
 
 export let customers: Customer[] = [];
 export let customerGroups: CustomerGroup[] = [];
@@ -100,10 +71,6 @@ export const sessions: Record<string, {
 export function saveDb() {
   try {
     const data = {
-      tallyExportQueue,
-      partnersList,
-      transformationMappings,
-      exchangeLogs,
       ledgerEntries,
       auditLogs,
       profiles,
@@ -113,18 +80,13 @@ export function saveDb() {
       salesOrders,
       salesInvoices,
       salesReturns,
-      fields,
-      formulas,
-      psvParties,
-      companyState,
       goodsReceipts,
       attributeDefinitions,
       attributeGroups,
       variantTemplates,
       categoryAttributeGroupMappings,
 
-      roles,
-      reportSchedules
+      roles
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf8");
   } catch (e) {
@@ -138,14 +100,6 @@ export function loadDb() {
     if (fs.existsSync(DB_FILE)) {
       const raw = fs.readFileSync(DB_FILE, "utf8");
       const data = JSON.parse(raw);
-      if (data.tallyExportQueue) tallyExportQueue = data.tallyExportQueue;
-
-      if (data.partnersList) partnersList = data.partnersList;
-      if (data.transformationMappings) {
-        transformationMappings.length = 0;
-        transformationMappings.push(...data.transformationMappings);
-      }
-      if (data.exchangeLogs) exchangeLogs = data.exchangeLogs;
       if (data.ledgerEntries) ledgerEntries = data.ledgerEntries;
       if (data.auditLogs) auditLogs = data.auditLogs;
       if (data.profiles) profiles = data.profiles;
@@ -155,10 +109,6 @@ export function loadDb() {
       if (data.salesOrders) salesOrders = data.salesOrders;
       if (data.salesInvoices) salesInvoices = data.salesInvoices;
       if (data.salesReturns) salesReturns = data.salesReturns;
-      if (data.fields) fields = data.fields;
-      if (data.formulas) formulas = data.formulas;
-      if (data.psvParties) psvParties = data.psvParties;
-      if (data.companyState !== undefined) companyState = data.companyState;
       if (data.goodsReceipts) goodsReceipts = data.goodsReceipts;
       if (data.attributeDefinitions) attributeDefinitions = data.attributeDefinitions;
       if (data.attributeGroups) attributeGroups = data.attributeGroups;
@@ -166,7 +116,6 @@ export function loadDb() {
       if (data.categoryAttributeGroupMappings) categoryAttributeGroupMappings = data.categoryAttributeGroupMappings;
 
       if (data.roles) roles = data.roles;
-      if (data.reportSchedules) reportSchedules = data.reportSchedules;
 
       saveDb();
       console.log("[Local DB] Loaded data successfully from disk!");
@@ -236,7 +185,7 @@ export function migrateUsersAndSeedOrganizationData() {
       userId: "usr-super",
       employeeId: "EMP-001",
       username: "super",
-      passwordHash: "whynothing", // Will be hashed in the self-healing block below
+      passwordHash: "pbkdf2$sha512$600000$1234567890abcdef1234567890abcdef$455fa4ca06fc17cfbc6a8ec2e1554a60462a4355fafe7c6d15f10d54407eab7364e8c3f170b9abed96b8d0325e1f1ff5247f562c2b09c44ea0a29e2d1fde4c3e",
       role: "Admin",
       status: "Active",
       photo: "",
@@ -281,7 +230,7 @@ export function migrateUsersAndSeedOrganizationData() {
       userId: "usr-manager",
       employeeId: "EMP-002",
       username: "manager",
-      passwordHash: "Password@123",
+      passwordHash: "pbkdf2$sha512$600000$1234567890abcdef1234567890abcdef$88bbbd0e9aed95d4b72d5cbefdb424347c6e6ec65eedb91047690de2122d5590edf84dc2dd2ade345c2270dcc18a4f158348ccbd9717d4458ae8997cacb2c2eb",
       role: "Store Manager",
       status: "Active",
       photo: "",
@@ -326,7 +275,7 @@ export function migrateUsersAndSeedOrganizationData() {
       userId: "usr-cashier",
       employeeId: "EMP-003",
       username: "cashier",
-      passwordHash: "cashier123",
+      passwordHash: "pbkdf2$sha512$600000$1234567890abcdef1234567890abcdef$cda30bf70c6a5723656c5b09fe12d8afb07f45283b041258960ef2c932dbae3d454cc42ab140252bdddb9e906d6a072d4b6f536f601fbdb9f5d0fe3b1eb7fd9e",
       role: "Cashier",
       status: "Active",
       photo: "",

@@ -24,13 +24,13 @@ Founders
 """
 
 from dataclasses import dataclass
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Optional
 from fastapi import Depends, HTTPException, Header, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.config import settings
 
-from ..db.session import get_db as _get_db, active_tenant_ctx
+from ..db.session import get_db as _get_db, active_tenant_ctx, active_security_context, SecurityContext
 from ..models.auth import User, UserRole
 from ..core.security import decode_token
 from ..services.security import SecurityService
@@ -83,6 +83,32 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    company_id = payload.get("company_id")
+    branch_id = payload.get("branch_id")
+    tenant_id = payload.get("tenant_id") or "default"
+    role = payload.get("role")
+
+    if company_id and branch_id:
+        t_ctx = TenantContext(tenant_id=tenant_id, company_id=company_id, branch_id=branch_id)
+        active_tenant_ctx.set(t_ctx)
+        sec_ctx = SecurityContext(
+            user_id=user_id,
+            username=payload.get("username", ""),
+            platform_admin=(role == "SYSADMIN"),
+            tenant_id=tenant_id,
+            company_ids=[company_id],
+            branch_ids=[branch_id],
+            department_ids=[],
+            warehouse_ids=[],
+            cost_center_ids=[],
+            record_scope="ALL" if role in ("SYSADMIN", "CASHIER", "MANAGER", "ADMINISTRATOR", "OWNER", "COMPANY_ADMIN", "BRANCH_ADMIN") else "BRANCH",
+            license={},
+            feature_flags={},
+            session="",
+            api_key=""
+        )
+        active_security_context.set(sec_ctx)
+
     # Lazy-import to avoid circular imports (AuthService ↔ deps)
     from ..services.auth import AuthService
     service = AuthService(db)
@@ -102,6 +128,34 @@ async def get_current_user(
             )
 
     return user
+
+
+async def get_current_user_optional(
+    request: Request,
+    db: AsyncSession = Depends(_get_db),
+) -> Optional[User]:
+    """
+    Attempt to decode Bearer JWT and return User object if valid token present.
+    Returns None if token is missing, invalid, or expired instead of throwing 401.
+    """
+    header = request.headers.get("Authorization")
+    if not header or not header.startswith("Bearer "):
+        return None
+    token = header.split(" ", 1)[1].strip()
+    if not token or token == "dev-bypass-token":
+        # dev-bypass-token is never treated as a valid backend session token.
+        # Frontend may allow it in dev/demo mode, but backend auth keeps it local-only.
+        return None
+    try:
+        payload = decode_token(token)
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        from ..services.auth import AuthService
+        service = AuthService(db)
+        return await service.get_user_by_id(user_id)
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +187,10 @@ async def get_tenant_context(
     )
     active_tenant_ctx.set(ctx)
     return ctx
+
+
+get_current_tenant = get_tenant_context
+
 
 
 
@@ -202,6 +260,61 @@ def require_permission(permission_code: str) -> Callable:
                     "reference_id": "SMRITI-PERM-001"
                 }
             )
+
+        # Resolve scope for the permission
+        from sqlalchemy import select
+        from ..models.security import SMRITIPermission
+        from ..core.permissions import MANIFEST
+
+        perm_def = next((p for p in MANIFEST if p.code == permission_code), None)
+        
+        # Try loading scope from database for dynamic overrides, fallback to manifest
+        stmt = select(SMRITIPermission.scope).where(SMRITIPermission.code == permission_code)
+        res = await db.execute(stmt)
+        db_scope = res.scalar_one_or_none()
+        perm_scope = db_scope if db_scope else (perm_def.scope if perm_def else "OWN_BRANCH")
+
+        # Map to RLS ResolvedScope (SELF, TEAM, BRANCH, COMPANY, ALL)
+        # NOTE: DEBUG print removed — was leaking permission_code + db_scope to stdout in production
+        mapping = {
+            "GLOBAL": "ALL",
+            "OWN_BRANCH": "BRANCH",
+            "OWN_COMPANY": "COMPANY",
+            "SELF": "SELF",
+            "TEAM": "TEAM"
+        }
+        resolved_scope = mapping.get(perm_scope, "BRANCH")
+
+        # Build request-scoped SecurityContext
+        company_ids = [current_user.company_id] if current_user.company_id else []
+        branch_ids = [current_user.branch_id] if current_user.branch_id else []
+        
+        ctx = SecurityContext(
+            user_id=current_user.id,
+            username=current_user.username,
+            platform_admin=current_user.is_platform_admin,
+            tenant_id=current_user.tenant_id or "default",
+            company_ids=company_ids,
+            branch_ids=branch_ids,
+            department_ids=[],
+            warehouse_ids=[],
+            cost_center_ids=[],
+            record_scope=resolved_scope,
+            license={},
+            feature_flags={},
+            session="",
+            api_key=""
+        )
+        active_security_context.set(ctx)
+
+        # Sync active_tenant_ctx for backwards compatibility
+        t_ctx = TenantContext(
+            tenant_id=ctx.tenant_id,
+            company_id=current_user.company_id,
+            branch_id=current_user.branch_id
+        )
+        active_tenant_ctx.set(t_ctx)
+
         return current_user
     return _guard
 

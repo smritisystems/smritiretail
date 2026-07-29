@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file src/lib/helpers.ts
  * @description Common utility and helper functions for SMRITI Retail OS.
  * @module src/lib/helpers
@@ -18,6 +18,7 @@
 import crypto from "crypto";
 import { roles, auditLogs, stockLedger } from "../state/store.js";
 import { pool } from "../db/pool.js";
+import { apiFetchV1 } from "./apiFetchV1";
 
 // ==========================================
 // SECURE PASSWORD HASHING (HREP COMPLIANT)
@@ -107,19 +108,16 @@ export async function allocateVoucherNumber(docType: string, context?: { branch?
       fy: context?.fy || "26-27"
     };
 
-    const response = await fetch(`${pythonCoreHost}/api/v1/numbering/series/${seriesId}/allocate`, {
+    const data = await apiFetchV1<{ documentNo?: string }>(`numbering/series/${seriesId}/allocate`, {
       method: "POST",
       headers,
       body: JSON.stringify(payload)
     });
 
-    if (!response.ok) {
-      console.error(`[SMRITI] Upstream allocation failed with status ${response.status}: ${await response.text()}`);
-      return docType.substring(0, 3).toUpperCase() + "-" + Date.now();
+    if (data && data.documentNo) {
+      return data.documentNo;
     }
-
-    const data = await response.json();
-    return data.documentNo;
+    return docType.substring(0, 3).toUpperCase() + "-" + Date.now();
   } catch (err) {
     console.error("[SMRITI] Failed to allocate voucher number via python-core:", err);
     return docType.substring(0, 3).toUpperCase() + "-" + Date.now();
@@ -236,7 +234,7 @@ export async function recordStockMovement(productId: any, productCode: any, prod
       branch_id: extraArgs.branch_id || extraArgs.branchId || "br-02250f90"
     };
 
-    const res = await fetch(`${pythonCoreHost}/api/v1/inventory/stock-movements`, {
+    const res = await apiFetchV1("inventory/stock-movements", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -1,0 +1,167 @@
+---
+title: SMRITI — Sales Module ERD
+---
+erDiagram
+    customers {
+        string id PK
+        string company_id FK
+        string name
+        string mobile
+        string email
+        string gstin
+        string customer_group_id FK
+        numeric credit_limit
+        numeric outstanding
+        boolean is_active
+        boolean is_deleted
+    }
+    sales_orders {
+        string id PK
+        string company_id FK
+        string branch_id FK
+        string customer_id FK
+        string order_no
+        datetime order_date
+        string status
+        numeric subtotal
+        numeric tax_total
+        numeric grand_total
+        string payment_terms
+    }
+    sales_order_items {
+        string id PK
+        string order_id FK
+        string product_id FK
+        numeric ordered_quantity
+        numeric unit_price
+        numeric gst_rate
+        numeric line_total
+    }
+    sales_invoices {
+        string id PK
+        string company_id FK
+        string branch_id FK
+        string customer_id FK
+        string order_id FK
+        string invoice_no
+        datetime invoice_date
+        numeric subtotal
+        numeric cgst_amount
+        numeric sgst_amount
+        numeric igst_amount
+        numeric tax_total
+        numeric grand_total
+        numeric paid_amount
+        numeric balance_due
+        string status
+        boolean is_deleted
+    }
+    sales_invoice_items {
+        string id PK
+        string invoice_id FK
+        string product_id FK
+        numeric quantity
+        numeric unit_price
+        numeric gst_percentage
+        numeric cgst_amount
+        numeric sgst_amount
+        numeric igst_amount
+        numeric line_total
+    }
+    sales_payments {
+        string id PK
+        string invoice_id FK
+        string company_id FK
+        numeric amount
+        string payment_mode
+        string reference_no
+        datetime payment_date
+        string status
+    }
+    sales_quotations {
+        string id PK
+        string company_id FK
+        string customer_id FK
+        string quotation_no
+        datetime quotation_date
+        datetime valid_until
+        numeric grand_total
+        string status
+    }
+    sales_quotation_items {
+        string id PK
+        string quotation_id FK
+        string product_id FK
+        numeric quantity
+        numeric unit_price
+        numeric gst_rate
+        numeric line_total
+    }
+    sales_returns {
+        string id PK
+        string company_id FK
+        string invoice_id FK
+        string customer_id FK
+        string return_no
+        datetime return_date
+        string reason
+        numeric grand_total
+        string status
+    }
+    sales_return_items {
+        string id PK
+        string return_id FK
+        string product_id FK
+        numeric quantity
+        numeric unit_price
+        numeric line_total
+    }
+    credit_notes {
+        string id PK
+        string company_id FK
+        string return_id FK
+        string customer_id FK
+        string credit_note_no
+        numeric amount
+        string status
+    }
+    pick_lists {
+        string id PK
+        string order_id FK
+        string warehouse_id FK
+        string pick_list_no
+        string status
+        datetime created_at
+    }
+    pick_list_items {
+        string id PK
+        string pick_list_id FK
+        string product_id FK
+        numeric quantity_to_pick
+        numeric quantity_picked
+        string status
+    }
+    shipment_packages {
+        string id PK
+        string order_id FK
+        string tracking_no
+        string courier
+        string status
+        datetime shipped_date
+    }
+
+    customers ||--o{ sales_orders : "places"
+    customers ||--o{ sales_invoices : "billed in"
+    customers ||--o{ sales_quotations : "receives"
+    customers ||--o{ sales_returns : "initiates"
+    sales_orders ||--o{ sales_order_items : "contains"
+    sales_orders ||--o{ sales_invoices : "generates"
+    sales_orders ||--o{ pick_lists : "picked via"
+    sales_orders ||--o{ shipment_packages : "shipped in"
+    sales_invoices ||--o{ sales_invoice_items : "contains"
+    sales_invoices ||--o{ sales_payments : "settled by"
+    sales_invoices ||--o{ sales_returns : "returned from"
+    sales_returns ||--o{ sales_return_items : "contains"
+    sales_returns ||--o| credit_notes : "generates"
+    sales_quotations ||--o{ sales_quotation_items : "contains"
+    pick_lists ||--o{ pick_list_items : "contains"

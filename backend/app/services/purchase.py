@@ -25,9 +25,12 @@ Classification: Internal
 """
 
 import uuid
+import logging
 from typing import Optional, List
 from decimal import Decimal
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
@@ -38,9 +41,11 @@ from ..models.purchase import (
     PurchaseOrder, PurchaseOrderItem,
     PurchaseReceipt, PurchaseReceiptItem,
     PurchaseReorderConfig, PurchaseJurisdictionConfig,
+    VendorContract, VendorContractTier,
 )
 from ..models.inventory import Product, StockMovement
 from ..api.deps import TenantContext
+from ..core.events.domain_events import publish_purchase_order_created, publish_grn_completed
 from ..schemas.purchase import (
     SupplierCreate, SupplierUpdate,
     PurchaseOrderCreate, PurchaseOrderAmendRequest,
@@ -99,8 +104,9 @@ class PurchaseService:
     # ──────────────────────────────────────────────────────────────
 
     async def create_supplier(self, req: SupplierCreate) -> Supplier:
+        supplier_id = getattr(req, "id", None) or f"sup-{uuid.uuid4().hex[:12]}"
         supplier = Supplier(
-            id=req.id,
+            id=supplier_id,
             name=req.name,
             code=req.code,
             gst_number=req.gst_number,
@@ -181,6 +187,16 @@ class PurchaseService:
             subtotal  += item.cost_price * item.quantity
             tax_total += tax_amt
 
+            # Check resolution for contract snapshotting
+            sourcing_res = await self.resolve_procurement_source(item.product_id, float(item.quantity), strategy="CONTRACT_FIRST")
+            
+            c_id = getattr(item, "contract_id", None) or sourcing_res.contract_id
+            c_ver = getattr(item, "contract_version", None) or sourcing_res.contract_version
+            t_id = getattr(item, "applied_tier_id", None) or sourcing_res.tier_id
+            unit_p = Decimal(str(sourcing_res.applied_price)) if sourcing_res.applied_price else item.cost_price
+            disc_p = Decimal(str(sourcing_res.applied_discount)) if sourcing_res.applied_discount else Decimal("0.00")
+            is_overridden = getattr(item, "is_manually_overridden", False)
+
             item_rows.append(PurchaseOrderItem(
                 id=f"poi-{_uid()}",
                 order_id=req.id,
@@ -192,6 +208,15 @@ class PurchaseService:
                 gst_rate=item.gst_rate,
                 tax_amount=tax_amt,
                 line_total=line_tot,
+                contract_id=c_id,
+                contract_version=c_ver,
+                applied_tier_id=t_id,
+                applied_unit_price=unit_p,
+                applied_discount_percentage=disc_p,
+                is_manually_overridden=is_overridden,
+                override_reason=getattr(item, "override_reason", None),
+                overridden_by=getattr(item, "overridden_by", None),
+                overridden_at=datetime.now(timezone.utc) if is_overridden else None,
                 company_id=self.tenant.company_id,
                 branch_id=self.tenant.branch_id,
             ))
@@ -220,6 +245,20 @@ class PurchaseService:
             )
         await self.db.refresh(order)
         order.items = item_rows          # attach items for response serialisation
+
+        # Fire-and-forget: PurchaseOrderCreated domain event (ADR-007, GR-003)
+        try:
+            await publish_purchase_order_created(
+                order_id=order.id,
+                order_no=order.order_no,
+                supplier_id=order.supplier_id,
+                grand_total=float(order.grand_total),
+                item_count=len(item_rows),
+                company_id=order.company_id,
+            )
+        except Exception as _evt_err:
+            logger.warning("[EVENT] PurchaseOrderCreated publish failed (non-blocking): %s", _evt_err)
+
         return order
 
     async def list_purchase_orders(self) -> list[PurchaseOrder]:
@@ -377,7 +416,8 @@ class PurchaseService:
             self.db.add(db_movement)
 
         supplier = await self._get_supplier(req.supplier_id)
-        supplier.outstanding = (supplier.outstanding + grand_total).quantize(Decimal("0.01"))
+        current_out = Decimal(str(supplier.outstanding or 0.0))
+        supplier.outstanding = float((current_out + grand_total).quantize(Decimal("0.01")))
         supplier.modified_at = datetime.now(timezone.utc)
 
         try:
@@ -389,6 +429,21 @@ class PurchaseService:
                 detail="A purchase receipt with this receipt number already exists.",
             )
         await self.db.refresh(receipt)
+
+        # Fire-and-forget: GRNCompleted domain event (ADR-007, GR-003)
+        try:
+            await publish_grn_completed(
+                receipt_id=receipt.id,
+                receipt_no=receipt.receipt_no,
+                supplier_id=receipt.supplier_id,
+                order_id=receipt.order_id or "",
+                grand_total=float(receipt.grand_total),
+                item_count=len(item_rows),
+                company_id=receipt.company_id,
+            )
+        except Exception as _evt_err:
+            logger.warning("[EVENT] GRNCompleted publish failed (non-blocking): %s", _evt_err)
+
         return receipt
 
     async def list_purchase_receipts(self) -> list[PurchaseReceipt]:
@@ -575,7 +630,8 @@ class PurchaseService:
 
             quantity = Decimal(str(suggestion["suggestedQty"]))
             cost_price = Decimal(str(suggestion["lastPurchaseRate"]))
-            gst_rate = Decimal(str(product.gst_percentage or 18))
+            effective_gst = await self.inventory_service.resolve_effective_gst_percentage(product)
+            gst_rate = Decimal(str(effective_gst))
             tax_amount = (cost_price * quantity * gst_rate / Decimal("100.00")).quantize(Decimal("0.01"))
             line_total = (cost_price * quantity + tax_amount).quantize(Decimal("0.01"))
 
@@ -1026,3 +1082,222 @@ class PurchaseService:
             status_code=404,
             detail=f"No purchase history found for supplier '{supplier_id}' and product '{product_id}'.",
         )
+
+    # ──────────────────────────────────────────────────────────────
+    # Strategic Sourcing Orchestration & Vendor Contract Management
+    # ──────────────────────────────────────────────────────────────
+
+    async def resolve_procurement_source(self, product_id: str, order_qty: float = 1.0, strategy: str = "CONTRACT_FIRST"):
+        """
+        Purchase Module Orchestrator for Strategic Sourcing Resolution.
+        Delegates resolution to InventoryService.resolve_vendor() and resolves supplier name.
+        """
+        from .inventory import InventoryService
+        inv_service = InventoryService(self.db, self.tenant)
+        res = await inv_service.resolve_vendor(product_id=product_id, strategy=strategy, order_qty=order_qty)
+
+        supplier_name = None
+        if res.supplier_id:
+            sup_stmt = select(Supplier).where(Supplier.id == res.supplier_id)
+            sup_res = await self.db.execute(sup_stmt)
+            sup_obj = sup_res.scalars().first()
+            if sup_obj:
+                supplier_name = sup_obj.name
+
+        from ..schemas.purchase import ProcurementSourcingResolution
+        return ProcurementSourcingResolution(
+            vendor_id=res.vendor_id,
+            supplier_id=res.supplier_id,
+            supplier_name=supplier_name,
+            contract_id=res.contract_id,
+            contract_code=res.contract_code,
+            contract_version=res.contract_version,
+            tier_id=res.tier_id,
+            strategy_used=res.strategy_used,
+            applied_price=res.estimated_cost,
+            applied_discount=res.applied_discount,
+            reason=res.reason,
+            estimated_lead_time=res.estimated_lead_time,
+            resolution_trace=res.resolution_trace
+        )
+
+    async def create_vendor_contract(self, contract_in) -> VendorContract:
+        """
+        Creates a new VendorContract Aggregate with tiered pricing lines.
+        Validates tier quantity ranges and price invariants.
+        """
+        tenant_id = getattr(self.tenant, "tenant_id", None) or getattr(self.tenant, "company_id", None)
+        c_id = contract_in.id or f"vc-{uuid.uuid4().hex[:12]}"
+
+        # Validate duplicate contract_code
+        code_stmt = select(VendorContract).where(
+            VendorContract.contract_code == contract_in.contract_code,
+            VendorContract.company_id == self.tenant.company_id,
+            VendorContract.is_deleted == False
+        )
+        dup = (await self.db.execute(code_stmt)).scalars().first()
+        if dup:
+            raise HTTPException(status_code=400, detail=f"Contract code '{contract_in.contract_code}' already exists")
+
+        # Validate contract valid_from < valid_to
+        if contract_in.valid_from >= contract_in.valid_to:
+            raise HTTPException(status_code=400, detail="Contract valid_from date must be prior to valid_to date")
+
+        contract_obj = VendorContract(
+            id=c_id,
+            uuid=str(uuid.uuid4()),
+            tenant_id=tenant_id,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            supplier_id=contract_in.supplier_id,
+            contract_code=contract_in.contract_code,
+            contract_title=contract_in.contract_title,
+            version_number=1,
+            valid_from=contract_in.valid_from,
+            valid_to=contract_in.valid_to,
+            currency_id=contract_in.currency_id,
+            payment_terms_id=contract_in.payment_terms_id,
+            delivery_terms=contract_in.delivery_terms,
+            min_commitment_value=contract_in.min_commitment_value,
+            terms_and_conditions=contract_in.terms_and_conditions,
+            attachment_url=contract_in.attachment_url,
+            digital_signature_hash=contract_in.digital_signature_hash,
+            approval_status="Draft",
+            lifecycle_stage="Draft",
+            workflow_status="Approved"
+        )
+        self.db.add(contract_obj)
+
+        for t_in in contract_in.tiers:
+            if t_in.contract_unit_price < 0 or t_in.discount_percentage < 0:
+                raise HTTPException(status_code=400, detail="Contract tier prices and discounts cannot be negative")
+            if t_in.max_quantity is not None and t_in.min_quantity > t_in.max_quantity:
+                raise HTTPException(status_code=400, detail=f"Tier min_quantity ({t_in.min_quantity}) cannot exceed max_quantity ({t_in.max_quantity})")
+
+            tier_id = t_in.id or f"vct-{uuid.uuid4().hex[:12]}"
+            t_obj = VendorContractTier(
+                id=tier_id,
+                uuid=str(uuid.uuid4()),
+                tenant_id=tenant_id,
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+                contract_id=contract_obj.id,
+                product_id=t_in.product_id,
+                purchase_uom_id=t_in.purchase_uom_id,
+                currency_id=t_in.currency_id,
+                min_quantity=t_in.min_quantity,
+                max_quantity=t_in.max_quantity,
+                contract_unit_price=t_in.contract_unit_price,
+                discount_percentage=t_in.discount_percentage,
+                bonus_quantity=t_in.bonus_quantity,
+                effective_from=t_in.effective_from or contract_in.valid_from,
+                effective_to=t_in.effective_to or contract_in.valid_to,
+                workflow_status="Approved"
+            )
+            self.db.add(t_obj)
+
+        await self.db.commit()
+        await self.db.refresh(contract_obj)
+        return contract_obj
+
+    async def list_vendor_contracts(self) -> List[VendorContract]:
+        stmt = select(VendorContract).where(
+            VendorContract.company_id == self.tenant.company_id,
+            VendorContract.is_deleted == False
+        )
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())
+
+    async def get_vendor_contract(self, contract_id: str) -> VendorContract:
+        stmt = select(VendorContract).where(
+            VendorContract.id == contract_id,
+            VendorContract.company_id == self.tenant.company_id,
+            VendorContract.is_deleted == False
+        )
+        contract = (await self.db.execute(stmt)).scalars().first()
+        if not contract:
+            raise HTTPException(status_code=404, detail=f"Vendor contract '{contract_id}' not found")
+        return contract
+
+    async def activate_vendor_contract(self, contract_id: str) -> VendorContract:
+        contract = await self.get_vendor_contract(contract_id)
+        contract.approval_status = "Approved"
+        contract.lifecycle_stage = "Active"
+        contract.modified_at = datetime.now(timezone.utc)
+        self.db.add(contract)
+        await self.db.commit()
+        await self.db.refresh(contract)
+        return contract
+
+    async def amend_vendor_contract(self, contract_id: str, amendment_data) -> VendorContract:
+        """
+        Contract Revision Policy: Active contracts cannot be edited in place.
+        Creates version +1 parent-linked amendment.
+        """
+        old_contract = await self.get_vendor_contract(contract_id)
+        if old_contract.lifecycle_stage not in ["Active", "Approved"]:
+            raise HTTPException(status_code=400, detail="Only Active or Approved contracts can be amended")
+
+        old_contract.lifecycle_stage = "Archived"
+        self.db.add(old_contract)
+
+        new_contract_id = f"vc-{uuid.uuid4().hex[:12]}"
+        new_version = old_contract.version_number + 1
+
+        new_contract = VendorContract(
+            id=new_contract_id,
+            uuid=str(uuid.uuid4()),
+            tenant_id=old_contract.tenant_id,
+            company_id=old_contract.company_id,
+            branch_id=old_contract.branch_id,
+            supplier_id=old_contract.supplier_id,
+            contract_code=old_contract.contract_code,
+            contract_title=amendment_data.contract_title or old_contract.contract_title,
+            version_number=new_version,
+            parent_contract_id=old_contract.id,
+            valid_from=amendment_data.valid_from or old_contract.valid_from,
+            valid_to=amendment_data.valid_to or old_contract.valid_to,
+            currency_id=old_contract.currency_id,
+            payment_terms_id=amendment_data.payment_terms_id or old_contract.payment_terms_id,
+            delivery_terms=amendment_data.delivery_terms or old_contract.delivery_terms,
+            min_commitment_value=amendment_data.min_commitment_value if amendment_data.min_commitment_value is not None else old_contract.min_commitment_value,
+            terms_and_conditions=amendment_data.terms_and_conditions or old_contract.terms_and_conditions,
+            attachment_url=amendment_data.attachment_url or old_contract.attachment_url,
+            digital_signature_hash=amendment_data.digital_signature_hash or old_contract.digital_signature_hash,
+            approval_status="Approved",
+            lifecycle_stage="Active",
+            workflow_status="Approved"
+        )
+        self.db.add(new_contract)
+
+        # Copy tier lines to new contract version
+        tier_stmt = select(VendorContractTier).where(
+            VendorContractTier.contract_id == old_contract.id,
+            VendorContractTier.is_deleted == False
+        )
+        old_tiers = (await self.db.execute(tier_stmt)).scalars().all()
+        for ot in old_tiers:
+            nt = VendorContractTier(
+                id=f"vct-{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
+                tenant_id=ot.tenant_id,
+                company_id=ot.company_id,
+                branch_id=ot.branch_id,
+                contract_id=new_contract.id,
+                product_id=ot.product_id,
+                purchase_uom_id=ot.purchase_uom_id,
+                currency_id=ot.currency_id,
+                min_quantity=ot.min_quantity,
+                max_quantity=ot.max_quantity,
+                contract_unit_price=ot.contract_unit_price,
+                discount_percentage=ot.discount_percentage,
+                bonus_quantity=ot.bonus_quantity,
+                effective_from=ot.effective_from,
+                effective_to=ot.effective_to,
+                workflow_status="Approved"
+            )
+            self.db.add(nt)
+
+        await self.db.commit()
+        await self.db.refresh(new_contract)
+        return new_contract

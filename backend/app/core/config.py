@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -137,6 +137,21 @@ class Settings(BaseSettings):
     USE_FASTAPI_PURCHASE: bool = False
     USE_FASTAPI_POS: bool = False
 
+    # Modular Financial & Enterprise Plug-ins (AOP-001 Architecture)
+    # ACCOUNTING_MODE: "DISABLED" (Retail Only - Default), "BASIC" (Cash Book), "ADVANCED" (Full GL Double Entry)
+    ACCOUNTING_MODE: str = "DISABLED"
+    ENABLE_MANUFACTURING: bool = False
+    ENABLE_PAYROLL: bool = False
+    ENABLE_ASSETS: bool = False
+
+    # Feature toggles for demo/dev workflows
+    ENABLE_DEMO_MODE: bool = False
+    ENABLE_DEV_LOGIN: bool = False
+    ENABLE_DEMO_DATA: bool = False
+    ENABLE_SETUP_DEMO: bool = False
+    ENABLE_SEED_SAMPLE_DATA: bool = False
+
+
     # Cache Settings
     USE_REDIS_CACHE: bool = False
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -203,6 +218,23 @@ def load_settings() -> Settings:
     if "author" in json_data:
         auth_data = json_data["author"]
         base_settings.ORGANIZATION = auth_data.get("organization", base_settings.ORGANIZATION)
+
+    if "features" in json_data and isinstance(json_data["features"], dict):
+        feature_data = json_data["features"]
+    elif "flags" in json_data and isinstance(json_data["flags"], dict):
+        feature_data = json_data["flags"]
+    else:
+        feature_data = {}
+
+    for feature_key in [
+        "ENABLE_DEMO_MODE",
+        "ENABLE_DEV_LOGIN",
+        "ENABLE_DEMO_DATA",
+        "ENABLE_SETUP_DEMO",
+        "ENABLE_SEED_SAMPLE_DATA",
+    ]:
+        if feature_key in feature_data:
+            setattr(base_settings, feature_key, bool(feature_data[feature_key]))
 
     # Parse ALLOWED_ORIGINS comma-separated string if provided
     allowed_origins_env = os.getenv("ALLOWED_ORIGINS")

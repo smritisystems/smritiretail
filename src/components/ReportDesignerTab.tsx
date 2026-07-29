@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -16,7 +16,7 @@
  *
  * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 3.21.0
+ * * Version    : 4.0.0  (SEEF Phase 6 — Cascade Integration)
  * * Created    : 2026-07-10
  * * Modified   : 2026-07-16
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,9 @@ import React, { useState, useEffect } from "react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { recordAuditAction } from "../lib/apiFetch";
 import { motion, AnimatePresence } from "motion/react";
+// SEEF Phase 6 — cascade integration
+import { useSEEF } from "../layout_engine/SEEFContext.tsx";
+import { SEEFSkeleton } from "./common/SEEFSkeleton.tsx";
 import { 
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, 
   Tooltip as RechartsTooltip, CartesianGrid, LineChart, Line, PieChart, Pie, Cell 
@@ -175,6 +178,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
   // Fetch report registry categorized under studios
   const [studios, setStudios] = useState<Record<string, any>>({});
+  const { config: seefConfig } = useSEEF(); // SEEF Phase 6 — density + animation cascade
+  // densityPy drives row padding in all 6 report result tables
+  const densityPy = seefConfig.density === "compact" ? "py-2" : seefConfig.density === "spacious" ? "py-4" : "py-3";
   const [loading, setLoading] = useState<boolean>(true);
   const [notifMessage, setNotifMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -453,10 +459,12 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
           {/* Right Pane - Studio Workspace */}
           <div className="lg:col-span-3 space-y-6">
+            {/* SEEF Phase 6: SEEFSkeleton replaces spinner loading block */}
             {loading ? (
-              <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl h-96 flex flex-col items-center justify-center text-center">
-                <RefreshCw className="animate-spin text-blue-500 mb-3" size={32} />
-                <p className="text-xs text-theme-muted font-mono">Retrieving active registry records...</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--seef-space-3)", padding: "var(--seef-space-4)" }}>
+                <SEEFSkeleton variant="card" height={96} />
+                <SEEFSkeleton variant="card" height={64} />
+                <SEEFSkeleton variant="table" height={320} />
               </div>
             ) : (
               <>
@@ -1244,7 +1252,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       <AnimatePresence>
         {showScheduleModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setShowScheduleModal(false)}></div>
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowScheduleModal(false)}></div>
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -1351,7 +1359,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   <button 
                     type="submit" 
                     disabled={activeRole === "Cashier"}
-                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 disabled:text-theme-muted text-white rounded-lg font-bold shadow-lg shadow-blue-500/10 transition-colors"
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-theme-surface-3 disabled:text-theme-muted text-white rounded-lg font-bold shadow-lg shadow-blue-500/10 transition-colors"
                   >
                     Register Schedule
                   </button>
@@ -1366,7 +1374,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       <AnimatePresence>
         {showShareModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setShowShareModal(false)}></div>
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowShareModal(false)}></div>
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -1492,7 +1500,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                       shareType === "Email" 
                         ? "bg-blue-600 hover:bg-blue-700 shadow-blue-500/10" 
                         : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/10"
-                    } text-white disabled:bg-slate-800 disabled:text-theme-muted`}
+                    } text-white disabled:bg-theme-surface-3 disabled:text-theme-muted`}
                   >
                     Dispatch Now
                   </button>

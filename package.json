@@ -3,6 +3,10 @@
   "version": "3.16.0",
   "description": "Enterprise Retail Experience & Intelligence Layer",
   "homepage": "https://smritisys.com",
+  "engines": {
+    "node": ">=20 <21",
+    "npm": ">=9"
+  },
   "author": {
     "name": "Jawahar Ramkripal Mallah",
     "email": "support@smritisys.com",
@@ -15,6 +19,7 @@
     "preview": "vite preview",
     "start": "npm run dev",
     "lint": "tsc --noEmit",
+    "validate:seds": "node scripts/validate_seds.js",
     "test": "vitest run",
     "start:fastapi": "python -m uvicorn backend.app.main:app --port 8000 --reload"
   },
@@ -36,6 +41,7 @@
     "tailwindcss": "^4.3.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "@types/node": "^20.14.2",
     "@types/pg": "^8.20.0",
     "@types/qrcode": "^1.5.6",
@@ -44,10 +50,10 @@
     "@types/supertest": "^7.2.0",
     "@vitejs/plugin-react": "^4.3.0",
     "@vitest/coverage-v8": "^4.1.10",
-    "esbuild": "^0.21.4",
+    "esbuild": "^0.28.1",
     "supertest": "^7.2.2",
     "typescript": "^5.4.5",
-    "vite": "^5.2.11",
+    "vite": "^8.1.5",
     "vitest": "^4.1.10"
   }
 }

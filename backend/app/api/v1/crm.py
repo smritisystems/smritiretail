@@ -1,19 +1,21 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
+Organization : SmritiSys
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.26.0
+Version      : 5.4.0
 Created      : 2026-07-11
-Modified     : 2026-07-19
+Modified     : 2026-07-28
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Any
+from typing import Any, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,8 +31,13 @@ from ...schemas.crm import (
     PricingGroupCreate,
     PricingGroupResponse,
     PricingGroupUpdate,
+    LeadCreate, LeadResponse,
+    OpportunityCreate, OpportunityResponse,
+    CampaignCreate, CampaignResponse,
+    SupportTicketCreate, SupportTicketResponse,
 )
 from ...services.crm import CrmService
+
 
 router = APIRouter()
 
@@ -328,10 +335,6 @@ async def delete_pricing_group(
 ):
     """
     Soft-delete a Pricing Group.
-
-    Customers whose pricing_group_id pointed to this group will have that FK
-    set to NULL automatically (ON DELETE SET NULL), so they fall back to system
-    default pricing until a new group is assigned.
     """
     repo = PricingGroupRepository(db, tenant_ctx)
     group = await repo.get(group_id)
@@ -339,3 +342,125 @@ async def delete_pricing_group(
         raise HTTPException(status_code=404, detail="Pricing group not found")
     await repo.soft_delete(group)
     return {"success": True, "message": "Pricing group deleted successfully"}
+
+
+# ---------------------------------------------------------------------------
+# Lead Management REST API (Task C-1 / C-6)
+# ---------------------------------------------------------------------------
+
+@router.get("/leads", response_model=List[LeadResponse])
+async def list_leads(
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """List all leads."""
+    service = CrmService(db, tenant_ctx)
+    return await service.list_leads()
+
+
+@router.post("/leads", response_model=LeadResponse, status_code=status.HTTP_201_CREATED)
+async def create_lead(
+    payload: LeadCreate,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Create a new lead."""
+    service = CrmService(db, tenant_ctx)
+    res = await service.create_lead(payload.model_dump())
+    await db.commit()
+    return res
+
+
+@router.post("/leads/{id}/convert", response_model=CustomerResponse)
+async def convert_lead_to_customer(
+    id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Convert a lead to a registered customer. (Task C-6)"""
+    service = CrmService(db, tenant_ctx)
+    res = await service.convert_lead_to_customer(id)
+    await db.commit()
+    return res
+
+
+# ---------------------------------------------------------------------------
+# Opportunity Management REST API (Task C-2)
+# ---------------------------------------------------------------------------
+
+@router.get("/opportunities", response_model=List[OpportunityResponse])
+async def list_opportunities(
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """List sales opportunities."""
+    service = CrmService(db, tenant_ctx)
+    return await service.list_opportunities()
+
+
+@router.post("/opportunities", response_model=OpportunityResponse, status_code=status.HTTP_201_CREATED)
+async def create_opportunity(
+    payload: OpportunityCreate,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Create a sales opportunity."""
+    service = CrmService(db, tenant_ctx)
+    res = await service.create_opportunity(payload.model_dump())
+    await db.commit()
+    return res
+
+
+# ---------------------------------------------------------------------------
+# Campaign Management REST API (Task C-3 / C-7)
+# ---------------------------------------------------------------------------
+
+@router.get("/campaigns", response_model=List[CampaignResponse])
+async def list_campaigns(
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """List marketing campaigns."""
+    service = CrmService(db, tenant_ctx)
+    return await service.list_campaigns()
+
+
+@router.post("/campaigns", response_model=CampaignResponse, status_code=status.HTTP_201_CREATED)
+async def create_campaign(
+    payload: CampaignCreate,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Create a marketing campaign."""
+    service = CrmService(db, tenant_ctx)
+    res = await service.create_campaign(payload.model_dump())
+    await db.commit()
+    return res
+
+
+# ---------------------------------------------------------------------------
+# Support Ticket REST API (Task C-4 / C-8)
+# ---------------------------------------------------------------------------
+
+@router.get("/tickets", response_model=List[SupportTicketResponse])
+async def list_support_tickets(
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """List customer support tickets."""
+    service = CrmService(db, tenant_ctx)
+    return await service.list_support_tickets()
+
+
+@router.post("/tickets", response_model=SupportTicketResponse, status_code=status.HTTP_201_CREATED)
+async def create_support_ticket(
+    payload: SupportTicketCreate,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Create a support ticket."""
+    service = CrmService(db, tenant_ctx)
+    res = await service.create_support_ticket(payload.model_dump())
+    await db.commit()
+    return res
+

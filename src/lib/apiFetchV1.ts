@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -14,8 +14,10 @@
 /**
  * Universal client fetch helper for FastAPI Core API (/api/v1/*)
  */
-export async function apiFetchV1(endpoint: string, options: RequestInit = {}): Promise<any> {
-  const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
+export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const token = typeof localStorage !== 'undefined'
+    ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
+    : null;
   
   const headers = new Headers(options.headers || {});
   if (token) {
@@ -24,6 +26,15 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
   if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
+  if (!headers.has("traceparent")) {
+    const traceId = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const spanId = Array.from(crypto.getRandomValues(new Uint8Array(8)))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    headers.set("traceparent", `00-${traceId}-${spanId}-01`);
+  }
 
   const response = await fetch(`/api/v1${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`, {
     ...options,
@@ -31,6 +42,10 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
   });
 
   if (!response.ok) {
+    if (response.status === 401 && typeof localStorage !== 'undefined') {
+      localStorage.removeItem("smriti_jwt_token");
+      localStorage.removeItem("smriti_session_token");
+    }
     let errorData: any;
     try {
       errorData = await response.json();
@@ -43,14 +58,15 @@ export async function apiFetchV1(endpoint: string, options: RequestInit = {}): P
     throw new Error(typeof errMsg === 'object' ? JSON.stringify(errMsg) : errMsg);
   }
 
-  if (response.status === 204 || response.headers.get("content-length") === "0") {
-    return null;
+  const contentLength = response.headers?.get ? response.headers.get("content-length") : (response.headers as any)?.[ "content-length" ];
+  if (response.status === 204 || contentLength === "0") {
+    return null as unknown as T;
   }
 
-  const contentType = response.headers.get("content-type") || "";
+  const contentType = (response.headers?.get ? response.headers.get("content-type") : (response.headers as any)?.[ "content-type" ]) || "";
   if (contentType.includes("text/plain")) {
-    return response.text();
+    return (await response.text()) as unknown as T;
   }
 
-  return response.json();
+  return (await response.json()) as unknown as T;
 }

@@ -33,9 +33,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.compliance.api import router as compliance_router
+from app.api.public.v1.gateway import router as public_gateway_router
+
 
 from .api.v1 import (
     ai,
+    api_keys,
+    approvals,
     attributes,
     auth,
     assignments,
@@ -54,19 +58,80 @@ from .api.v1 import (
     pos,
     product_identity,
     purchase,
+    purchase_contracts,
+    procurement_matching,
+    procurement_rfq,
+    procurement_bpa,
+    procurement_requisition,
+    procurement_qc,
+    procurement_scorecard,
+    replenishment,
     reports,
     roles,
     sales,
+    sales_fulfillment,
+    sales_invoicing,
+    sales_return,
     security,
+    stock_audit,
+    stock_transfer,
     supplier_payment,
     system,
+    tax,
     terms,
     users,
     workflow,
+    validation_policy,
     consignment,
     sre,
     dispatch,
+    transfers,
+    sip,
+    communicator,
+    screen_studio,
+    offline_sync,
+    diagnostics,
+    accounting,
+    capabilities,
+    marketplace,
+    operations,
+    ai_advisory,
+    attachments,
+    wms,
+    ecommerce,
+    analytics,
+    franchise,
+    loyalty,
+    system_release,
+    pharma,
+    apparel,
+    nic_gst,
+    ecosystem,
 )
+from app.api.v1.customer import dashboard as customer_dashboard
+from app.api.v1.customer import workspace as customer_workspace
+from app.api.v1.academy import courses as academy_courses
+from app.api.v1.search import global_search as global_search
+from app.api.v1.website import marketing as website_marketing
+from app.api.v1.documentation import docs as live_docs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 from .core.config import settings
 from .core.constants import SMRITI_BANNER
@@ -74,16 +139,42 @@ from .core.error_handlers import register_error_handlers
 from .core.logging import logger
 from .db.session import verify_db_connectivity
 from .middleware.request_logger import RequestLoggerMiddleware
+from .middleware.request_context import RequestContextMiddleware
 
 STARTUP_TIME = time.time()
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """SMRITI startup: log banner. Yield for request handling. Shutdown is a no-op."""
+    """SMRITI startup: log banner, auto-seed DB, then yield for request handling."""
     print(SMRITI_BANNER)
     logger.info(f"[SMRITI] Starting FastAPI Python Core on port {settings.PORT}...")
     logger.info(f"[SMRITI] Mode: {settings.EDITION} | Version: {settings.VERSION}")
+
+    # Auto-seed default users, roles, permissions and master data on every startup.
+    # seed_default_users() is fully idempotent — safe to call repeatedly.
+    # Wrapped in try/except so a cold-start before DB is ready doesn't abort the server.
+    try:
+        from app.db.seed import seed_default_users
+        await seed_default_users()
+        logger.info("[SMRITI] Database auto-seed completed successfully.")
+    except Exception as _seed_err:
+        logger.warning(
+            f"[SMRITI] DB auto-seed skipped (DB may not be ready yet): {_seed_err}"
+        )
+
+    # ADR-007: Register domain event subscriptions for all active modules
+    try:
+        from app.modules.inventory.events import register_subscriptions as inv_events
+        from app.modules.sales.events import register_subscriptions as sales_events
+        from app.modules.accounting.events import register_subscriptions as acc_events
+        inv_events()
+        sales_events()
+        acc_events()
+        logger.info("[SMRITI] Domain event subscriptions registered (ADR-007 compliant).")
+    except Exception as _evt_err:
+        logger.warning(f"[SMRITI] Domain event subscription registration skipped: {_evt_err}")
+
     yield
 
 # Initialize FastAPI instance
@@ -95,6 +186,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Register RequestContextMiddleware for X-Request-ID tracing
+app.add_middleware(RequestContextMiddleware)
 
 # Register HREP error handlers
 register_error_handlers(app)
@@ -122,9 +216,23 @@ app.include_router(users.router,     prefix=settings.API_V1_STR + "/users",     
 app.include_router(inventory.router, prefix=settings.API_V1_STR + "/inventory",      tags=["Inventory"])  # Canonical route
 app.include_router(crm.router,       prefix=settings.API_V1_STR,                    tags=["CRM"])
 app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Canonical route (Phase 4A)
+app.include_router(sales_fulfillment.router, prefix=settings.API_V1_STR,                 tags=["Sales Orders & Outbound Fulfillment"])
+app.include_router(sales_invoicing.router, prefix=settings.API_V1_STR,                    tags=["Sales Invoicing & Payment Settlement"])
+app.include_router(sales_return.router, prefix=settings.API_V1_STR,                       tags=["Sales Returns & Credit Notes"])
+app.include_router(stock_audit.router, prefix=settings.API_V1_STR,                        tags=["Inventory Physical Audit & Cycle Counting"])
+app.include_router(stock_transfer.router, prefix=settings.API_V1_STR,                     tags=["Inter-Branch Stock Transfers"])
+app.include_router(replenishment.router, prefix=settings.API_V1_STR,                        tags=["Automated Warehouse Replenishment"])
+app.include_router(pos.router, prefix=settings.API_V1_STR,                                  tags=["Point of Sale (POS) Checkout & Cash Drawer"])
+app.include_router(tax.router, prefix=settings.API_V1_STR,                                  tags=["GST Tax Settlement & Statutory E-Way Bills"])
 app.include_router(purchase.router,  prefix=settings.API_V1_STR,                    tags=["Purchase-Legacy"])  # Root mount: /api/v1/suppliers/, /api/v1/purchase-receipts/ — retain until test suite migrated to /api/v1/purchase/*
 app.include_router(purchase.router,  prefix=settings.API_V1_STR + "/purchase",      tags=["Purchase"])         # Canonical route (Phase 4A)
-app.include_router(pos.router,              prefix=settings.API_V1_STR,                    tags=["POS Shift"])
+app.include_router(purchase_contracts.router, prefix=settings.API_V1_STR,            tags=["Purchase Contracts"])
+app.include_router(procurement_matching.router, prefix=settings.API_V1_STR,           tags=["Procurement Matching & Valuation"])
+app.include_router(procurement_rfq.router, prefix=settings.API_V1_STR,                tags=["Procurement RFQ & Bidding"])
+app.include_router(procurement_bpa.router, prefix=settings.API_V1_STR,                tags=["Procurement Blanket Purchase Agreements"])
+app.include_router(procurement_requisition.router, prefix=settings.API_V1_STR,        tags=["Procurement Purchase Requisitions"])
+app.include_router(procurement_qc.router, prefix=settings.API_V1_STR,                 tags=["Procurement Quality Control & Debit Notes"])
+app.include_router(procurement_scorecard.router, prefix=settings.API_V1_STR,          tags=["Procurement Supplier Performance Scorecards"])
 app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,                    tags=["Supplier Payments"])
 app.include_router(reports.router,          prefix=settings.API_V1_STR,                    tags=["Reports"])
 app.include_router(master_lookup.router,    prefix=settings.API_V1_STR + "/masters",       tags=["Masters"])
@@ -138,6 +246,8 @@ app.include_router(product_identity.router, prefix=settings.API_V1_STR + "/produ
 app.include_router(exchange.router,         prefix=settings.API_V1_STR + "/exchange",      tags=["Data Exchange Hub"])
 app.include_router(ai.router,               prefix=settings.API_V1_STR + "/ai",            tags=["AI Assistant"])
 app.include_router(docs.router,             prefix=settings.API_V1_STR + "/docs",          tags=["Documentation"])
+app.include_router(approvals.router,        prefix=settings.API_V1_STR,                    tags=["Approvals"])
+app.include_router(api_keys.router,         prefix=settings.API_V1_STR + "/api-keys",     tags=["API Keys Management"])
 app.include_router(system.router,           prefix=settings.API_V1_STR,                     tags=["System"])
 app.include_router(roles.router,            prefix=settings.API_V1_STR + "/roles",         tags=["Role Matrix"])
 app.include_router(security.router,         prefix=settings.API_V1_STR + "/security",      tags=["Security Engine"])
@@ -145,6 +255,57 @@ app.include_router(compliance_router,       prefix=settings.API_V1_STR)
 app.include_router(consignment.router,       prefix=settings.API_V1_STR + "/consignment", tags=["Consignment"])
 app.include_router(sre.router,               prefix=settings.API_V1_STR + "/sre",         tags=["SMRITI Regulatory Engine"])
 app.include_router(dispatch.router,          prefix=settings.API_V1_STR + "/dispatch",    tags=["Stock Dispatch Engine"])
+app.include_router(transfers.router,         prefix=settings.API_V1_STR,                    tags=["Stock Transfers & Rebalancing"])
+app.include_router(sip.router,               prefix=settings.API_V1_STR,                    tags=["SMRITI Identity Platform (SIP)"])
+app.include_router(communicator.router,      prefix=settings.API_V1_STR,                    tags=["SMRITI Communicator Sync Gateway"])
+app.include_router(screen_studio.router,     prefix=settings.API_V1_STR,                    tags=["SMRITI Screen Studio Metadata Engine"])
+app.include_router(offline_sync.router,      prefix=settings.API_V1_STR,                    tags=["Offline POS Queue Sync Engine"])
+app.include_router(diagnostics.router,       prefix=settings.API_V1_STR,                    tags=["SMRITI Operational Observability & Telemetry Engine"])
+app.include_router(validation_policy.router, prefix=settings.API_V1_STR,                    tags=["Platform Validation Engine (PVE)"])
+app.include_router(accounting.router,        prefix=settings.API_V1_STR,                    tags=["General Ledger & Financial Accounting"])
+app.include_router(capabilities.router,        prefix=settings.API_V1_STR,                    tags=["SMRITI Modular Platform (SMP-001) Capabilities"])
+app.include_router(marketplace.router,         prefix=settings.API_V1_STR,                    tags=["SMRITI Marketplace Ecosystem (Layer 4)"])
+app.include_router(operations.router,          prefix=settings.API_V1_STR,                    tags=["SMRITI Enterprise Operations (Layer 5)"])
+app.include_router(ai_advisory.router,          prefix=settings.API_V1_STR,                    tags=["SMRITI AI & Intelligent Automation (Layer 6)"])
+app.include_router(attachments.router,          prefix=settings.API_V1_STR,                    tags=["SMRITI Content & Document Platform (Layer 7)"])
+app.include_router(wms.router,                  prefix=settings.API_V1_STR,                    tags=["Enterprise WMS & Multi-Bin Engine (v18.0.0)"])
+app.include_router(ecommerce.router,            prefix=settings.API_V1_STR,                    tags=["E-Commerce Sync & Omnichannel Engine (v19.0.0)"])
+app.include_router(analytics.router,            prefix=settings.API_V1_STR,                    tags=["Financial Analytics & BI Engine (v20.0.0)"])
+app.include_router(franchise.router,            prefix=settings.API_V1_STR,                    tags=["Multi-Store Franchise & Royalty Engine (v21.0.0)"])
+app.include_router(loyalty.router,              prefix=settings.API_V1_STR,                    tags=["Customer Loyalty & Promotional Rewards Engine (v22.0.0)"])
+app.include_router(system_release.router,       prefix=settings.API_V1_STR,                    tags=["Master Platform Baseline & Certified Telemetry (v23.0.0)"])
+app.include_router(pharma.router,               prefix=settings.API_V1_STR,                    tags=["Pharma & Healthcare Retail Engine (v24.0.0)"])
+app.include_router(apparel.router,              prefix=settings.API_V1_STR,                    tags=["Apparel & Fashion 3D Matrix Engine (v25.0.0)"])
+app.include_router(nic_gst.router,              prefix=settings.API_V1_STR,                    tags=["NIC GSTN E-Way Bill & E-Invoice Gateway (v26.0.0)"])
+app.include_router(ecosystem.router,            prefix=settings.API_V1_STR,                    tags=["SMRITI Digital Platform Ecosystem Hub (v27.0.0)"])
+app.include_router(customer_dashboard.router,   prefix=settings.API_V1_STR,                    tags=["Customer Portal Workspace & Licenses"])
+app.include_router(customer_workspace.router,   prefix=settings.API_V1_STR,                    tags=["Customer Workspace Portal & License Management"])
+app.include_router(academy_courses.router,      prefix=settings.API_V1_STR,                    tags=["SMRITI Academy LMS & Certifications"])
+
+app.include_router(global_search.router,        prefix=settings.API_V1_STR,                    tags=["Global Unified Search Service"])
+app.include_router(website_marketing.router,    prefix=settings.API_V1_STR,                    tags=["Official Product Website & Marketing"])
+app.include_router(live_docs.router,            prefix=settings.API_V1_STR,                    tags=["Live Documentation Portal & Knowledge Engine"])
+app.include_router(public_gateway_router)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

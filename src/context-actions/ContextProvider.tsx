@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -266,7 +266,26 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({ child
 export const useACAS = () => {
   const context = useContext(ContextActionContext);
   if (!context) {
-    throw new Error("useACAS must be used within a ContextProvider");
+    console.warn("[ACAS] useACAS called outside <ContextProvider>. Falling back to no-op context.");
+    return {
+      openMenu: () => {},
+      closeMenu: () => {},
+      state: {
+        isOpen: false,
+        context: null,
+        position: { x: 0, y: 0 },
+        anchor: "cursor" as const,
+        triggerType: "programmatic" as const,
+        density: "comfortable" as const,
+        searchQuery: "",
+      },
+      actions: [],
+      setSearchQuery: () => {},
+      toggleFavorite: () => {},
+      togglePin: () => {},
+      setDensity: () => {},
+      executeAction: () => {},
+    };
   }
   return context;
 };

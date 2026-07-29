@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Email        : support@smritibooks.com
@@ -267,6 +267,114 @@ MANIFEST: list[PermissionDefinition] = [
         action="Close",
         scope="OWN_BRANCH",
         description="Allows closing and reconciling an active POS shift",
+        category="Business"
+    ),
+    PermissionDefinition(
+        code="billing.pos",
+        module="POS",
+        resource="Terminal",
+        action="POSCheckout",
+        scope="OWN_BRANCH",
+        description="Allows retail POS checkout",
+        category="Business"
+    ),
+    PermissionDefinition(
+        code="billing.tax",
+        module="POS",
+        resource="Terminal",
+        action="TaxInvoice",
+        scope="OWN_BRANCH",
+        description="Allows tax invoice generation",
+        category="Business"
+    ),
+    PermissionDefinition(
+        code="billing.return",
+        module="POS",
+        resource="Terminal",
+        action="Return",
+        scope="OWN_BRANCH",
+        description="Allows processing refunds/returns",
+        category="Business"
+    ),
+    PermissionDefinition(
+        code="billing.void",
+        module="POS",
+        resource="Terminal",
+        action="Void",
+        scope="OWN_BRANCH",
+        description="Allows voiding bills",
+        category="Business"
+    ),
+    PermissionDefinition(
+        code="billing.import",
+        module="POS",
+        resource="Terminal",
+        action="Import",
+        scope="OWN_BRANCH",
+        description="Allows importing items/quotes",
+        category="Business"
+    ),
+    PermissionDefinition(
+        code="billing.recall",
+        module="POS",
+        resource="Terminal",
+        action="Recall",
+        scope="OWN_BRANCH",
+        description="Allows recalling parked bills",
+        category="Business"
+    ),
+    PermissionDefinition(
+        code="billing.discount",
+        module="POS",
+        resource="Terminal",
+        action="Discount",
+        scope="OWN_BRANCH",
+        description="Allows line/bill overrides",
+        category="Business"
+    ),
+    PermissionDefinition(
+        code="billing.override",
+        module="POS",
+        resource="Terminal",
+        action="Override",
+        scope="OWN_BRANCH",
+        description="Allows price/limit override",
+        category="Business"
+    ),
+    PermissionDefinition(
+        code="billing.reprint",
+        module="POS",
+        resource="Terminal",
+        action="Reprint",
+        scope="OWN_BRANCH",
+        description="Allows reprint copies",
+        category="Business"
+    ),
+    PermissionDefinition(
+        code="billing.salesperson.view",
+        module="POS",
+        resource="Terminal",
+        action="ViewSalesperson",
+        scope="OWN_BRANCH",
+        description="Allows looking up sales personnel details",
+        category="Business"
+    ),
+    PermissionDefinition(
+        code="billing.salesperson.assign",
+        module="POS",
+        resource="Terminal",
+        action="AssignSalesperson",
+        scope="OWN_BRANCH",
+        description="Allows assigning a salesperson to a transaction or line",
+        category="Business"
+    ),
+    PermissionDefinition(
+        code="billing.salesperson.override",
+        module="POS",
+        resource="Terminal",
+        action="OverrideSalesperson",
+        scope="OWN_BRANCH",
+        description="Allows overriding commission assignment of salespeople",
         category="Business"
     ),
     # --- REPORT MODULE ---

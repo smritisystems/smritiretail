@@ -1,12 +1,13 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
+ * Organization : AITDL NETWORKS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.16.1
+ * Version      : 5.0.0
  * Created      : 2026-07-10
- * Modified     : 2026-07-14
+ * Modified     : 2026-07-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -31,6 +32,13 @@ export interface LayoutPreferences {
   lastWorkspace: string;
   collapsedGroups: string[];
   favorites: string[];
+  hideNavbar: boolean;
+  hideSidebar: boolean;
+  hideBottombar: boolean;
+  // SEEF persistence fields — mirror of SEEFConfig for layout-layer preferences
+  seefTheme?: string;       // persisted theme preference (overrides SEEFContext default on next load)
+  seefDensity?: string;     // persisted density preference
+  seefNavMode?: string;     // persisted navigation mode
 }
 
 interface LayoutStoreContextType {
@@ -41,6 +49,12 @@ interface LayoutStoreContextType {
   setLayout: (position: DockPosition) => void;
   getLayout: () => LayoutPreferences;
   toggleSidebar: () => void;
+  toggleNavbar: () => void;
+  toggleSidebarVisibility: () => void;
+  toggleBottombar: () => void;
+  setNavbarHidden: (hidden: boolean) => void;
+  setSidebarHidden: (hidden: boolean) => void;
+  setBottombarHidden: (hidden: boolean) => void;
   setCollapsed: (state: boolean) => void;
   setIconOnly: (state: boolean) => void;
   setSidebarWidth: (width: number) => void;
@@ -63,9 +77,15 @@ const DEFAULT_PREFERENCES: LayoutPreferences = {
   collapsed: false,
   iconOnly: false,
   sidebarWidth: 260,
-  lastWorkspace: "dashboard",
+  lastWorkspace: "launchpad",
   collapsedGroups: [],
-  favorites: ["pos", "sales"],
+  favorites: ["pos", "sales", "print-studio", "barcode"],
+  hideNavbar: false,
+  hideSidebar: false,
+  hideBottombar: false,
+  seefTheme: undefined,
+  seefDensity: undefined,
+  seefNavMode: undefined,
 };
 
 const LayoutStoreContext = createContext<LayoutStoreContextType | undefined>(
@@ -96,6 +116,7 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
   const [preferences, setPreferences] =
     useState<LayoutPreferences>(DEFAULT_PREFERENCES);
   const [recentlyUsed, setRecentlyUsed] = useState<string[]>([
+    "launchpad",
     "dashboard",
     "pos",
   ]);
@@ -182,6 +203,24 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Data & Config",
     },
     {
+      id: "screen-studio",
+      label: "Screen & Policy Studio",
+      icon: "design_services",
+      category: "Data & Config",
+    },
+    {
+      id: "customer-dashboard",
+      label: "Customer Insights",
+      icon: "space_dashboard",
+      category: "Sales & POS",
+    },
+    {
+      id: "consignment-studio",
+      label: "Consignment Studio",
+      icon: "inventory",
+      category: "Inventory & Sourcing",
+    },
+    {
       id: "item-master",
       label: "Item Master",
       icon: "inventory_2",
@@ -191,6 +230,18 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       id: "barcode",
       label: "Barcode Studio",
       icon: "qr_code_scanner",
+      category: "Inventory & Sourcing",
+    },
+    {
+      id: "print-labels",
+      label: "Barcode Print Studio",
+      icon: "label_important",
+      category: "Inventory & Sourcing",
+    },
+    {
+      id: "universal-label-printer",
+      label: "Universal Label Printer",
+      icon: "print",
       category: "Inventory & Sourcing",
     },
     {
@@ -278,11 +329,36 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Data & Config",
     },
     {
+      id: "website",
+      label: "Official Product Website",
+      icon: "public",
+      category: "Digital Platform Ecosystem",
+    },
+    {
+      id: "live-docs",
+      label: "Live Documentation Portal",
+      icon: "menu_book",
+      category: "Digital Platform Ecosystem",
+    },
+    {
+      id: "customer-workspace",
+      label: "Customer Workspace Portal",
+      icon: "account_box",
+      category: "Digital Platform Ecosystem",
+    },
+    {
+      id: "ecosystem-hub",
+      label: "Digital Ecosystem Hub",
+      icon: "hub",
+      category: "Digital Platform Ecosystem",
+    },
+    {
       id: "about-smriti",
       label: "About SMRITI",
       icon: "info",
       category: "System",
     },
+
     {
       id: "dev-tracker",
       label: "Dev Intelligence Center",
@@ -307,11 +383,34 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
 
   const restorePreferences = async () => {
     const local = localStorage.getItem("smriti_layout_preferences");
-    const loadedPrefs = local ? JSON.parse(local) : DEFAULT_PREFERENCES;
+    const localPrefs: LayoutPreferences = local ? JSON.parse(local) : DEFAULT_PREFERENCES;
 
-    setPreferences(loadedPrefs);
-    if (loadedPrefs.lastWorkspace && onTabChange) {
-      onTabChange(loadedPrefs.lastWorkspace);
+    // Attempt to merge backend-persisted preferences (lastWorkspace, favorites, position, etc.)
+    // Backend wins for lastWorkspace so multi-device / server-persisted prefs are respected.
+    let merged: LayoutPreferences = { ...localPrefs };
+    try {
+      const serverPrefs = await apiFetchV1("/layout/preferences");
+      if (serverPrefs && typeof serverPrefs === "object") {
+        merged = {
+          ...localPrefs,
+          // Only merge scalar fields the backend actively manages
+          position: serverPrefs.position || localPrefs.position,
+          collapsed: serverPrefs.collapsed ?? localPrefs.collapsed,
+          iconOnly: serverPrefs.iconOnly ?? localPrefs.iconOnly,
+          sidebarWidth: serverPrefs.sidebarWidth || localPrefs.sidebarWidth,
+          // lastWorkspace from backend takes priority over local (persisted across devices)
+          lastWorkspace: serverPrefs.lastWorkspace || localPrefs.lastWorkspace,
+          favorites: serverPrefs.favorites?.length ? serverPrefs.favorites : localPrefs.favorites,
+          collapsedGroups: serverPrefs.collapsedGroups || localPrefs.collapsedGroups,
+        };
+      }
+    } catch {
+      // Network unavailable or backend cold-starting — silently fall back to localStorage
+    }
+
+    setPreferences(merged);
+    if (merged.lastWorkspace && onTabChange) {
+      onTabChange(merged.lastWorkspace);
     }
   };
 
@@ -357,6 +456,36 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
 
   const toggleSidebar = () => {
     savePreferences({ collapsed: !preferences.collapsed });
+  };
+
+  const toggleNavbar = () => {
+    savePreferences({ hideNavbar: !preferences.hideNavbar });
+    window.dispatchEvent(new Event("resize"));
+  };
+
+  const toggleSidebarVisibility = () => {
+    savePreferences({ hideSidebar: !preferences.hideSidebar });
+    window.dispatchEvent(new Event("resize"));
+  };
+
+  const toggleBottombar = () => {
+    savePreferences({ hideBottombar: !preferences.hideBottombar });
+    window.dispatchEvent(new Event("resize"));
+  };
+
+  const setNavbarHidden = (hidden: boolean) => {
+    savePreferences({ hideNavbar: hidden });
+    window.dispatchEvent(new Event("resize"));
+  };
+
+  const setSidebarHidden = (hidden: boolean) => {
+    savePreferences({ hideSidebar: hidden });
+    window.dispatchEvent(new Event("resize"));
+  };
+
+  const setBottombarHidden = (hidden: boolean) => {
+    savePreferences({ hideBottombar: hidden });
+    window.dispatchEvent(new Event("resize"));
   };
 
   const setCollapsed = (state: boolean) => {
@@ -423,6 +552,12 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
         setLayout,
         getLayout,
         toggleSidebar,
+        toggleNavbar,
+        toggleSidebarVisibility,
+        toggleBottombar,
+        setNavbarHidden,
+        setSidebarHidden,
+        setBottombarHidden,
         setCollapsed,
         setIconOnly,
         setSidebarWidth,

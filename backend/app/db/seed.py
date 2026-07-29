@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Email        : support@smritibooks.com
@@ -70,19 +70,24 @@ async def seed_default_users():
 
         # 4. Seed Generalized Master Lookup Types
         master_types_to_seed = [
-            {"code": "department", "label": "Company Department", "field_schema": {"type": "object", "properties": {"description": {"type": "string"}}, "additionalProperties": False}},
-            {"code": "designation", "label": "Employee Designation", "field_schema": {"type": "object", "properties": {"level": {"type": "integer"}}, "additionalProperties": False}},
-            {"code": "gender", "label": "Gender", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
-            {"code": "country", "label": "Country", "field_schema": {"type": "object", "properties": {"iso_code": {"type": "string"}}, "additionalProperties": False}},
-            {"code": "state", "label": "State", "field_schema": {"type": "object", "properties": {"state_code": {"type": "string"}}, "additionalProperties": False}},
-            {"code": "city", "label": "City", "field_schema": {"type": "object", "properties": {"district": {"type": "string"}}, "additionalProperties": False}},
-            {"code": "blood_group", "label": "Blood Group", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
-            {"code": "gst_category", "label": "GST Category", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
-            {"code": "tax_class", "label": "Tax Class", "field_schema": {"type": "object", "properties": {"rate": {"type": "number"}}, "additionalProperties": False}},
-            {"code": "currency", "label": "Currency", "field_schema": {"type": "object", "properties": {"symbol": {"type": "string"}}, "additionalProperties": False}},
-            {"code": "unit", "label": "Unit of Measure", "field_schema": {"type": "object", "properties": {"abbr": {"type": "string"}}, "additionalProperties": False}},
-            {"code": "payment_mode", "label": "Payment Mode", "field_schema": {"type": "object", "properties": {"requires_reference": {"type": "boolean"}}, "additionalProperties": False}},
-            {"code": "reason_code", "label": "Reason Code", "field_schema": {"type": "object", "properties": {"category": {"type": "string"}}, "additionalProperties": False}}
+            {"code": "department", "label": "Company Department", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {"description": {"type": "string"}}, "additionalProperties": False}},
+            {"code": "designation", "label": "Employee Designation", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {"level": {"type": "integer"}}, "additionalProperties": False}},
+            {"code": "gender", "label": "Gender", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
+            {"code": "country", "label": "Country", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"iso_code": {"type": "string"}}, "additionalProperties": False}},
+            {"code": "state", "label": "State", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"state_code": {"type": "string"}}, "additionalProperties": False}},
+            {"code": "city", "label": "City", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"district": {"type": "string"}}, "additionalProperties": False}},
+            {"code": "blood_group", "label": "Blood Group", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
+            {"code": "gst_category", "label": "GST Category", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
+            {"code": "tax_category", "label": "Tax Category", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"rate": {"type": "number"}}, "additionalProperties": False}},
+            {"code": "currency", "label": "Currency", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"symbol": {"type": "string"}}, "additionalProperties": False}},
+            {"code": "uom", "label": "Unit of Measure", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"abbr": {"type": "string"}}, "additionalProperties": False}},
+            {"code": "payment_mode", "label": "Payment Mode", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"requires_reference": {"type": "boolean"}}, "additionalProperties": False}},
+            {"code": "item_type", "label": "Item Operational Taxonomy", "category_type": "SYSTEM", "field_schema": {"type": "object", "properties": {"is_physical": {"type": "boolean"}}, "additionalProperties": False}},
+            {"code": "reason_code", "label": "Reason Code", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {"category": {"type": "string"}}, "additionalProperties": False}},
+            {"code": "product_color", "label": "Product Color", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
+            {"code": "product_size", "label": "Product Size", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
+            {"code": "product_brand", "label": "Product Brand", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
+            {"code": "product_category", "label": "Product Category", "category_type": "REFERENCE", "field_schema": {"type": "object", "properties": {}, "additionalProperties": False}}
         ]
 
         for mt in master_types_to_seed:
@@ -90,10 +95,16 @@ async def seed_default_users():
             if not mt_exists:
                 print(f"[SMRITI DB SEED] Seeding master lookup type '{mt['code']}'...")
                 await conn.execute(
-                    "INSERT INTO master_types (id, code, label, field_schema, ui_schema, version, evidence_level, created_at) "
-                    "VALUES ($1, $2, $3, cast($4 as jsonb), cast($5 as jsonb), 1, 'D', now())",
-                    str(uuid.uuid4()), mt["code"], mt["label"],
+                    "INSERT INTO master_types (id, code, label, category_type, is_system, field_schema, ui_schema, version, evidence_level, created_at) "
+                    "VALUES ($1, $2, $3, $4, true, cast($5 as jsonb), cast($6 as jsonb), 1, 'D', now())",
+                    str(uuid.uuid4()), mt["code"], mt["label"], mt["category_type"],
                     json.dumps(mt["field_schema"]), json.dumps({})
+                )
+            else:
+                # Update existing master_types with category_type if NULL/default
+                await conn.execute(
+                    "UPDATE master_types SET category_type = $1, is_system = true WHERE code = $2",
+                    mt["category_type"], mt["code"]
                 )
 
         # 5. Seed Default Master Values (Department and Designation)
@@ -113,8 +124,8 @@ async def seed_default_users():
             if not exists:
                 print(f"[SMRITI DB SEED] Seeding department value '{dept['name']}'...")
                 await conn.execute(
-                    "INSERT INTO master_values (id, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted) "
-                    "VALUES ($1, $2, $3, $4, cast($5 as jsonb), true, 0, now(), false)",
+                    "INSERT INTO master_values (id, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted, is_system, tenant_id) "
+                    "VALUES ($1, $2, $3, $4, cast($5 as jsonb), true, 0, now(), false, true, NULL)",
                     str(uuid.uuid4()), dept_type_id, dept["code"], dept["name"], json.dumps(dept["data"])
                 )
 
@@ -130,10 +141,121 @@ async def seed_default_users():
             if not exists:
                 print(f"[SMRITI DB SEED] Seeding designation value '{desig['name']}'...")
                 await conn.execute(
-                    "INSERT INTO master_values (id, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted) "
-                    "VALUES ($1, $2, $3, $4, cast($5 as jsonb), true, 0, now(), false)",
+                    "INSERT INTO master_values (id, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted, is_system, tenant_id) "
+                    "VALUES ($1, $2, $3, $4, cast($5 as jsonb), true, 0, now(), false, true, NULL)",
                     str(uuid.uuid4()), desig_type_id, desig["code"], desig["name"], json.dumps(desig["data"])
                 )
+
+        # 5.1 Seed System Reference Master Values (Payment Modes, UOMs, Item Types, Tax Categories, Reason Codes, Product Colors, Sizes, Categories)
+        system_values_to_seed = {
+            "payment_mode": [
+                {"code": "CASH", "name": "Cash Payment", "data": {"requires_reference": False}},
+                {"code": "CARD", "name": "Credit/Debit Card", "data": {"requires_reference": True}},
+                {"code": "UPI", "name": "UPI / QR Code", "data": {"requires_reference": True}},
+                {"code": "NEFT", "name": "Bank Transfer / NEFT", "data": {"requires_reference": True}},
+                {"code": "WALLET", "name": "Digital Wallet", "data": {"requires_reference": True}}
+            ],
+            "uom": [
+                {"code": "PCS", "name": "Pieces", "data": {"abbr": "pcs"}},
+                {"code": "KG", "name": "Kilograms", "data": {"abbr": "kg"}},
+                {"code": "LTR", "name": "Liters", "data": {"abbr": "ltr"}},
+                {"code": "BOX", "name": "Box / Pack", "data": {"abbr": "box"}},
+                {"code": "MTR", "name": "Meters", "data": {"abbr": "mtr"}},
+                {"code": "PAIR", "name": "Pair", "data": {"abbr": "pr"}}
+            ],
+            "item_type": [
+                {"code": "STOCK", "name": "Stock Inventory Item", "data": {"is_physical": True}},
+                {"code": "SERVICE", "name": "Service / Labor Charge", "data": {"is_physical": False}},
+                {"code": "CONSIGNMENT", "name": "Consignment Inventory", "data": {"is_physical": True}},
+                {"code": "NON_STOCK", "name": "Non-Stock Consumable", "data": {"is_physical": True}}
+            ],
+            "tax_category": [
+                {"code": "GST_STANDARD", "name": "Standard GST Rate (18%)", "data": {"rate": 18.0}},
+                {"code": "GST_REDUCED", "name": "Reduced GST Rate (5%)", "data": {"rate": 5.0}},
+                {"code": "GST_SUPER", "name": "Super GST Rate (28%)", "data": {"rate": 28.0}},
+                {"code": "EXEMPT", "name": "Exempt / Zero Tax (0%)", "data": {"rate": 0.0}}
+            ],
+            "reason_code": [
+                {"code": "RETURN_DEFECT", "name": "Damaged / Defective Return", "data": {"category": "RETURN"}},
+                {"code": "RETURN_EXCHANGE", "name": "Customer Size/Color Exchange", "data": {"category": "RETURN"}},
+                {"code": "STOCK_ADJUSTMENT", "name": "Physical Audit Count Variance", "data": {"category": "AUDIT"}},
+                {"code": "WASTAGE", "name": "Expired / Spoiled Inventory", "data": {"category": "LOSS"}}
+            ],
+            "product_color": [
+                {"code": "CLR-RED", "name": "Red", "data": {}},
+                {"code": "CLR-BLUE", "name": "Blue", "data": {}},
+                {"code": "CLR-BLACK", "name": "Black", "data": {}},
+                {"code": "CLR-WHITE", "name": "White", "data": {}},
+                {"code": "CLR-GREEN", "name": "Green", "data": {}},
+                {"code": "CLR-YELLOW", "name": "Yellow", "data": {}},
+                {"code": "CLR-PINK", "name": "Pink", "data": {}},
+                {"code": "CLR-NAVY", "name": "Navy", "data": {}},
+                {"code": "CLR-GREY", "name": "Grey", "data": {}},
+                {"code": "CLR-BROWN", "name": "Brown", "data": {}},
+                {"code": "CLR-MAROON", "name": "Maroon", "data": {}},
+                {"code": "CLR-ORANGE", "name": "Orange", "data": {}},
+                {"code": "CLR-PURPLE", "name": "Purple", "data": {}},
+                {"code": "CLR-BEIGE", "name": "Beige", "data": {}}
+            ],
+            "product_size": [
+                {"code": "SZ-XS", "name": "XS", "data": {}},
+                {"code": "SZ-S", "name": "S", "data": {}},
+                {"code": "SZ-M", "name": "M", "data": {}},
+                {"code": "SZ-L", "name": "L", "data": {}},
+                {"code": "SZ-XL", "name": "XL", "data": {}},
+                {"code": "SZ-XXL", "name": "XXL", "data": {}},
+                {"code": "SZ-XXXL", "name": "XXXL", "data": {}},
+                {"code": "SZ-28", "name": "28", "data": {}},
+                {"code": "SZ-30", "name": "30", "data": {}},
+                {"code": "SZ-32", "name": "32", "data": {}},
+                {"code": "SZ-34", "name": "34", "data": {}},
+                {"code": "SZ-36", "name": "36", "data": {}},
+                {"code": "SZ-38", "name": "38", "data": {}},
+                {"code": "SZ-40", "name": "40", "data": {}},
+                {"code": "SZ-FW-5", "name": "5", "data": {"category": "Footwear"}},
+                {"code": "SZ-FW-6", "name": "6", "data": {"category": "Footwear"}},
+                {"code": "SZ-FW-7", "name": "7", "data": {"category": "Footwear"}},
+                {"code": "SZ-FW-8", "name": "8", "data": {"category": "Footwear"}},
+                {"code": "SZ-FW-9", "name": "9", "data": {"category": "Footwear"}},
+                {"code": "SZ-FW-10", "name": "10", "data": {"category": "Footwear"}},
+                {"code": "SZ-FW-11", "name": "11", "data": {"category": "Footwear"}}
+            ],
+            "product_brand": [
+                {"code": "BRD-GENERIC", "name": "Generic", "data": {}},
+                {"code": "BRD-NIKE", "name": "Nike", "data": {}},
+                {"code": "BRD-APPLE", "name": "Apple", "data": {}},
+                {"code": "BRD-LEVIS", "name": "Levi's", "data": {}}
+            ],
+            "product_category": [
+                {"code": "CAT-SHIRTS", "name": "Shirts", "data": {}},
+                {"code": "CAT-TROUSERS", "name": "Trousers", "data": {}},
+                {"code": "CAT-JEANS", "name": "Jeans", "data": {}},
+                {"code": "CAT-TSHIRTS", "name": "T-Shirts", "data": {}},
+                {"code": "CAT-KURTA", "name": "Kurta", "data": {}},
+                {"code": "CAT-FOOTWEAR", "name": "Footwear", "data": {}},
+                {"code": "CAT-ACCESSORIES", "name": "Accessories", "data": {}},
+                {"code": "CAT-INNERWEAR", "name": "Innerwear", "data": {}},
+                {"code": "CAT-JACKETS", "name": "Jackets", "data": {}},
+                {"code": "CAT-SAREES", "name": "Sarees", "data": {}}
+            ]
+        }
+
+        for type_code, values in system_values_to_seed.items():
+            type_id = await conn.fetchval("SELECT id FROM master_types WHERE code = $1", type_code)
+            if not type_id:
+                continue
+            for val in values:
+                exists = await conn.fetchval(
+                    "SELECT COUNT(*) FROM master_values WHERE master_type_id = $1 AND code = $2",
+                    type_id, val["code"]
+                )
+                if not exists:
+                    print(f"[SMRITI DB SEED] Seeding {type_code} value '{val['code']}'...")
+                    await conn.execute(
+                        "INSERT INTO master_values (id, master_type_id, code, name, data, active, sort_order, updated_at, is_deleted, is_system, tenant_id) "
+                        "VALUES ($1, $2, $3, $4, cast($5 as jsonb), true, 0, now(), false, true, NULL)",
+                        str(uuid.uuid4()), type_id, val["code"], val["name"], json.dumps(val["data"])
+                    )
 
         # 6. Seed Dynamic Roles (SSACF)
         roles_to_seed = [
@@ -172,8 +294,8 @@ async def seed_default_users():
                     f"perm-{perm.code.lower().replace('.', '-')}", str(uuid.uuid4()), perm.code, perm.resource, perm.action, perm.scope, perm.module, perm.description
                 )
 
-        # 7.5 Seed Decoupled Functional Policies
-        policies_to_seed = [
+        # 7.5 Seed Decoupled Functional Permission Sets
+        permission_sets_to_seed = [
             {"id": "pol-sales-mgmt", "code": "POL-SALES-MGMT", "name": "Sales Management Policy"},
             {"id": "pol-inventory-mgmt", "code": "POL-INVENTORY-MGMT", "name": "Inventory Management Policy"},
             {"id": "pol-crm-mgmt", "code": "POL-CRM-MGMT", "name": "CRM Management Policy"},
@@ -182,19 +304,26 @@ async def seed_default_users():
             {"id": "pol-security-admin", "code": "POL-SECURITY-ADMIN", "name": "Security Administration Policy"},
             {"id": "pol-core-view", "code": "POL-CORE-VIEW", "name": "Core View Policy"}
         ]
-        for pol in policies_to_seed:
-            exists = await conn.fetchval("SELECT COUNT(*) FROM smriti_policies WHERE code = $1", pol["code"])
+        for pol in permission_sets_to_seed:
+            exists = await conn.fetchval("SELECT COUNT(*) FROM smriti_permission_sets WHERE code = $1", pol["code"])
             if not exists:
-                print(f"[SMRITI DB SEED] Seeding policy '{pol['code']}'...")
+                print(f"[SMRITI DB SEED] Seeding permission set '{pol['code']}'...")
                 await conn.execute(
-                    "INSERT INTO smriti_policies (id, uuid, code, name, description, is_active, is_deleted, created_at, modified_at) "
+                    "INSERT INTO smriti_permission_sets (id, uuid, code, name, description, is_active, is_deleted, created_at, modified_at) "
                     "VALUES ($1, $2, $3, $4, $5, true, false, now(), now())",
                     pol["id"], str(uuid.uuid4()), pol["code"], pol["name"], pol["name"]
                 )
 
-        # 7.6 Map Permissions to Policies
-        policy_perm_mappings = {
-            "POL-SALES-MGMT": ["SALES.CREATE", "SALES.UPDATE", "SALES.APPROVE", "SALES.VIEW", "SALES.DELETE", "POS.CHECKOUT", "POS.OPEN_SHIFT", "POS.CLOSE_SHIFT"],
+        # 7.6 Map Permissions to Permission Sets
+        permission_set_perm_mappings = {
+            "POL-SALES-MGMT": [
+                "SALES.CREATE", "SALES.UPDATE", "SALES.APPROVE", "SALES.VIEW", "SALES.DELETE", 
+                "POS.CHECKOUT", "POS.OPEN_SHIFT", "POS.CLOSE_SHIFT",
+                "billing.pos", "billing.tax", "billing.return", "billing.void", 
+                "billing.import", "billing.recall", "billing.discount", "billing.override", 
+                "billing.reprint", "billing.salesperson.view", "billing.salesperson.assign", 
+                "billing.salesperson.override"
+            ],
             "POL-INVENTORY-MGMT": ["ITEM.CREATE", "ITEM.VIEW", "ITEM.UPDATE", "ITEM.DELETE"],
             "POL-CRM-MGMT": ["CRM.MANAGE_CUSTOMERS", "CRM.VIEW_LOYALTY"],
             "POL-PURCHASE-MGMT": ["PURCHASE.CREATE", "PURCHASE.UPDATE", "PURCHASE.APPROVE", "PURCHASE.VIEW", "PURCHASE.DELETE", "SUPPLIER.MANAGE"],
@@ -203,27 +332,27 @@ async def seed_default_users():
             "POL-CORE-VIEW": ["SALES.VIEW", "ITEM.VIEW", "REPORT.VIEW"]
         }
 
-        for policy_code, perm_codes in policy_perm_mappings.items():
-            policy_id = await conn.fetchval("SELECT id FROM smriti_policies WHERE code = $1", policy_code)
-            if not policy_id:
+        for perm_set_code, perm_codes in permission_set_perm_mappings.items():
+            permission_set_id = await conn.fetchval("SELECT id FROM smriti_permission_sets WHERE code = $1", perm_set_code)
+            if not permission_set_id:
                 continue
             for p_code in perm_codes:
                 perm_id = await conn.fetchval("SELECT id FROM smriti_permissions WHERE code = $1", p_code)
                 if not perm_id:
                     continue
                 mapping_exists = await conn.fetchval(
-                    "SELECT COUNT(*) FROM smriti_policy_permissions WHERE policy_id = $1 AND permission_id = $2",
-                    policy_id, perm_id
+                    "SELECT COUNT(*) FROM smriti_permission_set_permissions WHERE permission_set_id = $1 AND permission_id = $2",
+                    permission_set_id, perm_id
                 )
                 if not mapping_exists:
                     await conn.execute(
-                        "INSERT INTO smriti_policy_permissions (id, uuid, policy_id, permission_id, permission_type, created_at, modified_at) "
+                        "INSERT INTO smriti_permission_set_permissions (id, uuid, permission_set_id, permission_id, permission_type, created_at, modified_at) "
                         "VALUES ($1, $2, $3, $4, 'ALLOW', now(), now())",
-                        str(uuid.uuid4()), str(uuid.uuid4()), policy_id, perm_id
+                        str(uuid.uuid4()), str(uuid.uuid4()), permission_set_id, perm_id
                     )
 
-        # 7.7 Map Policies to Roles
-        role_policy_mappings = {
+        # 7.7 Map Permission Sets to Roles
+        role_permission_set_mappings = {
             "ADMINISTRATOR": ["POL-SALES-MGMT", "POL-INVENTORY-MGMT", "POL-CRM-MGMT", "POL-PURCHASE-MGMT", "POL-REPORTING", "POL-SECURITY-ADMIN"],
             "OWNER": ["POL-SALES-MGMT", "POL-INVENTORY-MGMT", "POL-CRM-MGMT", "POL-PURCHASE-MGMT", "POL-REPORTING"],
             "COMPANY_ADMIN": ["POL-SALES-MGMT", "POL-INVENTORY-MGMT", "POL-CRM-MGMT", "POL-PURCHASE-MGMT", "POL-REPORTING"],
@@ -236,24 +365,25 @@ async def seed_default_users():
             "VIEWER": ["POL-CORE-VIEW"]
         }
 
-        for role_code, policy_codes in role_policy_mappings.items():
+        for role_code, perm_set_codes in role_permission_set_mappings.items():
             role_id = await conn.fetchval("SELECT id FROM smriti_roles WHERE code = $1", role_code)
             if not role_id:
                 continue
-            for pol_code in policy_codes:
-                policy_id = await conn.fetchval("SELECT id FROM smriti_policies WHERE code = $1", pol_code)
-                if not policy_id:
+            for pol_code in perm_set_codes:
+                permission_set_id = await conn.fetchval("SELECT id FROM smriti_permission_sets WHERE code = $1", pol_code)
+                if not permission_set_id:
                     continue
                 mapping_exists = await conn.fetchval(
-                    "SELECT COUNT(*) FROM smriti_role_policies WHERE role_id = $1 AND policy_id = $2",
-                    role_id, policy_id
+                    "SELECT COUNT(*) FROM smriti_role_permission_sets WHERE role_id = $1 AND permission_set_id = $2",
+                    role_id, permission_set_id
                 )
                 if not mapping_exists:
                     await conn.execute(
-                        "INSERT INTO smriti_role_policies (id, uuid, role_id, policy_id, created_at, modified_at) "
+                        "INSERT INTO smriti_role_permission_sets (id, uuid, role_id, permission_set_id, created_at, modified_at) "
                         "VALUES ($1, $2, $3, $4, now(), now())",
-                        str(uuid.uuid4()), str(uuid.uuid4()), role_id, policy_id
+                        str(uuid.uuid4()), str(uuid.uuid4()), role_id, permission_set_id
                     )
+
 
         # 8. Seed Default Dynamic Menus
         menus_to_seed = [
@@ -280,12 +410,13 @@ async def seed_default_users():
                 "username": "super",
                 "email": "super@smritibooks.com",
                 "mobile": "9999999999",
-                "plain_password": "whynothing",
+                "plain_password": "Smriti@1234",
                 "role": "SYSADMIN",
                 "company_id": None,
                 "branch_id": None,
                 "full_name": "SYSTEM ADMINISTRATOR",
-                "display_name": "Super"
+                "display_name": "Super",
+                "is_platform_admin": True
             },
             {
                 "id": "usr-manager",
@@ -297,19 +428,21 @@ async def seed_default_users():
                 "company_id": "comp-default",
                 "branch_id": "br-default",
                 "full_name": "STORE MANAGER",
-                "display_name": "Manager"
+                "display_name": "Manager",
+                "is_platform_admin": False
             },
             {
                 "id": "usr-cashier",
                 "username": "cashier",
                 "email": "cashier@smritibooks.com",
                 "mobile": "9876543211",
-                "plain_password": "cashier123",
+                "plain_password": "Cashier@1234",
                 "role": "CASHIER",
                 "company_id": "comp-default",
                 "branch_id": "br-default",
                 "full_name": "CASHIER OPERATOR",
-                "display_name": "Cashier"
+                "display_name": "Cashier",
+                "is_platform_admin": False
             }
         ]
 
@@ -322,20 +455,27 @@ async def seed_default_users():
                     """
                     INSERT INTO users (
                         id, uuid, username, email, mobile, hashed_password, role, is_active, is_deleted,
+                        is_platform_admin,
                         full_name, display_name, status, country, employment_type,
                         company_id, branch_id, created_at, modified_at
                     ) VALUES (
                         $1, $2, $3, $4, $5, $6, $7, true, false,
-                        $8, $9, 'Active', 'India', 'Permanent',
-                        $10, $11, now(), now()
+                        $8,
+                        $9, $10, 'Active', 'India', 'Permanent',
+                        $11, $12, now(), now()
                     )
                     """,
                     user["id"], str(uuid.uuid4()), user["username"], user["email"], user["mobile"],
-                    hashed, user["role"], user["full_name"], user["display_name"],
+                    hashed, user["role"], user.get("is_platform_admin", False), user["full_name"], user["display_name"],
                     user["company_id"], user["branch_id"]
                 )
             else:
-                print(f"[SMRITI DB SEED] User '{user['username']}' already exists, skipping.")
+                print(f"[SMRITI DB SEED] User '{user['username']}' exists. Syncing password hash...")
+                hashed = hash_password(user["plain_password"])
+                await conn.execute(
+                    "UPDATE users SET hashed_password = $1, is_platform_admin = $2 WHERE username = $3",
+                    hashed, user.get("is_platform_admin", False), user["username"]
+                )
 
             # Map user to dynamic SMRITI Role
             mapped_exists = await conn.fetchval("SELECT COUNT(*) FROM smriti_user_roles WHERE user_id = $1", user["id"])
@@ -430,7 +570,7 @@ async def seed_default_users():
 
         for pg in pricing_groups:
             exists = await conn.fetchval(
-                "SELECT COUNT(*) FROM pricing_groups WHERE id = $1", pg["id"]
+                "SELECT COUNT(*) FROM pricing_groups WHERE id = $1 OR name = $2", pg["id"], pg["name"]
             )
             if not exists:
                 print(f"[SMRITI DB SEED] Seeding PricingGroup '{pg['name']}'...")

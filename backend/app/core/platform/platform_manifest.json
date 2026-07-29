@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "platform_version": "12.1.0",
+  "minimum_runtime": "12.1.0",
+  "publisher": "SMRITI",
+  "support_url": "https://smritisys.com/support",
+  "documentation_url": "https://smritisys.com/docs",
+  "homepage": "https://smritisys.com",
+  "locales": ["en-IN", "hi-IN", "mr-IN"],
+  "tags": ["retail", "pos", "erp", "inventory", "accounting"],
+  "domains": [
+    "Core Retail",
+    "Financial",
+    "CRM & Customer Experience",
+    "Procurement & Supply Chain",
+    "Warehouse & Logistics",
+    "Manufacturing",
+    "Human Resources",
+    "Enterprise Governance",
+    "AI & Automation",
+    "Integration Hub",
+    "Compliance & Tax",
+    "Platform & Administration"
+  ]
+}

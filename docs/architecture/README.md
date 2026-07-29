@@ -8,6 +8,7 @@ The architecture docs provide guidance for enterprise-grade design, governance, 
 
 ## Key Documents
 
+- `SMRITI_BUSINESS_OS_V2_SPECIFICATION.md` — SMRITI Business OS v2.0 Enterprise Architecture Baseline Specification (Frozen)
 - `PLATFORM_ADAPTER_RULES.md` — platform adapter and PAL guidance
 - `PLATFORM_MICROSERVICES_ROADMAP.md` — long-term microservices vision
 - `PRODUCT_IDENTITY_ENGINE.md` — core Product Identity Engine design

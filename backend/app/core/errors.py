@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -99,10 +99,11 @@ def build_error_response(
     custom_action: str | None = None,
     reference_msg: str = "",
     custom_title: str | None = None,
+    custom_reference_id: str | None = None,
 ) -> SmritiErrorResponse:
     """Helper to build a standardized human-readable error response."""
     dict_entry = ERROR_DICTIONARY.get(error_code, ERROR_DICTIONARY["SMRITI-SYS-001"])
-    ref_id = generate_reference_id(reference_msg or dict_entry["title"])
+    ref_id = custom_reference_id or generate_reference_id(reference_msg or dict_entry["title"])
     
     explanation = custom_explanation or dict_entry["explanation"]
     # Avoid technical words in the explanation

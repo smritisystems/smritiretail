@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -56,7 +56,7 @@ export const WorkspaceTaskbar: React.FC = () => {
     toggleFocusMode
   } = useWorkspace();
 
-  const { registeredWorkspaces, addToRecentlyUsed } = useLayoutEngine();
+  const { registeredWorkspaces, addToRecentlyUsed, preferences, toggleBottombar } = useLayoutEngine();
 
   // Taskbar general preferences
   const [autoHide, setAutoHide] = useState<boolean>(() => {
@@ -71,6 +71,7 @@ export const WorkspaceTaskbar: React.FC = () => {
   const [pinnedWorkspaces, setPinnedWorkspaces] = useState<PinnedWorkspace[]>(() => {
     const saved = localStorage.getItem("smriti_taskbar_pinned");
     return saved ? JSON.parse(saved) : [
+      { tabId: "launchpad", title: "Home", icon: "home" },
       { tabId: "pos", title: "Billing Desk", icon: "point_of_sale" },
       { tabId: "dashboard", title: "Executive Hub", icon: "dashboard" },
       { tabId: "sales", title: "Sales Studio", icon: "receipt_long" }
@@ -232,17 +233,30 @@ export const WorkspaceTaskbar: React.FC = () => {
 
   return (
     <>
+      {/* Floating Unhide Bottombar Trigger */}
+      {preferences.hideBottombar && (
+        <button
+          onClick={toggleBottombar}
+          className="fixed bottom-2 left-1/2 -translate-x-1/2 z-[9990] px-3 py-1 bg-theme-surface-2/90 hover:bg-indigo-600 text-xs font-semibold text-white rounded-t-lg shadow-xl border border-b-0 border-theme-divider flex items-center space-x-1.5 transition-all opacity-70 hover:opacity-100 cursor-pointer"
+          title="Unhide Bottom Taskbar (Alt+Shift+B)"
+        >
+          <span className="material-symbols-outlined text-sm">view_stream</span>
+          <span>Show Bottombar</span>
+        </button>
+      )}
+
       {/* Taskbar Frame */}
-      <div
-        ref={taskbarRef}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        className={`fixed bottom-0 left-0 right-0 z-[9990] transition-all duration-300 font-sans border-t border-theme-divider/70 bg-theme-surface-1 shadow-[0_-4px_24px_rgba(0,0,0,0.7)] ${
-          autoHide && !isHovered && floatingWindows.length > 0 && !isWorkspaceManagerOpen && !contextMenuWinId
-            ? "translate-y-[calc(100%-4px)] h-12 opacity-40 hover:opacity-100 hover:translate-y-0"
-            : "translate-y-0 h-13"
-        }`}
-      >
+      {!preferences.hideBottombar && (
+        <div
+          ref={taskbarRef}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          className={`fixed bottom-0 left-0 right-0 z-[9990] transition-all duration-300 font-sans border-t border-theme-divider/70 bg-theme-surface-1 shadow-[0_-4px_24px_rgba(0,0,0,0.7)] ${
+            autoHide && !isHovered && floatingWindows.length > 0 && !isWorkspaceManagerOpen && !contextMenuWinId
+              ? "translate-y-[calc(100%-4px)] h-12 opacity-40 hover:opacity-100 hover:translate-y-0"
+              : "translate-y-0 h-13"
+          }`}
+        >
         <div className="w-full h-full flex items-center justify-between px-3 md:px-4 gap-3 relative select-none">
           
           {/* Quick Launcher & Controls Section */}
@@ -253,12 +267,12 @@ export const WorkspaceTaskbar: React.FC = () => {
                 onClick={() => setIsNewWorkspaceMenuOpen(!isNewWorkspaceMenuOpen)}
                 className={`flex items-center space-x-1.5 h-9 px-3 rounded-lg text-xs font-bold transition-all shadow-md ${
                   isNewWorkspaceMenuOpen 
-                    ? "bg-indigo-600 text-white" 
+                    ? "bg-[#0a6ed1] text-white" 
                     : "bg-theme-surface-2 text-theme-body hover:bg-theme-surface-3 border border-theme-divider/80"
                 }`}
                 title="Launch New Floating Workspace Tab"
               >
-                <Plus size={14} className="text-indigo-400 shrink-0" />
+                <Plus size={14} className="text-[#0a6ed1] dark:text-[#6fa8dc] shrink-0" />
                 <span className="hidden sm:inline">New Workspace</span>
               </button>
 
@@ -293,7 +307,7 @@ export const WorkspaceTaskbar: React.FC = () => {
                           className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-theme-surface-2 transition-all text-left text-xs font-medium"
                         >
                           <div className="flex items-center space-x-2.5 min-w-0">
-                            <span className="material-symbols-outlined text-[16px] text-indigo-400 shrink-0">
+                            <span className="material-symbols-outlined text-[16px] text-[#0a6ed1] dark:text-[#6fa8dc] shrink-0">
                               {mod.icon}
                             </span>
                             <div className="truncate">
@@ -301,7 +315,7 @@ export const WorkspaceTaskbar: React.FC = () => {
                               <p className="text-[10px] text-theme-muted">{mod.category}</p>
                             </div>
                           </div>
-                          <span className="text-[9px] uppercase font-bold text-indigo-400 px-1 bg-indigo-500/10 rounded">
+                          <span className="text-[9px] uppercase font-bold text-[#0a6ed1] dark:text-[#6fa8dc] px-1 bg-[#0a6ed1]/10 rounded">
                             Pop
                           </span>
                         </button>
@@ -321,7 +335,7 @@ export const WorkspaceTaskbar: React.FC = () => {
               className="flex items-center justify-center w-9 h-9 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider/80 text-theme-body rounded-lg transition-all shadow-md"
               title="Overview & Manage Open Workspaces"
             >
-              <Grid size={15} className="text-indigo-400" />
+              <Grid size={15} className="text-[#0a6ed1] dark:text-[#6fa8dc]" />
             </button>
 
             {/* Show Desktop (Minimize All) */}
@@ -346,7 +360,7 @@ export const WorkspaceTaskbar: React.FC = () => {
                     onClick={() => launchPinned(pw)}
                     className={`flex items-center space-x-1.5 h-9 px-2.5 rounded-lg text-xs font-semibold transition-all ${
                       isOpen 
-                        ? "bg-indigo-500/10 border border-indigo-500/30 text-indigo-300" 
+                        ? "bg-[#0a6ed1]/10 border border-[#0a6ed1]/30 text-[#0a6ed1] dark:text-[#6fa8dc]" 
                         : "bg-transparent text-theme-muted hover:text-theme-body hover:bg-theme-surface-2"
                     }`}
                     title={`Open Pinned ${pw.title}`}
@@ -395,7 +409,7 @@ export const WorkspaceTaskbar: React.FC = () => {
                       onClick={() => handleLeftClickItem(win)}
                       className={`flex items-center space-x-2 h-9 px-3 rounded-lg text-xs font-bold cursor-pointer transition-all border shrink-0 select-none relative group ${
                         isActive
-                          ? "bg-theme-surface-2 text-white border-indigo-500 shadow-lg ring-1 ring-indigo-500/20"
+                          ? "bg-theme-surface-2 text-white border-[#0a6ed1] shadow-md ring-1 ring-[#0a6ed1]/30"
                           : isMinimized
                           ? "bg-theme-surface-1 border-theme-divider/40 text-theme-muted opacity-50 hover:opacity-80"
                           : "bg-theme-surface-2/60 hover:bg-theme-surface-2 border-theme-divider text-theme-body"
@@ -403,10 +417,10 @@ export const WorkspaceTaskbar: React.FC = () => {
                     >
                       {/* Active status underline dot indicator */}
                       <span className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full transition-all ${
-                        isActive ? "bg-indigo-400" : isMinimized ? "bg-theme-muted/50" : "bg-indigo-500/40"
+                        isActive ? "bg-[#0a6ed1]" : isMinimized ? "bg-theme-muted/50" : "bg-[#0a6ed1]/40"
                       }`} />
 
-                      <span className="material-symbols-outlined text-[15px] text-indigo-400 shrink-0">
+                      <span className="material-symbols-outlined text-[15px] text-[#0a6ed1] dark:text-[#6fa8dc] shrink-0">
                         {activeTab.icon}
                       </span>
                       <span className="max-w-[100px] md:max-w-[140px] truncate pr-1">
@@ -462,6 +476,15 @@ export const WorkspaceTaskbar: React.FC = () => {
               title={autoHide ? "Disable Auto-Hide Taskbar" : "Enable Auto-Hide Taskbar"}
             >
               {autoHide ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+
+            {/* Hide Bottombar completely button */}
+            <button
+              onClick={toggleBottombar}
+              className="p-1.5 rounded-lg bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider/80 text-theme-muted hover:text-rose-400 text-xs font-semibold transition-all flex items-center space-x-1"
+              title="Hide Bottom Taskbar (Alt+Shift+B)"
+            >
+              <span className="material-symbols-outlined text-[14px]">visibility_off</span>
             </button>
 
             {/* Performance Indicators (CPU/Memory Simulation for power-users) */}
@@ -650,6 +673,7 @@ export const WorkspaceTaskbar: React.FC = () => {
           )}
         </AnimatePresence>
       </div>
+      )}
 
       {/* Fullscreen Bento Grid Workspace Manager Overlay */}
       <AnimatePresence>

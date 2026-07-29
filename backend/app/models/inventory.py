@@ -1,52 +1,109 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 5.1.3
 Created      : 2026-07-11
-Modified     : 2026-07-13
+Modified     : 2026-07-21
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
+Classification: Internal
 """
 
-from datetime import datetime
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text
+from datetime import datetime, timezone
+from decimal import Decimal
+from ..db.base import BaseEntity, RowSecuredMixin
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text, DateTime
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from ..db.base import BaseEntity
+from sqlalchemy.orm import relationship, foreign
+from .attributes import VariantTemplate
 
-class Product(BaseEntity):
+class Product(RowSecuredMixin, BaseEntity):
     __tablename__ = "products"
 
     code = Column(String(50), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
     price = Column(Numeric(15, 2), nullable=False, default=0.00)
     stock = Column(Integer, nullable=False, default=0)
+    reserved_stock = Column(Numeric(12, 4), nullable=False, server_default="0.0000", default=0.00)
     category = Column(String(100), nullable=False, index=True)
     is_favorite = Column(Boolean, default=False)
     barcode = Column(String(100), nullable=False, unique=True, index=True)
-    secondary_barcodes = Column(ARRAY(String), server_default="{}")
     brand = Column(String(100))
     color = Column(String(50))
     size = Column(String(50))
     mrp = Column(Numeric(15, 2))
-    gst_percentage = Column(Numeric(5, 2), default=18.00)
+    gst_percentage = Column(Numeric(5, 2), nullable=True)
     style_code = Column(String(100))
     cost_price = Column(Numeric(15, 2))
     sku = Column(String(100), unique=True)
     hsn_code = Column(String(15))
     pricing_mode = Column(String(30), default="Fixed")
     tracking_mode = Column(String(30), default="Standard")
-    variant_template_id = Column(String(50))
+    variant_template_id = Column(String(50), nullable=True, index=True)
+    size_scale_id = Column(String(50), nullable=True, index=True)
+    sourcing_mode_override = Column(String(30), nullable=True)
     weight_grams = Column(Numeric(10, 2), default=0.00)
     attributes = Column(JSONB, server_default="'{}'::jsonb", default=dict)
     primary_image_url = Column(String(512))
     gallery_images = Column(ARRAY(String), server_default="{}")
 
+    # Relationships — all use lazy="selectin" to prevent MissingGreenlet in async SQLAlchemy
+    barcodes = relationship("ProductBarcode", back_populates="product", cascade="all, delete-orphan", lazy="selectin")
+    vendors = relationship("ProductVendor", back_populates="product", cascade="all, delete-orphan", lazy="selectin")
+    tax_profiles = relationship("ProductTaxProfile", back_populates="product", cascade="all, delete-orphan", order_by="desc(ProductTaxProfile.effective_from)", lazy="selectin")
+    inventory_policy = relationship("ProductInventoryPolicy", back_populates="product", uselist=False, cascade="all, delete-orphan", lazy="selectin")
+    variant_template = relationship("VariantTemplate", primaryjoin="foreign(Product.variant_template_id) == VariantTemplate.id", backref="products", lazy="selectin")
+
+    @property
+    def secondary_barcodes(self) -> list[str]:
+        # Return only the non-primary barcodes
+        return [bc.barcode for bc in self.barcodes if not bc.is_primary]
+
+    @secondary_barcodes.setter
+    def secondary_barcodes(self, values: list[str]) -> None:
+        import uuid as uuid_pkg
+        # Re-sync secondary barcodes
+        existing_sec = [bc for bc in self.barcodes if not bc.is_primary]
+        existing_vals = {bc.barcode: bc for bc in existing_sec}
+        # Add new ones
+        for val in values:
+            if not val:
+                continue
+            if val not in existing_vals:
+                new_bc = ProductBarcode(
+                    id=f"BC-{uuid_pkg.uuid4().hex[:8]}",
+                    uuid=str(uuid_pkg.uuid4()),
+                    product_id=self.id,
+                    barcode=val,
+                    is_primary=False,
+                    tenant_id=self.tenant_id,
+                    company_id=self.company_id,
+                    branch_id=self.branch_id
+                )
+                self.barcodes.append(new_bc)
+        # Remove deleted ones
+        new_vals_set = set(values)
+        for bc in existing_sec:
+            if bc.barcode not in new_vals_set:
+                self.barcodes.remove(bc)
+
     __table_args__ = (
         Index("idx_products_attributes", "attributes", postgresql_using="gin"),
     )
+
+
+class ProductBarcode(BaseEntity):
+    __tablename__ = "product_barcodes"
+
+    product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    barcode = Column(String(100), nullable=False, unique=True, index=True)
+    is_primary = Column(Boolean, nullable=False, default=False)
+
+    # Relationships
+    product = relationship("Product", back_populates="barcodes")
 
 
 class StockMovement(BaseEntity):
@@ -88,4 +145,230 @@ class Warehouse(BaseEntity):
     name = Column(String(200), nullable=False)
     is_transit = Column(Boolean, default=False)
     address = Column(Text)
+
+
+class ProductVendor(RowSecuredMixin, BaseEntity):
+    """
+    Normalized Product-Vendor Catalog Bridge Entity (1:N per Product).
+    Connects Product to Supplier with vendor-specific pricing, MOQ, lead times, and contracts.
+    """
+    __tablename__ = "product_vendors"
+
+    product_id             = Column(String(50), ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    supplier_id            = Column(String(50), ForeignKey("suppliers.id", ondelete="RESTRICT"), nullable=False, index=True)
+    supplier_product_code  = Column(String(100), nullable=True)
+    supplier_barcode       = Column(String(100), nullable=True)
+    purchase_uom_id        = Column(String(50), nullable=True)
+    currency_id            = Column(String(10), nullable=False, default="INR")
+    cost_price             = Column(Numeric(15, 2), nullable=False, default=0.00)
+    last_purchase_price    = Column(Numeric(15, 2), nullable=False, default=0.00)
+    last_purchase_date     = Column(DateTime(timezone=True), nullable=True)
+    discount_percentage    = Column(Numeric(5, 2), nullable=False, default=0.00)
+    tax_inclusive          = Column(Boolean, nullable=False, default=False)
+    minimum_order_qty      = Column(Numeric(10, 2), nullable=False, default=1.00)
+    maximum_order_qty      = Column(Numeric(10, 2), nullable=True)
+    lead_time_days         = Column(Integer, nullable=False, default=1)
+    supplier_warranty_days = Column(Integer, nullable=False, default=0)
+    priority               = Column(Integer, nullable=False, default=1)
+    is_preferred           = Column(Boolean, nullable=False, default=False)
+    approval_status        = Column(String(30), nullable=False, default="Approved")
+
+    # Relationships
+    product                = relationship("Product", back_populates="vendors")
+    supplier               = relationship("Supplier", primaryjoin="foreign(ProductVendor.supplier_id) == Supplier.id")
+
+
+class ProductTaxProfile(RowSecuredMixin, BaseEntity):
+    """
+    Date-Effective Tax Configuration Profile (1:N per Product).
+    """
+    __tablename__ = "product_tax_profiles"
+
+    product_id       = Column(String(50), ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    hsn_code         = Column(String(20), nullable=True)
+    gst_rate         = Column(Numeric(5, 2), nullable=False, default=18.00)
+    cess_rate        = Column(Numeric(5, 2), nullable=False, default=0.00)
+    is_inclusive_tax = Column(Boolean, nullable=False, default=False)
+    tax_group_id     = Column(String(50), nullable=True)
+    effective_from   = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    effective_to     = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    product          = relationship("Product", back_populates="tax_profiles")
+
+
+class ProductInventoryPolicy(RowSecuredMixin, BaseEntity):
+    """
+    Inventory Control & Tracking Policy (1:1 per Product).
+    """
+    __tablename__ = "product_inventory_policies"
+
+    product_id           = Column(String(50), ForeignKey("products.id", ondelete="CASCADE"), nullable=False, unique=True)
+    is_batch_tracked     = Column(Boolean, nullable=False, default=False)
+    is_serial_tracked    = Column(Boolean, nullable=False, default=False)
+    is_expiry_required   = Column(Boolean, nullable=False, default=False)
+    is_qc_required       = Column(Boolean, nullable=False, default=False)
+    allow_negative_stock = Column(Boolean, nullable=False, default=False)
+
+    # Relationships
+    product              = relationship("Product", back_populates="inventory_policy")
+
+
+class StockCount(RowSecuredMixin, BaseEntity):
+    """
+    StockCount — Warehouse Cycle Count & Physical Audit session record.
+    """
+    __tablename__ = "stock_counts"
+
+    count_no             = Column(String(100), nullable=False, unique=True)
+    name                 = Column(String(255), nullable=False)
+    count_type           = Column(String(30), nullable=False, default="Full")  # Full, Selective, ABC
+    status               = Column(String(30), nullable=False, default="Draft")  # Draft, Counting, Reconciled, Completed, Cancelled
+    scheduled_date       = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    completed_date       = Column(DateTime(timezone=True), nullable=True)
+    notes                = Column(Text, nullable=True)
+    total_items          = Column(Integer, nullable=False, default=0)
+    total_variance_qty   = Column(Numeric(12, 4), nullable=False, default=Decimal("0.0000"))
+    total_variance_value = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+
+    items                = relationship("StockCountItem", back_populates="count_session", cascade="all, delete-orphan", lazy="selectin")
+
+
+class StockCountItem(BaseEntity):
+    """
+    StockCountItem — Individual product line physical count and variance record.
+    """
+    __tablename__ = "stock_count_items"
+
+    count_id       = Column(String(50), ForeignKey("stock_counts.id", ondelete="CASCADE"), nullable=False)
+    product_id     = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
+    system_stock   = Column(Numeric(12, 4), nullable=False, default=Decimal("0.0000"))
+    physical_count = Column(Numeric(12, 4), nullable=True)
+    variance_qty   = Column(Numeric(12, 4), nullable=False, default=Decimal("0.0000"))
+    unit_cost      = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    variance_value = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    status         = Column(String(30), nullable=False, default="Pending")  # Pending, Counted, Reconciled
+    notes          = Column(Text, nullable=True)
+
+    count_session  = relationship("StockCount", back_populates="items")
+    product        = relationship("Product")
+
+
+class StockAdjustment(RowSecuredMixin, BaseEntity):
+    """
+    StockAdjustment — Reconciled stock adjustment voucher.
+    """
+    __tablename__ = "stock_adjustments"
+
+    adjustment_no          = Column(String(100), nullable=False, unique=True)
+    count_id               = Column(String(50), ForeignKey("stock_counts.id", ondelete="RESTRICT"), nullable=False)
+    adjustment_date        = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    reason                 = Column(String(255), nullable=False, default="Cycle Count Variance Reconciliation")
+    total_adjustment_qty   = Column(Numeric(12, 4), nullable=False, default=Decimal("0.0000"))
+    total_adjustment_value = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    status                 = Column(String(30), nullable=False, default="Posted")
+    notes                  = Column(Text, nullable=True)
+
+    count_session          = relationship("StockCount")
+
+
+class StockTransfer(RowSecuredMixin, BaseEntity):
+    """
+    StockTransfer — Inter-Branch & Inter-Warehouse Stock Transfer Order record.
+    """
+    __tablename__ = "stock_transfers"
+
+    transfer_no           = Column(String(100), nullable=False, unique=True)
+    source_branch_id      = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=False)
+    destination_branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=False)
+    transfer_date         = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    status                = Column(String(30), nullable=False, default="Draft")  # Draft, Approved, InTransit, Received, Cancelled
+    carrier               = Column(String(100), nullable=True)
+    tracking_no           = Column(String(100), nullable=True)
+    notes                 = Column(Text, nullable=True)
+    total_transfer_qty    = Column(Numeric(12, 4), nullable=False, default=Decimal("0.0000"))
+    total_transfer_value  = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+
+    source_branch      = relationship("Branch", foreign_keys=[source_branch_id])
+    destination_branch = relationship("Branch", foreign_keys=[destination_branch_id])
+    items              = relationship("StockTransferItem", back_populates="transfer", cascade="all, delete-orphan", lazy="selectin")
+
+
+class StockTransferItem(BaseEntity):
+    """
+    StockTransferItem — Individual product line item in a stock transfer.
+    """
+    __tablename__ = "stock_transfer_items"
+
+    transfer_id   = Column(String(50), ForeignKey("stock_transfers.id", ondelete="CASCADE"), nullable=False)
+    product_id    = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
+    requested_qty = Column(Numeric(12, 4), nullable=False)
+    shipped_qty   = Column(Numeric(12, 4), nullable=False, default=Decimal("0.0000"))
+    received_qty  = Column(Numeric(12, 4), nullable=False, default=Decimal("0.0000"))
+    unit_cost     = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    line_total    = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    status        = Column(String(30), nullable=False, default="Pending")  # Pending, Shipped, Received
+
+    transfer = relationship("StockTransfer", back_populates="items")
+    product  = relationship("Product")
+
+
+class StockTransferShipment(RowSecuredMixin, BaseEntity):
+    """
+    StockTransferShipment — Inter-Branch shipment package record.
+    """
+    __tablename__ = "stock_transfer_shipments"
+
+    shipment_no   = Column(String(100), nullable=False, unique=True)
+    transfer_id   = Column(String(50), ForeignKey("stock_transfers.id", ondelete="RESTRICT"), nullable=False)
+    dispatch_date = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    receipt_date  = Column(DateTime(timezone=True), nullable=True)
+    carrier       = Column(String(100), nullable=True)
+    tracking_no   = Column(String(100), nullable=True)
+    status        = Column(String(30), nullable=False, default="DISPATCHED")  # DISPATCHED, DELIVERED
+    notes         = Column(Text, nullable=True)
+
+    transfer = relationship("StockTransfer")
+
+
+class ReplenishmentPlan(RowSecuredMixin, BaseEntity):
+    """
+    ReplenishmentPlan — Automated warehouse inventory replenishment plan.
+    """
+    __tablename__ = "replenishment_plans"
+
+    plan_no              = Column(String(100), nullable=False, unique=True)
+    name                 = Column(String(255), nullable=False)
+    plan_date            = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    status               = Column(String(30), nullable=False, default="Draft")  # Draft, Converted, Cancelled
+    total_items          = Column(Integer, nullable=False, default=0)
+    total_estimated_cost = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    notes                = Column(Text, nullable=True)
+
+    items                = relationship("ReplenishmentItem", back_populates="plan", cascade="all, delete-orphan", lazy="selectin")
+
+
+class ReplenishmentItem(BaseEntity):
+    """
+    ReplenishmentItem — Individual product reorder line item in a replenishment plan.
+    """
+    __tablename__ = "replenishment_items"
+
+    plan_id             = Column(String(50), ForeignKey("replenishment_plans.id", ondelete="CASCADE"), nullable=False)
+    product_id          = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
+    preferred_vendor_id = Column(String(50), nullable=True)
+    current_stock       = Column(Numeric(12, 4), nullable=False, default=Decimal("0.0000"))
+    reorder_level       = Column(Numeric(12, 4), nullable=False, default=Decimal("0.0000"))
+    suggested_qty       = Column(Numeric(12, 4), nullable=False)
+    unit_price          = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    line_total          = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    purchase_order_id   = Column(String(50), nullable=True)
+    status              = Column(String(30), nullable=False, default="Pending")  # Pending, Converted
+
+    plan    = relationship("ReplenishmentPlan", back_populates="items")
+    product = relationship("Product")
+
+
+
+
 

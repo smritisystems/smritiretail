@@ -1,103 +1,161 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
+ * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
+ * Email        : support@smritibooks.com
+ * Version      : 5.1.0  (SEEF Phase 8 - Theme token cascade)
+ * Created      : 2026-07-10
+ * Modified     : 2026-07-26
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
  *
- * Founders
- *
- * * Pushpa Devi Jawahar Mallah
- *   * Founder & Chairperson
- *   * Phone: +91 9324117007
- *   * Email: founder@aitdl.com
- *
- * * Jawahar Ramkripal Mallah
- *   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
- *   * Email: founder@aitdl.com
- *
- * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
- *
- * * Version    : 2.1.1
- * * Created    : 2026-07-10
- * * Modified   : 2026-07-11
- * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
- * * License    : Proprietary Commercial Software
+ * WNG-002: List Report Pattern — System Audit Trail
  */
 
 import React, { useState, useEffect } from "react";
 import { AuditLogEntry } from "../types.js";
-import { SmritiScrollArea } from "./SmritiScrollArea.js";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { FioriListReport, ListReportColumn } from "./common/FioriListReport.tsx";
+
+const ActionBadge: React.FC<{ action: string }> = ({ action }) => {
+  const cls =
+    action === "CREATE"
+      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+      : action === "DELETE"
+      ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+      : action === "UPDATE"
+      ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+      : "bg-theme-surface-2 text-theme-muted border-theme-divider";
+  return (
+    <span className={`px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded border ${cls}`}>
+      {action}
+    </span>
+  );
+};
+
+const COLUMNS: ListReportColumn<AuditLogEntry>[] = [
+  {
+    key: "timestamp",
+    label: "Timestamp",
+    render: (row) => (
+      <span className="text-theme-body font-mono text-xs">
+        {new Date(row.timestamp).toLocaleString()}
+      </span>
+    ),
+  },
+  {
+    key: "userName",
+    label: "Operator",
+    render: (row) => (
+      <div>
+        <span className="font-semibold text-theme-heading text-xs">{row.userName}</span>
+        {row.userId && <div className="text-[10px] text-theme-muted font-mono">{row.userId}</div>}
+      </div>
+    ),
+  },
+  {
+    key: "module",
+    label: "Module Segment",
+    render: (row) => (
+      <span className="bg-theme-surface-2 text-theme-body px-2 py-0.5 rounded text-[10px] font-mono">
+        {row.module}
+      </span>
+    ),
+  },
+  {
+    key: "action",
+    label: "Action Type",
+    align: "center",
+    render: (row) => <ActionBadge action={row.action} />,
+  },
+  {
+    key: "targetName",
+    label: "Target Entity",
+    render: (row) => (
+      <div>
+        <span className="text-theme-body text-xs">{row.targetName}</span>
+        {row.targetId && (
+          <span className="text-[10px] text-theme-muted font-mono block">({row.targetId})</span>
+        )}
+      </div>
+    ),
+  },
+  {
+    key: "newValue",
+    label: "Audit Trail Details",
+    render: (row) => (
+      <div className="text-xs">
+        {row.oldValue && row.newValue && (
+          <div className="flex flex-col space-y-0.5">
+            <span className="line-through text-rose-400/80 font-mono text-[10px]">{row.oldValue}</span>
+            <span className="text-emerald-400 font-mono text-[10px]">{row.newValue}</span>
+          </div>
+        )}
+        {!row.oldValue && row.newValue && (
+          <span className="text-theme-body">{row.newValue}</span>
+        )}
+        {!row.oldValue && !row.newValue && <span className="text-theme-muted">—</span>}
+      </div>
+    ),
+  },
+];
 
 export const AuditLogsTab: React.FC = () => {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchAuditLogs = () => {
+    setLoading(true);
     apiFetchV1("/audit-logs")
-      .then(data => {
+      .then((data) => {
         const logsData = Array.isArray(data) ? data : data?.logs || [];
-        setLogs(logsData);
+        setLogs(
+          logsData.sort(
+            (a: AuditLogEntry, b: AuditLogEntry) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          )
+        );
         setLoading(false);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error("Failed to load audit logs:", err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchAuditLogs();
   }, []);
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-      <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">System Audit Logs</h1>
-        <p className="text-sm text-slate-500 mt-1">Global security and modification trail</p>
+    <div className="flex flex-col h-full bg-theme-base text-theme-body">
+      <div className="flex-1 overflow-hidden">
+        <FioriListReport<AuditLogEntry>
+          title="System Audit Logs"
+          subtitle="Global security, authentication, modification, and transaction audit trail"
+          data={logs}
+          columns={COLUMNS}
+          isLoading={loading}
+          onRefresh={fetchAuditLogs}
+          searchPlaceholder="Search audit log by operator, module, action, or target..."
+          filterOptions={[
+            {
+              key: "action",
+              label: "Action",
+              options: [
+                { label: "CREATE", value: "CREATE" },
+                { label: "UPDATE", value: "UPDATE" },
+                { label: "DELETE", value: "DELETE" },
+                { label: "SEARCH", value: "SEARCH" },
+                { label: "FILTER", value: "FILTER" },
+                { label: "TRANSACTION_VIEW", value: "TRANSACTION_VIEW" },
+              ],
+            },
+          ]}
+        />
       </div>
-
-      <SmritiScrollArea className="flex-1 p-6">
-        <div className="bg-white dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-medium">
-              <tr>
-                <th className="px-4 py-3">Timestamp</th>
-                <th className="px-4 py-3">User</th>
-                <th className="px-4 py-3">Module</th>
-                <th className="px-4 py-3">Action</th>
-                <th className="px-4 py-3">Target</th>
-                <th className="px-4 py-3">Changes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-              {loading ? (
-                <tr><td colSpan={6} className="text-center py-8 text-slate-500">Loading audit logs...</td></tr>
-              ) : logs.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-8 text-slate-500">No audit logs found.</td></tr>
-              ) : (
-                logs.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map(log => (
-                  <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
-                    <td className="px-4 py-3 whitespace-nowrap text-slate-500">{new Date(log.timestamp).toLocaleString()}</td>
-                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{log.userName}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{log.module}</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-1 text-[10px] uppercase font-bold tracking-wider rounded bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300">
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{log.targetName} <span className="text-xs text-slate-400">({log.targetId})</span></td>
-                    <td className="px-4 py-3 text-xs text-slate-500">
-                      {log.oldValue && log.newValue && (
-                        <div className="flex flex-col space-y-1">
-                          <span className="line-through text-rose-500">{log.oldValue}</span>
-                          <span className="text-emerald-500">{log.newValue}</span>
-                        </div>
-                      )}
-                      {!log.oldValue && log.newValue && <span className="text-emerald-500">{log.newValue}</span>}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </SmritiScrollArea>
     </div>
   );
 };

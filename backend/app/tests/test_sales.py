@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -42,6 +42,7 @@ pytestmark = pytest.mark.asyncio
 @pytest.fixture(autouse=True)
 async def override_db_and_tenant(db_session):
     """Wire the test DB session into the app dependency."""
+    app.dependency_overrides.pop(get_tenant_context, None)
     await db_session.execute(delete(RefreshTokenBlacklist))
     await db_session.execute(delete(User))
     await db_session.commit()
@@ -69,6 +70,7 @@ async def _make_tenant(db_session, suffix: str):
     )
     db_session.add_all([company, branch])
     await db_session.commit()
+    _set_tenant(company.id, branch.id)
     return company, branch
 
 
@@ -100,9 +102,29 @@ def _bearer(user: User, company_id: str, branch_id: str) -> dict:
 
 def _set_tenant(company_id: str, branch_id: str):
     """Override get_tenant_context to return a fixed TenantContext."""
+    from app.db.session import active_tenant_ctx, active_security_context, SecurityContext
     async def _get_tenant():
         return TenantContext(company_id=company_id, branch_id=branch_id)
     app.dependency_overrides[get_tenant_context] = _get_tenant
+    ctx = TenantContext(company_id=company_id, branch_id=branch_id, tenant_id="default")
+    sec_ctx = SecurityContext(
+        user_id="test_user",
+        username="test_user",
+        platform_admin=False,
+        tenant_id="default",
+        company_ids=[company_id],
+        branch_ids=[branch_id],
+        department_ids=[],
+        warehouse_ids=[],
+        cost_center_ids=[],
+        record_scope="ALL",
+        license={},
+        feature_flags={},
+        session="",
+        api_key=""
+    )
+    active_tenant_ctx.set(ctx)
+    active_security_context.set(sec_ctx)
 
 
 async def _make_product(db_session, suffix: str, company_id: str, branch_id: str, stock: int = 20) -> Product:
@@ -136,6 +158,7 @@ async def _make_customer(db_session, suffix: str, company_id: str, branch_id: st
 
     customer = Customer(
         id=f"cust-sal-{suffix}",
+        code=f"CUST-SAL-{suffix}",
         customer_group_id=group.id,
         name=f"Sales Customer {suffix}",
         outstanding=Decimal("0.00"),
@@ -159,6 +182,8 @@ async def _make_invoice(db_session, suffix: str, company_id: str, branch_id: str
         gst_rate=Decimal("18.00"),
         tax_amount=Decimal("18.00"),
         total_amount=Decimal("118.00"),
+        company_id=company_id,
+        branch_id=branch_id,
     )
     invoice = SalesInvoice(
         id=f"inv-sal-{suffix}",
@@ -1044,9 +1069,11 @@ async def test_workflow_approve_sales_invoice(db_session):
     s = _u.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, f"wf{s}")
     manager = await _make_manager(db_session, f"wfm{s}", comp.id, br.id)
+    cust = await _make_customer(db_session, f"wf{s}", comp.id, br.id)
     invoice = SalesInvoice(
         id=f"inv-wf-{s}", invoice_no=f"INV-WF-{s}",
-        payment_mode="Cash", status="Draft",
+        customer_id=cust.id,
+        status="Draft",
         tax_total="0", grand_total="100",
         company_id=comp.id, branch_id=br.id,
     )
@@ -1070,9 +1097,11 @@ async def test_workflow_cancel_sales_invoice(db_session):
     s = _u.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, f"wfc{s}")
     manager = await _make_manager(db_session, f"wfcm{s}", comp.id, br.id)
+    cust = await _make_customer(db_session, f"wfc{s}", comp.id, br.id)
     invoice = SalesInvoice(
         id=f"inv-wfc-{s}", invoice_no=f"INV-WFC-{s}",
-        payment_mode="Cash", status="Draft",
+        customer_id=cust.id,
+        status="Draft",
         tax_total="0", grand_total="50",
         company_id=comp.id, branch_id=br.id,
     )
@@ -1124,3 +1153,103 @@ async def test_convert_quotation_to_invoice(db_session):
     data = r.json()
     assert "id" in data
     assert data["status"] == "Draft"
+
+
+async def test_sales_invoice_credit_limit_exceeded(db_session):
+    """Test creating a sales invoice for a customer who has exceeded their credit limit."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, f"cred-{s}")
+    cashier = await _make_cashier(db_session, f"cred-{s}", comp.id, br.id)
+
+    group = CustomerGroup(
+        id=f"cg-{s}",
+        name=f"Credit Restricted Group {s}",
+        credit_limit=Decimal("500.00"),
+        unlimited_credit=False,
+        auto_block_sales=True,
+        credit_hold=False,
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    cust = Customer(
+        id=f"cust-{s}",
+        code=f"CUST-{s}",
+        name=f"Credit Cust {s}",
+        customer_group_id=group.id,
+        outstanding=Decimal("450.00"),
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    product = await _make_product(db_session, f"cred-{s}", comp.id, br.id, stock=100)
+    db_session.add_all([group, cust])
+    await db_session.commit()
+
+    _set_tenant(comp.id, br.id)
+    payload = {
+        "invoice_no": f"INV-CRED-{s}",
+        "customer_id": cust.id,
+        "items": [
+            {
+                "product_id": product.id,
+                "code": product.code,
+                "name": product.name,
+                "quantity": 1,
+                "price": 100.00,
+                "gst_rate": 0.00,
+            }
+        ],
+        "payments": [],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            "/api/v1/sales/invoices",
+            json=payload,
+            headers=_bearer(cashier, comp.id, br.id),
+        )
+    assert r.status_code == 400
+    assert "Credit limit exceeded" in r.text or "credit" in r.text.lower()
+
+
+@pytest.mark.asyncio
+async def test_sales_invoice_overridden_gst_rate_recalculated_from_product_master(db_session):
+    s = uuid.uuid4().hex[:8]
+    comp, br = await _make_tenant(db_session, s)
+    cashier = await _make_cashier(db_session, s, comp.id, br.id)
+    customer = await _make_customer(db_session, s, comp.id, br.id)
+    # Create product with 12% GST
+    product = await _make_product(db_session, f"gstrate-{s}", comp.id, br.id, stock=10)
+    product.gst_percentage = Decimal("12.00")
+    db_session.add(product)
+    await db_session.commit()
+
+    _set_tenant(comp.id, br.id)
+    # Incoming payload attempts to override GST to 0.00%
+    payload = {
+        "invoice_no": f"INV-GSTOVR-{s}",
+        "customer_id": customer.id,
+        "items": [
+            {
+                "product_id": product.id,
+                "code": product.code,
+                "name": product.name,
+                "quantity": 2,
+                "price": 100.00,
+                "gst_rate": 0.00,  # Payload attempt to bypass tax
+            }
+        ],
+        "payments": [{"payment_mode": "CASH", "amount": 224.00}],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            "/api/v1/sales/invoices",
+            json=payload,
+            headers=_bearer(cashier, comp.id, br.id),
+        )
+    assert r.status_code == 201
+    data = r.json()
+    # Verified: Tax was recalculated at product master 12% rate (200 * 12% = 24.00 tax)
+    assert float(data["tax_total"]) == 24.00
+    assert float(data["grand_total"]) == 224.00
+

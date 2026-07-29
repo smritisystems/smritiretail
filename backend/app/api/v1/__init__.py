@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -15,11 +15,14 @@ License      : Proprietary Commercial Software
 
 # SMRITI api v1 submodules
 from . import (
+    accounting,
     ai,
     attributes,
     auth,
     assignments,
     barcode,
+    capabilities,
+
     changelog,
     crm,
     dev_tracker,
@@ -42,4 +45,42 @@ from . import (
     consignment,
     sre,
     dispatch,
+    identity,
+    sip,
+    communicator,
+    screen_studio,
+    offline_sync,
+    diagnostics,
+    validation_policy,
+    tax,
+    accounting,
+    marketplace,
+    operations,
+    ai_advisory,
+    attachments,
+    wms,
+    ecommerce,
+    analytics,
+    franchise,
+    loyalty,
+    system_release,
+    pharma,
+    apparel,
+    nic_gst,
+    ecosystem,
 )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

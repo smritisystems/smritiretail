@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "module_version": "13.0.0",
+  "id": "inventory",
+  "uuid": "10000000-0000-0000-0000-000000000003",
+  "name": "Inventory & Stock",
+  "display_name": "Stock Audit & Multi-Warehouse Management",
+  "category": "Core Retail",
+  "module_type": "CORE",
+  "version": "13.0.0",
+  "stability": "STABLE",
+  "trust_tier": "FIRST_PARTY",
+  "license_tier": "Community",
+  "critical": true,
+  "min_platform": "12.1.0",
+  "max_platform": "13.x",
+  "depends_on": [],
+  "conflicts_with": [],
+  "permissions": ["inventory.view", "inventory.adjust", "inventory.transfer", "inventory.audit"],
+  "menus": [
+    { "id": "menu_items", "label": "Item Master", "path": "/inventory/items" },
+    { "id": "menu_stock_audit", "label": "Stock Audit", "path": "/inventory/audit" },
+    { "id": "menu_transfers", "label": "Inter-Branch Transfer", "path": "/inventory/transfers" }
+  ],
+  "routes": [
+    "/api/v1/inventory",
+    "/api/v1/inventory/items",
+    "/api/v1/inventory/audit",
+    "/api/v1/inventory/transfers"
+  ],
+  "event_contracts": ["Inventory.Stock.Adjusted:v1"]
+}

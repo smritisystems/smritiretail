@@ -1,0 +1,86 @@
+/*
+  SMRITI Design System (SDS v1.0) — Root Tokens Specification
+  Classification: Production Core Tokens
+*/
+
+:root {
+  /* Color Palette — Base System Defaults (Overridden by Active Theme) */
+  --sds-color-primary: #0a6ed1;
+  --sds-color-primary-hover: #085caf;
+  --sds-color-primary-active: #06498c;
+  --sds-color-primary-light: #e8f3fc;
+  
+  --sds-color-surface: #ffffff;
+  --sds-color-surface-hover: #f7f9fa;
+  --sds-color-background: #f4f6f9;
+  --sds-color-background-alt: #ebf0f5;
+  
+  --sds-color-text-main: #1d2d3e;
+  --sds-color-text-secondary: #516377;
+  --sds-color-text-muted: #8395a7;
+  --sds-color-text-inverse: #ffffff;
+  
+  --sds-color-border: #d0d7de;
+  --sds-color-border-subtle: #e1e8ed;
+  --sds-color-border-focus: #0a6ed1;
+
+  /* Status Colors */
+  --sds-status-success-bg: #e6f4ea;
+  --sds-status-success-text: #137333;
+  --sds-status-success-border: #a8dab5;
+  
+  --sds-status-warning-bg: #fef7e0;
+  --sds-status-warning-text: #b06000;
+  --sds-status-warning-border: #fdd835;
+  
+  --sds-status-error-bg: #fce8e6;
+  --sds-status-error-text: #c5221f;
+  --sds-status-error-border: #f8a59d;
+  
+  --sds-status-info-bg: #e8f0fe;
+  --sds-status-info-text: #1a73e8;
+  --sds-status-info-border: #aecbfa;
+
+  /* Typography System */
+  --sds-font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --sds-font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  
+  --sds-font-size-2xs: 0.6875rem; /* 11px */
+  --sds-font-size-xs: 0.75rem;     /* 12px */
+  --sds-font-size-sm: 0.875rem;    /* 14px */
+  --sds-font-size-md: 1.000rem;    /* 16px */
+  --sds-font-size-lg: 1.125rem;    /* 18px */
+  --sds-font-size-xl: 1.375rem;    /* 22px */
+  --sds-font-size-2xl: 1.750rem;   /* 28px */
+
+  --sds-font-weight-regular: 400;
+  --sds-font-weight-medium: 500;
+  --sds-font-weight-semibold: 600;
+  --sds-font-weight-bold: 700;
+
+  /* Spacing Grid (4px Base Unit) */
+  --sds-space-2xs: 2px;
+  --sds-space-xs: 4px;
+  --sds-space-sm: 8px;
+  --sds-space-md: 16px;
+  --sds-space-lg: 24px;
+  --sds-space-xl: 32px;
+  --sds-space-2xl: 48px;
+
+  /* Radius Tokens */
+  --sds-radius-xs: 2px;
+  --sds-radius-sm: 4px;
+  --sds-radius-md: 8px;
+  --sds-radius-lg: 12px;
+  --sds-radius-full: 9999px;
+
+  /* Shadows & Elevation */
+  --sds-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --sds-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --sds-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --sds-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
+
+  /* Motion & Transitions */
+  --sds-motion-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --sds-motion-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}

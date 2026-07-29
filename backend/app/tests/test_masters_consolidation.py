@@ -172,6 +172,55 @@ async def test_branch_store_warehouse_crud(db_session):
         assert res_del.status_code == 200
 
 
+async def test_organization_and_extended_branch_crud(db_session):
+    company, branch, user, headers = await _setup_admin_and_auth_headers(db_session)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1. Create Organization
+        res_org = await client.post("/api/v1/masters/organizations", headers=headers, json={
+            "name": "Smriti Enterprise Network",
+            "org_type": "HOLDING",
+            "is_active": True
+        })
+        assert res_org.status_code == 201
+        data_org = res_org.json()
+        assert "org-" in data_org["id"]
+        assert data_org["name"] == "Smriti Enterprise Network"
+        assert data_org["org_type"] == "HOLDING"
+        org_id = data_org["id"]
+
+        # 2. List Organizations
+        res_org_list = await client.get("/api/v1/masters/organizations", headers=headers)
+        assert res_org_list.status_code == 200
+        assert any(x["id"] == org_id for x in res_org_list.json())
+
+        # 3. Create Extended Branch with ADR-015 fields
+        res_ext_br = await client.post("/api/v1/masters/branches", headers=headers, json={
+            "company": company.id,
+            "name": "Connaught Place Flagship",
+            "code": "BR-DELHI-CP",
+            "branch_type": "RETAIL",
+            "gstin": "07AAAAA0000A1Z5",
+            "phone": "+919876543210",
+            "email": "cp@smriti.retail"
+        })
+        assert res_ext_br.status_code == 201
+        data_ext_br = res_ext_br.json()
+        assert data_ext_br["code"] == "BR-DELHI-CP"
+        assert data_ext_br["branch_type"] == "RETAIL"
+        assert data_ext_br["gstin"] == "07AAAAA0000A1Z5"
+        ext_br_id = data_ext_br["id"]
+
+        # 4. Update Extended Branch
+        res_br_upd = await client.put(f"/api/v1/masters/branches/{ext_br_id}", headers=headers, json={
+            "name": "Connaught Place Superstore",
+            "email": "cp.superstore@smriti.retail"
+        })
+        assert res_br_upd.status_code == 200
+        assert res_br_upd.json()["name"] == "Connaught Place Superstore"
+        assert res_br_upd.json()["email"] == "cp.superstore@smriti.retail"
+
+
 # ===========================================================================
 # Tier-1 lookups tests (types & values with jsonschema validation)
 # ===========================================================================
@@ -229,7 +278,7 @@ async def test_lookups_validation_and_soft_delete(db_session):
         # 6. Soft delete lookup value
         res_del = await client.delete(f"/api/v1/masters/lookup/department/values/{val_id}", headers=headers)
         assert res_del.status_code == 200
-        assert res_del.json()["success"] is True
+        assert res_del.json()["active"] is False
 
         # 7. Verify soft deleted item is filtered out from active list
         res_list_after = await client.get("/api/v1/masters/lookup/department/values", headers=headers)

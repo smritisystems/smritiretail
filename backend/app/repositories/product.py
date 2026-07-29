@@ -1,33 +1,60 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.8.0
+Version      : 5.6.0
 Created      : 2026-07-11
-Modified     : 2026-07-13
+Modified     : 2026-07-21
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
+Classification: Internal Architecture Standard
 """
 
 from typing import List, Optional
 from sqlalchemy import cast, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from ..models.inventory import Product
+from sqlalchemy.orm import selectinload
+from ..models.inventory import Product, ProductVendor, ProductTaxProfile, ProductInventoryPolicy
 from .base import BaseRepository
 from ..api.deps import TenantContext
+
 
 class ProductRepository(BaseRepository[Product]):
     def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
         super().__init__(Product, db, tenant_ctx)
 
+    async def get(self, id: str) -> Optional[Product]:
+        stmt = (
+            select(Product)
+            .options(
+                selectinload(Product.barcodes),
+                selectinload(Product.vendors),
+                selectinload(Product.tax_profiles),
+                selectinload(Product.inventory_policy),
+            )
+            .filter(Product.id == id, Product.is_deleted == False)
+        )
+        stmt = self._apply_tenant_filter(stmt)
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
+
     async def get_by_barcode(self, barcode: str) -> Optional[Product]:
         """
         Fetch product details matching barcode.
         """
-        stmt = select(Product).filter(Product.barcode == barcode, Product.is_deleted == False)
+        stmt = (
+            select(Product)
+            .options(
+                selectinload(Product.barcodes),
+                selectinload(Product.vendors),
+                selectinload(Product.tax_profiles),
+                selectinload(Product.inventory_policy),
+            )
+            .filter(Product.barcode == barcode, Product.is_deleted == False)
+        )
         stmt = self._apply_tenant_filter(stmt)
         result = await self.db.execute(stmt)
         return result.scalars().first()
@@ -39,7 +66,16 @@ class ProductRepository(BaseRepository[Product]):
         """
         Search products with optional query on name/code/barcode/attributes and category match.
         """
-        stmt = select(Product).filter(Product.is_deleted == False)
+        stmt = (
+            select(Product)
+            .options(
+                selectinload(Product.barcodes),
+                selectinload(Product.vendors),
+                selectinload(Product.tax_profiles),
+                selectinload(Product.inventory_policy),
+            )
+            .filter(Product.is_deleted == False)
+        )
         stmt = self._apply_tenant_filter(stmt)
         if q:
             stmt = stmt.filter(
@@ -53,4 +89,3 @@ class ProductRepository(BaseRepository[Product]):
         stmt = stmt.offset(skip).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
-

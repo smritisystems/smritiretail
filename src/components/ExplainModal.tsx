@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -23,7 +23,7 @@
  * * License    : Proprietary Commercial Software
  */
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Formula } from "../types";
 
 interface ExplainModalProps {
@@ -32,6 +32,18 @@ interface ExplainModalProps {
 }
 
 export const ExplainModal: React.FC<ExplainModalProps> = ({ formula, onClose }) => {
+  useEffect(() => {
+    if (!formula) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [formula, onClose]);
+
   if (!formula) return null;
 
   return (
@@ -44,7 +56,7 @@ export const ExplainModal: React.FC<ExplainModalProps> = ({ formula, onClose }) 
         />
 
         <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
-          <div className="pointer-events-auto w-screen max-w-xl">
+          <div className="pointer-events-auto w-full max-w-xl">
             <div className="flex h-full flex-col overflow-y-scroll bg-theme-surface-1 border-l border-theme-divider py-6 shadow-2xl">
               <div className="px-6 border-b border-theme-divider pb-5">
                 <div className="flex items-start justify-between">

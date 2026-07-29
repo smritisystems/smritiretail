@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -336,7 +336,7 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
   });
 
   return (
-    <div className="flex h-[calc(100vh-120px)] bg-[#0a1122] rounded-xl overflow-hidden border border-theme-divider shadow-xl">
+    <div className="flex h-full bg-[#0a1122] rounded-xl overflow-hidden border border-theme-divider shadow-xl">
       {/* Sidebar - Master Types Navigation */}
       <div className="w-64 border-r border-theme-divider bg-theme-surface-2 flex flex-col h-full shrink-0">
         <div className="p-4 border-b border-theme-divider">

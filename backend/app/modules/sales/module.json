@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "module_version": "13.0.0",
+  "id": "sales",
+  "uuid": "10000000-0000-0000-0000-000000000001",
+  "name": "Sales & Billing",
+  "display_name": "Outbound Sales Order & Multi-Channel Billing",
+  "category": "Core Retail",
+  "module_type": "CORE",
+  "version": "13.0.0",
+  "stability": "STABLE",
+  "trust_tier": "FIRST_PARTY",
+  "license_tier": "Community",
+  "critical": true,
+  "min_platform": "12.1.0",
+  "max_platform": "13.x",
+  "depends_on": [],
+  "conflicts_with": [],
+  "permissions": ["sales.view", "sales.create", "sales.invoice", "sales.return"],
+  "menus": [
+    { "id": "menu_sales_orders", "label": "Sales Orders", "path": "/sales/orders" },
+    { "id": "menu_sales_invoices", "label": "Sales Invoices", "path": "/sales/invoices" },
+    { "id": "menu_sales_returns", "label": "Sales Returns", "path": "/sales/returns" }
+  ],
+  "routes": [
+    "/api/v1/sales",
+    "/api/v1/sales/orders",
+    "/api/v1/sales/invoices",
+    "/api/v1/sales/returns"
+  ],
+  "event_contracts": ["Sales.Invoice.Posted:v1"]
+}

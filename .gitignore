@@ -5,6 +5,10 @@ __pycache__/
 *.pyc
 *.py~
 
+# Database Backups
+backups/
+
+
 # Distribution / packaging
 .Python
 develop-eggs/

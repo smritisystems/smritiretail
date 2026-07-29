@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -25,6 +25,9 @@ import App from "./App.tsx";
 import "./index.css";
 import { ThemeProvider } from "./contexts/ThemeContext.tsx";
 import { TaxInvoicePrintPage } from "./print_engine/TaxInvoicePrintPage.tsx";
+// SEEF — must be the outermost provider so CSS data-attributes are written
+// to <html> before any child component renders (prevents theme flash).
+import { SEEFProvider } from "./layout_engine/SEEFContext.tsx";
 
 const isInvoicePrint =
   window.location.pathname === "/invoice-print" ||
@@ -32,8 +35,10 @@ const isInvoicePrint =
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ThemeProvider>
-      {isInvoicePrint ? <TaxInvoicePrintPage /> : <App />}
-    </ThemeProvider>
+    <SEEFProvider>
+      <ThemeProvider>
+        {isInvoicePrint ? <TaxInvoicePrintPage /> : <App />}
+      </ThemeProvider>
+    </SEEFProvider>
   </React.StrictMode>
 );

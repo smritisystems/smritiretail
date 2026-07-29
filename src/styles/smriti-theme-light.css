@@ -1,0 +1,24 @@
+/*
+  SMRITI Design System (SDS v1.0) — Light Theme Specification
+*/
+
+[data-theme="light"] {
+  --sds-color-primary: #0a6ed1;
+  --sds-color-primary-hover: #085caf;
+  --sds-color-primary-active: #06498c;
+  --sds-color-primary-light: #e8f3fc;
+
+  --sds-color-surface: #ffffff;
+  --sds-color-surface-hover: #f7f9fa;
+  --sds-color-background: #f4f6f9;
+  --sds-color-background-alt: #ebf0f5;
+
+  --sds-color-text-main: #1d2d3e;
+  --sds-color-text-secondary: #516377;
+  --sds-color-text-muted: #8395a7;
+  --sds-color-text-inverse: #ffffff;
+
+  --sds-color-border: #d0d7de;
+  --sds-color-border-subtle: #e1e8ed;
+  --sds-color-border-focus: #0a6ed1;
+}

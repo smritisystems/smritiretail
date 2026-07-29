@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -45,8 +45,17 @@ export const ContextDialog: React.FC<ContextDialogProps> = ({ isOpen, onClose, i
       } catch (e) {
         setAuditLogs([]);
       }
+
+      const handleEsc = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onClose();
+        }
+      };
+      window.addEventListener("keydown", handleEsc);
+      return () => window.removeEventListener("keydown", handleEsc);
     }
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   const clearAuditLogs = () => {
     try {

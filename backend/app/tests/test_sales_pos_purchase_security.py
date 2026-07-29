@@ -110,23 +110,23 @@ async def _create_test_entities(
             {"id": f"ur-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "user_id": user.id, "role_id": role_id}
         )
 
-        policy_id = f"pol-{uuid.uuid4().hex[:6]}"
+        permission_set_id = f"pol-{uuid.uuid4().hex[:6]}"
         await db_session.execute(
             text(
-                "INSERT INTO smriti_policies (id, uuid, code, name, description, "
+                "INSERT INTO smriti_permission_sets (id, uuid, code, name, description, "
                 "is_active, is_deleted, created_at, modified_at) "
                 "VALUES (:id, :uuid, :code, :name, 'desc', true, false, now(), now())"
             ),
-            {"id": policy_id, "uuid": str(uuid.uuid4()), "code": f"POL_{role_code}", "name": f"Policy for {role_code}"}
+            {"id": permission_set_id, "uuid": str(uuid.uuid4()), "code": f"POL_{role_code}", "name": f"Policy for {role_code}"}
         )
 
         await db_session.execute(
             text(
-                "INSERT INTO smriti_role_policies (id, uuid, role_id, policy_id, "
+                "INSERT INTO smriti_role_permission_sets (id, uuid, role_id, permission_set_id, "
                 "created_at, modified_at) "
-                "VALUES (:id, :uuid, :role_id, :policy_id, now(), now())"
+                "VALUES (:id, :uuid, :role_id, :permission_set_id, now(), now())"
             ),
-            {"id": f"rp-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "role_id": role_id, "policy_id": policy_id}
+            {"id": f"rp-{uuid.uuid4().hex[:6]}", "uuid": str(uuid.uuid4()), "role_id": role_id, "permission_set_id": permission_set_id}
         )
 
         for perm_code in permission_codes:
@@ -149,14 +149,14 @@ async def _create_test_entities(
 
             await db_session.execute(
                 text(
-                    "INSERT INTO smriti_policy_permissions (id, uuid, policy_id, "
+                    "INSERT INTO smriti_permission_set_permissions (id, uuid, permission_set_id, "
                     "permission_id, permission_type, created_at, modified_at) "
-                    "VALUES (:id, :uuid, :policy_id, :perm_id, 'ALLOW', now(), now())"
+                    "VALUES (:id, :uuid, :permission_set_id, :perm_id, 'ALLOW', now(), now())"
                 ),
                 {
                     "id": f"pp-{uuid.uuid4().hex[:6]}",
                     "uuid": str(uuid.uuid4()),
-                    "policy_id": policy_id,
+                    "permission_set_id": permission_set_id,
                     "perm_id": perm_id
                 }
             )
