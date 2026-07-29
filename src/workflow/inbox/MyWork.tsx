@@ -11,7 +11,8 @@ import React, { useState, useEffect } from "react";
 import { SUWINESDK } from "../sdk/SUWINESDK.ts";
 import { UniversalWorkItem } from "../queue/UniversalWorkQueue.ts";
 import { DrillableLink } from "../../components/drilldown/DrillableLink.tsx";
-import { Inbox, CheckCircle, XCircle, Clock, AlertTriangle, Play, Sparkles, Filter, RefreshCw } from "lucide-react";
+import { ProcessMonitor } from "../monitoring/ProcessMonitor.tsx";
+import { Inbox, CheckCircle, XCircle, Clock, AlertTriangle, Play, Sparkles, Filter, RefreshCw, Activity } from "lucide-react";
 
 export const MyWork: React.FC = () => {
   const [items, setItems] = useState<UniversalWorkItem[]>([]);
@@ -83,6 +84,9 @@ export const MyWork: React.FC = () => {
           <div>Estimated SLA: <strong>{simulationResult.slaEstimatedHours} hours</strong></div>
         </div>
       )}
+
+      {/* SUWINE Live Process Monitor */}
+      <ProcessMonitor />
 
       {/* Queue Filter Bar */}
       <div className="flex items-center justify-between p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
