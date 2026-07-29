@@ -116,6 +116,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                 ["Item Name", formData.name],
                 ["Barcode", formData.barcode || "N/A"],
                 ["Category", formData.category || "General"],
+                ["Sub-Category", formData.subCategory || formData.sub_category || "Standard"],
                 ["Brand", formData.brand || "Smriti Standard"],
                 ["HSN / SAC Code", formData.hsn_code || formData.hsnCode || "8471"],
                 ["GST Rate", `${formData.gst_rate || formData.gstPercentage || 18}%`],

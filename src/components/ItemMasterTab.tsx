@@ -321,15 +321,26 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
         !searchTerm ||
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (p.barcode && p.barcode.toLowerCase().includes(searchTerm.toLowerCase()));
+        (p.barcode && p.barcode.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (p.category && p.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (p.subCategory && p.subCategory.toLowerCase().includes(searchTerm.toLowerCase()));
 
       let matchFilter = true;
       if (activeFilter.type === "CATEGORY") {
-        matchFilter = p.category === activeFilter.value;
+        matchFilter = p.category === activeFilter.value || p.subCategory === activeFilter.value || p.sub_category === activeFilter.value;
       } else if (activeFilter.type === "BRAND") {
         matchFilter = p.brand === activeFilter.value;
       } else if (activeFilter.type === "LOW_STOCK") {
         matchFilter = (p.stock_qty ?? p.qty ?? 0) < (p.min_stock_level || 5);
+      } else if (activeFilter.type === "FAVORITES") {
+        matchFilter = !!p.isFavorite;
+      } else if (activeFilter.type === "DEPARTMENT") {
+        matchFilter = p.category === activeFilter.value || (p.attributes && p.attributes.department === activeFilter.value);
+      } else if (activeFilter.type === "SUPPLIER") {
+        matchFilter = !p.attributes?.supplier || p.attributes?.supplier === activeFilter.value;
+      } else if (activeFilter.type === "WAREHOUSE") {
+        matchFilter = !p.attributes?.warehouse || p.attributes?.warehouse === activeFilter.value;
       }
 
       return matchSearch && matchFilter;

@@ -40,6 +40,8 @@ export interface Product {
   qty?: number;
   min_stock_level?: number;
   category: string;
+  subCategory?: string;
+  sub_category?: string;
   isFavorite?: boolean;
   barcode: string;
   secondaryBarcodes?: string[]; // Added for secondary barcodes support
