@@ -32,9 +32,10 @@ from sqlalchemy import delete
 
 from app.main import app
 from app.models.auth import User, RefreshTokenBlacklist, UserRole
+import app.services.auth as auth_service_module
 from app.models.tenant import Company, Branch
 from app.api.deps import get_db
-from app.core.security import hash_password, create_access_token, create_refresh_token
+from app.core.security import hash_password, create_access_token, create_refresh_token, verify_password
 
 from app.tests.conftest import clear_db
 
@@ -110,6 +111,97 @@ async def test_bootstrap_creates_sysadmin(db_session):
     assert data["is_active"] is True
     assert data["status"] == "PendingPasswordChange"
     assert data.get("password_reset_required") is True
+
+
+async def test_dev_login_bootstraps_default_admin_when_no_users_exist(db_session, monkeypatch):
+    monkeypatch.setattr(auth_service_module.settings, "ENVIRONMENT", "development", raising=False)
+    monkeypatch.setattr(auth_service_module.settings, "ENABLE_DEV_LOGIN", True, raising=False)
+
+    from app.services.bootstrap import BootstrapService
+    await BootstrapService(db_session).run()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post("/api/v1/auth/login", json={
+            "username": "super",
+            "password": "whynothing",
+        })
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["role"] == "SYSADMIN"
+    assert data["password_reset_required"] is True
+
+
+async def test_dev_login_bootstraps_super_when_other_users_exist(db_session, monkeypatch):
+    monkeypatch.setattr(auth_service_module.settings, "ENVIRONMENT", "development", raising=False)
+    monkeypatch.setattr(auth_service_module.settings, "ENABLE_DEV_LOGIN", True, raising=False)
+
+    company, branch = await _make_tenant(db_session, "dev-existing")
+    await _make_user(db_session, "existing", UserRole.MANAGER, company_id=company.id, branch_id=branch.id)
+
+    from app.services.bootstrap import BootstrapService
+    await BootstrapService(db_session).run()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post("/api/v1/auth/login", json={
+            "username": "super",
+            "password": "whynothing",
+        })
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["role"] == "SYSADMIN"
+
+
+async def test_dev_login_reconciles_existing_super_account_password(db_session, monkeypatch):
+    monkeypatch.setattr(auth_service_module.settings, "ENVIRONMENT", "development", raising=False)
+    monkeypatch.setattr(auth_service_module.settings, "ENABLE_DEV_LOGIN", True, raising=False)
+
+    user = User(
+        id="usr-seeded-super",
+        username="super",
+        email="super@smritibooks.com",
+        hashed_password=hash_password("Smriti@1234"),
+        role=UserRole.SYSADMIN,
+        is_active=True,
+        is_deleted=False,
+        is_platform_admin=True,
+        company_id=None,
+        branch_id=None,
+        status="Active",
+    )
+    db_session.add(user)
+    await db_session.commit()
+
+    from app.services.bootstrap import BootstrapService
+    await BootstrapService(db_session).run()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post("/api/v1/auth/login", json={
+            "username": "super",
+            "password": "whynothing",
+        })
+
+    assert res.status_code == 200
+    await db_session.refresh(user)
+    assert verify_password("whynothing", user.hashed_password) is True
+
+
+async def test_production_install_prevents_convenience_login(db_session, monkeypatch):
+    monkeypatch.setattr(auth_service_module.settings, "ENVIRONMENT", "production", raising=False)
+    monkeypatch.setattr(auth_service_module.settings, "ENABLE_DEV_LOGIN", False, raising=False)
+
+    from app.services.bootstrap import BootstrapService
+    await BootstrapService(db_session).run()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post("/api/v1/auth/login", json={
+            "username": "super",
+            "password": "whynothing",
+        })
+
+    assert res.status_code == 401
+
 
 
 async def test_login_returns_password_reset_required_for_bootstrap_user(db_session):

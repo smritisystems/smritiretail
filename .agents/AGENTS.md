@@ -210,6 +210,13 @@ Any constitutional or fundamental architectural change (Level 1 modification) MU
 ### AOP-008: Field Change Lifecycle (FCL) & Field Registry Studio Principle (Rule FCL-001 — ADR-014)
 Neither developers nor AI coding agents shall add, modify, or remove an entity field on an ad-hoc basis as a simple UI or model edit. Every field change MUST follow the formal 7-stage **Field Change Lifecycle (FCL)**: `Business Request (CR)` ──► `13-Layer Field Impact Analysis` ──► `9-Point Property Clarification` ──► `Auto Task Graph` ──► `Implementation` ──► `13-Layer Verification Gate` ──► `Field Registry Catalog Update`. Every field modification MUST evaluate and update the 13 impacted layers: Database Schema, Alembic Migration, ORM Model Class, Repository Layer, Domain Service, REST API Schema, UI Form/Pattern, Global Search Index, Reports & BI, Barcode Engine, Data Exchange Hub (Excel), Print Framework, and RBAC/Security. Direct uncoordinated field additions without a registered Change Request are strictly prohibited.
 
+### AOP-009: Installation Bootstrap & Authentication Purity Principle
+The Installation Bootstrap Service shall be the only component permitted to modify system initialization data, seeded accounts, bootstrap metadata, or legacy migration state. All runtime services, including authentication, authorization, and business modules, shall treat these artifacts as read-only. Authentication services must be stateless with respect to account initialization. Account creation, migration, and reconciliation belong exclusively to the Installation Bootstrap Service. Authentication must never modify user credentials or account state as a side effect of login.
+
+### SSA-001: System Super Administrator Standard
+The built-in `super` account is the platform owner and has unrestricted administrative capabilities through the authorization framework. It does not bypass authentication or security controls. All privileged actions must be authenticated, authorized, logged, and auditable. No hidden backdoors or undocumented privilege escalation mechanisms are permitted.
+
+
 
 ### Rule SLP-002: Launchpad Composition Framework Principle
 The Launchpad shall not contain business logic. It shall compose its interface exclusively from registered modules, widgets, services, and metadata. Application modules may contribute tiles, quick actions, widgets, search providers, notification providers, and status providers through standardized registration interfaces.

@@ -163,6 +163,17 @@ async def lifespan(_app: FastAPI):
             f"[SMRITI] DB auto-seed skipped (DB may not be ready yet): {_seed_err}"
         )
 
+    # Run Installation Bootstrap Service (system_bootstrap_states tracking)
+    try:
+        from app.services.bootstrap import BootstrapService
+        from app.db.session import AsyncSessionLocal
+        async with AsyncSessionLocal() as db_session:
+            bootstrap = BootstrapService(db_session)
+            await bootstrap.run()
+    except Exception as _boot_err:
+        logger.warning(f"[SMRITI] Installation bootstrap skipped: {_boot_err}")
+
+
     # ADR-007: Register domain event subscriptions for all active modules
     try:
         from app.modules.inventory.events import register_subscriptions as inv_events
