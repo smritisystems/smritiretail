@@ -21,7 +21,7 @@ export interface SUNEFOpenParams {
 
 export class SUNEFKernel {
   private static activeTabSetter: ((tabId: string) => void) | null = null;
-  private static notificationHandler: ((title: string, message: string, type?: "success" | "error") => void) | null = null;
+  private static notificationHandler: ((title: string, message: string, type?: "success" | "error") => void) | null | undefined = null;
 
   public static initialize(
     setTab: (tabId: string) => void,
