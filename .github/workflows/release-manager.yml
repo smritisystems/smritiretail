@@ -168,8 +168,27 @@ on:
               env:
                 GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-        job_summary:
+        release_verify:
           needs: release_create
+          runs-on: ubuntu-latest
+          steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+
+            - name: Run release verification
+              run: |
+                python3 scripts/release_verify.py --repo ${{ github.repository }} --tag ${{ needs.set_version.outputs.version }} --outdir ./release_verify_out --token ${{ secrets.GITHUB_TOKEN }}
+              env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Upload verification artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                name: release-verification
+                path: release_verify_out/release-validation.*
+
+        job_summary:
+          needs: release_verify
           if: always()
           runs-on: ubuntu-latest
           steps:
@@ -181,7 +200,7 @@ on:
                 branch: ${{ github.ref_name }}
 
         deploy_staging:
-          needs: release_create
+          needs: release_verify
           if: ${{ github.event.inputs.deploy == 'true' }}
           uses: ./.github/workflows/deploy-staging.yml
           with:

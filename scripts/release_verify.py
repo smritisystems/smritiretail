@@ -147,6 +147,21 @@ def generate_report(outdir: str, results: Dict[str, Tuple[bool, List[str]]], sum
     with open(outpath, "w", encoding="utf-8") as f:
         f.write("\n".join(rpt))
     print("Report written to", outpath)
+    # Also write machine-readable JSON summary
+    checks = {k: v[0] for k, v in results.items()}
+    overall = all(v[0] for v in results.values())
+    json_obj = {
+        "version": summary.get("version"),
+        "tag": summary.get("tag"),
+        "repo": summary.get("repo"),
+        "status": "PASS" if overall else "FAIL",
+        "checks": checks,
+        "details": {k: v[1] for k, v in results.items()},
+    }
+    json_path = os.path.join(outdir, "release-validation.json")
+    with open(json_path, "w", encoding="utf-8") as jf:
+        json.dump(json_obj, jf, indent=2)
+    print("JSON summary written to", json_path)
 
 
 def main() -> int:
