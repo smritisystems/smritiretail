@@ -329,50 +329,6 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
       communication_logs: [],
       created_at: "2026-02-10 12:00:00",
       created_by: "Admin"
-    },
-    {
-      id: "SUP-003",
-      code: "SUP-003",
-      name: "Metro Wholesale Hub",
-      legal_name: "Metro Agro FMCG India Pvt Ltd",
-      trade_name: "Metro Agro Ltd",
-      supplier_type_id: "Manufacturer",
-      group: "FMCG & Groceries",
-      contact_person: "Vikram Mehta",
-      mobile: "+91 97111 22334",
-      email: "vikram@metrowholesale.in",
-      gst_number: "24AAAAA0000A1Z5",
-      pan_number: "AAAAA0000A",
-      gst_type: "Composition",
-      place_of_supply: "Gujarat (24)",
-      balance: "₹45,500",
-      outstanding_balance: 45500,
-      credit_limit: 250000,
-      credit_days: 30,
-      status: "Pending Approval",
-      city: "Ahmedabad",
-      state: "Gujarat",
-      address: "GIDC Industrial Estate, Naroda",
-      pincode: "382330",
-      msme_category: "Micro",
-      msme_number: "UDYAM-GJ-05-0009876",
-      fssai_license_no: "10019022001234",
-      fssai_expiry: "2026-05-10",
-      is_tds_applicable: true,
-      tds_rate: 0.10,
-      gstr2b_status: "Pending ITC",
-      scorecard_rating: 79.2,
-      quality_rating: 82.0,
-      delivery_rating: 75.0,
-      price_rating: 80.0,
-      lead_time_days: 2,
-      default_label_template: "100x50mm",
-      default_barcode_type: "CODE128",
-      documents: [
-        { id: "d4", doc_type: "FSSAI License", doc_number: "10019022001234", expiry_date: "2026-05-10", status: "Expired" }
-      ],
-      created_at: "2026-03-01 16:30:00",
-      created_by: "System"
     }
   ]);
 
@@ -441,7 +397,6 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
     email: "",
     website: "",
 
-    // Multi-Address fields
     billing_building: "",
     billing_street: "",
     billing_area: "",
@@ -477,6 +432,10 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
     transport_name: "VRL Logistics Ltd",
     transporter_gstin: "",
     freight_terms: "Prepaid by Supplier",
+
+    doc_type: "GST Certificate" as "GST Certificate" | "FSSAI License" | "Drug License" | "MSME Certificate" | "Agreement",
+    doc_number: "",
+    doc_expiry: "",
 
     default_label_template: "50x25mm",
     default_barcode_type: "CODE128"
@@ -613,6 +572,9 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
       transport_name: "VRL Logistics Ltd",
       transporter_gstin: "",
       freight_terms: "Prepaid by Supplier",
+      doc_type: "GST Certificate",
+      doc_number: "",
+      doc_expiry: "",
       default_label_template: "50x25mm",
       default_barcode_type: "CODE128"
     });
@@ -693,8 +655,8 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
         { id: `a-${Date.now()}-1`, address_type: "Billing", building_name: formData.billing_building, street: formData.billing_street, area: formData.billing_area, city: formData.city, state: formData.state, pincode: formData.pincode, country: "India", is_primary: true },
         { id: `a-${Date.now()}-2`, address_type: "Central Warehouse", building_name: formData.shipping_building || formData.billing_building, street: formData.shipping_street || formData.billing_street, city: formData.shipping_city || formData.city, state: formData.shipping_state || formData.state, pincode: formData.shipping_pincode || formData.pincode, country: "India", is_primary: false }
       ],
-      documents: formData.gst_number
-        ? [{ id: `d-${Date.now()}`, doc_type: "GST Certificate", doc_number: formData.gst_number, expiry_date: "2028-12-31", status: "Valid" }]
+      documents: formData.doc_number
+        ? [{ id: `d-${Date.now()}`, doc_type: formData.doc_type, doc_number: formData.doc_number, expiry_date: formData.doc_expiry || "2028-12-31", status: "Valid" }]
         : [],
       communication_logs: [
         { id: `l-${Date.now()}`, timestamp: new Date().toISOString().replace("T", " ").substring(0, 16), type: "Email", summary: "Vendor Onboarded into System", user: currentUser?.name || "System" }
@@ -1041,6 +1003,26 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                     />
                   </div>
                   <div>
+                    <label className="block font-bold text-theme-muted mb-1">Display Operating Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Acme Textiles Hub"
+                      value={formData.display_name}
+                      onChange={(e) => handleInputChange("display_name", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Trade Brand Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Acme Fabrics"
+                      value={formData.trade_name}
+                      onChange={(e) => handleInputChange("trade_name", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading"
+                    />
+                  </div>
+                  <div>
                     <label className="block font-bold text-theme-muted mb-1">Vendor Code (Auto/Custom)</label>
                     <input
                       type="text"
@@ -1048,6 +1030,217 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                       value={formData.code}
                       onChange={(e) => handleInputChange("code", e.target.value)}
                       className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Supplier Type</label>
+                    <select
+                      value={formData.supplier_type_id}
+                      onChange={(e) => handleInputChange("supplier_type_id", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
+                    >
+                      <option value="Manufacturer">Manufacturer</option>
+                      <option value="Distributor">Distributor</option>
+                      <option value="Wholesaler">Wholesaler</option>
+                      <option value="Dealer">Dealer</option>
+                      <option value="Importer">Importer</option>
+                      <option value="Local Vendor">Local Vendor</option>
+                      <option value="Transporter">Transporter</option>
+                      <option value="Service Provider">Service Provider</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Supplier Group</label>
+                    <select
+                      value={formData.group}
+                      onChange={(e) => handleInputChange("group", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
+                    >
+                      <option value="General Retail">General Retail</option>
+                      <option value="Electronics">Electronics</option>
+                      <option value="Apparel">Apparel &amp; Textiles</option>
+                      <option value="FMCG">FMCG &amp; Groceries</option>
+                      <option value="Packaging">Packaging Materials</option>
+                      <option value="Pharmaceuticals">Pharmaceuticals</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Initial Approval Status</label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => handleInputChange("status", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
+                    >
+                      <option value="Approved">Approved</option>
+                      <option value="Pending Approval">Pending Approval</option>
+                      <option value="Draft">Draft</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: GST & TAX */}
+              {modalTab === "tax" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">GSTIN Number (15 Chars)</label>
+                    <input
+                      type="text"
+                      placeholder="27ABCDE1234F1Z5"
+                      value={formData.gst_number}
+                      onChange={(e) => handleInputChange("gst_number", e.target.value.toUpperCase())}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">PAN Number (10 Chars)</label>
+                    <input
+                      type="text"
+                      placeholder="ABCDE1234F"
+                      value={formData.pan_number}
+                      onChange={(e) => handleInputChange("pan_number", e.target.value.toUpperCase())}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">TAN Number</label>
+                    <input
+                      type="text"
+                      placeholder="MUMB12345F"
+                      value={formData.tan_number}
+                      onChange={(e) => handleInputChange("tan_number", e.target.value.toUpperCase())}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">CIN Number (Company Reg.)</label>
+                    <input
+                      type="text"
+                      placeholder="U72200MH2010PTC123456"
+                      value={formData.cin_number}
+                      onChange={(e) => handleInputChange("cin_number", e.target.value.toUpperCase())}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">GST Scheme Type</label>
+                    <select
+                      value={formData.gst_type}
+                      onChange={(e) => handleInputChange("gst_type", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
+                    >
+                      <option value="Regular">Regular Taxpayer</option>
+                      <option value="Composition">Composition Scheme</option>
+                      <option value="Unregistered">Unregistered Business</option>
+                      <option value="SEZ">SEZ Unit / Developer</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Place of Supply State</label>
+                    <input
+                      type="text"
+                      value={formData.place_of_supply}
+                      onChange={(e) => handleInputChange("place_of_supply", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">MSME Classification (Sec 43B(h))</label>
+                    <select
+                      value={formData.msme_category}
+                      onChange={(e) => handleInputChange("msme_category", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
+                    >
+                      <option value="Micro">Micro Enterprise (Investment &lt; ₹1 Cr)</option>
+                      <option value="Small">Small Enterprise (Investment &lt; ₹10 Cr)</option>
+                      <option value="Medium">Medium Enterprise (Investment &lt; ₹50 Cr)</option>
+                      <option value="Non-MSME">Non-MSME Enterprise</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">MSME Udyam Registration No.</label>
+                    <input
+                      type="text"
+                      placeholder="UDYAM-MH-12-0001234"
+                      value={formData.msme_number}
+                      onChange={(e) => handleInputChange("msme_number", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">FSSAI License No.</label>
+                    <input
+                      type="text"
+                      placeholder="10019022001234"
+                      value={formData.fssai_license_no}
+                      onChange={(e) => handleInputChange("fssai_license_no", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: CONTACT ROLES */}
+              {modalTab === "contacts" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Primary Contact Person Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Rajesh Kumar"
+                      value={formData.contact_person}
+                      onChange={(e) => handleInputChange("contact_person", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Designation / Role</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Senior Purchase Manager"
+                      value={formData.designation}
+                      onChange={(e) => handleInputChange("designation", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Mobile Number *</label>
+                    <input
+                      type="text"
+                      placeholder="+91 98200 12345"
+                      value={formData.mobile}
+                      onChange={(e) => handleInputChange("mobile", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Alternate Phone</label>
+                    <input
+                      type="text"
+                      placeholder="+91 22 2830 0000"
+                      value={formData.alt_mobile}
+                      onChange={(e) => handleInputChange("alt_mobile", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Email Address</label>
+                    <input
+                      type="email"
+                      placeholder="rajesh@supplier.com"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange("email", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Corporate Website URL</label>
+                    <input
+                      type="text"
+                      placeholder="https://supplier.com"
+                      value={formData.website}
+                      onChange={(e) => handleInputChange("website", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading"
                     />
                   </div>
                 </div>
@@ -1115,6 +1308,255 @@ export const SupplierDashboardTab: React.FC<SupplierDashboardTabProps> = ({
                         className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
                       />
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 5: BANK ACCOUNTS */}
+              {modalTab === "bank" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Bank Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. HDFC Bank"
+                      value={formData.bank_name}
+                      onChange={(e) => handleInputChange("bank_name", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Account Holder Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. TechCorp India Pvt Ltd"
+                      value={formData.account_name}
+                      onChange={(e) => handleInputChange("account_name", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Bank Account Number</label>
+                    <input
+                      type="text"
+                      placeholder="50200012345678"
+                      value={formData.account_number}
+                      onChange={(e) => handleInputChange("account_number", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">IFSC Code (11 Chars)</label>
+                    <input
+                      type="text"
+                      placeholder="HDFC0000123"
+                      value={formData.ifsc_code}
+                      onChange={(e) => handleInputChange("ifsc_code", e.target.value.toUpperCase())}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Branch Name</label>
+                    <input
+                      type="text"
+                      placeholder="Fort, Mumbai"
+                      value={formData.branch_name}
+                      onChange={(e) => handleInputChange("branch_name", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">UPI ID / Virtual Address</label>
+                    <input
+                      type="text"
+                      placeholder="techcorp@hdfcbank"
+                      value={formData.upi_id}
+                      onChange={(e) => handleInputChange("upi_id", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Approved Credit Limit (₹)</label>
+                    <input
+                      type="number"
+                      placeholder="200000"
+                      value={formData.credit_limit}
+                      onChange={(e) => handleInputChange("credit_limit", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Approved Credit Days</label>
+                    <input
+                      type="number"
+                      placeholder="30"
+                      value={formData.credit_days}
+                      onChange={(e) => handleInputChange("credit_days", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 6: PURCHASE DEFAULTS */}
+              {modalTab === "purchase" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Default Purchase Currency</label>
+                    <select
+                      value={formData.currency}
+                      onChange={(e) => handleInputChange("currency", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
+                    >
+                      <option value="INR">INR (Indian Rupee)</option>
+                      <option value="USD">USD (US Dollar)</option>
+                      <option value="EUR">EUR (Euro)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Default Destination Warehouse</label>
+                    <select
+                      value={formData.warehouse}
+                      onChange={(e) => handleInputChange("warehouse", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
+                    >
+                      <option value="Central Warehouse (WH-01)">Central Warehouse (WH-01)</option>
+                      <option value="Regional Hub (WH-02)">Regional Hub (WH-02)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Delivery Lead Time (Days)</label>
+                    <input
+                      type="number"
+                      value={formData.lead_time_days}
+                      onChange={(e) => handleInputChange("lead_time_days", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Minimum Order Qty (MOQ)</label>
+                    <input
+                      type="number"
+                      value={formData.min_order_qty}
+                      onChange={(e) => handleInputChange("min_order_qty", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Order Batching Multiple</label>
+                    <input
+                      type="number"
+                      value={formData.order_multiple}
+                      onChange={(e) => handleInputChange("order_multiple", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 7: LOGISTICS */}
+              {modalTab === "logistics" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Preferred Transporter Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. VRL Logistics Ltd"
+                      value={formData.transport_name}
+                      onChange={(e) => handleInputChange("transport_name", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Transporter GSTIN</label>
+                    <input
+                      type="text"
+                      placeholder="27AAACV1234F1Z9"
+                      value={formData.transporter_gstin}
+                      onChange={(e) => handleInputChange("transporter_gstin", e.target.value.toUpperCase())}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Freight Terms</label>
+                    <select
+                      value={formData.freight_terms}
+                      onChange={(e) => handleInputChange("freight_terms", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
+                    >
+                      <option value="Prepaid by Supplier">Prepaid by Supplier</option>
+                      <option value="To Pay by Buyer">To Pay by Buyer</option>
+                      <option value="Shared 50-50">Shared 50-50</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 8: DOCUMENTS & EXPIRY */}
+              {modalTab === "docs" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Initial Document Type</label>
+                    <select
+                      value={formData.doc_type}
+                      onChange={(e) => handleInputChange("doc_type", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
+                    >
+                      <option value="GST Certificate">GST Certificate</option>
+                      <option value="FSSAI License">FSSAI License</option>
+                      <option value="Drug License">Drug License</option>
+                      <option value="MSME Certificate">MSME Certificate</option>
+                      <option value="Agreement">Supplier Agreement</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Document Number</label>
+                    <input
+                      type="text"
+                      placeholder="Doc / Reg No."
+                      value={formData.doc_number}
+                      onChange={(e) => handleInputChange("doc_number", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Document Expiry Date</label>
+                    <input
+                      type="date"
+                      value={formData.doc_expiry}
+                      onChange={(e) => handleInputChange("doc_expiry", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 9: LABELS & BARCODES */}
+              {modalTab === "label" && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Default Label Sticker Size</label>
+                    <select
+                      value={formData.default_label_template}
+                      onChange={(e) => handleInputChange("default_label_template", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
+                    >
+                      <option value="50x25mm">50x25mm Standard Barcode Label</option>
+                      <option value="38x25mm">38x25mm Small Product Label</option>
+                      <option value="100x50mm">100x50mm Large Box/Carton Label</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-theme-muted mb-1">Default Barcode Symbology</label>
+                    <select
+                      value={formData.default_barcode_type}
+                      onChange={(e) => handleInputChange("default_barcode_type", e.target.value)}
+                      className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-heading"
+                    >
+                      <option value="CODE128">CODE128 (Alphanumeric)</option>
+                      <option value="EAN13">EAN13 (Retail Standard)</option>
+                      <option value="QR Code">2D QR Code</option>
+                    </select>
                   </div>
                 </div>
               )}
