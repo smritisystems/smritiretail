@@ -25,12 +25,12 @@ export const BiReportingAndPrintingTab: React.FC = () => {
   ];
 
   const salesReportColumns = [
-    { key: 'date', title: 'Date', width: '110px' },
-    { key: 'invoiceNo', title: 'Invoice Number', width: '150px' },
-    { key: 'customer', title: 'Customer Account', width: '220px' },
-    { key: 'taxable', title: 'Taxable Amount', width: '130px' },
-    { key: 'gst', title: 'GST (18%)', width: '110px' },
-    { key: 'net', title: 'Net Amount Payable', width: '150px' }
+    { key: 'date', title: 'Date', header: 'Date', width: '110px' },
+    { key: 'invoiceNo', title: 'Invoice Number', header: 'Invoice Number', width: '150px' },
+    { key: 'customer', title: 'Customer Account', header: 'Customer Account', width: '220px' },
+    { key: 'taxable', title: 'Taxable Amount', header: 'Taxable Amount', width: '130px' },
+    { key: 'gst', title: 'GST (18%)', header: 'GST (18%)', width: '110px' },
+    { key: 'net', title: 'Net Amount Payable', header: 'Net Amount Payable', width: '150px' }
   ];
 
   // Mock Barcode Print Jobs Dataset
@@ -40,11 +40,12 @@ export const BiReportingAndPrintingTab: React.FC = () => {
   ];
 
   const labelPrintColumns = [
-    { key: 'sku', title: 'SKU Code', width: '140px' },
-    { key: 'name', title: 'Item Description', width: '220px' },
-    { key: 'barcode', title: 'GS1 Barcode Value', width: '160px' },
-    { key: 'format', title: 'Label Size Format', width: '170px' },
-    { key: 'qty', title: 'Print Quantity', width: '120px' }
+    { key: 'sku', title: 'SKU Code', header: 'SKU Code', width: '140px' },
+    { key: 'name', title: 'Item Description', header: 'Item Description', width: '220px' },
+    { key: 'barcode', title: 'GS1 Barcode Value', header: 'GS1 Barcode Value', width: '160px' },
+    { key: 'format', title: 'Label Format', header: 'Label Format', width: '180px' },
+    { key: 'qty', title: 'Print Quantity', header: 'Print Quantity', width: '120px' },
+    { key: 'status', title: 'Job Status', header: 'Job Status', width: '100px' }
   ];
 
   const categoryNav = [
@@ -134,8 +135,8 @@ export const BiReportingAndPrintingTab: React.FC = () => {
           </div>
 
           <SEDSTable
-            columns={activeCategory === 'labels' ? labelPrintColumns : salesReportColumns}
-            data={activeCategory === 'labels' ? labelPrintJobs : salesReportData}
+            columns={(activeCategory === 'labels' ? labelPrintColumns : salesReportColumns) as any}
+            data={(activeCategory === 'labels' ? labelPrintJobs : salesReportData) as any}
           />
         </div>
       </div>
