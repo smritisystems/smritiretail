@@ -480,9 +480,14 @@ const AppContent: React.FC = () => {
           />
         );
       case "crm":
-        return <CrmStudioTab currentUser={currentUser} />;
+      case "crm-studio":
+        return <CrmStudioTab currentUser={currentUser} onNotification={addNotification} />;
+      case "customers":
+      case "customer":
       case "customer-master":
-        return <CustomerMasterTab currentUser={currentUser} />;
+      case "customer-crm":
+      case "customer_master":
+        return <CustomerMasterTab currentUser={currentUser} onNotification={addNotification} />;
       case "customer-dashboard":
         return <CustomerDashboardTab />;
       case "consignment-studio":
