@@ -105,10 +105,13 @@ class PurchaseService:
 
     async def create_supplier(self, req: SupplierCreate) -> Supplier:
         supplier_id = getattr(req, "id", None) or f"sup-{uuid.uuid4().hex[:12]}"
+        code = req.code or f"SUP-{uuid.uuid4().hex[:6].upper()}"
         supplier = Supplier(
             id=supplier_id,
             name=req.name,
-            code=req.code,
+            code=code,
+            trade_name=req.trade_name,
+            supplier_group_id=req.supplier_group_id,
             gst_number=req.gst_number,
             mobile=req.mobile,
             email=req.email,
@@ -121,6 +124,46 @@ class PurchaseService:
             branch_id=self.tenant.branch_id,
         )
         self.db.add(supplier)
+
+        # Save child Tax Profile if provided
+        if req.tax_profile:
+            tp = SupplierTaxProfile(
+                id=f"stp-{uuid.uuid4().hex[:12]}",
+                supplier_id=supplier_id,
+                pan_number=req.tax_profile.pan_number,
+                gstin=req.tax_profile.gstin,
+                is_tds_applicable=req.tax_profile.is_tds_applicable,
+                tds_rate=req.tax_profile.tds_rate,
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+            )
+            self.db.add(tp)
+
+        # Save child Compliance Profile if provided
+        if req.compliance_profile:
+            cp = SupplierComplianceProfile(
+                id=f"scp-{uuid.uuid4().hex[:12]}",
+                supplier_id=supplier_id,
+                msme_category=req.compliance_profile.msme_category,
+                msme_number=req.compliance_profile.msme_number,
+                fssai_license_no=req.compliance_profile.fssai_license_no,
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+            )
+            self.db.add(cp)
+
+        # Save child Credit Profile if provided
+        if req.credit_profile:
+            crp = SupplierCreditProfile(
+                id=f"scrp-{uuid.uuid4().hex[:12]}",
+                supplier_id=supplier_id,
+                credit_limit=req.credit_profile.credit_limit,
+                credit_days=req.credit_profile.credit_days,
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+            )
+            self.db.add(crp)
+
         try:
             await self.db.commit()
         except IntegrityError:
