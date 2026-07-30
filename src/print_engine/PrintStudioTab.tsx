@@ -160,21 +160,18 @@ export const PrintStudioTab: React.FC = () => {
               </button>
             ))}
 
-            <div className="text-[10px] font-bold text-theme-muted uppercase tracking-wider font-mono px-2 py-1.5 mt-4">Thermal & POS</div>
-            {templates.filter(t => t.format === 'Thermal80mm' || t.format === 'Label').map(template => (
-              <button
-                key={template.id}
-                onClick={() => setActiveTemplate(template.id)}
-                className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-colors ${
-                  activeTemplate === template.id 
-                    ? "bg-blue-500/10 text-blue-400 font-semibold" 
-                    : "text-theme-muted hover:bg-theme-surface-hover hover:text-theme-primary"
-                }`}
-              >
-                <LayoutTemplate size={16} />
-                <span className="text-sm truncate">{template.name}</span>
-              </button>
-            ))}
+            <div className="text-[10px] font-bold text-theme-muted uppercase tracking-wider font-mono px-2 py-1.5 mt-4">Barcode & Label Printing</div>
+            <button
+              onClick={() => setActiveTemplate("label-50x25")}
+              className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-colors ${
+                activeTemplate === "label-50x25"
+                  ? "bg-blue-500/10 text-blue-400 font-semibold"
+                  : "text-theme-muted hover:bg-theme-surface-hover hover:text-theme-primary"
+              }`}
+            >
+              <Tag size={16} />
+              <span className="text-sm truncate">Universal Label Studio (SLPS)</span>
+            </button>
           </div>
         </SmritiScrollArea>
       </div>
