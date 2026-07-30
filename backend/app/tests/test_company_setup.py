@@ -121,6 +121,7 @@ async def test_company_setup_provisioning(db_session):
         assert len(data["company"]["branches"]) == 2
         assert len(data["company"]["stores"]) == 2
 
+    try:
         # 1. Verify Database Persisted Company
         companies = (await db_session.execute(select(Company))).scalars().all()
         assert len(companies) >= 1
@@ -151,4 +152,12 @@ async def test_company_setup_provisioning(db_session):
         dup_res = await client.post("/api/v1/company/setup", json=setup_payload)
         assert dup_res.status_code == 400
         assert "locked and cannot be re-executed" in dup_res.json()["detail"]
+    finally:
+        await db_session.execute(delete(User).where(User.username == "vikram_smriti"))
+        await db_session.execute(delete(Store).where(Store.code.in_(["GKP-01", "LKO-02"])))
+        await db_session.execute(delete(Branch).where(Branch.code.in_(["GKP-01", "LKO-02"])))
+        await db_session.execute(delete(Company).where(Company.name == "Smriti Retail India Pvt Ltd"))
+        await db_session.execute(delete(SystemConfig).where(SystemConfig.key.in_(["setup_completed", "setup_state"])))
+        await db_session.commit()
+
 
