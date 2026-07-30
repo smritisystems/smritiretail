@@ -1,0 +1,78 @@
+﻿2026-07-29T12:08:10.8030248Z ##[group]Run npm ci
+2026-07-29T12:08:10.8030522Z [36;1mnpm ci[0m
+2026-07-29T12:08:10.8030728Z [36;1mnpm run build[0m
+2026-07-29T12:08:10.8059471Z shell: /usr/bin/bash -e {0}
+2026-07-29T12:08:10.8059754Z ##[endgroup]
+2026-07-29T12:08:13.0621814Z npm warn EBADENGINE Unsupported engine {
+2026-07-29T12:08:13.0623345Z npm warn EBADENGINE   package: '@google/genai@2.10.0',
+2026-07-29T12:08:13.0624095Z npm warn EBADENGINE   required: { node: '>=20.0.0' },
+2026-07-29T12:08:13.0625067Z npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+2026-07-29T12:08:13.0625725Z npm warn EBADENGINE }
+2026-07-29T12:08:13.0626256Z npm warn EBADENGINE Unsupported engine {
+2026-07-29T12:08:13.0626991Z npm warn EBADENGINE   package: '@tailwindcss/oxide@4.3.2',
+2026-07-29T12:08:13.0627777Z npm warn EBADENGINE   required: { node: '>= 20' },
+2026-07-29T12:08:13.0628593Z npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+2026-07-29T12:08:13.0629226Z npm warn EBADENGINE }
+2026-07-29T12:08:13.0643027Z npm warn EBADENGINE Unsupported engine {
+2026-07-29T12:08:13.0643860Z npm warn EBADENGINE   package: 'rolldown@1.1.5',
+2026-07-29T12:08:13.0644896Z npm warn EBADENGINE   required: { node: '^20.19.0 || >=22.12.0' },
+2026-07-29T12:08:13.0645808Z npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+2026-07-29T12:08:13.0646453Z npm warn EBADENGINE }
+2026-07-29T12:08:13.0651447Z npm warn EBADENGINE Unsupported engine {
+2026-07-29T12:08:13.0652170Z npm warn EBADENGINE   package: 'vitest@4.1.10',
+2026-07-29T12:08:13.0652982Z npm warn EBADENGINE   required: { node: '^20.0.0 || ^22.0.0 || >=24.0.0' },
+2026-07-29T12:08:13.0653846Z npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+2026-07-29T12:08:13.0654575Z npm warn EBADENGINE }
+2026-07-29T12:08:13.0655106Z npm warn EBADENGINE Unsupported engine {
+2026-07-29T12:08:13.0655735Z npm warn EBADENGINE   package: 'vite@8.1.4',
+2026-07-29T12:08:13.0656428Z npm warn EBADENGINE   required: { node: '^20.19.0 || >=22.12.0' },
+2026-07-29T12:08:13.0657142Z npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+2026-07-29T12:08:13.0657737Z npm warn EBADENGINE }
+2026-07-29T12:08:13.0775905Z npm error code EUSAGE
+2026-07-29T12:08:13.0776986Z npm error
+2026-07-29T12:08:13.0778006Z npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+2026-07-29T12:08:13.0778733Z npm error
+2026-07-29T12:08:13.0779035Z npm error Missing: esbuild@0.28.1 from lock file
+2026-07-29T12:08:13.0779442Z npm error Missing: @esbuild/aix-ppc64@0.28.1 from lock file
+2026-07-29T12:08:13.0779883Z npm error Missing: @esbuild/android-arm@0.28.1 from lock file
+2026-07-29T12:08:13.0780336Z npm error Missing: @esbuild/android-arm64@0.28.1 from lock file
+2026-07-29T12:08:13.0780776Z npm error Missing: @esbuild/android-x64@0.28.1 from lock file
+2026-07-29T12:08:13.0781221Z npm error Missing: @esbuild/darwin-arm64@0.28.1 from lock file
+2026-07-29T12:08:13.0781692Z npm error Missing: @esbuild/darwin-x64@0.28.1 from lock file
+2026-07-29T12:08:13.0782126Z npm error Missing: @esbuild/freebsd-arm64@0.28.1 from lock file
+2026-07-29T12:08:13.0782560Z npm error Missing: @esbuild/freebsd-x64@0.28.1 from lock file
+2026-07-29T12:08:13.0782986Z npm error Missing: @esbuild/linux-arm@0.28.1 from lock file
+2026-07-29T12:08:13.0783419Z npm error Missing: @esbuild/linux-arm64@0.28.1 from lock file
+2026-07-29T12:08:13.0783846Z npm error Missing: @esbuild/linux-ia32@0.28.1 from lock file
+2026-07-29T12:08:13.0784287Z npm error Missing: @esbuild/linux-loong64@0.28.1 from lock file
+2026-07-29T12:08:13.0785157Z npm error Missing: @esbuild/linux-mips64el@0.28.1 from lock file
+2026-07-29T12:08:13.0785878Z npm error Missing: @esbuild/linux-ppc64@0.28.1 from lock file
+2026-07-29T12:08:13.0786354Z npm error Missing: @esbuild/linux-riscv64@0.28.1 from lock file
+2026-07-29T12:08:13.0786799Z npm error Missing: @esbuild/linux-s390x@0.28.1 from lock file
+2026-07-29T12:08:13.0787679Z npm error Missing: @esbuild/linux-x64@0.28.1 from lock file
+2026-07-29T12:08:13.0788690Z npm error Missing: @esbuild/netbsd-x64@0.28.1 from lock file
+2026-07-29T12:08:13.0789134Z npm error Missing: @esbuild/openbsd-x64@0.28.1 from lock file
+2026-07-29T12:08:13.0789824Z npm error Missing: @esbuild/sunos-x64@0.28.1 from lock file
+2026-07-29T12:08:13.0790742Z npm error Missing: @esbuild/win32-arm64@0.28.1 from lock file
+2026-07-29T12:08:13.0791423Z npm error Missing: @esbuild/win32-ia32@0.28.1 from lock file
+2026-07-29T12:08:13.0792041Z npm error Missing: @esbuild/win32-x64@0.28.1 from lock file
+2026-07-29T12:08:13.0792348Z npm error
+2026-07-29T12:08:13.0792602Z npm error Clean install a project
+2026-07-29T12:08:13.0792853Z npm error
+2026-07-29T12:08:13.0793049Z npm error Usage:
+2026-07-29T12:08:13.0793259Z npm error npm ci
+2026-07-29T12:08:13.0793466Z npm error
+2026-07-29T12:08:13.0793669Z npm error Options:
+2026-07-29T12:08:13.0794119Z npm error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+2026-07-29T12:08:13.0794922Z npm error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+2026-07-29T12:08:13.0795538Z npm error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+2026-07-29T12:08:13.0796144Z npm error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts] [--no-audit]
+2026-07-29T12:08:13.0796644Z npm error [--no-bin-links] [--no-fund] [--dry-run]
+2026-07-29T12:08:13.0797141Z npm error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+2026-07-29T12:08:13.0797687Z npm error [-ws|--workspaces] [--include-workspace-root] [--install-links]
+2026-07-29T12:08:13.0798038Z npm error
+2026-07-29T12:08:13.0798376Z npm error aliases: clean-install, ic, install-clean, isntall-clean
+2026-07-29T12:08:13.0798709Z npm error
+2026-07-29T12:08:13.0798957Z npm error Run "npm help ci" for more info
+2026-07-29T12:08:13.0799548Z npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-07-29T12_08_10_872Z-debug-0.log
+2026-07-29T12:08:13.0853573Z ##[error]Process completed with exit code 1.
