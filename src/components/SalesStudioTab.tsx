@@ -1229,8 +1229,9 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       {/* Main Studio View Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left 2/3: Lists & Forms */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Left 2/3 (or Full Width when Creating Invoice): Lists & Forms */}
+        <div className={isCreatingInvoice ? "lg:col-span-3 space-y-6" : "lg:col-span-2 space-y-6"}>
+
           
           {/* Create New Quotation Panel */}
           {isCreatingQuotation ? (
@@ -3140,7 +3141,9 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
         </div>
 
         {/* Right 1/3: Context Details Drawer */}
-        <div className="lg:col-span-1">
+        {!isCreatingInvoice && (
+          <div className="lg:col-span-1">
+
           
           {selectedQuotation ? (
             /* Selected Quotation Side Pane */
@@ -3515,8 +3518,10 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
           )}
 
         </div>
+        )}
 
       </div>
+
 
       {/* Quick Edit Customer Modal */}
       {quickEditingCustomer && (
