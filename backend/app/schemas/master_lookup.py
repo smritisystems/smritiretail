@@ -57,6 +57,8 @@ class MasterValueCreate(BaseModel):
     parent_value_id: UUID | None = None
     data: dict[str, Any] | None = None
     active: bool | None = True
+    is_default: bool | None = False
+    branch_id: str | None = None
     sort_order: int | None = 0
 
 
@@ -65,6 +67,8 @@ class MasterValueUpdate(BaseModel):
     parent_value_id: UUID | None = None
     data: dict[str, Any] | None = None
     active: bool | None = None
+    is_default: bool | None = None
+    branch_id: str | None = None
     sort_order: int | None = None
 
 
@@ -83,9 +87,12 @@ class MasterValueResponse(BaseModel):
     supersedes_id: UUID | None = None
     data: dict[str, Any]
     active: bool
+    is_default: bool = False
     sort_order: int
     is_system: bool = False
     tenant_id: str | None = None
+    branch_id: str | None = None
+    usage_count: int | None = 0
     effective_from: datetime
     effective_to: datetime | None = None
     updated_at: datetime
@@ -104,4 +111,40 @@ class MasterValueHistoryResponse(BaseModel):
     data: dict[str, Any]
 
     model_config = {"from_attributes": True}
+
+
+class BulkActivateRequest(BaseModel):
+    value_ids: list[UUID]
+    active: bool
+
+
+class BulkDeleteRequest(BaseModel):
+    value_ids: list[UUID]
+
+
+class BulkReorderItem(BaseModel):
+    id: UUID
+    sort_order: int
+
+
+class BulkReorderRequest(BaseModel):
+    items: list[BulkReorderItem]
+
+
+class AIDuplicateMatch(BaseModel):
+    id1: UUID
+    code1: str
+    name1: str
+    id2: UUID
+    code2: str
+    name2: str
+    similarity_score: float
+    suggestion: str
+
+
+class AIDuplicateReport(BaseModel):
+    type_code: str
+    total_scanned: int
+    duplicate_candidates: list[AIDuplicateMatch]
+
 

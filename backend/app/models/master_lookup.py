@@ -61,9 +61,11 @@ class MasterValue(Base):
     deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
     deleted_by = Column(String(100), nullable=True)
 
-    # Hybrid system / tenant columns
+    # Hybrid system / tenant / branch columns
     is_system = Column(Boolean, default=False, nullable=False, server_default="false")
+    is_default = Column(Boolean, default=False, nullable=False, server_default="false")
     tenant_id = Column(String(50), nullable=True)
+    branch_id = Column(String(50), nullable=True)
 
     master_type = relationship("MasterType", backref="values")
     parent_value = relationship("MasterValue", remote_side=[id], foreign_keys=[parent_value_id], backref="children")

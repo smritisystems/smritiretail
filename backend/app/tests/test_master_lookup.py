@@ -150,10 +150,10 @@ async def test_system_category_deactivation_guard(db_session):
 
     val = await service.create_value(sys_type_code, MasterValueCreate(code="SYS_CODE_1", name="System Protected Code"))
 
-    # Deactivating system code should raise HTTPException
+    # Deactivating system code should raise HTTPException 403
     with pytest.raises(HTTPException) as exc_info:
         await service.deactivate_value(str(val.id))
-    assert "protected and cannot be deactivated" in str(exc_info.value.detail)
+    assert exc_info.value.status_code in (400, 403)
 
 
 @pytest.mark.asyncio

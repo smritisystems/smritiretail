@@ -81,7 +81,8 @@ class LookupRepository:
         self,
         type_code: str,
         active_only: bool = True,
-        tenant_id: str | None = None
+        tenant_id: str | None = None,
+        branch_id: str | None = None
     ) -> Sequence[MasterValue]:
         stmt = (
             select(MasterValue)
@@ -97,6 +98,13 @@ class LookupRepository:
                 or_(
                     MasterValue.is_system.is_(True),
                     MasterValue.tenant_id == tenant_id
+                )
+            )
+        if branch_id is not None:
+            stmt = stmt.filter(
+                or_(
+                    MasterValue.branch_id.is_(None),
+                    MasterValue.branch_id == branch_id
                 )
             )
         if active_only:
@@ -162,3 +170,48 @@ class LookupRepository:
         )
         result = await self.db.execute(stmt)
         return result.scalars().all()
+
+    async def bulk_set_active(self, value_ids: list[UUID], active: bool) -> int:
+        now = datetime.now(timezone.utc)
+        stmt = select(MasterValue).filter(MasterValue.id.in_(value_ids), MasterValue.is_deleted == False)
+        res = await self.db.execute(stmt)
+        items = res.scalars().all()
+        count = 0
+        for item in items:
+            item.active = active
+            item.updated_at = now
+            self.db.add(item)
+            count += 1
+        await self.db.commit()
+        return count
+
+    async def bulk_soft_delete(self, value_ids: list[UUID], deleted_by: str | None = None) -> int:
+        now = datetime.now(timezone.utc)
+        stmt = select(MasterValue).filter(MasterValue.id.in_(value_ids), MasterValue.is_system == False, MasterValue.is_deleted == False)
+        res = await self.db.execute(stmt)
+        items = res.scalars().all()
+        count = 0
+        for item in items:
+            item.is_deleted = True
+            item.deleted_at = now
+            item.deleted_by = deleted_by
+            item.active = False
+            self.db.add(item)
+            count += 1
+        await self.db.commit()
+        return count
+
+    async def bulk_reorder(self, items: list[dict]) -> int:
+        now = datetime.now(timezone.utc)
+        count = 0
+        for entry in items:
+            val_id = entry.get("id")
+            sort_order = entry.get("sort_order", 0)
+            val = await self.get_value_by_id(val_id)
+            if val:
+                val.sort_order = sort_order
+                val.updated_at = now
+                self.db.add(val)
+                count += 1
+        await self.db.commit()
+        return count

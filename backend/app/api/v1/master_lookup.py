@@ -33,7 +33,11 @@ from ...schemas.master_lookup import (
     MasterValueUpdate,
     MasterValueReplace,
     MasterValueResponse,
-    MasterValueHistoryResponse
+    MasterValueHistoryResponse,
+    BulkActivateRequest,
+    BulkDeleteRequest,
+    BulkReorderRequest,
+    AIDuplicateReport,
 )
 
 router = APIRouter()
@@ -294,3 +298,62 @@ async def get_lookup_value_history(
     """Retrieve audit history trail for versioned replacements."""
     service = LookupService(db)
     return await service.get_audit_history(str(value_id))
+
+
+@router.post(
+    "/master-lookups/values/bulk-activate",
+    dependencies=[Depends(require_permission("SETTINGS.MANAGE"))],
+)
+async def bulk_activate_lookup_values(
+    payload: BulkActivateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Bulk activate or deactivate multiple master values."""
+    service = LookupService(db)
+    return await service.bulk_set_active(payload.value_ids, payload.active)
+
+
+@router.post(
+    "/master-lookups/values/bulk-delete",
+    dependencies=[Depends(require_permission("SETTINGS.MANAGE"))],
+)
+async def bulk_delete_lookup_values(
+    payload: BulkDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Bulk soft-delete multiple master values."""
+    service = LookupService(db)
+    return await service.bulk_soft_delete(payload.value_ids, deleted_by=current_user.id)
+
+
+@router.post(
+    "/master-lookups/values/bulk-reorder",
+    dependencies=[Depends(require_permission("SETTINGS.MANAGE"))],
+)
+async def bulk_reorder_lookup_values(
+    payload: BulkReorderRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Bulk update sort_order for lookup values."""
+    service = LookupService(db)
+    items_dict = [item.model_dump() for item in payload.items]
+    return await service.bulk_reorder(items_dict)
+
+
+@router.get(
+    "/master-lookups/values/{type_code}/ai-duplicates",
+    response_model=AIDuplicateReport,
+    dependencies=[Depends(require_permission("SETTINGS.VIEW"))],
+)
+async def ai_detect_duplicate_lookups(
+    type_code: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """AI duplicate detection for lookup values under a given type."""
+    service = LookupService(db)
+    return await service.ai_detect_duplicates(type_code)
+
