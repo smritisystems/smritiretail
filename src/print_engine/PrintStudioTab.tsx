@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -32,6 +32,8 @@ import { StandardInvoiceA4 } from "./templates/StandardInvoiceA4.tsx";
 import { ThermalReceipt80mm } from "./templates/ThermalReceipt80mm.tsx";
 import { GoodsReceiptNoteA4 } from "./templates/GoodsReceiptNoteA4.tsx";
 import { BarcodeLabel } from "./templates/BarcodeLabel.tsx";
+import { UniversalLabelPrintingStudio } from "../components/label_print/UniversalLabelPrintingStudio.tsx";
+import { products as storeProducts } from "../state/store.ts";
 
 const MOCK_DATA = {
   invoiceNo: "INV-2023-0891",
@@ -110,6 +112,10 @@ export const PrintStudioTab: React.FC = () => {
   const selectedTemplate = templates.find(t => t.id === activeTemplate);
   const PreviewComponent = selectedTemplate?.component || (() => <div>No template selected</div>);
   const previewData = selectedTemplate?.id === "label-50x25" ? BARCODE_DEMO_DATA : MOCK_DATA;
+
+  if (activeTemplate === "label-50x25") {
+    return <UniversalLabelPrintingStudio products={storeProducts} />;
+  }
 
   return (
     <div className="flex h-full bg-theme-base font-sans overflow-hidden text-theme-body">
