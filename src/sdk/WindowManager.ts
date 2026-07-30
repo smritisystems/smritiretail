@@ -194,7 +194,7 @@ export class WindowManager {
     });
 
     const popoutUrl = `${origin}${pathname}?${queryParams.toString()}`;
-    const windowFeatures = `width=${winWidth},height=${winHeight}${winLeft}${winTop},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`;
+    const windowFeatures = `popup=yes,width=${winWidth},height=${winHeight}${winLeft}${winTop},menubar=no,toolbar=no,location=no,status=no,directories=no,titlebar=no,resizable=yes,scrollbars=yes`;
     const windowName = `SMRITI_TAB_${tabId.toUpperCase()}`;
 
     const newWin = window.open(popoutUrl, windowName, windowFeatures);
