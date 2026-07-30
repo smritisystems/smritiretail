@@ -608,3 +608,24 @@ class CrmService:
         await self.db.flush()
         return comment
 
+    async def update_customer(self, customer_id: str, customer_in: dict[str, Any]) -> Customer:
+        repo = CustomerRepository(self.db, self.tenant_ctx)
+        customer = await repo.get(customer_id)
+        if not customer:
+            customer = Customer(
+                id=customer_id,
+                code=customer_in.get("code") or f"CUS-{customer_id}",
+                name=customer_in.get("name") or customer_in.get("customer_name") or "Unknown Customer",
+                company_id=self.tenant_ctx.company_id if self.tenant_ctx else None,
+                branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else None,
+            )
+            self.db.add(customer)
+
+        for key, value in customer_in.items():
+            if hasattr(customer, key) and key not in ("id", "company_id", "branch_id"):
+                setattr(customer, key, value)
+
+        await self.db.commit()
+        return customer
+
+
