@@ -171,6 +171,7 @@ async def get_tenant_context(
     SYSADMIN users (no company/branch) cannot call tenant-scoped endpoints.
     """
     if not current_user.company_id or not current_user.branch_id:
+        active_tenant_ctx.set(TenantContext(tenant_id=None, company_id=None, branch_id=None))
         if current_user.role == UserRole.SYSADMIN or getattr(current_user, "is_platform_admin", False):
             company_id = current_user.company_id or "comp-default"
             branch_id = current_user.branch_id or "br-default"
