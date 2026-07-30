@@ -250,6 +250,7 @@ Before writing ANY new code or creating files, all AI agents and engineers MUST 
 - **GR-012 (No Silent Duplication)**: Upgrading a service means modifying the existing canonical service, never creating `ProductServiceV2`, `NewProductService`, or `BetterProductService` as parallel implementations.
 - **GR-013 (Backward Compatibility)**: Public APIs (`/api/public/v1/*`) and database schema contracts (columns, table names, FK relationships) must never break existing client contracts within the same major version. Use the 4-stage deprecation lifecycle (`Experimental` → `Supported` → `Deprecated` → `Removed`) before any removal.
 - **GR-014 (Code-First Review)**: No new code shall be written until the existing implementation has been reviewed and a reuse analysis has been completed. Every implementation proposal must identify what already exists, what can be reused, what must be extended, and what genuinely needs to be created.
+- **SCP-001 (Compliance Isolation Principle — MANDATORY)**: All statutory, regulatory, and jurisdiction-specific business rules must be implemented through the SMRITI Compliance Platform (SCP). Transaction modules (Sales, Purchase, POS, Inventory, Accounting, Payroll, etc.) must NEVER embed compliance logic directly. They may only invoke the Compliance Platform through its published APIs and SDK contracts (`IComplianceModule`, `StatutoryValidator`, `GstTaxEngine`).
 
 ### AI Agent Mandatory 5-Phase Review Protocol (MANDATORY — ALL FEATURES)
 
