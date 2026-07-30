@@ -36,6 +36,30 @@ class NumberingService:
     def __init__(self, db: Optional[AsyncSession] = None):
         self.db = db
 
+    @staticmethod
+    def infer_financial_year(reference_date: Optional[datetime] = None) -> str:
+        """Return the active financial year in YYYY-YYYY format."""
+        current = reference_date or datetime.now(timezone.utc)
+        start_year = current.year if current.month >= 4 else current.year - 1
+        return f"{start_year}-{start_year + 1}"
+
+    @staticmethod
+    def normalize_financial_year(value: Optional[str], reference_date: Optional[datetime] = None) -> str:
+        """Normalize user-provided fiscal values into YYYY-YYYY format."""
+        if value:
+            text = str(value).strip()
+            if len(text) == 4 and text.isdigit():
+                return f"{text}-{int(text) + 1}"
+            if "-" in text:
+                parts = [part for part in text.split("-") if part]
+                if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                    return f"{parts[0]}-{parts[1]}"
+            if len(text) == 2 and text.isdigit():
+                year = int(text)
+                base = 2000 + year if year < 100 else year
+                return f"{base}-{base + 1}"
+        return NumberingService.infer_financial_year(reference_date)
+
     """
     Atomic, branch-scoped document number generator.
 

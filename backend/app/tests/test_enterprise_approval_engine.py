@@ -12,6 +12,8 @@ License      : Proprietary Commercial Software
 """
 
 import uuid
+from decimal import Decimal
+
 import pytest
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.future import select
@@ -30,6 +32,7 @@ from app.models.approval import (
     SMRITIApprovalOutbox,
     SMRITIApprovalDelegation,
 )
+from app.services.approval import ApprovalService
 from app.services.approval_resolver import ApprovalResolver
 from app.services.approval_fsm import ApprovalFSM
 from app.tests.conftest import clear_db
@@ -89,6 +92,26 @@ async def test_ast_safe_evaluator():
     # Test failing expression
     expr_false = "Amount > 100000 OR Category == 'LOCAL'"
     assert resolver.evaluate_condition(expr_false, ctx) is False
+
+
+@pytest.mark.asyncio
+async def test_approval_service_requires_manager_for_large_amount(db_session):
+    """Large documents should require approval from a manager-level role."""
+    service = ApprovalService()
+
+    result = await service.check(
+        document_type="PurchaseOrder",
+        document_id="po-001",
+        amount=Decimal("60000.00"),
+        requesting_user="usr-staff-1",
+        requesting_role="STAFF",
+        session=db_session,
+    )
+
+    assert result["approved"] is False
+    assert result["auto_approved"] is False
+    assert result["requires_approval_from"] == "MANAGER"
+    assert result["approval_level"] == 1
 
 
 @pytest.mark.asyncio

@@ -21,7 +21,7 @@ class QuickActionRegistryImpl {
       { id: "qa-new-sale", label: "New Sale", iconName: "ShoppingCart", targetTab: "pos", category: "Sales" },
       { id: "qa-new-po", label: "New Purchase", iconName: "Briefcase", targetTab: "purchase", category: "Procurement" },
       { id: "qa-new-customer", label: "New Customer", iconName: "Users", targetTab: "customers", category: "CRM" },
-      { id: "qa-new-supplier", label: "New Supplier", iconName: "Building", targetTab: "suppliers", category: "Procurement" },
+      { id: "qa-new-supplier", label: "New Supplier", iconName: "Building", targetTab: "supplier-mgmt", category: "Procurement" },
       { id: "qa-new-item", label: "New Item", iconName: "Package", targetTab: "item-master", category: "Inventory" },
       { id: "qa-stock-transfer", label: "Stock Transfer", iconName: "Truck", targetTab: "stock-ledger", category: "Inventory" },
       { id: "qa-ledger-entry", label: "Payment / Receipt", iconName: "DollarSign", targetTab: "ledger", category: "Finance" },

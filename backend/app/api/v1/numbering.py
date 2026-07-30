@@ -26,6 +26,12 @@ from ...services.numbering import NumberingService
 router = APIRouter()
 
 
+@router.get("/financial-year")
+async def get_financial_year():
+    """Return the current financial year in YYYY-YYYY format."""
+    return {"financialYear": NumberingService.infer_financial_year()}
+
+
 @router.get(
     "/series",
     response_model=List[DocumentSeriesResponse],

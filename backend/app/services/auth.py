@@ -23,6 +23,7 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
+import logging
 import uuid
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +37,8 @@ from ..core.security import (
     create_access_token, create_refresh_token, decode_token,
 )
 from ..core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def _build_token_payload(user: User) -> dict:
@@ -54,6 +57,13 @@ def _build_token_payload(user: User) -> dict:
 class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    def _is_dev_login_enabled(self) -> bool:
+        enabled = getattr(settings, "ENABLE_DEV_LOGIN", False)
+        if enabled:
+            return True
+        environment = str(getattr(settings, "ENVIRONMENT", "")).lower()
+        return environment in {"development", "dev", "test"}
 
     # ------------------------------------------------------------------
     # Bootstrap — first-run SYSADMIN creation
@@ -107,7 +117,16 @@ class AuthService:
         )
         user = res.scalars().first()
 
-        if not user or not user.is_active:
+        if not user:
+            logger.warning("Authentication failed for username=%s reason=missing_user", req.username)
+            raise HTTPException(
+                status_code=401,
+                detail="Incorrect username or password.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if not user.is_active:
+            logger.warning("Authentication failed for username=%s reason=inactive_user", req.username)
             raise HTTPException(
                 status_code=401,
                 detail="Incorrect username or password.",

@@ -157,6 +157,10 @@ async def test_api_v1_migration_endpoints(db_session):
         assert fy_config is not None
         assert fy_config.value == "2026-2027"
 
+        fy_preview = await client.get("/api/v1/numbering/financial-year", headers=headers)
+        assert fy_preview.status_code == 200
+        assert fy_preview.json()["financialYear"] == "2026-2027"
+
         res_setup_again = await client.post(
             "/api/v1/company/setup",
             json={"businessInfo": {"name": "Second Co"}},
