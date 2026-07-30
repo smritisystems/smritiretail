@@ -8,6 +8,7 @@
  */
 
 import { Product } from "../../types.js";
+import { AttributePrintResolver } from "../../core/metadata/printing/AttributePrintResolver.js";
 
 export interface PRNTemplate {
   id: string;
@@ -56,6 +57,8 @@ export const TATTLY_THREADS_ZPL_SCRIPT = `<xpml><page quantity='0' pitch='50.7 m
 ^FT490,199
 ^A0N,17,23^FD |(Incl of all taxes)^FS
 ^FT488,175
+
+
 ^A0N,42,56^FD{mrp}/-^FS
 ^FT408,170
 ^A0N,28,38^FDMRP:^FS
@@ -168,42 +171,10 @@ PRINT \${copies},1`,
 
 export class PRNVariableEngine {
   /**
-   * Resolves dynamic template variables against item properties
+   * Resolves dynamic template variables against item properties via SMRITI Metadata Platform (SMP-M)
    */
   static renderTemplate(template: PRNTemplate | string, item: Product | any, copies: number = 1): string {
-    let script = typeof template === "string" ? template : template.content;
-
-    const priceFormatted = Number(item.price || item.mrp || 0).toFixed(2);
-    const mrpFormatted = Number(item.mrp || item.price || 0).toFixed(2);
-    const barcodeVal = String(item.barcode || item.itemCode || item.code || "8901234567890");
-    const sizeVal = String(item.size || item.sizeMm || "8");
-    const colorVal = String(item.color || "BLACK");
-    const styleVal = String(item.style || item.styleCode || item.itemCode || "SHO-1001");
-    const pkdDateVal = String(item.pkd_date || item.mfgDate || "05/2025");
-
-    const variableMap: Record<string, string> = {
-      "{barcode}": barcodeVal,
-      "{size}": sizeVal,
-      "{color}": colorVal,
-      "{style}": styleVal,
-      "{mrp}": mrpFormatted,
-      "{pkd_date}": pkdDateVal,
-
-      "\${item.name}": String(item.name || item.itemName || "Item"),
-      "\${item.code}": String(item.code || item.itemCode || ""),
-      "\${item.barcode}": barcodeVal,
-      "\${item.price}": priceFormatted,
-      "\${item.mrp}": mrpFormatted,
-      "\${item.color}": colorVal,
-      "\${item.size}": sizeVal,
-      "\${item.hsn}": String(item.hsnCode || item.hsn || "6404"),
-      "\${copies}": Math.max(1, copies).toString(),
-    };
-
-    for (const [key, val] of Object.entries(variableMap)) {
-      script = script.replaceAll(key, val);
-    }
-
-    return script;
+    const rawScript = typeof template === "string" ? template : template.content;
+    return AttributePrintResolver.resolvePrintScript(rawScript, item, copies);
   }
 }
