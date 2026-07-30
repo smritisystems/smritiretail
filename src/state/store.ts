@@ -11,15 +11,12 @@
  * License      : Proprietary Commercial Software
  */
 
-import fs from "fs";
-import path from "path";
 import { hashPassword } from "../lib/helpers.js";
 import { initialSalesInvoices, initialSalesReturns } from "../services/customerStore.js";
 import { Product, POSProfile, Shift, FieldInfo, Formula, PSVParty, Bill, Quotation, SalesOrder, SalesInvoice, SalesReturn, Customer, CustomerGroup, User } from "../types.js";
 
-const DB_FILE = path.join(process.cwd(), "db_store.json");
-
 // Define state arrays
+
 
 
 export let ledgerEntries: any[] = [];
