@@ -646,11 +646,13 @@ async def company_setup(
     branch_entries = org_structure.stores or []
 
     existing_setup = await get_system_config(db, SETUP_COMPLETED_KEY)
-    if existing_setup and existing_setup.value == "true":
+    existing_state = await get_system_config(db, SETUP_STATE_KEY)
+    if (existing_setup and existing_setup.value == "true") or (existing_state and existing_state.value in ["INITIALIZED", "LOCKED"]):
         raise HTTPException(
             status_code=400,
-            detail="Company setup has already been completed."
+            detail="Company setup is locked and cannot be re-executed from the onboarding wizard. Please use Administrative Modules for structural changes."
         )
+
 
     if not branch_entries:
         branch_entries = [
@@ -851,23 +853,22 @@ async def company_setup(
         await set_system_config(db, LICENSE_MODE_KEY, license_mode, current_user, commit=False, actor_name=actor_username)
         await set_system_config(db, LICENSE_EXPIRES_KEY, license_expires_at, current_user, commit=False, actor_name=actor_username)
         await set_system_config(db, SETUP_COMPLETED_KEY, "true", current_user, commit=False, actor_name=actor_username)
-        await set_system_config(db, SETUP_STATE_KEY, "INITIALIZED", current_user, commit=False, actor_name=actor_username)
+        await set_system_config(db, SETUP_STATE_KEY, "LOCKED", current_user, commit=False, actor_name=actor_username)
+
 
         # 8. Explicit Atomic Commit
         await db.commit()
 
     except Exception as setup_err:
         await db.rollback()
-        # Mark setup state as FAILED if possible in a isolated transaction
-        try:
-            async with db.begin():
-                await set_system_config(db, SETUP_STATE_KEY, "FAILED", current_user, commit=True, actor_name=actor_username)
-        except Exception:
-            pass
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=f"Company setup provisioning failed: {str(setup_err)}"
         )
+
+
 
     return {
         "success": True,

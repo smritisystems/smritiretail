@@ -23,10 +23,22 @@ from app.models.system import SystemConfig
 async def test_company_setup_provisioning(db_session):
     """
     Verify POST /api/v1/company/setup provisions Company, Branch, Store, User,
-    sets setup_state = INITIALIZED and setup_completed = true, and commits cleanly.
+    sets setup_state = LOCKED and setup_completed = true, and commits cleanly.
     """
+    # Clean setup state and test entities in test session (order matters for FK constraints)
+    from sqlalchemy import delete
+    await db_session.execute(delete(User).where(User.username == "vikram_smriti"))
+    await db_session.execute(delete(Store).where(Store.code.in_(["GKP-01", "LKO-02"])))
+    await db_session.execute(delete(Branch).where(Branch.code.in_(["GKP-01", "LKO-02"])))
+    await db_session.execute(delete(Company).where(Company.name == "Smriti Retail India Pvt Ltd"))
+    await db_session.execute(delete(SystemConfig).where(SystemConfig.key.in_(["setup_completed", "setup_state"])))
+    await db_session.commit()
+
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+
+
         setup_payload = {
             "businessInfo": {
                 "name": "Smriti Retail India Pvt Ltd",
@@ -97,7 +109,12 @@ async def test_company_setup_provisioning(db_session):
         }
 
         res = await client.post("/api/v1/company/setup", json=setup_payload)
-        assert res.status_code == 200, f"Expected 200 OK, got {res.status_code}: {res.text}"
+        if res.status_code != 200:
+            raise RuntimeError(f"SETUP_FAILED: {res.text}")
+
+
+
+
         data = res.json()
         assert data["success"] is True
         assert data["company"]["name"] == "Smriti Retail India Pvt Ltd"
@@ -124,13 +141,14 @@ async def test_company_setup_provisioning(db_session):
         assert len(users) >= 1
         assert users[0].username == "vikram_smriti"
 
-        # 5. Verify Database Setup Completed Config & State Machine
+        # 5. Verify Database Setup Completed Config & State Machine (NEW -> BOOTSTRAPPING -> INITIALIZED -> LOCKED)
         configs = (await db_session.execute(select(SystemConfig))).scalars().all()
         config_map = {c.key: c.value for c in configs}
         assert config_map.get("setup_completed") == "true"
-        assert config_map.get("setup_state") == "INITIALIZED"
+        assert config_map.get("setup_state") == "LOCKED"
 
-        # 6. Verify duplicate setup attempt is blocked with 400
+        # 6. Verify setup re-execution attempt is permanently locked and blocked with HTTP 400
         dup_res = await client.post("/api/v1/company/setup", json=setup_payload)
         assert dup_res.status_code == 400
-        assert "already been completed" in dup_res.json()["detail"]
+        assert "locked and cannot be re-executed" in dup_res.json()["detail"]
+
