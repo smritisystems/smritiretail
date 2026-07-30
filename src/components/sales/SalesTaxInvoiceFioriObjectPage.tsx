@@ -30,7 +30,8 @@ import {
   Info,
   Check,
   ChevronRight,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ExternalLink
 } from "lucide-react";
 import { Customer, Product } from "../../types";
 
@@ -181,6 +182,20 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
               <span className="text-[10px] text-indigo-300 uppercase font-mono block">Grand Total</span>
               <span className="text-sm font-bold font-mono text-indigo-300">₹{invoiceTotals.grandTotal.toLocaleString("en-IN")}</span>
             </div>
+
+            {/* Dedicated Standalone Popout Window Action */}
+            <button
+              type="button"
+              onClick={() => {
+                const popoutUrl = `${window.location.origin}${window.location.pathname}?popout=true&tab=sales&subView=invoices&action=create`;
+                window.open(popoutUrl, "SalesTaxInvoicePopoutWindow", "width=1440,height=900,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
+              }}
+              className="px-3 py-2 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/50 text-indigo-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md"
+              title="Open Sales Tax Invoice in dedicated Popout window without sidebar or menubar"
+            >
+              <ExternalLink size={14} />
+              <span>Popout Window</span>
+            </button>
           </div>
         </div>
       </div>
