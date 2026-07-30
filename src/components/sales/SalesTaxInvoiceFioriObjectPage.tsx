@@ -128,27 +128,29 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
   };
 
   return (
-    <div className="w-full bg-[#0B0F17] border border-indigo-500/30 rounded-2xl overflow-hidden shadow-2xl animate-in fade-in duration-200 text-theme-body font-sans flex flex-col max-h-[90vh]">
-      {/* 1. SAP Fiori Sticky Object Header */}
-      <div className="bg-[#121824] border-b border-theme-divider px-6 py-4 space-y-3 shrink-0">
-        {/* Breadcrumb Trail */}
-        <div className="flex items-center gap-2 text-[11px] text-theme-muted font-mono">
-          <span>Sales</span>
-          <ChevronRight size={12} />
-          <span>Sales Invoices Registry</span>
-          <ChevronRight size={12} />
-          <span className="text-indigo-400 font-bold">New Sales Tax Invoice</span>
-        </div>
-
-        {/* Header Title & Status Badge */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="w-full bg-[#0B0F17] border border-indigo-500/30 rounded-2xl overflow-hidden shadow-2xl animate-in fade-in duration-200 text-theme-body font-sans flex flex-col max-h-[92vh]">
+      {/* 1. Sticky Object Header & Command Bar */}
+      <div className="bg-[#121824] border-b border-theme-divider px-6 py-3.5 space-y-2 shrink-0">
+        {/* Top Header Row: Title, Status Badge, Document ID, Hotkeys */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-950/80 border border-blue-500/40 rounded-xl text-blue-400 shadow-md">
-              <FileText size={22} />
+            <button
+              type="button"
+              onClick={onCancel}
+              className="p-1.5 rounded-lg bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body transition cursor-pointer"
+              title="Return to Sales Invoices Registry"
+            >
+              <X size={16} />
+            </button>
+            <div className="p-2 bg-blue-950/80 border border-blue-500/40 rounded-xl text-blue-400 shadow-md">
+              <FileText size={20} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold font-display text-theme-heading">Sales Tax Invoice</h2>
+                <h2 className="text-base font-bold font-display text-theme-heading">Sales Tax Invoice Workspace</h2>
+                <span className="px-2 py-0.5 rounded-md bg-indigo-950/60 text-indigo-300 border border-indigo-500/30 font-mono text-[10px] font-bold">
+                  INV-000124
+                </span>
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider ${
                     invoiceStatus === "Draft"
@@ -161,547 +163,568 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
                   {invoiceStatus}
                 </span>
               </div>
-              <p className="text-xs text-theme-muted mt-0.5">
-                Commercial Tax Invoice • Dual-Entry Engine (Manual Scan + Apparel Size Matrix)
+              <p className="text-[11px] text-theme-muted mt-0.5">
+                Keyboard-Optimized High-Speed Billing Desk • SAP Fiori & Dynamics 365 Architecture
               </p>
             </div>
           </div>
 
-          {/* Header KPI Micro Cards */}
-          <div className="flex items-center gap-3">
-            <div className="bg-theme-surface-2 px-3 py-1.5 rounded-xl border border-theme-divider text-right">
-              <span className="text-[10px] text-theme-muted uppercase font-mono block">Subtotal</span>
-              <span className="text-xs font-bold font-mono text-theme-heading">₹{invoiceTotals.taxable.toLocaleString("en-IN")}</span>
-            </div>
-            <div className="bg-theme-surface-2 px-3 py-1.5 rounded-xl border border-theme-divider text-right">
-              <span className="text-[10px] text-theme-muted uppercase font-mono block">GST Tax</span>
-              <span className="text-xs font-bold font-mono text-emerald-400">
-                ₹{(invoiceTotals.cgst + invoiceTotals.sgst + invoiceTotals.igst).toLocaleString("en-IN")}
-              </span>
-            </div>
-            <div className="bg-indigo-950/40 px-4 py-1.5 rounded-xl border border-indigo-500/40 text-right">
-              <span className="text-[10px] text-indigo-300 uppercase font-mono block">Grand Total</span>
-              <span className="text-sm font-bold font-mono text-indigo-300">₹{invoiceTotals.grandTotal.toLocaleString("en-IN")}</span>
-            </div>
+          {/* Quick Keyboard Hotkeys Legend Bar */}
+          <div className="hidden lg:flex items-center gap-2 text-[10px] font-mono text-theme-muted bg-theme-surface-2 px-3 py-1.5 rounded-xl border border-theme-divider">
+            <span className="px-1.5 py-0.5 bg-theme-surface-3 rounded border border-theme-divider text-indigo-400 font-bold">F2</span> Customer
+            <span className="text-theme-divider">|</span>
+            <span className="px-1.5 py-0.5 bg-theme-surface-3 rounded border border-theme-divider text-indigo-400 font-bold">F3</span> Item Search
+            <span className="text-theme-divider">|</span>
+            <span className="px-1.5 py-0.5 bg-theme-surface-3 rounded border border-theme-divider text-indigo-400 font-bold">F4</span> Payment
+            <span className="text-theme-divider">|</span>
+            <span className="px-1.5 py-0.5 bg-theme-surface-3 rounded border border-theme-divider text-indigo-400 font-bold">F9</span> Print
+            <span className="text-theme-divider">|</span>
+            <span className="px-1.5 py-0.5 bg-theme-surface-3 rounded border border-theme-divider text-indigo-400 font-bold">Ctrl+S</span> Save
+          </div>
 
-            {/* Dedicated Standalone Popout Window Action (STWS-001 Platform Standard) */}
-            <button
-              type="button"
-              onClick={() => {
-                WindowManager.openTransaction({
-                  transactionType: "SalesInvoice",
-                  mode: "standalone",
-                  action: "create",
-                });
-              }}
-              className="px-3 py-2 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/50 text-indigo-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md"
-              title="STWS-001: Open in Dedicated Standalone Window (SMRITI Window Management Framework)"
+          {/* Standalone Window Button */}
+          <button
+            type="button"
+            onClick={() => {
+              WindowManager.openTransaction({
+                transactionType: "SalesInvoice",
+                mode: "standalone",
+                action: "create",
+              });
+            }}
+            className="px-3 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/50 text-indigo-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md"
+          >
+            <ExternalLink size={13} />
+            <span>Open Popout Window</span>
+          </button>
+        </div>
+
+        {/* 2. Top Header Form Bar (Dense Enterprise Data Entry Row) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 pt-2 border-t border-theme-divider/40 text-xs">
+          <div>
+            <label className="text-[9px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Customer (F2)</label>
+            <select
+              value={invoiceCustomerId}
+              onChange={(e) => setInvoiceCustomerId(e.target.value)}
+              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-medium"
             >
-              <ExternalLink size={14} />
-              <span>Open in New Window</span>
-            </button>
+              <option value="">-- Choose Customer --</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.mobile})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[9px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Invoice Date</label>
+            <input
+              type="date"
+              defaultValue={new Date().toISOString().split("T")[0]}
+              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs text-theme-body focus:outline-none font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="text-[9px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Warehouse</label>
+            <select className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-body focus:outline-none">
+              <option>WH-01 Main Distribution</option>
+              <option>WH-02 Retail Counter Desk</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[9px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Sales Representative</label>
+            <select className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-body focus:outline-none">
+              <option>Jawahar Mallah (SYSADMIN)</option>
+              <option>Rajesh Kumar (Sales Exec)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[9px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Payment Mode (F4)</label>
+            <select className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-body focus:outline-none">
+              <option>Net 30 Credit</option>
+              <option>UPI / QR Pay</option>
+              <option>POS Card Swiper</option>
+              <option>Cash Drawer</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[9px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Price List</label>
+            <select className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-body focus:outline-none">
+              <option>Standard Retail MRP</option>
+              <option>Distributor Wholesale</option>
+              <option>VIP Member Special</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[9px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Currency</label>
+            <select className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-body focus:outline-none font-mono">
+              <option>INR (₹)</option>
+              <option>USD ($)</option>
+              <option>EUR (€)</option>
+            </select>
           </div>
         </div>
       </div>
 
-      {/* Scrollable Object Page Body */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* 2. Top 3 Cards Section: Customer Info, Invoice Info, KPI Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Card 1: Customer Information */}
-          <div className="p-4 rounded-2xl bg-theme-surface-1 border border-theme-divider space-y-3">
-            <div className="flex items-center justify-between border-b border-theme-divider pb-2">
-              <span className="text-xs font-bold text-theme-heading flex items-center gap-1.5">
-                <User size={14} className="text-blue-400" />
-                <span>Customer Information</span>
-              </span>
-              <span className="text-[10px] font-mono text-indigo-400">Section 1</span>
+      {/* Scrollable Workspace Body */}
+      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        {/* 3. Fast Item Search & Barcode Scan Input Bar */}
+        <div className="bg-theme-surface-1 p-3 rounded-xl border border-theme-divider flex flex-col sm:flex-row items-center gap-3">
+          <div className="relative flex-1 w-full">
+            <input
+              type="text"
+              placeholder="Search product by name, SKU code, or scan barcode... (Ctrl+K / F3)"
+              className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-9 pr-4 py-2 text-xs text-theme-body focus:outline-none focus:border-indigo-500 font-mono"
+            />
+            <Info size={14} className="absolute left-3 top-2.5 text-theme-muted" />
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setEntryMode("manual")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                entryMode === "manual" ? "bg-indigo-600 text-white" : "bg-theme-surface-2 text-theme-muted"
+              }`}
+            >
+              Manual / Barcode
+            </button>
+            <button
+              type="button"
+              onClick={() => setEntryMode("matrix")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                entryMode === "matrix" ? "bg-indigo-600 text-white" : "bg-theme-surface-2 text-theme-muted"
+              }`}
+            >
+              Matrix Entry Grid
+            </button>
+          </div>
+        </div>
+
+        {/* 4. Manual Entry Panel / Matrix Panel */}
+        {entryMode === "manual" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-theme-surface-1 p-3.5 rounded-xl border border-theme-divider/70">
+            <div className="sm:col-span-6">
+              <label className="text-[10px] font-mono text-theme-muted block mb-1">PRODUCT VARIANT *</label>
+              <select
+                value={selectedProduct}
+                onChange={(e) => setSelectedProduct(e.target.value)}
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-medium"
+              >
+                <option value="">-- Choose Article Variant --</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.color || "N/A"} - Size {p.size || "N/A"}) - ₹{p.price} [Barcode: {p.barcode}]
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className="space-y-2.5 text-xs">
+            <div className="sm:col-span-2">
+              <label className="text-[10px] font-mono text-theme-muted block mb-1">QTY</label>
+              <input
+                type="number"
+                min="1"
+                value={manualQty}
+                onChange={(e) => setManualQty(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="text-[10px] font-mono text-theme-muted block mb-1">GST TAX %</label>
+              <select
+                value={manualTax}
+                onChange={(e) => setManualTax(parseInt(e.target.value) || 18)}
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-2 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+              >
+                <option value="5">5% GST</option>
+                <option value="12">12% GST</option>
+                <option value="18">18% GST</option>
+                <option value="28">28% GST</option>
+              </select>
+            </div>
+
+            <div className="sm:col-span-2 flex items-end">
+              <button
+                type="button"
+                onClick={handleAddManualItem}
+                className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+              >
+                <Plus size={15} />
+                <span>Add Item Line</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-theme-surface-1 p-4 rounded-xl border border-theme-divider space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">
-                  Select Customer *
-                </label>
+                <label className="text-[10px] font-mono text-theme-muted block mb-1">BASE ARTICLE MODEL *</label>
                 <select
-                  value={invoiceCustomerId}
-                  onChange={(e) => setInvoiceCustomerId(e.target.value)}
-                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
+                  value={selectedBaseArticle}
+                  onChange={(e) => {
+                    setSelectedBaseArticle(e.target.value);
+                    setSelectedBaseColor("");
+                    setMatrixQuantities({});
+                  }}
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body focus:outline-none"
                 >
-                  <option value="">-- Choose Customer Entity --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.mobile}) - Outstanding: ₹{c.outstanding}
-                    </option>
+                  <option value="">-- Choose Base Article --</option>
+                  {baseArticles.map((art) => (
+                    <option key={art} value={art}>{art}</option>
                   ))}
                 </select>
               </div>
 
-              {selectedCustomer && (
-                <div className="bg-theme-surface-2 p-3 rounded-xl border border-theme-divider/60 space-y-1.5 text-[11px]">
-                  <div className="flex justify-between">
-                    <span className="text-theme-muted">GSTIN:</span>
-                    <span className="font-mono font-bold text-theme-heading">{(selectedCustomer as any).gstin || "27AAACG1234F1Z0"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-theme-muted">State Code:</span>
-                    <span className="font-mono text-theme-heading">27 (Maharashtra)</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-theme-muted">Credit Balance:</span>
-                    <span className="font-mono text-emerald-400">₹{selectedCustomer.outstanding || 0}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Card 2: Invoice Header Information */}
-          <div className="p-4 rounded-2xl bg-theme-surface-1 border border-theme-divider space-y-3">
-            <div className="flex items-center justify-between border-b border-theme-divider pb-2">
-              <span className="text-xs font-bold text-theme-heading flex items-center gap-1.5">
-                <Calendar size={14} className="text-blue-400" />
-                <span>Invoice Information</span>
-              </span>
-              <span className="text-[10px] font-mono text-indigo-400">Section 2</span>
-            </div>
-
-            <div className="space-y-2.5 text-xs">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Invoice Date</label>
-                  <input
-                    type="date"
-                    defaultValue={new Date().toISOString().split("T")[0]}
-                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-2.5 py-1.5 text-xs text-theme-body outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Due Date</label>
-                  <input
-                    type="date"
-                    defaultValue={new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0]}
-                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-2.5 py-1.5 text-xs text-theme-body outline-none"
-                  />
-                </div>
-              </div>
-
               <div>
-                <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">eWay Bill Number</label>
-                <input
-                  type="text"
-                  value={invoiceEWayBill}
-                  onChange={(e) => setInvoiceEWayBill(e.target.value)}
-                  placeholder="e.g. 123456789012"
-                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
-                />
-              </div>
-
-              <div className="flex items-center pt-1">
-                <input
-                  type="checkbox"
-                  checked={invoiceIsInterstate}
-                  onChange={(e) => setInvoiceIsInterstate(e.target.checked)}
-                  className="rounded border-theme-divider bg-theme-surface-2 accent-indigo-500 mr-2 h-4 w-4"
-                />
-                <span className="text-xs font-semibold text-theme-heading">Interstate Supply (IGST Applicable)</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: KPI Summary Card */}
-          <div className="p-4 rounded-2xl bg-theme-surface-1 border border-theme-divider space-y-3">
-            <div className="flex items-center justify-between border-b border-theme-divider pb-2">
-              <span className="text-xs font-bold text-theme-heading flex items-center gap-1.5">
-                <CreditCard size={14} className="text-blue-400" />
-                <span>Financial KPI Summary</span>
-              </span>
-              <span className="text-[10px] font-mono text-indigo-400">Section 3</span>
-            </div>
-
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between py-1 border-b border-theme-divider/40">
-                <span className="text-theme-muted">Before Tax:</span>
-                <span className="font-mono font-bold text-theme-heading">₹{invoiceTotals.taxable.toLocaleString("en-IN")}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-theme-divider/40">
-                <span className="text-theme-muted">Total Quantity:</span>
-                <span className="font-mono font-bold text-indigo-400">{totalItemsQty} Pcs</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-theme-divider/40">
-                <span className="text-theme-muted">GST Tax Amount:</span>
-                <span className="font-mono font-bold text-emerald-400">
-                  ₹{(invoiceTotals.cgst + invoiceTotals.sgst + invoiceTotals.igst).toLocaleString("en-IN")}
-                </span>
-              </div>
-              <div className="pt-2">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block">Amount in Words</span>
-                <span className="text-xs font-semibold text-indigo-300 italic">{numberToWords(invoiceTotals.grandTotal)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 3. SAP Fiori Object Page Tabs Suite */}
-        <div className="space-y-4">
-          <div className="flex border-b border-theme-divider bg-theme-surface-1 px-4 rounded-t-2xl">
-            {[
-              { id: "items", label: "Invoice Items & Entry Grid", icon: Layers, badge: invoiceItems.length },
-              { id: "tax", label: "Tax Breakdown", icon: FileSpreadsheet },
-              { id: "customer", label: "Customer & Credit Details", icon: User },
-              { id: "audit", label: "Workflow & Audit Logs", icon: Clock },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`px-5 py-3 text-xs font-bold font-display flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-                    isActive
-                      ? "border-blue-500 text-blue-400 bg-blue-950/20"
-                      : "border-transparent text-theme-muted hover:text-theme-heading hover:bg-theme-surface-hover"
-                  }`}
+                <label className="text-[10px] font-mono text-theme-muted block mb-1">COLOR VARIANT *</label>
+                <select
+                  value={selectedBaseColor}
+                  onChange={(e) => {
+                    setSelectedBaseColor(e.target.value);
+                    setMatrixQuantities({});
+                  }}
+                  disabled={!selectedBaseArticle}
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body focus:outline-none disabled:opacity-50"
                 >
-                  <Icon size={15} />
-                  <span>{tab.label}</span>
-                  {tab.badge !== undefined && (
-                    <span className="px-1.5 py-0.2 rounded-full bg-theme-surface-2 border border-theme-divider font-mono text-[10px]">
-                      {tab.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                  <option value="">-- Choose Color --</option>
+                  {availableColors.map((col) => (
+                    <option key={col} value={col}>{col}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-          {/* TAB 1: ITEMS ENTRY */}
-          {activeTab === "items" && (
-            <div className="space-y-4">
-              {/* Dual Entry Mode Selector */}
-              <div className="bg-theme-surface-1 p-4 rounded-2xl border border-theme-divider space-y-4">
-                <div className="flex items-center justify-between border-b border-theme-divider pb-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setEntryMode("manual")}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
-                        entryMode === "manual" ? "bg-indigo-600 text-white shadow-md" : "bg-theme-surface-2 text-theme-muted hover:text-theme-body"
-                      }`}
-                    >
-                      <Layers size={14} />
-                      <span>Manual Scan / Resolve</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEntryMode("matrix")}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
-                        entryMode === "matrix" ? "bg-indigo-600 text-white shadow-md" : "bg-theme-surface-2 text-theme-muted hover:text-theme-body"
-                      }`}
-                    >
-                      <Grid size={14} />
-                      <span>Matrix Grid Entry (SMRITI Footwear/Apparel)</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Manual Entry Sub-Panel */}
-                {entryMode === "manual" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50">
-                    <div className="sm:col-span-6">
-                      <label className="text-[10px] font-mono text-theme-muted block mb-1">SELECT VARIANT *</label>
-                      <select
-                        value={selectedProduct}
-                        onChange={(e) => setSelectedProduct(e.target.value)}
-                        className="w-full bg-theme-surface-1 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                      >
-                        <option value="">-- Choose Article Variant --</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} ({p.color || "N/A"} - Size {p.size || "N/A"}) - ₹{p.price} [SMR-Barcode: {p.barcode}]
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="text-[10px] font-mono text-theme-muted block mb-1">QTY</label>
+            {selectedBaseArticle && selectedBaseColor && (
+              <div className="space-y-3 pt-2 border-t border-theme-divider/50">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                  {matrixVariants.map((variant) => (
+                    <div key={variant.id} className="bg-theme-surface-2 p-2.5 rounded-xl border border-theme-divider flex flex-col items-center">
+                      <span className="text-[10px] font-mono text-theme-muted">Size {variant.size || "OS"}</span>
+                      <span className="text-xs font-semibold text-theme-body mt-0.5">₹{variant.price}</span>
                       <input
                         type="number"
-                        min="1"
-                        value={manualQty}
-                        onChange={(e) => setManualQty(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-full bg-theme-surface-1 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-mono"
+                        min="0"
+                        value={matrixQuantities[variant.id] || ""}
+                        placeholder="0"
+                        onChange={(e) => {
+                          const val = Math.max(0, parseInt(e.target.value) || 0);
+                          setMatrixQuantities({ ...matrixQuantities, [variant.id]: val });
+                        }}
+                        className="w-full text-center bg-theme-surface-1 border border-theme-divider rounded-lg mt-2 py-1 text-xs text-theme-body font-mono"
                       />
                     </div>
+                  ))}
+                </div>
 
-                    <div className="sm:col-span-2">
-                      <label className="text-[10px] font-mono text-theme-muted block mb-1">GST TAX %</label>
-                      <select
-                        value={manualTax}
-                        onChange={(e) => setManualTax(parseInt(e.target.value) || 18)}
-                        className="w-full bg-theme-surface-1 border border-theme-divider rounded-xl px-2 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                      >
-                        <option value="5">5% GST</option>
-                        <option value="12">12% GST</option>
-                        <option value="18">18% GST</option>
-                        <option value="28">28% GST</option>
-                      </select>
-                    </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleAddMatrixItems}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                  >
+                    Add Matrix Items to Invoice
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
-                    <div className="sm:col-span-2 flex items-end">
-                      <button
-                        type="button"
-                        onClick={handleAddManualItem}
-                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
-                      >
-                        <Plus size={14} />
-                        <span>Add Line</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
+        {/* 5. Dynamic Item Entry Table */}
+        <div className="bg-theme-surface-1 border border-theme-divider rounded-xl overflow-hidden shadow-md">
+          <div className="px-4 py-2.5 bg-theme-surface-2 border-b border-theme-divider flex items-center justify-between">
+            <h4 className="text-xs font-bold text-theme-heading flex items-center gap-2">
+              <span>Invoice Item Lines</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-theme-surface-3 text-indigo-400">
+                {invoiceItems.length} Lines
+              </span>
+            </h4>
+          </div>
 
-                {/* Matrix Entry Sub-Panel */}
-                {entryMode === "matrix" && (
-                  <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50 space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[10px] font-mono text-theme-muted block mb-1">SELECT BASE ARTICLE</label>
-                        <select
-                          value={selectedBaseArticle}
-                          onChange={(e) => {
-                            setSelectedBaseArticle(e.target.value);
-                            setSelectedBaseColor("");
-                            setMatrixQuantities({});
-                          }}
-                          className="w-full bg-theme-surface-1 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body"
-                        >
-                          <option value="">-- Choose Base Article --</option>
-                          {baseArticles.map((art) => (
-                            <option key={art} value={art}>{art}</option>
-                          ))}
-                        </select>
-                      </div>
+          {invoiceItems.length === 0 ? (
+            <div className="p-10 text-center text-theme-muted text-xs">
+              No items added yet. Use manual barcode scan or matrix grid entry above to build invoice lines.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono text-[9px] tracking-wider border-b border-theme-divider">
+                    <th className="px-3 py-2.5">Code</th>
+                    <th className="px-3 py-2.5">Product Description</th>
+                    <th className="px-3 py-2.5">Batch</th>
+                    <th className="px-3 py-2.5 text-right">Qty</th>
+                    <th className="px-3 py-2.5 text-center">UOM</th>
+                    <th className="px-3 py-2.5 text-right">Rate (₹)</th>
+                    <th className="px-3 py-2.5 text-right">Disc %</th>
+                    <th className="px-3 py-2.5 text-right">GST %</th>
+                    <th className="px-3 py-2.5 text-right">Amount (₹)</th>
+                    <th className="px-3 py-2.5 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-theme-divider/60">
+                  {invoiceItems.map((item, idx) => {
+                    const taxPct = item.taxRate || 18;
+                    const lineRate = item.price || 0;
+                    const lineQty = item.qty || 1;
+                    const discPct = item.discountPct || 0;
+                    const grossAmount = lineRate * lineQty;
+                    const discAmount = (grossAmount * discPct) / 100;
+                    const taxable = grossAmount - discAmount;
+                    const taxAmount = (taxable * taxPct) / 100;
+                    const lineTotal = taxable + taxAmount;
 
-                      <div>
-                        <label className="text-[10px] font-mono text-theme-muted block mb-1">SELECT COLOR</label>
-                        <select
-                          value={selectedBaseColor}
-                          onChange={(e) => {
-                            setSelectedBaseColor(e.target.value);
-                            setMatrixQuantities({});
-                          }}
-                          disabled={!selectedBaseArticle}
-                          className="w-full bg-theme-surface-1 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body disabled:opacity-50"
-                        >
-                          <option value="">-- Choose Color --</option>
-                          {availableColors.map((col) => (
-                            <option key={col} value={col}>{col}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {selectedBaseArticle && selectedBaseColor && (
-                      <div className="space-y-3 pt-2 border-t border-theme-divider/50">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                          {matrixVariants.map((variant) => (
-                            <div key={variant.id} className="bg-theme-surface-1 p-2.5 rounded-xl border border-theme-divider flex flex-col items-center">
-                              <span className="text-[10px] font-mono text-theme-muted">Size {variant.size || "OS"}</span>
-                              <span className="text-xs font-semibold text-theme-body mt-0.5">₹{variant.price}</span>
-                              <input
-                                type="number"
-                                min="0"
-                                value={matrixQuantities[variant.id] || ""}
-                                placeholder="0"
-                                onChange={(e) => {
-                                  const val = Math.max(0, parseInt(e.target.value) || 0);
-                                  setMatrixQuantities({ ...matrixQuantities, [variant.id]: val });
-                                }}
-                                className="w-full text-center bg-theme-surface-2 border border-theme-divider rounded-lg mt-2 py-1 text-xs text-theme-body font-mono"
-                              />
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="flex justify-end">
+                    return (
+                      <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
+                        <td className="px-3 py-2.5 font-mono text-indigo-400 font-bold">{item.code || `SKU-${idx + 101}`}</td>
+                        <td className="px-3 py-2.5 font-semibold text-theme-heading">
+                          {item.name || item.title || "Standard Article"}
+                        </td>
+                        <td className="px-3 py-2.5 font-mono text-theme-muted">{item.batch || "BATCH-2026A"}</td>
+                        <td className="px-3 py-2.5 font-mono text-right font-bold text-indigo-300">{lineQty}</td>
+                        <td className="px-3 py-2.5 text-center font-mono text-theme-muted">{item.uom || "PCS"}</td>
+                        <td className="px-3 py-2.5 font-mono text-right">₹{lineRate.toLocaleString("en-IN")}</td>
+                        <td className="px-3 py-2.5 font-mono text-right text-amber-400">{discPct}%</td>
+                        <td className="px-3 py-2.5 font-mono text-right text-emerald-400">{taxPct}%</td>
+                        <td className="px-3 py-2.5 font-mono text-right font-bold text-theme-heading">
+                          ₹{Math.round(lineTotal).toLocaleString("en-IN")}
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
                           <button
                             type="button"
-                            onClick={handleAddMatrixItems}
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition"
+                            onClick={() => setInvoiceItems(invoiceItems.filter((_, i) => i !== idx))}
+                            className="p-1 text-rose-400 hover:bg-rose-950/40 rounded transition"
                           >
-                            Add Matrix Items to Draft
+                            <Trash2 size={13} />
                           </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Fiori Enterprise Data Grid */}
-              <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl overflow-hidden space-y-2">
-                <div className="px-4 py-3 bg-theme-surface-2 border-b border-theme-divider flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-theme-heading flex items-center gap-2">
-                    <span>Invoice Items List</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-theme-surface-3 text-indigo-400">
-                      {invoiceItems.length} Lines
-                    </span>
-                  </h4>
-                </div>
-
-                {invoiceItems.length === 0 ? (
-                  <div className="p-12 text-center text-theme-muted text-xs">
-                    No items added yet. Use manual or matrix entry above to add lines to the invoice.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono text-[9px] border-b border-theme-divider">
-                          <th className="px-4 py-3">#</th>
-                          <th className="px-4 py-3">Article / Variant</th>
-                          <th className="px-4 py-3">HSN Code</th>
-                          <th className="px-4 py-3 text-right">Qty</th>
-                          <th className="px-4 py-3 text-right">Unit Price (₹)</th>
-                          <th className="px-4 py-3 text-right">GST %</th>
-                          <th className="px-4 py-3 text-right">Tax Amount (₹)</th>
-                          <th className="px-4 py-3 text-right">Line Total (₹)</th>
-                          <th className="px-4 py-3 text-center">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-theme-divider/60">
-                        {invoiceItems.map((item, idx) => {
-                          const taxPct = item.taxRate || 18;
-                          const lineTaxable = (item.price || 0) * (item.qty || 1);
-                          const lineTax = lineTaxable * (taxPct / 100);
-                          const lineTotal = lineTaxable + lineTax;
-                          return (
-                            <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
-                              <td className="px-4 py-3 font-mono text-theme-muted">{idx + 1}</td>
-                              <td className="px-4 py-3 font-semibold text-theme-heading">
-                                {item.name || item.title || "Standard Item"}
-                              </td>
-                              <td className="px-4 py-3 font-mono text-theme-muted">{item.hsn || "620520"}</td>
-                              <td className="px-4 py-3 font-mono text-right font-bold text-indigo-400">{item.qty || 1}</td>
-                              <td className="px-4 py-3 font-mono text-right">₹{(item.price || 0).toLocaleString("en-IN")}</td>
-                              <td className="px-4 py-3 font-mono text-right text-emerald-400">{taxPct}%</td>
-                              <td className="px-4 py-3 font-mono text-right text-emerald-400">₹{lineTax.toLocaleString("en-IN")}</td>
-                              <td className="px-4 py-3 font-mono text-right font-bold text-theme-heading">
-                                ₹{lineTotal.toLocaleString("en-IN")}
-                              </td>
-                              <td className="px-4 py-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => setInvoiceItems(invoiceItems.filter((_, i) => i !== idx))}
-                                  className="p-1.5 text-rose-400 hover:bg-rose-950/40 rounded-lg transition"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
+        </div>
 
-          {/* TAB 2: TAX BREAKDOWN */}
-          {activeTab === "tax" && (
-            <div className="p-5 rounded-2xl bg-theme-surface-1 border border-theme-divider space-y-4">
-              <h3 className="font-bold text-sm text-theme-heading">Statutory GST Tax Summary Breakdown</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl bg-theme-surface-2 border border-theme-divider">
-                  <span className="text-xs text-theme-muted block">CGST Output Tax (9%)</span>
-                  <span className="text-xl font-bold font-mono text-emerald-400 mt-1 block">
-                    ₹{invoiceTotals.cgst.toLocaleString("en-IN")}
-                  </span>
+        {/* 6. Split Bottom Panel */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Left Sub-Panel */}
+          <div className="lg:col-span-2 bg-theme-surface-1 border border-theme-divider rounded-xl p-4 space-y-4">
+            <div className="flex border-b border-theme-divider gap-2 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setActiveTab("items")}
+                className={`px-3 py-2 border-b-2 transition cursor-pointer ${
+                  activeTab === "items" ? "border-blue-500 text-blue-400" : "border-transparent text-theme-muted"
+                }`}
+              >
+                Notes & Terms
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("tax")}
+                className={`px-3 py-2 border-b-2 transition cursor-pointer ${
+                  activeTab === "tax" ? "border-blue-500 text-blue-400" : "border-transparent text-theme-muted"
+                }`}
+              >
+                Statutory GST
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("customer")}
+                className={`px-3 py-2 border-b-2 transition cursor-pointer ${
+                  activeTab === "customer" ? "border-blue-500 text-blue-400" : "border-transparent text-theme-muted"
+                }`}
+              >
+                Delivery & Transport
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("audit")}
+                className={`px-3 py-2 border-b-2 transition cursor-pointer ${
+                  activeTab === "audit" ? "border-blue-500 text-blue-400" : "border-transparent text-theme-muted"
+                }`}
+              >
+                Workflow Audit
+              </button>
+            </div>
+
+            {activeTab === "items" && (
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-theme-muted block mb-1">Invoice Notes / Remarks</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Enter customer special instructions, delivery terms, or PO references..."
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl p-2 text-xs text-theme-body focus:outline-none"
+                  />
                 </div>
-                <div className="p-4 rounded-xl bg-theme-surface-2 border border-theme-divider">
-                  <span className="text-xs text-theme-muted block">SGST Output Tax (9%)</span>
-                  <span className="text-xl font-bold font-mono text-emerald-400 mt-1 block">
-                    ₹{invoiceTotals.sgst.toLocaleString("en-IN")}
-                  </span>
-                </div>
-                <div className="p-4 rounded-xl bg-theme-surface-2 border border-theme-divider">
-                  <span className="text-xs text-theme-muted block">IGST Output Tax (18%)</span>
-                  <span className="text-xl font-bold font-mono text-indigo-400 mt-1 block">
-                    ₹{invoiceTotals.igst.toLocaleString("en-IN")}
-                  </span>
+                <div className="text-[11px] text-theme-muted leading-relaxed">
+                  GST Statutory Declaration: Goods once sold will not be accepted back without original tax invoice. All disputes subject to local jurisdiction.
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* TAB 3: CUSTOMER DETAILS */}
-          {activeTab === "customer" && (
-            <div className="p-5 rounded-2xl bg-theme-surface-1 border border-theme-divider space-y-3">
-              <h3 className="font-bold text-sm text-theme-heading">Customer Account & Credit Parameters</h3>
-              {selectedCustomer ? (
-                <div className="grid grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <span className="text-theme-muted">Name:</span> <span className="font-bold text-theme-heading">{selectedCustomer.name}</span>
-                  </div>
-                  <div>
-                    <span className="text-theme-muted">Mobile:</span> <span className="font-mono text-theme-heading">{selectedCustomer.mobile}</span>
-                  </div>
-                  <div>
-                    <span className="text-theme-muted">Outstanding:</span> <span className="font-mono font-bold text-emerald-400">₹{selectedCustomer.outstanding}</span>
-                  </div>
+            {activeTab === "tax" && (
+              <div className="grid grid-cols-3 gap-3 text-xs font-mono">
+                <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider">
+                  <span className="text-[10px] text-theme-muted block">CGST Output (9%)</span>
+                  <span className="text-sm font-bold text-emerald-400 mt-0.5 block">₹{invoiceTotals.cgst.toLocaleString("en-IN")}</span>
                 </div>
-              ) : (
-                <p className="text-xs text-theme-muted">Select a customer above to view details.</p>
-              )}
-            </div>
-          )}
+                <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider">
+                  <span className="text-[10px] text-theme-muted block">SGST Output (9%)</span>
+                  <span className="text-sm font-bold text-emerald-400 mt-0.5 block">₹{invoiceTotals.sgst.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider">
+                  <span className="text-[10px] text-theme-muted block">IGST Output (18%)</span>
+                  <span className="text-sm font-bold text-indigo-400 mt-0.5 block">₹{invoiceTotals.igst.toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+            )}
 
-          {/* TAB 4: AUDIT */}
-          {activeTab === "audit" && (
-            <div className="p-5 rounded-2xl bg-theme-surface-1 border border-theme-divider space-y-3 text-xs">
-              <h3 className="font-bold text-sm text-theme-heading">Workflow Audit Log</h3>
-              <div className="space-y-2 font-mono">
-                <div className="p-2 rounded bg-theme-surface-2 text-theme-muted">[2026-07-30 12:00] Draft created by System Admin</div>
-                <div className="p-2 rounded bg-theme-surface-2 text-theme-muted">[2026-07-30 12:01] Statutory GST Pre-Flight Validation Passed</div>
+            {activeTab === "customer" && (
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="text-[10px] font-mono text-theme-muted block mb-1">e-Way Bill No.</label>
+                  <input
+                    type="text"
+                    value={invoiceEWayBill}
+                    onChange={(e) => setInvoiceEWayBill(e.target.value)}
+                    placeholder="Enter 12-digit eWay Bill No."
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-1.5 font-mono text-xs text-theme-body"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-mono text-theme-muted block mb-1">Transporter Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. VRL Logistics / BlueDart"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-theme-body"
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeTab === "audit" && (
+              <div className="space-y-1.5 font-mono text-[11px] text-theme-muted">
+                <div className="p-2 rounded bg-theme-surface-2">[2026-07-30 12:00] Draft created by System Admin</div>
+                <div className="p-2 rounded bg-theme-surface-2">[2026-07-30 12:01] Pre-Flight GST Engine Validation Passed</div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Summary Stack */}
+          <div className="bg-theme-surface-1 border border-indigo-500/30 rounded-xl p-4 space-y-2.5 text-xs">
+            <h4 className="font-bold text-xs text-indigo-300 font-mono uppercase tracking-wider border-b border-theme-divider pb-2">
+              Financial Summary Breakdown
+            </h4>
+
+            <div className="space-y-2">
+              <div className="flex justify-between text-theme-muted">
+                <span>Subtotal (Taxable):</span>
+                <span className="font-mono font-semibold text-theme-body">₹{invoiceTotals.taxable.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between text-theme-muted">
+                <span>Total Discount:</span>
+                <span className="font-mono font-semibold text-amber-400">₹0.00</span>
+              </div>
+              <div className="flex justify-between text-theme-muted">
+                <span>CGST (Output):</span>
+                <span className="font-mono text-emerald-400">₹{invoiceTotals.cgst.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between text-theme-muted">
+                <span>SGST (Output):</span>
+                <span className="font-mono text-emerald-400">₹{invoiceTotals.sgst.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between text-theme-muted">
+                <span>IGST (Output):</span>
+                <span className="font-mono text-indigo-400">₹{invoiceTotals.igst.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between text-theme-muted">
+                <span>Round Off Adjustment:</span>
+                <span className="font-mono text-theme-body">₹0.00</span>
+              </div>
+
+              <div className="pt-2 border-t border-theme-divider flex justify-between items-center text-sm font-bold">
+                <span className="text-indigo-300">GRAND TOTAL:</span>
+                <span className="font-mono text-lg text-emerald-400">₹{invoiceTotals.grandTotal.toLocaleString("en-IN")}</span>
+              </div>
+
+              <div className="pt-1 text-[10px] font-mono text-theme-muted italic text-right">
+                {numberToWords(invoiceTotals.grandTotal)}
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
-      {/* 4. SAP Fiori Sticky Footer Toolbar */}
-      <div className="bg-[#121824] border-t border-theme-divider px-6 py-3 flex items-center justify-between shrink-0">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 bg-theme-surface-2 border border-theme-divider hover:bg-theme-surface-hover text-theme-body text-xs font-semibold rounded-xl transition cursor-pointer"
-        >
-          Cancel
-        </button>
-
-        <div className="flex items-center gap-3">
+      {/* 7. Bottom Floating Command Action Bar */}
+      <div className="bg-[#121824] border-t border-theme-divider px-6 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3.5 py-1.5 bg-theme-surface-2 border border-theme-divider hover:bg-theme-surface-hover text-theme-body text-xs font-semibold rounded-xl transition cursor-pointer"
+          >
+            Cancel
+          </button>
           <button
             type="button"
             onClick={() => setInvoiceStatus("Draft")}
-            className="px-4 py-2 bg-theme-surface-2 border border-theme-divider hover:border-indigo-500/40 text-theme-body text-xs font-semibold rounded-xl transition cursor-pointer"
+            className="px-3.5 py-1.5 bg-theme-surface-2 border border-theme-divider hover:border-indigo-500/40 text-theme-body text-xs font-semibold rounded-xl transition cursor-pointer flex items-center gap-1.5"
           >
-            Save Draft
+            <Save size={14} />
+            <span>Save Draft [Ctrl+S]</span>
           </button>
+          <button
+            type="button"
+            className="px-3.5 py-1.5 bg-amber-950/40 border border-amber-500/40 hover:bg-amber-950/70 text-amber-300 text-xs font-semibold rounded-xl transition cursor-pointer"
+          >
+            Hold [F6]
+          </button>
+        </div>
 
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="px-3 py-1.5 bg-theme-surface-2 border border-theme-divider text-theme-body text-xs font-semibold rounded-xl hover:bg-theme-surface-hover transition flex items-center gap-1.5 cursor-pointer"
+          >
+            <Printer size={14} />
+            <span>Print [F9]</span>
+          </button>
+          <button
+            type="button"
+            className="px-3 py-1.5 bg-theme-surface-2 border border-theme-divider text-theme-body text-xs font-semibold rounded-xl hover:bg-theme-surface-hover transition flex items-center gap-1.5 cursor-pointer"
+          >
+            <FileText size={14} />
+            <span>PDF</span>
+          </button>
+          <button
+            type="button"
+            className="px-3 py-1.5 bg-theme-surface-2 border border-theme-divider text-theme-body text-xs font-semibold rounded-xl hover:bg-theme-surface-hover transition flex items-center gap-1.5 cursor-pointer"
+          >
+            <Share2 size={14} />
+            <span>WhatsApp</span>
+          </button>
           <button
             type="button"
             onClick={(e) => {
               setInvoiceStatus("Approved");
               handleCreateInvoiceSubmit(e as any);
             }}
-            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer"
+            className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer"
           >
-            <Check size={15} />
-            <span>Post & Save Tax Invoice</span>
+            <CheckCircle2 size={15} />
+            <span>Submit & Commit Invoice [Enter]</span>
           </button>
         </div>
       </div>
