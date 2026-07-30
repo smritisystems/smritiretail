@@ -104,6 +104,7 @@ import { Launchpad } from "./components/Launchpad.tsx";
 import { SEEFCommandPalette, useSEEFCommandPaletteShortcut } from "./layout_engine/SEEFCommandPalette.tsx";
 import { WorkspaceTabsBar } from "./components/common/WorkspaceTabsBar.tsx";
 import { CommandPaletteModal } from "./components/common/CommandPaletteModal.tsx";
+import { StatutoryComplianceWorkspace } from "./components/compliance/StatutoryComplianceWorkspace.tsx";
 
 
 interface AppNotification {
@@ -498,6 +499,12 @@ const AppContent: React.FC = () => {
         return <ConsignmentStudioTab products={products} currentUser={currentUser} />;
       case "loyalty":
         return <LoyaltyStudioTab currentUser={currentUser} />;
+      case "compliance":
+      case "statutory":
+      case "statutory-compliance":
+      case "gst":
+      case "tax-gst":
+        return <StatutoryComplianceWorkspace />;
       case "staff":
       case "staff-management":
       case "users":

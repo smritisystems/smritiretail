@@ -123,6 +123,25 @@ export const DEFAULT_WORKSPACE_MANIFESTS: Record<string, WorkspaceManifest> = {
       supportsAudit: true,
       supportsWorkflow: false
     }
+  },
+  "statutory-compliance": {
+    workspaceId: "statutory-compliance",
+    title: "SMRITI Compliance Platform (SCP v1.0)",
+    module: "Compliance",
+    icon: "shield-check",
+    description: "5-Stage Statutory Compliance Pipeline (Config, Validate, Calculate, Comply, File)",
+    permissions: ["TAX.VIEW", "TAX.MANAGE_EWAY"],
+    route: "/statutory-compliance",
+    capabilities: {
+      supportsResume: true,
+      supportsDraft: true,
+      supportsTabs: true,
+      supportsSearch: true,
+      supportsPrint: true,
+      supportsExport: true,
+      supportsAudit: true,
+      supportsWorkflow: true
+    }
   }
 };
 

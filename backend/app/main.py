@@ -107,6 +107,7 @@ from .api.v1 import (
     apparel,
     nic_gst,
     ecosystem,
+    scp,
 )
 from app.api.v1.customer import dashboard as customer_dashboard
 from app.api.v1.customer import workspace as customer_workspace
@@ -289,6 +290,7 @@ app.include_router(pharma.router,               prefix=settings.API_V1_STR,     
 app.include_router(apparel.router,              prefix=settings.API_V1_STR,                    tags=["Apparel & Fashion 3D Matrix Engine (v25.0.0)"])
 app.include_router(nic_gst.router,              prefix=settings.API_V1_STR,                    tags=["NIC GSTN E-Way Bill & E-Invoice Gateway (v26.0.0)"])
 app.include_router(ecosystem.router,            prefix=settings.API_V1_STR,                    tags=["SMRITI Digital Platform Ecosystem Hub (v27.0.0)"])
+app.include_router(scp.router,                  prefix=settings.API_V1_STR,                    tags=["SMRITI Compliance Platform (SCP v1.0 Kernel)"])
 app.include_router(customer_dashboard.router,   prefix=settings.API_V1_STR,                    tags=["Customer Portal Workspace & Licenses"])
 app.include_router(customer_workspace.router,   prefix=settings.API_V1_STR,                    tags=["Customer Workspace Portal & License Management"])
 app.include_router(academy_courses.router,      prefix=settings.API_V1_STR,                    tags=["SMRITI Academy LMS & Certifications"])

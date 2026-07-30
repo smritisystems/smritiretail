@@ -68,6 +68,7 @@ from . import (
     apparel,
     nic_gst,
     ecosystem,
+    scp,
 )
 
 
