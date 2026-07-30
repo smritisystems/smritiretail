@@ -177,6 +177,25 @@ export const PrintLabelsStudio: React.FC = () => {
     showToast(`Source selected: ${src.toUpperCase().replace("_", " ")} (${data.length} Items Loaded)`);
   };
 
+  // Filter items in real-time based on Range Filters
+  const filteredPrintItems = useMemo(() => {
+    return printItems.filter((item) => {
+      if (filterItemCodeFrom && item.itemCode.toLowerCase() < filterItemCodeFrom.toLowerCase()) return false;
+      if (filterItemCodeTo && item.itemCode.toLowerCase() > filterItemCodeTo.toLowerCase()) return false;
+      if (filterBarcodeFrom && item.barcode < filterBarcodeFrom) return false;
+      if (filterBarcodeTo && item.barcode > filterBarcodeTo) return false;
+      if (filterBrandFrom && (item.brand || "").toLowerCase() < filterBrandFrom.toLowerCase()) return false;
+      if (filterBrandTo && (item.brand || "").toLowerCase() > filterBrandTo.toLowerCase()) return false;
+      return true;
+    });
+  }, [printItems, filterItemCodeFrom, filterItemCodeTo, filterBarcodeFrom, filterBarcodeTo, filterBrandFrom, filterBrandTo]);
+
+  // Total Summaries
+  const totalItems = filteredPrintItems.length;
+  const totalPrintQty = useMemo(() => {
+    return filteredPrintItems.reduce((acc, item) => acc + (item.selected ? item.printQty : 0), 0);
+  }, [filteredPrintItems]);
+
   // Execute Print Job using PRNVariableEngine and Hardware Provider
   const executePrintJob = async () => {
     if (filteredPrintItems.length === 0) {
@@ -241,25 +260,6 @@ export const PrintLabelsStudio: React.FC = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [filteredPrintItems, activePreviewIndex, copies, connectionType, isQzConnected, printer, printerIp, printerPort]);
-
-  // Filter items in real-time based on Range Filters
-  const filteredPrintItems = useMemo(() => {
-    return printItems.filter((item) => {
-      if (filterItemCodeFrom && item.itemCode.toLowerCase() < filterItemCodeFrom.toLowerCase()) return false;
-      if (filterItemCodeTo && item.itemCode.toLowerCase() > filterItemCodeTo.toLowerCase()) return false;
-      if (filterBarcodeFrom && item.barcode < filterBarcodeFrom) return false;
-      if (filterBarcodeTo && item.barcode > filterBarcodeTo) return false;
-      if (filterBrandFrom && (item.brand || "").toLowerCase() < filterBrandFrom.toLowerCase()) return false;
-      if (filterBrandTo && (item.brand || "").toLowerCase() > filterBrandTo.toLowerCase()) return false;
-      return true;
-    });
-  }, [printItems, filterItemCodeFrom, filterItemCodeTo, filterBarcodeFrom, filterBarcodeTo, filterBrandFrom, filterBrandTo]);
-
-  // Total Summaries
-  const totalItems = filteredPrintItems.length;
-  const totalPrintQty = useMemo(() => {
-    return filteredPrintItems.reduce((acc, item) => acc + (item.selected ? item.printQty : 0), 0);
-  }, [filteredPrintItems]);
 
   const activeItem = filteredPrintItems[activePreviewIndex] || filteredPrintItems[0];
 
