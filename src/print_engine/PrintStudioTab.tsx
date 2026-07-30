@@ -195,7 +195,7 @@ export const PrintStudioTab: React.FC = () => {
             </button>
             <button 
               onClick={() => setActiveTemplate("label-50x25")}
-              className="flex items-center gap-2 px-4 py-1.5 bg-slate-500 hover:bg-slate-600 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm cursor-pointer"
+              className="flex items-center gap-2 px-4 py-1.5 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-primary rounded-lg text-sm font-semibold transition-colors shadow-sm cursor-pointer"
             >
               <Tag size={14} /> Show Barcode Demo
             </button>
