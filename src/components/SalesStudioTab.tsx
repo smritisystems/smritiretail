@@ -18,7 +18,7 @@ import { Printer, MessageCircle, Mail, AlignJustify,
   ArrowRight, FileCheck, AlertCircle, ShoppingCart, 
   CheckCircle2, X, Eye, Layers, Undo2, Ban, ShieldAlert,
   UserCheck, UserX, CreditCard, Check, MoreVertical,
-  Upload, Download, AlertTriangle, XCircle, Info, FileSpreadsheet
+  Upload, Download, AlertTriangle, XCircle, Info, FileSpreadsheet, Clock
 } from "lucide-react";
 import { motion } from "motion/react";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
@@ -33,7 +33,10 @@ import { getCustomers, getCustomerGroups, saveCustomers } from "../services/cust
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
 import { formatDate, formatDateTime, formatCurrency } from "../utils/formatters.ts";
-import { SalesTaxInvoiceFioriObjectPage } from "./sales/SalesTaxInvoiceFioriObjectPage.tsx";
+import { SalesInvoiceRegistry } from "./sales/SalesInvoiceRegistry.tsx";
+import { SalesInvoiceStudio } from "./sales/SalesInvoiceStudio.tsx";
+import { SalesOrderRegistry } from "./sales/SalesOrderRegistry.tsx";
+import { SalesOrderStudio } from "./sales/SalesOrderStudio.tsx";
 import { isValidMobile } from "../utils/validators.ts";
 import { useACAS } from "../context-actions/ContextProvider.tsx";
 
@@ -1799,54 +1802,33 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 </div>
               </div>
             </div>
-          ) : isCreatingInvoice ? (
-            /* Refactored Sales Tax Invoice — SAP Fiori Object Page Pattern */
-            <SalesTaxInvoiceFioriObjectPage
+          ) : isCreatingOrder ? (
+            /* Dedicated SAWF Sales Order Studio Workspace */
+            <SalesOrderStudio
+              initialOrder={selectedOrder}
               customers={customers}
               products={products}
-              invoiceCustomerId={invoiceCustomerId}
-              setInvoiceCustomerId={setInvoiceCustomerId}
-              invoiceIsInterstate={invoiceIsInterstate}
-              setInvoiceIsInterstate={setInvoiceIsInterstate}
-              invoiceEWayBill={invoiceEWayBill}
-              setInvoiceEWayBill={setInvoiceEWayBill}
-              invoiceStatus={invoiceStatus}
-              setInvoiceStatus={setInvoiceStatus}
-              entryMode={entryMode}
-              setEntryMode={setEntryMode}
-              selectedProduct={selectedProduct}
-              setSelectedProduct={setSelectedProduct}
-              manualQty={manualQty}
-              setManualQty={setManualQty}
-              manualTax={manualTax}
-              setManualTax={setManualTax}
-              handleAddManualItem={handleAddManualItem}
-              selectedBaseArticle={selectedBaseArticle}
-              setSelectedBaseArticle={setSelectedBaseArticle}
-              baseArticles={baseArticles}
-              selectedBaseColor={selectedBaseColor}
-              setSelectedBaseColor={setSelectedBaseColor}
-              availableColors={availableColors}
-              matrixVariants={matrixVariants}
-              matrixQuantities={matrixQuantities}
-              setMatrixQuantities={setMatrixQuantities}
-              handleAddMatrixItems={handleAddMatrixItems}
-              invoiceItems={invoiceItems}
-              setInvoiceItems={setInvoiceItems}
-              invoiceTotals={{
-                taxable: invoiceItems.reduce((acc, item) => acc + ((item.price || 0) * (item.qty || 1)), 0),
-                cgst: invoiceIsInterstate ? 0 : invoiceItems.reduce((acc, item) => acc + (((item.price || 0) * (item.qty || 1) * (item.taxRate || 18)) / 200), 0),
-                sgst: invoiceIsInterstate ? 0 : invoiceItems.reduce((acc, item) => acc + (((item.price || 0) * (item.qty || 1) * (item.taxRate || 18)) / 200), 0),
-                igst: invoiceIsInterstate ? invoiceItems.reduce((acc, item) => acc + (((item.price || 0) * (item.qty || 1) * (item.taxRate || 18)) / 100), 0) : 0,
-                grandTotal: invoiceItems.reduce((acc, item) => acc + ((item.price || 0) * (item.qty || 1) * (1 + (item.taxRate || 18) / 100)), 0),
+              currentUser={currentUser}
+              onBack={() => {
+                setIsCreatingOrder(false);
+                setSelectedOrder(null);
+                fetchSalesOrders();
               }}
-              handleCreateInvoiceSubmit={(e) => {
-                handleSaveInvoice();
-              }}
-              onCancel={() => {
+              onNotification={onNotification}
+            />
+          ) : isCreatingInvoice ? (
+            /* Dedicated SAWF Sales Invoice Studio Workspace */
+            <SalesInvoiceStudio
+              initialInvoice={selectedInvoice}
+              customers={customers}
+              products={products}
+              currentUser={currentUser}
+              onBack={() => {
                 setIsCreatingInvoice(false);
-                setInvoiceItems([]);
+                setSelectedInvoice(null);
+                fetchSalesInvoices();
               }}
+              onNotification={onNotification}
             />
           ) : isCreatingReturn ? (
             /* Record Sales Return Panel */
@@ -2906,222 +2888,36 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   isLoading={loading}
                 />
               ) : subView === "orders" ? (
-                /* Sales Orders Book Registry — WNG-002 Fiori List Report Pattern */
-                <FioriListReport
-                  title="Sales Orders Book Registry"
-                  subtitle="Confirmed customer bookings, order status tracking, and source quotation linkages."
-                  data={salesOrders.map(so => ({
-                    ...so,
-                    _itemCount: so.items.reduce((acc: number, i: any) => acc + i.quantity, 0),
-                  }))}
-                  selectable={true}
-                  selectedIds={selectedIds}
-                  onSelectionChange={(newSet) => setSelectedIds(new Set(Array.from(newSet).map(String)))}
-                  columns={[
-                    {
-                      key: "orderNo",
-                      label: "Order No",
-                      sortable: true,
-                      render: (so) => (
-                        <span className="font-mono font-bold text-theme-body flex items-center space-x-2">
-                          <ShoppingCart size={13} className="text-theme-muted shrink-0" />
-                          <span>{so.orderNo}</span>
-                        </span>
-                      )
-                    },
-                    {
-                      key: "customerName",
-                      label: "Client Name",
-                      sortable: true,
-                      render: (so) => <span className="font-medium text-theme-body">{so.customerName}</span>
-                    },
-                    {
-                      key: "date",
-                      label: "Order Date",
-                      sortable: true,
-                      render: (so) => <span className="text-theme-muted font-mono">{formatDateTime(so.date)}</span>
-                    },
-                    {
-                      key: "_itemCount",
-                      label: "Items Booking",
-                      align: "right",
-                      render: (so) => <span className="font-mono text-theme-muted">{(so as any)._itemCount} units</span>
-                    },
-                    {
-                      key: "grandTotal",
-                      label: "Booked Value",
-                      align: "right",
-                      sortable: true,
-                      render: (so) => <span className="font-mono font-semibold text-emerald-400">{formatCurrency(so.grandTotal)}</span>
-                    },
-                    {
-                      key: "status",
-                      label: "Status",
-                      align: "center",
-                      render: (so) => (
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                          so.status === "Draft" ? "bg-theme-surface-3 text-theme-muted border border-theme-divider" :
-                          so.status === "Submitted" ? "bg-amber-950/80 text-amber-400 border border-amber-800" :
-                          so.status === "Approved" || so.status === "Confirmed" ? "bg-indigo-950/80 text-indigo-400 border border-indigo-800" :
-                          so.status === "Rejected" || so.status === "Cancelled" ? "bg-rose-950/80 text-rose-400 border border-rose-800" :
-                          "bg-emerald-950/80 text-emerald-400 border border-emerald-800"
-                        }`}>
-                          {so.status}
-                        </span>
-                      )
-                    },
-                    {
-                      key: "sourceQuotationId",
-                      label: "Source QTN",
-                      align: "center",
-                      render: (so) => so.sourceQuotationId ? (
-                        <span className="bg-indigo-950 text-indigo-300 border border-indigo-900 px-1.5 py-0.2 rounded text-[10px] font-mono">
-                          LINKED
-                        </span>
-                      ) : (
-                        <span className="text-theme-muted font-mono text-[10px]">DIRECT</span>
-                      )
-                    }
-                  ]}
-                  filterOptions={[
-                    {
-                      key: "status",
-                      label: "Status",
-                      options: [
-                        { label: "All Statuses", value: "ALL" },
-                        { label: "Draft", value: "Draft" },
-                        { label: "Submitted", value: "Submitted" },
-                        { label: "Confirmed", value: "Confirmed" },
-                        { label: "Cancelled", value: "Cancelled" },
-                      ]
-                    }
-                  ]}
-                  onRowClick={(so) => setSelectedOrder(so as any)}
+                /* Dedicated SAWF Sales Orders Registry Workspace */
+                <SalesOrderRegistry
+                  salesOrders={salesOrders}
+                  customers={customers}
+                  loading={loading}
                   onRefresh={fetchSalesOrders}
-                  onCreateNew={() => setIsCreatingOrder(true)}
-                  primaryActionLabel="New Sales Order"
-                  searchPlaceholder="Search order no, client name..."
-                  isLoading={loading}
+                  onNewOrder={() => {
+                    setSelectedOrder(null);
+                    setIsCreatingOrder(true);
+                  }}
+                  onSelectOrder={(so) => {
+                    setSelectedOrder(so);
+                  }}
+                  currentUser={currentUser}
                 />
               ) : subView === "invoices" ? (
-                /* Sales Invoices Registry — WNG-002 Fiori List Report Pattern */
-                <FioriListReport
-                  title="Sales Invoices Registry"
-                  subtitle="Complete tax-compliant GST invoice ledger with workflow status and context actions."
-                  data={salesInvoices.map(si => ({
-                    ...si,
-                    _customerName: customers.find(c => c.id === si.customerId)?.name || "Walk-In",
-                    _itemCount: si.items.reduce((acc: number, i: any) => acc + i.quantity, 0),
-                  }))}
-                  columns={[
-                    {
-                      key: "invoiceNo",
-                      label: "Invoice No",
-                      sortable: true,
-                      render: (si) => (
-                        <span className="font-mono font-bold text-theme-body flex items-center space-x-2">
-                          <FileCheck size={13} className="text-theme-muted shrink-0" />
-                          <span>{si.invoiceNo}</span>
-                        </span>
-                      )
-                    },
-                    {
-                      key: "_customerName",
-                      label: "Customer Name",
-                      sortable: true,
-                      render: (si) => <span className="font-medium text-theme-body">{(si as any)._customerName}</span>
-                    },
-                    {
-                      key: "date",
-                      label: "Date",
-                      sortable: true,
-                      render: (si) => <span className="text-theme-muted font-mono">{formatDateTime(si.date)}</span>
-                    },
-                    {
-                      key: "_itemCount",
-                      label: "Items",
-                      align: "right",
-                      render: (si) => <span className="font-mono text-theme-muted">{(si as any)._itemCount} units</span>
-                    },
-                    {
-                      key: "taxTotal",
-                      label: "GST",
-                      align: "right",
-                      render: (si) => <span className="font-mono text-theme-muted">{formatCurrency(si.taxTotal)}</span>
-                    },
-                    {
-                      key: "grandTotal",
-                      label: "Grand Total",
-                      align: "right",
-                      sortable: true,
-                      render: (si) => <span className="font-mono font-semibold text-emerald-400">{formatCurrency(si.grandTotal)}</span>
-                    },
-                    {
-                      key: "status",
-                      label: "Status",
-                      align: "center",
-                      render: (si) => (
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                          si.status === "Draft" ? "bg-theme-surface-3 text-theme-muted border border-theme-divider" :
-                          si.status === "Submitted" ? "bg-amber-950/80 text-amber-400 border border-amber-800" :
-                          si.status === "Approved" ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800" :
-                          "bg-rose-950/80 text-rose-400 border border-rose-800"
-                        }`}>
-                          {si.status}
-                        </span>
-                      )
-                    },
-                    {
-                      key: "actions",
-                      label: "Actions",
-                      align: "center",
-                      render: (si) => (
-                        <div className="flex items-center justify-center space-x-2" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setSelectedInvoice(si as any); }}
-                            className="p-1 rounded hover:bg-theme-surface-3 text-sky-400"
-                            title="View Invoice Detail"
-                          >
-                            <Eye size={13} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openMenu(e, {
-                                module: "sales",
-                                type: "sales-invoice",
-                                object: si,
-                                role: currentUser?.role || "Store Manager"
-                              });
-                            }}
-                            className="p-1 rounded hover:bg-theme-surface-3 text-theme-muted hover:text-theme-body"
-                            title="Context Actions Menu"
-                          >
-                            <MoreVertical size={13} />
-                          </button>
-                        </div>
-                      )
-                    }
-                  ]}
-                  filterOptions={[
-                    {
-                      key: "status",
-                      label: "Status",
-                      options: [
-                        { label: "All Statuses", value: "ALL" },
-                        { label: "Draft", value: "Draft" },
-                        { label: "Submitted", value: "Submitted" },
-                        { label: "Approved", value: "Approved" },
-                        { label: "Cancelled", value: "Cancelled" },
-                      ]
-                    }
-                  ]}
-                  onRowClick={(si) => setSelectedInvoice(si as any)}
-                  onRefresh={() => { fetchSalesInvoices(); }}
-                  onCreateNew={() => setIsCreatingInvoice(true)}
-                  primaryActionLabel="New Sales Invoice"
-                  searchPlaceholder="Search invoice no, customer name..."
-                  isLoading={loading}
+                /* Dedicated SAWF Sales Invoices Registry Workspace */
+                <SalesInvoiceRegistry
+                  salesInvoices={salesInvoices}
+                  customers={customers}
+                  loading={loading}
+                  onRefresh={fetchSalesInvoices}
+                  onNewInvoice={() => {
+                    setSelectedInvoice(null);
+                    setIsCreatingInvoice(true);
+                  }}
+                  onSelectInvoice={(si) => {
+                    setSelectedInvoice(si);
+                  }}
+                  currentUser={currentUser}
                 />
               ) : subView === "returns" ? (
                 /* Sales Returns Registry — WNG-002 Fiori List Report Pattern */

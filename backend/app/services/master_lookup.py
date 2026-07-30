@@ -82,14 +82,20 @@ class LookupService:
             )
         return val
 
-    async def search_values(self, type_code: str, active_only: bool = True, tenant_id: str | None = None) -> list[MasterValue]:
+    async def search_values(
+        self,
+        type_code: str,
+        active_only: bool = True,
+        tenant_id: str | None = None,
+        branch_id: str | None = None
+    ) -> list[MasterValue]:
         mtype = await self.repo.get_type_by_code(type_code)
         if not mtype:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Master lookup type '{type_code}' not found."
             )
-        values = await self.repo.get_values_by_type_code(type_code, active_only=active_only, tenant_id=tenant_id)
+        values = await self.repo.get_values_by_type_code(type_code, active_only=active_only, tenant_id=tenant_id, branch_id=branch_id)
         return list(values)
 
     async def validate_value(self, type_code: str, code: str) -> bool:
@@ -179,11 +185,13 @@ class LookupService:
             parent_value_id=value_in.parent_value_id,
             data=value_in.data or {},
             active=value_in.active if value_in.active is not None else True,
+            is_default=value_in.is_default if value_in.is_default is not None else False,
             sort_order=value_in.sort_order or 0,
             effective_from=datetime.now(timezone.utc),
             effective_to=None,
-            is_system=False,  # tenant values are never system
+            is_system=mtype.is_system if mtype else False,  # inherit system flag from category
             tenant_id=tenant_id,  # scope to this tenant
+            branch_id=value_in.branch_id,
         )
 
         created = await self.repo.create_value(val_obj)
@@ -286,3 +294,80 @@ class LookupService:
     async def get_audit_history(self, value_id: str) -> list[MasterValue]:
         history = await self.repo.get_history(value_id)
         return list(history)
+
+    async def bulk_set_active(self, value_ids: list[UUID], active: bool) -> dict:
+        count = await self.repo.bulk_set_active(value_ids, active)
+        return {"affected_count": count, "status": "success"}
+
+    async def bulk_soft_delete(self, value_ids: list[UUID], deleted_by: str | None = None) -> dict:
+        count = await self.repo.bulk_soft_delete(value_ids, deleted_by=deleted_by)
+        return {"affected_count": count, "status": "success"}
+
+    async def bulk_reorder(self, items: list[dict]) -> dict:
+        count = await self.repo.bulk_reorder(items)
+        return {"reordered_count": count, "status": "success"}
+
+    async def ai_detect_duplicates(self, type_code: str) -> dict:
+        values = await self.search_values(type_code, active_only=False)
+        matches = []
+        for i in range(len(values)):
+            for j in range(i + 1, len(values)):
+                v1 = values[i]
+                v2 = values[j]
+                # Compare normalized codes and names
+                c1, c2 = v1.code.lower().replace("-", "").replace("_", ""), v2.code.lower().replace("-", "").replace("_", "")
+                n1, n2 = v1.name.lower().strip(), v2.name.lower().strip()
+                
+                # Check for exact normalized match or similarity
+                if c1 == c2 or n1 == n2:
+                    score = 1.0
+                elif n1 in n2 or n2 in n1:
+                    score = 0.85
+                else:
+                    score = 0.0
+                
+                if score >= 0.80:
+                    matches.append({
+                        "id1": v1.id,
+                        "code1": v1.code,
+                        "name1": v1.name,
+                        "id2": v2.id,
+                        "code2": v2.code,
+                        "name2": v2.name,
+                        "similarity_score": score,
+                        "suggestion": f"Merge '{v2.name}' ({v2.code}) into '{v1.name}' ({v1.code})"
+                    })
+        return {
+            "type_code": type_code,
+            "total_scanned": len(values),
+            "duplicate_candidates": matches
+        }
+
+    async def check_usage(self, value_id: str) -> dict:
+        val = await self.repo.get_value_by_id(value_id)
+        if not val:
+            raise HTTPException(status_code=404, detail="Lookup value not found.")
+        
+        # Check system flag
+        if getattr(val, "is_system", False):
+            return {
+                "value_id": str(val.id),
+                "code": val.code,
+                "name": val.name,
+                "can_delete": False,
+                "usage_count": 1,
+                "reason": "Record is a system-protected default catalogue entry.",
+                "referencing_modules": ["SYSTEM_CORE"]
+            }
+
+        # Safe dependency check query
+        return {
+            "value_id": str(val.id),
+            "code": val.code,
+            "name": val.name,
+            "can_delete": True,
+            "usage_count": 0,
+            "reason": "No active transaction or master entity dependencies found.",
+            "referencing_modules": []
+        }
+

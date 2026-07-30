@@ -1,0 +1,43 @@
+{
+  "module": "purchase_order",
+  "version": "1.1.0",
+  "title": "Purchase Order Workstation",
+  "description": "SMRITI SAWF v1.1 Declarative Purchase Order Shell",
+  "entity": "purchase_orders",
+  "panels": [
+    {
+      "id": "supplier_info",
+      "title": "Vendor & Sourcing Details",
+      "fields": [
+        { "name": "supplier_id", "label": "Vendor / Supplier", "type": "select", "required": true },
+        { "name": "supplier_ref", "label": "Vendor Quotation Ref", "type": "text" },
+        { "name": "order_date", "label": "PO Date", "type": "date", "required": true },
+        { "name": "expected_date", "label": "Expected Delivery Date", "type": "date", "required": true }
+      ]
+    },
+    {
+      "id": "tax_logistics",
+      "title": "Tax & Shipping Terms",
+      "fields": [
+        { "name": "tax_type", "label": "GST Tax Type", "type": "select", "options": ["INTRA_STATE", "INTER_STATE"], "required": true },
+        { "name": "shipping_address", "label": "Destination Warehouse / Store", "type": "select", "required": true },
+        { "name": "payment_terms", "label": "Payment Terms", "type": "select", "options": ["Net 30", "Net 45", "Advance 100%", "COD"] }
+      ]
+    }
+  ],
+  "grid": {
+    "columns": [
+      { "key": "item_code", "label": "SKU / Code", "type": "text", "required": true },
+      { "key": "item_name", "label": "Description", "type": "text", "required": true },
+      { "key": "qty", "label": "Ordered Qty", "type": "number", "required": true, "default": 1 },
+      { "key": "rate", "label": "Unit Cost (₹)", "type": "number", "required": true, "default": 0 },
+      { "key": "tax_rate", "label": "GST %", "type": "number", "default": 18 },
+      { "key": "amount", "label": "Line Total (₹)", "type": "computed", "formula": "qty * rate * (1 + tax_rate / 100)" }
+    ]
+  },
+  "sidebar": [
+    { "id": "supplier_summary", "title": "Vendor Ledger Summary", "component": "SupplierSummaryWidget" },
+    { "id": "tax_breakdown", "title": "GST Tax Calculation Sheet", "component": "TaxBreakdownWidget" },
+    { "id": "audit_log", "title": "PO Approval Audit", "component": "AuditLogWidget" }
+  ]
+}

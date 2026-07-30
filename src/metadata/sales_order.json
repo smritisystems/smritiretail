@@ -1,0 +1,38 @@
+{
+  "document": "SalesOrder",
+  "title": "Sales Order Studio",
+  "defaultMode": "standard",
+  "panels": [
+    {
+      "id": "customer_order_info",
+      "label": "Customer & Order Quotation Details",
+      "description": "Select customer, delivery terms, order reference no, and payment agreement",
+      "modes": ["simple", "standard", "enterprise"]
+    },
+    {
+      "id": "items_grid",
+      "label": "Order Line Items & Allocation Matrix",
+      "description": "Product matrix, selling price, quantities, discounts, and inventory reservation",
+      "modes": ["simple", "standard", "enterprise"]
+    },
+    {
+      "id": "tax_hsn_breakdown",
+      "label": "GST Tax & HSN Summary",
+      "description": "Tax breakdown (CGST, SGST, IGST), place of supply, and GSTIN compliance",
+      "modes": ["standard", "enterprise"]
+    },
+    {
+      "id": "fulfillment_dispatch",
+      "label": "Dispatch & Logistics Fulfillment",
+      "description": "Shipping address, courier details, target dispatch date, and tracking ID",
+      "modes": ["enterprise"]
+    },
+    {
+      "id": "advance_payment",
+      "label": "Advance Payment & Credit Approval",
+      "description": "Advance deposit, credit limit validation, and payment schedule",
+      "modes": ["standard", "enterprise"]
+    }
+  ],
+  "sidebarWidgets": ["financial_summary", "gst_summary", "customer_credit", "stock_availability", "timeline"]
+}

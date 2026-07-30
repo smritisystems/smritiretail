@@ -42,6 +42,7 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [viewState, setViewState] = useState<"list" | "form">("list");
   const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [deactivationTarget, setDeactivationTarget] = useState<{ id: string; name: string; code: string; reason: string } | null>(null);
 
   const [mastersList, setMastersList] = useState<MasterConfig[]>(MASTER_REGISTRY);
 
@@ -266,6 +267,21 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
 
   const handleDelete = async (id: string) => {
     try {
+      if (selectedMaster?.isLookup) {
+        try {
+          const usage = await apiFetchV1(`/master-lookups/values/${id}/check-usage`);
+          if (usage && usage.can_delete === false) {
+            setDeactivationTarget({
+              id,
+              name: usage.name || "Selected Lookup Entry",
+              code: usage.code || id,
+              reason: usage.reason || "This lookup record has active dependencies or system protection."
+            });
+            return;
+          }
+        } catch (_) {}
+      }
+
       let endpoint = "";
       if (selectedMaster?.isLookup) {
         endpoint = `/masters/lookup/${selectedMasterId}/values/${id}`;
@@ -283,6 +299,22 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
       fetchMastersOptions();
     } catch (err: any) {
       onNotification("Delete Error", err.message, "error");
+    }
+  };
+
+  const handleConfirmDeactivation = async () => {
+    if (!deactivationTarget) return;
+    try {
+      await apiFetchV1(`/masters/lookup/${selectedMasterId}/values/${deactivationTarget.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ active: false })
+      });
+      onNotification("Lookup Deactivated", `'${deactivationTarget.name}' has been deactivated and hidden from dropdowns.`, "success");
+      setDeactivationTarget(null);
+      fetchCurrentMasterData();
+      fetchMastersOptions();
+    } catch (err: any) {
+      onNotification("Deactivation Error", err.message, "error");
     }
   };
 
@@ -654,6 +686,55 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
           )}
         </div>
       </div>
+
+      {/* ─── ULR DEPENDENCY PROTECTION DEACTIVATION MODAL ─── */}
+      <AnimatePresence>
+        {deactivationTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-md bg-[#121824] border border-amber-500/40 rounded-2xl p-6 shadow-2xl space-y-4 font-sans text-theme-body"
+            >
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-amber-950/80 border border-amber-500/50 text-amber-400 rounded-xl">
+                  <span className="material-symbols-outlined text-xl">warning</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-theme-heading font-display">Cannot Delete Referenced Lookup Entry</h3>
+                  <p className="text-xs text-amber-300 font-mono mt-1 font-semibold">{deactivationTarget.code} — {deactivationTarget.name}</p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider text-xs space-y-1.5 leading-relaxed">
+                <p className="text-theme-body">{deactivationTarget.reason}</p>
+                <p className="text-theme-muted font-mono text-[11px] border-t border-theme-divider/60 pt-1.5">
+                  Deleting this code would break historical retail transactions. You can <strong>deactivate</strong> it instead so it is hidden from all drop-down selectors while preserving audit integrity.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeactivationTarget(null)}
+                  className="px-4 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider rounded-xl text-xs font-semibold text-theme-muted transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeactivation}
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold font-mono shadow-lg transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">visibility_off</span>
+                  <span>Deactivate Entry</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

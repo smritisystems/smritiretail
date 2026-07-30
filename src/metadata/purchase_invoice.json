@@ -1,0 +1,38 @@
+{
+  "document": "PurchaseInvoice",
+  "title": "Purchase Invoice Studio",
+  "defaultMode": "standard",
+  "panels": [
+    {
+      "id": "supplier_info",
+      "label": "Supplier & Purchase Order Details",
+      "description": "Select vendor, PO reference number, and GSTIN jurisdiction",
+      "modes": ["simple", "standard", "enterprise"]
+    },
+    {
+      "id": "items_grid",
+      "label": "Purchase Line Items",
+      "description": "Product matrix, purchase price, unit quantity, and batch/serial details",
+      "modes": ["simple", "standard", "enterprise"]
+    },
+    {
+      "id": "tax_hsn_breakdown",
+      "label": "Taxation & HSN Summary",
+      "description": "GST breakdown (CGST, SGST, IGST), ITC eligibility, and HSN codes",
+      "modes": ["standard", "enterprise"]
+    },
+    {
+      "id": "logistics_grn",
+      "label": "Goods Receipt Note (GRN) & Logistics",
+      "description": "E-Way bill no, vehicle no, GRN reference, and inward gate pass",
+      "modes": ["enterprise"]
+    },
+    {
+      "id": "payment_terms",
+      "label": "Payment & Credit Terms",
+      "description": "Payment mode, credit period, cash discount, and vendor ledger terms",
+      "modes": ["standard", "enterprise"]
+    }
+  ],
+  "sidebarWidgets": ["financial_summary", "gst_summary", "stock_advisory", "timeline"]
+}

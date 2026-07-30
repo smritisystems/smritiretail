@@ -763,7 +763,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
 
   return (
     <div className="w-full h-full flex flex-col bg-[#0b1329] text-gray-200 overflow-hidden font-sans select-none relative">
-      {/* SHOPER 9 HEADER BAR (TOP CONTROL ROW) */}
+      {/* SMRITI RETAIL TERMINAL HEADER BAR (TOP CONTROL ROW) */}
       <div className="px-4 py-2 bg-[#0f172a] border-b border-theme-divider flex items-center justify-between text-xs font-mono">
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
@@ -820,7 +820,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       {!showInvoicePreview ? (
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           
-          {/* LEFT COLUMN: SHOPER 9 DETAIL SECTION (SMRITI ITEM GRID - 75% WIDTH) */}
+          {/* LEFT COLUMN: SMRITI RETAIL TERMINAL DETAIL SECTION (SMRITI ITEM GRID - 75% WIDTH) */}
           <div className="flex-1 flex flex-col overflow-hidden border-r border-theme-divider p-4 space-y-3">
             {/* Quick Barcode Scanner / SKU Search Bar */}
             <form onSubmit={handleScanSubmit} className="flex items-center gap-3 bg-[#1e293b] p-2.5 rounded-lg border border-theme-divider">
@@ -877,7 +877,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
             </div>
           </div>
 
-          {/* RIGHT COLUMN: SHOPER 9 FOOTER NET VALUES BREAKDOWN (25% WIDTH) */}
+          {/* RIGHT COLUMN: SMRITI RETAIL TERMINAL FOOTER NET VALUES BREAKDOWN (25% WIDTH) */}
           <div className="w-full lg:w-80 bg-[#0f172a] border-l border-theme-divider flex flex-col p-4 space-y-4 font-mono">
             <div className="border-b border-theme-divider pb-2 flex items-center justify-between">
               <h4 className="font-bold text-theme-heading text-xs uppercase tracking-wide font-display">Net Values Sheet</h4>
@@ -1451,7 +1451,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
           )}
         </AnimatePresence>
 
-      {/* SHOPER 9 BOTTOM SUMMARY BAR (FOOTER SECTION) */}
+      {/* SMRITI RETAIL TERMINAL BOTTOM SUMMARY BAR (FOOTER SECTION) */}
       <footer className="h-10 bg-[#1e293b] border-t border-theme-divider px-4 flex items-center justify-between font-mono text-xs text-theme-body">
         <div className="flex items-center space-x-6">
           <div>Total Items: <span className="text-white font-bold">{cart.length}</span></div>
