@@ -34,6 +34,7 @@ import {
   ExternalLink
 } from "lucide-react";
 import { Customer, Product } from "../../types";
+import { WindowManager } from "../../sdk/WindowManager.ts";
 
 export interface SalesTaxInvoiceFioriObjectPageProps {
   // Existing Business Logic & State Props
@@ -183,18 +184,21 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
               <span className="text-sm font-bold font-mono text-indigo-300">₹{invoiceTotals.grandTotal.toLocaleString("en-IN")}</span>
             </div>
 
-            {/* Dedicated Standalone Popout Window Action */}
+            {/* Dedicated Standalone Popout Window Action (STWS-001 Platform Standard) */}
             <button
               type="button"
               onClick={() => {
-                const popoutUrl = `${window.location.origin}${window.location.pathname}?popout=true&tab=sales&subView=invoices&action=create`;
-                window.open(popoutUrl, "SalesTaxInvoicePopoutWindow", "width=1440,height=900,menubar=no,toolbar=no,location=no,status=no,resizable=yes");
+                WindowManager.openTransaction({
+                  transactionType: "SalesInvoice",
+                  mode: "standalone",
+                  action: "create",
+                });
               }}
               className="px-3 py-2 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/50 text-indigo-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md"
-              title="Open Sales Tax Invoice in dedicated Popout window without sidebar or menubar"
+              title="STWS-001: Open in Dedicated Standalone Window (SMRITI Window Management Framework)"
             >
               <ExternalLink size={14} />
-              <span>Popout Window</span>
+              <span>Open in New Window</span>
             </button>
           </div>
         </div>
