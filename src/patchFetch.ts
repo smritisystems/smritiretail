@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -22,6 +22,13 @@
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
+
+import { Buffer } from "buffer";
+
+if (typeof window !== "undefined") {
+  (window as any).Buffer = (window as any).Buffer || Buffer;
+  (window as any).global = (window as any).global || window;
+}
 
 const originalJson = Response.prototype.json;
 Response.prototype.json = async function() {
