@@ -6,6 +6,8 @@
  * License      : Proprietary Commercial Software
  */
 
+import { initSWSDKRegistry } from "../../../sdk/swsdk/SWSDKEntrypoint.js";
+
 export type BootStage =
   | "Bootstrap"
   | "Configuration"
@@ -99,7 +101,8 @@ export class PlatformBootstrap {
         // i18n & locale formatting initialization
         break;
       case "SWSDKRegistry":
-        // Load and validate declarative workspace manifests
+        // Load and validate declarative workspace manifests (Rule SWSDK-001)
+        initSWSDKRegistry();
         break;
       case "Capabilities":
         // Resolve platform capabilities & RBAC permissions

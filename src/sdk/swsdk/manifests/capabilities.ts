@@ -24,5 +24,5 @@ export type StandardCapability =
 export interface CapabilityManifest {
   schemaVersion: "1.0";
   workspaceId: string;
-  capabilities: StandardCapability[];
+  capabilities: readonly StandardCapability[];
 }
