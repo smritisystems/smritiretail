@@ -1,15 +1,17 @@
 """
 Project      : SMRITI Retail OS
+Organization : SmritiSys
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
+Email        : support@smritisys.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.39.0
 Created      : 2026-07-12
-Modified     : 2026-07-12
+Modified     : 2026-07-30
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
+
 
 import re
 import uuid
@@ -69,9 +71,15 @@ layout_preferences: Dict[str, Any] = DEFAULT_LAYOUT_PREFERENCES.copy()
 
 
 async def get_system_config(db: AsyncSession, key: str) -> Optional[SystemConfig]:
-    q = select(SystemConfig).where(SystemConfig.key == key, SystemConfig.is_deleted.is_not(True))
+    q = select(SystemConfig).where(
+        SystemConfig.key == key,
+        (SystemConfig.is_deleted == False) | (SystemConfig.is_deleted.is_(None))
+    ).execution_options(ignore_tenant_isolation=True, ignore_rls_isolation=True)
     res = await db.execute(q)
     return res.scalars().first()
+
+
+
 
 SETUP_STATE_KEY = "setup_state"  # NEW | BOOTSTRAPPING | INITIALIZED | FAILED
 
@@ -83,12 +91,17 @@ async def set_system_config(
     current_user: Optional[User] = None,
     commit: bool = True,
     actor_name: str = "system",
+    company_id: Optional[str] = None,
 ) -> SystemConfig:
     username = current_user.username if current_user and getattr(current_user, "username", None) else actor_name
     existing = await get_system_config(db, key)
     if existing:
         existing.value = value
         existing.updated_by = username
+        existing.is_deleted = False
+        existing.is_active = True
+        if company_id and not existing.company_id:
+            existing.company_id = company_id
         existing.modified_at = datetime.now(timezone.utc)
         if commit:
             await db.commit()
@@ -97,15 +110,21 @@ async def set_system_config(
             await db.flush()
         return existing
 
+
     new_id = f"sys-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
     config = SystemConfig(
         id=new_id,
         key=key,
         value=value,
+        company_id=company_id,
         category="Setup",
         created_by=username,
         updated_by=username,
+        is_active=True,
+        is_deleted=False,
     )
+
+
     db.add(config)
     if commit:
         await db.commit()
@@ -647,11 +666,14 @@ async def company_setup(
 
     existing_setup = await get_system_config(db, SETUP_COMPLETED_KEY)
     existing_state = await get_system_config(db, SETUP_STATE_KEY)
+
     if (existing_setup and existing_setup.value == "true") or (existing_state and existing_state.value in ["INITIALIZED", "LOCKED"]):
         raise HTTPException(
             status_code=400,
             detail="Company setup is locked and cannot be re-executed from the onboarding wizard. Please use Administrative Modules for structural changes."
         )
+
+
 
 
     if not branch_entries:
@@ -691,6 +713,9 @@ async def company_setup(
     user_service = UserService(db)
 
     staff_entries = users_payload.staff or []
+
+
+
 
     try:
         # 1. State Machine: Transition to BOOTSTRAPPING
@@ -842,18 +867,19 @@ async def company_setup(
             await numbering_service.create_series(series_req, actor_username, commit=False)
 
         # 7. System Configurations & State Machine Completion
-        await set_system_config(db, CURRENT_FINANCIAL_YEAR_KEY, business_financial_year, current_user, commit=False, actor_name=actor_username)
-        await set_system_config(db, BOOKS_START_DATE_KEY, books_start_date, current_user, commit=False, actor_name=actor_username)
-        await set_system_config(db, BUSINESS_TRADE_NAME_KEY, trade_name, current_user, commit=False, actor_name=actor_username)
-        await set_system_config(db, BUSINESS_TYPE_KEY, business_type, current_user, commit=False, actor_name=actor_username)
-        await set_system_config(db, BUSINESS_STATE_KEY, business_state, current_user, commit=False, actor_name=actor_username)
-        await set_system_config(db, BUSINESS_PAN_KEY, business_pan, current_user, commit=False, actor_name=actor_username)
-        await set_system_config(db, LICENSE_STATUS_KEY, license_status, current_user, commit=False, actor_name=actor_username)
-        await set_system_config(db, LICENSE_TYPE_KEY, license_type, current_user, commit=False, actor_name=actor_username)
-        await set_system_config(db, LICENSE_MODE_KEY, license_mode, current_user, commit=False, actor_name=actor_username)
-        await set_system_config(db, LICENSE_EXPIRES_KEY, license_expires_at, current_user, commit=False, actor_name=actor_username)
-        await set_system_config(db, SETUP_COMPLETED_KEY, "true", current_user, commit=False, actor_name=actor_username)
-        await set_system_config(db, SETUP_STATE_KEY, "LOCKED", current_user, commit=False, actor_name=actor_username)
+        await set_system_config(db, CURRENT_FINANCIAL_YEAR_KEY, business_financial_year, current_user, commit=False, actor_name=actor_username, company_id=company.id)
+        await set_system_config(db, BOOKS_START_DATE_KEY, books_start_date, current_user, commit=False, actor_name=actor_username, company_id=company.id)
+        await set_system_config(db, BUSINESS_TRADE_NAME_KEY, trade_name, current_user, commit=False, actor_name=actor_username, company_id=company.id)
+        await set_system_config(db, BUSINESS_TYPE_KEY, business_type, current_user, commit=False, actor_name=actor_username, company_id=company.id)
+        await set_system_config(db, BUSINESS_STATE_KEY, business_state, current_user, commit=False, actor_name=actor_username, company_id=company.id)
+        await set_system_config(db, BUSINESS_PAN_KEY, business_pan, current_user, commit=False, actor_name=actor_username, company_id=company.id)
+        await set_system_config(db, LICENSE_STATUS_KEY, license_status, current_user, commit=False, actor_name=actor_username, company_id=company.id)
+        await set_system_config(db, LICENSE_TYPE_KEY, license_type, current_user, commit=False, actor_name=actor_username, company_id=company.id)
+        await set_system_config(db, LICENSE_MODE_KEY, license_mode, current_user, commit=False, actor_name=actor_username, company_id=company.id)
+        await set_system_config(db, LICENSE_EXPIRES_KEY, license_expires_at, current_user, commit=False, actor_name=actor_username, company_id=company.id)
+        await set_system_config(db, SETUP_COMPLETED_KEY, "true", current_user, commit=False, actor_name=actor_username, company_id=company.id)
+        await set_system_config(db, SETUP_STATE_KEY, "LOCKED", current_user, commit=False, actor_name=actor_username, company_id=company.id)
+
 
 
         # 8. Explicit Atomic Commit
