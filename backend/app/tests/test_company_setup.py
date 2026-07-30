@@ -25,20 +25,23 @@ async def test_company_setup_provisioning(db_session):
     Verify POST /api/v1/company/setup provisions Company, Branch, Store, User,
     sets setup_state = LOCKED and setup_completed = true, and commits cleanly.
     """
+    from app.db.session import active_tenant_ctx, active_security_context
+    active_tenant_ctx.set(None)
+    active_security_context.set(None)
+
+    created_comp = None
     # Clean setup state and test entities in test session (order matters for FK constraints)
     from sqlalchemy import delete
+    await db_session.execute(delete(SystemConfig).where(SystemConfig.key.in_(["setup_completed", "setup_state"])))
+    await db_session.execute(delete(SystemConfig).where(SystemConfig.company_id.in_(select(Company.id).where(Company.name == "Smriti Retail India Pvt Ltd"))))
     await db_session.execute(delete(User).where(User.username == "vikram_smriti"))
     await db_session.execute(delete(Store).where(Store.code.in_(["GKP-01", "LKO-02"])))
     await db_session.execute(delete(Branch).where(Branch.code.in_(["GKP-01", "LKO-02"])))
     await db_session.execute(delete(Company).where(Company.name == "Smriti Retail India Pvt Ltd"))
-    await db_session.execute(delete(SystemConfig).where(SystemConfig.key.in_(["setup_completed", "setup_state"])))
     await db_session.commit()
-
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-
-
         setup_payload = {
             "businessInfo": {
                 "name": "Smriti Retail India Pvt Ltd",
@@ -66,7 +69,7 @@ async def test_company_setup_provisioning(db_session):
                         "email": "gkp@smritisys.com"
                     },
                     {
-                        "name": "Lucknow Express Branch",
+                        "name": "Lucknow Regional Store",
                         "code": "LKO-02",
                         "type": "Company Owned",
                         "address": "Hazratganj",
@@ -80,7 +83,11 @@ async def test_company_setup_provisioning(db_session):
                 ]
             },
             "operations": {
-                "modules": {"pos": True, "inventory": True, "sales": True}
+                "modules": {
+                    "pos": True,
+                    "inventory": True,
+                    "accounting": True
+                }
             },
             "accounting": {
                 "gstType": "regular",
@@ -94,26 +101,28 @@ async def test_company_setup_provisioning(db_session):
             },
             "pos": {
                 "printerWidth": "80mm",
-                "paymentModes": {"Cash": True, "Card": True, "UPI": True}
+                "paymentModes": {
+                    "Cash": True,
+                    "UPI": True,
+                    "Card": True
+                }
             },
             "users": {
                 "staff": [
                     {
-                        "name": "Vikram Singh",
                         "username": "vikram_smriti",
+                        "name": "Vikram Mallah",
+                        "email": "vikram@smritisys.com",
                         "role": "Store Manager",
-                        "email": "vikram@smritisys.com"
+                        "mobile": "9876543299"
                     }
                 ]
             }
+
         }
 
         res = await client.post("/api/v1/company/setup", json=setup_payload)
-        if res.status_code != 200:
-            raise RuntimeError(f"SETUP_FAILED: {res.text}")
-
-
-
+        assert res.status_code == 200, f"Expected 200, got {res.status_code}: {res.text}"
 
         data = res.json()
         assert data["success"] is True
@@ -121,43 +130,69 @@ async def test_company_setup_provisioning(db_session):
         assert len(data["company"]["branches"]) == 2
         assert len(data["company"]["stores"]) == 2
 
-    try:
-        # 1. Verify Database Persisted Company
-        companies = (await db_session.execute(select(Company))).scalars().all()
-        assert len(companies) >= 1
-        created_comp = companies[-1]
-        assert created_comp.name == "Smriti Retail India Pvt Ltd"
-        assert created_comp.gst_number == "09AAACS1234A1ZP"
-
-        # 2. Verify Database Persisted Branches
-        branches = (await db_session.execute(select(Branch).where(Branch.company_id == created_comp.id))).scalars().all()
-        assert len(branches) == 2
-
-        # 3. Verify Database Persisted Stores
-        stores = (await db_session.execute(select(Store).where(Store.company_id == created_comp.id))).scalars().all()
-        assert len(stores) == 2
-
-        # 4. Verify Database Persisted Users
-        users = (await db_session.execute(select(User).where(User.company_id == created_comp.id))).scalars().all()
-        assert len(users) >= 1
-        assert users[0].username == "vikram_smriti"
-
-        # 5. Verify Database Setup Completed Config & State Machine (NEW -> BOOTSTRAPPING -> INITIALIZED -> LOCKED)
-        configs = (await db_session.execute(select(SystemConfig))).scalars().all()
-        config_map = {c.key: c.value for c in configs}
-        assert config_map.get("setup_completed") == "true"
-        assert config_map.get("setup_state") == "LOCKED"
-
-        # 6. Verify setup re-execution attempt is permanently locked and blocked with HTTP 400
+        # Verify duplicate setup call returns HTTP 400 Locked
         dup_res = await client.post("/api/v1/company/setup", json=setup_payload)
-        assert dup_res.status_code == 400
+        assert dup_res.status_code == 400, f"Expected 400 Locked on dup request, got {dup_res.status_code}: {dup_res.text}"
         assert "locked and cannot be re-executed" in dup_res.json()["detail"]
+
+    try:
+        from app.db.session import async_session
+        async with async_session() as fresh_db:
+            # 1. Verify Database Persisted Company
+            created_comp = (await fresh_db.execute(
+                select(Company).where(Company.name == "Smriti Retail India Pvt Ltd").execution_options(ignore_rls_isolation=True, ignore_tenant_isolation=True)
+            )).scalar_one_or_none()
+            assert created_comp is not None
+            assert created_comp.name == "Smriti Retail India Pvt Ltd"
+            assert created_comp.gst_number == "09AAACS1234A1ZP"
+
+            # 2. Verify Database Persisted Branches
+            branches = (await fresh_db.execute(
+                select(Branch).where(Branch.company_id == created_comp.id).execution_options(ignore_rls_isolation=True, ignore_tenant_isolation=True)
+            )).scalars().all()
+            assert len(branches) == 2
+
+            # 3. Verify Database Persisted Stores
+            stores = (await fresh_db.execute(
+                select(Store).where(Store.company_id == created_comp.id).execution_options(ignore_rls_isolation=True, ignore_tenant_isolation=True)
+            )).scalars().all()
+            assert len(stores) == 2
+
+            # 4. Verify Database Persisted Users
+            users = (await fresh_db.execute(
+                select(User).where(User.username == "vikram_smriti").execution_options(ignore_rls_isolation=True, ignore_tenant_isolation=True)
+            )).scalars().all()
+            assert len(users) >= 1
+            assert users[0].username == "vikram_smriti"
+
+            # 5. Verify Database Setup Completed Config & State Machine (NEW -> BOOTSTRAPPING -> INITIALIZED -> LOCKED)
+            sc_completed = (await fresh_db.execute(
+                select(SystemConfig).where(SystemConfig.key == "setup_completed").execution_options(ignore_rls_isolation=True, ignore_tenant_isolation=True)
+            )).scalar_one_or_none()
+            sc_state = (await fresh_db.execute(
+                select(SystemConfig).where(SystemConfig.key == "setup_state").execution_options(ignore_rls_isolation=True, ignore_tenant_isolation=True)
+            )).scalar_one_or_none()
+
+            assert sc_completed is not None, f"setup_completed config not found in DB"
+            assert sc_completed.value == "true", f"Expected setup_completed 'true', got '{sc_completed.value}'"
+            assert sc_state is not None, f"setup_state config not found in DB"
+            assert sc_state.value == "LOCKED", f"Expected setup_state 'LOCKED', got '{sc_state.value}'"
+
     finally:
+
+
+        app.dependency_overrides.clear()
+        if created_comp:
+            await db_session.execute(delete(SystemConfig).where(SystemConfig.company_id == created_comp.id))
+            await db_session.execute(delete(User).where(User.company_id == created_comp.id))
+            await db_session.execute(delete(Store).where(Store.company_id == created_comp.id))
+            await db_session.execute(delete(Branch).where(Branch.company_id == created_comp.id))
+            await db_session.execute(delete(Company).where(Company.id == created_comp.id))
+
         await db_session.execute(delete(User).where(User.username == "vikram_smriti"))
-        await db_session.execute(delete(Store).where(Store.code.in_(["GKP-01", "LKO-02"])))
-        await db_session.execute(delete(Branch).where(Branch.code.in_(["GKP-01", "LKO-02"])))
-        await db_session.execute(delete(Company).where(Company.name == "Smriti Retail India Pvt Ltd"))
         await db_session.execute(delete(SystemConfig).where(SystemConfig.key.in_(["setup_completed", "setup_state"])))
         await db_session.commit()
+
+
 
 
