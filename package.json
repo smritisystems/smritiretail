@@ -15,7 +15,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "python scripts/build_buffer_polyfill.py && vite build",
+    "build": "node scripts/build_buffer_polyfill.js && vite build",
+
 
     "preview": "vite preview",
     "start": "npm run dev",
