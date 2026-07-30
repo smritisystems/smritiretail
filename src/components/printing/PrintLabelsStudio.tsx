@@ -11,6 +11,7 @@ import { WindowManager } from "../../sdk";
 import { PRNVariableEngine, TATTLY_THREADS_ZPL_SCRIPT } from "../../services/label_print/PRNVariableEngine";
 import { PrintProviderRegistry, SystemPrinterDiscovery, SystemPrinterInfo } from "../../services/label_print/PrintProviderFramework";
 import { UniversalAttributeEngine, IndustryPackManager, IndustryType } from "../../core/metadata";
+import { PrintOrchestrator, PrintDocument } from "../../core/printing";
 
 export interface PrintItemRow {
   id: string;
@@ -222,7 +223,7 @@ export const PrintLabelsStudio: React.FC = () => {
     return filteredPrintItems.reduce((acc, item) => acc + (item.selected ? item.printQty : 0), 0);
   }, [filteredPrintItems]);
 
-  // Execute Print Job using PRNVariableEngine and Hardware Provider
+  // Execute Print Job using SUPP PrintOrchestrator (Rule SUPP-001)
   const executePrintJob = async () => {
     if (filteredPrintItems.length === 0) {
       showToast("No items available to print!");
@@ -230,36 +231,28 @@ export const PrintLabelsStudio: React.FC = () => {
     }
 
     const activeItem = filteredPrintItems[activePreviewIndex] || filteredPrintItems[0];
-    const zplScript = PRNVariableEngine.renderTemplate(TATTLY_THREADS_ZPL_SCRIPT, activeItem, copies);
 
-    if (connectionType === "QZ_TRAY" || isQzConnected) {
-      const provider = PrintProviderRegistry.getProvider("qz_tray");
-      const res = await provider.sendJob({
-        jobId: `JOB-${Date.now()}`,
-        printerName: printer,
-        templateName: "Tattly Threads Dual Tag",
-        script: zplScript,
-        totalLabels: totalPrintQty,
-        items: filteredPrintItems.map((i) => ({ name: i.itemName, copies: i.printQty })),
-      });
-      if (res.success) {
-        showToast(`Sent ZPL job directly via QZ Tray to ${printer}!`);
-      } else {
-        showToast(`QZ Print fallback: opening browser print (${res.error || ""})`);
-        window.print();
-      }
-    } else if (connectionType === "NETWORK_TCP") {
-      const provider = PrintProviderRegistry.getProvider("network");
-      const res = await provider.sendJob({
-        jobId: `JOB-${Date.now()}`,
-        printerName: printerIp,
-        templateName: "Tattly Threads Dual Tag",
-        script: zplScript,
-        totalLabels: totalPrintQty,
-        items: filteredPrintItems.map((i) => ({ name: i.itemName, copies: i.printQty })),
-      });
-      showToast(`Sent ZPL job via RAW TCP/IP to ${printerIp}:${printerPort}`);
+    const document: PrintDocument = {
+      id: `DOC-${Date.now()}`,
+      type: "BARCODE_TAG",
+      title: "Tattly Threads Dual Tag",
+      content: TATTLY_THREADS_ZPL_SCRIPT,
+      immutable: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    const res = await PrintOrchestrator.dispatchDocument(document, {
+      printerName: printer,
+      driverId: "zpl",
+      providerId: connectionType === "NETWORK_TCP" ? "network" : "qz_tray",
+      copies,
+      activeItem,
+    });
+
+    if (res.success) {
+      showToast(`SUPP Orchestrator: Sent print job to ${printer} via ${res.providerId.toUpperCase()} provider!`);
     } else {
+      showToast(`SUPP Fallback: Browser print execution (${res.error || ""})`);
       window.print();
     }
   };
