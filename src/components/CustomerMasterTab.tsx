@@ -166,8 +166,12 @@ const blankCustomerForm = () => ({
   notes: "",
   effectiveFrom: "",
   effectiveTo: "",
-  sortOrder: "1"
+  sortOrder: "1",
+  channelTrackingEnabled: false,
+  supplyModel: "ModernTrade",
+  selloutSource: "Excel",
 });
+
 
 type CustomerFormData = ReturnType<typeof blankCustomerForm>;
 
@@ -1353,6 +1357,61 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
                                 </option>
                               ))}
                             </select>
+                          </div>
+
+                          {/* ── SCDM: Channel Distribution Management (AOP-004) ────── */}
+                          <div className="md:col-span-2 p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl space-y-3">
+                            <div className="flex items-center justify-between">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={formData.channelTrackingEnabled || false}
+                                  onChange={(e) => set("channelTrackingEnabled", e.target.checked)}
+                                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-theme-divider"
+                                />
+                                <span className="text-xs font-bold text-theme-heading flex items-center gap-1.5">
+                                  <Truck className="w-4 h-4 text-indigo-500" />
+                                  Enable SCDM Channel Distribution Tracking
+                                </span>
+                              </label>
+                              <span className="text-[10px] font-mono text-indigo-400 font-semibold">SCDM v1.0</span>
+                            </div>
+
+                            {formData.channelTrackingEnabled && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                                <div>
+                                  <label className={lbl}>Supply Model</label>
+                                  <select
+                                    value={formData.supplyModel || "ModernTrade"}
+                                    onChange={(e) => set("supplyModel", e.target.value)}
+                                    className={sel}
+                                  >
+                                    <option value="Normal">Normal Direct Sale</option>
+                                    <option value="ModernTrade">Modern Trade (National Chain)</option>
+                                    <option value="Distributor">Distributor / Stockist</option>
+                                    <option value="Franchise">Franchise Store Network</option>
+                                    <option value="Institutional">Institutional B2B</option>
+                                  </select>
+                                </div>
+
+                                <div>
+                                  <label className={lbl}>Primary Sell-Out Ingestion Source</label>
+                                  <select
+                                    value={formData.selloutSource || "Excel"}
+                                    onChange={(e) => set("selloutSource", e.target.value)}
+                                    className={sel}
+                                  >
+                                    <option value="Manual">Manual Ingestion</option>
+                                    <option value="Excel">Excel / Spreadsheet Upload</option>
+                                    <option value="CSV">CSV Flat File</option>
+                                    <option value="API">REST API Endpoint</option>
+                                    <option value="EDI">EDI X12 / EDIFACT</option>
+                                    <option value="POSFeed">POS Direct Feed</option>
+                                    <option value="FTP">FTP / SFTP Drop</option>
+                                  </select>
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           <div className="md:col-span-2">

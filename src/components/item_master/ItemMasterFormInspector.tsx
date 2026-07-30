@@ -217,6 +217,60 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
       )
     },
     {
+      id: "scdm_channel",
+      label: "Channel Stock (SCDM)",
+      content: (
+        <div className="space-y-4 max-w-5xl font-mono text-xs">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2">
+              <Truck className="w-5 h-5 text-indigo-400" /> SCDM Channel Stock &amp; Customer Store Visibility
+            </h4>
+            <span className="px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              SCDM v1.0 SSOT Projection
+            </span>
+          </div>
+
+          <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden shadow-xs">
+            <table className="w-full text-left border-collapse text-xs font-mono">
+              <thead>
+                <tr className="border-b border-theme-divider text-theme-muted font-bold uppercase text-[10px]">
+                  <th className="p-2">Customer Account</th>
+                  <th className="p-2">Channel Location</th>
+                  <th className="p-2 text-right">Dispatched Qty</th>
+                  <th className="p-2 text-right">Sell-Out Qty</th>
+                  <th className="p-2 text-right text-indigo-400 font-bold">Current Stock</th>
+                  <th className="p-2 text-right">MRP Value</th>
+                  <th className="p-2 text-right">Ageing</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-theme-divider/50">
+                <tr className="hover:bg-theme-surface-1">
+                  <td className="p-2 font-bold text-theme-heading">Reliance Retail Ltd</td>
+                  <td className="p-2 text-theme-muted">DC Mumbai / Store A</td>
+                  <td className="p-2 text-right text-theme-muted">150 Pcs</td>
+                  <td className="p-2 text-right text-emerald-400 font-bold">90 Pcs</td>
+                  <td className="p-2 text-right text-indigo-400 font-bold">60 Pcs</td>
+                  <td className="p-2 text-right font-bold text-theme-heading">₹{(parseFloat(String(formData.mrp || "100")) * 60).toLocaleString('en-IN')}</td>
+                  <td className="p-2 text-right text-amber-400 font-bold">14 Days</td>
+                </tr>
+                <tr className="hover:bg-theme-surface-1">
+                  <td className="p-2 font-bold text-theme-heading">Avenue Supermarts (D-Mart)</td>
+                  <td className="p-2 text-theme-muted">DC Thane / Grocery Dept</td>
+                  <td className="p-2 text-right text-theme-muted">200 Pcs</td>
+                  <td className="p-2 text-right text-emerald-400 font-bold">140 Pcs</td>
+                  <td className="p-2 text-right text-indigo-400 font-bold">60 Pcs</td>
+                  <td className="p-2 text-right font-bold text-theme-heading">₹{(parseFloat(String(formData.mrp || "100")) * 60).toLocaleString('en-IN')}</td>
+
+                  <td className="p-2 text-right text-emerald-400 font-bold">8 Days</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )
+    },
+
+    {
       id: "variants",
       label: "Variant Matrix",
       content: <ItemMasterVariantTable product={formData} onOpenBarcodeDialog={onOpenBarcodeDialog} isReadOnly={isReadOnly} />
