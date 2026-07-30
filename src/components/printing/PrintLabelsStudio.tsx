@@ -10,6 +10,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { WindowManager } from "../../sdk";
 import { PRNVariableEngine, TATTLY_THREADS_ZPL_SCRIPT } from "../../services/label_print/PRNVariableEngine";
 import { PrintProviderRegistry } from "../../services/label_print/PrintProviderFramework";
+import { UniversalAttributeEngine, IndustryPackManager, IndustryType } from "../../core/metadata";
 
 export interface PrintItemRow {
   id: string;
@@ -81,6 +82,15 @@ const SOURCE_DATASETS: Record<SourceType, PrintItemRow[]> = {
 };
 
 export const PrintLabelsStudio: React.FC = () => {
+  // Industry Pack Selection via SMP-M
+  const [activeIndustry, setActiveIndustry] = useState<IndustryType>("apparel");
+
+  const handleIndustryChange = (ind: IndustryType) => {
+    setActiveIndustry(ind);
+    IndustryPackManager.setIndustry(ind);
+    showToast(`SMP-M Metadata Industry Pack Switched to: ${ind.toUpperCase()}`);
+  };
+
   // Source Selection
   const [selectedSource, setSelectedSource] = useState<SourceType>("manual");
 
@@ -368,6 +378,20 @@ export const PrintLabelsStudio: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-3">
+          {/* SMP-M Industry Pack Selector */}
+          <div className="flex items-center space-x-1.5 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1">
+            <span className="text-[10px] font-extrabold text-blue-900 uppercase tracking-tight">SMP-M Pack:</span>
+            <select
+              value={activeIndustry}
+              onChange={(e) => handleIndustryChange(e.target.value as IndustryType)}
+              className="bg-white border border-blue-300 text-blue-950 font-bold text-xs rounded px-2 py-0.5 focus:outline-none shadow-2xs"
+            >
+              <option value="apparel">Apparel & Garments</option>
+              <option value="jewellery">Jewellery & Gold</option>
+              <option value="medical">Pharmacy & Healthcare</option>
+              <option value="electronics">Electronics & Hardware</option>
+            </select>
+          </div>
           {/* Toggle All Filters Button */}
           <button
             onClick={toggleAllFilters}
