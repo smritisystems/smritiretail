@@ -46,34 +46,34 @@ export type SourceType =
 // Source Datasets for Dynamic Switching
 const SOURCE_DATASETS: Record<SourceType, PrintItemRow[]> = {
   manual: [
-    { id: "row-1", selected: true, barcode: "8901234567890", itemCode: "SHO-1001", itemName: "Nike Sports Shoes", uom: "Pair", batchSerial: "-", qty: 50, printQty: 50, labelTemplate: "Default Label", sizeMm: "50 x 25", mrp: 2500.0, hsn: "6404", taxRate: "18% IGST", brand: "Nike", category: "Footwear" },
-    { id: "row-2", selected: true, barcode: "8901234567891", itemCode: "SOC-2001", itemName: "Cotton Socks", uom: "Pair", batchSerial: "-", qty: 100, printQty: 100, labelTemplate: "Default Label", sizeMm: "50 x 25", mrp: 250.0, hsn: "6115", taxRate: "12% GST", brand: "Adidas", category: "Apparel" },
-    { id: "row-3", selected: true, barcode: "BAT-001", itemCode: "BAT-001", itemName: "Batch Item", uom: "Pcs", batchSerial: "BATCH-2025-05", qty: 200, printQty: 200, labelTemplate: "Batch Label", sizeMm: "40 x 20", mrp: 1200.0, hsn: "6109", brand: "Puma", category: "Apparel" },
-    { id: "row-4", selected: true, barcode: "SRL-000123", itemCode: "SERIAL-001", itemName: "Serial Item", uom: "Pcs", batchSerial: "SRL-000123", qty: 1, printQty: 1, labelTemplate: "Serial Label", sizeMm: "40 x 20", mrp: 3500.0, hsn: "6403", brand: "Formal", category: "Footwear" },
+    { id: "row-1", selected: true, barcode: "8901234567890", itemCode: "SHO-1001", itemName: "Tattly Threads Dual Tag Item", uom: "Pair", batchSerial: "-", qty: 50, printQty: 50, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 2500.0, hsn: "6404", taxRate: "18% IGST", brand: "Tattly Threads", category: "Footwear" },
+    { id: "row-2", selected: true, barcode: "8901234567891", itemCode: "SOC-2001", itemName: "Cotton Sock Dual Tag", uom: "Pair", batchSerial: "-", qty: 100, printQty: 100, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 250.0, hsn: "6115", taxRate: "12% GST", brand: "Tattly Threads", category: "Apparel" },
+    { id: "row-3", selected: true, barcode: "BAT-001", itemCode: "BAT-001", itemName: "Batch Dual Tag Item", uom: "Pcs", batchSerial: "BATCH-2025-05", qty: 200, printQty: 200, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 1200.0, hsn: "6109", brand: "Tattly Threads", category: "Apparel" },
+    { id: "row-4", selected: true, barcode: "SRL-000123", itemCode: "SERIAL-001", itemName: "Serial Footwear Tag", uom: "Pcs", batchSerial: "SRL-000123", qty: 1, printQty: 1, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 3500.0, hsn: "6403", brand: "Tattly Threads", category: "Footwear" },
   ],
   item_master: [
-    { id: "im-1", selected: true, barcode: "8901234567892", itemCode: "CAP-3001", itemName: "Adidas Cap", uom: "Pcs", batchSerial: "-", qty: 40, printQty: 40, labelTemplate: "Default Label", sizeMm: "50 x 25", mrp: 500.0, hsn: "6505", brand: "Adidas", category: "Accessories" },
-    { id: "im-2", selected: true, barcode: "8901234567893", itemCode: "TSH-4001", itemName: "Puma Running T-Shirt", uom: "Pcs", batchSerial: "-", qty: 60, printQty: 60, labelTemplate: "Default Label", sizeMm: "50 x 25", mrp: 1200.0, hsn: "6109", brand: "Puma", category: "Apparel" },
+    { id: "im-1", selected: true, barcode: "8901234567892", itemCode: "CAP-3001", itemName: "Tattly Cap Tag", uom: "Pcs", batchSerial: "-", qty: 40, printQty: 40, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 500.0, hsn: "6505", brand: "Tattly Threads", category: "Accessories" },
+    { id: "im-2", selected: true, barcode: "8901234567893", itemCode: "TSH-4001", itemName: "Tattly Running T-Shirt Tag", uom: "Pcs", batchSerial: "-", qty: 60, printQty: 60, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 1200.0, hsn: "6109", brand: "Tattly Threads", category: "Apparel" },
   ],
   purchase_invoice: [
-    { id: "pi-1", selected: true, barcode: "8901234567894", itemCode: "PINV-101", itemName: "Formal Leather Shoes", uom: "Pair", batchSerial: "PINV-9912", qty: 25, printQty: 25, labelTemplate: "Default Label", sizeMm: "50 x 25", mrp: 3500.0, hsn: "6403", brand: "Bata", category: "Footwear" },
+    { id: "pi-1", selected: true, barcode: "8901234567894", itemCode: "PINV-101", itemName: "Formal Leather Shoes", uom: "Pair", batchSerial: "PINV-9912", qty: 25, printQty: 25, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 3500.0, hsn: "6403", brand: "Tattly Threads", category: "Footwear" },
   ],
   grn: [
-    { id: "grn-1", selected: true, barcode: "8901234567895", itemCode: "GRN-901", itemName: "Denim Jeans Trousers", uom: "Pcs", batchSerial: "GRN-2025-08", qty: 80, printQty: 80, labelTemplate: "Default Label", sizeMm: "50 x 25", mrp: 1800.0, hsn: "6203", brand: "Levi's", category: "Apparel" },
+    { id: "grn-1", selected: true, barcode: "8901234567895", itemCode: "GRN-901", itemName: "Denim Jeans Trousers", uom: "Pcs", batchSerial: "GRN-2025-08", qty: 80, printQty: 80, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 1800.0, hsn: "6203", brand: "Tattly Threads", category: "Apparel" },
   ],
   purchase_return: [],
   sales_invoice: [
-    { id: "si-1", selected: true, barcode: "8901234567896", itemCode: "INV-881", itemName: "Smart POS Printer", uom: "Pcs", batchSerial: "POS-SN-99", qty: 2, printQty: 2, labelTemplate: "Serial Label", sizeMm: "40 x 20", mrp: 6500.0, hsn: "8471", brand: "TVS", category: "Electronics" },
+    { id: "si-1", selected: true, barcode: "8901234567896", itemCode: "INV-881", itemName: "Smart POS Printer", uom: "Pcs", batchSerial: "POS-SN-99", qty: 2, printQty: 2, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 6500.0, hsn: "8471", brand: "Tattly Threads", category: "Electronics" },
   ],
   sales_return: [],
   stock_transfer: [],
   production: [],
   physical_stock: [],
   batch: [
-    { id: "bt-1", selected: true, barcode: "BAT-001", itemCode: "BAT-001", itemName: "Batch Item", uom: "Pcs", batchSerial: "BATCH-2025-05", qty: 200, printQty: 200, labelTemplate: "Batch Label", sizeMm: "40 x 20", mrp: 1200.0, hsn: "6109", brand: "Puma" },
+    { id: "bt-1", selected: true, barcode: "BAT-001", itemCode: "BAT-001", itemName: "Batch Item", uom: "Pcs", batchSerial: "BATCH-2025-05", qty: 200, printQty: 200, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 1200.0, hsn: "6109", brand: "Tattly Threads" },
   ],
   serial_number: [
-    { id: "sr-1", selected: true, barcode: "SRL-000123", itemCode: "SERIAL-001", itemName: "Serial Item", uom: "Pcs", batchSerial: "SRL-000123", qty: 1, printQty: 1, labelTemplate: "Serial Label", sizeMm: "40 x 20", mrp: 3500.0, hsn: "6403", brand: "Formal" },
+    { id: "sr-1", selected: true, barcode: "SRL-000123", itemCode: "SERIAL-001", itemName: "Serial Item", uom: "Pcs", batchSerial: "SRL-000123", qty: 1, printQty: 1, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 3500.0, hsn: "6403", brand: "Tattly Threads" },
   ],
   direct_scan: [],
 };
@@ -114,9 +114,9 @@ export const PrintLabelsStudio: React.FC = () => {
   // Preview Index
   const [activePreviewIndex, setActivePreviewIndex] = useState<number>(0);
 
-  // Print Settings State
-  const [printer, setPrinter] = useState<string>("Zebra ZD420 (USB)");
-  const [labelSize, setLabelSize] = useState<string>("50 x 25 mm");
+  // Print Settings State - Default to Tattly Threads ZPL Dual Barcode Tag (100 x 50.7 mm)
+  const [printer, setPrinter] = useState<string>("Zebra ZD420 (ZPL II)");
+  const [labelSize, setLabelSize] = useState<string>("100 x 50.7 mm");
   const [labelsPerRow, setLabelsPerRow] = useState<number>(3);
   const [copies, setCopies] = useState<number>(1);
   const [showPrice, setShowPrice] = useState<boolean>(true);
