@@ -1,0 +1,44 @@
+{
+  "module": "grn",
+  "version": "1.1.0",
+  "title": "Goods Receipt Note (GRN) Workstation",
+  "description": "SMRITI SAWF v1.1 Declarative Inward Receipt Shell",
+  "entity": "goods_receipt_notes",
+  "panels": [
+    {
+      "id": "receipt_header",
+      "title": "GRN Receipt & Sourcing Header",
+      "fields": [
+        { "name": "grn_no", "label": "GRN Number", "type": "text", "required": true },
+        { "name": "supplier_id", "label": "Vendor / Supplier", "type": "select", "required": true },
+        { "name": "po_reference", "label": "Purchase Order Ref", "type": "text" },
+        { "name": "chalan_no", "label": "Supplier Invoice / Chalan No", "type": "text", "required": true },
+        { "name": "receipt_date", "label": "Receipt Date", "type": "date", "required": true }
+      ]
+    },
+    {
+      "id": "destination_warehouse",
+      "title": "Storage & Inspection Location",
+      "fields": [
+        { "name": "destination_store", "label": "Destination Store / Warehouse", "type": "select", "required": true },
+        { "name": "quality_status", "label": "Quality Inspection Status", "type": "select", "options": ["PASSED", "PENDING_QC", "REJECTED"], "required": true }
+      ]
+    }
+  ],
+  "grid": {
+    "columns": [
+      { "key": "item_code", "label": "SKU / Code", "type": "text", "required": true },
+      { "key": "item_name", "label": "Description", "type": "text", "required": true },
+      { "key": "ordered_qty", "label": "PO Qty", "type": "number" },
+      { "key": "received_qty", "label": "Received Qty", "type": "number", "required": true, "default": 1 },
+      { "key": "accepted_qty", "label": "Accepted Qty", "type": "number", "required": true, "default": 1 },
+      { "key": "unit_cost", "label": "Unit Cost (₹)", "type": "number", "required": true, "default": 0 },
+      { "key": "amount", "label": "Total Value (₹)", "type": "computed", "formula": "accepted_qty * unit_cost" }
+    ]
+  },
+  "sidebar": [
+    { "id": "vendor_status", "title": "Vendor Account Status", "component": "SupplierSummaryWidget" },
+    { "id": "qc_sheet", "title": "Quality Control Inspection Sheet", "component": "QCSheetWidget" },
+    { "id": "audit_log", "title": "GRN Audit Trail", "component": "AuditLogWidget" }
+  ]
+}

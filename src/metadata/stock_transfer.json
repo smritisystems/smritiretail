@@ -1,0 +1,34 @@
+{
+  "module": "stock_transfer",
+  "version": "1.1.0",
+  "title": "Inter-Store Stock Transfer Workstation",
+  "description": "SMRITI SAWF v1.1 Declarative Stock Transfer Shell",
+  "entity": "stock_transfers",
+  "panels": [
+    {
+      "id": "transfer_header",
+      "title": "Source & Destination Logistics Header",
+      "fields": [
+        { "name": "transfer_no", "label": "Transfer Order No", "type": "text", "required": true },
+        { "name": "transfer_date", "label": "Transfer Date", "type": "date", "required": true },
+        { "name": "source_location", "label": "Source Store / Warehouse", "type": "select", "required": true },
+        { "name": "destination_location", "label": "Destination Store / Warehouse", "type": "select", "required": true },
+        { "name": "transporter_name", "label": "Transporter / Vehicle Ref", "type": "text" }
+      ]
+    }
+  ],
+  "grid": {
+    "columns": [
+      { "key": "item_code", "label": "SKU / Code", "type": "text", "required": true },
+      { "key": "item_name", "label": "Description", "type": "text", "required": true },
+      { "key": "available_qty", "label": "Source Stock Available", "type": "number" },
+      { "key": "transfer_qty", "label": "Transfer Qty", "type": "number", "required": true, "default": 1 },
+      { "key": "unit_cost", "label": "Valuation Cost (₹)", "type": "number", "required": true, "default": 0 },
+      { "key": "amount", "label": "Transfer Value (₹)", "type": "computed", "formula": "transfer_qty * unit_cost" }
+    ]
+  },
+  "sidebar": [
+    { "id": "source_stock_summary", "title": "Source Inventory Snapshot", "component": "SourceStockWidget" },
+    { "id": "transit_status", "title": "In-Transit Audit", "component": "TransitAuditWidget" }
+  ]
+}
