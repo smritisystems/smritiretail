@@ -16,6 +16,8 @@ dist
 docs
 backend
 scripts
+!scripts/build_buffer_polyfill.js
+
 artifacts
 *.md
 *.log
