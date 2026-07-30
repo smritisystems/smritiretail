@@ -17,23 +17,36 @@ export interface LineItem {
   name: string;
   hsnCode: string;
   qty: number;
+  availableStock: number;
   uom: string;
   rate: number;
   discountPct: number;
 }
 
-// Product catalog for item search lookup
+export interface HeldBill {
+  id: string;
+  customerName: string;
+  time: string;
+  total: number;
+  items: LineItem[];
+}
+
+// Product catalog for item search lookup with Live Available Stock levels
 const CATALOG_PRODUCTS = [
-  { barcode: "8901234567890", name: "Nike Sports Shoes", hsn: "6404", rate: 2500.0, uom: "Pair" },
-  { barcode: "8901234567891", name: "Cotton Socks", hsn: "6115", rate: 250.0, uom: "Pair" },
-  { barcode: "8901234567892", name: "Adidas Cap", hsn: "6505", rate: 500.0, uom: "Pcs" },
-  { barcode: "8901234567893", name: "Puma Running T-Shirt", hsn: "6109", rate: 1200.0, uom: "Pcs" },
-  { barcode: "8901234567894", name: "Formal Leather Shoes", hsn: "6403", rate: 3500.0, uom: "Pair" },
-  { barcode: "8901234567895", name: "Denim Jeans Trousers", hsn: "6203", rate: 1800.0, uom: "Pcs" },
-  { barcode: "8901234567896", name: "Smart POS Printer", hsn: "8471", rate: 6500.0, uom: "Pcs" },
+  { barcode: "8901234567890", name: "Nike Sports Shoes", hsn: "6404", rate: 2500.0, uom: "Pair", stock: 45 },
+  { barcode: "8901234567891", name: "Cotton Socks", hsn: "6115", rate: 250.0, uom: "Pair", stock: 120 },
+  { barcode: "8901234567892", name: "Adidas Cap", hsn: "6505", rate: 500.0, uom: "Pcs", stock: 8 },
+  { barcode: "8901234567893", name: "Puma Running T-Shirt", hsn: "6109", rate: 1200.0, uom: "Pcs", stock: 25 },
+  { barcode: "8901234567894", name: "Formal Leather Shoes", hsn: "6403", rate: 3500.0, uom: "Pair", stock: 14 },
+  { barcode: "8901234567895", name: "Denim Jeans Trousers", hsn: "6203", rate: 1800.0, uom: "Pcs", stock: 3 },
+  { barcode: "8901234567896", name: "Smart POS Printer", hsn: "8471", rate: 6500.0, uom: "Pcs", stock: 60 },
 ];
 
 export const SalesBillingStudio: React.FC = () => {
+  // Input Refs for Keyboard Shortcuts
+  const topSearchRef = useRef<HTMLInputElement>(null);
+  const itemSearchRef = useRef<HTMLInputElement>(null);
+
   // Customer Store & Lookup State
   const [customerList, setCustomerList] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -47,6 +60,24 @@ export const SalesBillingStudio: React.FC = () => {
   const [gstin, setGstin] = useState<string>("27ABCDE1234F1Z5");
   const [taxProfile, setTaxProfile] = useState<string>("Retail Registered");
 
+  // Corporate Customer Credit Attributes
+  const [isCorporateClient, setIsCorporateClient] = useState<boolean>(false);
+  const [creditLimit, setCreditLimit] = useState<number>(500000);
+  const [outstandingBalance, setOutstandingBalance] = useState<number>(180000);
+  const [creditDays, setCreditDays] = useState<number>(30);
+
+  // Branch & Cashier State
+  const [selectedBranch, setSelectedBranch] = useState<string>("Branch 01");
+  const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState<boolean>(false);
+  const [isCashierMenuOpen, setIsCashierMenuOpen] = useState<boolean>(false);
+
+  // Toast Notification State
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
+
   // New Customer Modal State
   const [isNewCustomerModalOpen, setIsNewCustomerModalOpen] = useState<boolean>(false);
   const [newCustName, setNewCustName] = useState<string>("");
@@ -54,6 +85,9 @@ export const SalesBillingStudio: React.FC = () => {
   const [newCustGst, setNewCustGst] = useState<string>("");
   const [newCustGroup, setNewCustGroup] = useState<string>("CG-Retail");
   const [newCustEmail, setNewCustEmail] = useState<string>("");
+
+  // Barcode Scanner Modal State
+  const [isScannerModalOpen, setIsScannerModalOpen] = useState<boolean>(false);
 
   // Item Search & Autocomplete State
   const [itemSearch, setItemSearch] = useState<string>("");
@@ -68,7 +102,27 @@ export const SalesBillingStudio: React.FC = () => {
   const [loyaltyRedeem, setLoyaltyRedeem] = useState<number>(0);
   const [billDiscountInput, setBillDiscountInput] = useState<number>(100);
 
-  // Default Line Items
+  // Held Bills State & Modal (F6 / F7)
+  const [heldBills, setHeldBills] = useState<HeldBill[]>([]);
+  const [isRecallModalOpen, setIsRecallModalOpen] = useState<boolean>(false);
+
+  // Bill Discount Modal State (F8)
+  const [isDiscountModalOpen, setIsDiscountModalOpen] = useState<boolean>(false);
+
+  // Payment Modal State (F4)
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
+  const [paymentMode, setPaymentMode] = useState<"CASH" | "UPI" | "CARD" | "CREDIT">("CASH");
+  const [cashTendered, setCashTendered] = useState<number>(0);
+
+  // Invoice Success Posted Modal State
+  const [postedInvoiceData, setPostedInvoiceData] = useState<{
+    invNo: string;
+    grandTotal: number;
+    customer: string;
+    paymentMode: string;
+  } | null>(null);
+
+  // Default Line Items with stock levels
   const [items, setItems] = useState<LineItem[]>([
     {
       id: "item-1",
@@ -76,6 +130,7 @@ export const SalesBillingStudio: React.FC = () => {
       name: "Nike Sports Shoes",
       hsnCode: "6404",
       qty: 1,
+      availableStock: 45,
       uom: "Pair",
       rate: 2500.0,
       discountPct: 0.0,
@@ -86,6 +141,7 @@ export const SalesBillingStudio: React.FC = () => {
       name: "Cotton Socks",
       hsnCode: "6115",
       qty: 3,
+      availableStock: 120,
       uom: "Pair",
       rate: 250.0,
       discountPct: 10.0,
@@ -96,6 +152,7 @@ export const SalesBillingStudio: React.FC = () => {
       name: "Adidas Cap",
       hsnCode: "6505",
       qty: 1,
+      availableStock: 8,
       uom: "Pcs",
       rate: 500.0,
       discountPct: 0.0,
@@ -111,6 +168,42 @@ export const SalesBillingStudio: React.FC = () => {
       // Fallback
     }
   }, []);
+
+  // Keyboard Shortcuts Listener (F2, F3, F4, F6, F7, F8, F9, F10)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F2") {
+        e.preventDefault();
+        topSearchRef.current?.focus();
+        showToast("Search Focused (F2)");
+      } else if (e.key === "F3") {
+        e.preventDefault();
+        addNewItem();
+        showToast("New Item Line Added (F3)");
+      } else if (e.key === "F4") {
+        e.preventDefault();
+        setIsPaymentModalOpen(true);
+      } else if (e.key === "F6") {
+        e.preventDefault();
+        handleHoldBill();
+      } else if (e.key === "F7") {
+        e.preventDefault();
+        setIsRecallModalOpen(true);
+      } else if (e.key === "F8") {
+        e.preventDefault();
+        setIsDiscountModalOpen(true);
+      } else if (e.key === "F9") {
+        e.preventDefault();
+        showToast("Draft Bill Saved (F9)");
+      } else if (e.key === "F10") {
+        e.preventDefault();
+        window.print();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [items, selectedCustomerName]);
 
   // Filter Customers based on search
   const filteredCustomers = useMemo(() => {
@@ -142,17 +235,25 @@ export const SalesBillingStudio: React.FC = () => {
     setSelectedCustomerName(c.name);
     setCustomerSearch(c.name);
     setMobileNumber(c.mobile);
-    setGstin(c.gstNumber || "27ABCDE1234F1Z5");
+    setGstin(c.gstNumber || "27AAACR1234F1Z1");
     setIsWalkIn(false);
     setIsCustomerDropdownOpen(false);
 
-    // Auto-set Tax Profile based on customer group
-    if (c.customerGroupId === "CG-Corporate") {
+    // Auto-configure Corporate / Wholesale rules & Credit limits
+    const isCorp = c.customerGroupId === "CG-Corporate" || c.customerGroupId === "CG-LargeRetail";
+    setIsCorporateClient(isCorp);
+
+    if (isCorp) {
+      const groupConfig = initialCustomerGroups.find((g) => g.id === c.customerGroupId);
       setTaxProfile("Corporate Wholesale");
-    } else if (c.customerGroupId === "CG-LargeRetail") {
-      setTaxProfile("Large Format Retail");
+      setCreditLimit(groupConfig?.creditLimit || 500000);
+      setOutstandingBalance(c.outstanding || 180000);
+      setCreditDays(groupConfig?.creditDays || 30);
     } else {
       setTaxProfile("Retail Registered");
+      setCreditLimit(0);
+      setOutstandingBalance(0);
+      setCreditDays(0);
     }
   };
 
@@ -172,6 +273,7 @@ export const SalesBillingStudio: React.FC = () => {
         name: p.name,
         hsnCode: p.hsn,
         qty: 1,
+        availableStock: p.stock,
         uom: p.uom,
         rate: p.rate,
         discountPct: 0.0,
@@ -180,6 +282,7 @@ export const SalesBillingStudio: React.FC = () => {
     }
     setItemSearch("");
     setIsItemDropdownOpen(false);
+    showToast(`Added ${p.name} to bill`);
   };
 
   // Create New Customer Handler
@@ -203,6 +306,7 @@ export const SalesBillingStudio: React.FC = () => {
       setNewCustName("");
       setNewCustMobile("");
       setNewCustGst("");
+      showToast(`Customer ${created.name} created successfully!`);
     } catch {
       setIsNewCustomerModalOpen(false);
     }
@@ -214,24 +318,55 @@ export const SalesBillingStudio: React.FC = () => {
     if (code === "SMRITI10") {
       setCouponDiscountVal(200);
       setCouponAppliedMsg("SMRITI10 Applied (₹200 Off)");
+      showToast("Coupon SMRITI10 Applied!");
     } else if (code === "FLAT100") {
       setCouponDiscountVal(100);
       setCouponAppliedMsg("FLAT100 Applied (₹100 Off)");
+      showToast("Coupon FLAT100 Applied!");
     } else if (code) {
       setCouponDiscountVal(50);
       setCouponAppliedMsg(`${code} Applied (₹50 Off)`);
+      showToast(`Coupon ${code} Applied!`);
     }
+  };
+
+  // Hold Current Bill (F6)
+  const handleHoldBill = () => {
+    if (items.length === 0) {
+      showToast("Cannot hold empty bill!");
+      return;
+    }
+    const newHold: HeldBill = {
+      id: `HOLD-${Date.now().toString().slice(-4)}`,
+      customerName: selectedCustomerName,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      total: roundedNetPayable,
+      items: [...items]
+    };
+    setHeldBills(prev => [newHold, ...prev]);
+    setItems([]);
+    showToast(`Bill ${newHold.id} held successfully (F6)`);
+  };
+
+  // Recall Bill Handler (F7)
+  const handleRecallBill = (held: HeldBill) => {
+    setItems(held.items);
+    setSelectedCustomerName(held.customerName);
+    setHeldBills(prev => prev.filter(b => b.id !== held.id));
+    setIsRecallModalOpen(false);
+    showToast(`Bill ${held.id} recalled into canvas`);
   };
 
   // STRE Tax Engine Integration (TG-001 / TG-002)
   const taxCalculation = useMemo(() => {
+    const custState = gstin && gstin.length >= 2 ? gstin.substring(0, 2) : "27";
     const taxCtx: TaxContext = {
       companyState: "27",
-      customerState: gstin ? gstin.substring(0, 2) : "27",
+      customerState: custState,
       customerGstin: gstin,
       customerGroupTaxProfile: taxProfile,
       documentDate: new Date().toISOString().split("T")[0],
-      placeOfSupply: "27",
+      placeOfSupply: custState,
       pricingPolicy: "EXCLUSIVE",
       currency: "INR",
       items: items.map((i) => ({
@@ -266,6 +401,26 @@ export const SalesBillingStudio: React.FC = () => {
   const roundedNetPayable = Math.round(netPayableCalculated);
   const roundOff = Number((roundedNetPayable - netPayableCalculated).toFixed(2));
 
+  // Available Credit Calculations for Corporate Clients
+  const availableCredit = creditLimit - outstandingBalance;
+  const isCreditLimitExceeded = isCorporateClient && roundedNetPayable > availableCredit;
+
+  // Final Post Invoice Handler
+  const handleConfirmPostInvoice = () => {
+    if (items.length === 0) {
+      showToast("Cannot post an empty invoice!");
+      return;
+    }
+    const invNo = `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    setPostedInvoiceData({
+      invNo,
+      grandTotal: roundedNetPayable,
+      customer: selectedCustomerName,
+      paymentMode
+    });
+    setIsPaymentModalOpen(false);
+  };
+
   // Handlers for Items
   const updateQty = (id: string, newQty: number) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, qty: Math.max(1, newQty) } : item)));
@@ -277,6 +432,7 @@ export const SalesBillingStudio: React.FC = () => {
 
   const clearAllItems = () => {
     setItems([]);
+    showToast("Cleared all line items");
   };
 
   const addNewItem = () => {
@@ -286,6 +442,7 @@ export const SalesBillingStudio: React.FC = () => {
       name: "New Retail Item",
       hsnCode: "6404",
       qty: 1,
+      availableStock: 50,
       uom: "Pcs",
       rate: 1000.0,
       discountPct: 0.0,
@@ -295,6 +452,14 @@ export const SalesBillingStudio: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 font-sans flex flex-col justify-between relative">
+      {/* Toast Banner */}
+      {toastMsg && (
+        <div className="fixed top-14 right-5 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-2xl z-50 text-xs font-bold flex items-center space-x-2 animate-in fade-in duration-150">
+          <span className="material-symbols-outlined text-emerald-400 text-sm">check_circle</span>
+          <span>{toastMsg}</span>
+        </div>
+      )}
+
       {/* 1. Header Bar */}
       <header className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-xs z-20">
         <div className="flex items-center space-x-3">
@@ -322,6 +487,7 @@ export const SalesBillingStudio: React.FC = () => {
         <div className="flex items-center space-x-3">
           <div className="relative">
             <input
+              ref={topSearchRef}
               type="text"
               placeholder="Search (F2)"
               className="w-48 bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500 pl-8"
@@ -339,22 +505,88 @@ export const SalesBillingStudio: React.FC = () => {
             Popout
           </button>
 
-          <button className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 cursor-pointer">
+          <button
+            onClick={() => showToast("Notifications Pane Opened")}
+            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 cursor-pointer"
+          >
             <span className="material-symbols-outlined text-lg">notifications</span>
           </button>
-          <button className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 cursor-pointer">
+          <button
+            onClick={() => window.print()}
+            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 cursor-pointer"
+          >
             <span className="material-symbols-outlined text-lg">print</span>
           </button>
-          <div className="flex items-center space-x-1 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700">
-            <span className="material-symbols-outlined text-sm text-slate-500">store</span>
-            <span>Branch 01</span>
+
+          {/* Branch Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setIsBranchDropdownOpen(!isBranchDropdownOpen)}
+              className="flex items-center space-x-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg text-xs font-medium text-slate-700 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-sm text-slate-500">store</span>
+              <span>{selectedBranch}</span>
+              <span className="material-symbols-outlined text-xs text-slate-400">expand_more</span>
+            </button>
+            {isBranchDropdownOpen && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-30 w-40 text-xs py-1">
+                {["Branch 01 (Main)", "Branch 02 (Suburban)", "Branch 03 (Express)"].map((b) => (
+                  <div
+                    key={b}
+                    onClick={() => {
+                      setSelectedBranch(b.split(" ")[0] + " " + b.split(" ")[1]);
+                      setIsBranchDropdownOpen(false);
+                      showToast(`Switched to ${b}`);
+                    }}
+                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-slate-700 font-medium"
+                  >
+                    {b}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="flex items-center space-x-2 cursor-pointer">
-            <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-800 font-bold text-xs flex items-center justify-center border border-blue-200">
-              AS
-            </div>
-            <span className="text-xs font-medium text-slate-700">Cashier</span>
-            <span className="material-symbols-outlined text-xs text-slate-400">expand_more</span>
+
+          {/* Cashier Profile Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setIsCashierMenuOpen(!isCashierMenuOpen)}
+              className="flex items-center space-x-2 cursor-pointer hover:bg-slate-50 p-1 rounded-lg transition"
+            >
+              <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-800 font-bold text-xs flex items-center justify-center border border-blue-200">
+                AS
+              </div>
+              <span className="text-xs font-medium text-slate-700">Cashier</span>
+              <span className="material-symbols-outlined text-xs text-slate-400">expand_more</span>
+            </button>
+            {isCashierMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-30 w-44 text-xs py-1">
+                <div className="px-3 py-2 border-b border-slate-100 font-bold text-slate-800">
+                  Aniket Sharma
+                  <span className="block text-[10px] text-slate-400 font-normal">Head Cashier (POS-01)</span>
+                </div>
+                <div
+                  onClick={() => {
+                    setIsCashierMenuOpen(false);
+                    showToast("Shift Summary Printed");
+                  }}
+                  className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-slate-700 flex items-center"
+                >
+                  <span className="material-symbols-outlined text-sm mr-2 text-slate-500">receipt</span>
+                  Shift Summary
+                </div>
+                <div
+                  onClick={() => {
+                    setIsCashierMenuOpen(false);
+                    showToast("Register Closed Successfully");
+                  }}
+                  className="px-3 py-2 hover:bg-rose-50 cursor-pointer text-rose-600 font-bold flex items-center"
+                >
+                  <span className="material-symbols-outlined text-sm mr-2">lock</span>
+                  Close Shift
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -370,6 +602,12 @@ export const SalesBillingStudio: React.FC = () => {
                 <span className="material-symbols-outlined text-sm mr-1.5 text-blue-600">person</span>
                 Customer Information
               </h2>
+              {isCorporateClient && (
+                <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-[10px] font-extrabold flex items-center">
+                  <span className="material-symbols-outlined text-xs mr-1">domain</span>
+                  Corporate Account
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-3 mb-3 relative">
@@ -431,6 +669,7 @@ export const SalesBillingStudio: React.FC = () => {
                       setSelectedCustomerName("Walk-in Retail Customer");
                       setMobileNumber("9876543210");
                       setGstin("27ABCDE1234F1Z5");
+                      setIsCorporateClient(false);
                     }
                   }}
                   className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
@@ -456,10 +695,44 @@ export const SalesBillingStudio: React.FC = () => {
                   <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-full text-[10px] font-bold flex items-center">
                     Auto Applied ✓
                   </span>
-                  <span className="material-symbols-outlined text-xs text-slate-400 cursor-pointer">expand_more</span>
                 </div>
               </div>
             </div>
+
+            {/* Corporate Credit Information Card */}
+            {isCorporateClient && (
+              <div className="mt-3 p-3 bg-indigo-50/70 border border-indigo-200 rounded-lg text-xs space-y-1.5">
+                <div className="flex items-center justify-between font-bold text-indigo-950">
+                  <span className="flex items-center">
+                    <span className="material-symbols-outlined text-sm mr-1 text-indigo-600">account_balance_wallet</span>
+                    Corporate Credit Status ({creditDays} Days Credit)
+                  </span>
+                  {isCreditLimitExceeded ? (
+                    <span className="px-2 py-0.5 bg-rose-100 text-rose-800 border border-rose-300 rounded text-[10px] font-extrabold flex items-center">
+                      ⚠️ Credit Exceeded
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded text-[10px] font-extrabold flex items-center">
+                      ✔ Credit Approved
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-[11px] font-mono">
+                  <div>
+                    <span className="text-slate-500 block text-[9px]">CREDIT LIMIT</span>
+                    <span className="font-bold text-slate-800">₹{creditLimit.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[9px]">OUTSTANDING</span>
+                    <span className="font-bold text-rose-600">₹{outstandingBalance.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[9px]">AVAILABLE CREDIT</span>
+                    <span className="font-bold text-emerald-700">₹{availableCredit.toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Section 2: Scan Barcode / Search Item */}
@@ -474,6 +747,7 @@ export const SalesBillingStudio: React.FC = () => {
               {/* Item Autocomplete Search Lookup Input */}
               <div className="relative flex-1">
                 <input
+                  ref={itemSearchRef}
                   type="text"
                   value={itemSearch}
                   onFocus={() => setIsItemDropdownOpen(true)}
@@ -498,7 +772,7 @@ export const SalesBillingStudio: React.FC = () => {
                         <div>
                           <div className="font-bold text-slate-800">{p.name}</div>
                           <div className="text-[10px] text-slate-500 font-mono">
-                            Barcode: {p.barcode} | HSN: {p.hsn}
+                            Barcode: {p.barcode} | HSN: {p.hsn} | Stock: <span className="font-bold text-emerald-700">{p.stock} {p.uom}</span>
                           </div>
                         </div>
                         <div className="text-right">
@@ -511,7 +785,10 @@ export const SalesBillingStudio: React.FC = () => {
                 )}
               </div>
 
-              <button className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold flex items-center cursor-pointer transition">
+              <button
+                onClick={() => setIsScannerModalOpen(true)}
+                className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+              >
                 <span className="material-symbols-outlined text-base mr-1.5">photo_camera</span>
                 Scan Barcode
               </button>
@@ -523,7 +800,7 @@ export const SalesBillingStudio: React.FC = () => {
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center">
                 <span className="material-symbols-outlined text-sm mr-1.5 text-blue-600">shopping_cart</span>
-                Items
+                Items Grid
               </h2>
               <div className="flex items-center space-x-2">
                 <button
@@ -551,11 +828,12 @@ export const SalesBillingStudio: React.FC = () => {
                     <th className="py-2.5 px-3 w-8">#</th>
                     <th className="py-2.5 px-3 font-mono">Barcode</th>
                     <th className="py-2.5 px-3">Item Name</th>
+                    <th className="py-2.5 px-3 text-center w-16">Stock</th>
                     <th className="py-2.5 px-3 text-center w-16">Qty</th>
                     <th className="py-2.5 px-3 text-center w-16">UOM</th>
                     <th className="py-2.5 px-3 text-right">Rate (₹)</th>
                     <th className="py-2.5 px-3 text-right">Disc %</th>
-                    <th className="py-2.5 px-3 text-center">Tax (Auto)</th>
+                    <th className="py-2.5 px-3 text-center">Tax (STRE Auto)</th>
                     <th className="py-2.5 px-3 text-right">Amount (₹)</th>
                     <th className="py-2.5 px-3 text-center w-12">Action</th>
                   </tr>
@@ -566,6 +844,7 @@ export const SalesBillingStudio: React.FC = () => {
                     const lineGstPct = item.hsnCode === "6115" ? 12 : 18;
                     const lineTaxAmt = gross * (lineGstPct / 100);
                     const lineFinal = gross + lineTaxAmt;
+                    const isLowStock = item.availableStock < item.qty;
 
                     return (
                       <tr key={item.id} className="hover:bg-slate-50/80 transition">
@@ -574,6 +853,17 @@ export const SalesBillingStudio: React.FC = () => {
                         <td className="py-2.5 px-3">
                           <div className="font-semibold text-slate-800">{item.name}</div>
                           <span className="text-[10px] font-mono text-slate-400">HSN: {item.hsnCode}</span>
+                        </td>
+                        <td className="py-2.5 px-3 text-center font-mono">
+                          {isLowStock ? (
+                            <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded text-[10px] font-bold">
+                              {item.availableStock}
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[10px] font-bold">
+                              {item.availableStock}
+                            </span>
+                          )}
                         </td>
                         <td className="py-2.5 px-3 text-center">
                           <input
@@ -592,7 +882,7 @@ export const SalesBillingStudio: React.FC = () => {
                         </td>
                         <td className="py-2.5 px-3 text-center">
                           <span className="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px] font-bold block text-center">
-                            {lineGstPct}% IGST
+                            {lineGstPct}% {taxCalculation.supplyType === "INTERSTATE" ? "IGST" : "GST"}
                             <span className="block text-[8px] text-blue-500 font-normal">Auto</span>
                           </span>
                         </td>
@@ -614,7 +904,12 @@ export const SalesBillingStudio: React.FC = () => {
               </table>
             </div>
 
-            <div className="mt-2 text-xs font-bold text-blue-900">Total Items: {items.length}</div>
+            <div className="mt-2 text-xs font-bold text-blue-900 flex items-center justify-between">
+              <span>Total Lines: {items.length}</span>
+              <span className="text-slate-500 font-normal text-[11px]">
+                ✔ Real-time Available Stock reserve assertion active
+              </span>
+            </div>
           </section>
 
           {/* Section 4: Additional Details */}
@@ -685,7 +980,10 @@ export const SalesBillingStudio: React.FC = () => {
                     placeholder="0.00"
                     className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold focus:outline-none focus:border-blue-500"
                   />
-                  <button className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold cursor-pointer transition">
+                  <button
+                    onClick={() => showToast(`Loyalty Points Adjusted: ₹${loyaltyRedeem}`)}
+                    className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold cursor-pointer transition"
+                  >
                     Apply
                   </button>
                 </div>
@@ -784,13 +1082,9 @@ export const SalesBillingStudio: React.FC = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Place of Supply</span>
-                <span className="font-semibold text-slate-800">Maharashtra (27)</span>
-              </div>
-              <div className="flex justify-between items-center pt-1 border-t border-slate-100">
-                <span className="text-slate-400">HSN Summary</span>
-                <a href="#hsn-details" className="text-blue-600 font-bold hover:underline text-[10px]">
-                  View Details &gt;
-                </a>
+                <span className="font-semibold text-slate-800">
+                  {gstin && gstin.startsWith("07") ? "Delhi (07) - Interstate" : "Maharashtra (27) - Intrastate"}
+                </span>
               </div>
             </div>
 
@@ -806,24 +1100,41 @@ export const SalesBillingStudio: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  <tr>
-                    <td className="py-1.5 px-2 font-bold text-slate-700">CGST</td>
-                    <td className="py-1.5 px-2 text-center text-slate-600">9%</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-slate-700">₹ 2,950.00</td>
-                    <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-800">₹ 265.50</td>
-                  </tr>
-                  <tr>
-                    <td className="py-1.5 px-2 font-bold text-slate-700">SGST</td>
-                    <td className="py-1.5 px-2 text-center text-slate-600">9%</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-slate-700">₹ 2,950.00</td>
-                    <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-800">₹ 265.50</td>
-                  </tr>
-                  <tr>
-                    <td className="py-1.5 px-2 font-bold text-slate-700">IGST</td>
-                    <td className="py-1.5 px-2 text-center text-slate-600">18%</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-slate-700">₹ 590.00</td>
-                    <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-800">₹ 106.20</td>
-                  </tr>
+                  {taxCalculation.supplyType === "INTERSTATE" ? (
+                    <tr>
+                      <td className="py-1.5 px-2 font-bold text-slate-700">IGST</td>
+                      <td className="py-1.5 px-2 text-center text-slate-600">18%</td>
+                      <td className="py-1.5 px-2 text-right font-mono text-slate-700">
+                        ₹ {taxableValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-800">
+                        ₹ {autoGstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  ) : (
+                    <>
+                      <tr>
+                        <td className="py-1.5 px-2 font-bold text-slate-700">CGST</td>
+                        <td className="py-1.5 px-2 text-center text-slate-600">9%</td>
+                        <td className="py-1.5 px-2 text-right font-mono text-slate-700">
+                          ₹ {(taxableValue / 2).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-800">
+                          ₹ {(autoGstAmount / 2).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-1.5 px-2 font-bold text-slate-700">SGST</td>
+                        <td className="py-1.5 px-2 text-center text-slate-600">9%</td>
+                        <td className="py-1.5 px-2 text-right font-mono text-slate-700">
+                          ₹ {(taxableValue / 2).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-800">
+                          ₹ {(autoGstAmount / 2).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    </>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -841,39 +1152,321 @@ export const SalesBillingStudio: React.FC = () => {
       {/* Bottom Fixed Action Shortcuts Bar */}
       <footer className="bg-white border-t border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-lg z-20">
         <div className="flex items-center space-x-2">
-          <button className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer">
+          <button
+            onClick={handleHoldBill}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+          >
             <span className="material-symbols-outlined text-sm mr-1.5">pause</span>
             Hold Bill (F6)
           </button>
-          <button className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer">
+          <button
+            onClick={() => setIsRecallModalOpen(true)}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+          >
             <span className="material-symbols-outlined text-sm mr-1.5">restore</span>
-            Recall Bill (F7)
+            Recall Bill (F7) {heldBills.length > 0 && `(${heldBills.length})`}
           </button>
-          <button className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer">
+          <button
+            onClick={() => setIsDiscountModalOpen(true)}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+          >
             <span className="material-symbols-outlined text-sm mr-1.5">sell</span>
             Bill Discount (F8)
           </button>
-          <button className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer">
+          <button
+            onClick={() => showToast("Draft Bill Saved (F9)")}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+          >
             <span className="material-symbols-outlined text-sm mr-1.5">save</span>
             Save Draft (F9)
           </button>
         </div>
 
         <div className="flex items-center space-x-3">
-          <button className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-extrabold text-xs flex items-center cursor-pointer shadow-md shadow-blue-600/30 uppercase tracking-wide">
+          <button
+            onClick={() => setIsPaymentModalOpen(true)}
+            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-extrabold text-xs flex items-center cursor-pointer shadow-md shadow-blue-600/30 uppercase tracking-wide transition"
+          >
             <span className="material-symbols-outlined text-base mr-1.5">credit_card</span>
             Payment (F4)
           </button>
-          <button className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-extrabold text-xs flex items-center cursor-pointer shadow-md shadow-emerald-600/30 uppercase tracking-wide">
-            <span className="material-symbols-outlined text-base mr-1.5">check_circle</span>
-            Post Invoice
+          <button
+            disabled={isCreditLimitExceeded}
+            onClick={() => setIsPaymentModalOpen(true)}
+            className={`px-6 py-2.5 text-white rounded-lg font-extrabold text-xs flex items-center cursor-pointer shadow-md uppercase tracking-wide transition ${
+              isCreditLimitExceeded
+                ? "bg-rose-600 hover:bg-rose-700 cursor-not-allowed opacity-90 shadow-rose-600/30"
+                : "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30"
+            }`}
+          >
+            <span className="material-symbols-outlined text-base mr-1.5">
+              {isCreditLimitExceeded ? "block" : "check_circle"}
+            </span>
+            {isCreditLimitExceeded ? "Credit Exceeded (Blocked)" : "Post Invoice"}
           </button>
-          <button className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer">
+          <button
+            onClick={() => window.print()}
+            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+          >
             <span className="material-symbols-outlined text-base mr-1.5">print</span>
             Print (F10)
           </button>
         </div>
       </footer>
+
+      {/* MODAL 1: Payment Modal (F4) */}
+      {isPaymentModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in duration-150">
+            <div className="bg-blue-900 text-white px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-sm uppercase tracking-wide">Checkout & Settlement (F4)</h3>
+                <p className="text-[11px] text-blue-200">Customer: {selectedCustomerName}</p>
+              </div>
+              <button onClick={() => setIsPaymentModalOpen(false)} className="text-blue-300 hover:text-white">
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center">
+                <span className="text-slate-500 block text-[10px] uppercase font-bold">TOTAL AMOUNT PAYABLE</span>
+                <span className="text-3xl font-black font-mono text-emerald-600 mt-1 block">
+                  ₹ {roundedNetPayable.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1.5">Select Payment Method</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(["CASH", "UPI", "CARD", "CREDIT"] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setPaymentMode(m)}
+                      className={`py-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center cursor-pointer transition ${
+                        paymentMode === m
+                          ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                          : "bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-base mb-1">
+                        {m === "CASH" ? "payments" : m === "UPI" ? "qr_code_scanner" : m === "CARD" ? "credit_card" : "account_balance"}
+                      </span>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {paymentMode === "CASH" && (
+                <div className="space-y-3 pt-2 border-t border-slate-100">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Cash Tendered (₹)</label>
+                    <input
+                      type="number"
+                      value={cashTendered || ""}
+                      onChange={(e) => setCashTendered(parseFloat(e.target.value) || 0)}
+                      placeholder={`e.g. ${roundedNetPayable}`}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono font-bold focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  {cashTendered >= roundedNetPayable && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between text-emerald-900 font-bold">
+                      <span>Change to Return:</span>
+                      <span className="font-mono text-base">₹ {(cashTendered - roundedNetPayable).toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {paymentMode === "UPI" && (
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center space-y-2">
+                  <div className="w-24 h-24 bg-white border border-slate-300 mx-auto rounded-lg flex items-center justify-center font-mono text-[10px] text-slate-400">
+                    [ UPI QR CODE ]
+                  </div>
+                  <p className="text-[11px] text-slate-600">Scan QR Code to pay ₹{roundedNetPayable.toLocaleString("en-IN")}</p>
+                </div>
+              )}
+
+              <div className="pt-3 flex justify-end space-x-3 border-t border-slate-100">
+                <button
+                  onClick={() => setIsPaymentModalOpen(false)}
+                  className="px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-lg text-xs hover:bg-slate-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmPostInvoice}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-lg text-xs uppercase shadow-lg shadow-emerald-600/30 cursor-pointer"
+                >
+                  Confirm & Post Invoice
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: Recall Held Bills (F7) */}
+      {isRecallModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in duration-150">
+            <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+              <h3 className="font-bold text-sm flex items-center">
+                <span className="material-symbols-outlined text-base mr-2 text-indigo-400">restore</span>
+                Recall Held Bills (F7)
+              </h3>
+              <button onClick={() => setIsRecallModalOpen(false)} className="text-slate-400 hover:text-white">
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+            <div className="p-4 space-y-3 text-xs max-h-80 overflow-y-auto">
+              {heldBills.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">No held bills in queue</div>
+              ) : (
+                heldBills.map((b) => (
+                  <div key={b.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-slate-800">{b.customerName} ({b.id})</div>
+                      <div className="text-[10px] text-slate-500">Held at {b.time} | {b.items.length} Items</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono font-bold text-emerald-600">₹{b.total.toLocaleString("en-IN")}</div>
+                      <button
+                        onClick={() => handleRecallBill(b)}
+                        className="mt-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded text-[10px] cursor-pointer"
+                      >
+                        Recall
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: Bill Discount Modal (F8) */}
+      {isDiscountModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in duration-150">
+            <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+              <h3 className="font-bold text-sm flex items-center">
+                <span className="material-symbols-outlined text-base mr-2 text-amber-400">sell</span>
+                Bill Discount (F8)
+              </h3>
+              <button onClick={() => setIsDiscountModalOpen(false)} className="text-slate-400 hover:text-white">
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+            <div className="p-5 space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Enter Additional Flat Bill Discount (₹)</label>
+                <input
+                  type="number"
+                  value={billDiscountInput}
+                  onChange={(e) => setBillDiscountInput(parseFloat(e.target.value) || 0)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono font-bold focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <button
+                onClick={() => {
+                  setIsDiscountModalOpen(false);
+                  showToast(`Bill Discount Updated: ₹${billDiscountInput}`);
+                }}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs cursor-pointer shadow-md"
+              >
+                Apply Bill Discount
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: Camera Barcode Scanner Simulator */}
+      {isScannerModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in duration-150">
+            <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+              <h3 className="font-bold text-sm flex items-center">
+                <span className="material-symbols-outlined text-base mr-2 text-blue-400">photo_camera</span>
+                Camera Barcode Scanner
+              </h3>
+              <button onClick={() => setIsScannerModalOpen(false)} className="text-slate-400 hover:text-white">
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+            <div className="p-6 text-center space-y-4 text-xs">
+              <div className="w-full h-40 bg-slate-900 rounded-xl flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-blue-500/50">
+                <span className="material-symbols-outlined text-3xl text-blue-400 animate-bounce mb-2">qr_code_scanner</span>
+                <span>Camera Stream Active</span>
+                <span className="text-[10px] text-slate-500 mt-1">Align Barcode within Frame</span>
+              </div>
+              <button
+                onClick={() => {
+                  handleSelectCatalogItem(CATALOG_PRODUCTS[0]);
+                  setIsScannerModalOpen(false);
+                }}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs cursor-pointer shadow-md"
+              >
+                Simulate Barcode Scan (Nike Shoes)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: Invoice Posted Success Dialog */}
+      {postedInvoiceData && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in duration-150">
+            <div className="bg-emerald-700 text-white p-6 text-center space-y-2">
+              <span className="material-symbols-outlined text-4xl">check_circle</span>
+              <h3 className="font-extrabold text-lg">Invoice Posted Successfully!</h3>
+              <p className="text-xs text-emerald-100 font-mono">{postedInvoiceData.invNo}</p>
+            </div>
+            <div className="p-6 space-y-3 text-xs">
+              <div className="flex justify-between border-b border-slate-100 pb-2">
+                <span className="text-slate-500">Customer</span>
+                <span className="font-bold text-slate-800">{postedInvoiceData.customer}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-100 pb-2">
+                <span className="text-slate-500">Payment Method</span>
+                <span className="font-bold text-slate-800">{postedInvoiceData.paymentMode}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-100 pb-2">
+                <span className="text-slate-500">Grand Total</span>
+                <span className="font-mono font-bold text-emerald-600 text-base">
+                  ₹ {postedInvoiceData.grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div className="pt-3 flex space-x-2">
+                <button
+                  onClick={() => {
+                    setPostedInvoiceData(null);
+                    setItems([]);
+                  }}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs"
+                >
+                  New Bill
+                </button>
+                <button
+                  onClick={() => {
+                    window.print();
+                    setPostedInvoiceData(null);
+                    setItems([]);
+                  }}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs shadow-md"
+                >
+                  Print Receipt
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* New Customer Modal */}
       {isNewCustomerModalOpen && (
@@ -884,10 +1477,7 @@ export const SalesBillingStudio: React.FC = () => {
                 <span className="material-symbols-outlined text-base mr-2 text-blue-400">person_add</span>
                 Create New Customer
               </h3>
-              <button
-                onClick={() => setIsNewCustomerModalOpen(false)}
-                className="text-slate-400 hover:text-white transition"
-              >
+              <button onClick={() => setIsNewCustomerModalOpen(false)} className="text-slate-400 hover:text-white">
                 <span className="material-symbols-outlined text-base">close</span>
               </button>
             </div>
@@ -934,8 +1524,8 @@ export const SalesBillingStudio: React.FC = () => {
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
                 >
                   <option value="CG-Retail">Retail Customers (Intrastate)</option>
-                  <option value="CG-Corporate">Corporate Clients (Interstate IGST)</option>
-                  <option value="CG-LargeRetail">Large Format Retail (Wholesale)</option>
+                  <option value="CG-Corporate">Corporate Clients (Interstate IGST & Credit Limit)</option>
+                  <option value="CG-LargeRetail">Large Format Retail (Wholesale Net 60)</option>
                 </select>
               </div>
               <div className="pt-2 flex justify-end space-x-2 border-t border-slate-100">
