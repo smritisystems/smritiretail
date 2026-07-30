@@ -9,7 +9,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { WindowManager } from "../../sdk";
 import { PRNVariableEngine, TATTLY_THREADS_ZPL_SCRIPT } from "../../services/label_print/PRNVariableEngine";
-import { PrintProviderRegistry } from "../../services/label_print/PrintProviderFramework";
+import { PrintProviderRegistry, SystemPrinterDiscovery, SystemPrinterInfo } from "../../services/label_print/PrintProviderFramework";
 import { UniversalAttributeEngine, IndustryPackManager, IndustryType } from "../../core/metadata";
 
 export interface PrintItemRow {
@@ -125,6 +125,22 @@ export const PrintLabelsStudio: React.FC = () => {
 
   // Preview Index
   const [activePreviewIndex, setActivePreviewIndex] = useState<number>(0);
+
+  // System Printer Discovery State
+  const [detectedPrinters, setDetectedPrinters] = useState<SystemPrinterInfo[]>([]);
+
+  const refreshPrinters = async () => {
+    const list = await SystemPrinterDiscovery.detectPrinters();
+    setDetectedPrinters(list);
+    if (list.length > 0 && !list.some((p) => p.name === printer)) {
+      setPrinter(list[0].name);
+    }
+    showToast(`Discovered ${list.length} Local System Printers`);
+  };
+
+  useEffect(() => {
+    refreshPrinters();
+  }, []);
 
   // Print Settings State - Default to Tattly Threads ZPL Dual Barcode Tag (100 x 50.7 mm)
   const [printer, setPrinter] = useState<string>("Zebra ZD420 (ZPL II)");
@@ -1051,20 +1067,45 @@ export const PrintLabelsStudio: React.FC = () => {
             {isSettingsExpanded && (
               <div className="space-y-3 animate-in fade-in duration-100">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Printer</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block">Installed Hardware Printer</label>
+                    <span className="text-[9px] font-mono font-bold text-blue-900">
+                      {detectedPrinters.length > 0 ? `${detectedPrinters.length} Real Printers Discovered` : "Manual / Hardware Direct"}
+                    </span>
+                  </div>
                   <div className="flex items-center space-x-1.5">
-                    <select
-                      value={printer}
-                      onChange={(e) => setPrinter(e.target.value)}
-                      className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-700"
+                    {detectedPrinters.length > 0 ? (
+                      <select
+                        value={printer}
+                        onChange={(e) => setPrinter(e.target.value)}
+                        className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-800"
+                      >
+                        {detectedPrinters.map((p) => (
+                          <option key={p.name} value={p.name}>
+                            {p.name} ({p.driver || p.connection || "System Spooler"})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={printer}
+                        onChange={(e) => setPrinter(e.target.value)}
+                        placeholder="Enter Real System Printer Name (e.g. Zebra ZD420, TSC TTP-244)"
+                        className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-800"
+                      />
+                    )}
+                    <button
+                      onClick={refreshPrinters}
+                      title="Scan PC System Printers via QZ Tray"
+                      className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center cursor-pointer shadow-xs"
                     >
-                      <option>Zebra ZD420 (USB)</option>
-                      <option>TSC TE200 (USB/LAN)</option>
-                      <option>Godex EZ120</option>
-                      <option>TVS LP 46 Neo</option>
-                    </select>
+                      <span className="material-symbols-outlined text-sm mr-1">sync</span>
+                      Scan
+                    </button>
                     <button
                       onClick={() => setIsPrinterConfigModalOpen(true)}
+                      title="Hardware Setup"
                       className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-sm">settings</span>

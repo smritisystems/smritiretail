@@ -1,6 +1,6 @@
 /**
  * Project      : SMRITI Business OS
- * Component    : PrintProviderFramework (Rule SLP-008)
+ * Component    : PrintProviderFramework (Rule SLP-008 & Hardware Printer Discovery)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * License      : Proprietary Commercial Software
@@ -8,6 +8,13 @@
  */
 
 export type PrintProviderType = "browser" | "pdf" | "prn" | "qz_tray" | "network";
+
+export interface SystemPrinterInfo {
+  name: string;
+  isDefault?: boolean;
+  driver?: string;
+  connection?: "USB" | "SPOOLER" | "NETWORK" | "VIRTUAL" | "SERIAL";
+}
 
 export interface PrintJobPayload {
   jobId: string;
@@ -23,6 +30,98 @@ export interface IPrintProvider {
   name: string;
   isAvailable(): Promise<boolean>;
   sendJob(payload: PrintJobPayload): Promise<{ success: boolean; error?: string }>;
+}
+
+/**
+ * System Printer Hardware Discovery Service
+ */
+export class SystemPrinterDiscovery {
+  /**
+   * Queries QZ Tray Daemon, WebUSB, and WebSerial to discover real physical printers connected to the desktop or network.
+   */
+  static async detectPrinters(): Promise<SystemPrinterInfo[]> {
+    const discovered: SystemPrinterInfo[] = [];
+    const seenNames = new Set<string>();
+
+    if (typeof window !== "undefined") {
+      const win = window as any;
+
+      // 1. QZ Tray OS Spooler Scan (Windows / Mac / Linux)
+      if (win.qz) {
+        try {
+          if (!win.qz.websocket.isActive()) {
+            await win.qz.websocket.connect({ retries: 2, delay: 1 });
+          }
+          if (win.qz.websocket.isActive()) {
+            const qzPrinters: string[] = await win.qz.printers.find();
+            for (const p of qzPrinters) {
+              if (!seenNames.has(p)) {
+                seenNames.add(p);
+                discovered.push({
+                  name: p,
+                  connection: "SPOOLER",
+                  driver: p.toLowerCase().includes("zebra")
+                    ? "ZPL"
+                    : p.toLowerCase().includes("tsc")
+                    ? "TSPL"
+                    : p.toLowerCase().includes("tvs")
+                    ? "EPL"
+                    : p.toLowerCase().includes("godex")
+                    ? "GZPL"
+                    : "Windows / OS Spooler",
+                });
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("[SystemPrinterDiscovery] QZ Tray spooler discovery:", err);
+        }
+      }
+
+      // 2. WebUSB Real Device Discovery
+      if (navigator && (navigator as any).usb) {
+        try {
+          const usbDevices = await (navigator as any).usb.getDevices();
+          for (const dev of usbDevices) {
+            const devName = dev.productName || `USB Printer (VID:${dev.vendorId} PID:${dev.productId})`;
+            if (!seenNames.has(devName)) {
+              seenNames.add(devName);
+              discovered.push({
+                name: devName,
+                connection: "USB",
+                driver: "Direct USB RAW",
+              });
+            }
+          }
+        } catch (err) {
+          console.warn("[SystemPrinterDiscovery] WebUSB query warning:", err);
+        }
+      }
+
+      // 3. WebSerial Real Port Discovery
+      if (navigator && (navigator as any).serial) {
+        try {
+          const serialPorts = await (navigator as any).serial.getPorts();
+          for (let i = 0; i < serialPorts.length; i++) {
+            const portName = `Serial Thermal Printer (COM ${i + 1})`;
+            if (!seenNames.has(portName)) {
+              seenNames.add(portName);
+              discovered.push({
+                name: portName,
+                connection: "SERIAL",
+                driver: "RS232 / COM Port",
+              });
+            }
+          }
+        } catch (err) {
+          console.warn("[SystemPrinterDiscovery] WebSerial query warning:", err);
+        }
+      }
+    }
+
+    // Returns ONLY REAL discovered physical printers (NO hardcoded fake placeholders)
+    return discovered;
+  }
 }
 
 /**
@@ -94,11 +193,16 @@ export class QZTrayPrintProvider implements IPrintProvider {
   async sendJob(payload: PrintJobPayload): Promise<{ success: boolean; error?: string }> {
     try {
       const win = window as any;
-      if (win.qz && win.qz.websocket && win.qz.websocket.isActive()) {
-        const config = win.qz.configs.create(payload.printerName || "Zebra ZD420");
-        const data = [payload.script];
-        await win.qz.print(config, data);
-        return { success: true };
+      if (win.qz && win.qz.websocket) {
+        if (!win.qz.websocket.isActive()) {
+          await win.qz.websocket.connect({ retries: 2, delay: 1 });
+        }
+        if (win.qz.websocket.isActive()) {
+          const config = win.qz.configs.create(payload.printerName);
+          const data = [payload.script];
+          await win.qz.print(config, data);
+          return { success: true };
+        }
       }
       // Fallback to PRN download if QZ not connected
       return new PRNFilePrintProvider().sendJob(payload);
@@ -121,7 +225,6 @@ export class NetworkRawPrintProvider implements IPrintProvider {
 
   async sendJob(payload: PrintJobPayload): Promise<{ success: boolean; error?: string }> {
     try {
-      // Sends payload via SMRITI Platform API Gateway TCP Socket Proxy
       const response = await fetch("/api/v1/print/raw-tcp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
