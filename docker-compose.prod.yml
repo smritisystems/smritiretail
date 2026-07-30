@@ -53,9 +53,12 @@ services:
       dockerfile: Dockerfile
     container_name: smriti-workspace-prod
     restart: always
+    ports:
+      - "3000:3000"
     env_file: .env
     environment:
-      VITE_API_URL: https://api.smritisys.com
+      VITE_API_URL: http://localhost:8000
+      SMRITI_API_HOST: smriti-api-prod:8000
     depends_on:
       - smriti-api-prod
 

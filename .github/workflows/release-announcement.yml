@@ -1,0 +1,30 @@
+name: Release Announcement (Phase 14)
+
+on:
+  workflow_call:
+    inputs:
+      release_version:
+        required: true
+        type: string
+
+jobs:
+  announcement:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: Generate Phase 14 Release Announcement Assets
+        run: |
+          python3 scripts/generate_release_announcement.py ${{ inputs.release_version }}
+
+      - name: Upload Announcement Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-announcement-${{ inputs.release_version }}
+          path: docs/releases/${{ inputs.release_version }}/announcement/*

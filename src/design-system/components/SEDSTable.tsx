@@ -23,7 +23,8 @@ import {
 
 export interface SEDSColumn<T> {
   key: string;
-  header: string;
+  header?: string;
+  title?: string;
   accessor?: (row: T) => React.ReactNode;
   sortable?: boolean;
   filterable?: boolean;
@@ -35,7 +36,7 @@ export interface SEDSColumn<T> {
 export interface SEDSTableProps<T> {
   data: T[];
   columns: SEDSColumn<T>[];
-  rowKey: (row: T) => string;
+  rowKey?: keyof T | ((row: T) => string);
   title?: string;
   subtitle?: string;
   selectable?: boolean;
@@ -110,15 +111,22 @@ export function SEDSTable<T>({
     });
   }, [filteredData, sortKey, sortOrder, initialColumns]);
 
+  const getRowKey = (r: T, idx = 0): string =>
+    typeof rowKey === "function"
+      ? rowKey(r)
+      : typeof rowKey === "string" && (r as any)[rowKey] !== undefined
+      ? String((r as any)[rowKey])
+      : (r as any).id || (r as any).key || String(idx);
+
   // Selection handlers
-  const allSelected = sortedData.length > 0 && sortedData.every(r => selectedKeys.has(rowKey(r)));
+  const allSelected = sortedData.length > 0 && sortedData.every((r, idx) => selectedKeys.has(getRowKey(r, idx)));
   
   const toggleSelectAll = () => {
     if (!onSelectionChange) return;
     if (allSelected) {
       onSelectionChange(new Set());
     } else {
-      const newSet = new Set(sortedData.map(r => rowKey(r)));
+      const newSet = new Set(sortedData.map((r, idx) => getRowKey(r, idx)));
       onSelectionChange(newSet);
     }
   };
@@ -250,7 +258,7 @@ export function SEDSTable<T>({
                       onClick={() => handleSort(col.key)}
                       className="inline-flex items-center gap-1 hover:text-theme-body transition focus:outline-none"
                     >
-                      <span>{col.header}</span>
+                      <span>{col.header || col.title || col.key}</span>
                       {sortKey === col.key ? (
                         sortOrder === "asc" ? <ChevronUp size={14} className="text-blue-400" /> : <ChevronDown size={14} className="text-blue-400" />
                       ) : (
@@ -258,7 +266,7 @@ export function SEDSTable<T>({
                       )}
                     </button>
                   ) : (
-                    <span>{col.header}</span>
+                    <span>{col.header || col.title || col.key}</span>
                   )}
                 </th>
               ))}
@@ -282,8 +290,8 @@ export function SEDSTable<T>({
                 </td>
               </tr>
             ) : (
-              sortedData.map(row => {
-                const key = rowKey(row);
+              sortedData.map((row, idx) => {
+                const key = getRowKey(row, idx);
                 const isSelected = selectedKeys.has(key);
                 return (
                   <tr

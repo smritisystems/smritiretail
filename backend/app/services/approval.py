@@ -41,6 +41,13 @@ class ApprovalService:
         Multi-level: Manager -> GM -> Director for escalating thresholds
     """
 
+    _thresholds = {
+        "STAFF": Decimal("10000.00"),
+        "MANAGER": Decimal("50000.00"),
+        "GM": Decimal("200000.00"),
+        "DIRECTOR": Decimal("1000000.00"),
+    }
+
     async def check(
         self,
         document_type: str,
@@ -65,18 +72,43 @@ class ApprovalService:
                 "message": str,
             }
 
-        v3.27.0: Always returns auto-approved.
+        Approval is required when the amount exceeds the threshold for the requesting role.
         """
+        normalized_role = (requesting_role or "STAFF").upper()
+        amount_value = Decimal(str(amount))
+
         logger.info(
-            "ApprovalService [STUB] | DocType=%s DocID=%s Amount=%.2f User=%s Role=%s",
-            document_type, document_id, amount, requesting_user, requesting_role,
+            "ApprovalService | DocType=%s DocID=%s Amount=%.2f User=%s Role=%s",
+            document_type, document_id, amount_value, requesting_user, normalized_role,
         )
+
+        threshold = self._thresholds.get(normalized_role)
+        if threshold is None:
+            threshold = self._thresholds["STAFF"]
+
+        if amount_value <= threshold:
+            return {
+                "approved": True,
+                "requires_approval_from": None,
+                "approval_level": 0,
+                "auto_approved": True,
+                "message": f"Auto-approved below {threshold:,.2f} threshold for {normalized_role}.",
+            }
+
+        next_role = None
+        if normalized_role == "STAFF":
+            next_role = "MANAGER"
+        elif normalized_role == "MANAGER":
+            next_role = "GM"
+        elif normalized_role == "GM":
+            next_role = "DIRECTOR"
+
         return {
-            "approved": True,
-            "requires_approval_from": None,
-            "approval_level": 0,
-            "auto_approved": True,
-            "message": "Auto-approved (approval engine stub v3.27.0).",
+            "approved": False,
+            "requires_approval_from": next_role,
+            "approval_level": 1,
+            "auto_approved": False,
+            "message": f"Amount exceeds {threshold:,.2f} threshold for {normalized_role}; approval required from {next_role}.",
         }
 
     async def approve(

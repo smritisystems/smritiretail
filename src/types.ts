@@ -40,6 +40,8 @@ export interface Product {
   qty?: number;
   min_stock_level?: number;
   category: string;
+  subCategory?: string;
+  sub_category?: string;
   isFavorite?: boolean;
   barcode: string;
   secondaryBarcodes?: string[]; // Added for secondary barcodes support
@@ -526,6 +528,12 @@ export interface Customer {
   // Payment overrides
   preferredPaymentMethod?: PaymentMethod;
 
+  // SCDM Channel Distribution Management fields
+  channelTrackingEnabled?: boolean;
+  supplyModel?: "Normal" | "ModernTrade" | "Distributor" | "Franchise" | "Institutional";
+  selloutSource?: "Manual" | "Excel" | "CSV" | "API" | "EDI" | "POSFeed" | "FTP" | "SFTP" | "Webhook";
+
+
   // Sales overrides
   salesPerson?: string;
   salesperson?: string; // added to match lowercase property
@@ -690,8 +698,13 @@ export interface User {
   status: "Active" | "Inactive" | "Suspended" | "Locked" | "Resigned";
   failedAttempts?: number;
   lockedUntil?: string;
+  companyId?: string;
+  company_id?: string;
+  branch_id?: string;
+
 
   // Personal/Contact Info
+
   photo: string; // base64 or url
   fullName: string;
   displayName: string;

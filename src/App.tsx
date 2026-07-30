@@ -54,6 +54,8 @@ import { OperationalWorkspacesTab } from "./components/OperationalWorkspacesTab.
 import { TransactionWorkspacesTab } from "./components/TransactionWorkspacesTab.tsx";
 import { BiReportingAndPrintingTab } from "./components/BiReportingAndPrintingTab.tsx";
 import { ConsignmentStudioTab } from "./components/ConsignmentStudioTab.tsx";
+import { SCDMStudioTab } from "./components/SCDMStudioTab.tsx";
+
 import { CrmStudioTab } from "./components/CrmStudioTab.tsx";
 import { LoyaltyStudioTab } from "./components/LoyaltyStudioTab.tsx";
 import { SupplierDashboardTab } from "./components/SupplierDashboardTab.tsx";
@@ -63,6 +65,7 @@ import { ExplainModal } from "./components/ExplainModal.tsx";
 import { DrillDownProvider } from "./components/drilldown/drilldown_store.tsx";
 import { DrillDownBreadcrumbs } from "./components/drilldown/DrillDownBreadcrumbs.tsx";
 import { DrillDownSidePanel } from "./components/drilldown/DrillDownSidePanel.tsx";
+import { SUNEFKernel } from "./navigation/SUNEFKernel.ts";
 import { GlobalSearch } from "./components/drilldown/GlobalSearch.tsx";
 import { ApprovalMatrixTab } from "./components/ApprovalMatrixTab.tsx";
 import { QuickActionsMenu } from "./components/QuickActionsMenu.tsx";
@@ -101,6 +104,9 @@ import { LoginScreen } from "./components/LoginScreen.tsx";
 import { SmritiErrorBoundary } from "./components/SmritiErrorBoundary.tsx";
 import { Launchpad } from "./components/Launchpad.tsx";
 import { SEEFCommandPalette, useSEEFCommandPaletteShortcut } from "./layout_engine/SEEFCommandPalette.tsx";
+import { WorkspaceTabsBar } from "./components/common/WorkspaceTabsBar.tsx";
+import { CommandPaletteModal } from "./components/common/CommandPaletteModal.tsx";
+import { StatutoryComplianceWorkspace } from "./components/compliance/StatutoryComplianceWorkspace.tsx";
 
 
 interface AppNotification {
@@ -279,7 +285,7 @@ const AppContent: React.FC = () => {
     }
     const resolvedTab = normalizeTab(
       isSetupCompleted && tab === "company-setup" ? "launchpad" : tab,
-    );
+    ) || "dashboard";
     setActiveTab(resolvedTab);
     addToRecentlyUsed(resolvedTab);
   };
@@ -358,6 +364,7 @@ const AppContent: React.FC = () => {
   };
 
   useEffect(() => {
+    SUNEFKernel.initialize((t) => setActiveWorkspace(t), addNotification);
     registerAllDefaultActions((n: any) => {
       addNotification(n.title, n.message, n.type === "alert" || n.type === "error" ? "error" : "success");
     });
@@ -480,16 +487,40 @@ const AppContent: React.FC = () => {
           />
         );
       case "crm":
-        return <CrmStudioTab currentUser={currentUser} />;
+      case "crm-studio":
+        return <CrmStudioTab currentUser={currentUser} onNotification={addNotification} />;
+      case "customers":
+      case "customer":
       case "customer-master":
-        return <CustomerMasterTab currentUser={currentUser} />;
+      case "customer-crm":
+      case "customer_master":
+        return <CustomerMasterTab currentUser={currentUser} onNotification={addNotification} />;
       case "customer-dashboard":
         return <CustomerDashboardTab />;
       case "consignment-studio":
         return <ConsignmentStudioTab products={products} currentUser={currentUser} />;
+      case "scdm":
+      case "scdm-studio":
+      case "channel-distribution":
+      case "scdm_channel_distribution":
+        return <SCDMStudioTab />;
+
       case "loyalty":
         return <LoyaltyStudioTab currentUser={currentUser} />;
+      case "compliance":
+      case "statutory":
+      case "statutory-compliance":
+      case "gst":
+      case "tax-gst":
+        return <StatutoryComplianceWorkspace />;
+      case "staff":
       case "staff-management":
+      case "users":
+      case "user-rbac":
+      case "rbac":
+      case "staff_management":
+      case "person":
+      case "identity":
         return <StaffManagementTab currentUser={currentUser} />;
       case "user-profile":
         return <UserProfileTab />;
@@ -703,6 +734,23 @@ const AppContent: React.FC = () => {
     );
   }
 
+  const isPopoutMode = useMemo(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("popout") === "true";
+    } catch {
+      return false;
+    }
+  }, []);
+
+  if (isPopoutMode) {
+    const popoutTab = new URLSearchParams(window.location.search).get("tab") || "sales";
+    return (
+      <div className="w-screen h-screen bg-[#0B0F17] overflow-hidden p-2 m-0 font-sans">
+        {renderTabSafe(popoutTab)}
+      </div>
+    );
+  }
+
   return (
     <div className={`relative w-full h-full ${preferences.hideBottombar ? "pb-0" : "pb-13"}`}>
       {/* Toast Notification Stack */}
@@ -744,6 +792,8 @@ const AppContent: React.FC = () => {
         currentUser={currentUser}
         onLogout={handleLogout}
       >
+        {/* SUNEF v3.5 Workspace Tabs Bar */}
+        <WorkspaceTabsBar />
         <DrillDownBreadcrumbs />
         <AnimatePresence mode="wait">
           <motion.div

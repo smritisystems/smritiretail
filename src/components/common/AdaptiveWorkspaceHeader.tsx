@@ -12,6 +12,7 @@ import React from "react";
 import { Search, Bell, Sparkles, User, HelpCircle, Shield, Sun, Moon, Palette } from "lucide-react";
 import { useSEEF } from "../../layout_engine/SEEFContext.tsx";
 import { SEEFTheme } from "../../layout_engine/SEEFTypes.ts";
+import { SUNEFNavigationBar } from "../../navigation/SUNEFNavigationBar.tsx";
 
 interface AdaptiveWorkspaceHeaderProps {
   currentUser?: {
@@ -51,6 +52,8 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
         <span className="px-2 py-0.5 rounded bg-white/12 text-white border border-white/10 seds-text-overline hidden sm:inline-block">
           v5.3 Enterprise
         </span>
+        {/* SUNE In-App Control Bar (Back, Forward, Refresh, Home) */}
+        <SUNEFNavigationBar />
       </div>
 
       {/* 2. Center Global Search Input Trigger (Ctrl+K) */}

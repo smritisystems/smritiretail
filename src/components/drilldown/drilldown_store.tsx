@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -25,7 +25,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 
-export type EntityType = "customer" | "item" | "supplier" | "invoice" | "warehouse" | "salesperson" | "report" | "dashboard" | "kpi";
+export type EntityType = "customer" | "item" | "supplier" | "invoice" | "warehouse" | "salesperson" | "report" | "dashboard" | "kpi" | (string & {});
 
 export interface DrillContextData {
   entityType: EntityType;

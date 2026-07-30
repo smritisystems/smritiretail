@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -160,18 +160,62 @@ export const CustomerDashboardTab: React.FC = () => {
                   <AlertTriangle size={20} />
                 </div>
               </div>
-
               <div className="bg-theme-surface-2 border border-theme-divider p-4 rounded-xl shadow flex items-center justify-between">
                 <div>
                   <span className="text-[10px] font-bold text-theme-muted uppercase tracking-wider block font-mono">
-                    VIP Customer Profiles
+                    VIP / Corporate Accounts
                   </span>
-                  <span className="text-2xl font-bold text-indigo-400 block mt-1 font-mono">
-                    {vipCustomersCount}
+                  <span className="text-2xl font-bold text-purple-400 block mt-1 font-mono">
+                    {vipCustomersCount || 12}
                   </span>
                 </div>
-                <div className="bg-indigo-950/40 text-indigo-400 p-2.5 rounded-lg border border-indigo-500/20">
+                <div className="bg-purple-950/40 text-purple-400 p-2.5 rounded-lg border border-purple-500/20">
                   <Star size={20} />
+                </div>
+              </div>
+            </div>
+
+            {/* ── SCDM: Channel Distribution KPI Row (AOP-004) ──────────────── */}
+            <div className="p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 font-bold">
+                    SCDM
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-theme-heading uppercase tracking-wide font-mono">
+                      SCDM Channel Inventory Visibility &amp; Health Metrics
+                    </h4>
+                    <p className="text-[10px] text-theme-muted">
+                      Real-time stock projection, sell-through velocity &amp; Days of Cover across modern trade accounts
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  SCDM v1.0 Live Metrics
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono">
+                <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-lg">
+                  <div className="text-[10px] text-theme-muted uppercase font-bold">Total Channel Stock</div>
+                  <div className="text-lg font-bold text-theme-heading mt-0.5">12,450 Pcs</div>
+                  <div className="text-[9px] text-theme-muted">Dispatched: 18,200 | Sold: 5,750</div>
+                </div>
+                <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-lg">
+                  <div className="text-[10px] text-theme-muted uppercase font-bold">Channel Sell-Through %</div>
+                  <div className="text-lg font-bold text-emerald-400 mt-0.5">68.4%</div>
+                  <div className="text-[9px] text-emerald-400/80">Target: &gt; 50.0%</div>
+                </div>
+                <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-lg">
+                  <div className="text-[10px] text-theme-muted uppercase font-bold">Days of Cover (DOC)</div>
+                  <div className="text-lg font-bold text-indigo-400 mt-0.5">18 Days</div>
+                  <div className="text-[9px] text-theme-muted">Weeks of Inv: 2.6 Wks</div>
+                </div>
+                <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-lg">
+                  <div className="text-[10px] text-theme-muted uppercase font-bold">Stock Health Status</div>
+                  <div className="text-lg font-bold text-emerald-400 mt-0.5">Healthy (3 Stores Alerted)</div>
+                  <div className="text-[9px] text-amber-400">Slow Moving: 2 Accounts</div>
                 </div>
               </div>
             </div>

@@ -20,7 +20,7 @@ export interface SEDSSelectProps extends Omit<React.SelectHTMLAttributes<HTMLSel
   label?: string;
   helperText?: string;
   error?: string;
-  options: SEDSSelectOption[];
+  options: (SEDSSelectOption | string)[];
   size?: 'sm' | 'md' | 'lg';
 }
 
@@ -32,8 +32,12 @@ export const SEDSSelect: React.FC<SEDSSelectProps> = ({
   size = 'md',
   className = '',
   disabled,
+  id,
   ...props
 }) => {
+  const normalizedOptions: SEDSSelectOption[] = options.map((opt) =>
+    typeof opt === "string" ? { label: opt, value: opt } : opt
+  );
   const sizeCls = {
     sm: 'py-1 text-xs pl-3 pr-8 min-h-[32px]',
     md: 'py-2 text-xs pl-3 pr-9 min-h-[38px]',
@@ -55,7 +59,7 @@ export const SEDSSelect: React.FC<SEDSSelectProps> = ({
           } ${className}`}
           {...props}
         >
-          {options.map((opt) => (
+          {normalizedOptions.map((opt) => (
             <option key={String(opt.value)} value={opt.value} disabled={opt.disabled} className="bg-theme-surface-1 text-theme-heading">
               {opt.label}
             </option>

@@ -47,10 +47,13 @@ def hash_password(password: str) -> str:
     """Hash the given plain-text password with the current secure algorithm."""
     try:
         return pwd_context.hash(password)
-    except MissingBackendError:
-        # Fallback to bcrypt if Argon2 is unavailable in this environment.
-        fallback_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        return fallback_context.hash(password)
+    except Exception:
+        # Fallback to standard PBKDF2-SHA512 if passlib backends fail on host environment
+        salt = binascii.hexlify(hashlib.sha256(password.encode("utf-8")).digest()[:16]).decode("ascii")
+        dk = hashlib.pbkdf2_hmac("sha512", password.encode("utf-8"), salt.encode("utf-8"), 100000)
+        return f"pbkdf2$sha512$100000${salt}${dk.hex()}"
+
+
 
 
 def verify_password(plain: str, hashed: str) -> bool:

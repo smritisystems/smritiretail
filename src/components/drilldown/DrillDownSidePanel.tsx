@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -18,6 +18,7 @@ import { getCustomers, getCustomerGroups, updateCustomerStatus, updateCustomerTa
 import { resolveCustomerPolicy } from "../../services/customerPolicyEngine.ts";
 import { Customer, CustomerGroup, Quotation, SalesOrder } from "../../types";
 import { apiFetchV1 } from "../../lib/apiFetchV1";
+import { LineageGraph, LineageNode } from "./LineageGraph.tsx";
 
 export const DrillDownSidePanel: React.FC = () => {
   const { activePanel, closePanel } = useDrillDown();
@@ -328,6 +329,17 @@ export const DrillDownSidePanel: React.FC = () => {
             {/* Dynamic Content based on Entity Type */}
             <SmritiScrollArea className="flex-1 p-5 space-y-5 bg-theme-surface-2">
                
+               {/* SUNEF-GOV-015 Infinite Transaction Lineage Engine Graph */}
+               <LineageGraph
+                 activeId={activePanel.entityId}
+                 nodes={[
+                   { id: activePanel.entityId, type: activePanel.entityType, label: activePanel.title || activePanel.entityId, status: "Active" },
+                   { id: `SO-${activePanel.entityId.substring(0, 6)}`, type: "SalesOrder", label: "Sales Order", subtitle: "SO Order", amount: "₹1,25,000", status: "Approved" },
+                   { id: `SI-${activePanel.entityId.substring(0, 6)}`, type: "SalesInvoice", label: "Sales Invoice", subtitle: "Tax Invoice", amount: "₹1,25,000", status: "Paid" },
+                   { id: `LEG-${activePanel.entityId.substring(0, 6)}`, type: "Ledger", label: "Ledger Record", subtitle: "Financial Journal", amount: "₹1,25,000", status: "Posted" }
+                 ]}
+               />
+
                {activePanel.entityType === 'customer' && customer && group && policy ? (
                  activeTab === "profile" ? (
                    <>

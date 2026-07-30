@@ -1,0 +1,12 @@
+﻿2026-07-29T12:07:52.0165637Z ##[group]Run TAG_NAME=main
+2026-07-29T12:07:52.0166127Z [36;1mTAG_NAME=main[0m
+2026-07-29T12:07:52.0166489Z [36;1mif [[ "workflow_dispatch" == "push" ]]; then[0m
+2026-07-29T12:07:52.0166974Z [36;1m  echo "Verifying cryptographic signature on tag: $TAG_NAME"[0m
+2026-07-29T12:07:52.0167473Z [36;1m  # Verify the signature of the tag using git verify-tag[0m
+2026-07-29T12:07:52.0168202Z [36;1m  git verify-tag $TAG_NAME || echo "WARNING: Tag signature verification failed or tag is unsigned. Continuing in CI mode."[0m
+2026-07-29T12:07:52.0168795Z [36;1melse[0m
+2026-07-29T12:07:52.0169175Z [36;1m  echo "Manual workflow dispatch. Skipping direct verify-tag check."[0m
+2026-07-29T12:07:52.0169620Z [36;1mfi[0m
+2026-07-29T12:07:52.0221888Z shell: /usr/bin/bash -e {0}
+2026-07-29T12:07:52.0222273Z ##[endgroup]
+2026-07-29T12:07:52.0315910Z Manual workflow dispatch. Skipping direct verify-tag check.

@@ -62,7 +62,7 @@ const DOMAIN_SUBMODULES: Record<DomainCategory, ContextualMenuItem[]> = {
   ],
   Purchase: [
     { id: "purchase", title: "Procurement POs", icon: Briefcase, targetTab: "purchase" },
-    { id: "suppliers", title: "Supplier Registry", icon: Building, targetTab: "suppliers" },
+    { id: "suppliers", title: "Supplier Registry", icon: Building, targetTab: "supplier-mgmt" },
   ],
   Finance: [
     { id: "ledger", title: "Financial Ledger", icon: DollarSign, targetTab: "ledger" },

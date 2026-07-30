@@ -20,6 +20,7 @@
     "start": "npm run dev",
     "lint": "tsc --noEmit",
     "validate:seds": "node scripts/validate_seds.js",
+    "swsdk:create": "node scripts/swsdk/scaffold_workspace.js",
     "test": "vitest run",
     "start:fastapi": "python -m uvicorn backend.app.main:app --port 8000 --reload"
   },
@@ -27,6 +28,7 @@
     "@google/genai": "2.10.0",
     "@tailwindcss/vite": "^4.3.2",
     "ajv": "^8.12.0",
+    "buffer": "^6.0.3",
     "dotenv": "^17.4.2",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",

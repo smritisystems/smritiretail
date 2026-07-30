@@ -412,8 +412,8 @@ async def seed_default_users():
                 "mobile": "9999999999",
                 "plain_password": "Smriti@1234",
                 "role": "SYSADMIN",
-                "company_id": None,
-                "branch_id": None,
+                "company_id": "comp-default",
+                "branch_id": "br-default",
                 "full_name": "SYSTEM ADMINISTRATOR",
                 "display_name": "Super",
                 "is_platform_admin": True

@@ -33,6 +33,7 @@ import { getCustomers, getCustomerGroups, saveCustomers } from "../services/cust
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
 import { formatDate, formatDateTime, formatCurrency } from "../utils/formatters.ts";
+import { SalesTaxInvoiceFioriObjectPage } from "./sales/SalesTaxInvoiceFioriObjectPage.tsx";
 import { isValidMobile } from "../utils/validators.ts";
 import { useACAS } from "../context-actions/ContextProvider.tsx";
 
@@ -1588,388 +1589,54 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               </div>
             </div>
           ) : isCreatingInvoice ? (
-            /* Create New Sales Invoice Panel */
-            <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl overflow-hidden shadow-xl animate-in fade-in duration-200">
-              <div className="bg-theme-surface-3 border-b border-theme-divider px-6 py-4 flex items-center justify-between">
-                <div>
-                  <h3 className="font-display font-bold text-sm text-theme-body">Generate Sales Invoice</h3>
-                  <p className="text-[11px] text-theme-muted">Generate commercial invoice with dual-mode entry</p>
-                </div>
-                <button 
-                  onClick={() => setIsCreatingInvoice(false)}
-                  className="p-1 rounded bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-6">
-                {/* Header Fields */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50">
-                  <div className="sm:col-span-2">
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Select Customer *</label>
-                    <select
-                      value={invoiceCustomerId}
-                      onChange={(e) => setInvoiceCustomerId(e.target.value)}
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="">-- Choose Customer Entity --</option>
-                      {customers.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.mobile}) - Outstanding: â‚¹{c.outstanding}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Is Interstate?</label>
-                    <div className="flex items-center h-9">
-                      <input
-                        type="checkbox"
-                        checked={invoiceIsInterstate}
-                        onChange={(e) => setInvoiceIsInterstate(e.target.checked)}
-                        className="rounded border-theme-divider bg-theme-surface-1 accent-indigo-500 mr-2 h-4 w-4"
-                      />
-                      <span className="text-xs text-theme-body">IGST (Interstate)</span>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">eWay Bill Number</label>
-                    <input
-                      type="text"
-                      value={invoiceEWayBill}
-                      onChange={(e) => setInvoiceEWayBill(e.target.value)}
-                      placeholder="e.g. 123456789012"
-                      className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/40">
-                  <div>
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Workflow Status</label>
-                    <div className="flex space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => setInvoiceStatus("Draft")}
-                        className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
-                          invoiceStatus === "Draft" 
-                            ? "bg-[#2563EB] border-blue-500 text-theme-body" 
-                            : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-theme-body"
-                        }`}
-                      >
-                        Keep Draft
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setInvoiceStatus("Submitted")}
-                        className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
-                          invoiceStatus === "Submitted" 
-                            ? "bg-amber-600 border-amber-500 text-white" 
-                            : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-white"
-                        }`}
-                      >
-                        Submit Invoice
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Entry Modes Tabs */}
-                <div>
-                  <div className="flex border-b border-theme-divider mb-4">
-                    <button
-                      type="button"
-                      onClick={() => setEntryMode("manual")}
-                      className={`px-4 py-2 text-xs font-bold font-display flex items-center space-x-2 border-b-2 transition-all cursor-pointer ${
-                        entryMode === "manual" ? "border-blue-500 text-theme-body" : "border-transparent text-theme-muted hover:text-theme-body"
-                      }`}
-                    >
-                      <Layers size={14} />
-                      <span>Manual Scan / Resolve</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEntryMode("matrix")}
-                      className={`px-4 py-2 text-xs font-bold font-display flex items-center space-x-2 border-b-2 transition-all cursor-pointer ${
-                        entryMode === "matrix" ? "border-blue-500 text-theme-body" : "border-transparent text-theme-muted hover:text-theme-body"
-                      }`}
-                    >
-                      <Grid size={14} />
-                      <span>Matrix Grid Entry (SMRITI Footwear/Apparel)</span>
-                    </button>
-                  </div>
-
-                  {/* Manual Entry Form */}
-                  {entryMode === "manual" && (
-                    <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50 space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                        <div className="sm:col-span-6">
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">SELECT VARIANT</label>
-                          <select
-                            value={selectedProduct}
-                            onChange={(e) => setSelectedProduct(e.target.value)}
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                          >
-                            <option value="">-- Choose Article Variant --</option>
-                            {products.map(p => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} ({p.color || "N/A"} - Size {p.size || "N/A"}) - â‚¹{p.price} [SMR-Barcode: {p.barcode}]
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="sm:col-span-3">
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">QTY</label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={manualQty}
-                            onChange={(e) => setManualQty(Math.max(1, parseInt(e.target.value) || 1))}
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <div className="sm:col-span-3">
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">GST TAX %</label>
-                          <select
-                            value={manualTax}
-                            onChange={(e) => setManualTax(parseInt(e.target.value) || 18)}
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                          >
-                            <option value="5">5% GST</option>
-                            <option value="12">12% GST</option>
-                            <option value="18">18% GST</option>
-                            <option value="28">28% GST</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          onClick={handleAddManualItem}
-                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                        >
-                          Add Item Line
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Matrix Entry Grid Form */}
-                  {entryMode === "matrix" && (
-                    <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/50 space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">SELECT BASE ARTICLE</label>
-                          <select
-                            value={selectedBaseArticle}
-                            onChange={(e) => {
-                              setSelectedBaseArticle(e.target.value);
-                              setSelectedBaseColor("");
-                              setMatrixQuantities({});
-                            }}
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                          >
-                            <option value="">-- Choose Base Article --</option>
-                            {baseArticles.map(art => (
-                              <option key={art} value={art}>{art}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-mono text-theme-muted block mb-1">SELECT COLOR</label>
-                          <select
-                            value={selectedBaseColor}
-                            onChange={(e) => {
-                              setSelectedBaseColor(e.target.value);
-                              setMatrixQuantities({});
-                            }}
-                            disabled={!selectedBaseArticle}
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 disabled:opacity-50"
-                          >
-                            <option value="">-- Choose Color --</option>
-                            {availableColors.map(col => (
-                              <option key={col} value={col}>{col}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      {selectedBaseArticle && selectedBaseColor && (
-                        <div className="space-y-4 pt-2 border-t border-theme-divider/50">
-                          <div className="bg-theme-surface-1 p-3.5 rounded-lg border border-theme-divider">
-                            <h4 className="text-[10px] font-mono text-indigo-300 uppercase tracking-wider mb-3">VARIANT SIZE ALLOCATIONS MATRIX</h4>
-                            
-                            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                              {matrixVariants.map(variant => (
-                                <div key={variant.id} className="bg-theme-surface-2 p-2 rounded border border-theme-divider/60 flex flex-col items-center">
-                                  <span className="text-[10px] font-mono text-theme-muted">Size {variant.size || "OS"}</span>
-                                  <span className="text-xs font-semibold text-theme-body mt-0.5">â‚¹{variant.price}</span>
-                                  <span className="text-[9px] text-emerald-400 mt-0.5">Stock: {variant.stock}</span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={matrixQuantities[variant.id] || ""}
-                                    placeholder="0"
-                                    onChange={(e) => {
-                                      const val = Math.max(0, parseInt(e.target.value) || 0);
-                                      setMatrixQuantities({
-                                        ...matrixQuantities,
-                                        [variant.id]: val
-                                      });
-                                    }}
-                                    className="w-full text-center bg-theme-surface-1 border border-theme-divider rounded mt-2 py-1 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="flex justify-end">
-                            <button
-                              type="button"
-                              onClick={handleAddMatrixItems}
-                              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                            >
-                              Add Matrix Items to Draft
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Current Draft Items Table */}
-                <div className="space-y-2">
-                  <h4 className="text-[10px] font-mono uppercase tracking-wider text-theme-muted">Invoice Item Lines List</h4>
-                  
-                  {invoiceItems.length === 0 ? (
-                    <div className="p-8 text-center bg-theme-surface-2 border border-dashed border-theme-divider rounded-xl text-theme-muted text-xs">
-                      No items added yet. Choose manual or matrix entry above to build the invoice lines.
-                    </div>
-                  ) : (
-                    <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="bg-theme-surface-3 text-theme-muted uppercase font-mono text-[9px] tracking-wider border-b border-theme-divider">
-                            <th className="px-4 py-2.5">Article / Variant</th>
-                            <th className="px-4 py-2.5">Color/Size</th>
-                            <th className="px-4 py-2.5 text-right">Qty</th>
-                            <th className="px-4 py-2.5 text-right">Price</th>
-                            <th className="px-4 py-2.5 text-right">GST %</th>
-                            <th className="px-4 py-2.5 text-right">Tax (â‚¹)</th>
-                            <th className="px-4 py-2.5 text-right">Total (â‚¹)</th>
-                            <th className="px-4 py-2.5 text-center">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {invoiceItems.map((item, index) => {
-                            const taxRate = item.taxRate || 18;
-                            const baseTotal = item.quantity * item.price;
-                            const taxAmount = (baseTotal * taxRate) / 100;
-                            const lineTotal = baseTotal + taxAmount;
-
-                            const relatedProd = products.find(p => p.id === item.productId || p.code === item.code);
-                            const policyStr = localStorage.getItem("smriti_spif_display_policy");
-                            const showImage = policyStr ? JSON.parse(policyStr).showInSales : true;
-                            const hoverZoom = policyStr ? JSON.parse(policyStr).hoverZoom : true;
-                            const imageSize = (policyStr ? JSON.parse(policyStr).salesSize : "small") as "small" | "medium";
-
-                            return (
-                              <tr key={index} className="border-b border-theme-divider/40 hover:bg-theme-surface-1 text-theme-body">
-                                <td className="px-4 py-2">
-                                  <div className="flex items-center space-x-3">
-                                    {showImage && relatedProd?.primaryImageUrl && (
-                                      <ProductImage
-                                        src={relatedProd.primaryImageUrl}
-                                        alt={item.name}
-                                        size={imageSize}
-                                        hoverZoom={hoverZoom}
-                                      />
-                                    )}
-                                    <div>
-                                      <div className="font-semibold">{item.name}</div>
-                                      <div className="text-[10px] text-theme-muted font-mono">{item.code}</div>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-2 font-mono">
-                                  {item.color || "N/A"} / {item.size || "N/A"}
-                                </td>
-                                <td className="px-4 py-2 text-right font-mono font-semibold">
-                                  {item.quantity}
-                                </td>
-                                <td className="px-4 py-2 text-right font-mono">
-                                  â‚¹{item.price.toLocaleString("en-IN")}
-                                </td>
-                                <td className="px-4 py-2 text-right font-mono text-amber-400">
-                                  {taxRate}%
-                                </td>
-                                <td className="px-4 py-2 text-right font-mono text-theme-muted">
-                                  â‚¹{Math.round(taxAmount).toLocaleString("en-IN")}
-                                </td>
-                                <td className="px-4 py-2 text-right font-mono text-emerald-400 font-semibold">
-                                  â‚¹{Math.round(lineTotal).toLocaleString("en-IN")}
-                                </td>
-                                <td className="px-4 py-2 text-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveDraftItem(index)}
-                                    className="p-1 rounded text-rose-500 hover:bg-rose-950/50 transition-colors"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-
-                      {/* Summary Section */}
-                      <div className="p-4 bg-theme-surface-3 border-t border-theme-divider text-xs text-theme-muted flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <div className="text-[11px] leading-relaxed">
-                          SMRITI tax engine automatically back-calculates and segregates SGST/CGST breakdown lines.
-                        </div>
-                        <div className="space-y-1 text-right w-full sm:w-auto">
-                          <div>
-                            Base Net Total: <span className="font-mono text-theme-body">â‚¹{invoiceItems.reduce((acc, item) => acc + (item.quantity * item.price), 0).toLocaleString("en-IN")}</span>
-                          </div>
-                          <div>
-                            Taxes Consolidated: <span className="font-mono text-theme-body">â‚¹{invoiceItems.reduce((acc, item) => acc + ((item.quantity * item.price * (item.taxRate || 18)) / 100), 0).toFixed(1)}</span>
-                          </div>
-                          <div className="text-sm font-bold text-emerald-400">
-                            Grand Invoice Total: â‚¹{invoiceItems.reduce((acc, item) => acc + (item.quantity * item.price * (1 + (item.taxRate || 18) / 100)), 0).toLocaleString("en-IN")}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Form Actions */}
-                <div className="flex justify-end space-x-3 pt-4 border-t border-theme-divider/50">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCreatingInvoice(false);
-                      setInvoiceItems([]);
-                    }}
-                    className="px-4 py-2 rounded-lg bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-muted hover:text-theme-body text-xs font-semibold transition-colors cursor-pointer"
-                  >
-                    Cancel Draft
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveInvoice}
-                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs shadow-lg transition-colors cursor-pointer"
-                  >
-                    Commit & Write Ledger
-                  </button>
-                </div>
-              </div>
-            </div>
+            /* Refactored Sales Tax Invoice — SAP Fiori Object Page Pattern */
+            <SalesTaxInvoiceFioriObjectPage
+              customers={customers}
+              products={products}
+              invoiceCustomerId={invoiceCustomerId}
+              setInvoiceCustomerId={setInvoiceCustomerId}
+              invoiceIsInterstate={invoiceIsInterstate}
+              setInvoiceIsInterstate={setInvoiceIsInterstate}
+              invoiceEWayBill={invoiceEWayBill}
+              setInvoiceEWayBill={setInvoiceEWayBill}
+              invoiceStatus={invoiceStatus}
+              setInvoiceStatus={setInvoiceStatus}
+              entryMode={entryMode}
+              setEntryMode={setEntryMode}
+              selectedProduct={selectedProduct}
+              setSelectedProduct={setSelectedProduct}
+              manualQty={manualQty}
+              setManualQty={setManualQty}
+              manualTax={manualTax}
+              setManualTax={setManualTax}
+              handleAddManualItem={handleAddManualItem}
+              selectedBaseArticle={selectedBaseArticle}
+              setSelectedBaseArticle={setSelectedBaseArticle}
+              baseArticles={baseArticles}
+              selectedBaseColor={selectedBaseColor}
+              setSelectedBaseColor={setSelectedBaseColor}
+              availableColors={availableColors}
+              matrixVariants={matrixVariants}
+              matrixQuantities={matrixQuantities}
+              setMatrixQuantities={setMatrixQuantities}
+              handleAddMatrixItems={handleAddMatrixItems}
+              invoiceItems={invoiceItems}
+              setInvoiceItems={setInvoiceItems}
+              invoiceTotals={{
+                taxable: invoiceItems.reduce((acc, item) => acc + ((item.price || 0) * (item.qty || 1)), 0),
+                cgst: invoiceIsInterstate ? 0 : invoiceItems.reduce((acc, item) => acc + (((item.price || 0) * (item.qty || 1) * (item.taxRate || 18)) / 200), 0),
+                sgst: invoiceIsInterstate ? 0 : invoiceItems.reduce((acc, item) => acc + (((item.price || 0) * (item.qty || 1) * (item.taxRate || 18)) / 200), 0),
+                igst: invoiceIsInterstate ? invoiceItems.reduce((acc, item) => acc + (((item.price || 0) * (item.qty || 1) * (item.taxRate || 18)) / 100), 0) : 0,
+                grandTotal: invoiceItems.reduce((acc, item) => acc + ((item.price || 0) * (item.qty || 1) * (1 + (item.taxRate || 18) / 100)), 0),
+              }}
+              handleCreateInvoiceSubmit={(e) => {
+                handleSaveInvoice();
+              }}
+              onCancel={() => {
+                setIsCreatingInvoice(false);
+                setInvoiceItems([]);
+              }}
+            />
           ) : isCreatingReturn ? (
             /* Record Sales Return Panel */
             <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl overflow-hidden shadow-xl animate-in fade-in duration-200">

@@ -250,6 +250,16 @@ Before writing ANY new code or creating files, all AI agents and engineers MUST 
 - **GR-012 (No Silent Duplication)**: Upgrading a service means modifying the existing canonical service, never creating `ProductServiceV2`, `NewProductService`, or `BetterProductService` as parallel implementations.
 - **GR-013 (Backward Compatibility)**: Public APIs (`/api/public/v1/*`) and database schema contracts (columns, table names, FK relationships) must never break existing client contracts within the same major version. Use the 4-stage deprecation lifecycle (`Experimental` → `Supported` → `Deprecated` → `Removed`) before any removal.
 - **GR-014 (Code-First Review)**: No new code shall be written until the existing implementation has been reviewed and a reuse analysis has been completed. Every implementation proposal must identify what already exists, what can be reused, what must be extended, and what genuinely needs to be created.
+- **SCP-001 (Compliance Isolation Principle — MANDATORY)**: All statutory, regulatory, and jurisdiction-specific business rules must be implemented through the SMRITI Compliance Platform (SCP). Transaction modules (Sales, Purchase, POS, Inventory, Accounting, Payroll, etc.) must NEVER embed compliance logic directly. They may only invoke the Compliance Platform through its published APIs and SDK contracts (`IComplianceModule`, `StatutoryValidator`, `GstTaxEngine`).
+- **STWS-001 (SMRITI Transaction Workspace Standard — MANDATORY)**: Every transactional document in SMRITI Retail OS (Sales, Purchase, Stock, Accounting, POS, Delivery Challan, Notes) shall support a standalone workspace mode. The standalone mode shall be provided by the SMRITI Window Management Framework (SWMF) and shall render the transaction in a dedicated window without application navigation shells. Transaction modules shall not implement custom popout logic but shall invoke the platform `WindowManager` service (`WindowManager.openTransaction({ transactionType, documentId, mode })`).
+- **SLP-001 (Universal Label Printing Studio — MANDATORY)**: SMRITI Universal Label Printing Studio (SLPS) shall be the SINGLE label printing application for the entire platform. Modules (Sales, Purchase, Inventory, POS, etc.) must NEVER build isolated label printing screens; they must delegate to SLPS.
+- **SLP-002 (Label Print History & Audit Trail)**: Every label print action (job number, date, time, user, printer, template, source document, copies printed) must be stored in Print History and produce an immutable audit log entry.
+- **SLP-003 (PRN Template & Variable Engine)**: PRN template scripts (ZPL, TSPL, EPL) must resolve placeholders dynamically (`${item.name}`, `${item.price}`, `${item.barcode}`) using the platform PRN Variable Engine.
+- **SLP-004 (Printer & Network Management)**: Printers must be managed via central printer profiles supporting language selection (TSPL/ZPL), DPI, dimensions, and communication protocols.
+- **SLP-005 (Enterprise Print Queue)**: All label print operations must pass through the Enterprise Print Queue supporting job states (`Queued`, `Printing`, `Completed`, `Failed`, `Cancelled`) with background processing and retry capability.
+- **SLP-006 (Universal Lookup & Range Filtering)**: Label selection must support universal cross-entity lookup (Item, Barcode, Article, Style, Brand, GRN, Invoices, Batches) and range/variant filtering (MRP range, Size matrix).
+- **SLP-007 (Label Profile Auto-Resolution)**: Items automatically resolve to their configured Label Profile ──► PRN Script ──► Printer Language. Manual override is permitted.
+- **SLP-008 (Pluggable Print Provider Framework)**: Printing operations must decouple logic from transport layers via pluggable providers (`BrowserPrintProvider`, `PDFPrintProvider`, `QZTrayProvider`, `NetworkPrintProvider`). Direct unabstracted socket code in UI modules is strictly prohibited.
 
 ### AI Agent Mandatory 5-Phase Review Protocol (MANDATORY — ALL FEATURES)
 
@@ -1296,4 +1306,15 @@ To prevent over-engineering the core accounting logic in normal retail/distribut
 2. **Supported Accounting Vouchers:** Implement only standard transactions: Sales/Purchase Invoices, Returns, Cash/Bank Receipts, Payments, Contra, Journals, and Debit/Credit Notes.
 3. **Automatic Silent Posting:** Every business document (Invoice, Receipt, Payment) must automatically trigger the journal posting silently. Manual journal builder controls are not exposed to normal operations.
 4. **Prohibited Features in v1.0:** Cost centers allocation, accounting workflows, multi-level approvals, posting previews, and financial rule engines are explicitly excluded from the v1.0 footprint.
+
+---
+
+# SWSDK v1.0 & Rule SWSDK-001 — Declarative Workspace Principle
+
+**Status:** MANDATORY LEVEL-1 CONSTITUTION — v1.0 (2026-07-30)
+
+## Rule SWSDK-001 – Declarative Workspace Principle
+
+Every workspace shall declare its metadata, lifecycle, actions, capabilities, permissions, search providers, events, and routing through versioned manifests (`schemaVersion: "1.0"`). Platform services (SUNEF, SPF, SUPOE) consume these manifests to provide standardized behavior. Workspaces shall not directly implement platform concerns that are already provided by the platform. All workspace manifests must pass the 6-stage schema and dependency validation pipeline before registration: `Schema Validation` ──► `Dependency Validation` ──► `Permission Validation` ──► `Capability Validation` ──► `Route Validation` ──► `Registration`.
+
 

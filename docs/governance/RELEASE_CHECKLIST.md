@@ -51,6 +51,8 @@ This document contains the official checklists for preparing, validating, execut
 - [ ] **CI Pipeline Validation:** Verify that the GitHub Actions Release Workflow triggers successfully.
 - [ ] **Asset Checks:** Ensure the release artifacts (`.tar.gz`, `.zip`), rollback packages, and `sha256_checksums.txt` are attached to the GitHub release.
 - [ ] **Docker Hub/GHCR:** Verify that the built frontend and backend images are tagged with the release version and pushed to the registry.
+- [ ] **Phase 14 GitHub Announcement:** Execute `python scripts/generate_release_announcement.py <version>` to generate and verify all 6 announcement formats stored under `docs/releases/<version>/announcement/`.
+
 
 ---
 

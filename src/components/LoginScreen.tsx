@@ -82,8 +82,10 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [tileIndex, setTileIndex]         = useState(0);
   const [usernameFocused, setUsernameFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [capsLockOn, setCapsLockOn]           = useState(false);
 
   const isDev = (import.meta as unknown as { env: { DEV?: boolean } }).env?.DEV === true;
+
   const allowDevLogin = isDev || FLAGS.ENABLE_DEV_LOGIN;
 
   // Rotate feature tiles
@@ -449,6 +451,8 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={e => { setPassword(e.target.value); setError(null); }}
+                    onKeyDown={e => setCapsLockOn(e.getModifierState("CapsLock"))}
+                    onKeyUp={e => setCapsLockOn(e.getModifierState("CapsLock"))}
                     onFocus={() => setPasswordFocused(true)}
                     onBlur={() => setPasswordFocused(false)}
                     disabled={loading}
@@ -475,7 +479,14 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
+                {capsLockOn && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-amber-600 font-semibold mt-1.5 animate-pulse">
+                    <AlertCircle size={13} />
+                    <span>Caps Lock is ON</span>
+                  </div>
+                )}
               </div>
+
 
               {/* Sign In Button — Fiori Emphasized style */}
               <button

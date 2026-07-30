@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -32,6 +32,8 @@ import { StandardInvoiceA4 } from "./templates/StandardInvoiceA4.tsx";
 import { ThermalReceipt80mm } from "./templates/ThermalReceipt80mm.tsx";
 import { GoodsReceiptNoteA4 } from "./templates/GoodsReceiptNoteA4.tsx";
 import { BarcodeLabel } from "./templates/BarcodeLabel.tsx";
+import { UniversalLabelPrintingStudio } from "../components/label_print/UniversalLabelPrintingStudio.tsx";
+import { products as storeProducts } from "../state/store.ts";
 
 const MOCK_DATA = {
   invoiceNo: "INV-2023-0891",
@@ -111,6 +113,10 @@ export const PrintStudioTab: React.FC = () => {
   const PreviewComponent = selectedTemplate?.component || (() => <div>No template selected</div>);
   const previewData = selectedTemplate?.id === "label-50x25" ? BARCODE_DEMO_DATA : MOCK_DATA;
 
+  if (activeTemplate === "label-50x25") {
+    return <UniversalLabelPrintingStudio products={storeProducts} />;
+  }
+
   return (
     <div className="flex h-full bg-theme-base font-sans overflow-hidden text-theme-body">
       {/* Sidebar */}
@@ -154,21 +160,18 @@ export const PrintStudioTab: React.FC = () => {
               </button>
             ))}
 
-            <div className="text-[10px] font-bold text-theme-muted uppercase tracking-wider font-mono px-2 py-1.5 mt-4">Thermal & POS</div>
-            {templates.filter(t => t.format === 'Thermal80mm' || t.format === 'Label').map(template => (
-              <button
-                key={template.id}
-                onClick={() => setActiveTemplate(template.id)}
-                className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-colors ${
-                  activeTemplate === template.id 
-                    ? "bg-blue-500/10 text-blue-400 font-semibold" 
-                    : "text-theme-muted hover:bg-theme-surface-hover hover:text-theme-primary"
-                }`}
-              >
-                <LayoutTemplate size={16} />
-                <span className="text-sm truncate">{template.name}</span>
-              </button>
-            ))}
+            <div className="text-[10px] font-bold text-theme-muted uppercase tracking-wider font-mono px-2 py-1.5 mt-4">Barcode & Label Printing</div>
+            <button
+              onClick={() => setActiveTemplate("label-50x25")}
+              className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-colors ${
+                activeTemplate === "label-50x25"
+                  ? "bg-blue-500/10 text-blue-400 font-semibold"
+                  : "text-theme-muted hover:bg-theme-surface-hover hover:text-theme-primary"
+              }`}
+            >
+              <Tag size={16} />
+              <span className="text-sm truncate">Universal Label Studio (SLPS)</span>
+            </button>
           </div>
         </SmritiScrollArea>
       </div>
@@ -192,7 +195,7 @@ export const PrintStudioTab: React.FC = () => {
             </button>
             <button 
               onClick={() => setActiveTemplate("label-50x25")}
-              className="flex items-center gap-2 px-4 py-1.5 bg-slate-500 hover:bg-slate-600 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm cursor-pointer"
+              className="flex items-center gap-2 px-4 py-1.5 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-primary rounded-lg text-sm font-semibold transition-colors shadow-sm cursor-pointer"
             >
               <Tag size={14} /> Show Barcode Demo
             </button>

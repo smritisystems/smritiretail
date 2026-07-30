@@ -28,7 +28,27 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [7.2.0] — 2026-07-30
+
+### Added
+- **SMRITI Master Publish Command v1.0 & Release Orchestrator**:
+  - Implemented `scripts/master_publish.py` CLI orchestrator executing all 15 release phases automatically.
+  - Automated Wiki page updates with standardized SMRITI Systems version footers.
+  - Generates `docs/releases/<version>/RELEASE_COMPLETION_SUMMARY.md` certifying release readiness.
+- **SMRITI Master Release Pipeline — Phase 14 GitHub Announcement Orchestration**:
+
+  - Created `docs/governance/SMRITI_MASTER_RELEASE_PIPELINE.md` specifying the 15-phase release pipeline architecture.
+  - Implemented `scripts/generate_release_announcement.py` multi-format announcement generator producing all 6 specified formats under `docs/releases/<version>/announcement/` (GitHub Release, Discussion, Org, Community Markdown, HTML, PDF) with 10 release statistics.
+  - Added `.github/workflows/release-announcement.yml` GitHub Actions workflow.
+  - Updated `docs/wiki/Release_Pipeline.md`, `docs/wiki/Enterprise_Release_Management.md`, and `docs/governance/RELEASE_CHECKLIST.md`.
+
+### Fixed
+- **Company Setup Onboarding State Machine (`LOCKED`)**:
+  - Fixed setup wizard re-triggering with permanent HTTP 400 Bad Request lock guard.
+  - Updated `get_system_config` to bypass RLS isolation on global setup lock queries.
+
 ## [7.1.0] — 2026-07-28
+
 
 ### Added
 - **Task 6-1: AI Advisory Settings & Key Registry (CR-2026-1761, Rule AOP-001)**:

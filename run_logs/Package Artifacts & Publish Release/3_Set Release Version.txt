@@ -1,0 +1,11 @@
+﻿2026-07-29T12:08:06.4397304Z ##[group]Run if [[ "workflow_dispatch" == "push" ]]; then
+2026-07-29T12:08:06.4397912Z [36;1mif [[ "workflow_dispatch" == "push" ]]; then[0m
+2026-07-29T12:08:06.4398327Z [36;1m  VERSION=main[0m
+2026-07-29T12:08:06.4398597Z [36;1melse[0m
+2026-07-29T12:08:06.4398851Z [36;1m  VERSION=v0.9.0-rc1[0m
+2026-07-29T12:08:06.4399115Z [36;1mfi[0m
+2026-07-29T12:08:06.4399385Z [36;1mecho "version=$VERSION" >> $GITHUB_OUTPUT[0m
+2026-07-29T12:08:06.4399747Z [36;1mecho "Building Release Version: $VERSION"[0m
+2026-07-29T12:08:06.4429832Z shell: /usr/bin/bash -e {0}
+2026-07-29T12:08:06.4430191Z ##[endgroup]
+2026-07-29T12:08:06.4497403Z Building Release Version: v0.9.0-rc1

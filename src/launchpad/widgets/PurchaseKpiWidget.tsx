@@ -28,7 +28,7 @@ export const PurchaseKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> = 
       </div>
 
       <div
-        onClick={() => onSelectTab("suppliers")}
+        onClick={() => onSelectTab("supplier-mgmt")}
         className="bg-theme-surface-1 border border-theme-divider hover:border-[#0a6ed1] p-3.5 rounded-lg cursor-pointer transition-all shadow-xs"
       >
         <div className="flex items-center justify-between text-xs text-theme-muted mb-1">
