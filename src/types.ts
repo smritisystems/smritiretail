@@ -698,8 +698,13 @@ export interface User {
   status: "Active" | "Inactive" | "Suspended" | "Locked" | "Resigned";
   failedAttempts?: number;
   lockedUntil?: string;
+  companyId?: string;
+  company_id?: string;
+  branch_id?: string;
+
 
   // Personal/Contact Info
+
   photo: string; // base64 or url
   fullName: string;
   displayName: string;
