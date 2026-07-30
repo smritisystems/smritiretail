@@ -18,8 +18,10 @@
  * License      : Proprietary Commercial Software
  */
 
+import "./polyfill.ts";
 import "./patchFetch.ts";
 import React from "react";
+
 import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
