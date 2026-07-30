@@ -429,23 +429,15 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
           window.location.reload();
         }
       }, 2500);
-    } catch (e) {
-      console.warn("Setup provisioning notice:", e);
-      setSetupSuccess(true);
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem("smriti_setup_completed", "true");
-      }
-      setTimeout(() => {
-        if (onComplete) {
-          onComplete();
-        } else {
-          window.location.reload();
-        }
-      }, 2500);
+    } catch (e: any) {
+      console.error("[SetupWizard] Setup provisioning failed:", e);
+      alert(`Setup Provisioning Failed: ${e?.message || e || "Unknown server error"}. Please review inputs and try again.`);
+      setSetupSuccess(false);
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   return (
     <div className="h-full w-full flex flex-col bg-theme-base select-text overflow-y-auto pb-10">
