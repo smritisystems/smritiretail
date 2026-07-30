@@ -90,16 +90,22 @@ export default defineConfig({
       }
     }
   },
+  resolve: {
+    alias: {
+      buffer: "buffer/",
+    },
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,
     chunkSizeWarningLimit: 1600,
     rollupOptions: {
       output: {
-        banner: "import { Buffer } from 'buffer'; if (typeof globalThis !== 'undefined') { globalThis.Buffer = globalThis.Buffer || Buffer; globalThis.global = globalThis.global || globalThis; }",
+        banner: "if (typeof globalThis !== 'undefined') { globalThis.global = globalThis.global || globalThis; }",
         manualChunks: manualChunksHandler
       }
     }
   }
 });
+
 
