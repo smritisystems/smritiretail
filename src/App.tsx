@@ -55,6 +55,7 @@ import { WorkspaceLabTab } from "./components/WorkspaceLabTab.tsx";
 import { OperationalWorkspacesTab } from "./components/OperationalWorkspacesTab.tsx";
 import { TransactionWorkspacesTab } from "./components/TransactionWorkspacesTab.tsx";
 import { BiReportingAndPrintingTab } from "./components/BiReportingAndPrintingTab.tsx";
+import { PrintLabelsStudio } from "./components/printing/PrintLabelsStudio.tsx";
 import { ConsignmentStudioTab } from "./components/ConsignmentStudioTab.tsx";
 import { SCDMStudioTab } from "./components/SCDMStudioTab.tsx";
 
@@ -821,7 +822,10 @@ const AppContent: React.FC = () => {
         return <ApprovalMatrixTab />;
       case "print-labels":
       case "print-studio":
-        return <PrintStudioTab />;
+      case "barcode-printing":
+      case "label-printing":
+      case "universal-label":
+        return <PrintLabelsStudio />;
       case "print-history":
         return <PrintHistoryTab />;
       case "about-smriti":
