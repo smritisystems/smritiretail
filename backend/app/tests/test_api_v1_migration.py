@@ -310,5 +310,7 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
             "/api/v1/inventory/",
             headers={"Authorization": f"Bearer {unassigned_token}"},
         )
+        if invalid_context.status_code != 403:
+            print("INVALID CONTEXT FAILED RESPONSE:", invalid_context.status_code, invalid_context.text)
         assert invalid_context.status_code == 403
         assert "not assigned to a company and branch" in invalid_context.json()["detail"]
