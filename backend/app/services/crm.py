@@ -15,7 +15,8 @@ Classification: Internal Architecture Standard
 
 import uuid
 import logging
-from typing import Optional, List
+from typing import Any, Optional, List
+
 
 logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
