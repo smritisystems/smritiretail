@@ -72,15 +72,23 @@ This walkthrough documents the architectural refactoring of the SMRITI Retail OS
 ---
 
 ## 6. Design Rationale
-High-frequency operators (cashiers, receiving clerks, stock auditors) require maximum screen area, zero modal clutter, <150ms scan latency, and complete keyboard navigation. Refactoring the Tax Invoice Terminal to match **Shoper 9 POS Billing Window Architecture** (Header Row -> Detail Item Grid -> Right Net Values Sheet -> Bottom Summary Bar) with **Modern SMRITI UI Tokens ("Modern Tadka")** replicates the operational speed of Shoper9, TallyPrime, Marg, and SAP POS while retaining modern React glassmorphism and keyboard hotkeys.
+High-frequency operators (cashiers, receiving clerks, stock auditors) require maximum screen area, zero modal clutter, <150ms scan latency, and complete keyboard navigation. Refactoring the Tax Invoice Terminal to match **SMRITI POS Billing Window Architecture** (Header Row -> Detail Item Grid -> Right Net Values Sheet -> Bottom Summary Bar) with **Modern SMRITI UI Tokens ("Modern Tadka")** replicates the operational speed of high-volume retail ERPs while retaining modern React glassmorphism and keyboard hotkeys.
+
+Key UX features of the SMRITI Tax Invoice Billing Terminal:
+- **SMRITI Terminal Header Bar**: Top control row displaying Bill Type, Cash/Credit mode, Customer Name & Code, Sales Staff, Shift, and Desk ID.
+- **SMRITI Terminal Detail Section**: Responsive item grid (75% width) with inline quantity increment/decrement, tax rate indicators, and barcode search bar.
+- **SMRITI Terminal Net Values Sheet**: Right-hand column (25% width) displaying live calculations for Subtotal, GST Breakdown (CGST, SGST, IGST), Freight, Discounts, Rounding, and Payable Amount.
+- **SMRITI Terminal Bottom Summary Bar**: Horizontal summary bar displaying Total Items, Total Qty, Sales Value, Item Disc, Bill Disc, Total Tax, and Net Amount.
+- **Progressive Right Drawers**: Optional forms (GSTIN, E-Way Bill, Logistics, Promos) slide out from the right on demand (`RightDrawerHost`).
+- **Hardware Integration**: Standardized pulse trigger for cash drawers, raw print payload formatting, and scanner buffer listeners.
 
 ---
 
 ## 7. Implementation Summary
-- **Shoper 9 Header Bar**: Top control row displaying Bill Type, Cash/Credit mode, Customer Name & Code, Sales Staff, Shift, and Desk ID.
+- **SMRITI Terminal Header Bar**: Top control row displaying Bill Type, Cash/Credit mode, Customer Name & Code, Sales Staff, Shift, and Desk ID.
 - **Detail Item Grid**: Occupies 75% of the viewport width with SMRITIGrid responsive column sizing and direct barcode scanning focus.
 - **Right Net Values Sheet**: Real-time calculation of Gross Sales, Line Discounts, Bill Discounts, Taxable Base Value, CGST, SGST, IGST, Statutory TCS, Round Off, and a prominent Emerald Net Amount Payable box.
-- **Shoper 9 Bottom Summary Bar**: Horizontal summary bar displaying Total Items, Total Qty, Sales Value, Item Disc, Bill Disc, Total Tax, and Net Amount.
+- **SMRITI Terminal Bottom Summary Bar**: Horizontal summary bar displaying Total Items, Total Qty, Sales Value, Item Disc, Bill Disc, Total Tax, and Net Amount.
 - **Progressive Right Drawers**: Optional forms (GSTIN, E-Way Bill, Logistics, Promos) slide out from the right on demand (`RightDrawerHost`).
 - **Hardware Integration**: Standardized pulse trigger for cash drawers, raw print payload formatting, and scanner buffer listeners.
 

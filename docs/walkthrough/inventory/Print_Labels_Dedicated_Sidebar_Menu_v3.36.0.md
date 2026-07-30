@@ -26,7 +26,7 @@
 # Dedicated "Print Labels" Sidebar Menu & Tag Printing Studio — Walkthrough v3.36.0
 
 ## 1. Purpose
-This walkthrough documents the creation and registration of the dedicated **Print Labels** menu item in the SMRITI Retail OS navigation sidebar (`id: "print-labels"` under **Inventory & Sourcing**) and the implementation of the high-productivity **Tag Printing Studio (`PrintLabelsTab.tsx`)** modeled on classic retail ERP specifications (Shoper 9 spec).
+This walkthrough documents the creation and registration of the dedicated **Print Labels** menu item in the SMRITI Retail OS navigation sidebar (`id: "print-labels"` under **Inventory & Sourcing**) and the implementation of the high-productivity **Tag Printing Studio (`PrintLabelsTab.tsx`)** modeled on classic retail ERP specifications (SMRITI Enterprise Retail spec).
 
 ## 2. Scope
 - Dedicated sidebar navigation item registration (`Print Labels` under `Inventory & Sourcing`).
@@ -46,7 +46,7 @@ This walkthrough documents the creation and registration of the dedicated **Prin
 - `docs/walkthrough/README.md` — Updated master walkthrough index table.
 
 ## 5. Architecture Decisions
-- **Legacy ERP Compatibility**: Recreates the full functional ergonomics of legacy Tag Printing software (Shoper 9) while leveraging modern SMRITI UI glassmorphism and real-time reactive engines.
+- **Legacy ERP Compatibility**: Recreates the full functional ergonomics of classic Tag Printing software (SMRITI Enterprise Retail) while leveraging modern SMRITI UI glassmorphism and real-time reactive engines.
 - **Unified Hardware Bridge**: Connects directly to `PrinterConfigurationModal` for live USB & TCP/IP hardware socket diagnostics.
 
 ## 6. Design Rationale

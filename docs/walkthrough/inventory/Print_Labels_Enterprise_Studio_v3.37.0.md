@@ -9,7 +9,7 @@
 ---
 
 ## 1. Purpose
-The purpose of this walkthrough is to document the completion of the **SMRITI Barcode Label Printing Workstation (Print Labels Studio v3.37.0)**. This release delivers a 10/10 enterprise-grade Tag Printing module, incorporating legacy Shoper 9 ergonomics with modern UI design, multi-node backend database synchronization, 9-tier PRN rule resolution, and native ZPL/XPML script support for Tattly Threads multi-track garment and footwear tag templates.
+The purpose of this walkthrough is to document the completion of the **SMRITI Barcode Label Printing Workstation (Print Labels Studio v3.37.0)**. This release delivers a 10/10 enterprise-grade Tag Printing module, incorporating classic SMRITI ergonomics with modern UI design, multi-node backend database synchronization, 9-tier PRN rule resolution, and native ZPL/XPML script support for Tattly Threads multi-track garment and footwear tag templates.
 
 ---
 
@@ -65,7 +65,7 @@ The purpose of this walkthrough is to document the completion of the **SMRITI Ba
 ---
 
 ## 6. Design Rationale
-- Retained the legacy Shoper 9 Tag Printing workflow ergonomics for maximum retail cashier efficiency.
+- Retained classic SMRITI Tag Printing workflow ergonomics for maximum retail cashier efficiency.
 - Modernized layout into sleek dark-mode panels with glassmorphism, HSL tailwinds, and micro-animations.
 
 ---

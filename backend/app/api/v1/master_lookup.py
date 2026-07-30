@@ -367,7 +367,7 @@ async def check_lookup_value_usage(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Check transaction and master entity dependencies before deletion (Shoper 9 spec)."""
+    """Check transaction and master entity dependencies before deletion (SMRITI spec)."""
     service = LookupService(db)
     return await service.check_usage(str(value_id))
 
