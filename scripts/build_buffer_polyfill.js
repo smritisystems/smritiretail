@@ -19,14 +19,17 @@ export function buildBufferPolyfill() {
 
   const footer = `
 if (typeof window !== "undefined") {
+  window.process = window.process || { env: {}, browser: true, version: "v20.0.0", nextTick: function(cb) { Promise.resolve().then(cb); } };
   window.Buffer = window.Buffer || (typeof BufferModule !== "undefined" ? BufferModule.Buffer : undefined);
   window.global = window.global || window;
 }
 if (typeof globalThis !== "undefined") {
+  globalThis.process = globalThis.process || (typeof window !== "undefined" ? window.process : { env: {}, browser: true, version: "v20.0.0", nextTick: function(cb) { Promise.resolve().then(cb); } });
   globalThis.Buffer = globalThis.Buffer || (typeof BufferModule !== "undefined" ? BufferModule.Buffer : undefined);
   globalThis.global = globalThis.global || globalThis;
 }
 `;
+
 
   fs.appendFileSync("public/buffer.min.js", footer, "utf-8");
   console.log("Buffer polyfill built successfully at public/buffer.min.js");
