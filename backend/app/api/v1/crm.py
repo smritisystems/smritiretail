@@ -52,6 +52,12 @@ router = APIRouter()
     status_code=201,
     dependencies=[Depends(require_permission("CRM.MANAGE_CUSTOMERS"))],
 )
+@router.post(
+    "/crm/customers",
+    response_model=CustomerResponse,
+    status_code=201,
+    dependencies=[Depends(require_permission("CRM.MANAGE_CUSTOMERS"))],
+)
 async def create_customer(
     customer_in: CustomerCreate,
     db: AsyncSession = Depends(get_db),
@@ -60,6 +66,20 @@ async def create_customer(
     """Create a new customer. CASHIER, MANAGER, and SYSADMIN may create customers."""
     service = CrmService(db, tenant_ctx)
     return await service.create_customer(customer_in)
+
+
+@router.put("/customers/{customer_id}")
+@router.put("/crm/customers/{customer_id}")
+async def update_customer_endpoint(
+    customer_id: str,
+    customer_in: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Update an existing customer or create if not existing."""
+    service = CrmService(db, tenant_ctx)
+    return await service.update_customer(customer_id, customer_in)
+
 
 
 class CustomerValidationRequest(BaseModel):
@@ -262,6 +282,12 @@ async def get_customer_group(
     status_code=201,
     dependencies=[Depends(require_permission("CRM.MANAGE_CUSTOMERS"))],
 )
+@router.post(
+    "/crm/pricing-groups",
+    response_model=PricingGroupResponse,
+    status_code=201,
+    dependencies=[Depends(require_permission("CRM.MANAGE_CUSTOMERS"))],
+)
 async def create_pricing_group(
     group_in: PricingGroupCreate,
     db: AsyncSession = Depends(get_db),
@@ -283,6 +309,7 @@ async def create_pricing_group(
 
 
 @router.get("/pricing-groups", response_model=list[PricingGroupResponse])
+@router.get("/crm/pricing-groups", response_model=list[PricingGroupResponse])
 async def list_pricing_groups(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
