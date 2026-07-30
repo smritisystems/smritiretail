@@ -1307,3 +1307,14 @@ To prevent over-engineering the core accounting logic in normal retail/distribut
 3. **Automatic Silent Posting:** Every business document (Invoice, Receipt, Payment) must automatically trigger the journal posting silently. Manual journal builder controls are not exposed to normal operations.
 4. **Prohibited Features in v1.0:** Cost centers allocation, accounting workflows, multi-level approvals, posting previews, and financial rule engines are explicitly excluded from the v1.0 footprint.
 
+---
+
+# SWSDK v1.0 & Rule SWSDK-001 — Declarative Workspace Principle
+
+**Status:** MANDATORY LEVEL-1 CONSTITUTION — v1.0 (2026-07-30)
+
+## Rule SWSDK-001 – Declarative Workspace Principle
+
+Every workspace shall declare its metadata, lifecycle, actions, capabilities, permissions, search providers, events, and routing through versioned manifests (`schemaVersion: "1.0"`). Platform services (SUNEF, SPF, SUPOE) consume these manifests to provide standardized behavior. Workspaces shall not directly implement platform concerns that are already provided by the platform. All workspace manifests must pass the 6-stage schema and dependency validation pipeline before registration: `Schema Validation` ──► `Dependency Validation` ──► `Permission Validation` ──► `Capability Validation` ──► `Route Validation` ──► `Registration`.
+
+
