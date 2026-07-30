@@ -34,7 +34,7 @@ import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
 import { formatDate, formatDateTime, formatCurrency } from "../utils/formatters.ts";
 import { SalesInvoiceRegistry } from "./sales/SalesInvoiceRegistry.tsx";
-import { SalesInvoiceStudio } from "./sales/SalesInvoiceStudio.tsx";
+import { SalesBillingStudio } from "./sales/SalesBillingStudio.tsx";
 import { SalesOrderRegistry } from "./sales/SalesOrderRegistry.tsx";
 import { SalesOrderStudio } from "./sales/SalesOrderStudio.tsx";
 import { isValidMobile } from "../utils/validators.ts";
@@ -1817,19 +1817,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               onNotification={onNotification}
             />
           ) : isCreatingInvoice ? (
-            /* Dedicated SAWF Sales Invoice Studio Workspace */
-            <SalesInvoiceStudio
-              initialInvoice={selectedInvoice}
-              customers={customers}
-              products={products}
-              currentUser={currentUser}
-              onBack={() => {
-                setIsCreatingInvoice(false);
-                setSelectedInvoice(null);
-                fetchSalesInvoices();
-              }}
-              onNotification={onNotification}
-            />
+            /* Unified Sales Billing Studio */
+            <SalesBillingStudio />
           ) : isCreatingReturn ? (
             /* Record Sales Return Panel */
             <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl overflow-hidden shadow-xl animate-in fade-in duration-200">

@@ -708,15 +708,9 @@ const AppContent: React.FC = () => {
           />
         );
       case "pos":
-        return (
-          <PosTerminalTab
-            products={products}
-            profiles={profiles}
-            shifts={shifts}
-            onRefreshData={fetchSystemState}
-            onNotification={addNotification}
-          />
-        );
+      case "billing":
+      case "quick-billing":
+        return <SalesBillingStudio />;
       case "crm":
       case "crm-studio":
         return <CrmStudioTab currentUser={currentUser} onNotification={addNotification} />;
