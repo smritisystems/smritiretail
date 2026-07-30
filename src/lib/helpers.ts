@@ -17,8 +17,8 @@
 
 import crypto from "crypto";
 import { roles, auditLogs, stockLedger } from "../state/store.js";
-import { pool } from "../db/pool.js";
 import { apiFetchV1 } from "./apiFetchV1";
+
 
 // ==========================================
 // SECURE PASSWORD HASHING (HREP COMPLIANT)
