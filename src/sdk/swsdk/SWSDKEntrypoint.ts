@@ -113,8 +113,9 @@ const scdmChannelDistributionBundle = {
   capabilities: {
     schemaVersion: "1.0" as const,
     workspaceId: "scdm.channel-distribution",
-    capabilities: ["analytics", "audit", "workflow", "barcode"] as const,
+    capabilities: ["analytics", "audit", "workflow", "timeline", "barcode"] as const,
   },
+
 
   permissions: {
     schemaVersion: "1.0" as const,
