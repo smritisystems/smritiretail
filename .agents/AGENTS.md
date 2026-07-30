@@ -216,6 +216,26 @@ The Installation Bootstrap Service shall be the only component permitted to modi
 ### SSA-001: System Super Administrator Standard
 The built-in `super` account is the platform owner and has unrestricted administrative capabilities through the authorization framework. It does not bypass authentication or security controls. All privileged actions must be authenticated, authorized, logged, and auditable. No hidden backdoors or undocumented privilege escalation mechanisms are permitted.
 
+### SMRITI TAX GOVERNANCE CONSTITUTION (TG-001 — TG-006)
+
+#### Rule TG-001: Zero Manual Tax Selection Policy (MANDATORY)
+Manual GST/Tax selection is strictly prohibited in all sales transactions (POS Billing, Sales Invoice, Tax Invoice, Sales Order, Retail Billing). UI controls for GST Type, GST %, CGST, SGST, IGST, Tax Code, Tax Template, Inclusive/Exclusive, and Tax Mode shall be removed or rendered read-only. Tax shall always be resolved automatically by STRE.
+
+#### Rule TG-002: Centralized Tax Calculation Authority (MANDATORY)
+All tax calculations across the platform shall pass exclusively through the SMRITI Smart Tax Resolution Engine (`STRE`). No module, component, screen, hook, utility, or billing engine may independently calculate tax.
+
+#### Rule TG-003: Immutable Document Tax Snapshot (MANDATORY)
+Once a transaction is posted, the resolved tax details (rates, profiles, rule version, breakdown, and trace) shall be stored as a versioned, immutable `DocumentTaxSnapshot` object on the document and never recalculated retrospectively.
+
+#### Rule TG-004: Tax Master Data Authority (MANDATORY)
+Tax determination shall be based exclusively on approved master data (Tax Profile Master, HSN/SAC Master, Customer Group, Customer, Item, Company Policy). Transaction screens shall never serve as the source of tax configuration.
+
+#### Rule TG-005: Effective-Dated Tax Rules (MANDATORY)
+All statutory tax rates, classifications, and rules shall be effective-date driven. STRE shall resolve tax using the transaction `documentDate` matched against `effectiveFrom` and `effectiveTo` date ranges in the master data.
+
+#### Rule TG-006: No Silent Fallbacks (MANDATORY)
+If STRE cannot determine a valid tax using approved master data and statutory rules, it shall NEVER guess, default, or silently apply a tax rate. The transaction must be blocked with an actionable validation message identifying the missing master data. Only authorized master data updates or recorded overrides may resolve the block.
+
 
 
 ### Rule SLP-002: Launchpad Composition Framework Principle

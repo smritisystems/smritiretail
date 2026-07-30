@@ -103,15 +103,11 @@ export const PurchaseInvoiceStudio: React.FC<PurchaseInvoiceStudioProps> = ({
               />
             </div>
             <div>
-              <label className="text-theme-muted block font-medium mb-1">GST Jurisdiction Type</label>
-              <select
-                value={isInterstate ? "INTERSTATE" : "INTRASTATE"}
-                onChange={(e) => setIsInterstate(e.target.value === "INTERSTATE")}
-                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-theme-body"
-              >
-                <option value="INTRASTATE">Intrastate Supply (CGST + SGST)</option>
-                <option value="INTERSTATE">Interstate Supply (IGST)</option>
-              </select>
+              <label className="text-theme-muted block font-medium mb-1">Tax Resolution (STRE)</label>
+              <div className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-theme-body text-xs font-mono flex items-center justify-between">
+                <span>✔ Automatically Applied ({isInterstate ? "Interstate IGST 100%" : "Intrastate CGST 50% + SGST 50%"})</span>
+                <span className="text-[10px] text-emerald-400 font-semibold px-2 py-0.5 bg-emerald-950/40 rounded border border-emerald-800/40">STRE v1.0</span>
+              </div>
             </div>
           </div>
         );
