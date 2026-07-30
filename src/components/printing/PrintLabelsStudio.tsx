@@ -8,7 +8,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { WindowManager } from "../../sdk";
-import { getCustomers } from "../../services/customerStore";
 
 export interface PrintItemRow {
   id: string;
@@ -83,6 +82,13 @@ export const PrintLabelsStudio: React.FC = () => {
   // Source Selection
   const [selectedSource, setSelectedSource] = useState<SourceType>("manual");
 
+  // Hidable / Collapsible Panel States
+  const [isSourceExpanded, setIsSourceExpanded] = useState<boolean>(true);
+  const [isContextFiltersExpanded, setIsContextFiltersExpanded] = useState<boolean>(true);
+  const [isRangeFiltersExpanded, setIsRangeFiltersExpanded] = useState<boolean>(true);
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState<boolean>(true);
+  const [isSettingsExpanded, setIsSettingsExpanded] = useState<boolean>(true);
+
   // Context & Filter Inputs
   const [docFrom, setDocFrom] = useState<string>("");
   const [docTo, setDocTo] = useState<string>("");
@@ -132,6 +138,15 @@ export const PrintLabelsStudio: React.FC = () => {
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
+  };
+
+  // Toggle All Filter Cards
+  const toggleAllFilters = () => {
+    const shouldExpand = !isSourceExpanded || !isContextFiltersExpanded || !isRangeFiltersExpanded;
+    setIsSourceExpanded(shouldExpand);
+    setIsContextFiltersExpanded(shouldExpand);
+    setIsRangeFiltersExpanded(shouldExpand);
+    showToast(shouldExpand ? "Expanded all filter sections" : "Collapsed all filter sections to maximize grid view");
   };
 
   // Switch Source Handler
@@ -292,6 +307,17 @@ export const PrintLabelsStudio: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-3">
+          {/* Toggle All Filters Button */}
+          <button
+            onClick={toggleAllFilters}
+            className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+          >
+            <span className="material-symbols-outlined text-sm mr-1">
+              {isSourceExpanded && isContextFiltersExpanded && isRangeFiltersExpanded ? "unfold_less" : "unfold_more"}
+            </span>
+            {isSourceExpanded && isContextFiltersExpanded && isRangeFiltersExpanded ? "Collapse Filters" : "Expand Filters"}
+          </button>
+
           <div className="relative">
             <input
               type="text"
@@ -334,278 +360,336 @@ export const PrintLabelsStudio: React.FC = () => {
       <main className="p-4 flex-1 grid grid-cols-12 gap-4">
         {/* Left Column (8 cols): Sources, Filters & Items Table */}
         <div className="col-span-8 space-y-4">
-          {/* Section 1: Select Source (13 Icon Buttons) */}
+          {/* Section 1: Select Source (Hidable) */}
           <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-            <h2 className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center mb-3">
-              <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold mr-2">
-                1
-              </span>
-              Select Source
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { id: "manual", label: "Manual Entry", icon: "edit_note" },
-                { id: "item_master", label: "Item Master", icon: "inventory_2" },
-                { id: "purchase_invoice", label: "Purchase Invoice", icon: "receipt_long" },
-                { id: "grn", label: "GRN", icon: "move_to_inbox" },
-                { id: "purchase_return", label: "Purchase Return", icon: "settings_backup_restore" },
-                { id: "sales_invoice", label: "Sales Invoice", icon: "point_of_sale" },
-                { id: "sales_return", label: "Sales Return", icon: "assignment_return" },
-                { id: "stock_transfer", label: "Stock Transfer", icon: "swap_horiz" },
-                { id: "production", label: "Production", icon: "precision_manufacturing" },
-                { id: "physical_stock", label: "Physical Stock", icon: "inventory" },
-                { id: "batch", label: "Batch", icon: "qr_code_2" },
-                { id: "serial_number", label: "Serial Number", icon: "pin" },
-                { id: "direct_scan", label: "Direct Scan", icon: "barcode_scanner" },
-              ].map((src) => (
-                <button
-                  key={src.id}
-                  onClick={() => handleSelectSource(src.id as SourceType)}
-                  className={`px-3 py-2 rounded-xl border text-xs font-bold flex flex-col items-center justify-center min-w-[70px] cursor-pointer transition ${
-                    selectedSource === src.id
-                      ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-base mb-1">{src.icon}</span>
-                  <span className="text-[10px] tracking-tight">{src.label}</span>
-                </button>
-              ))}
+            <div
+              className="flex items-center justify-between cursor-pointer select-none"
+              onClick={() => setIsSourceExpanded(!isSourceExpanded)}
+            >
+              <h2 className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center">
+                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold mr-2">
+                  1
+                </span>
+                Select Source
+                {!isSourceExpanded && (
+                  <span className="ml-3 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                    Source: <span className="text-blue-700 uppercase font-mono">{selectedSource.replace("_", " ")}</span> (Click to Expand)
+                  </span>
+                )}
+              </h2>
+              <button className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <span className="material-symbols-outlined text-lg">
+                  {isSourceExpanded ? "expand_less" : "expand_more"}
+                </span>
+              </button>
             </div>
+
+            {isSourceExpanded && (
+              <div className="flex flex-wrap gap-2 mt-3 animate-in fade-in duration-100">
+                {[
+                  { id: "manual", label: "Manual Entry", icon: "edit_note" },
+                  { id: "item_master", label: "Item Master", icon: "inventory_2" },
+                  { id: "purchase_invoice", label: "Purchase Invoice", icon: "receipt_long" },
+                  { id: "grn", label: "GRN", icon: "move_to_inbox" },
+                  { id: "purchase_return", label: "Purchase Return", icon: "settings_backup_restore" },
+                  { id: "sales_invoice", label: "Sales Invoice", icon: "point_of_sale" },
+                  { id: "sales_return", label: "Sales Return", icon: "assignment_return" },
+                  { id: "stock_transfer", label: "Stock Transfer", icon: "swap_horiz" },
+                  { id: "production", label: "Production", icon: "precision_manufacturing" },
+                  { id: "physical_stock", label: "Physical Stock", icon: "inventory" },
+                  { id: "batch", label: "Batch", icon: "qr_code_2" },
+                  { id: "serial_number", label: "Serial Number", icon: "pin" },
+                  { id: "direct_scan", label: "Direct Scan", icon: "barcode_scanner" },
+                ].map((src) => (
+                  <button
+                    key={src.id}
+                    onClick={() => handleSelectSource(src.id as SourceType)}
+                    className={`px-3 py-2 rounded-xl border text-xs font-bold flex flex-col items-center justify-center min-w-[70px] cursor-pointer transition ${
+                      selectedSource === src.id
+                        ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base mb-1">{src.icon}</span>
+                    <span className="text-[10px] tracking-tight">{src.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </section>
 
-          {/* Section 2: Transaction / Context Filters */}
+          {/* Section 2: Transaction / Context Filters (Hidable) */}
           <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-            <h2 className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center mb-3">
-              <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold mr-2">
-                2
-              </span>
-              Transaction / Context Filters <span className="text-slate-400 font-normal ml-2 text-[11px]">(Required for selected source)</span>
-            </h2>
-            <div className="grid grid-cols-7 gap-2.5 text-xs">
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Doc No. From</label>
-                <input
-                  type="text"
-                  value={docFrom}
-                  onChange={(e) => setDocFrom(e.target.value)}
-                  placeholder="From Document..."
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Doc No. To</label>
-                <input
-                  type="text"
-                  value={docTo}
-                  onChange={(e) => setDocTo(e.target.value)}
-                  placeholder="To Document..."
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Date From</label>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Date To</label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Supplier</label>
-                <select
-                  value={selectedSupplier}
-                  onChange={(e) => setSelectedSupplier(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
-                >
-                  <option>All Suppliers</option>
-                  <option>Apex Footwear Corp</option>
-                  <option>Reliance Retail Ltd</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Warehouse</label>
-                <select
-                  value={selectedWarehouse}
-                  onChange={(e) => setSelectedWarehouse(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
-                >
-                  <option>All Warehouses</option>
-                  <option>Central WH - Mumbai</option>
-                  <option>Delhi Hub</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Salesman</label>
-                <select
-                  value={selectedSalesman}
-                  onChange={(e) => setSelectedSalesman(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
-                >
-                  <option>All Salesmans</option>
-                  <option>Rahul Sharma</option>
-                  <option>Priya Patel</option>
-                </select>
-              </div>
+            <div
+              className="flex items-center justify-between cursor-pointer select-none"
+              onClick={() => setIsContextFiltersExpanded(!isContextFiltersExpanded)}
+            >
+              <h2 className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center">
+                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold mr-2">
+                  2
+                </span>
+                Transaction / Context Filters
+                {!isContextFiltersExpanded && (
+                  <span className="ml-3 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                    Supplier: {selectedSupplier} | WH: {selectedWarehouse}
+                  </span>
+                )}
+              </h2>
+              <button className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <span className="material-symbols-outlined text-lg">
+                  {isContextFiltersExpanded ? "expand_less" : "expand_more"}
+                </span>
+              </button>
             </div>
+
+            {isContextFiltersExpanded && (
+              <div className="grid grid-cols-7 gap-2.5 text-xs mt-3 animate-in fade-in duration-100">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Doc No. From</label>
+                  <input
+                    type="text"
+                    value={docFrom}
+                    onChange={(e) => setDocFrom(e.target.value)}
+                    placeholder="From Document..."
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Doc No. To</label>
+                  <input
+                    type="text"
+                    value={docTo}
+                    onChange={(e) => setDocTo(e.target.value)}
+                    placeholder="To Document..."
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Date From</label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Date To</label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Supplier</label>
+                  <select
+                    value={selectedSupplier}
+                    onChange={(e) => setSelectedSupplier(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
+                  >
+                    <option>All Suppliers</option>
+                    <option>Apex Footwear Corp</option>
+                    <option>Reliance Retail Ltd</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Warehouse</label>
+                  <select
+                    value={selectedWarehouse}
+                    onChange={(e) => setSelectedWarehouse(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
+                  >
+                    <option>All Warehouses</option>
+                    <option>Central WH - Mumbai</option>
+                    <option>Delhi Hub</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Salesman</label>
+                  <select
+                    value={selectedSalesman}
+                    onChange={(e) => setSelectedSalesman(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
+                  >
+                    <option>All Salesmans</option>
+                    <option>Rahul Sharma</option>
+                    <option>Priya Patel</option>
+                  </select>
+                </div>
+              </div>
+            )}
           </section>
 
-          {/* Section 3: Range / Boundary Filters (From -> To Grid) */}
+          {/* Section 3: Range / Boundary Filters (Hidable) */}
           <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-            <div className="flex items-center justify-between mb-3">
+            <div
+              className="flex items-center justify-between cursor-pointer select-none"
+              onClick={() => setIsRangeFiltersExpanded(!isRangeFiltersExpanded)}
+            >
               <h2 className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center">
                 <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold mr-2">
                   3
                 </span>
                 Range / Boundary Filters (From → To)
+                {!isRangeFiltersExpanded && (
+                  <span className="ml-3 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                    Item Code / Barcode / Brand / Category Boundaries Active
+                  </span>
+                )}
               </h2>
-              <button
-                onClick={resetFilters}
-                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
-              >
-                <span className="material-symbols-outlined text-xs mr-1">restart_alt</span>
-                Reset Filters
-              </button>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 text-xs">
-              {/* Row 1 */}
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Item Code</label>
-                <div className="flex items-center space-x-1">
-                  <input
-                    type="text"
-                    placeholder="From"
-                    value={filterItemCodeFrom}
-                    onChange={(e) => setFilterItemCodeFrom(e.target.value)}
-                    className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono"
-                  />
-                  <input
-                    type="text"
-                    placeholder="To"
-                    value={filterItemCodeTo}
-                    onChange={(e) => setFilterItemCodeTo(e.target.value)}
-                    className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Barcode</label>
-                <div className="flex items-center space-x-1">
-                  <input
-                    type="text"
-                    placeholder="From"
-                    value={filterBarcodeFrom}
-                    onChange={(e) => setFilterBarcodeFrom(e.target.value)}
-                    className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono"
-                  />
-                  <input
-                    type="text"
-                    placeholder="To"
-                    value={filterBarcodeTo}
-                    onChange={(e) => setFilterBarcodeTo(e.target.value)}
-                    className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Product</label>
-                <div className="flex items-center space-x-1">
-                  <input type="text" placeholder="From" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono" />
-                  <input type="text" placeholder="To" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono" />
-                </div>
-              </div>
-
-              {/* Row 2 */}
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Brand</label>
-                <div className="flex items-center space-x-1">
-                  <input
-                    type="text"
-                    placeholder="From"
-                    value={filterBrandFrom}
-                    onChange={(e) => setFilterBrandFrom(e.target.value)}
-                    className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs"
-                  />
-                  <input
-                    type="text"
-                    placeholder="To"
-                    value={filterBrandTo}
-                    onChange={(e) => setFilterBrandTo(e.target.value)}
-                    className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Category</label>
-                <div className="flex items-center space-x-1">
-                  <input
-                    type="text"
-                    placeholder="From"
-                    value={filterCategoryFrom}
-                    onChange={(e) => setFilterCategoryFrom(e.target.value)}
-                    className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs"
-                  />
-                  <input
-                    type="text"
-                    placeholder="To"
-                    value={filterCategoryTo}
-                    onChange={(e) => setFilterCategoryTo(e.target.value)}
-                    className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Sub Category</label>
-                <div className="flex items-center space-x-1">
-                  <input type="text" placeholder="From" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
-                  <input type="text" placeholder="To" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
-                </div>
-              </div>
-
-              {/* Row 3 */}
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Department</label>
-                <div className="flex items-center space-x-1">
-                  <input type="text" placeholder="From" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
-                  <input type="text" placeholder="To" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Section</label>
-                <div className="flex items-center space-x-1">
-                  <input type="text" placeholder="From" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
-                  <input type="text" placeholder="To" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Style</label>
-                <div className="flex items-center space-x-1">
-                  <input type="text" placeholder="From" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
-                  <input type="text" placeholder="To" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
-                </div>
+              <div className="flex items-center space-x-2">
+                {isRangeFiltersExpanded && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      resetFilters();
+                    }}
+                    className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+                  >
+                    <span className="material-symbols-outlined text-xs mr-1">restart_alt</span>
+                    Reset Filters
+                  </button>
+                )}
+                <button className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                  <span className="material-symbols-outlined text-lg">
+                    {isRangeFiltersExpanded ? "expand_less" : "expand_more"}
+                  </span>
+                </button>
               </div>
             </div>
+
+            {isRangeFiltersExpanded && (
+              <div className="grid grid-cols-3 gap-3 text-xs mt-3 animate-in fade-in duration-100">
+                {/* Row 1 */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Item Code</label>
+                  <div className="flex items-center space-x-1">
+                    <input
+                      type="text"
+                      placeholder="From"
+                      value={filterItemCodeFrom}
+                      onChange={(e) => setFilterItemCodeFrom(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono"
+                    />
+                    <input
+                      type="text"
+                      placeholder="To"
+                      value={filterItemCodeTo}
+                      onChange={(e) => setFilterItemCodeTo(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Barcode</label>
+                  <div className="flex items-center space-x-1">
+                    <input
+                      type="text"
+                      placeholder="From"
+                      value={filterBarcodeFrom}
+                      onChange={(e) => setFilterBarcodeFrom(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono"
+                    />
+                    <input
+                      type="text"
+                      placeholder="To"
+                      value={filterBarcodeTo}
+                      onChange={(e) => setFilterBarcodeTo(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Product</label>
+                  <div className="flex items-center space-x-1">
+                    <input type="text" placeholder="From" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono" />
+                    <input type="text" placeholder="To" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono" />
+                  </div>
+                </div>
+
+                {/* Row 2 */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Brand</label>
+                  <div className="flex items-center space-x-1">
+                    <input
+                      type="text"
+                      placeholder="From"
+                      value={filterBrandFrom}
+                      onChange={(e) => setFilterBrandFrom(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs"
+                    />
+                    <input
+                      type="text"
+                      placeholder="To"
+                      value={filterBrandTo}
+                      onChange={(e) => setFilterBrandTo(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Category</label>
+                  <div className="flex items-center space-x-1">
+                    <input
+                      type="text"
+                      placeholder="From"
+                      value={filterCategoryFrom}
+                      onChange={(e) => setFilterCategoryFrom(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs"
+                    />
+                    <input
+                      type="text"
+                      placeholder="To"
+                      value={filterCategoryTo}
+                      onChange={(e) => setFilterCategoryTo(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Sub Category</label>
+                  <div className="flex items-center space-x-1">
+                    <input type="text" placeholder="From" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
+                    <input type="text" placeholder="To" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
+                  </div>
+                </div>
+
+                {/* Row 3 */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Department</label>
+                  <div className="flex items-center space-x-1">
+                    <input type="text" placeholder="From" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
+                    <input type="text" placeholder="To" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Section</label>
+                  <div className="flex items-center space-x-1">
+                    <input type="text" placeholder="From" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
+                    <input type="text" placeholder="To" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Style</label>
+                  <div className="flex items-center space-x-1">
+                    <input type="text" placeholder="From" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
+                    <input type="text" placeholder="To" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Section 4: Items to Print Grid */}
-          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex-1">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center">
                 <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold mr-2">
@@ -653,7 +737,7 @@ export const PrintLabelsStudio: React.FC = () => {
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+            <div className="overflow-x-auto border border-slate-200 rounded-lg min-h-[300px]">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[10px] font-bold tracking-wider">
                   <tr>
@@ -749,247 +833,275 @@ export const PrintLabelsStudio: React.FC = () => {
           </section>
         </div>
 
-        {/* Right Column (4 cols): Label Preview & Print Settings */}
+        {/* Right Column (4 cols): Label Preview & Print Settings (Hidable) */}
         <div className="col-span-4 space-y-4">
-          {/* Section 5: Label Preview Card */}
+          {/* Section 5: Label Preview Card (Hidable) */}
           <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-            <h2 className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center mb-3">
-              <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold mr-2">
-                5
-              </span>
-              Label Preview
-            </h2>
-
-            <div className="mb-3">
-              <select
-                value={labelSize}
-                onChange={(e) => setLabelSize(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-700"
-              >
-                <option>Default Label (50 x 25 mm)</option>
-                <option>Apparel Hangtag (75 x 50 mm)</option>
-                <option>Jewelry Tag (38 x 12 mm)</option>
-              </select>
+            <div
+              className="flex items-center justify-between cursor-pointer select-none mb-3"
+              onClick={() => setIsPreviewExpanded(!isPreviewExpanded)}
+            >
+              <h2 className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center">
+                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold mr-2">
+                  5
+                </span>
+                Label Preview
+              </h2>
+              <button className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <span className="material-symbols-outlined text-lg">
+                  {isPreviewExpanded ? "expand_less" : "expand_more"}
+                </span>
+              </button>
             </div>
 
-            {/* Visual SVG Barcode Label Box */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col items-center justify-center shadow-inner relative min-h-[220px]">
-              {activeItem ? (
-                <div className="bg-white border border-slate-300 rounded-xl p-4 shadow-md w-full max-w-[260px] text-center space-y-2">
-                  <h3 className="font-extrabold text-sm text-slate-900 leading-tight">{activeItem.itemName}</h3>
-                  <div className="text-[10px] text-slate-500 font-mono">
-                    Item Code : {activeItem.itemCode} | {showHsn && `HSN : ${activeItem.hsn}`}
-                  </div>
+            {isPreviewExpanded && (
+              <div className="animate-in fade-in duration-100">
+                <div className="mb-3">
+                  <select
+                    value={labelSize}
+                    onChange={(e) => setLabelSize(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-700"
+                  >
+                    <option>Default Label (50 x 25 mm)</option>
+                    <option>Apparel Hangtag (75 x 50 mm)</option>
+                    <option>Jewelry Tag (38 x 12 mm)</option>
+                  </select>
+                </div>
 
-                  {showBrand && activeItem.brand && (
-                    <div className="text-[10px] font-bold text-blue-900 uppercase tracking-wider">{activeItem.brand}</div>
+                {/* Visual SVG Barcode Label Box */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col items-center justify-center shadow-inner relative min-h-[220px]">
+                  {activeItem ? (
+                    <div className="bg-white border border-slate-300 rounded-xl p-4 shadow-md w-full max-w-[260px] text-center space-y-2">
+                      <h3 className="font-extrabold text-sm text-slate-900 leading-tight">{activeItem.itemName}</h3>
+                      <div className="text-[10px] text-slate-500 font-mono">
+                        Item Code : {activeItem.itemCode} | {showHsn && `HSN : ${activeItem.hsn}`}
+                      </div>
+
+                      {showBrand && activeItem.brand && (
+                        <div className="text-[10px] font-bold text-blue-900 uppercase tracking-wider">{activeItem.brand}</div>
+                      )}
+
+                      {showBatchSerial && activeItem.batchSerial !== "-" && (
+                        <div className="text-[9px] font-mono text-slate-600">Batch/Serial: {activeItem.batchSerial}</div>
+                      )}
+
+                      {/* SVG Barcode Representation */}
+                      <div className="py-1">
+                        <svg className="w-full h-12" viewBox="0 0 200 50">
+                          <rect width="200" height="50" fill="white" />
+                          {/* Barcode lines simulation */}
+                          {[10, 14, 18, 24, 28, 36, 40, 48, 52, 60, 64, 72, 76, 84, 88, 96, 102, 110, 116, 124, 130, 138, 144, 152, 160, 168, 174, 182, 188].map((x, i) => (
+                            <rect key={i} x={x} y="5" width={i % 3 === 0 ? "3" : "1.5"} height="35" fill="black" />
+                          ))}
+                        </svg>
+                        <span className="font-mono text-xs font-bold text-slate-900 tracking-widest block -mt-1">
+                          {activeItem.barcode}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-800 border-t border-slate-100 pt-1.5">
+                        {showPrice && <span>MRP : ₹ {activeItem.mrp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>}
+                        {showTax && <span className="text-[10px] text-slate-500 font-normal">{activeItem.taxRate || "18% IGST"}</span>}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-slate-400 text-xs font-mono">No items available for preview</div>
                   )}
 
-                  {showBatchSerial && activeItem.batchSerial !== "-" && (
-                    <div className="text-[9px] font-mono text-slate-600">Batch/Serial: {activeItem.batchSerial}</div>
-                  )}
-
-                  {/* SVG Barcode Representation */}
-                  <div className="py-1">
-                    <svg className="w-full h-12" viewBox="0 0 200 50">
-                      <rect width="200" height="50" fill="white" />
-                      {/* Barcode lines simulation */}
-                      {[10, 14, 18, 24, 28, 36, 40, 48, 52, 60, 64, 72, 76, 84, 88, 96, 102, 110, 116, 124, 130, 138, 144, 152, 160, 168, 174, 182, 188].map((x, i) => (
-                        <rect key={i} x={x} y="5" width={i % 3 === 0 ? "3" : "1.5"} height="35" fill="black" />
-                      ))}
-                    </svg>
-                    <span className="font-mono text-xs font-bold text-slate-900 tracking-widest block -mt-1">
-                      {activeItem.barcode}
+                  {/* Pagination controls */}
+                  <div className="flex items-center space-x-3 mt-4 text-xs font-bold text-blue-900">
+                    <button
+                      onClick={() => setActivePreviewIndex((prev) => Math.max(0, prev - 1))}
+                      className="p-1 hover:bg-slate-200 rounded text-slate-600 cursor-pointer"
+                    >
+                      &lt;
+                    </button>
+                    <span>
+                      {filteredPrintItems.length > 0 ? activePreviewIndex + 1 : 0} / {filteredPrintItems.length}
                     </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-800 border-t border-slate-100 pt-1.5">
-                    {showPrice && <span>MRP : ₹ {activeItem.mrp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>}
-                    {showTax && <span className="text-[10px] text-slate-500 font-normal">{activeItem.taxRate || "18% IGST"}</span>}
+                    <button
+                      onClick={() => setActivePreviewIndex((prev) => Math.min(filteredPrintItems.length - 1, prev + 1))}
+                      className="p-1 hover:bg-slate-200 rounded text-slate-600 cursor-pointer"
+                    >
+                      &gt;
+                    </button>
                   </div>
                 </div>
-              ) : (
-                <div className="text-slate-400 text-xs font-mono">No items available for preview</div>
-              )}
-
-              {/* Pagination controls */}
-              <div className="flex items-center space-x-3 mt-4 text-xs font-bold text-blue-900">
-                <button
-                  onClick={() => setActivePreviewIndex((prev) => Math.max(0, prev - 1))}
-                  className="p-1 hover:bg-slate-200 rounded text-slate-600 cursor-pointer"
-                >
-                  &lt;
-                </button>
-                <span>
-                  {filteredPrintItems.length > 0 ? activePreviewIndex + 1 : 0} / {filteredPrintItems.length}
-                </span>
-                <button
-                  onClick={() => setActivePreviewIndex((prev) => Math.min(filteredPrintItems.length - 1, prev + 1))}
-                  className="p-1 hover:bg-slate-200 rounded text-slate-600 cursor-pointer"
-                >
-                  &gt;
-                </button>
               </div>
-            </div>
+            )}
           </section>
 
-          {/* Section 6: Print Settings */}
+          {/* Section 6: Print Settings (Hidable) */}
           <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
-            <h2 className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center">
-              <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold mr-2">
-                6
-              </span>
-              Print Settings
-            </h2>
-
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Printer</label>
-              <div className="flex items-center space-x-1.5">
-                <select
-                  value={printer}
-                  onChange={(e) => setPrinter(e.target.value)}
-                  className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-700"
-                >
-                  <option>Zebra ZD420 (USB)</option>
-                  <option>TSC TE200 (USB/LAN)</option>
-                  <option>Godex EZ120</option>
-                  <option>TVS LP 46 Neo</option>
-                </select>
-                <button
-                  onClick={() => setIsPrinterConfigModalOpen(true)}
-                  className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-sm">settings</span>
-                </button>
-              </div>
+            <div
+              className="flex items-center justify-between cursor-pointer select-none"
+              onClick={() => setIsSettingsExpanded(!isSettingsExpanded)}
+            >
+              <h2 className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center">
+                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold mr-2">
+                  6
+                </span>
+                Print Settings
+              </h2>
+              <button className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <span className="material-symbols-outlined text-lg">
+                  {isSettingsExpanded ? "expand_less" : "expand_more"}
+                </span>
+              </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Label Size</label>
-                <select
-                  value={labelSize}
-                  onChange={(e) => setLabelSize(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-700"
-                >
-                  <option>50 x 25 mm</option>
-                  <option>38 x 25 mm</option>
-                  <option>50 x 38 mm</option>
-                  <option>100 x 50 mm</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">No. of Labels per Row</label>
-                <select
-                  value={labelsPerRow}
-                  onChange={(e) => setLabelsPerRow(parseInt(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-700"
-                >
-                  <option value={1}>1</option>
-                  <option value={2}>2</option>
-                  <option value={3}>3</option>
-                  <option value={4}>4</option>
-                </select>
-              </div>
-            </div>
+            {isSettingsExpanded && (
+              <div className="space-y-3 animate-in fade-in duration-100">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Printer</label>
+                  <div className="flex items-center space-x-1.5">
+                    <select
+                      value={printer}
+                      onChange={(e) => setPrinter(e.target.value)}
+                      className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-700"
+                    >
+                      <option>Zebra ZD420 (USB)</option>
+                      <option>TSC TE200 (USB/LAN)</option>
+                      <option>Godex EZ120</option>
+                      <option>TVS LP 46 Neo</option>
+                    </select>
+                    <button
+                      onClick={() => setIsPrinterConfigModalOpen(true)}
+                      className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">settings</span>
+                    </button>
+                  </div>
+                </div>
 
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">No. of Copies</label>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setCopies((prev) => Math.max(1, prev - 1))}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-300 rounded-lg text-xs cursor-pointer"
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  value={copies}
-                  onChange={(e) => setCopies(parseInt(e.target.value) || 1)}
-                  className="w-16 bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-center font-mono font-bold text-xs"
-                />
-                <button
-                  onClick={() => setCopies((prev) => prev + 1)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-300 rounded-lg text-xs cursor-pointer"
-                >
-                  +
-                </button>
-              </div>
-            </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Label Size</label>
+                    <select
+                      value={labelSize}
+                      onChange={(e) => setLabelSize(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-700"
+                    >
+                      <option>50 x 25 mm</option>
+                      <option>38 x 25 mm</option>
+                      <option>50 x 38 mm</option>
+                      <option>100 x 50 mm</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">No. of Labels per Row</label>
+                    <select
+                      value={labelsPerRow}
+                      onChange={(e) => setLabelsPerRow(parseInt(e.target.value))}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-700"
+                    >
+                      <option value={1}>1</option>
+                      <option value={2}>2</option>
+                      <option value={3}>3</option>
+                      <option value={4}>4</option>
+                    </select>
+                  </div>
+                </div>
 
-            {/* Checkboxes */}
-            <div className="space-y-1.5 pt-2 border-t border-slate-100 text-xs">
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showPrice}
-                  onChange={(e) => setShowPrice(e.target.checked)}
-                  className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                />
-                <span className="font-medium text-slate-700">Show Price</span>
-              </label>
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showHsn}
-                  onChange={(e) => setShowHsn(e.target.checked)}
-                  className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                />
-                <span className="font-medium text-slate-700">Show HSN</span>
-              </label>
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showTax}
-                  onChange={(e) => setShowTax(e.target.checked)}
-                  className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                />
-                <span className="font-medium text-slate-700">Show Tax</span>
-              </label>
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showBatchSerial}
-                  onChange={(e) => setShowBatchSerial(e.target.checked)}
-                  className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                />
-                <span className="font-medium text-slate-700">Show Batch / Serial</span>
-              </label>
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showBrand}
-                  onChange={(e) => setShowBrand(e.target.checked)}
-                  className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                />
-                <span className="font-medium text-slate-700">Show Brand</span>
-              </label>
-            </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">No. of Copies</label>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setCopies((prev) => Math.max(1, prev - 1))}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-300 rounded-lg text-xs cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      value={copies}
+                      onChange={(e) => setCopies(parseInt(e.target.value) || 1)}
+                      className="w-16 bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-center font-mono font-bold text-xs"
+                    />
+                    <button
+                      onClick={() => setCopies((prev) => prev + 1)}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-300 rounded-lg text-xs cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Print Direction</label>
-                <select
-                  value={printDirection}
-                  onChange={(e) => setPrintDirection(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700"
-                >
-                  <option>Left to Right</option>
-                  <option>Top to Bottom</option>
-                </select>
+                {/* Checkboxes */}
+                <div className="space-y-1.5 pt-2 border-t border-slate-100 text-xs">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showPrice}
+                      onChange={(e) => setShowPrice(e.target.checked)}
+                      className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                    />
+                    <span className="font-medium text-slate-700">Show Price</span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showHsn}
+                      onChange={(e) => setShowHsn(e.target.checked)}
+                      className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                    />
+                    <span className="font-medium text-slate-700">Show HSN</span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showTax}
+                      onChange={(e) => setShowTax(e.target.checked)}
+                      className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                    />
+                    <span className="font-medium text-slate-700">Show Tax</span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showBatchSerial}
+                      onChange={(e) => setShowBatchSerial(e.target.checked)}
+                      className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                    />
+                    <span className="font-medium text-slate-700">Show Batch / Serial</span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showBrand}
+                      onChange={(e) => setShowBrand(e.target.checked)}
+                      className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                    />
+                    <span className="font-medium text-slate-700">Show Brand</span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Print Direction</label>
+                    <select
+                      value={printDirection}
+                      onChange={(e) => setPrintDirection(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700"
+                    >
+                      <option>Left to Right</option>
+                      <option>Top to Bottom</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Print Quality</label>
+                    <select
+                      value={printQuality}
+                      onChange={(e) => setPrintQuality(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700"
+                    >
+                      <option>High (300 DPI)</option>
+                      <option>Standard (203 DPI)</option>
+                    </select>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Print Quality</label>
-                <select
-                  value={printQuality}
-                  onChange={(e) => setPrintQuality(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700"
-                >
-                  <option>High (300 DPI)</option>
-                  <option>Standard (203 DPI)</option>
-                </select>
-              </div>
-            </div>
+            )}
           </section>
         </div>
       </main>
