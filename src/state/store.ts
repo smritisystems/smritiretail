@@ -67,6 +67,8 @@ export const sessions: Record<string, {
   expiresAt?: string;
 }> = {};
 
+const LOCAL_DB_KEY = "SMRITI_LOCAL_DB";
+
 // Save database state
 export function saveDb() {
   try {
@@ -85,58 +87,49 @@ export function saveDb() {
       attributeGroups,
       variantTemplates,
       categoryAttributeGroupMappings,
-
       roles
     };
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf8");
+    if (typeof window !== "undefined" && window.localStorage) {
+      window.localStorage.setItem(LOCAL_DB_KEY, JSON.stringify(data));
+    }
   } catch (e) {
-    console.error("Failed to write to file database:", e);
+    console.error("Failed to write to local database:", e);
   }
 }
 
 // Load database state
 export function loadDb() {
   try {
-    if (fs.existsSync(DB_FILE)) {
-      const raw = fs.readFileSync(DB_FILE, "utf8");
-      const data = JSON.parse(raw);
-      if (data.ledgerEntries) ledgerEntries = data.ledgerEntries;
-      if (data.auditLogs) auditLogs = data.auditLogs;
-      if (data.profiles) profiles = data.profiles;
-      if (data.bills) bills = data.bills;
-      if (data.holdBills) holdBills = data.holdBills;
-      if (data.quotations) quotations = data.quotations;
-      if (data.salesOrders) salesOrders = data.salesOrders;
-      if (data.salesInvoices) salesInvoices = data.salesInvoices;
-      if (data.salesReturns) salesReturns = data.salesReturns;
-      if (data.goodsReceipts) goodsReceipts = data.goodsReceipts;
-      if (data.attributeDefinitions) attributeDefinitions = data.attributeDefinitions;
-      if (data.attributeGroups) attributeGroups = data.attributeGroups;
-      if (data.variantTemplates) variantTemplates = data.variantTemplates;
-      if (data.categoryAttributeGroupMappings) categoryAttributeGroupMappings = data.categoryAttributeGroupMappings;
-
-      if (data.roles) roles = data.roles;
-
-      saveDb();
-      console.log("[Local DB] Loaded data successfully from disk!");
-    } else {
-      console.log("[Local DB] No database file found on disk. Initializing with default seeded data...");
-      saveDb();
+    if (typeof window !== "undefined" && window.localStorage) {
+      const raw = window.localStorage.getItem(LOCAL_DB_KEY);
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data.ledgerEntries) ledgerEntries = data.ledgerEntries;
+        if (data.auditLogs) auditLogs = data.auditLogs;
+        if (data.profiles) profiles = data.profiles;
+        if (data.bills) bills = data.bills;
+        if (data.holdBills) holdBills = data.holdBills;
+        if (data.quotations) quotations = data.quotations;
+        if (data.salesOrders) salesOrders = data.salesOrders;
+        if (data.salesInvoices) salesInvoices = data.salesInvoices;
+        if (data.salesReturns) salesReturns = data.salesReturns;
+        if (data.goodsReceipts) goodsReceipts = data.goodsReceipts;
+        if (data.attributeDefinitions) attributeDefinitions = data.attributeDefinitions;
+        if (data.attributeGroups) attributeGroups = data.attributeGroups;
+        if (data.variantTemplates) variantTemplates = data.variantTemplates;
+        if (data.categoryAttributeGroupMappings) categoryAttributeGroupMappings = data.categoryAttributeGroupMappings;
+        if (data.roles) roles = data.roles;
+        console.log("[Local DB] Loaded data successfully from localStorage!");
+      } else {
+        console.log("[Local DB] Initializing with default seeded data...");
+        saveDb();
+      }
     }
   } catch (e) {
-    console.warn("\n" + "=".repeat(80));
-    console.warn("⚠️  SMRITI SYSTEM WARNING: FLAT-FILE DATABASE PARSE FAILURE  ⚠️");
-    console.warn("The database JSON file on disk was corrupted or unreadable.");
-    console.warn("Error message:", e instanceof Error ? e.message : String(e));
-    console.warn("Resetting and overwriting local disk database with current in-memory seeded state.");
-    console.warn("=".repeat(80) + "\n");
-    try {
-      saveDb();
-    } catch (saveError) {
-      console.error("Critical recovery failed: Unable to overwrite database on disk:", saveError);
-    }
+    console.warn("Failed to load local database:", e);
   }
 }
+
 
 // Initial Database Seeding & Migration
 export function migrateUsersAndSeedOrganizationData() {
