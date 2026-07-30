@@ -23,9 +23,6 @@ const apiTarget = process.env.SMRITI_API_HOST
 
 const manualChunksHandler = (id: string) => {
   if (id.includes("node_modules")) {
-    if (id.includes("buffer")) {
-      return "vendor-buffer";
-    }
     if (id.includes("recharts") || id.includes("d3")) {
       return "vendor-charts";
     }
@@ -51,7 +48,6 @@ export default defineConfig({
     global: "globalThis",
     "process.env": {},
   },
-
   server: {
     host: "0.0.0.0",
     port: 3000,
@@ -100,8 +96,10 @@ export default defineConfig({
     chunkSizeWarningLimit: 1600,
     rollupOptions: {
       output: {
+        banner: "import { Buffer } from 'buffer'; if (typeof globalThis !== 'undefined') { globalThis.Buffer = globalThis.Buffer || Buffer; globalThis.global = globalThis.global || globalThis; }",
         manualChunks: manualChunksHandler
       }
     }
   }
 });
+
