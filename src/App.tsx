@@ -23,6 +23,7 @@ import {
   Formula,
   PSVParty,
 } from "./types.js";
+import { WindowManager } from "./sdk/WindowManager";
 
 // Import Layout Engine
 import {
@@ -115,6 +116,145 @@ interface AppNotification {
   message: string;
   type: "success" | "error";
 }
+
+interface StandaloneWorkspaceProps {
+  popoutTab: string;
+  popoutTitle: string;
+  renderTabSafe: (tabId: string) => React.ReactNode;
+}
+
+const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutTab, popoutTitle, renderTabSafe }) => {
+  const [zoom, setZoom] = useState<number>(100);
+  const [isOnline, setIsOnline] = useState<boolean>(
+    typeof navigator !== "undefined" ? navigator.onLine : true
+  );
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  };
+
+  return (
+    <div className="w-screen h-screen bg-[#0B0F17] overflow-hidden flex flex-col m-0 p-0 font-sans border border-slate-800">
+      {/* SAWF v2.0 Standalone Workspace Header Bar */}
+      <div className="h-10 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between shrink-0 select-none text-slate-200">
+        {/* Left Section: Document Title & Badges */}
+        <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-1.5">
+            <span className="material-symbols-outlined text-indigo-400 text-base">desktop_windows</span>
+            <span className="text-xs font-bold tracking-wide uppercase text-slate-200">{popoutTitle}</span>
+          </div>
+
+          <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono font-medium">
+            STANDALONE WORKSPACE
+          </span>
+
+          {/* Real-time Document Status */}
+          <div className="flex items-center space-x-1 text-[11px] text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Saved</span>
+          </div>
+
+          {/* Network Connection Status */}
+          <div className={`flex items-center space-x-1 text-[11px] px-2 py-0.5 rounded border ${
+            isOnline
+              ? "text-emerald-300 bg-emerald-950/40 border-emerald-800/30"
+              : "text-rose-300 bg-rose-950/60 border-rose-800/50"
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? "bg-emerald-400" : "bg-rose-500 animate-ping"}`}></span>
+            <span>{isOnline ? "Online" : "Offline"}</span>
+          </div>
+        </div>
+
+        {/* Right Section: Toolbar Controls */}
+        <div className="flex items-center space-x-2">
+          {/* Zoom Controls */}
+          <div className="flex items-center bg-slate-800/80 rounded border border-slate-700/60 px-1 py-0.5 text-xs text-slate-300 space-x-1">
+            <button
+              onClick={() => setZoom((z) => Math.max(70, z - 10))}
+              className="px-1 hover:text-white transition font-bold"
+              title="Zoom Out"
+            >
+              -
+            </button>
+            <span className="font-mono text-[11px] w-8 text-center text-indigo-300">{zoom}%</span>
+            <button
+              onClick={() => setZoom((z) => Math.min(150, z + 10))}
+              className="px-1 hover:text-white transition font-bold"
+              title="Zoom In"
+            >
+              +
+            </button>
+          </div>
+
+          {/* Fullscreen Button */}
+          <button
+            onClick={toggleFullscreen}
+            className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition flex items-center text-xs space-x-1"
+            title="Toggle Fullscreen"
+          >
+            <span className="material-symbols-outlined text-sm">
+              {isFullscreen ? "fullscreen_exit" : "fullscreen"}
+            </span>
+          </button>
+
+          {/* Refresh Data Button */}
+          <button
+            onClick={() => WindowManager.broadcast("REFRESH_SYSTEM_STATE", popoutTab, {})}
+            className="px-2 py-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition flex items-center text-xs space-x-1"
+            title="Refresh Studio Data"
+          >
+            <span className="material-symbols-outlined text-sm">refresh</span>
+            <span>Refresh</span>
+          </button>
+
+          {/* Print Button */}
+          <button
+            onClick={() => window.print()}
+            className="px-2 py-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition flex items-center text-xs space-x-1"
+            title="Print Document"
+          >
+            <span className="material-symbols-outlined text-sm">print</span>
+            <span>Print</span>
+          </button>
+
+          {/* Close Window Button */}
+          <button
+            onClick={() => window.close()}
+            className="px-2 py-1 hover:bg-rose-900/50 hover:text-rose-300 rounded text-slate-400 transition flex items-center text-xs space-x-1"
+            title="Close Workspace Window"
+          >
+            <span className="material-symbols-outlined text-sm">close</span>
+            <span>Close</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Studio Content Canvas with Dynamic Zoom Scaling */}
+      <div
+        className="flex-1 overflow-auto p-2 bg-[#0B0F17] transition-all duration-150"
+        style={{ zoom: `${zoom}%` }}
+      >
+        {renderTabSafe(popoutTab)}
+      </div>
+    </div>
+  );
+};
 
 const AppContent: React.FC = () => {
   const toastIdRef = useRef(0);
@@ -454,6 +594,19 @@ const AppContent: React.FC = () => {
     }
   }, [currentUser]);
 
+  // SAWF v1.0 Cross-Window Broadcast Listener
+  useEffect(() => {
+    const unsubscribe = WindowManager.subscribeBroadcast((msg) => {
+      if (msg.type === "REFRESH_SYSTEM_STATE") {
+        fetchSystemState();
+      } else if (msg.type === "TOAST_NOTIFICATION" && msg.payload) {
+        const p = msg.payload as { title: string; message: string; type?: "success" | "error" };
+        addNotification(p.title, p.message, p.type || "success");
+      }
+    });
+    return unsubscribe;
+  }, []);
+
   useEffect(() => {
     const handlePopoutEvent = () => {
       const tabConfig = registeredWorkspaces.find((w) => w.id === activeTab);
@@ -744,12 +897,18 @@ const AppContent: React.FC = () => {
   }
 
   if (isPopoutMode) {
-
     const popoutTab = new URLSearchParams(window.location.search).get("tab") || "sales";
+    const popoutTitle = new URLSearchParams(window.location.search).get("title") || `${popoutTab.toUpperCase()} STUDIO`;
+    if (typeof document !== "undefined") {
+      document.title = `${popoutTitle} - SMRITI Retail OS`;
+    }
+
     return (
-      <div className="w-screen h-screen bg-[#0B0F17] overflow-hidden p-2 m-0 font-sans">
-        {renderTabSafe(popoutTab)}
-      </div>
+      <StandaloneWorkspaceWindow
+        popoutTab={popoutTab}
+        popoutTitle={popoutTitle}
+        renderTabSafe={renderTabSafe}
+      />
     );
   }
 
