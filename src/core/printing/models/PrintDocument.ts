@@ -73,7 +73,7 @@ export interface PrinterCapability {
   supportsCutter: boolean;
   supportsPeeler: boolean;
   supportsDrawer: boolean;
-  connection: "USB" | "SPOOLER" | "NETWORK" | "SERIAL" | "BLUETOOTH" | "CLOUD";
+  connection: "USB" | "SPOOLER" | "NETWORK" | "SERIAL" | "BLUETOOTH" | "CLOUD" | "VIRTUAL";
   status: "Online" | "Offline" | "Busy" | "Paused" | "Paper Out" | "Ribbon Out" | "Unknown";
   isDefault?: boolean;
 }

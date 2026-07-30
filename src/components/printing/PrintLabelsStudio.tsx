@@ -11,7 +11,7 @@ import { WindowManager } from "../../sdk";
 import { PRNVariableEngine, TATTLY_THREADS_ZPL_SCRIPT } from "../../services/label_print/PRNVariableEngine";
 import { PrintProviderRegistry, SystemPrinterDiscovery, SystemPrinterInfo } from "../../services/label_print/PrintProviderFramework";
 import { UniversalAttributeEngine, IndustryPackManager, IndustryType } from "../../core/metadata";
-import { PrintOrchestrator, PrintDocument } from "../../core/printing";
+import { PrintingService, PrintDocument } from "../../core/printing";
 
 export interface PrintItemRow {
   id: string;
@@ -223,7 +223,7 @@ export const PrintLabelsStudio: React.FC = () => {
     return filteredPrintItems.reduce((acc, item) => acc + (item.selected ? item.printQty : 0), 0);
   }, [filteredPrintItems]);
 
-  // Execute Print Job using SUPP PrintOrchestrator (Rule SUPP-001)
+  // Execute Print Job using PrintingService API Facade (Rule SUPP-013)
   const executePrintJob = async () => {
     if (filteredPrintItems.length === 0) {
       showToast("No items available to print!");
@@ -241,7 +241,7 @@ export const PrintLabelsStudio: React.FC = () => {
       createdAt: new Date().toISOString(),
     };
 
-    const res = await PrintOrchestrator.dispatchDocument(document, {
+    const res = await PrintingService.printDocument(document, {
       printerName: printer,
       driverId: "zpl",
       providerId: connectionType === "NETWORK_TCP" ? "network" : "qz_tray",
@@ -250,7 +250,7 @@ export const PrintLabelsStudio: React.FC = () => {
     });
 
     if (res.success) {
-      showToast(`SUPP Orchestrator: Sent print job to ${printer} via ${res.providerId.toUpperCase()} provider!`);
+      showToast(`SUPP Facade: Sent print job to ${printer} via ${res.providerId.toUpperCase()} provider!`);
     } else {
       showToast(`SUPP Fallback: Browser print execution (${res.error || ""})`);
       window.print();
