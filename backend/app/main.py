@@ -105,10 +105,12 @@ from .api.v1 import (
     system_release,
     pharma,
     apparel,
+    nic_gst,
     ecosystem,
     scp,
     scdm,
 )
+
 
 from app.api.v1.customer import dashboard as customer_dashboard
 from app.api.v1.customer import workspace as customer_workspace
