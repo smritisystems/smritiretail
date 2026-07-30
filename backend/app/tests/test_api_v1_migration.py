@@ -286,7 +286,7 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
             username="no_tenant",
             email="no_tenant@tenant.test",
             hashed_password=hash_password("Test@1234"),
-            role=UserRole.SYSADMIN,
+            role=UserRole.STAFF,
             is_active=True,
             is_deleted=False,
             company_id=None,
