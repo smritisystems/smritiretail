@@ -29,6 +29,7 @@ from app.tests.conftest import clear_db
 
 @pytest.fixture(autouse=True)
 async def override_db(db_session):
+    app.dependency_overrides.clear()
     await clear_db(db_session)
 
     async def _get_db():
@@ -37,7 +38,7 @@ async def override_db(db_session):
     try:
         yield
     finally:
-        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.clear()
         try:
             await clear_db(db_session)  # ensure setup_completed and company data are wiped after each test
         except Exception:

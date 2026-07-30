@@ -52,7 +52,7 @@ async def override_db(db_session):
 
     app.dependency_overrides[get_db] = _get_db
     yield
-    app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.clear()
     ApprovalResolver.clear_cache()
     try:
         await clear_db(db_session)
