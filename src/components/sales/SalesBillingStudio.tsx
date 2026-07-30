@@ -6,8 +6,10 @@
  * License      : Proprietary Commercial Software
  */
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { STRE, TaxContext, WindowManager } from "../../sdk";
+import { getCustomers, addCustomer, initialCustomerGroups } from "../../services/customerStore";
+import { Customer } from "../../types";
 
 export interface LineItem {
   id: string;
@@ -20,21 +22,53 @@ export interface LineItem {
   discountPct: number;
 }
 
+// Product catalog for item search lookup
+const CATALOG_PRODUCTS = [
+  { barcode: "8901234567890", name: "Nike Sports Shoes", hsn: "6404", rate: 2500.0, uom: "Pair" },
+  { barcode: "8901234567891", name: "Cotton Socks", hsn: "6115", rate: 250.0, uom: "Pair" },
+  { barcode: "8901234567892", name: "Adidas Cap", hsn: "6505", rate: 500.0, uom: "Pcs" },
+  { barcode: "8901234567893", name: "Puma Running T-Shirt", hsn: "6109", rate: 1200.0, uom: "Pcs" },
+  { barcode: "8901234567894", name: "Formal Leather Shoes", hsn: "6403", rate: 3500.0, uom: "Pair" },
+  { barcode: "8901234567895", name: "Denim Jeans Trousers", hsn: "6203", rate: 1800.0, uom: "Pcs" },
+  { barcode: "8901234567896", name: "Smart POS Printer", hsn: "8471", rate: 6500.0, uom: "Pcs" },
+];
+
 export const SalesBillingStudio: React.FC = () => {
-  // Master State
+  // Customer Store & Lookup State
+  const [customerList, setCustomerList] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerSearch, setCustomerSearch] = useState<string>("");
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState<boolean>(false);
   const [isWalkIn, setIsWalkIn] = useState<boolean>(true);
+
+  // Active Customer Detail Cards
+  const [selectedCustomerName, setSelectedCustomerName] = useState<string>("Walk-in Retail Customer");
   const [mobileNumber, setMobileNumber] = useState<string>("9876543210");
   const [gstin, setGstin] = useState<string>("27ABCDE1234F1Z5");
   const [taxProfile, setTaxProfile] = useState<string>("Retail Registered");
+
+  // New Customer Modal State
+  const [isNewCustomerModalOpen, setIsNewCustomerModalOpen] = useState<boolean>(false);
+  const [newCustName, setNewCustName] = useState<string>("");
+  const [newCustMobile, setNewCustMobile] = useState<string>("");
+  const [newCustGst, setNewCustGst] = useState<string>("");
+  const [newCustGroup, setNewCustGroup] = useState<string>("CG-Retail");
+  const [newCustEmail, setNewCustEmail] = useState<string>("");
+
+  // Item Search & Autocomplete State
   const [itemSearch, setItemSearch] = useState<string>("");
-  const [salesman, setSalesman] = useState<string>("");
+  const [isItemDropdownOpen, setIsItemDropdownOpen] = useState<boolean>(false);
+
+  // Billing Additional Details
+  const [salesman, setSalesman] = useState<string>("S01");
   const [couponCode, setCouponCode] = useState<string>("");
+  const [couponAppliedMsg, setCouponAppliedMsg] = useState<string>("");
+  const [couponDiscountVal, setCouponDiscountVal] = useState<number>(0);
   const [remarks, setRemarks] = useState<string>("");
   const [loyaltyRedeem, setLoyaltyRedeem] = useState<number>(0);
   const [billDiscountInput, setBillDiscountInput] = useState<number>(100);
 
-  // Default Line Items matching user mockup image
+  // Default Line Items
   const [items, setItems] = useState<LineItem[]>([
     {
       id: "item-1",
@@ -67,6 +101,127 @@ export const SalesBillingStudio: React.FC = () => {
       discountPct: 0.0,
     },
   ]);
+
+  // Fetch Customers on Mount
+  useEffect(() => {
+    try {
+      const custs = getCustomers();
+      if (Array.isArray(custs)) setCustomerList(custs);
+    } catch {
+      // Fallback
+    }
+  }, []);
+
+  // Filter Customers based on search
+  const filteredCustomers = useMemo(() => {
+    if (!customerSearch.trim()) return customerList;
+    const q = customerSearch.toLowerCase();
+    return customerList.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.mobile.includes(q) ||
+        (c.gstNumber && c.gstNumber.toLowerCase().includes(q))
+    );
+  }, [customerSearch, customerList]);
+
+  // Filter Catalog Items based on search
+  const filteredCatalog = useMemo(() => {
+    if (!itemSearch.trim()) return [];
+    const q = itemSearch.toLowerCase();
+    return CATALOG_PRODUCTS.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.barcode.includes(q) ||
+        p.hsn.includes(q)
+    );
+  }, [itemSearch]);
+
+  // Select Customer from Autocomplete Lookup
+  const handleSelectCustomer = (c: Customer) => {
+    setSelectedCustomer(c);
+    setSelectedCustomerName(c.name);
+    setCustomerSearch(c.name);
+    setMobileNumber(c.mobile);
+    setGstin(c.gstNumber || "27ABCDE1234F1Z5");
+    setIsWalkIn(false);
+    setIsCustomerDropdownOpen(false);
+
+    // Auto-set Tax Profile based on customer group
+    if (c.customerGroupId === "CG-Corporate") {
+      setTaxProfile("Corporate Wholesale");
+    } else if (c.customerGroupId === "CG-LargeRetail") {
+      setTaxProfile("Large Format Retail");
+    } else {
+      setTaxProfile("Retail Registered");
+    }
+  };
+
+  // Add Item from Autocomplete Lookup
+  const handleSelectCatalogItem = (p: typeof CATALOG_PRODUCTS[0]) => {
+    const existingIndex = items.findIndex((i) => i.barcode === p.barcode);
+    if (existingIndex >= 0) {
+      setItems((prev) =>
+        prev.map((item, idx) =>
+          idx === existingIndex ? { ...item, qty: item.qty + 1 } : item
+        )
+      );
+    } else {
+      const newItem: LineItem = {
+        id: `item-${Date.now()}`,
+        barcode: p.barcode,
+        name: p.name,
+        hsnCode: p.hsn,
+        qty: 1,
+        uom: p.uom,
+        rate: p.rate,
+        discountPct: 0.0,
+      };
+      setItems((prev) => [...prev, newItem]);
+    }
+    setItemSearch("");
+    setIsItemDropdownOpen(false);
+  };
+
+  // Create New Customer Handler
+  const handleSaveNewCustomer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCustName.trim() || !newCustMobile.trim()) return;
+
+    try {
+      const created = addCustomer({
+        customerGroupId: newCustGroup,
+        name: newCustName,
+        mobile: newCustMobile,
+        email: newCustEmail || `${newCustName.toLowerCase().replace(/\s+/g, "")}@example.com`,
+        gstNumber: newCustGst || undefined,
+        status: "Active",
+      });
+
+      setCustomerList(getCustomers());
+      handleSelectCustomer(created);
+      setIsNewCustomerModalOpen(false);
+      setNewCustName("");
+      setNewCustMobile("");
+      setNewCustGst("");
+    } catch {
+      setIsNewCustomerModalOpen(false);
+    }
+  };
+
+  // Apply Coupon Handler
+  const handleApplyCoupon = () => {
+    const code = couponCode.trim().toUpperCase();
+    if (code === "SMRITI10") {
+      setCouponDiscountVal(200);
+      setCouponAppliedMsg("SMRITI10 Applied (₹200 Off)");
+    } else if (code === "FLAT100") {
+      setCouponDiscountVal(100);
+      setCouponAppliedMsg("FLAT100 Applied (₹100 Off)");
+    } else if (code) {
+      setCouponDiscountVal(50);
+      setCouponAppliedMsg(`${code} Applied (₹50 Off)`);
+    }
+  };
 
   // STRE Tax Engine Integration (TG-001 / TG-002)
   const taxCalculation = useMemo(() => {
@@ -101,10 +256,10 @@ export const SalesBillingStudio: React.FC = () => {
     return items.reduce((sum, item) => sum + (item.qty * item.rate * item.discountPct) / 100, 0);
   }, [items]);
 
-  const billDiscount = billDiscountInput;
+  const totalBillDiscount = billDiscountInput + couponDiscountVal + loyaltyRedeem;
   const taxableValue = useMemo(() => {
-    return itemsTotal - itemDiscountTotal - billDiscount;
-  }, [itemsTotal, itemDiscountTotal, billDiscount]);
+    return Math.max(0, itemsTotal - itemDiscountTotal - totalBillDiscount);
+  }, [itemsTotal, itemDiscountTotal, totalBillDiscount]);
 
   const autoGstAmount = taxCalculation.totalTaxAmount;
   const netPayableCalculated = taxableValue + autoGstAmount;
@@ -139,9 +294,9 @@ export const SalesBillingStudio: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 font-sans flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-100 text-slate-800 font-sans flex flex-col justify-between relative">
       {/* 1. Header Bar */}
-      <header className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-xs">
+      <header className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-xs z-20">
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
@@ -173,14 +328,17 @@ export const SalesBillingStudio: React.FC = () => {
             />
             <span className="material-symbols-outlined absolute left-2.5 top-2 text-slate-400 text-sm">search</span>
           </div>
+
+          {/* Popout Standalone Button */}
           <button
             onClick={() => WindowManager.openTabStandalone("sales-billing", "Sales Billing")}
-            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+            className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
             title="Popout into Distraction-Free Independent Window"
           >
             <span className="material-symbols-outlined text-sm mr-1">open_in_new</span>
             Popout
           </button>
+
           <button className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 cursor-pointer">
             <span className="material-symbols-outlined text-lg">notifications</span>
           </button>
@@ -206,33 +364,75 @@ export const SalesBillingStudio: React.FC = () => {
         {/* Left Column - Billing Workflow Canvas */}
         <div className="col-span-8 space-y-4">
           {/* Section 1: Customer Information */}
-          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs relative">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center">
                 <span className="material-symbols-outlined text-sm mr-1.5 text-blue-600">person</span>
                 Customer Information
               </h2>
             </div>
-            <div className="flex items-center gap-3 mb-3">
+
+            <div className="flex items-center gap-3 mb-3 relative">
+              {/* Customer Search Autocomplete Lookup */}
               <div className="relative flex-1">
                 <input
                   type="text"
                   value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  onFocus={() => setIsCustomerDropdownOpen(true)}
+                  onChange={(e) => {
+                    setCustomerSearch(e.target.value);
+                    setIsCustomerDropdownOpen(true);
+                  }}
                   placeholder="Search Customer (Name, Mobile, GSTIN)"
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 pl-9"
                 />
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-sm">search</span>
+
+                {/* Customer Lookup Dropdown List */}
+                {isCustomerDropdownOpen && filteredCustomers.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-30 max-h-56 overflow-y-auto">
+                    {filteredCustomers.map((c) => (
+                      <div
+                        key={c.id}
+                        onClick={() => handleSelectCustomer(c)}
+                        className="px-3.5 py-2.5 hover:bg-blue-50 cursor-pointer border-b border-slate-100 flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <div className="font-bold text-slate-800">{c.name}</div>
+                          <div className="text-[10px] text-slate-500">
+                            Mobile: {c.mobile} | {c.gstNumber ? `GST: ${c.gstNumber}` : "Unregistered"}
+                          </div>
+                        </div>
+                        <span className="text-[10px] px-2 py-0.5 bg-slate-100 font-mono font-semibold text-slate-600 rounded">
+                          {c.customerGroupId}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <button className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold flex items-center cursor-pointer">
+
+              {/* New Customer Modal Trigger */}
+              <button
+                onClick={() => setIsNewCustomerModalOpen(true)}
+                className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+              >
                 <span className="material-symbols-outlined text-sm mr-1">add</span>
                 New
               </button>
+
               <label className="flex items-center space-x-1.5 text-xs text-slate-700 font-medium cursor-pointer ml-2">
                 <input
                   type="checkbox"
                   checked={isWalkIn}
-                  onChange={(e) => setIsWalkIn(e.target.checked)}
+                  onChange={(e) => {
+                    setIsWalkIn(e.target.checked);
+                    if (e.target.checked) {
+                      setSelectedCustomerName("Walk-in Retail Customer");
+                      setMobileNumber("9876543210");
+                      setGstin("27ABCDE1234F1Z5");
+                    }
+                  }}
                   className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
                 />
                 <span>Walk-in Customer</span>
@@ -263,25 +463,55 @@ export const SalesBillingStudio: React.FC = () => {
           </section>
 
           {/* Section 2: Scan Barcode / Search Item */}
-          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs relative">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center">
                 <span className="material-symbols-outlined text-sm mr-1.5 text-blue-600">barcode_scanner</span>
                 Scan Barcode / Search Item
               </h2>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 relative">
+              {/* Item Autocomplete Search Lookup Input */}
               <div className="relative flex-1">
                 <input
                   type="text"
                   value={itemSearch}
-                  onChange={(e) => setItemSearch(e.target.value)}
+                  onFocus={() => setIsItemDropdownOpen(true)}
+                  onChange={(e) => {
+                    setItemSearch(e.target.value);
+                    setIsItemDropdownOpen(true);
+                  }}
                   placeholder="Scan Barcode or Search Item by Name / Code"
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2.5 text-xs focus:outline-none focus:border-blue-500 pl-9"
                 />
                 <span className="material-symbols-outlined absolute left-3 top-3 text-slate-400 text-sm">search</span>
+
+                {/* Catalog Autocomplete Dropdown List */}
+                {isItemDropdownOpen && filteredCatalog.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-30 max-h-56 overflow-y-auto">
+                    {filteredCatalog.map((p) => (
+                      <div
+                        key={p.barcode}
+                        onClick={() => handleSelectCatalogItem(p)}
+                        className="px-3.5 py-2.5 hover:bg-blue-50 cursor-pointer border-b border-slate-100 flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <div className="font-bold text-slate-800">{p.name}</div>
+                          <div className="text-[10px] text-slate-500 font-mono">
+                            Barcode: {p.barcode} | HSN: {p.hsn}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-mono font-bold text-slate-900">₹{p.rate.toFixed(2)}</span>
+                          <span className="text-[10px] text-blue-600 block">Select Item</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <button className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold flex items-center cursor-pointer">
+
+              <button className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold flex items-center cursor-pointer transition">
                 <span className="material-symbols-outlined text-base mr-1.5">photo_camera</span>
                 Scan Barcode
               </button>
@@ -298,14 +528,14 @@ export const SalesBillingStudio: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={addNewItem}
-                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold flex items-center cursor-pointer"
+                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
                 >
                   <span className="material-symbols-outlined text-xs mr-1">add</span>
                   Add Item (F3)
                 </button>
                 <button
                   onClick={clearAllItems}
-                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold flex items-center cursor-pointer"
+                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
                 >
                   <span className="material-symbols-outlined text-xs mr-1">delete</span>
                   Clear All
@@ -413,9 +643,10 @@ export const SalesBillingStudio: React.FC = () => {
                   onChange={(e) => setSalesman(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
                 >
-                  <option value="">Select Salesman</option>
-                  <option value="S01">Rahul Sharma</option>
-                  <option value="S02">Priya Patel</option>
+                  <option value="S01">Rahul Sharma (Executive)</option>
+                  <option value="S02">Priya Patel (Senior Executive)</option>
+                  <option value="S03">Amit Verma (Counter Lead)</option>
+                  <option value="S04">Neha Singh (Sales Consultant)</option>
                 </select>
               </div>
               <div>
@@ -428,10 +659,18 @@ export const SalesBillingStudio: React.FC = () => {
                     placeholder="Enter Coupon Code"
                     className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 uppercase font-mono"
                   />
-                  <button className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold cursor-pointer">
+                  <button
+                    onClick={handleApplyCoupon}
+                    className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold cursor-pointer transition"
+                  >
                     Apply
                   </button>
                 </div>
+                {couponAppliedMsg && (
+                  <span className="text-[10px] font-semibold text-emerald-600 block mt-1">
+                    {couponAppliedMsg}
+                  </span>
+                )}
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase block items-center justify-between">
@@ -446,7 +685,7 @@ export const SalesBillingStudio: React.FC = () => {
                     placeholder="0.00"
                     className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold focus:outline-none focus:border-blue-500"
                   />
-                  <button className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold cursor-pointer">
+                  <button className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold cursor-pointer transition">
                     Apply
                   </button>
                 </div>
@@ -482,7 +721,7 @@ export const SalesBillingStudio: React.FC = () => {
               <div className="flex items-center justify-between text-slate-600">
                 <span>Bill Discount</span>
                 <span className="font-mono font-semibold text-rose-600">
-                  - ₹ {billDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  - ₹ {totalBillDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </span>
               </div>
 
@@ -600,7 +839,7 @@ export const SalesBillingStudio: React.FC = () => {
       </main>
 
       {/* Bottom Fixed Action Shortcuts Bar */}
-      <footer className="bg-white border-t border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-lg">
+      <footer className="bg-white border-t border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-lg z-20">
         <div className="flex items-center space-x-2">
           <button className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer">
             <span className="material-symbols-outlined text-sm mr-1.5">pause</span>
@@ -635,6 +874,89 @@ export const SalesBillingStudio: React.FC = () => {
           </button>
         </div>
       </footer>
+
+      {/* New Customer Modal */}
+      {isNewCustomerModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in duration-150">
+            <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+              <h3 className="font-bold text-sm flex items-center">
+                <span className="material-symbols-outlined text-base mr-2 text-blue-400">person_add</span>
+                Create New Customer
+              </h3>
+              <button
+                onClick={() => setIsNewCustomerModalOpen(false)}
+                className="text-slate-400 hover:text-white transition"
+              >
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleSaveNewCustomer} className="p-5 space-y-3.5 text-xs">
+              <div>
+                <label className="font-bold text-slate-600 block mb-1">Customer Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={newCustName}
+                  onChange={(e) => setNewCustName(e.target.value)}
+                  placeholder="e.g. Apex Retailers Ltd"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-600 block mb-1">Mobile Number *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newCustMobile}
+                    onChange={(e) => setNewCustMobile(e.target.value)}
+                    placeholder="e.g. 9822001122"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-600 block mb-1">GSTIN (Optional)</label>
+                  <input
+                    type="text"
+                    value={newCustGst}
+                    onChange={(e) => setNewCustGst(e.target.value)}
+                    placeholder="27ABCDE1234F1Z5"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-mono uppercase"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="font-bold text-slate-600 block mb-1">Customer Group & Tax Profile</label>
+                <select
+                  value={newCustGroup}
+                  onChange={(e) => setNewCustGroup(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
+                >
+                  <option value="CG-Retail">Retail Customers (Intrastate)</option>
+                  <option value="CG-Corporate">Corporate Clients (Interstate IGST)</option>
+                  <option value="CG-LargeRetail">Large Format Retail (Wholesale)</option>
+                </select>
+              </div>
+              <div className="pt-2 flex justify-end space-x-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsNewCustomerModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs shadow-md shadow-blue-600/30 cursor-pointer"
+                >
+                  Save & Select Customer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

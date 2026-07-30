@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -564,6 +564,25 @@ export function saveCustomers(customers: Customer[]) {
   }
   // Persist to server asynchronously
   customers.forEach(cust => persistCustomerChange(cust));
+}
+
+export function addCustomer(newCust: Partial<Customer> & { name: string; mobile: string }): Customer {
+  const list = getCustomers();
+  const nextId = newCust.id || `CUST-${String(list.length + 1).padStart(3, "0")}`;
+  const fullCustomer: Customer = {
+    id: nextId,
+    name: newCust.name,
+    mobile: newCust.mobile,
+    email: newCust.email || "",
+    customerGroupId: newCust.customerGroupId || "CG-Retail",
+    gstNumber: newCust.gstNumber,
+    outstanding: newCust.outstanding || 0,
+    status: newCust.status || "Active",
+    createdDate: new Date().toISOString().split("T")[0],
+  };
+  list.push(fullCustomer);
+  saveCustomers(list);
+  return fullCustomer;
 }
 
 export function saveCustomerGroups(groups: CustomerGroup[]) {
