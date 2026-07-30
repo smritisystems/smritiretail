@@ -8,6 +8,8 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { WindowManager } from "../../sdk";
+import { PRNVariableEngine, TATTLY_THREADS_ZPL_SCRIPT } from "../../services/label_print/PRNVariableEngine";
+import { PrintProviderRegistry } from "../../services/label_print/PrintProviderFramework";
 
 export interface PrintItemRow {
   id: string;
@@ -175,6 +177,48 @@ export const PrintLabelsStudio: React.FC = () => {
     showToast(`Source selected: ${src.toUpperCase().replace("_", " ")} (${data.length} Items Loaded)`);
   };
 
+  // Execute Print Job using PRNVariableEngine and Hardware Provider
+  const executePrintJob = async () => {
+    if (filteredPrintItems.length === 0) {
+      showToast("No items available to print!");
+      return;
+    }
+
+    const activeItem = filteredPrintItems[activePreviewIndex] || filteredPrintItems[0];
+    const zplScript = PRNVariableEngine.renderTemplate(TATTLY_THREADS_ZPL_SCRIPT, activeItem, copies);
+
+    if (connectionType === "QZ_TRAY" || isQzConnected) {
+      const provider = PrintProviderRegistry.getProvider("qz_tray");
+      const res = await provider.sendJob({
+        jobId: `JOB-${Date.now()}`,
+        printerName: printer,
+        templateName: "Tattly Threads Dual Tag",
+        script: zplScript,
+        totalLabels: totalPrintQty,
+        items: filteredPrintItems.map((i) => ({ name: i.itemName, copies: i.printQty })),
+      });
+      if (res.success) {
+        showToast(`Sent ZPL job directly via QZ Tray to ${printer}!`);
+      } else {
+        showToast(`QZ Print fallback: opening browser print (${res.error || ""})`);
+        window.print();
+      }
+    } else if (connectionType === "NETWORK_TCP") {
+      const provider = PrintProviderRegistry.getProvider("network");
+      const res = await provider.sendJob({
+        jobId: `JOB-${Date.now()}`,
+        printerName: printerIp,
+        templateName: "Tattly Threads Dual Tag",
+        script: zplScript,
+        totalLabels: totalPrintQty,
+        items: filteredPrintItems.map((i) => ({ name: i.itemName, copies: i.printQty })),
+      });
+      showToast(`Sent ZPL job via RAW TCP/IP to ${printerIp}:${printerPort}`);
+    } else {
+      window.print();
+    }
+  };
+
   // Keyboard Shortcuts Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -183,7 +227,7 @@ export const PrintLabelsStudio: React.FC = () => {
         setIsFullPreviewModalOpen(true);
       } else if (e.key === "F10") {
         e.preventDefault();
-        window.print();
+        executePrintJob();
       } else if (e.key === "Escape") {
         e.preventDefault();
         setIsExcelModalOpen(false);
@@ -196,7 +240,7 @@ export const PrintLabelsStudio: React.FC = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [filteredPrintItems, activePreviewIndex, copies, connectionType, isQzConnected, printer, printerIp, printerPort]);
 
   // Filter items in real-time based on Range Filters
   const filteredPrintItems = useMemo(() => {
@@ -1147,7 +1191,7 @@ export const PrintLabelsStudio: React.FC = () => {
             Preview (F5)
           </button>
           <button
-            onClick={() => window.print()}
+            onClick={executePrintJob}
             className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-extrabold text-xs flex items-center cursor-pointer shadow-md shadow-blue-600/30 uppercase tracking-wide transition"
           >
             <span className="material-symbols-outlined text-base mr-1.5">print</span>
