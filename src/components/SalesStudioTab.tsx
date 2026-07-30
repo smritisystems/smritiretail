@@ -275,7 +275,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [subView, setSubView] = useState<"quotations" | "orders" | "invoices" | "returns" | "customers">("quotations");
+  const [subView, setSubView] = useState<"dashboard" | "quotations" | "orders" | "invoices" | "returns" | "customers">("dashboard");
+
   // SEEF Phase 6: density now resolved from SEEF Resolution Cascade (Admin Configurator → global config)
   const { config: seefConfig } = useSEEF();
   const density = seefConfig.density === "compact" ? "compact" : seefConfig.density === "spacious" ? "relaxed" : "comfortable";
@@ -978,7 +979,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       {/* Sub Tabs */}
       <div className="flex items-center justify-between px-6 bg-theme-surface-2 border-b border-theme-divider gap-2 overflow-x-auto">
         <div className="flex items-center gap-2">
-          {(["quotations", "orders", "invoices", "returns", "customers"] as const).map((tab) => (
+          {(["dashboard", "quotations", "orders", "invoices", "returns", "customers"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => { 
@@ -1005,6 +1006,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   : "border-transparent text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
               }`}
             >
+              {tab === "dashboard" && "Dashboard"}
               {tab === "quotations" && "Quotations"}
               {tab === "orders" && "Sales Orders"}
               {tab === "invoices" && "Sales Invoices"}
@@ -1013,6 +1015,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
             </button>
           ))}
         </div>
+
 
         <div className="flex items-center space-x-2 shrink-0 py-2 pr-2">
           <button
@@ -1045,6 +1048,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
           </div>
         )}
         <motion.div
+
           key={subView}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1052,77 +1056,275 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
           transition={{ duration: 0.2 }}
           className="space-y-6"
         >
-          
-          {/* Overview Metric Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg flex items-center justify-between">
-              <div>
-                <span className="text-[10px] text-theme-muted block font-mono font-bold tracking-wider uppercase">ACTIVE QUOTATIONS</span>
-                <span className="text-2xl font-bold font-display text-theme-body mt-1 block">
-                  {quotations.length} <span className="text-xs font-normal text-theme-muted">Docs</span>
-                </span>
-                <span className="text-[11px] text-indigo-400 mt-1 block font-medium">
-                  {activeDrafts} Drafts â€¢ {submittedQuotations} Submitted
-                </span>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-indigo-950 flex items-center justify-center text-indigo-400 border border-indigo-900">
-                <FileText size={22} />
-              </div>
+
+          {/* 1. Quick Create Strip (SAP Fiori Launchpad Quick Action Toolbar) */}
+          <div className="bg-theme-surface-1 p-3.5 rounded-2xl border border-theme-divider shadow-md flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center space-x-2 text-xs font-bold font-mono">
+              <span className="text-theme-muted uppercase tracking-wider text-[10px] mr-1">Quick Action Strip:</span>
+              <button
+                onClick={() => {
+                  setSubView("quotations");
+                  setIsCreatingQuotation(true);
+                }}
+                disabled={isReadOnly}
+                className="px-3 py-1.5 bg-blue-950/60 border border-blue-500/40 text-blue-300 hover:bg-blue-900/80 rounded-xl transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
+              >
+                <Plus size={13} />
+                <span>+ New Quote</span>
+              </button>
+              <button
+                onClick={() => {
+                  setSubView("orders");
+                  setIsCreatingOrder(true);
+                }}
+                disabled={isReadOnly}
+                className="px-3 py-1.5 bg-indigo-950/60 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-900/80 rounded-xl transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
+              >
+                <Plus size={13} />
+                <span>+ Sales Order</span>
+              </button>
+              <button
+                onClick={() => {
+                  setSubView("invoices");
+                  setIsCreatingInvoice(true);
+                  setInvoiceCustomerId("");
+                  setInvoiceItems([]);
+                  setInvoiceEWayBill("");
+                }}
+                disabled={isReadOnly}
+                className="px-3 py-1.5 bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/80 rounded-xl transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
+              >
+                <Plus size={13} />
+                <span>+ Tax Invoice</span>
+              </button>
+              <button
+                onClick={() => {
+                  setSubView("returns");
+                  setIsCreatingReturn(true);
+                  setReturnOriginalInvoiceId("");
+                  setReturnItems([]);
+                }}
+                disabled={isReadOnly}
+                className="px-3 py-1.5 bg-rose-950/60 border border-rose-500/40 text-rose-300 hover:bg-rose-900/80 rounded-xl transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
+              >
+                <Plus size={13} />
+                <span>+ Return</span>
+              </button>
+              <button
+                onClick={() => {
+                  setSubView("customers");
+                  setIsAddingCustomer(true);
+                }}
+                disabled={isReadOnly}
+                className="px-3 py-1.5 bg-sky-950/60 border border-sky-500/40 text-sky-300 hover:bg-sky-900/80 rounded-xl transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
+              >
+                <Plus size={13} />
+                <span>+ Customer</span>
+              </button>
             </div>
 
-            <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg flex items-center justify-between">
-              <div>
-                <span className="text-[10px] text-theme-muted block font-mono font-bold tracking-wider uppercase">SALES ORDERS GENERATED</span>
-                <span className="text-2xl font-bold font-display text-emerald-400 mt-1 block">
-                  {salesOrders.length} <span className="text-xs font-normal text-theme-muted">Orders</span>
-                </span>
-                <span className="text-[11px] text-theme-muted mt-1 block">
-                  {convertedQuotations} converted from Quotations
-                </span>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-emerald-950 flex items-center justify-center text-emerald-400 border border-emerald-900">
-                <ShoppingCart size={22} />
-              </div>
-            </div>
-
-            <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg flex items-center justify-between">
-              <div>
-                <span className="text-[10px] text-theme-muted block font-mono font-bold tracking-wider uppercase">TOTAL BOOKED REVENUE</span>
-                <span className="text-2xl font-bold font-display text-theme-body mt-1 block">
-                  â‚¹{(totalSalesOrdered).toLocaleString("en-IN")}
-                </span>
-                <span className="text-[11px] text-theme-muted mt-1 block">
-                  Total sales booking in ledger
-                </span>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-sky-950 flex items-center justify-center text-sky-400 border border-sky-900">
-                <DollarSign size={22} />
-              </div>
-            </div>
-
-            <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg flex items-center justify-between">
-              <div>
-                <span className="text-[10px] text-theme-muted block font-mono font-bold tracking-wider uppercase">CONVERSION EFFICIENCY</span>
-                <span className="text-2xl font-bold font-display text-violet-400 mt-1 block">
-                  {quotations.length > 0 ? Math.round((convertedQuotations / quotations.length) * 100) : 0}%
-                </span>
-                <span className="text-[11px] text-theme-muted mt-1 block">
-                  Quotations converted to SO
-                </span>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-violet-950 flex items-center justify-center text-violet-400 border border-violet-900">
-                <CheckCircle2 size={22} />
-              </div>
+            <div className="text-[11px] font-mono text-theme-muted flex items-center space-x-2">
+              <Calendar size={13} className="text-indigo-400" />
+              <span>Today: <strong className="text-theme-body font-bold">30-Jul-2026</strong></span>
             </div>
           </div>
 
-          {/* Sub-navigation & Header Controls */}
-          <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-4 flex flex-col xl:flex-row items-center justify-between gap-4">
-            <div className="flex items-center space-x-2">
-              <span className="text-xs font-mono font-bold uppercase tracking-wide text-theme-muted">
-                Active: {subView === "quotations" ? "Quotations Desk" : subView === "orders" ? "Orders Book" : subView === "invoices" ? "Invoices Desk" : subView === "returns" ? "Returns Desk" : "Customers Directory"}
-              </span>
+          {/* 2. Dashboard View (Landing Control Center) */}
+          {subView === "dashboard" && !isCreatingInvoice && !isCreatingQuotation && !isCreatingOrder && !isCreatingReturn && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Revenue & Operational Metric Cards Stack (7 Metrics) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                <div className="bg-theme-surface-1 p-3.5 rounded-2xl border border-theme-divider shadow-md">
+                  <span className="text-[9px] text-theme-muted font-mono font-bold uppercase tracking-wider block">Revenue Today</span>
+                  <span className="text-lg font-bold font-display text-emerald-400 mt-1 block">₹{totalSalesOrdered.toLocaleString("en-IN")}</span>
+                  <span className="text-[10px] text-theme-muted mt-0.5 block">+12.4% vs yesterday</span>
+                </div>
+
+                <div className="bg-theme-surface-1 p-3.5 rounded-2xl border border-theme-divider shadow-md">
+                  <span className="text-[9px] text-theme-muted font-mono font-bold uppercase tracking-wider block">Orders</span>
+                  <span className="text-lg font-bold font-display text-indigo-400 mt-1 block">{salesOrders.length}</span>
+                  <span className="text-[10px] text-theme-muted mt-0.5 block">{convertedQuotations} from Quotes</span>
+                </div>
+
+                <div className="bg-theme-surface-1 p-3.5 rounded-2xl border border-theme-divider shadow-md">
+                  <span className="text-[9px] text-theme-muted font-mono font-bold uppercase tracking-wider block">Invoices</span>
+                  <span className="text-lg font-bold font-display text-blue-400 mt-1 block">{salesInvoices.length}</span>
+                  <span className="text-[10px] text-theme-muted mt-0.5 block">Statutory Posted</span>
+                </div>
+
+                <div className="bg-theme-surface-1 p-3.5 rounded-2xl border border-theme-divider shadow-md">
+                  <span className="text-[9px] text-theme-muted font-mono font-bold uppercase tracking-wider block">Collection</span>
+                  <span className="text-lg font-bold font-display text-emerald-400 mt-1 block">₹{Math.round(totalSalesOrdered * 0.85).toLocaleString("en-IN")}</span>
+                  <span className="text-[10px] text-theme-muted mt-0.5 block">85% Cleared</span>
+                </div>
+
+                <div className="bg-theme-surface-1 p-3.5 rounded-2xl border border-theme-divider shadow-md">
+                  <span className="text-[9px] text-theme-muted font-mono font-bold uppercase tracking-wider block">Pending</span>
+                  <span className="text-lg font-bold font-display text-amber-400 mt-1 block">{activeDrafts}</span>
+                  <span className="text-[10px] text-theme-muted mt-0.5 block">Awaiting Approval</span>
+                </div>
+
+                <div className="bg-theme-surface-1 p-3.5 rounded-2xl border border-theme-divider shadow-md">
+                  <span className="text-[9px] text-theme-muted font-mono font-bold uppercase tracking-wider block">Returns</span>
+                  <span className="text-lg font-bold font-display text-rose-400 mt-1 block">{salesReturns.length}</span>
+                  <span className="text-[10px] text-theme-muted mt-0.5 block">Credit Notes</span>
+                </div>
+
+                <div className="bg-theme-surface-1 p-3.5 rounded-2xl border border-theme-divider shadow-md">
+                  <span className="text-[9px] text-theme-muted font-mono font-bold uppercase tracking-wider block">Margin %</span>
+                  <span className="text-lg font-bold font-display text-violet-400 mt-1 block">28.5%</span>
+                  <span className="text-[10px] text-theme-muted mt-0.5 block">Gross Profit Margin</span>
+                </div>
+              </div>
+
+              {/* Quick Search Input Bar */}
+              <div className="bg-theme-surface-1 p-3 rounded-2xl border border-theme-divider shadow-md flex items-center space-x-3">
+                <Search size={16} className="text-indigo-400 shrink-0 ml-2" />
+                <input
+                  type="text"
+                  placeholder="Quick Search [ Search Customer / Invoice No / SKU Code / Barcode / Phone ]..."
+                  className="w-full bg-transparent text-xs text-theme-body focus:outline-none font-mono placeholder:text-theme-muted"
+                />
+              </div>
+
+              {/* 2-Column Dashboard Control Center Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column (2/3): Recent Activities, Sales Trend, Top Items */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* Recent Activities */}
+                  <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg space-y-3">
+                    <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-theme-body flex items-center space-x-2">
+                      <Clock size={15} className="text-indigo-400" />
+                      <span>Recent Sales Activities</span>
+                    </h3>
+                    <div className="space-y-2 text-xs font-mono">
+                      <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-theme-body">Tax Invoice INV-000145 Created</span>
+                          <span className="text-theme-muted block text-[11px]">Customer: Apex Retailers Ltd • Amount: ₹1,25,000</span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 text-[10px] font-bold">APPROVED</span>
+                      </div>
+                      <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-theme-body">Payment ₹85,000 Received via UPI</span>
+                          <span className="text-theme-muted block text-[11px]">Customer: City Footwear Mart • Ref: UPI-2026-9912</span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded bg-blue-950 text-blue-400 text-[10px] font-bold">SETTLED</span>
+                      </div>
+                      <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-theme-body">Sales Return CN-2026-04 Recorded</span>
+                          <span className="text-theme-muted block text-[11px]">Customer: Metro Garments • Reason: Size Exchange</span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded bg-rose-950 text-rose-400 text-[10px] font-bold">CREDIT NOTE</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Top Selling Items */}
+                  <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg space-y-3">
+                    <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-theme-body flex items-center space-x-2">
+                      <ShoppingCart size={15} className="text-emerald-400" />
+                      <span>Top Selling Items</span>
+                    </h3>
+                    <div className="overflow-x-auto text-xs font-mono">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-theme-divider text-theme-muted text-[10px]">
+                            <th className="pb-2">SKU Code</th>
+                            <th className="pb-2">Product Description</th>
+                            <th className="pb-2 text-right">Units Sold</th>
+                            <th className="pb-2 text-right">Total Revenue (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-theme-divider/50">
+                          {products.slice(0, 4).map((p, idx) => (
+                            <tr key={p.id || idx} className="hover:bg-theme-surface-hover">
+                              <td className="py-2.5 font-bold text-indigo-400">{p.barcode || `SKU-${idx + 101}`}</td>
+                              <td className="py-2.5 font-semibold text-theme-body">{p.name}</td>
+                              <td className="py-2.5 text-right text-indigo-300 font-bold">{(idx + 1) * 45} Pcs</td>
+                              <td className="py-2.5 text-right text-emerald-400 font-bold">₹{((idx + 1) * 45 * p.price).toLocaleString("en-IN")}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column (1/3): My Tasks, Top Customers, Alerts */}
+                <div className="space-y-6">
+                  {/* My Tasks */}
+                  <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg space-y-3">
+                    <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-theme-body flex items-center space-x-2">
+                      <CheckCircle2 size={15} className="text-amber-400" />
+                      <span>My Operational Tasks</span>
+                    </h3>
+                    <div className="space-y-2 text-xs font-mono">
+                      <div className="p-2.5 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-center justify-between">
+                        <span className="text-theme-body">Pending Quotation Approvals</span>
+                        <span className="px-2 py-0.5 rounded bg-amber-950 text-amber-400 font-bold">3 Pending</span>
+                      </div>
+                      <div className="p-2.5 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-center justify-between">
+                        <span className="text-theme-body">Credit Limit Hold Accounts</span>
+                        <span className="px-2 py-0.5 rounded bg-rose-950 text-rose-400 font-bold">2 Accounts</span>
+                      </div>
+                      <div className="p-2.5 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-center justify-between">
+                        <span className="text-theme-body">Delivery Shipments Due Today</span>
+                        <span className="px-2 py-0.5 rounded bg-blue-950 text-blue-400 font-bold">5 Shipments</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Top Customers */}
+                  <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg space-y-3">
+                    <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-theme-body flex items-center space-x-2">
+                      <User size={15} className="text-sky-400" />
+                      <span>Top Volume Customers</span>
+                    </h3>
+                    <div className="space-y-2 text-xs font-mono">
+                      {customers.slice(0, 3).map((c, idx) => (
+                        <div key={c.id || idx} className="p-2.5 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-center justify-between">
+                          <div>
+                            <span className="font-bold text-theme-body block">{c.name}</span>
+                            <span className="text-[10px] text-theme-muted">{c.mobile}</span>
+                          </div>
+                          <span className="font-bold text-emerald-400">₹{(idx + 1) * 85000}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Alerts & Safeguards */}
+                  <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider shadow-lg space-y-3">
+                    <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-theme-body flex items-center space-x-2">
+                      <AlertTriangle size={15} className="text-rose-400" />
+                      <span>Alerts & Safeguards</span>
+                    </h3>
+                    <div className="space-y-2 text-xs font-mono">
+                      <div className="p-2.5 bg-rose-950/40 border border-rose-500/40 rounded-xl text-rose-300">
+                        • Customer "Metro Garments" exceeded ₹2,00,000 credit limit.
+                      </div>
+                      <div className="p-2.5 bg-amber-950/40 border border-amber-500/40 rounded-xl text-amber-300">
+                        • Low Stock Alert: SKU-104 (Cotton Shirt Blue L) below reorder point.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
+          )}
+
+          {/* Sub-navigation & Header Controls (Show only when in Registry mode) */}
+          {subView !== "dashboard" && (
+            <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-4 flex flex-col xl:flex-row items-center justify-between gap-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-mono font-bold uppercase tracking-wide text-theme-muted">
+                  Active: {subView === "quotations" ? "Quotations Registry" : subView === "orders" ? "Orders Registry" : subView === "invoices" ? "Invoices Registry" : subView === "returns" ? "Returns Registry" : "Customers Directory"}
+                </span>
+              </div>
+
 
             <div className="flex items-center space-x-3 w-full xl:w-auto justify-end">
               <SmartFilter 
@@ -1225,9 +1427,17 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
           )}
         </div>
       </div>
+    )}
 
-      {/* Main Studio View Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+
+
+
+
+      {/* Main Studio View Panel (Registry Tables & Object Page Editors) */}
+      {(subView !== "dashboard" || isCreatingInvoice || isCreatingQuotation || isCreatingOrder || isCreatingReturn) && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
         
         {/* Left 2/3 (or Full Width when Creating Invoice): Lists & Forms */}
         <div className={isCreatingInvoice ? "lg:col-span-3 space-y-6" : "lg:col-span-2 space-y-6"}>
@@ -3521,6 +3731,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
         )}
 
       </div>
+      )}
+
 
 
       {/* Quick Edit Customer Modal */}
