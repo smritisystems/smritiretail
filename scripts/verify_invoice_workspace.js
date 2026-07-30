@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 
 async function verifyInvoiceWorkspace() {
-  console.log("=== Launching Playwright Sales Invoice Workspace Refactoring Test ===");
+  console.log("=== Launching Playwright Sales Invoice Workspace Wireframe Test ===");
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
@@ -42,7 +42,7 @@ async function verifyInvoiceWorkspace() {
 
   console.log("4. Clicking 'Generate Sales Invoice' button...");
   await page.locator('button:has-text("Generate Sales Invoice")').first().click();
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(3000);
 
   const artifactDir = "C:/Users/netma/.gemini/antigravity-ide/brain/9a6c7421-4968-4319-a2c7-7e43410a7445";
   fs.mkdirSync(artifactDir, { recursive: true });
@@ -61,7 +61,7 @@ async function verifyInvoiceWorkspace() {
     console.error("FAIL: Uncaught errors in Sales Invoice Workspace!");
     process.exit(1);
   } else {
-    console.log("SUCCESS: Sales Invoice workspace refactored and rendered cleanly!");
+    console.log("SUCCESS: Sales Invoice workspace wireframe component rendered cleanly!");
   }
 }
 
