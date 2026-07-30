@@ -257,6 +257,15 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
+  const isPopoutMode = useMemo(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("popout") === "true";
+    } catch {
+      return false;
+    }
+  }, []);
+
+
   const safeLastWorkspace =
     initialTabFromUrl ||
     (isSetupCompleted && preferences.lastWorkspace === "company-setup"
@@ -734,15 +743,8 @@ const AppContent: React.FC = () => {
     );
   }
 
-  const isPopoutMode = useMemo(() => {
-    try {
-      return new URLSearchParams(window.location.search).get("popout") === "true";
-    } catch {
-      return false;
-    }
-  }, []);
-
   if (isPopoutMode) {
+
     const popoutTab = new URLSearchParams(window.location.search).get("tab") || "sales";
     return (
       <div className="w-screen h-screen bg-[#0B0F17] overflow-hidden p-2 m-0 font-sans">
