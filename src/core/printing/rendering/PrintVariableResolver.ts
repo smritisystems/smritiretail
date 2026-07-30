@@ -18,6 +18,7 @@ export class PrintVariableResolver {
    */
   static resolveDocument(document: PrintDocument, activeItem: any = {}): string {
     let script = document.content;
+    if (!script) return "";
 
     // 1. Resolve metadata attributes via SMP-M
     const attrValues = UniversalAttributeEngine.resolveValues(activeItem);
@@ -25,7 +26,7 @@ export class PrintVariableResolver {
 
     const barcodeVal = String(activeItem.barcode || activeItem.itemCode || activeItem.code || "8901234567890");
     const mrpFormatted = Number(activeItem.mrp || activeItem.price || 0).toFixed(2);
-    const pkdDateVal = String(activeItem.pkd_date || activeItem.mfgDate || "05/2025");
+    const pkdDateVal = String(activeItem.pkd_date || activeItem.mfgDate || activeItem.mfg_date || "05/2025");
 
     const directMap: Record<string, string> = {
       "{barcode}": barcodeVal,
@@ -37,15 +38,25 @@ export class PrintVariableResolver {
       script = script.replaceAll(k, v);
     }
 
-    // 2. Resolve {{Attribute.xxx}} and {attributeCode} placeholders from SMP-M
+    // 2. Resolve SMP-M Registered Attributes
     for (const attr of attributes) {
       const code = attr.attributeCode;
-      const val = attrValues[code] || activeItem[code] || "-";
+      const val = String(attrValues[code] ?? activeItem[code] ?? "-");
 
       script = script.replaceAll(`{{Attribute.${code}}}`, val);
       script = script.replaceAll(`{{Attribute.${attr.internalName}}}`, val);
       script = script.replaceAll(`{${code}}`, val);
       script = script.replaceAll(`\${item.${code}}`, val);
+    }
+
+    // 3. Dynamic Fallback: Resolve any remaining key directly present on activeItem (e.g. {style}, {color}, {size})
+    for (const [key, val] of Object.entries(activeItem)) {
+      if (val !== undefined && val !== null) {
+        const strVal = String(val);
+        script = script.replaceAll(`{${key}}`, strVal);
+        script = script.replaceAll(`\${item.${key}}`, strVal);
+        script = script.replaceAll(`{{${key}}}`, strVal);
+      }
     }
 
     return script;
