@@ -641,15 +641,10 @@ async def company_setup(
 
     existing_setup = await get_system_config(db, SETUP_COMPLETED_KEY)
     if existing_setup and existing_setup.value == "true":
-        return {
-            "success": True,
-            "message": "Company setup has already been completed.",
-            "alreadyCompleted": True,
-            "company": {
-                "name": company_name,
-                "id": "sys-co-default"
-            }
-        }
+        raise HTTPException(
+            status_code=400,
+            detail="Company setup has already been completed."
+        )
 
     if not branch_entries:
         branch_entries = [
