@@ -221,6 +221,13 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Inventory & Sourcing",
     },
     {
+      id: "scdm",
+      label: "SCDM Channel Distribution",
+      icon: "local_shipping",
+      category: "Inventory & Sourcing",
+    },
+
+    {
       id: "item-master",
       label: "Item Master",
       icon: "inventory_2",

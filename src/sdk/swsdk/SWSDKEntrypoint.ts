@@ -78,6 +78,74 @@ const printStudioBundle = {
   }
 };
 
+const scdmChannelDistributionBundle = {
+  manifest: {
+    schemaVersion: "1.0" as const,
+    workspaceId: "scdm.channel-distribution",
+    title: "SCDM Channel Distribution",
+    module: "ChannelDistribution",
+    icon: "truck",
+    route: "/scdm/channel-distribution",
+    category: "Operations" as const,
+    supports: {
+      drafts: true,
+      resume: true,
+      tabs: true,
+      attachments: true,
+      workflow: true,
+      timeline: true,
+      print: true,
+      export: true,
+      analytics: true,
+      barcode: true,
+      notifications: true,
+    },
+  },
+  actions: {
+    schemaVersion: "1.0" as const,
+    workspaceId: "scdm.channel-distribution",
+    actions: [
+      { id: "ingest-sellout", label: "Ingest Sell-Out", priority: "primary" as const, permissionRequired: "scdm.sellout.import", shortcut: "Ctrl+I" },
+      { id: "reconcile", label: "Run Reconciliation", priority: "secondary" as const, permissionRequired: "scdm.reconcile" },
+      { id: "export-report", label: "Export Report", priority: "secondary" as const, permissionRequired: "scdm.reports.view" },
+    ],
+  },
+  capabilities: {
+    schemaVersion: "1.0" as const,
+    workspaceId: "scdm.channel-distribution",
+    capabilities: ["analytics", "audit", "workflow", "barcode"] as const,
+  },
+
+  permissions: {
+    schemaVersion: "1.0" as const,
+    workspaceId: "scdm.channel-distribution",
+    permissions: [
+      { action: "view" as const, code: "SCDM.DISPATCH.VIEW", description: "View channel dispatches and inventory" },
+      { action: "create" as const, code: "SCDM.SELLOUT.IMPORT", description: "Ingest sell-out data from files or API" },
+      { action: "edit" as const, code: "SCDM.RECONCILE", description: "Run stock and value reconciliation" },
+    ],
+  },
+
+  search: {
+    schemaVersion: "1.0" as const,
+    workspaceId: "scdm.channel-distribution",
+    providers: ["dispatches", "customers"],
+    priority: { dispatches: 90, customers: 85 },
+    commands: [
+      { id: "open-scdm-studio", label: "Open SCDM Channel Distribution Studio", action: "/scdm/channel-distribution", icon: "truck" },
+    ],
+  },
+  events: {
+    schemaVersion: "1.0" as const,
+    workspaceId: "scdm.channel-distribution",
+    eventsEmitted: [
+      { eventType: "scdm.channel_dispatch.created", payloadType: "{ dispatchId: string }", description: "Fired on auto-dispatch creation" },
+      { eventType: "scdm.sellout.imported", payloadType: "{ importId: string }", description: "Fired on sell-out import completion" },
+    ],
+    eventsSubscribed: ["sales.invoice.posted", "sales.invoice.cancelled"],
+  },
+};
+
 /**
  * Called by SPF PlatformBootstrap at Boot Stage 8 (SWSDKRegistry).
  */
@@ -87,7 +155,11 @@ export function initSWSDKRegistry(): void {
   try {
     registry.registerWorkspace(printStudioBundle);
     console.info("[SWSDK] ✅ Registered workspace: platform.print-studio");
+
+    registry.registerWorkspace(scdmChannelDistributionBundle);
+    console.info("[SWSDK] ✅ Registered workspace: scdm.channel-distribution");
   } catch (err) {
     console.error("[SWSDK] ❌ Failed to register workspace:", err);
   }
 }
+

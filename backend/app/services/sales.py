@@ -43,8 +43,8 @@ from ..schemas.sales import (
 from .crm import CrmService
 from .inventory import InventoryService
 from ..api.deps import TenantContext
-# ADR-007: Domain Event Bus — InvoiceCancelled publisher
-from app.core.events.domain_events import publish_invoice_cancelled
+# ADR-007: Domain Event Bus
+from app.services.event_bus import event_bus, Events
 
 
 def _uid() -> str:
@@ -276,7 +276,23 @@ class SalesService:
             )
         stmt = select(SalesInvoice).options(selectinload(SalesInvoice.items), selectinload(SalesInvoice.payments)).filter(SalesInvoice.id == db_invoice.id)
         res = await self.db.execute(stmt)
-        return res.scalars().first()
+        refreshed = res.scalars().first()
+
+        # ── SCDM: Publish SALES_INVOICE_POSTED for channel dispatch hook ──────
+        # event_listeners.py handles SCDM dispatch creation.
+        # This call is non-blocking; any SCDM failure is caught by the listener.
+        await event_bus.publish(
+            Events.SALES_INVOICE_POSTED,
+            {
+                "invoice_id":   db_invoice.id,
+                "invoice_no":   db_invoice.invoice_no,
+                "customer_id":  db_invoice.customer_id,
+                "grand_total":  float(db_invoice.grand_total),
+                "invoice_date": db_invoice.invoice_date.isoformat() if db_invoice.invoice_date else None,
+            },
+            self.db,
+        )
+        return refreshed
 
     async def get_sales_invoice(self, invoice_id: str) -> tuple[SalesInvoice, List[SalesInvoiceItem]]:
         res = await self.db.execute(
@@ -830,6 +846,17 @@ class SalesService:
         self.db.add(invoice)
         await self.db.commit()
         await self.db.refresh(invoice)
+
+        # ── SCDM: Publish SALES_INVOICE_CANCELLED for channel dispatch reversal
+        await event_bus.publish(
+            Events.SALES_INVOICE_CANCELLED,
+            {
+                "invoice_id":  invoice.id,
+                "invoice_no":  invoice.invoice_no,
+                "customer_id": invoice.customer_id,
+            },
+            self.db,
+        )
         return invoice
 
     # ── Quotation UPDATE ────────────────────────────────────────────

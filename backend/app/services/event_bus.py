@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -78,10 +78,20 @@ class Events:
     CRM_CUSTOMER_CREATED                  = "crm.customer.created"
     CRM_CUSTOMER_BLOCKED                  = "crm.customer.blocked"
 
+    # SCDM — Channel Distribution Management (Platform Capability v1.0)
+    SCDM_CHANNEL_DISPATCH_CREATED         = "scdm.channel_dispatch.created"
+    SCDM_CHANNEL_DISPATCH_REVERSED        = "scdm.channel_dispatch.reversed"
+    SCDM_STOCK_MOVEMENT_CREATED           = "scdm.stock_movement.created"
+    SCDM_SELLOUT_IMPORTED                 = "scdm.sellout.imported"
+    SCDM_ALERT_LOW_STOCK                  = "scdm.alert.low_stock"
+    SCDM_ALERT_NO_SELLOUT                 = "scdm.alert.no_sellout"
+    SCDM_ALERT_HIGH_AGEING                = "scdm.alert.high_ageing"
+
     # Security / Auth
     AUTH_USER_LOGIN                       = "auth.user.login"
     AUTH_USER_LOGOUT                      = "auth.user.logout"
     AUTH_PERMISSION_DENIED                = "auth.permission.denied"
+
 
 
 HandlerFn = Callable[[dict, AsyncSession], Awaitable[None]]

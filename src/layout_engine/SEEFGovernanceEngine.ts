@@ -261,7 +261,9 @@ export const SEEF_MODULE_REGISTRY: Array<{ id: string; label: string; file: stri
   { id: "purchase",        label: "Purchase Studio",      file: "src/components/PurchaseStudioTab.tsx" },
   { id: "customers",       label: "Customer Master",      file: "src/components/CustomerMasterTab.tsx" },
   { id: "crm",             label: "CRM Studio",           file: "src/components/CrmStudioTab.tsx" },
+  { id: "scdm",            label: "SCDM Channel Distribution", file: "src/components/SCDMStudioTab.tsx" },
   { id: "reports",         label: "Reports",              file: "src/components/QuickReportTab.tsx" },
+
   { id: "inventory",       label: "Inventory",            file: "src/components/InventoryTab.tsx" },
   { id: "staff",           label: "Staff Management",     file: "src/components/StaffManagementTab.tsx" },
   { id: "fiori-list",      label: "FioriListReport",      file: "src/components/common/FioriListReport.tsx" },

@@ -112,3 +112,13 @@ from .company_master import (
     CompanyTaxProfile,
     CompanyFinancialYear,
 )
+
+# SCDM — SMRITI Channel Distribution Management (Platform Capability v1.0)
+from .scdm import (
+    ChannelLocation,
+    ChannelDispatch,
+    ChannelDispatchLine,
+    ChannelStockMovement,
+    SellOutImport,
+    SellOutImportLine,
+)

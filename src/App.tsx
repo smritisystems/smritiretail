@@ -54,6 +54,8 @@ import { OperationalWorkspacesTab } from "./components/OperationalWorkspacesTab.
 import { TransactionWorkspacesTab } from "./components/TransactionWorkspacesTab.tsx";
 import { BiReportingAndPrintingTab } from "./components/BiReportingAndPrintingTab.tsx";
 import { ConsignmentStudioTab } from "./components/ConsignmentStudioTab.tsx";
+import { SCDMStudioTab } from "./components/SCDMStudioTab.tsx";
+
 import { CrmStudioTab } from "./components/CrmStudioTab.tsx";
 import { LoyaltyStudioTab } from "./components/LoyaltyStudioTab.tsx";
 import { SupplierDashboardTab } from "./components/SupplierDashboardTab.tsx";
@@ -497,6 +499,12 @@ const AppContent: React.FC = () => {
         return <CustomerDashboardTab />;
       case "consignment-studio":
         return <ConsignmentStudioTab products={products} currentUser={currentUser} />;
+      case "scdm":
+      case "scdm-studio":
+      case "channel-distribution":
+      case "scdm_channel_distribution":
+        return <SCDMStudioTab />;
+
       case "loyalty":
         return <LoyaltyStudioTab currentUser={currentUser} />;
       case "compliance":

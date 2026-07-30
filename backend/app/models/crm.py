@@ -136,6 +136,16 @@ class Customer(RowSecuredMixin, BaseEntity):
     shipping_pincode = Column(String(10), nullable=True)
     additional_addresses = Column(JSONB, server_default="'[]'::jsonb", default=list)
 
+    # ── SCDM: Channel Distribution Management (additive — AOP-004) ───────────
+    # These fields enable a customer to participate in SCDM channel tracking.
+    # Existing customers default to disabled (no impact on current behaviour).
+    channel_tracking_enabled = Column(Boolean, nullable=False, server_default="false", default=False)
+    supply_model = Column(String(30), nullable=True)
+    # SupplyModel: Normal | ModernTrade | Distributor | Franchise | Institutional
+    sellout_source = Column(String(30), nullable=True)
+    # SellOutSource: Manual | Excel | CSV | API | EDI | POSFeed | FTP | SFTP | Webhook
+    # ─────────────────────────────────────────────────────────────────────────
+
     group = relationship("CustomerGroup", back_populates="customers")
     pricing_group = relationship("PricingGroup")
 
@@ -144,6 +154,7 @@ class Customer(RowSecuredMixin, BaseEntity):
     credit_profile = relationship("CustomerCreditProfile", uselist=False, back_populates="customer", cascade="all, delete-orphan")
     tax_profile = relationship("CustomerTaxProfile", uselist=False, back_populates="customer", cascade="all, delete-orphan")
     channel_preferences = relationship("CustomerCommunicationPreference", back_populates="customer", cascade="all, delete-orphan")
+
 
 
 

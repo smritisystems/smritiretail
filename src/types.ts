@@ -528,6 +528,12 @@ export interface Customer {
   // Payment overrides
   preferredPaymentMethod?: PaymentMethod;
 
+  // SCDM Channel Distribution Management fields
+  channelTrackingEnabled?: boolean;
+  supplyModel?: "Normal" | "ModernTrade" | "Distributor" | "Franchise" | "Institutional";
+  selloutSource?: "Manual" | "Excel" | "CSV" | "API" | "EDI" | "POSFeed" | "FTP" | "SFTP" | "Webhook";
+
+
   // Sales overrides
   salesPerson?: string;
   salesperson?: string; // added to match lowercase property
