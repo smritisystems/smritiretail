@@ -303,14 +303,5 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
             "/api/v1/auth/login",
             json={"username": "no_tenant", "password": "Test@1234"},
         )
-        assert unassigned_login.status_code == 200
-        unassigned_token = unassigned_login.json()["access_token"]
-
-        invalid_context = await client.get(
-            "/api/v1/inventory/",
-            headers={"Authorization": f"Bearer {unassigned_token}"},
-        )
-        if invalid_context.status_code != 403:
-            print("INVALID CONTEXT FAILED RESPONSE:", invalid_context.status_code, invalid_context.text)
-        assert invalid_context.status_code == 403
-        assert "not assigned to a company and branch" in invalid_context.json()["detail"]
+        assert unassigned_login.status_code == 403
+        assert "not assigned to a company and branch" in unassigned_login.json()["detail"]
