@@ -937,6 +937,78 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
           </div>
         </div>
       )}
+
+      {/* ================= NEW SUPPLIER MODAL ================= */}
+      {showNewSupplierModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-lg w-full p-5 space-y-4 shadow-xl border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h3 className="font-extrabold text-slate-900 text-sm flex items-center space-x-2">
+                <Building2 className="w-4 h-4 text-blue-600" />
+                <span>Create New Vendor / Supplier</span>
+              </h3>
+              <button onClick={() => setShowNewSupplierModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Supplier Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Acme Footwear Pvt. Ltd."
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-semibold text-slate-800 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">GSTIN</label>
+                  <input
+                    type="text"
+                    placeholder="27ABCDE1234F1Z5"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Mobile</label>
+                  <input
+                    type="text"
+                    placeholder="9876543210"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-semibold text-slate-800 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Address</label>
+                <input
+                  type="text"
+                  placeholder="Market Road, Mumbai, Maharashtra"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-semibold text-slate-800 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setShowNewSupplierModal(false)}
+                className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowNewSupplierModal(false);
+                  if (onNotification) onNotification("Supplier Created", "New vendor added successfully", "success");
+                }}
+                className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold"
+              >
+                Save Supplier
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
