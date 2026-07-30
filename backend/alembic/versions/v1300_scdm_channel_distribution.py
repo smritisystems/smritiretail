@@ -26,9 +26,10 @@ from alembic import op
 
 # Revision identifiers
 revision: str = "v1300_scdm_channel_distribution"
-down_revision: Union[str, Sequence[str], None] = "v900_replenishment_reorder"
+down_revision: Union[str, Sequence[str], None] = "79c2e9571506"
 branch_labels = None
 depends_on = None
+
 
 # ── BaseEntity columns shared by all SCDM tables ────────────────────────────
 BASE_COLS = [
