@@ -102,6 +102,8 @@ import { LoginScreen } from "./components/LoginScreen.tsx";
 import { SmritiErrorBoundary } from "./components/SmritiErrorBoundary.tsx";
 import { Launchpad } from "./components/Launchpad.tsx";
 import { SEEFCommandPalette, useSEEFCommandPaletteShortcut } from "./layout_engine/SEEFCommandPalette.tsx";
+import { WorkspaceTabsBar } from "./components/common/WorkspaceTabsBar.tsx";
+import { CommandPaletteModal } from "./components/common/CommandPaletteModal.tsx";
 
 
 interface AppNotification {
@@ -758,6 +760,8 @@ const AppContent: React.FC = () => {
         currentUser={currentUser}
         onLogout={handleLogout}
       >
+        {/* SUNEF v3.5 Workspace Tabs Bar */}
+        <WorkspaceTabsBar />
         <DrillDownBreadcrumbs />
         <AnimatePresence mode="wait">
           <motion.div

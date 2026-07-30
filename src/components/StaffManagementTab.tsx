@@ -51,6 +51,10 @@ import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 import { SEEFSkeleton } from "./common/SEEFSkeleton.tsx";
 import { SEEFEmptyState } from "./common/SEEFEmptyState.tsx";
 import { UniversalPersonWorkspace } from "../people/workspace/UniversalPersonWorkspace.tsx";
+import { Identity360Workspace, IdentityRecord } from "./Identity360Workspace.tsx";
+import { ProvisioningDashboard } from "./ProvisioningDashboard.tsx";
+import { IdentityTransferWizard } from "./IdentityTransferWizard.tsx";
+import { IdentityProvisioningWizard } from "./IdentityProvisioningWizard.tsx";
 
 interface StaffManagementTabProps {
   currentUser?: { role: string; name: string } | null;
@@ -429,8 +433,50 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
         </button>
       </div>
 
+      {/* SUPOE v2.0 Provisioning Health Telemetry Dashboard */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+        <div className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">SUPOE v2.0 Provisioning Health & Governance Telemetry</div>
+        <ProvisioningDashboard />
+      </div>
+
       {/* SUPOE v2.0 Universal Person 360 Studio */}
-      <UniversalPersonWorkspace personId="PER-1001" />
+      <Identity360Workspace
+        identity={{
+          id: selectedStaff?.id || "SYSADMIN-001",
+          username: selectedStaff?.username || "sysadmin",
+          fullName: selectedStaff?.fullName || "Jawahar Ramkripal Mallah",
+          email: selectedStaff?.email || "founder@smritisys.com",
+          mobile: selectedStaff?.mobile || "+91 9324117007",
+          role: selectedStaff?.role || "SYSADMIN",
+          status: "Active",
+          companyName: "SMRITI Retail Ltd",
+          branchName: selectedStaff?.branch || "Nagpur HQ Store",
+          assignments: [
+            {
+              id: "asg-1",
+              companyName: "SMRITI Retail Ltd",
+              locationName: selectedStaff?.branch || "Nagpur HQ Store",
+              position: selectedStaff?.designation || "Chief Systems Architect",
+              fromDate: "2026-01-01",
+              toDate: "Present",
+              isPrimary: true
+            },
+            {
+              id: "asg-2",
+              companyName: "SMRITI Retail Ltd",
+              locationName: "Mumbai Flagship Store",
+              position: "Executive Auditor",
+              fromDate: "2026-06-01",
+              toDate: "2026-06-15",
+              isPrimary: false
+            }
+          ],
+          relationships: [
+            { id: "rel-1", role: "Manager", personName: "Board of Directors", contactMobile: "+91 9324117007" },
+            { id: "rel-2", role: "HR Lead", personName: "Corporate HR Team", contactMobile: "+91 9324117007" }
+          ]
+        }}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Staff Directory */}

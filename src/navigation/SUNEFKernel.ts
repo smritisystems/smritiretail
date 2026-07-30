@@ -9,6 +9,7 @@
 
 import { ENTITY_REGISTRY_V3, EntityManifestV3 } from "./NavigationRegistry.ts";
 import { getPreservedTab, setPreservedTab } from "./WorkspaceRegistry.ts";
+import { WorkspaceLifecycleManager } from "./WorkspaceLifecycleManager.ts";
 
 export type NavigationMode = "Preview" | "Workspace" | "Modal" | "SplitView" | "Background" | "ReadOnly";
 
@@ -103,6 +104,9 @@ export class SUNEFKernel {
     if (this.activeTabSetter) {
       this.activeTabSetter(targetTab);
     }
+
+    // Integrate SUNEF v3.5 Workspace Lifecycle Manager
+    WorkspaceLifecycleManager.openWorkspace(targetTab, params.title || manifest.entity || params.type, manifest.icon);
 
     // Push into in-app History Stack if not an internal back/forward traversal
     if (!this.isNavigatingInternal) {
