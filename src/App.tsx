@@ -42,6 +42,7 @@ import { PosProfilesTab } from "./components/PosProfilesTab.tsx";
 import { SharedTerminalFramework } from "./components/terminal/SharedTerminalFramework.tsx";
 import { AdvancedBillingEngine } from "./components/AdvancedBillingEngine.tsx";
 import { SalesStudioTab } from "./components/SalesStudioTab.tsx";
+import { SalesBillingStudio } from "./components/sales/SalesBillingStudio.tsx";
 import { ItemMasterTab } from "./components/ItemMasterTab.tsx";
 import { WikiTab } from "./components/WikiTab.tsx";
 import { PurchaseStudioTab } from "./components/PurchaseStudioTab.tsx";
@@ -765,14 +766,10 @@ const AppContent: React.FC = () => {
         );
       case "psv":
         return <PsvTab psvParties={psvParties} currentUser={currentUser} />;
+      case "sales-billing":
+      case "sales-billing-studio":
       case "sales":
-        return (
-          <SalesStudioTab
-            products={products}
-            onNotification={addNotification}
-            currentUser={currentUser}
-          />
-        );
+        return <SalesBillingStudio />;
       case "purchase":
         return (
           <PurchaseStudioTab
