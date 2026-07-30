@@ -23,6 +23,9 @@ const apiTarget = process.env.SMRITI_API_HOST
 
 const manualChunksHandler = (id: string) => {
   if (id.includes("node_modules")) {
+    if (id.includes("buffer")) {
+      return "vendor-buffer";
+    }
     if (id.includes("recharts") || id.includes("d3")) {
       return "vendor-charts";
     }
