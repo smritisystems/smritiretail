@@ -145,7 +145,7 @@ export const WidgetEngine: React.FC<WidgetEngineProps> = ({ widgetIds, data }) =
       {widgetIds.includes("financial_summary") && <FinancialWidget data={data} />}
       {widgetIds.includes("gst_summary") && <GSTWidget data={data} />}
       {widgetIds.includes("customer_credit") && <CreditWidget data={data} />}
-      {widgetIds.includes("stock_availability") && <StockWidget data={data} />}
+      {(widgetIds.includes("stock_availability") || widgetIds.includes("stock_advisory")) && <StockWidget data={data} />}
       {widgetIds.includes("timeline") && <TimelineWidget data={data} />}
     </div>
   );
