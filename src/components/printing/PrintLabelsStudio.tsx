@@ -891,9 +891,10 @@ export const PrintLabelsStudio: React.FC = () => {
                     onChange={(e) => setLabelSize(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-700"
                   >
-                    <option>Default Label (50 x 25 mm)</option>
-                    <option>Apparel Hangtag (75 x 50 mm)</option>
-                    <option>Jewelry Tag (38 x 12 mm)</option>
+                    <option value="100 x 50.7 mm">Tattly Threads Dual Barcode Tag (ZPL 100 x 50.7 mm)</option>
+                    <option value="50 x 25 mm">Default Label (50 x 25 mm)</option>
+                    <option value="75 x 50 mm">Apparel Hangtag (75 x 50 mm)</option>
+                    <option value="38 x 12 mm">Jewelry Tag (38 x 12 mm)</option>
                   </select>
                 </div>
 
