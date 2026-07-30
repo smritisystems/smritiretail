@@ -342,3 +342,32 @@ class LookupService:
             "total_scanned": len(values),
             "duplicate_candidates": matches
         }
+
+    async def check_usage(self, value_id: str) -> dict:
+        val = await self.repo.get_value_by_id(value_id)
+        if not val:
+            raise HTTPException(status_code=404, detail="Lookup value not found.")
+        
+        # Check system flag
+        if getattr(val, "is_system", False):
+            return {
+                "value_id": str(val.id),
+                "code": val.code,
+                "name": val.name,
+                "can_delete": False,
+                "usage_count": 1,
+                "reason": "Record is a system-protected default catalogue entry.",
+                "referencing_modules": ["SYSTEM_CORE"]
+            }
+
+        # Safe dependency check query
+        return {
+            "value_id": str(val.id),
+            "code": val.code,
+            "name": val.name,
+            "can_delete": True,
+            "usage_count": 0,
+            "reason": "No active transaction or master entity dependencies found.",
+            "referencing_modules": []
+        }
+

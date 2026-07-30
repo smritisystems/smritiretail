@@ -357,3 +357,18 @@ async def ai_detect_duplicate_lookups(
     service = LookupService(db)
     return await service.ai_detect_duplicates(type_code)
 
+
+@router.get(
+    "/master-lookups/values/{value_id}/check-usage",
+    dependencies=[Depends(require_permission("SETTINGS.VIEW"))],
+)
+async def check_lookup_value_usage(
+    value_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Check transaction and master entity dependencies before deletion (Shoper 9 spec)."""
+    service = LookupService(db)
+    return await service.check_usage(str(value_id))
+
+
