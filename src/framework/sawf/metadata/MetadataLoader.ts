@@ -11,6 +11,10 @@ const registry: Record<string, SAWFDocumentMeta> = {
 };
 
 export class MetadataLoader {
+  static register(documentType: string, meta: SAWFDocumentMeta) {
+    registry[documentType] = meta;
+  }
+
   static getDocumentMeta(documentType: string): SAWFDocumentMeta {
     const meta = registry[documentType];
     if (!meta) {

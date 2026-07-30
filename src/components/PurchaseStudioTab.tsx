@@ -49,6 +49,8 @@ import { ProductImage } from "./common/ProductImage.tsx";
 import { FioriListReport, ListReportColumn } from "./common/FioriListReport.tsx";
 export { FioriListReport as SEEFListReport };
 import { useSEEF } from "../layout_engine/SEEFContext.tsx";
+import { PurchaseInvoiceRegistry } from "./purchase/PurchaseInvoiceRegistry.tsx";
+import { PurchaseInvoiceStudio } from "./purchase/PurchaseInvoiceStudio.tsx";
 
 interface PurchaseStudioTabProps {
   products: Product[];
@@ -66,6 +68,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
   const isReadOnly = currentUser?.role === "Report User";
   // Sub-tabs
   const [activeSubTab, setActiveSubTab] = useState<"create" | "suppliers" | "reorder" | "receive" | "reports">("create");
+  const [isCreatingBill, setIsCreatingBill] = useState<boolean>(false);
   
   // Role selector
   const userRole = (currentUser?.role as "Store Manager" | "Cashier") || "Store Manager";
@@ -850,419 +853,37 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 
       {/* Dynamic Sourcing Workspace Content */}
       <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6 shadow-xl min-h-[450px]">
-
-        {/* â”€â”€ SUB-TAB 1: CREATE PURCHASE ORDER â”€â”€ */}
+        {/* ──── SUB-TAB 1: PURCHASE INVOICES & BILLS WORKSPACE ──── */}
         {activeSubTab === "create" && (
-          <div className="space-y-6">
-            <div className="flex flex-col lg:flex-row gap-6">
-              
-              {/* Sourcing Header: Pick Supplier & Sourcing Analytics */}
-              <div className="w-full lg:w-1/3 bg-theme-surface-1 p-5 rounded-xl border border-theme-divider space-y-4">
-                <h3 className="text-xs font-mono uppercase tracking-wider text-indigo-400">1. SOURCING VENDOR IDENTIFICATION</h3>
-                <div>
-                  <label className="text-[10px] font-mono text-theme-muted block mb-1.5">CHOOSE REGISTERED SUPPLIER</label>
-                  <select
-                    value={selectedSupplierId}
-                    onChange={(e) => {
-                      setSelectedSupplierId(e.target.value);
-                      if (e.target.value) {
-                        fetchSupplierDetails(e.target.value);
-                        setDraftItems([]); // clean slate for different supplier
-                      } else {
-                        setSupplierDetails(null);
-                      }
-                    }}
-                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 font-medium"
-                  >
-                    <option value="">-- Choose registered vendor --</option>
-                    {suppliersList.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.vendorCode})</option>
-                    ))}
-                  </select>
-                </div>
-
-                {supplierDetails && (
-                  <div className="bg-theme-surface-2 p-4 rounded-lg border border-theme-divider/40 space-y-3.5">
-                    <h4 className="text-[10px] font-mono text-indigo-300 uppercase tracking-wider">HISTORICAL SOURCING PROFILE</h4>
-                    
-                    <div className="grid grid-cols-2 gap-3 text-left">
-                      <div className="bg-theme-surface-1 p-2.5 rounded border border-theme-divider/30">
-                        <span className="text-[9px] font-mono text-theme-muted block">ORDERS PLACED</span>
-                        <span className="text-sm font-bold text-theme-body font-mono mt-0.5">{supplierDetails.summary.totalOrders}</span>
-                      </div>
-                      <div className="bg-theme-surface-1 p-2.5 rounded border border-theme-divider/30">
-                        <span className="text-[9px] font-mono text-theme-muted block">CONFIRMED VALUE</span>
-                        <span className="text-sm font-bold text-emerald-400 font-mono mt-0.5">â‚¹{supplierDetails.summary.totalValue}</span>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-theme-divider/40 pt-2 text-[10px] text-theme-muted space-y-1.5 leading-relaxed font-sans">
-                      <div><strong className="text-[#cbd5e1]">GSTIN:</strong> {supplierDetails.taxRegistrationNumber || "N/A"}</div>
-                      <div><strong className="text-[#cbd5e1]">Contact Person:</strong> {supplierDetails.contactDetails || "N/A"}</div>
-                      <div><strong className="text-[#cbd5e1]">Sourcing Address:</strong> {supplierDetails.address || "N/A"}</div>
-                      <div><strong className="text-[#cbd5e1]">Last Order Date:</strong> {supplierDetails.summary.lastOrderDate === "-" ? "-" : new Date(supplierDetails.summary.lastOrderDate).toLocaleDateString()}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Sourcing Core: Build Items Grid/Matrix */}
-              <div className="w-full lg:w-2/3 bg-theme-surface-1 p-5 rounded-xl border border-theme-divider space-y-6">
-                
-                <div className="flex items-center justify-between border-b border-theme-divider/60 pb-3">
-                  <h3 className="text-xs font-mono uppercase tracking-wider text-indigo-400">2. SECURE COMPLIANT PRODUCT ENTRY</h3>
-                  
-                  {/* Sourcing input entry modes toggler */}
-                  <div className="bg-theme-surface-2 rounded-lg p-0.5 flex space-x-1 border border-theme-divider/60">
-                    <button
-                      onClick={() => setEntryMode("manual")}
-                      className={`px-3 py-1 text-[10px] font-bold tracking-wider uppercase rounded-md transition-all cursor-pointer ${
-                        entryMode === "manual" 
-                          ? "bg-indigo-600 text-white" 
-                          : "text-theme-muted hover:text-white"
-                      }`}
-                    >
-                      Barcode/Manual Variant
-                    </button>
-                    <button
-                      onClick={() => setEntryMode("matrix")}
-                      className={`px-3 py-1 text-[10px] font-bold tracking-wider uppercase rounded-md transition-all cursor-pointer ${
-                        entryMode === "matrix" 
-                          ? "bg-indigo-600 text-white" 
-                          : "text-theme-muted hover:text-white"
-                      }`}
-                    >
-                      Horizontal Size Matrix
-                    </button>
-                  </div>
-                </div>
-
-                {!selectedSupplierId ? (
-                  <div className="p-8 text-center bg-theme-surface-2 border border-dashed border-theme-divider rounded-xl text-theme-muted text-xs">
-                    Please identify a registered supplier from the left panel to begin compiling product purchase rows.
-                  </div>
-                ) : (
-                  <div>
-                    {/* BARCODE / MANUAL ENTRY MODE */}
-                    {entryMode === "manual" && (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <label className="text-[9px] font-mono text-theme-muted block mb-1">SELECT VARIANT</label>
-                            <select
-                              value={manualProduct}
-                              onChange={(e) => handleProductSelection(e.target.value)}
-                              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                            >
-                              <option value="">-- Choose item variant --</option>
-                              {products.map(p => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} [{p.code}] - Color: {p.color || "N/A"}, Size: {p.size || "N/A"}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="text-[9px] font-mono text-theme-muted block mb-1">QUANTITY</label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={manualQty}
-                              onChange={(e) => setManualQty(Math.max(1, parseInt(e.target.value) || 0))}
-                              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-[9px] font-mono text-theme-muted block mb-1">UNIT PURCHASE RATE (â‚¹)</label>
-                            <div className="relative">
-                              <input
-                                type="number"
-                                min="0"
-                                value={manualPrice}
-                                onChange={(e) => {
-                                  setManualPrice(Math.max(0, parseFloat(e.target.value) || 0));
-                                  setManualPriceSource("Manual Override");
-                                }}
-                                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                              />
-                            </div>
-                            {manualPriceSource && (
-                              <span className="text-[9px] text-indigo-300 font-mono mt-1 block tracking-tight uppercase">
-                                Rate Source: {manualPriceSource}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {manualProduct && (
-                          <div className="bg-theme-surface-2 p-3 rounded-lg border border-theme-divider/60 flex items-center justify-between">
-                            <div className="flex items-center space-x-2 text-indigo-300 text-[11px] font-mono">
-                              <Info className="w-4 h-4 text-indigo-400" />
-                              <span>Derived Tax Rate: <strong>{products.find(p => p.id === manualProduct)?.category === "Apparel" ? "12%" : "18%"} GST</strong></span>
-                              <span className="text-theme-muted">| Tax derives dynamically from product classification (Apparel/Footwear).</span>
-                            </div>
-                            <button
-                              onClick={handleAddManualItem}
-                              className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                            >
-                              Add row
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* HORIZONTAL SIZE MATRIX ENTRY MODE */}
-                    {entryMode === "matrix" && (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-[9px] font-mono text-theme-muted block mb-1">BASE ARTICLE</label>
-                            <select
-                              value={matrixArticle}
-                              onChange={(e) => handleMatrixArticleSelection(e.target.value)}
-                              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                            >
-                              <option value="">-- Choose Base Article --</option>
-                              {baseArticles.map(art => (
-                                <option key={art} value={art}>{art}</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="text-[9px] font-mono text-theme-muted block mb-1">COLOR</label>
-                            <select
-                              value={matrixColor}
-                              onChange={(e) => handleMatrixColorSelection(e.target.value)}
-                              disabled={!matrixArticle}
-                              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 disabled:opacity-50"
-                            >
-                              <option value="">-- Choose Color --</option>
-                              {availableColors.map(col => (
-                                <option key={col} value={col}>{col}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                        {matrixArticle && matrixColor && (
-                          <div className="space-y-4 pt-2 border-t border-theme-divider/50">
-                            <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider">
-                              <h4 className="text-[9px] font-mono text-indigo-300 uppercase tracking-wider mb-3">VARIANT SIZE ALLOCATIONS MATRIX</h4>
-                              
-                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                                {matrixVariants.map(variant => (
-                                  <div key={variant.id} className="bg-theme-surface-1 p-2.5 rounded border border-theme-divider/60 flex flex-col items-center text-center">
-                                    <span className="text-[10px] font-mono text-theme-muted">Size {variant.size || "OS"}</span>
-                                    
-                                    {/* Calculated auto-price field */}
-                                    <input
-                                      type="number"
-                                      value={matrixPrices[variant.id] || ""}
-                                      onChange={(e) => {
-                                        const val = Math.max(0, parseFloat(e.target.value) || 0);
-                                        setMatrixPrices({ ...matrixPrices, [variant.id]: val });
-                                        setMatrixSources({ ...matrixSources, [variant.id]: "Manual Override" });
-                                      }}
-                                      className="w-full text-center bg-theme-surface-2 border border-theme-divider/60 rounded py-0.5 mt-1 text-[10px] text-indigo-200 focus:outline-none"
-                                      placeholder="â‚¹ Price"
-                                      title={`Tax derived: ${variant.category === "Apparel" ? "12%" : "18%"} GST`}
-                                    />
-                                    <span className="text-[8px] text-theme-muted mt-0.5 block font-mono truncate max-w-full">
-                                      {matrixSources[variant.id] || "Calculating..."}
-                                    </span>
-
-                                    {/* Quantity field */}
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      value={matrixQuantities[variant.id] || ""}
-                                      placeholder="0"
-                                      onChange={(e) => {
-                                        const val = Math.max(0, parseInt(e.target.value) || 0);
-                                        setMatrixQuantities({
-                                          ...matrixQuantities,
-                                          [variant.id]: val
-                                        });
-                                      }}
-                                      className="w-full text-center bg-theme-surface-2 border border-emerald-500/40 rounded mt-2 py-1 text-xs text-theme-body focus:outline-none font-bold"
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-
-                            <div className="flex justify-end">
-                              <button
-                                type="button"
-                                onClick={handleAddMatrixItems}
-                                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                              >
-                                Merge Matrix Allocations to Purchase Order
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Current Sourcing Order Draft Ledger */}
-            {selectedSupplierId && (
-              <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 space-y-4">
-                <div className="flex items-center justify-between border-b border-theme-divider/60 pb-3">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-indigo-400">3. DRAFT PURCHASE ORDER CONTRACT LINES</h4>
-                  <span className="text-[10px] text-theme-muted font-mono">Lines Count: {draftItems.length}</span>
-                </div>
-
-                {draftItems.length === 0 ? (
-                  <div className="p-12 text-center text-theme-muted text-xs">
-                    Draft items lines list is empty. Use the manual entry or horizontal size matrix above to populate order rows.
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="overflow-x-auto rounded-xl border border-theme-divider">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono text-[9px] tracking-wider border-b border-theme-divider">
-                            <th className="px-4 py-3">Variant / Code</th>
-                            <th className="px-4 py-3">Color/Size</th>
-                            <th className="px-4 py-3 text-right">Quantity</th>
-                            <th className="px-4 py-3 text-right">Purchase Price</th>
-                            <th className="px-4 py-3 text-right">GST %</th>
-                            <th className="px-4 py-3 text-right">GST Amount</th>
-                            <th className="px-4 py-3 text-right">Gross Total</th>
-                            <th className="px-4 py-3 text-center">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#2a3a5c]/40">
-                          {draftItems.map((item, index) => {
-                            const relatedProd = products.find(p => p.id === item.productId || p.code === item.code);
-                            const policyStr = localStorage.getItem("smriti_spif_display_policy");
-                            const showImage = policyStr ? JSON.parse(policyStr).showInPurchase : true;
-                            const hoverZoom = policyStr ? JSON.parse(policyStr).hoverZoom : true;
-                            const imageSize = (policyStr ? JSON.parse(policyStr).purchaseSize : "small") as "small" | "medium";
-
-                            return (
-                              <tr key={`${item.productId}-${index}`} className="hover:bg-theme-surface-3/20">
-                                <td className="px-4 py-3 font-semibold text-theme-body">
-                                  <div className="flex items-center space-x-3">
-                                    {showImage && relatedProd?.primaryImageUrl && (
-                                      <ProductImage
-                                        src={relatedProd.primaryImageUrl}
-                                        alt={item.name}
-                                        size={imageSize}
-                                        hoverZoom={hoverZoom}
-                                      />
-                                    )}
-                                    <div>
-                                      {item.name}
-                                      <span className="block text-[10px] text-theme-muted font-mono mt-0.5">{item.code}</span>
-                                    </div>
-                                  </div>
-                                </td>
-                              <td className="px-4 py-3">
-                                <span className="text-theme-body">{item.color || "N/A"}</span> • <span className="font-semibold text-theme-muted">{item.size || "OS"}</span>
-                              </td>
-                              <td className="px-4 py-3 text-right font-mono font-bold text-theme-body">{item.quantity}</td>
-                              <td className="px-4 py-3 text-right font-mono text-[#cbd5e1]">â‚¹{item.price}</td>
-                              <td className="px-4 py-3 text-right">
-                                <span className="bg-indigo-950/60 text-indigo-300 border border-indigo-500/20 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold">
-                                  {item.taxRate}%
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-right font-mono text-theme-muted">â‚¹{item.taxAmount}</td>
-                              <td className="px-4 py-3 text-right font-mono font-bold text-emerald-400">â‚¹{item.totalAmount}</td>
-                              <td className="px-4 py-3 text-center">
-                                <button
-                                  onClick={() => {
-                                    const updated = draftItems.filter((_, idx) => idx !== index);
-                                    setDraftItems(updated);
-                                    onNotification("Row Removed", "Deleted line item from order draft.", "success");
-                                  }}
-                                  className="p-1 text-rose-400 hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Sourcing Contract Properties & Execution */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-theme-surface-2 p-5 rounded-xl border border-theme-divider items-start">
-                      
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-[10px] font-mono text-theme-muted block mb-1">EXPECTED DELIVERY DATE</label>
-                          <input
-                            type="date"
-                            value={expectedDate}
-                            onChange={(e) => setExpectedDate(e.target.value)}
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-mono text-theme-muted block mb-1">REMARKS & PROCUREMENT NOTE</label>
-                          <textarea
-                            value={draftRemarks}
-                            onChange={(e) => setDraftRemarks(e.target.value)}
-                            placeholder="Type any contract terms or reference notations..."
-                            rows={2}
-                            className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-blue-500 resize-none"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="bg-theme-surface-1 p-4 rounded-lg border border-theme-divider/60 space-y-2.5 font-mono text-xs">
-                        <h5 className="text-[10px] text-theme-muted uppercase font-bold tracking-wider mb-2">SUMMARY LEDGER METRICS</h5>
-                        <div className="flex justify-between">
-                          <span>Net Sourcing Total:</span>
-                          <span className="text-theme-body">â‚¹{Math.round(draftSubtotal * 100) / 100}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Corporate GST Total:</span>
-                          <span className="text-theme-muted">â‚¹{Math.round(draftTaxTotal * 100) / 100}</span>
-                        </div>
-                        <div className="border-t border-theme-divider/60 my-2 pt-2 flex justify-between text-sm font-bold">
-                          <span className="text-theme-body">Contract Grand Total:</span>
-                          <span className="text-emerald-400">â‚¹{Math.round(draftGrandTotal * 100) / 100}</span>
-                        </div>
-                      </div>
-
-                      <div className="h-full flex flex-col justify-end">
-                        <button
-                          onClick={handleSavePurchaseOrder}
-                          disabled={!companyState}
-                          className={`w-full py-3.5 rounded-xl font-bold font-display text-sm flex items-center justify-center space-x-2 shadow-lg transition-colors cursor-pointer ${
-                            companyState 
-                              ? "bg-emerald-600 hover:bg-emerald-500 text-white" 
-                              : "bg-[#2a3a5c] text-theme-muted cursor-not-allowed"
-                          }`}
-                        >
-                          <FileCheck className="w-5 h-5" />
-                          <span>Generate & Save Draft Contract</span>
-                        </button>
-                        <p className="text-[9px] text-theme-muted text-center mt-2 leading-relaxed">
-                          Saves as a Draft contract. Submitting the contract becomes a legally committed binding obligation with the supplier.
-                        </p>
-                      </div>
-
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          isCreatingBill ? (
+            /* SAWF Purchase Invoice Studio Workspace */
+            <PurchaseInvoiceStudio
+              suppliers={suppliersList}
+              products={products}
+              currentUser={currentUser}
+              onBack={() => {
+                setIsCreatingBill(false);
+                fetchPurchaseOrders();
+              }}
+              onNotification={onNotification}
+            />
+          ) : (
+            /* SAWF Purchase Invoices & Bills Registry Workspace */
+            <PurchaseInvoiceRegistry
+              purchaseOrders={purchaseOrders}
+              suppliers={suppliersList}
+              loading={loading}
+              onRefresh={fetchPurchaseOrders}
+              onNewInvoice={() => {
+                setIsCreatingBill(true);
+              }}
+              onSelectInvoice={(po) => {
+                setSelectedPO(po);
+                setIsCreatingBill(true);
+              }}
+              currentUser={currentUser}
+            />
+          )
         )}
 
 
