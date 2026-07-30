@@ -26,6 +26,7 @@ export interface PrintItemRow {
   hsn: string;
   taxRate?: string;
   brand?: string;
+  category?: string;
 }
 
 export type SourceType =
@@ -42,6 +43,41 @@ export type SourceType =
   | "batch"
   | "serial_number"
   | "direct_scan";
+
+// Source Datasets for Dynamic Switching
+const SOURCE_DATASETS: Record<SourceType, PrintItemRow[]> = {
+  manual: [
+    { id: "row-1", selected: true, barcode: "8901234567890", itemCode: "SHO-1001", itemName: "Nike Sports Shoes", uom: "Pair", batchSerial: "-", qty: 50, printQty: 50, labelTemplate: "Default Label", sizeMm: "50 x 25", mrp: 2500.0, hsn: "6404", taxRate: "18% IGST", brand: "Nike", category: "Footwear" },
+    { id: "row-2", selected: true, barcode: "8901234567891", itemCode: "SOC-2001", itemName: "Cotton Socks", uom: "Pair", batchSerial: "-", qty: 100, printQty: 100, labelTemplate: "Default Label", sizeMm: "50 x 25", mrp: 250.0, hsn: "6115", taxRate: "12% GST", brand: "Adidas", category: "Apparel" },
+    { id: "row-3", selected: true, barcode: "BAT-001", itemCode: "BAT-001", itemName: "Batch Item", uom: "Pcs", batchSerial: "BATCH-2025-05", qty: 200, printQty: 200, labelTemplate: "Batch Label", sizeMm: "40 x 20", mrp: 1200.0, hsn: "6109", brand: "Puma", category: "Apparel" },
+    { id: "row-4", selected: true, barcode: "SRL-000123", itemCode: "SERIAL-001", itemName: "Serial Item", uom: "Pcs", batchSerial: "SRL-000123", qty: 1, printQty: 1, labelTemplate: "Serial Label", sizeMm: "40 x 20", mrp: 3500.0, hsn: "6403", brand: "Formal", category: "Footwear" },
+  ],
+  item_master: [
+    { id: "im-1", selected: true, barcode: "8901234567892", itemCode: "CAP-3001", itemName: "Adidas Cap", uom: "Pcs", batchSerial: "-", qty: 40, printQty: 40, labelTemplate: "Default Label", sizeMm: "50 x 25", mrp: 500.0, hsn: "6505", brand: "Adidas", category: "Accessories" },
+    { id: "im-2", selected: true, barcode: "8901234567893", itemCode: "TSH-4001", itemName: "Puma Running T-Shirt", uom: "Pcs", batchSerial: "-", qty: 60, printQty: 60, labelTemplate: "Default Label", sizeMm: "50 x 25", mrp: 1200.0, hsn: "6109", brand: "Puma", category: "Apparel" },
+  ],
+  purchase_invoice: [
+    { id: "pi-1", selected: true, barcode: "8901234567894", itemCode: "PINV-101", itemName: "Formal Leather Shoes", uom: "Pair", batchSerial: "PINV-9912", qty: 25, printQty: 25, labelTemplate: "Default Label", sizeMm: "50 x 25", mrp: 3500.0, hsn: "6403", brand: "Bata", category: "Footwear" },
+  ],
+  grn: [
+    { id: "grn-1", selected: true, barcode: "8901234567895", itemCode: "GRN-901", itemName: "Denim Jeans Trousers", uom: "Pcs", batchSerial: "GRN-2025-08", qty: 80, printQty: 80, labelTemplate: "Default Label", sizeMm: "50 x 25", mrp: 1800.0, hsn: "6203", brand: "Levi's", category: "Apparel" },
+  ],
+  purchase_return: [],
+  sales_invoice: [
+    { id: "si-1", selected: true, barcode: "8901234567896", itemCode: "INV-881", itemName: "Smart POS Printer", uom: "Pcs", batchSerial: "POS-SN-99", qty: 2, printQty: 2, labelTemplate: "Serial Label", sizeMm: "40 x 20", mrp: 6500.0, hsn: "8471", brand: "TVS", category: "Electronics" },
+  ],
+  sales_return: [],
+  stock_transfer: [],
+  production: [],
+  physical_stock: [],
+  batch: [
+    { id: "bt-1", selected: true, barcode: "BAT-001", itemCode: "BAT-001", itemName: "Batch Item", uom: "Pcs", batchSerial: "BATCH-2025-05", qty: 200, printQty: 200, labelTemplate: "Batch Label", sizeMm: "40 x 20", mrp: 1200.0, hsn: "6109", brand: "Puma" },
+  ],
+  serial_number: [
+    { id: "sr-1", selected: true, barcode: "SRL-000123", itemCode: "SERIAL-001", itemName: "Serial Item", uom: "Pcs", batchSerial: "SRL-000123", qty: 1, printQty: 1, labelTemplate: "Serial Label", sizeMm: "40 x 20", mrp: 3500.0, hsn: "6403", brand: "Formal" },
+  ],
+  direct_scan: [],
+};
 
 export const PrintLabelsStudio: React.FC = () => {
   // Source Selection
@@ -67,74 +103,7 @@ export const PrintLabelsStudio: React.FC = () => {
   const [filterCategoryTo, setFilterCategoryTo] = useState<string>("");
 
   // Items to Print Table Dataset
-  const [printItems, setPrintItems] = useState<PrintItemRow[]>([
-    {
-      id: "row-1",
-      selected: true,
-      barcode: "8901234567890",
-      itemCode: "SHO-1001",
-      itemName: "Nike Sports Shoes",
-      uom: "Pair",
-      batchSerial: "-",
-      qty: 50,
-      printQty: 50,
-      labelTemplate: "Default Label",
-      sizeMm: "50 x 25",
-      mrp: 2500.0,
-      hsn: "6404",
-      taxRate: "18% IGST",
-      brand: "Nike",
-    },
-    {
-      id: "row-2",
-      selected: true,
-      barcode: "8901234567891",
-      itemCode: "SOC-2001",
-      itemName: "Cotton Socks",
-      uom: "Pair",
-      batchSerial: "-",
-      qty: 100,
-      printQty: 100,
-      labelTemplate: "Default Label",
-      sizeMm: "50 x 25",
-      mrp: 250.0,
-      hsn: "6115",
-      taxRate: "12% GST",
-      brand: "Adidas",
-    },
-    {
-      id: "row-3",
-      selected: true,
-      barcode: "BAT-001",
-      itemCode: "BAT-001",
-      itemName: "Batch Item",
-      uom: "Pcs",
-      batchSerial: "BATCH-2025-05",
-      qty: 200,
-      printQty: 200,
-      labelTemplate: "Batch Label",
-      sizeMm: "40 x 20",
-      mrp: 1200.0,
-      hsn: "6109",
-      brand: "Puma",
-    },
-    {
-      id: "row-4",
-      selected: true,
-      barcode: "SRL-000123",
-      itemCode: "SERIAL-001",
-      itemName: "Serial Item",
-      uom: "Pcs",
-      batchSerial: "SRL-000123",
-      qty: 1,
-      printQty: 1,
-      labelTemplate: "Serial Label",
-      sizeMm: "40 x 20",
-      mrp: 3500.0,
-      hsn: "6403",
-      brand: "Formal",
-    },
-  ]);
+  const [printItems, setPrintItems] = useState<PrintItemRow[]>(SOURCE_DATASETS.manual);
 
   // Preview Index
   const [activePreviewIndex, setActivePreviewIndex] = useState<number>(0);
@@ -152,6 +121,12 @@ export const PrintLabelsStudio: React.FC = () => {
   const [printDirection, setPrintDirection] = useState<string>("Left to Right");
   const [printQuality, setPrintQuality] = useState<string>("High (300 DPI)");
 
+  // Modals State
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState<boolean>(false);
+  const [isPrinterConfigModalOpen, setIsPrinterConfigModalOpen] = useState<boolean>(false);
+  const [isFullPreviewModalOpen, setIsFullPreviewModalOpen] = useState<boolean>(false);
+  const [editingRow, setEditingRow] = useState<PrintItemRow | null>(null);
+
   // Toast Notification
   const [toast, setToast] = useState<string | null>(null);
   const showToast = (msg: string) => {
@@ -159,18 +134,31 @@ export const PrintLabelsStudio: React.FC = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // Switch Source Handler
+  const handleSelectSource = (src: SourceType) => {
+    setSelectedSource(src);
+    const data = SOURCE_DATASETS[src] || [];
+    setPrintItems(data);
+    setActivePreviewIndex(0);
+    showToast(`Source selected: ${src.toUpperCase().replace("_", " ")} (${data.length} Items Loaded)`);
+  };
+
   // Keyboard Shortcuts Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F5") {
         e.preventDefault();
-        showToast("Refreshing Live Barcode Label Preview (F5)");
+        setIsFullPreviewModalOpen(true);
       } else if (e.key === "F10") {
         e.preventDefault();
         window.print();
       } else if (e.key === "Escape") {
         e.preventDefault();
-        showToast("Close Print Labels Studio (ESC)");
+        setIsExcelModalOpen(false);
+        setIsPrinterConfigModalOpen(false);
+        setIsFullPreviewModalOpen(false);
+        setEditingRow(null);
+        showToast("Closed overlay (ESC)");
       }
     };
 
@@ -178,13 +166,26 @@ export const PrintLabelsStudio: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Total Summaries
-  const totalItems = printItems.length;
-  const totalPrintQty = useMemo(() => {
-    return printItems.reduce((acc, item) => acc + (item.selected ? item.printQty : 0), 0);
-  }, [printItems]);
+  // Filter items in real-time based on Range Filters
+  const filteredPrintItems = useMemo(() => {
+    return printItems.filter((item) => {
+      if (filterItemCodeFrom && item.itemCode.toLowerCase() < filterItemCodeFrom.toLowerCase()) return false;
+      if (filterItemCodeTo && item.itemCode.toLowerCase() > filterItemCodeTo.toLowerCase()) return false;
+      if (filterBarcodeFrom && item.barcode < filterBarcodeFrom) return false;
+      if (filterBarcodeTo && item.barcode > filterBarcodeTo) return false;
+      if (filterBrandFrom && (item.brand || "").toLowerCase() < filterBrandFrom.toLowerCase()) return false;
+      if (filterBrandTo && (item.brand || "").toLowerCase() > filterBrandTo.toLowerCase()) return false;
+      return true;
+    });
+  }, [printItems, filterItemCodeFrom, filterItemCodeTo, filterBarcodeFrom, filterBarcodeTo, filterBrandFrom, filterBrandTo]);
 
-  const activeItem = printItems[activePreviewIndex] || printItems[0];
+  // Total Summaries
+  const totalItems = filteredPrintItems.length;
+  const totalPrintQty = useMemo(() => {
+    return filteredPrintItems.reduce((acc, item) => acc + (item.selected ? item.printQty : 0), 0);
+  }, [filteredPrintItems]);
+
+  const activeItem = filteredPrintItems[activePreviewIndex] || filteredPrintItems[0];
 
   // Item Table Handlers
   const toggleSelectAll = (checked: boolean) => {
@@ -229,6 +230,7 @@ export const PrintLabelsStudio: React.FC = () => {
       mrp: 1500.0,
       hsn: "6404",
       taxRate: "18% IGST",
+      brand: "Custom Brand",
     };
     setPrintItems((prev) => [...prev, newRow]);
     showToast("Added new print item line");
@@ -244,6 +246,15 @@ export const PrintLabelsStudio: React.FC = () => {
     setFilterCategoryFrom("");
     setFilterCategoryTo("");
     showToast("Filters reset to default");
+  };
+
+  // Handle Edit Row Save
+  const handleSaveEditRow = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRow) return;
+    setPrintItems((prev) => prev.map((item) => (item.id === editingRow.id ? editingRow : item)));
+    setEditingRow(null);
+    showToast("Item label updated successfully!");
   };
 
   return (
@@ -289,7 +300,10 @@ export const PrintLabelsStudio: React.FC = () => {
             />
             <span className="material-symbols-outlined absolute left-2.5 top-2 text-slate-400 text-sm">search</span>
           </div>
-          <button className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 cursor-pointer">
+          <button
+            onClick={() => showToast("Notifications Pane Opened")}
+            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 cursor-pointer"
+          >
             <span className="material-symbols-outlined text-lg">notifications</span>
           </button>
           <button onClick={() => window.print()} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 cursor-pointer">
@@ -339,10 +353,7 @@ export const PrintLabelsStudio: React.FC = () => {
               ].map((src) => (
                 <button
                   key={src.id}
-                  onClick={() => {
-                    setSelectedSource(src.id as SourceType);
-                    showToast(`Source selected: ${src.label}`);
-                  }}
+                  onClick={() => handleSelectSource(src.id as SourceType)}
                   className={`px-3 py-2 rounded-xl border text-xs font-bold flex flex-col items-center justify-center min-w-[70px] cursor-pointer transition ${
                     selectedSource === src.id
                       ? "bg-blue-600 text-white border-blue-600 shadow-md"
@@ -371,7 +382,7 @@ export const PrintLabelsStudio: React.FC = () => {
                   type="text"
                   value={docFrom}
                   onChange={(e) => setDocFrom(e.target.value)}
-                  placeholder="From Document No..."
+                  placeholder="From Document..."
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
                 />
               </div>
@@ -381,7 +392,7 @@ export const PrintLabelsStudio: React.FC = () => {
                   type="text"
                   value={docTo}
                   onChange={(e) => setDocTo(e.target.value)}
-                  placeholder="To Document No..."
+                  placeholder="To Document..."
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
                 />
               </div>
@@ -604,7 +615,7 @@ export const PrintLabelsStudio: React.FC = () => {
                   Add Item (F3)
                 </button>
                 <button
-                  onClick={() => showToast("Excel import initiated")}
+                  onClick={() => setIsExcelModalOpen(true)}
                   className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
                 >
                   <span className="material-symbols-outlined text-xs mr-1">upload_file</span>
@@ -612,7 +623,7 @@ export const PrintLabelsStudio: React.FC = () => {
                 </button>
                 <button
                   onClick={() => {
-                    const sel = printItems.filter((i) => i.selected);
+                    const sel = filteredPrintItems.filter((i) => i.selected);
                     if (sel.length === 0) showToast("No items selected");
                     else {
                       setPrintItems((prev) => prev.filter((i) => !i.selected));
@@ -642,7 +653,7 @@ export const PrintLabelsStudio: React.FC = () => {
                     <th className="py-2.5 px-3 w-8">
                       <input
                         type="checkbox"
-                        checked={printItems.length > 0 && printItems.every((i) => i.selected)}
+                        checked={filteredPrintItems.length > 0 && filteredPrintItems.every((i) => i.selected)}
                         onChange={(e) => toggleSelectAll(e.target.checked)}
                         className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
                       />
@@ -661,7 +672,7 @@ export const PrintLabelsStudio: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {printItems.map((row, idx) => (
+                  {filteredPrintItems.map((row, idx) => (
                     <tr
                       key={row.id}
                       onClick={() => setActivePreviewIndex(idx)}
@@ -699,9 +710,9 @@ export const PrintLabelsStudio: React.FC = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              showToast(`Editing row ${idx + 1}`);
+                              setEditingRow(row);
                             }}
-                            className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"
+                            className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-base">edit</span>
                           </button>
@@ -710,7 +721,7 @@ export const PrintLabelsStudio: React.FC = () => {
                               e.stopPropagation();
                               removeRow(row.id);
                             }}
-                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition"
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-base">delete</span>
                           </button>
@@ -743,7 +754,11 @@ export const PrintLabelsStudio: React.FC = () => {
             </h2>
 
             <div className="mb-3">
-              <select className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-700">
+              <select
+                value={labelSize}
+                onChange={(e) => setLabelSize(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-700"
+              >
                 <option>Default Label (50 x 25 mm)</option>
                 <option>Apparel Hangtag (75 x 50 mm)</option>
                 <option>Jewelry Tag (38 x 12 mm)</option>
@@ -756,8 +771,16 @@ export const PrintLabelsStudio: React.FC = () => {
                 <div className="bg-white border border-slate-300 rounded-xl p-4 shadow-md w-full max-w-[260px] text-center space-y-2">
                   <h3 className="font-extrabold text-sm text-slate-900 leading-tight">{activeItem.itemName}</h3>
                   <div className="text-[10px] text-slate-500 font-mono">
-                    Item Code : {activeItem.itemCode} | HSN : {activeItem.hsn}
+                    Item Code : {activeItem.itemCode} | {showHsn && `HSN : ${activeItem.hsn}`}
                   </div>
+
+                  {showBrand && activeItem.brand && (
+                    <div className="text-[10px] font-bold text-blue-900 uppercase tracking-wider">{activeItem.brand}</div>
+                  )}
+
+                  {showBatchSerial && activeItem.batchSerial !== "-" && (
+                    <div className="text-[9px] font-mono text-slate-600">Batch/Serial: {activeItem.batchSerial}</div>
+                  )}
 
                   {/* SVG Barcode Representation */}
                   <div className="py-1">
@@ -791,10 +814,10 @@ export const PrintLabelsStudio: React.FC = () => {
                   &lt;
                 </button>
                 <span>
-                  {printItems.length > 0 ? activePreviewIndex + 1 : 0} / {printItems.length}
+                  {filteredPrintItems.length > 0 ? activePreviewIndex + 1 : 0} / {filteredPrintItems.length}
                 </span>
                 <button
-                  onClick={() => setActivePreviewIndex((prev) => Math.min(printItems.length - 1, prev + 1))}
+                  onClick={() => setActivePreviewIndex((prev) => Math.min(filteredPrintItems.length - 1, prev + 1))}
                   className="p-1 hover:bg-slate-200 rounded text-slate-600 cursor-pointer"
                 >
                   &gt;
@@ -825,7 +848,10 @@ export const PrintLabelsStudio: React.FC = () => {
                   <option>Godex EZ120</option>
                   <option>TVS LP 46 Neo</option>
                 </select>
-                <button className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg">
+                <button
+                  onClick={() => setIsPrinterConfigModalOpen(true)}
+                  className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg cursor-pointer"
+                >
                   <span className="material-symbols-outlined text-sm">settings</span>
                 </button>
               </div>
@@ -865,7 +891,7 @@ export const PrintLabelsStudio: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setCopies((prev) => Math.max(1, prev - 1))}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-300 rounded-lg text-xs"
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-300 rounded-lg text-xs cursor-pointer"
                 >
                   -
                 </button>
@@ -877,7 +903,7 @@ export const PrintLabelsStudio: React.FC = () => {
                 />
                 <button
                   onClick={() => setCopies((prev) => prev + 1)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-300 rounded-lg text-xs"
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-300 rounded-lg text-xs cursor-pointer"
                 >
                   +
                 </button>
@@ -965,7 +991,7 @@ export const PrintLabelsStudio: React.FC = () => {
       <footer className="bg-white border-t border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-lg z-20">
         <div className="flex items-center space-x-3">
           <button
-            onClick={() => showToast("Preview Mode Active (F5)")}
+            onClick={() => setIsFullPreviewModalOpen(true)}
             className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
           >
             <span className="material-symbols-outlined text-sm mr-1.5">visibility</span>
@@ -1002,6 +1028,234 @@ export const PrintLabelsStudio: React.FC = () => {
           Close (ESC)
         </button>
       </footer>
+
+      {/* MODAL 1: Full Sheet Label Print Preview (F5) */}
+      {isFullPreviewModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in duration-150">
+            <div className="bg-blue-900 text-white px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-sm uppercase tracking-wide">Full Sheet Barcode Label Preview (F5)</h3>
+                <p className="text-[11px] text-blue-200">
+                  Printer: {printer} | Size: {labelSize} | {labelsPerRow} Labels per Row | Total Print Qty: {totalPrintQty}
+                </p>
+              </div>
+              <button onClick={() => setIsFullPreviewModalOpen(false)} className="text-blue-300 hover:text-white">
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            <div className="p-6 flex-1 overflow-y-auto bg-slate-200">
+              <div
+                className={`grid gap-3 bg-white p-6 rounded-xl shadow-lg border border-slate-300 mx-auto ${
+                  labelsPerRow === 1
+                    ? "grid-cols-1 max-w-xs"
+                    : labelsPerRow === 2
+                    ? "grid-cols-2 max-w-md"
+                    : labelsPerRow === 3
+                    ? "grid-cols-3 max-w-2xl"
+                    : "grid-cols-4 max-w-3xl"
+                }`}
+              >
+                {filteredPrintItems.flatMap((item) =>
+                  Array.from({ length: Math.min(item.printQty, 6) }).map((_, i) => (
+                    <div key={`${item.id}-${i}`} className="border border-slate-300 rounded-lg p-2.5 text-center bg-white shadow-xs space-y-1">
+                      <h4 className="font-extrabold text-xs text-slate-900 truncate">{item.itemName}</h4>
+                      <div className="text-[9px] text-slate-500 font-mono">Code: {item.itemCode}</div>
+                      <div className="py-0.5">
+                        <svg className="w-full h-8" viewBox="0 0 200 40">
+                          <rect width="200" height="40" fill="white" />
+                          {[10, 16, 22, 28, 34, 40, 46, 52, 58, 64, 70, 76, 82, 88, 94, 100, 106, 112, 118, 124, 130, 136, 142, 148, 154, 160, 166, 172, 178, 184].map((x, idx) => (
+                            <rect key={idx} x={x} y="4" width={idx % 3 === 0 ? "2.5" : "1.2"} height="30" fill="black" />
+                          ))}
+                        </svg>
+                        <span className="font-mono text-[10px] font-bold text-slate-800 tracking-wider block -mt-1">{item.barcode}</span>
+                      </div>
+                      {showPrice && <div className="text-[10px] font-extrabold text-slate-900">MRP: ₹{item.mrp.toFixed(2)}</div>}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-600">Showing first batch preview of total {totalPrintQty} labels</span>
+              <div className="flex space-x-3">
+                <button onClick={() => setIsFullPreviewModalOpen(false)} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg text-xs">
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    window.print();
+                    setIsFullPreviewModalOpen(false);
+                  }}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs shadow-md"
+                >
+                  Print Full Sheet (F10)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: Excel Import Modal */}
+      {isExcelModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in duration-150">
+            <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+              <h3 className="font-bold text-sm flex items-center">
+                <span className="material-symbols-outlined text-base mr-2 text-emerald-400">upload_file</span>
+                Import Labels Dataset (Excel / CSV)
+              </h3>
+              <button onClick={() => setIsExcelModalOpen(false)} className="text-slate-400 hover:text-white">
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+            <div className="p-6 text-center space-y-4 text-xs">
+              <div className="w-full h-32 border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-xl flex flex-col items-center justify-center text-slate-500 cursor-pointer bg-slate-50 transition">
+                <span className="material-symbols-outlined text-3xl text-emerald-600 mb-1">file_upload</span>
+                <span className="font-bold text-slate-700">Click or Drag & Drop Excel / CSV file</span>
+                <span className="text-[10px] text-slate-400 mt-0.5">Supports .XLSX, .XLS, .CSV</span>
+              </div>
+              <button
+                onClick={() => {
+                  addManualRow();
+                  setIsExcelModalOpen(false);
+                  showToast("Imported 10 label rows from Excel!");
+                }}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs cursor-pointer shadow-md"
+              >
+                Import Sample Excel Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: Printer Configuration Modal */}
+      {isPrinterConfigModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in duration-150">
+            <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+              <h3 className="font-bold text-sm flex items-center">
+                <span className="material-symbols-outlined text-base mr-2 text-blue-400">settings</span>
+                Printer Hardware Configuration
+              </h3>
+              <button onClick={() => setIsPrinterConfigModalOpen(false)} className="text-slate-400 hover:text-white">
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+            <div className="p-5 space-y-3.5 text-xs">
+              <div>
+                <label className="font-bold text-slate-600 block mb-1">Printer Model</label>
+                <input type="text" value={printer} readOnly className="w-full bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-700" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-600 block mb-1">Connection Interface</label>
+                <select className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-700">
+                  <option>USB Serial Port (COM1)</option>
+                  <option>Ethernet LAN (192.168.1.105)</option>
+                  <option>Bluetooth Thermal Printer</option>
+                </select>
+              </div>
+              <div>
+                <label className="font-bold text-slate-600 block mb-1">Darkness / Heat Density</label>
+                <input type="range" min="1" max="15" defaultValue="10" className="w-full" />
+              </div>
+              <button
+                onClick={() => {
+                  setIsPrinterConfigModalOpen(false);
+                  showToast("Printer Settings Saved!");
+                }}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs cursor-pointer shadow-md"
+              >
+                Save Printer Configuration
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: Edit Item Row Modal */}
+      {editingRow && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in duration-150">
+            <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+              <h3 className="font-bold text-sm flex items-center">
+                <span className="material-symbols-outlined text-base mr-2 text-blue-400">edit</span>
+                Edit Item Label
+              </h3>
+              <button onClick={() => setEditingRow(null)} className="text-slate-400 hover:text-white">
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleSaveEditRow} className="p-5 space-y-3.5 text-xs">
+              <div>
+                <label className="font-bold text-slate-600 block mb-1">Item Name</label>
+                <input
+                  type="text"
+                  value={editingRow.itemName}
+                  onChange={(e) => setEditingRow({ ...editingRow, itemName: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-600 block mb-1">Barcode</label>
+                  <input
+                    type="text"
+                    value={editingRow.barcode}
+                    onChange={(e) => setEditingRow({ ...editingRow, barcode: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-600 block mb-1">Item Code</label>
+                  <input
+                    type="text"
+                    value={editingRow.itemCode}
+                    onChange={(e) => setEditingRow({ ...editingRow, itemCode: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-600 block mb-1">MRP (₹)</label>
+                  <input
+                    type="number"
+                    value={editingRow.mrp}
+                    onChange={(e) => setEditingRow({ ...editingRow, mrp: parseFloat(e.target.value) || 0 })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-600 block mb-1">Print Quantity</label>
+                  <input
+                    type="number"
+                    value={editingRow.printQty}
+                    onChange={(e) => setEditingRow({ ...editingRow, printQty: parseInt(e.target.value) || 1 })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold"
+                  />
+                </div>
+              </div>
+              <div className="pt-2 flex justify-end space-x-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingRow(null)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg text-xs"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs shadow-md">
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
