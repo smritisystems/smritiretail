@@ -258,6 +258,8 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
                 "password": created_user["temp_password"],
             },
         )
+        if login_res.status_code != 200:
+            print("LOGIN FAILED RESPONSE:", login_res.status_code, login_res.text)
         assert login_res.status_code == 200
         login_payload = login_res.json()
         assert login_payload["company_id"] == created_user["company_id"]
