@@ -58,6 +58,7 @@ services:
     env_file: .env
     environment:
       VITE_API_URL: http://localhost:8000
+      SMRITI_API_HOST: smriti-api-prod:8000
     depends_on:
       - smriti-api-prod
 

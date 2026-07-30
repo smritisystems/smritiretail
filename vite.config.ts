@@ -17,7 +17,9 @@ const apiTarget = process.env.SMRITI_API_HOST
   ? `http://${process.env.SMRITI_API_HOST}`
   : process.env.PYTHON_CORE_HOST
   ? `http://${process.env.PYTHON_CORE_HOST}`
-  : "http://127.0.0.1:8000";
+  : process.env.VITE_API_HOST
+  ? `http://${process.env.VITE_API_HOST}`
+  : "http://smriti-api-prod:8000";
 
 const manualChunksHandler = (id: string) => {
   if (id.includes("node_modules")) {
