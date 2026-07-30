@@ -171,6 +171,17 @@ async def get_tenant_context(
     SYSADMIN users (no company/branch) cannot call tenant-scoped endpoints.
     """
     if not current_user.company_id or not current_user.branch_id:
+        if current_user.role == UserRole.SYSADMIN or getattr(current_user, "is_platform_admin", False):
+            company_id = current_user.company_id or "comp-default"
+            branch_id = current_user.branch_id or "br-default"
+            tenant_id = getattr(current_user, "tenant_id", None) or "default"
+            ctx = TenantContext(
+                tenant_id=tenant_id,
+                company_id=company_id,
+                branch_id=branch_id,
+            )
+            active_tenant_ctx.set(ctx)
+            return ctx
         raise HTTPException(
             status_code=403,
             detail=(
