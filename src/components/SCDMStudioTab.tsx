@@ -210,8 +210,10 @@ export const SCDMStudioTab: React.FC<SCDMStudioTabProps> = ({ initialSubTab = "d
           { id: "projection", label: "Stock Ledger & Projection", icon: Layers },
           { id: "import", label: "Sell-Out Import Jobs", icon: UploadCloud },
           { id: "reconciliation", label: "Reconciliation Matrix", icon: Activity },
+          { id: "settlement", label: "Settlement & Claims", icon: DollarSign },
           { id: "replenishment", label: "Replenishment Suggestions", icon: TrendingUp },
         ].map((tab) => {
+
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
@@ -581,7 +583,110 @@ export const SCDMStudioTab: React.FC<SCDMStudioTabProps> = ({ initialSubTab = "d
             </div>
           )}
 
-          {/* TAB 6: REPLENISHMENT SUGGESTIONS */}
+          {/* TAB 6: SETTLEMENT & CLAIMS ENGINE (SCDM v1.1 — ADR-0016) */}
+          {activeTab === "settlement" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-[var(--seds-color-text-primary)]">
+                    Retailer Claims & Remittance Settlement Engine
+                  </h3>
+                  <p className="text-xs text-[var(--seds-color-text-secondary)] mt-0.5">
+                    Process retailer deductions (shortages, damages, scheme discounts), approve claims, and reconcile net remittance payments.
+                  </p>
+                </div>
+                <span className="px-3 py-1 text-xs font-mono font-bold rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                  SCDM v1.1 Active Engine
+                </span>
+              </div>
+
+              {/* Claims Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs font-mono">
+                <div className="p-4 bg-[var(--seds-color-bg-container)] border border-[var(--seds-color-border)] rounded-xl shadow-xs">
+                  <span className="text-[10px] text-[var(--seds-color-text-secondary)] font-bold uppercase">Submitted Claims</span>
+                  <div className="text-xl font-bold text-indigo-600 mt-1">₹45,200.00</div>
+                  <span className="text-[10px] text-[var(--seds-color-text-secondary)]">3 Claims Pending Review</span>
+                </div>
+                <div className="p-4 bg-[var(--seds-color-bg-container)] border border-[var(--seds-color-border)] rounded-xl shadow-xs">
+                  <span className="text-[10px] text-[var(--seds-color-text-secondary)] font-bold uppercase">Approved Deductions</span>
+                  <div className="text-xl font-bold text-emerald-600 mt-1">₹112,800.00</div>
+                  <span className="text-[10px] text-emerald-600 font-semibold">Ready for Credit Note</span>
+                </div>
+                <div className="p-4 bg-[var(--seds-color-bg-container)] border border-[var(--seds-color-border)] rounded-xl shadow-xs">
+                  <span className="text-[10px] text-[var(--seds-color-text-secondary)] font-bold uppercase">Rejected Deductions</span>
+                  <div className="text-xl font-bold text-red-600 mt-1">₹12,400.00</div>
+                  <span className="text-[10px] text-red-600">Debited back to Customer</span>
+                </div>
+                <div className="p-4 bg-[var(--seds-color-bg-container)] border border-[var(--seds-color-border)] rounded-xl shadow-xs">
+                  <span className="text-[10px] text-[var(--seds-color-text-secondary)] font-bold uppercase">Net Remittance Variance</span>
+                  <div className="text-xl font-bold text-[var(--seds-color-text-primary)] mt-1">₹0.00</div>
+                  <span className="text-[10px] text-emerald-600 font-semibold">100% Balanced Batch</span>
+                </div>
+              </div>
+
+              {/* Claims Register Table */}
+              <div className="rounded-xl border border-[var(--seds-color-border)] bg-[var(--seds-color-bg-container)] overflow-hidden shadow-xs">
+                <div className="p-4 border-b border-[var(--seds-color-border)] flex items-center justify-between bg-[var(--seds-color-bg-hover)]">
+                  <h4 className="text-xs font-bold text-[var(--seds-color-text-primary)] font-mono uppercase">Retailer Claims Register</h4>
+                  <span className="text-[10px] text-[var(--seds-color-text-secondary)]">Showing recent claims for selected customer</span>
+                </div>
+
+                <table className="w-full text-left border-collapse text-xs font-mono">
+                  <thead>
+                    <tr className="border-b border-[var(--seds-color-border)] text-[var(--seds-color-text-secondary)] font-bold uppercase text-[10px]">
+                      <th className="p-3">Claim #</th>
+                      <th className="p-3">Category</th>
+                      <th className="p-3">Ref Doc / Memo</th>
+                      <th className="p-3 text-right">Claimed Amt</th>
+                      <th className="p-3 text-right">Approved Amt</th>
+                      <th className="p-3 text-center">FSM Status</th>
+                      <th className="p-3 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--seds-color-border)]">
+                    <tr className="hover:bg-[var(--seds-color-bg-hover)] transition-colors">
+                      <td className="p-3 font-bold text-indigo-600">CLM-89A01B22</td>
+                      <td className="p-3">Shortage</td>
+                      <td className="p-3 text-[var(--seds-color-text-secondary)]">DEBIT-MEMO-99182</td>
+                      <td className="p-3 text-right font-bold">₹15,000.00</td>
+                      <td className="p-3 text-right font-bold text-emerald-600">₹15,000.00</td>
+                      <td className="p-3 text-center">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                          Approved
+                        </span>
+                      </td>
+                      <td className="p-3 text-center text-[10px]">
+                        <span className="text-[var(--seds-color-text-secondary)]">Reconciled</span>
+                      </td>
+                    </tr>
+                    <tr className="hover:bg-[var(--seds-color-bg-hover)] transition-colors">
+                      <td className="p-3 font-bold text-indigo-600">CLM-44F12C90</td>
+                      <td className="p-3">Damage in Transit</td>
+                      <td className="p-3 text-[var(--seds-color-text-secondary)]">DEBIT-MEMO-99201</td>
+                      <td className="p-3 text-right font-bold">₹8,500.00</td>
+                      <td className="p-3 text-right font-bold text-indigo-600">₹0.00</td>
+                      <td className="p-3 text-center">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                          Submitted
+                        </span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <button className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold mr-1">
+                          Approve
+                        </button>
+                        <button className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-bold">
+                          Reject
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 7: REPLENISHMENT SUGGESTIONS */}
+
           {activeTab === "replenishment" && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">

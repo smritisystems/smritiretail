@@ -47,6 +47,15 @@ from ..models.scdm import (
     ChannelMovementType,
     ImportStatus,
 )
+from ..models.scdm_settlement import (
+    ClaimStatus,
+    SettlementStatus,
+    SCDMClaimType,
+    SCDMClaim,
+    SCDMSettlement,
+    SCDMSettlementLine,
+)
+
 from .event_bus import event_bus, Events
 
 logger = logging.getLogger("smriti.scdm")
@@ -636,3 +645,223 @@ class SCDMService:
                 })
 
         return sorted(suggestions, key=lambda x: x["days_of_cover"])
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # P4: Claims & Settlement Engine (SCDM v1.1 — ADR-0016)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    async def list_claim_types(self) -> list[SCDMClaimType]:
+        """Return list of active claim types (Shortage, Damage, Scheme Discount, etc.)."""
+        res = await self.db.execute(
+            select(SCDMClaimType).where(SCDMClaimType.is_active == True)
+        )
+        types = list(res.scalars().all())
+        if not types:
+            # Seed default claim types
+            defaults = [
+                SCDMClaimType(code="CT-SHORT", name="Short Supply / Non-Delivery", category="Shortage", requires_approval=True),
+                SCDMClaimType(code="CT-DMG", name="Damaged in Transit / Expiry", category="Damage", requires_approval=True, requires_evidence=True),
+                SCDMClaimType(code="CT-SCHEME", name="Promotional Scheme Discount", category="Scheme", requires_approval=True),
+                SCDMClaimType(code="CT-PRICE", name="Price Drop / Rate Difference Protection", category="PriceDrop", requires_approval=True),
+                SCDMClaimType(code="CT-FREIGHT", name="Freight & Logistics Deduction", category="Freight", requires_approval=False),
+            ]
+            self.db.add_all(defaults)
+            await self.db.flush()
+            types = defaults
+        return types
+
+    async def submit_retailer_claim(
+        self,
+        customer_id: str,
+        claim_category: str,
+        claimed_amount: Decimal,
+        dispatch_id: Optional[str] = None,
+        claim_type_id: Optional[str] = None,
+        reference_doc_no: Optional[str] = None,
+        reason: Optional[str] = None,
+        attachments_json: Optional[dict] = None,
+        created_by: Optional[str] = None,
+    ) -> SCDMClaim:
+        """Files a new retailer claim against a dispatch or customer account."""
+        claim_no = f"CLM-{uuid.uuid4().hex[:8].upper()}"
+        claim = SCDMClaim(
+            claim_number=claim_no,
+            customer_id=customer_id,
+            dispatch_id=dispatch_id,
+            claim_type_id=claim_type_id,
+            claim_category=claim_category,
+            claimed_amount=claimed_amount,
+            status=ClaimStatus.SUBMITTED,
+            reference_doc_no=reference_doc_no,
+            reason=reason,
+            attachments_json=attachments_json or {},
+            created_by=created_by or "system",
+        )
+        self.db.add(claim)
+        await self.db.flush()
+
+        await event_bus.publish(
+            Events.SCDM_CLAIM_CREATED,
+            {
+                "claim_id": claim.id,
+                "claim_number": claim.claim_number,
+                "customer_id": customer_id,
+                "claimed_amount": str(claimed_amount),
+            },
+            self.db,
+        )
+        return claim
+
+    async def approve_claim(
+        self, claim_id: str, approved_amount: Decimal, approved_by: str
+    ) -> SCDMClaim:
+        """Approves a submitted claim and publishes SCDM_CLAIM_APPROVED domain event."""
+        res = await self.db.execute(select(SCDMClaim).where(SCDMClaim.id == claim_id))
+        claim = res.scalars().first()
+        if not claim:
+            raise HTTPException(status_code=404, detail="SCDM Claim not found")
+
+        claim.approved_amount = approved_amount
+        claim.status = ClaimStatus.APPROVED
+        claim.approved_by = approved_by
+        claim.updated_at = datetime.now(timezone.utc)
+        self.db.add(claim)
+        await self.db.flush()
+
+        await event_bus.publish(
+            Events.SCDM_CLAIM_APPROVED,
+            {
+                "claim_id": claim.id,
+                "claim_number": claim.claim_number,
+                "customer_id": claim.customer_id,
+                "approved_amount": str(approved_amount),
+                "approved_by": approved_by,
+            },
+            self.db,
+        )
+        return claim
+
+    async def reject_claim(
+        self, claim_id: str, rejection_reason: str, reviewed_by: str
+    ) -> SCDMClaim:
+        """Rejects a submitted claim with reason."""
+        res = await self.db.execute(select(SCDMClaim).where(SCDMClaim.id == claim_id))
+        claim = res.scalars().first()
+        if not claim:
+            raise HTTPException(status_code=404, detail="SCDM Claim not found")
+
+        claim.status = ClaimStatus.REJECTED
+        claim.rejected_amount = claim.claimed_amount
+        claim.rejection_reason = rejection_reason
+        claim.reviewed_by = reviewed_by
+        claim.updated_at = datetime.now(timezone.utc)
+        self.db.add(claim)
+        await self.db.flush()
+
+        await event_bus.publish(
+            Events.SCDM_CLAIM_REJECTED,
+            {
+                "claim_id": claim.id,
+                "claim_number": claim.claim_number,
+                "customer_id": claim.customer_id,
+                "reason": rejection_reason,
+            },
+            self.db,
+        )
+        return claim
+
+    async def list_claims(
+        self,
+        customer_id: Optional[str] = None,
+        dispatch_id: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> list[SCDMClaim]:
+        """Lists claims filtered by customer, dispatch, or status."""
+        query = select(SCDMClaim)
+        if customer_id:
+            query = query.where(SCDMClaim.customer_id == customer_id)
+        if dispatch_id:
+            query = query.where(SCDMClaim.dispatch_id == dispatch_id)
+        if status:
+            query = query.where(SCDMClaim.status == status)
+
+        res = await self.db.execute(query.order_by(SCDMClaim.created_at.desc()))
+        return list(res.scalars().all())
+
+    async def create_settlement(
+        self,
+        customer_id: str,
+        remittance_ref: str,
+        gross_dispatch_value: Decimal,
+        total_deductions: Decimal,
+        net_received_amount: Decimal,
+        lines_data: Optional[list[dict]] = None,
+        created_by: Optional[str] = None,
+    ) -> SCDMSettlement:
+        """Creates a new remittance settlement header and lines."""
+        stl_no = f"STL-{uuid.uuid4().hex[:8].upper()}"
+        variance = gross_dispatch_value - (net_received_amount + total_deductions)
+
+        settlement = SCDMSettlement(
+            settlement_number=stl_no,
+            customer_id=customer_id,
+            remittance_ref=remittance_ref,
+            remittance_date=datetime.now(timezone.utc),
+            gross_dispatch_value=gross_dispatch_value,
+            total_deductions=total_deductions,
+            net_received_amount=net_received_amount,
+            unreconciled_variance=variance,
+            status=SettlementStatus.DRAFT,
+            created_by=created_by or "system",
+        )
+        self.db.add(settlement)
+        await self.db.flush()
+
+        if lines_data:
+            for item in lines_data:
+                s_line = SCDMSettlementLine(
+                    settlement_id=settlement.id,
+                    dispatch_id=item.get("dispatch_id"),
+                    claim_id=item.get("claim_id"),
+                    line_type=item.get("line_type", "Dispatch"),
+                    amount=Decimal(str(item.get("amount", "0.00"))),
+                    notes=item.get("notes"),
+                )
+                self.db.add(s_line)
+
+        await self.db.flush()
+        return settlement
+
+    async def reconcile_settlement(self, settlement_id: str) -> SCDMSettlement:
+        """Reconciles settlement, marks status RECONCILED, and publishes SCDM_SETTLEMENT_RECONCILED."""
+        res = await self.db.execute(select(SCDMSettlement).where(SCDMSettlement.id == settlement_id))
+        stl = res.scalars().first()
+        if not stl:
+            raise HTTPException(status_code=404, detail="SCDM Settlement not found")
+
+        stl.status = SettlementStatus.RECONCILED
+        stl.reconciled_at = datetime.now(timezone.utc)
+        self.db.add(stl)
+        await self.db.flush()
+
+        await event_bus.publish(
+            Events.SCDM_SETTLEMENT_RECONCILED,
+            {
+                "settlement_id": stl.id,
+                "settlement_number": stl.settlement_number,
+                "customer_id": stl.customer_id,
+                "net_received": str(stl.net_received_amount),
+                "total_deductions": str(stl.total_deductions),
+            },
+            self.db,
+        )
+        return stl
+
+    async def list_settlements(self, customer_id: Optional[str] = None) -> list[SCDMSettlement]:
+        """Lists settlements filtered by customer."""
+        query = select(SCDMSettlement).options(selectinload(SCDMSettlement.lines))
+        if customer_id:
+            query = query.where(SCDMSettlement.customer_id == customer_id)
+        res = await self.db.execute(query.order_by(SCDMSettlement.created_at.desc()))
+        return list(res.scalars().all())
+

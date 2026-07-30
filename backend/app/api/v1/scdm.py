@@ -303,3 +303,150 @@ async def process_sellout_import(
     res = await svc.process_sellout_import(import_id)
     await db.commit()
     return res
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Claims & Settlement Endpoints (SCDM v1.1 — ADR-0016)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ClaimSubmitRequest(BaseModel):
+    customer_id: str
+    claim_category: str
+    claimed_amount: Decimal
+    dispatch_id: Optional[str] = None
+    claim_type_id: Optional[str] = None
+    reference_doc_no: Optional[str] = None
+    reason: Optional[str] = None
+    attachments_json: Optional[dict] = None
+
+
+class ClaimApproveRequest(BaseModel):
+    approved_amount: Decimal
+    approved_by: str = "Admin"
+
+
+class ClaimRejectRequest(BaseModel):
+    rejection_reason: str
+    reviewed_by: str = "Admin"
+
+
+class SettlementCreateRequest(BaseModel):
+    customer_id: str
+    remittance_ref: str
+    gross_dispatch_value: Decimal
+    total_deductions: Decimal
+    net_received_amount: Decimal
+    lines_data: Optional[list[dict]] = None
+
+
+@router.get("/claim-types", summary="List active claim types")
+async def list_claim_types(
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    svc = SCDMService(db, tenant_ctx)
+    return await svc.list_claim_types()
+
+
+@router.get("/claims", summary="List retailer claims")
+async def list_claims(
+    customer_id: Optional[str] = Query(None),
+    dispatch_id: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    svc = SCDMService(db, tenant_ctx)
+    return await svc.list_claims(customer_id, dispatch_id, status)
+
+
+@router.post("/claims", summary="Submit a retailer claim")
+async def submit_claim(
+    req: ClaimSubmitRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    svc = SCDMService(db, tenant_ctx)
+    claim = await svc.submit_retailer_claim(
+        customer_id=req.customer_id,
+        claim_category=req.claim_category,
+        claimed_amount=req.claimed_amount,
+        dispatch_id=req.dispatch_id,
+        claim_type_id=req.claim_type_id,
+        reference_doc_no=req.reference_doc_no,
+        reason=req.reason,
+        attachments_json=req.attachments_json,
+        created_by=getattr(tenant_ctx, "user_id", "system"),
+    )
+    await db.commit()
+    return claim
+
+
+@router.post("/claims/{claim_id}/approve", summary="Approve a claim")
+async def approve_claim(
+    claim_id: str,
+    req: ClaimApproveRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    svc = SCDMService(db, tenant_ctx)
+    claim = await svc.approve_claim(claim_id, req.approved_amount, req.approved_by)
+    await db.commit()
+    return claim
+
+
+@router.post("/claims/{claim_id}/reject", summary="Reject a claim")
+async def reject_claim(
+    claim_id: str,
+    req: ClaimRejectRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    svc = SCDMService(db, tenant_ctx)
+    claim = await svc.reject_claim(claim_id, req.rejection_reason, req.reviewed_by)
+    await db.commit()
+    return claim
+
+
+@router.get("/settlements", summary="List settlements")
+async def list_settlements(
+    customer_id: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    svc = SCDMService(db, tenant_ctx)
+    return await svc.list_settlements(customer_id)
+
+
+@router.post("/settlements", summary="Create a remittance settlement")
+async def create_settlement(
+    req: SettlementCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    svc = SCDMService(db, tenant_ctx)
+    stl = await svc.create_settlement(
+        customer_id=req.customer_id,
+        remittance_ref=req.remittance_ref,
+        gross_dispatch_value=req.gross_dispatch_value,
+        total_deductions=req.total_deductions,
+        net_received_amount=req.net_received_amount,
+        lines_data=req.lines_data,
+        created_by=getattr(tenant_ctx, "user_id", "system"),
+    )
+    await db.commit()
+    return stl
+
+
+@router.post("/settlements/{settlement_id}/reconcile", summary="Reconcile settlement")
+async def reconcile_settlement(
+    settlement_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    svc = SCDMService(db, tenant_ctx)
+    stl = await svc.reconcile_settlement(settlement_id)
+    await db.commit()
+    return stl
+
