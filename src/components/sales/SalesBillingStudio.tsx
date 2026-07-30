@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from "react";
-import { STRE, TaxContext } from "../../sdk";
+import { STRE, TaxContext, WindowManager } from "../../sdk";
 
 export interface LineItem {
   id: string;
@@ -173,6 +173,14 @@ export const SalesBillingStudio: React.FC = () => {
             />
             <span className="material-symbols-outlined absolute left-2.5 top-2 text-slate-400 text-sm">search</span>
           </div>
+          <button
+            onClick={() => WindowManager.openTabStandalone("sales-billing", "Sales Billing")}
+            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+            title="Popout into Distraction-Free Independent Window"
+          >
+            <span className="material-symbols-outlined text-sm mr-1">open_in_new</span>
+            Popout
+          </button>
           <button className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 cursor-pointer">
             <span className="material-symbols-outlined text-lg">notifications</span>
           </button>

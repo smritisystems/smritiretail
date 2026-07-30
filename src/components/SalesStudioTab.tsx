@@ -965,6 +965,10 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
   ];
 
+  if (isCreatingInvoice) {
+    return <SalesBillingStudio />;
+  }
+
   return (
     <div className="flex flex-col h-full bg-theme-surface-1 text-theme-primary font-sans">
       {/* Header */}
