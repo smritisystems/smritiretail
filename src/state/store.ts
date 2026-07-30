@@ -1,15 +1,18 @@
 /**
  * Project      : SMRITI Retail OS
+ * Organization : SmritiSys
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.16.0
+ * Version      : 3.39.0
  * Created      : 2026-07-12
- * Modified     : 2026-07-13
+ * Modified     : 2026-07-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ * Classification: Internal
  */
+
 
 import { hashPassword } from "../lib/helpers.js";
 import { initialSalesInvoices, initialSalesReturns } from "../services/customerStore.js";

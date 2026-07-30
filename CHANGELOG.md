@@ -28,7 +28,17 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [3.39.0] — 2026-07-30
+
+### Fixed
+- **Standalone Buffer & Process Polyfill Browser Compatibility**:
+  - Added `!scripts/build_buffer_polyfill.js` to `.dockerignore` ensuring Docker container build context receives polyfill generator.
+  - Removed unused Node.js `pg` PostgreSQL driver import from `src/lib/helpers.ts` and unused `fs`/`path` imports from `src/state/store.ts`.
+  - Added `process` object polyfill with `cwd: () => '/'`, `env: {}`, and `nextTick` stubs in `public/buffer.min.js`, `src/polyfill.ts`, and `vite.config.ts`.
+  - Verified live Docker container workspace (`http://localhost:3000`) with Playwright Chromium headless runner — zero uncaught errors.
+
 ## [7.2.0] — 2026-07-30
+
 
 ### Added
 - **SMRITI Master Publish Command v1.0 & Release Orchestrator**:

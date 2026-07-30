@@ -30,7 +30,9 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-07-30 | v3.39.0 | Standalone Buffer/Process Polyfill & Docker Container Resolution | [Walkthrough](./WT-3.39.0-docker-buffer-polyfill-fix.md) | — | Completed |
 | 2026-07-28 | v7.1.0-ADR015-S1 | ADR-015 Foundation Platform v3.0 Sprint 1 (20 new tables, Entity Registry, 8 Engines) | [Walkthrough](./foundation/ADR_015_Foundation_Platform_v3_Sprint1.md) | [ADR-015](../../brain/d3b67074-34fe-41fc-ba9c-10821ef3d960/company_module_design_v3_FREEZE.md) | Completed |
+
 | 2026-07-28 | v7.1.0 | Phase 6 Enterprise Modules (AI Advisory, BOM Kitting, Financial Consolidation, Data Archival) | [Walkthrough](./foundation/CR_2026_1761_Phase6_Enterprise_v7.1.0.md) | — | Completed |
 
 | 2026-07-28 | v7.0.0 | SEIP v7.0 Engineering Intelligence Platform & Master Health CLI | [Walkthrough](./foundation/SEIP_v7.0.0_Engineering_Intelligence_Platform.md) | — | Completed |
