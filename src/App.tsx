@@ -496,7 +496,14 @@ const AppContent: React.FC = () => {
         return <ConsignmentStudioTab products={products} currentUser={currentUser} />;
       case "loyalty":
         return <LoyaltyStudioTab currentUser={currentUser} />;
+      case "staff":
       case "staff-management":
+      case "users":
+      case "user-rbac":
+      case "rbac":
+      case "staff_management":
+      case "person":
+      case "identity":
         return <StaffManagementTab currentUser={currentUser} />;
       case "user-profile":
         return <UserProfileTab />;

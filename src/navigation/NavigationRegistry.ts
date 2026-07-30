@@ -259,5 +259,26 @@ export const ENTITY_REGISTRY_V3: Record<string, EntityManifestV3> = {
     actions: [
       { id: "print-voucher", label: "Print Voucher", icon: "printer" }
     ]
+  },
+
+  Identity: {
+    version: "3.2",
+    entity: "Identity",
+    workspace: "staff-management",
+    primaryKey: "id",
+    displayField: "fullName",
+    icon: "user",
+    color: "emerald",
+    permission: "VIEW_USERS",
+    quickPreview: true,
+    searchable: true,
+    deepLink: "smriti://identity/{id}",
+    aliases: ["identity", "staff", "users", "user-rbac", "rbac", "staff-management", "person"],
+    capabilities: {
+      preview: true, workspace: true, create: true, edit: true, delete: false,
+      analytics: true, timeline: true, documents: true, print: true, export: true
+    },
+    relationships: [],
+    actions: []
   }
 };
