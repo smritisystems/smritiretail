@@ -19,23 +19,32 @@ export interface SUNEFOpenParams {
   mode?: NavigationMode;
 }
 
-export interface SUNEFNavigationState {
-  type: string;
-  id?: string;
-  lookup?: string;
-  mode?: NavigationMode;
+export interface NavigationHistory {
+  id: string;
+  module: string;
   workspace: string;
-  title?: string;
-  preservedState?: any;
+  recordId?: string;
+  title: string;
+  route: string;
+  breadcrumb: string[];
+  state: {
+    filters?: any;
+    search?: string;
+    selectedTab?: string;
+    scrollPosition?: number;
+    draftId?: string;
+    selectedRow?: any;
+  };
   timestamp: number;
 }
 
 export class SUNEFKernel {
   private static activeTabSetter: ((tabId: string) => void) | null = null;
   private static notificationHandler: ((title: string, message: string, type?: "success" | "error") => void) | null | undefined = null;
-  private static historyStack: SUNEFNavigationState[] = [];
+  private static historyStack: NavigationHistory[] = [];
   private static historyIndex: number = -1;
   private static isNavigatingInternal: boolean = false;
+  private static pinnedModules: string[] = ["pos", "sales", "purchase", "inventory"];
 
   public static initialize(
     setTab: (tabId: string) => void,
@@ -47,9 +56,13 @@ export class SUNEFKernel {
     // Seed Home state
     if (this.historyStack.length === 0) {
       this.historyStack.push({
-        type: "Dashboard",
+        id: "nav-home",
+        module: "Launchpad",
         workspace: "dashboard",
         title: "Home Dashboard",
+        route: "/dashboard",
+        breadcrumb: ["Home", "Dashboard"],
+        state: {},
         timestamp: Date.now()
       });
       this.historyIndex = 0;
@@ -93,18 +106,24 @@ export class SUNEFKernel {
 
     // Push into in-app History Stack if not an internal back/forward traversal
     if (!this.isNavigatingInternal) {
-      // Truncate forward history if navigating to new page
       if (this.historyIndex < this.historyStack.length - 1) {
         this.historyStack = this.historyStack.slice(0, this.historyIndex + 1);
       }
-      const newState: SUNEFNavigationState = {
-        type: params.type,
-        id: params.id || params.lookup,
-        lookup: params.lookup,
-        mode: params.mode,
+      const recordId = params.id || params.lookup;
+      const breadcrumb = [manifest.workspace, manifest.entity];
+      if (recordId) breadcrumb.push(recordId);
+
+      const newState: NavigationHistory = {
+        id: `nav-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        module: manifest.workspace,
         workspace: targetTab,
+        recordId,
         title: params.title || manifest.entity || params.type,
-        preservedState: getPreservedTab(targetTab),
+        route: manifest.deepLink || `/${targetTab}`,
+        breadcrumb,
+        state: {
+          selectedTab: getPreservedTab(targetTab)
+        },
         timestamp: Date.now()
       };
       this.historyStack.push(newState);
@@ -119,7 +138,8 @@ export class SUNEFKernel {
           id: params.id || params.lookup,
           preservedTab: getPreservedTab(targetTab),
           canGoBack: this.canGoBack(),
-          canGoForward: this.canGoForward()
+          canGoForward: this.canGoForward(),
+          breadcrumb: this.getCurrentBreadcrumb()
         }
       })
     );
@@ -134,6 +154,37 @@ export class SUNEFKernel {
     return this.historyIndex < this.historyStack.length - 1;
   }
 
+  public static getHistoryStack(): { items: NavigationHistory[]; currentIndex: number } {
+    return {
+      items: [...this.historyStack],
+      currentIndex: this.historyIndex
+    };
+  }
+
+  public static getCurrentBreadcrumb(): string[] {
+    const curr = this.historyStack[this.historyIndex];
+    return curr?.breadcrumb || ["Home", "Dashboard"];
+  }
+
+  public static getPinnedModules(): string[] {
+    return [...this.pinnedModules];
+  }
+
+  public static async jumpToHistory(index: number): Promise<void> {
+    if (index < 0 || index >= this.historyStack.length) return;
+    this.isNavigatingInternal = true;
+    this.historyIndex = index;
+    const targetState = this.historyStack[this.historyIndex];
+    if (this.activeTabSetter) {
+      this.activeTabSetter(targetState.workspace);
+    }
+    if (targetState.state?.selectedTab) {
+      setPreservedTab(targetState.workspace, targetState.state.selectedTab);
+    }
+    this.notificationHandler?.("SUNE Jump", `Jumped to ${targetState.title || targetState.workspace}`, "success");
+    this.isNavigatingInternal = false;
+  }
+
   public static async goBack(): Promise<void> {
     if (!this.canGoBack()) return;
     this.isNavigatingInternal = true;
@@ -142,8 +193,8 @@ export class SUNEFKernel {
     if (this.activeTabSetter) {
       this.activeTabSetter(targetState.workspace);
     }
-    if (targetState.preservedState) {
-      setPreservedTab(targetState.workspace, targetState.preservedState);
+    if (targetState.state?.selectedTab) {
+      setPreservedTab(targetState.workspace, targetState.state.selectedTab);
     }
     this.notificationHandler?.("SUNE Navigation", `Navigated back to ${targetState.title || targetState.workspace}`, "success");
     this.isNavigatingInternal = false;
@@ -157,8 +208,8 @@ export class SUNEFKernel {
     if (this.activeTabSetter) {
       this.activeTabSetter(targetState.workspace);
     }
-    if (targetState.preservedState) {
-      setPreservedTab(targetState.workspace, targetState.preservedState);
+    if (targetState.state?.selectedTab) {
+      setPreservedTab(targetState.workspace, targetState.state.selectedTab);
     }
     this.notificationHandler?.("SUNE Navigation", `Navigated forward to ${targetState.title || targetState.workspace}`, "success");
     this.isNavigatingInternal = false;
@@ -185,9 +236,13 @@ export class SUNEFKernel {
       this.activeTabSetter("dashboard");
     }
     this.historyStack.push({
-      type: "Dashboard",
+      id: `nav-home-${Date.now()}`,
+      module: "Launchpad",
       workspace: "dashboard",
       title: "Home Dashboard",
+      route: "/dashboard",
+      breadcrumb: ["Home", "Dashboard"],
+      state: {},
       timestamp: Date.now()
     });
     this.historyIndex = this.historyStack.length - 1;
