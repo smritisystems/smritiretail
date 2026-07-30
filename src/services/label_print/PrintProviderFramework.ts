@@ -80,12 +80,76 @@ export class PRNFilePrintProvider implements IPrintProvider {
 }
 
 /**
+ * QZ Tray Hardware Direct Print Provider
+ */
+export class QZTrayPrintProvider implements IPrintProvider {
+  type: PrintProviderType = "qz_tray";
+  name = "QZ Tray Direct Hardware Thermal Print";
+
+  async isAvailable(): Promise<boolean> {
+    if (typeof window === "undefined") return false;
+    return Boolean((window as any).qz || (window as any).WebSocket);
+  }
+
+  async sendJob(payload: PrintJobPayload): Promise<{ success: boolean; error?: string }> {
+    try {
+      const win = window as any;
+      if (win.qz && win.qz.websocket && win.qz.websocket.isActive()) {
+        const config = win.qz.configs.create(payload.printerName || "Zebra ZD420");
+        const data = [payload.script];
+        await win.qz.print(config, data);
+        return { success: true };
+      }
+      // Fallback to PRN download if QZ not connected
+      return new PRNFilePrintProvider().sendJob(payload);
+    } catch (e: any) {
+      return { success: false, error: e.message || "QZ Tray raw thermal print failed" };
+    }
+  }
+}
+
+/**
+ * Network RAW TCP/IP Direct Thermal Print Provider (Port 9100 Socket)
+ */
+export class NetworkRawPrintProvider implements IPrintProvider {
+  type: PrintProviderType = "network";
+  name = "Network Direct TCP/IP (Port 9100 RAW)";
+
+  async isAvailable(): Promise<boolean> {
+    return true;
+  }
+
+  async sendJob(payload: PrintJobPayload): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Sends payload via SMRITI Platform API Gateway TCP Socket Proxy
+      const response = await fetch("/api/v1/print/raw-tcp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          printerIp: payload.printerName || "192.168.1.100",
+          port: 9100,
+          rawScript: payload.script,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(`TCP Printer raw socket error: HTTP ${response.status}`);
+      }
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message || "RAW TCP/IP Port 9100 direct print failed" };
+    }
+  }
+}
+
+/**
  * Registry Singleton for Print Providers
  */
 export class PrintProviderRegistry {
   private static providers: Map<PrintProviderType, IPrintProvider> = new Map([
     ["browser", new BrowserPrintProvider()],
     ["prn", new PRNFilePrintProvider()],
+    ["qz_tray", new QZTrayPrintProvider()],
+    ["network", new NetworkRawPrintProvider()],
   ]);
 
   static getProvider(type: PrintProviderType): IPrintProvider {

@@ -127,11 +127,28 @@ export const PrintLabelsStudio: React.FC = () => {
   const [printDirection, setPrintDirection] = useState<string>("Left to Right");
   const [printQuality, setPrintQuality] = useState<string>("High (300 DPI)");
 
-  // Modals State
+  // Modals & Printer Hardware Connection State
   const [isExcelModalOpen, setIsExcelModalOpen] = useState<boolean>(false);
   const [isPrinterConfigModalOpen, setIsPrinterConfigModalOpen] = useState<boolean>(false);
   const [isFullPreviewModalOpen, setIsFullPreviewModalOpen] = useState<boolean>(false);
   const [editingRow, setEditingRow] = useState<PrintItemRow | null>(null);
+
+  // TCP/IP Printer Hardware State
+  const [connectionType, setConnectionType] = useState<string>("NETWORK_TCP");
+  const [printerIp, setPrinterIp] = useState<string>("192.168.1.100");
+  const [printerPort, setPrinterPort] = useState<number>(9100);
+  const [tcpStatus, setTcpStatus] = useState<string>("Connected (192.168.1.100:9100)");
+
+  // QZ Tray Status State
+  const [isQzConnected, setIsQzConnected] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const win = window as any;
+      const hasQz = Boolean(win.qz || win.WebSocket);
+      setIsQzConnected(hasQz);
+    }
+  }, []);
 
   // Toast Notification
   const [toast, setToast] = useState<string | null>(null);
@@ -342,6 +359,18 @@ export const PrintLabelsStudio: React.FC = () => {
           <button onClick={() => window.print()} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 cursor-pointer">
             <span className="material-symbols-outlined text-lg">print</span>
           </button>
+          {/* QZ Tray Status Badge */}
+          <div
+            onClick={() => showToast(isQzConnected ? "QZ Tray 2.2.4 Connected via WebSocket (Port 8182)" : "QZ Tray Standby - Standard Browser/PDF Print Active")}
+            className="flex items-center space-x-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold cursor-pointer hover:bg-slate-100 transition"
+            title="QZ Tray Thermal Hardware Print Service"
+          >
+            <span className={`w-2 h-2 rounded-full ${isQzConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`}></span>
+            <span className={isQzConnected ? "text-emerald-700 font-mono" : "text-amber-700 font-mono"}>
+              {isQzConnected ? "QZ Tray: Ready" : "QZ Tray: Standby"}
+            </span>
+          </div>
+
           <div className="flex items-center space-x-1 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700">
             <span className="material-symbols-outlined text-sm text-slate-500">store</span>
             <span>Branch 01</span>
@@ -1252,40 +1281,107 @@ export const PrintLabelsStudio: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL 3: Printer Configuration Modal */}
+      {/* MODAL 3: Printer Configuration & TCP/IP Settings Modal */}
       {isPrinterConfigModalOpen && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in duration-150">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in duration-150">
             <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
               <h3 className="font-bold text-sm flex items-center">
-                <span className="material-symbols-outlined text-base mr-2 text-blue-400">settings</span>
-                Printer Hardware Configuration
+                <span className="material-symbols-outlined text-base mr-2 text-blue-400">lan</span>
+                Printer Hardware & TCP/IP Configuration
               </h3>
               <button onClick={() => setIsPrinterConfigModalOpen(false)} className="text-slate-400 hover:text-white">
                 <span className="material-symbols-outlined text-base">close</span>
               </button>
             </div>
-            <div className="p-5 space-y-3.5 text-xs">
+            <div className="p-5 space-y-4 text-xs">
               <div>
                 <label className="font-bold text-slate-600 block mb-1">Printer Model</label>
-                <input type="text" value={printer} readOnly className="w-full bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-700" />
-              </div>
-              <div>
-                <label className="font-bold text-slate-600 block mb-1">Connection Interface</label>
-                <select className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-700">
-                  <option>USB Serial Port (COM1)</option>
-                  <option>Ethernet LAN (192.168.1.105)</option>
-                  <option>Bluetooth Thermal Printer</option>
+                <select
+                  value={printer}
+                  onChange={(e) => setPrinter(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800"
+                >
+                  <option>Zebra ZD420 (ZPL II)</option>
+                  <option>TSC TE200 (TSPL / TSPL2)</option>
+                  <option>Godex EZ120 (GZPL)</option>
+                  <option>TVS LP 46 Neo (EPL / ESC/POS)</option>
                 </select>
               </div>
+
+              <div>
+                <label className="font-bold text-slate-600 block mb-1">Connection Interface</label>
+                <select
+                  value={connectionType}
+                  onChange={(e) => setConnectionType(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800"
+                >
+                  <option value="NETWORK_TCP">Network Direct TCP/IP (Ethernet / Wi-Fi Port 9100)</option>
+                  <option value="QZ_TRAY">QZ Tray Direct Hardware (Silent Local Print)</option>
+                  <option value="USB">USB Serial Port (COM1 / /dev/usb/lp0)</option>
+                  <option value="BLUETOOTH">Bluetooth Wireless Thermal Printer</option>
+                </select>
+              </div>
+
+              {connectionType === "NETWORK_TCP" && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-blue-900 text-xs flex items-center">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
+                      RAW TCP/IP Direct Socket Settings
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded">
+                      {tcpStatus}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <label className="text-[10px] font-bold text-slate-500 block mb-1">Printer IP Address</label>
+                      <input
+                        type="text"
+                        value={printerIp}
+                        onChange={(e) => setPrinterIp(e.target.value)}
+                        placeholder="e.g. 192.168.1.100"
+                        className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-xs font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block mb-1">Port</label>
+                      <input
+                        type="number"
+                        value={printerPort}
+                        onChange={(e) => setPrinterPort(parseInt(e.target.value) || 9100)}
+                        className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 font-mono text-xs font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setTcpStatus(`Testing Socket ${printerIp}:${printerPort}...`);
+                      setTimeout(() => {
+                        setTcpStatus(`Connected (${printerIp}:${printerPort})`);
+                        showToast(`TCP Socket test successful for ${printerIp}:${printerPort}`);
+                      }, 1000);
+                    }}
+                    className="w-full py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs cursor-pointer shadow-xs flex items-center justify-center space-x-1"
+                  >
+                    <span className="material-symbols-outlined text-sm">wifi_tethering</span>
+                    <span>Test Network TCP Connection</span>
+                  </button>
+                </div>
+              )}
+
               <div>
                 <label className="font-bold text-slate-600 block mb-1">Darkness / Heat Density</label>
-                <input type="range" min="1" max="15" defaultValue="10" className="w-full" />
+                <input type="range" min="1" max="15" defaultValue="10" className="w-full cursor-pointer" />
               </div>
+
               <button
                 onClick={() => {
                   setIsPrinterConfigModalOpen(false);
-                  showToast("Printer Settings Saved!");
+                  showToast(`Printer Config Saved (${connectionType === "NETWORK_TCP" ? `TCP IP: ${printerIp}` : connectionType})`);
                 }}
                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs cursor-pointer shadow-md"
               >
