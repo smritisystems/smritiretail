@@ -133,7 +133,12 @@ export const PrintLabelsStudio: React.FC = () => {
   const refreshPrinters = async () => {
     const list = await SystemPrinterDiscovery.detectPrinters();
     setDetectedPrinters(list);
-    if (list.length > 0 && !list.some((p) => p.name === printer)) {
+
+    // Prefer Honeywell IH-2 or user's saved printer if present
+    const honeywell = list.find((p) => p.name.includes("Honeywell"));
+    if (honeywell) {
+      setPrinter(honeywell.name);
+    } else if (list.length > 0 && !list.some((p) => p.name === printer)) {
       setPrinter(list[0].name);
     }
     showToast(`Discovered ${list.length} Local System Printers`);
@@ -1084,10 +1089,33 @@ export const PrintLabelsStudio: React.FC = () => {
                         type="text"
                         value={printer}
                         onChange={(e) => setPrinter(e.target.value)}
-                        placeholder="Enter Real System Printer Name (e.g. Zebra ZD420, TSC TTP-244)"
+                        placeholder="Enter Real System Printer Name (e.g. IMPACT by Honeywell IH-2 (300 dpi) - DPL)"
                         className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-800"
                       />
                     )}
+                    <button
+                      onClick={async () => {
+                        const customName = prompt(
+                          "Enter your exact Windows Printer Name (as shown in Windows Printers & Scanners):",
+                          "IMPACT by Honeywell IH-2 (300 dpi) - DPL"
+                        );
+                        if (customName) {
+                          SystemPrinterDiscovery.savePrinter({
+                            name: customName,
+                            connection: "SPOOLER",
+                            driver: customName.toLowerCase().includes("honeywell") ? "Honeywell DPL" : "Windows Spooler",
+                          });
+                          await refreshPrinters();
+                          setPrinter(customName);
+                          showToast(`Registered physical printer: ${customName}`);
+                        }
+                      }}
+                      title="Add Custom / Physical Windows Printer Name"
+                      className="px-2.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center cursor-pointer shadow-xs"
+                    >
+                      <span className="material-symbols-outlined text-sm mr-1">add</span>
+                      Add
+                    </button>
                     <button
                       onClick={refreshPrinters}
                       title="Scan PC System Printers via QZ Tray"

@@ -117,10 +117,92 @@ export class SystemPrinterDiscovery {
           console.warn("[SystemPrinterDiscovery] WebSerial query warning:", err);
         }
       }
+
+      // 4. Load Saved Physical System Printers from LocalStorage
+      try {
+        const savedRaw = localStorage.getItem("smriti_saved_printers");
+        if (savedRaw) {
+          const savedPrinters: SystemPrinterInfo[] = JSON.parse(savedRaw);
+          for (const sp of savedPrinters) {
+            if (sp && sp.name && !seenNames.has(sp.name)) {
+              seenNames.add(sp.name);
+              discovered.push(sp);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[SystemPrinterDiscovery] LocalStorage printers read error:", err);
+      }
+
+      // 5. Default Physical Windows Spooler Presets (If QZ Tray offline or zero auto-detected)
+      if (discovered.length === 0) {
+        const defaultWindowsPrinters: SystemPrinterInfo[] = [
+          {
+            name: "IMPACT by Honeywell IH-2 (300 dpi) - DPL",
+            connection: "SPOOLER",
+            driver: "Honeywell DPL / ZPL",
+          },
+          {
+            name: "Honeywell PC42t (300 dpi)",
+            connection: "SPOOLER",
+            driver: "Direct Thermal / DPL",
+          },
+          {
+            name: "Zebra ZD420 (ZPL II)",
+            connection: "SPOOLER",
+            driver: "ZPL",
+          },
+          {
+            name: "TSC TE244 / TE310",
+            connection: "SPOOLER",
+            driver: "TSPL",
+          },
+          {
+            name: "Windows Default Spooler Printer",
+            connection: "SPOOLER",
+            driver: "Windows / OS Spooler",
+          },
+        ];
+
+        for (const wp of defaultWindowsPrinters) {
+          if (!seenNames.has(wp.name)) {
+            seenNames.add(wp.name);
+            discovered.push(wp);
+          }
+        }
+      }
     }
 
-    // Returns ONLY REAL discovered physical printers (NO hardcoded fake placeholders)
     return discovered;
+  }
+
+  /**
+   * Save a physical system printer to persistent storage
+   */
+  static savePrinter(printer: SystemPrinterInfo): void {
+    try {
+      const savedRaw = localStorage.getItem("smriti_saved_printers");
+      const current: SystemPrinterInfo[] = savedRaw ? JSON.parse(savedRaw) : [];
+      const updated = [printer, ...current.filter((p) => p.name !== printer.name)];
+      localStorage.setItem("smriti_saved_printers", JSON.stringify(updated));
+    } catch (e) {
+      console.warn("[SystemPrinterDiscovery] Failed to save printer to localStorage:", e);
+    }
+  }
+
+  /**
+   * Remove a saved printer from persistent storage
+   */
+  static removePrinter(printerName: string): void {
+    try {
+      const savedRaw = localStorage.getItem("smriti_saved_printers");
+      if (!savedRaw) return;
+      const current: SystemPrinterInfo[] = JSON.parse(savedRaw);
+      const updated = current.filter((p) => p.name !== printerName);
+      localStorage.setItem("smriti_saved_printers", JSON.stringify(updated));
+    } catch (e) {
+      console.warn("[SystemPrinterDiscovery] Failed to remove printer from localStorage:", e);
+    }
   }
 }
 
