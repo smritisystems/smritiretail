@@ -82,6 +82,10 @@ export function calculateItemGstRate(category: string, price: number, defaultRat
 
 export async function allocateVoucherNumber(docType: string, context?: { branch?: string; fy?: string; user?: string; date?: string; authHeader?: string }): Promise<string> {
   try {
+    const pool = (globalThis as any).pool;
+    if (!pool) {
+      return docType.substring(0, 3).toUpperCase() + "-" + Date.now();
+    }
     const dbRes = await pool.query(
       `SELECT id FROM document_series 
        WHERE document_type = $1 AND is_deleted = false AND is_active = true 

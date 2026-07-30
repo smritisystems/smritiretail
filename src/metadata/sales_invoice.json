@@ -1,0 +1,24 @@
+{
+  "document": "SalesInvoice",
+  "title": "Sales Tax Invoice",
+  "defaultMode": "simple",
+  "panels": [
+    { "id": "customer", "label": "Customer Information", "modes": ["simple", "standard", "enterprise"] },
+    { "id": "commercial", "label": "Commercial & References", "modes": ["standard", "enterprise"] },
+    { "id": "inventory", "label": "Inventory & Warehouse", "modes": ["enterprise"] },
+    { "id": "pricing", "label": "Pricing & Schemes", "modes": ["enterprise"] },
+    { "id": "tax", "label": "GST & Tax Breakdown", "modes": ["standard", "enterprise"] },
+    { "id": "accounting", "label": "Accounts & Cost Center", "modes": ["enterprise"] },
+    { "id": "shipping", "label": "Shipping & Transport", "modes": ["standard", "enterprise"] },
+    { "id": "compliance", "label": "E-Way Bill & E-Invoice Compliance", "modes": ["enterprise"] },
+    { "id": "workflow", "label": "Workflow & Audit Log", "modes": ["standard", "enterprise"] }
+  ],
+  "sidebarWidgets": [
+    "financial_summary",
+    "gst_summary",
+    "customer_credit",
+    "stock_availability",
+    "recent_transactions",
+    "timeline"
+  ]
+}
