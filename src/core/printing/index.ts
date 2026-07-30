@@ -15,4 +15,5 @@ export * from "./events/PrintingEventBus.js";
 export * from "./drivers/PrintDriverRegistry.js";
 export * from "./providers/PrintProviderRegistry.js";
 export * from "./rendering/PrintVariableResolver.js";
+export * from "./templates/PrintTemplateRegistry.js";
 export * from "./orchestrator/PrintOrchestrator.js";
