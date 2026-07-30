@@ -306,6 +306,13 @@ export const PrintLabelsStudio: React.FC = () => {
           >
             <span className="material-symbols-outlined text-lg">notifications</span>
           </button>
+          <button
+            onClick={() => WindowManager.openTabStandalone("print-labels", "Print Labels Studio")}
+            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 cursor-pointer"
+            title="Popout Window (Print Labels Studio)"
+          >
+            <span className="material-symbols-outlined text-lg">open_in_new</span>
+          </button>
           <button onClick={() => window.print()} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 cursor-pointer">
             <span className="material-symbols-outlined text-lg">print</span>
           </button>
