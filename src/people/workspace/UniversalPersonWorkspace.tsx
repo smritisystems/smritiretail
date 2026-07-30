@@ -17,7 +17,7 @@ interface Props {
   personId?: string;
 }
 
-export const UniversalPersonWorkspace: React.FC<Props> = ({ personId = "PER-1001" }) => {
+export const UniversalPersonWorkspace: React.FC<Props> = ({ personId = "ID-1001" }) => {
   const [identity, setIdentity] = useState<IdentityRecord | null>(null);
   const [commission, setCommission] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "roles" | "commission" | "timeline">("overview");
@@ -33,7 +33,7 @@ export const UniversalPersonWorkspace: React.FC<Props> = ({ personId = "PER-1001
   }, [personId]);
 
   if (!identity) {
-    return <div className="p-6 text-xs text-theme-muted font-mono">Loading Universal Person 360 Identity...</div>;
+    return <div className="p-6 text-xs text-theme-muted font-mono">Loading Universal Identity 360 Studio...</div>;
   }
 
   return (
@@ -48,11 +48,14 @@ export const UniversalPersonWorkspace: React.FC<Props> = ({ personId = "PER-1001
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-theme-heading">{identity.fullName}</h2>
               <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded text-[10px] font-bold font-mono">
-                {identity.status}
+                {identity.lifecycleState}
+              </span>
+              <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded text-[10px] font-bold font-mono">
+                Policy: {identity.provisioningPolicy}
               </span>
             </div>
             <p className="text-xs text-theme-muted font-mono mt-0.5">
-              Code: <strong>{identity.personCode}</strong> • Dept: <strong>{identity.department}</strong> • Auth: <strong>{identity.userId ? `User Linked [${identity.userId}]` : "No Auth Account"}</strong>
+              Code: <strong>{identity.identityCode}</strong> • Ingestion: <strong>{identity.ingestionSource}</strong> • Auth: <strong>{identity.userId ? `User Account Linked [${identity.userId}]` : "No Login Account (Optional Auth)"}</strong>
             </p>
           </div>
         </div>
@@ -90,12 +93,27 @@ export const UniversalPersonWorkspace: React.FC<Props> = ({ personId = "PER-1001
           {/* Contact Details Card */}
           <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-3">
             <h4 className="font-bold text-theme-heading uppercase tracking-wider text-[11px] border-b border-theme-divider pb-2 flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-blue-400" /> Identity Info
+              <Briefcase className="w-4 h-4 text-blue-400" /> Identity Details
             </h4>
             <div className="space-y-2 text-theme-body">
               <div>Mobile: <strong className="text-theme-heading">{identity.mobile}</strong></div>
               <div>Email: <strong className="text-theme-heading">{identity.email}</strong></div>
               <div>Positions: <strong className="text-theme-heading">{identity.positions.join(", ")}</strong></div>
+            </div>
+          </div>
+
+          {/* Work Assignments Card */}
+          <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-3">
+            <h4 className="font-bold text-theme-heading uppercase tracking-wider text-[11px] border-b border-theme-divider pb-2 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-purple-400" /> Organization & Work Assignments
+            </h4>
+            <div className="space-y-2 text-theme-body">
+              {identity.workAssignments.map((wa) => (
+                <div key={wa.id} className="p-2 bg-theme-surface-1 rounded border border-theme-divider">
+                  <div className="font-bold text-theme-heading">{wa.locationName} ({wa.locationType})</div>
+                  <div className="text-[10px] text-theme-muted">Effective: {wa.effectiveFrom} • Primary: {wa.isPrimary ? "Yes" : "No"}</div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -108,22 +126,6 @@ export const UniversalPersonWorkspace: React.FC<Props> = ({ personId = "PER-1001
               <div>Sales Commission: <strong className="text-emerald-400">{commission?.salesCommission}</strong></div>
               <div>Referral Payout: <strong className="text-purple-400">{commission?.referralCommission}</strong></div>
               <div>Total Earned: <strong className="text-theme-heading font-bold">{commission?.totalEarned}</strong></div>
-            </div>
-          </div>
-
-          {/* SUNEF Drill Links */}
-          <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-3">
-            <h4 className="font-bold text-theme-heading uppercase tracking-wider text-[11px] border-b border-theme-divider pb-2 flex items-center gap-2">
-              <ExternalLink className="w-4 h-4 text-amber-400" /> SUNEF Exploration
-            </h4>
-            <div className="space-y-2">
-              <DrillableLink context={{ entityType: "Customer", entityId: identity.id, title: identity.fullName }}>
-                <span>Drill Customer Record →</span>
-              </DrillableLink>
-              <br />
-              <DrillableLink context={{ entityType: "SalesOrder", entityId: "SO-2026-00125", title: "Sales Orders by " + identity.fullName }}>
-                <span>Drill Assigned Sales Orders →</span>
-              </DrillableLink>
             </div>
           </div>
         </div>

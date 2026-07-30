@@ -14,7 +14,9 @@ export class SUPOESDK {
   private static identities: IdentityRecord[] = [...INITIAL_IDENTITIES];
 
   public static async getIdentity(id: string): Promise<IdentityRecord | null> {
-    const found = this.identities.find((i) => i.id === id || i.personCode === id || i.fullName.toLowerCase() === id.toLowerCase());
+    const found = this.identities.find(
+      (i) => i.id === id || i.identityCode === id || i.fullName.toLowerCase() === id.toLowerCase()
+    );
     return found || null;
   }
 
@@ -22,23 +24,32 @@ export class SUPOESDK {
     return [...this.identities];
   }
 
-  public static async assignRole(personId: string, role: string): Promise<void> {
-    const person = this.identities.find((i) => i.id === personId);
-    if (person && !person.roles.includes(role)) {
-      person.roles.push(role);
+  public static async assignRole(identityId: string, role: string): Promise<void> {
+    const identity = this.identities.find((i) => i.id === identityId);
+    if (identity && !identity.roles.includes(role)) {
+      identity.roles.push(role);
     }
   }
 
-  public static async assignPosition(personId: string, position: string): Promise<void> {
-    const person = this.identities.find((i) => i.id === personId);
-    if (person && !person.positions.includes(position)) {
-      person.positions.push(position);
+  public static async assignPosition(identityId: string, position: string): Promise<void> {
+    const identity = this.identities.find((i) => i.id === identityId);
+    if (identity && !identity.positions.includes(position)) {
+      identity.positions.push(position);
     }
   }
 
-  public static async getCommissionReport(personId: string): Promise<any> {
+  public static async provisionIdentity(newIdentity: Omit<IdentityRecord, "id">): Promise<IdentityRecord> {
+    const created: IdentityRecord = {
+      ...newIdentity,
+      id: `ID-${1000 + this.identities.length + 1}`
+    };
+    this.identities.push(created);
+    return created;
+  }
+
+  public static async getCommissionReport(identityId: string): Promise<any> {
     return {
-      personId,
+      identityId,
       salesCommission: "₹ 1,85,000",
       referralCommission: "₹ 42,500",
       totalEarned: "₹ 2,27,500",
@@ -50,8 +61,9 @@ export class SUPOESDK {
   public static async getOrgHierarchy(): Promise<any> {
     return {
       company: "SMRITI Retail Systems",
-      branches: [
-        { id: "BR-DELHI-01", name: "Connaught Place Store", manager: "Ananya Sharma" }
+      workLocations: [
+        { id: "br-default", name: "Main Store Branch", type: "Branch", manager: "Ananya Sharma" },
+        { id: "WH-CENTRAL", name: "Central Distribution Warehouse", type: "Warehouse", manager: "Rajesh Hardware" }
       ]
     };
   }
