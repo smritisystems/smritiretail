@@ -15,7 +15,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "python scripts/build_buffer_polyfill.py && vite build",
+
     "preview": "vite preview",
     "start": "npm run dev",
     "lint": "tsc --noEmit",
