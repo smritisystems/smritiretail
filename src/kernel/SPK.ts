@@ -28,6 +28,7 @@ import { WorkflowRegistry, WorkflowDefinition, WorkflowState } from "./upr/workf
 import { ReportRegistry, ReportDefinition, ReportCategory } from "./upr/reports/ReportRegistry.js";
 import { PrintRegistry, PrintTemplateDefinition } from "./upr/printing/PrintRegistry.js";
 import { DashboardRegistry, DashboardDefinition } from "./upr/dashboard/DashboardRegistry.js";
+import { AIRegistry, AISkillDefinition } from "./upr/ai/AIRegistry.js";
 
 /* ── Kernel Interfaces ── */
 
@@ -461,6 +462,16 @@ export class SMRITIPlatformKernel {
       DashboardRegistry.renderWidget(widgetId, dashboardId, context),
     registerDashboard: (dashboard: DashboardDefinition) => DashboardRegistry.registerDashboard(dashboard),
     subscribe: (listener: () => void) => DashboardRegistry.subscribe(listener)
+  };
+
+  /* ── Universal AI Skill Registry Facade (SPK.ai / UAR) ── */
+  public ai = {
+    getSkill: (id: string) => AIRegistry.getSkill(id),
+    getSkills: () => AIRegistry.getSkills(),
+    executeSkill: (skillId: string, params: Record<string, any>, context: Readonly<PlatformContext>) =>
+      AIRegistry.executeSkill(skillId, params, context),
+    registerSkill: (skill: AISkillDefinition) => AIRegistry.registerSkill(skill),
+    subscribe: (listener: () => void) => AIRegistry.subscribe(listener)
   };
 
   /* ── Extension SDK (SPK.sdk) ── */
