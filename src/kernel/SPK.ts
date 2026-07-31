@@ -13,6 +13,9 @@ import { FormRegistry, FormDefinition } from "./upr/forms/FormRegistry.js";
 import { FieldRegistry, FieldControlComponent } from "./upr/forms/FieldRegistry.js";
 import { ValidationRegistry, ValidatorDefinition, ValidationContext } from "./upr/forms/ValidationRegistry.js";
 import { LayoutRegistry, LayoutDefinition } from "./upr/forms/LayoutRegistry.js";
+import { PermissionRegistry, PermissionDefinition } from "./upr/security/PermissionRegistry.js";
+import { RoleRegistry, RoleDefinition } from "./upr/security/RoleRegistry.js";
+import { LicenseRegistry, LicenseMetadata } from "./upr/security/LicenseRegistry.js";
 
 /* ── Kernel Interfaces ── */
 
@@ -289,6 +292,31 @@ export class SMRITIPlatformKernel {
     resolveGridClass: (span?: number, layoutId?: string) => LayoutRegistry.resolveGridClass(span, layoutId),
     registerLayout: (layout: LayoutDefinition) => LayoutRegistry.registerLayout(layout),
     subscribe: (listener: () => void) => LayoutRegistry.subscribe(listener)
+  };
+
+  /* ── Universal Security Registry Facade (SPK.security / USR) ── */
+  public security = {
+    permissions: {
+      getPermission: (id: string) => PermissionRegistry.getPermission(id),
+      getPermissions: () => PermissionRegistry.getPermissions(),
+      getPermissionsByDomain: (domainId: string) => PermissionRegistry.getPermissionsByDomain(domainId),
+      registerPermission: (permission: PermissionDefinition) => PermissionRegistry.registerPermission(permission),
+      subscribe: (listener: () => void) => PermissionRegistry.subscribe(listener)
+    },
+    roles: {
+      getRole: (id: string) => RoleRegistry.getRole(id),
+      getRoles: () => RoleRegistry.getRoles(),
+      getEffectivePermissions: (roleId: string) => RoleRegistry.getEffectivePermissions(roleId),
+      hasPermission: (roleId: string, permissionId: string) => RoleRegistry.hasPermission(roleId, permissionId),
+      registerRole: (role: RoleDefinition) => RoleRegistry.registerRole(role),
+      subscribe: (listener: () => void) => RoleRegistry.subscribe(listener)
+    },
+    licenses: {
+      getLicense: () => LicenseRegistry.getLicense(),
+      isFeatureEnabled: (featureId: string) => LicenseRegistry.isFeatureEnabled(featureId),
+      getFeatures: () => LicenseRegistry.getFeatures(),
+      subscribe: (listener: () => void) => LicenseRegistry.subscribe(listener)
+    }
   };
 
   /* ── Extension SDK (SPK.sdk) ── */
