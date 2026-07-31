@@ -76,4 +76,20 @@ describe("Universal Form Registry (UFR & UEDF Metadata Core)", () => {
     expect(registered).toBeDefined();
     expect(registered?.title).toBe("Gold & Metal Rates Form");
   });
+
+  it("should resolve dynamic field controls from FieldRegistry (UFR-003)", () => {
+    const types = SPK.fields.getRegisteredTypes();
+    expect(types).toContain("text");
+    expect(types).toContain("number");
+    expect(types).toContain("select");
+    expect(types).toContain("barcode");
+    expect(types).toContain("checkbox");
+
+    const textControl = SPK.fields.getFieldControl("text");
+    expect(textControl).toBeDefined();
+
+    // Fallback to text control for unregistered type
+    const fallbackControl = SPK.fields.getFieldControl("unknown_type_xyz");
+    expect(fallbackControl).toBe(textControl);
+  });
 });

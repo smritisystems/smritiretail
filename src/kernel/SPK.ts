@@ -10,6 +10,7 @@ import { WindowManager } from "../sdk/WindowManager.js";
 import { NavigationRegistry, DomainDefinition } from "./upr/navigation/NavigationRegistry.js";
 import { EntityRegistry, EntityMetadata } from "./upr/forms/EntityRegistry.js";
 import { FormRegistry, FormDefinition } from "./upr/forms/FormRegistry.js";
+import { FieldRegistry, FieldControlComponent } from "./upr/forms/FieldRegistry.tsx";
 
 /* ── Kernel Interfaces ── */
 
@@ -260,6 +261,14 @@ export class SMRITIPlatformKernel {
     getEntities: () => EntityRegistry.getEntities(),
     registerEntity: (entity: EntityMetadata) => EntityRegistry.registerEntity(entity),
     subscribe: (listener: () => void) => EntityRegistry.subscribe(listener)
+  };
+
+  /* ── Universal Field Registry Facade (SPK.fields / UFR-003) ── */
+  public fields = {
+    getFieldControl: (type: string) => FieldRegistry.getFieldControl(type),
+    getRegisteredTypes: () => FieldRegistry.getRegisteredTypes(),
+    registerFieldControl: (type: string, component: FieldControlComponent) => FieldRegistry.registerFieldControl(type, component),
+    subscribe: (listener: () => void) => FieldRegistry.subscribe(listener)
   };
 
   /* ── Extension SDK (SPK.sdk) ── */

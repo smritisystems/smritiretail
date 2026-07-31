@@ -81,74 +81,18 @@ export const UniversalFormRenderer: React.FC<UniversalFormRendererProps> = ({
     const val = values[field.id] !== undefined ? values[field.id] : (field.defaultValue ?? "");
     const fieldError = errors[field.id];
 
-    switch (field.type) {
-      case "select":
-      case "enum" as any:
-        return (
-          <select
-            value={val}
-            disabled={isReadOnly || field.readOnly}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
-            className={`w-full p-2 text-xs bg-theme-surface-1 text-theme-heading border rounded-lg focus:outline-none focus:border-[#0a6ed1] ${
-              fieldError ? "border-red-500" : "border-theme-divider"
-            }`}
-          >
-            <option value="">-- Select {field.label} --</option>
-            {field.options?.map((opt) => (
-              <option key={String(opt.value)} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        );
+    // UFR-003 Dynamic Field Control Resolution via FieldRegistry
+    const FieldControlComponent = SPK.fields.getFieldControl(field.type);
 
-      case "checkbox":
-      case "switch":
-        return (
-          <label className="flex items-center gap-2 text-xs text-theme-heading cursor-pointer pt-1">
-            <input
-              type="checkbox"
-              checked={Boolean(val)}
-              disabled={isReadOnly || field.readOnly}
-              onChange={(e) => handleFieldChange(field.id, e.target.checked)}
-              className="rounded border-theme-divider text-[#0a6ed1] focus:ring-[#0a6ed1]"
-            />
-            <span>{field.label}</span>
-          </label>
-        );
-
-      case "number":
-      case "currency":
-      case "percentage":
-        return (
-          <input
-            type="number"
-            value={val}
-            placeholder={field.placeholder || "0.00"}
-            disabled={isReadOnly || field.readOnly}
-            onChange={(e) => handleFieldChange(field.id, e.target.value !== "" ? Number(e.target.value) : "")}
-            className={`w-full p-2 text-xs bg-theme-surface-1 text-theme-heading border rounded-lg font-mono focus:outline-none focus:border-[#0a6ed1] ${
-              fieldError ? "border-red-500" : "border-theme-divider"
-            }`}
-          />
-        );
-
-      case "barcode":
-      case "text":
-      default:
-        return (
-          <input
-            type="text"
-            value={val}
-            placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}...`}
-            disabled={isReadOnly || field.readOnly}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
-            className={`w-full p-2 text-xs bg-theme-surface-1 text-theme-heading border rounded-lg focus:outline-none focus:border-[#0a6ed1] ${
-              fieldError ? "border-red-500" : "border-theme-divider"
-            }`}
-          />
-        );
-    }
+    return (
+      <FieldControlComponent
+        field={field}
+        value={val}
+        onChange={(newVal) => handleFieldChange(field.id, newVal)}
+        error={fieldError}
+        isReadOnly={isReadOnly}
+      />
+    );
   };
 
   return (
