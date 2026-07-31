@@ -157,6 +157,22 @@ Every completion claim must be backed by directly observable evidence. If eviden
 8. **USR Standard v1.0 Status (FROZEN)**:
    - Rules `USR-001` through `USR-007` are officially **FROZEN v1.0**.
 
+## 14. Universal Configuration Governance (UCR Standard v1.0 — FROZEN)
+1. **Branding Metadata Ownership (UCR-001 — MANDATORY)**:
+   - Corporate identity, app logos, themes, and titles MUST be owned by `BrandingRegistry` (`SPK.configuration.branding`).
+2. **Regional Formatting Ownership (UCR-002 — MANDATORY)**:
+   - Currency symbols, date formats, timezones, and number formatting MUST be owned by `RegionalRegistry` (`SPK.configuration.regional`).
+3. **Preference Scope Isolation (UCR-003 — MANDATORY)**:
+   - User, tenant, and workspace preferences MUST be resolved via `PreferenceRegistry` (`SPK.configuration.preferences`).
+4. **Environment & Runtime Metadata (UCR-004 — MANDATORY)**:
+   - Runtime configuration and API endpoints MUST be owned by `EnvironmentRegistry` (`SPK.configuration.environment`).
+5. **Central Configuration Facade (UCR-005 — MANDATORY)**:
+   - All configuration access across platform workspaces MUST execute exclusively through `SPK.configuration`.
+6. **Immutable Execution Context (UCR-006 — MANDATORY)**:
+   - `PlatformContext` MUST remain read-only and immutable for the duration of a request.
+7. **UCR Standard v1.0 Status (FROZEN)**:
+   - Rules `UCR-001` through `UCR-006` are officially **FROZEN v1.0**.
+
 ---
 
 
