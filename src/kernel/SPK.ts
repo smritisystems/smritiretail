@@ -29,6 +29,9 @@ import { ReportRegistry, ReportDefinition, ReportCategory } from "./upr/reports/
 import { PrintRegistry, PrintTemplateDefinition } from "./upr/printing/PrintRegistry.js";
 import { DashboardRegistry, DashboardDefinition } from "./upr/dashboard/DashboardRegistry.js";
 import { AIRegistry, AISkillDefinition } from "./upr/ai/AIRegistry.js";
+import { posDomainService } from "../domains/pos/POSDomainService.js";
+import { salesDomainService } from "../domains/sales/SalesDomainService.js";
+import { inventoryDomainService } from "../domains/inventory/InventoryDomainService.js";
 
 /* ── Kernel Interfaces ── */
 
@@ -472,6 +475,13 @@ export class SMRITIPlatformKernel {
       AIRegistry.executeSkill(skillId, params, context),
     registerSkill: (skill: AISkillDefinition) => AIRegistry.registerSkill(skill),
     subscribe: (listener: () => void) => AIRegistry.subscribe(listener)
+  };
+
+  /* ── Business Domains Facade (SPK.domains — Wave 1 Architecture) ── */
+  public domains = {
+    pos: posDomainService,
+    sales: salesDomainService,
+    inventory: inventoryDomainService
   };
 
   /* ── Extension SDK (SPK.sdk) ── */
