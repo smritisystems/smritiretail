@@ -25,6 +25,7 @@ import { RegionalRegistry, RegionalConfig } from "./upr/configuration/RegionalRe
 import { PreferenceRegistry, PreferenceScope } from "./upr/configuration/PreferenceRegistry.js";
 import { EnvironmentRegistry, EnvironmentConfig } from "./upr/configuration/EnvironmentRegistry.js";
 import { WorkflowRegistry, WorkflowDefinition, WorkflowState } from "./upr/workflow/WorkflowRegistry.js";
+import { ReportRegistry, ReportDefinition, ReportCategory } from "./upr/reports/ReportRegistry.js";
 
 /* ── Kernel Interfaces ── */
 
@@ -427,6 +428,17 @@ export class SMRITIPlatformKernel {
     ) => WorkflowRegistry.executeTransition(workflowId, currentState, transitionId, context, entityValues),
     registerWorkflow: (workflow: WorkflowDefinition) => WorkflowRegistry.registerWorkflow(workflow),
     subscribe: (listener: () => void) => WorkflowRegistry.subscribe(listener)
+  };
+
+  /* ── Universal Report Registry Facade (SPK.reports / URR) ── */
+  public reports = {
+    getReport: (id: string) => ReportRegistry.getReport(id),
+    getReports: () => ReportRegistry.getReports(),
+    getReportsByCategory: (category: ReportCategory) => ReportRegistry.getReportsByCategory(category),
+    executeReport: (reportId: string, params: Record<string, any>, context: Readonly<PlatformContext>) =>
+      ReportRegistry.executeReport(reportId, params, context),
+    registerReport: (report: ReportDefinition) => ReportRegistry.registerReport(report),
+    subscribe: (listener: () => void) => ReportRegistry.subscribe(listener)
   };
 
   /* ── Extension SDK (SPK.sdk) ── */
