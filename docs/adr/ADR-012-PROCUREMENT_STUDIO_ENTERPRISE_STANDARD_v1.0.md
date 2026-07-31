@@ -1,43 +1,35 @@
 # Architecture Decision Record (ADR-012)
-# SMRITI_PROCUREMENT_STUDIO_ENTERPRISE_STANDARD_v1.0
+# PROCUREMENT_STUDIO_ENTERPRISE_STANDARD_v1.0 (PROCUREMENT DOMAIN)
 
 **Status:** FROZEN — v1.0 (2026-07-31)  
 **Author:** Jawahar Ramkripal Mallah, Chief Systems Architect & Creator  
-**Scope:** Procurement Studio & Platform Workspace Layout Engine  
+**Base Layer:** Consumes `SMRITI_ENTERPRISE_WORKSPACE_STANDARD_v1.0` (ADR-020 Layer 1 UX Framework)  
+**Scope:** Procurement Domain Business Capabilities & Workflows  
 
 ---
 
 ## Executive Summary
 
-`SMRITI_PROCUREMENT_STUDIO_ENTERPRISE_STANDARD_v1.0` establishes the frozen constitutional blueprint for enterprise procurement workspaces across SMRITI Retail OS. It defines the workspace lifecycle, auto-layout persistence via `SPK.configuration`, the SMRITI Universal Procurement Grid (SUPG) specification, On-the-Fly Temporary Product Engine, Master Data Approval Queue, Collapsible Visual Product Gallery, SWMF pop-out window integration, UAR AI skill extension points, and Industry Pack adaptability.
+`PROCUREMENT_STUDIO_ENTERPRISE_STANDARD_v1.0` defines the frozen domain-specific architecture for procurement across SMRITI Retail OS. It inherits the **Common Workspace UX Framework (`ADR-020`)** for layout rules, while establishing procurement-specific capabilities: On-the-Fly Temporary Product Engine, Master Data Approval Queue, Article/Style/Model Entry, Visual Product Gallery, Supplier Catalogs, and SUPP Rich Printing.
 
 ---
 
-## 1. WORKSPACE LIFECYCLE MANAGEMENT
-
-All enterprise studios MUST adhere to the 11-stage Workspace Lifecycle:
+## 1. ARCHITECTURAL RELATIONSHIP TO ADR-020
 
 ```text
-Initialize ──► Restore Layout ──► Restore Filters ──► Restore Active Document
-                                                            │
-                                                            ▼
-Idle State ◄── Auto Save ◄── Subscribe Domain Events ◄──────┘
-    │
-    ▼
-Suspend ──► Resume ──► Close ──► Persist Workspace (SPK.configuration)
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                   SMRITI ENTERPRISE WORKSPACE UX FRAMEWORK (ADR-020)                   │
+│   Common UX Rules: 100% Fluid Width | 55px Hero | Single-Row Toolbar | SUPG Grid |      │
+│   Right-Docked Summary | SWMF Pop-Out | Keyboard Shortcuts | Responsive Breakpoints      │
+└───────────────────────────┬────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                 PROCUREMENT STUDIO ENTERPRISE STANDARD (ADR-012 DOMAIN)                │
+│   Procurement Capabilities: On-the-Fly Temporary Product Engine | Article/Style/Model   │
+│   Master Data Approval Queue | Supplier Catalogs | Visual Product Gallery | SUPP Prints│
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
-
-1. **Initialize**: Validate user session, security scopes, and role permissions via `SPK.security`.
-2. **Restore Layout**: Fetch saved user workspace preferences (density, column widths, summary docked state) from `SPK.configuration`.
-3. **Restore Filters**: Apply saved supplier, date range, and warehouse filters.
-4. **Restore Active Document**: Load active PO / Purchase Invoice draft from state repository.
-5. **Subscribe Domain Events**: Register listeners on `DomainEventBus` for `OrderApproved.v1`, `StockUpdated.v1`, and `PriceListUpdated.v1`.
-6. **Idle State**: Await user interaction with zero CPU overhead.
-7. **Auto Save**: Execute non-blocking background draft auto-saves every 120 seconds.
-8. **Suspend**: Pause non-critical subscriptions when tab loses focus.
-9. **Resume**: Re-verify session tokens and sync state upon regain of focus.
-10. **Close**: Flush pending edits, emit exit events, and clear transient memory.
-11. **Persist Workspace**: Save active geometry, density mode, and layout preferences to `SPK.configuration`.
 
 ---
 
@@ -89,48 +81,7 @@ ProcurementStudio:
 
 ---
 
-## 4. PROCUREMENT PERSONAS
-
-| Persona | Primary Needs & Actions |
-|---|---|
-| **Buyer** | Fast PO creation, temporary product entry, barcode scanning, variant matrix buying |
-| **Purchase Manager** | Approvals, pricing variance analysis, supplier performance evaluation |
-| **Master Data Manager** | Validate, enrich, and approve temporary products into permanent Item Master |
-| **Warehouse Inspector** | GRN verification, receipt logging, thermal barcode label printing |
-| **Finance Accountant** | GST ITC validation, landed cost calculation, supplier invoice matching |
-
----
-
-## 5. INDUSTRY PACK ADAPTATION MATRIX
-
-| Industry | Default Item Entry Mode | Primary Entity Hierarchy |
-|---|---|---|
-| **Apparel** | Article ➔ Color × Size Matrix | Article ➔ Style ➔ Color ➔ Size |
-| **Footwear** | Style ➔ Color × Size Matrix | Style ➔ Brand ➔ Color ➔ Size |
-| **Jewellery** | Design ➔ Purity ➔ Size | Design ➔ Gold Purity ➔ Net Weight |
-| **Electronics** | Model ➔ Serial Number | Model ➔ Brand ➔ Serial / IMEI |
-| **Furniture** | Model ➔ Finish ➔ Dimension | Model ➔ Wood Type ➔ Finish ➔ Dimensions |
-| **Grocery** | SKU / Barcode | SKU ➔ EAN Barcode ➔ Unit |
-| **Pharmacy** | Product ➔ Batch ➔ Expiry | Drug ➔ Composition ➔ Batch ➔ Expiry |
-| **Restaurant** | Ingredient / Recipe Item | Raw Material ➔ Recipe Ingredient ➔ UOM |
-
----
-
-## 6. SMRITI UNIVERSAL PROCUREMENT GRID (SUPG CONTRACT)
-
-```text
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                        SUPG — Universal Procurement Grid Standard                      │
-│   ✓ Sticky Column Header          ✓ Sticky Live Summary Footer    ✓ Frozen Columns     │
-│   ✓ Pixel Column Resizing         ✓ Drag Column Reordering       ✓ Multi-Row Select   │
-│   ✓ Keyboard Nav (Tab/F2/F7/F10)   ✓ Right-Click Context Menu     ✓ Virtual Scroll     │
-│   ✓ Real-time STRE Validation     ✓ Excel Copy/Paste Ready       ✓ Formula Extensions │
-└────────────────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 7. END-TO-END ENTERPRISE WORKFLOW
+## 4. END-TO-END ENTERPRISE WORKFLOW
 
 ```text
 Dashboard ──► Purchase Order ──► Add Existing Product / Multi-Mode Entry
@@ -165,57 +116,14 @@ Dashboard ──► Purchase Order ──► Add Existing Product / Multi-Mode E
 
 ---
 
-## 8. SWMF — SMRITI WORKSPACE MANAGEMENT FRAMEWORK
-
-Multi-window and pop-out support is governed by **SWMF (SMRITI Workspace Management Framework v1.0)**:
-
-```typescript
-// SWMF Standalone Pop-out Window Launch
-WindowManager.openTabStandalone("purchase", "SMRITI Procurement Studio");
-```
-
----
-
-## 9. AI READINESS & EXTENSION POINTS (`SPK.ai` / UAR)
-
-Procurement Studio delegates all AI Advisory skills exclusively through the **Universal AI Skill Registry (`SPK.ai`)** in compliance with Rule AOP-001 (AI Optionality Principle):
-
-| AI Skill | UAR Registration Key | Purpose |
-|---|---|---|
-| Supplier Recommendation | `SPK.ai.executeSkill("procurement.suggestSupplier")` | Recommends optimal vendor based on lead time & pricing history |
-| Reorder Suggestion | `SPK.ai.executeSkill("procurement.reorderSuggestions")` | Identifies low-stock items approaching reorder thresholds |
-| Purchase Price Analysis | `SPK.ai.executeSkill("procurement.priceVarianceAnalysis")` | Flags price spikes against historical purchase orders |
-| Duplicate Invoice Detection| `SPK.ai.executeSkill("procurement.detectDuplicateInvoice")` | Prevents double-entry of vendor invoice numbers |
-| GST Validation | `SPK.ai.executeSkill("procurement.validateGSTIN")` | Verifies vendor GSTIN against government portal schema |
-| Vendor Performance | `SPK.ai.executeSkill("procurement.vendorScorecard")` | Generates supplier fulfillment & quality scorecard |
-
----
-
-## 10. MANDATORY UI REGRESSION CHECKLIST
-
-- [x] **Hero Banner**: Fits in a single row (~55px height) with title, subtitle, desk role, and tax jurisdiction badge.
-- [x] **Subtab Bar**: Single horizontal toolbar row (42px height) without line wrapping.
-- [x] **Full-Width Workspace**: 100% fluid container width without `max-w-7xl` constraints.
-- [x] **Document Toolbar**: Single horizontal row containing breadcrumbs, title, status, search, actions, and document number.
-- [x] **2-Column Master Form**: 7/5 split ratio for Supplier Information and Document Details.
-- [x] **Data Grid Density**: 15% lower row height with compact mono-font numeric fields.
-- [x] **Sticky Summary Panel**: Net Payable Summary docked on the right side.
-- [x] **SWMF Pop-out Workspace**: Standalone window trigger calling `WindowManager.openTabStandalone`.
-- [x] **Themes & Resolutions**: Verified on 1366×768, 1920×1080, Dark theme, and Light theme.
-
----
-
-## 11. PROCUREMENT ENHANCEMENT ROADMAP (v1.1 WAVE)
+## 5. PROCUREMENT ENHANCEMENT ROADMAP (v1.1 WAVE)
 
 To preserve `ADR-012` as a frozen constitutional standard, future procurement enhancements will be governed by dedicated follow-on ADRs:
 
 | ADR Key | Feature Module | Scope & Objectives |
 |---|---|---|
-| **ADR-012** | Procurement Studio Standard | **FROZEN v1.0 Constitutional Standard** |
-| **ADR-013** | Temporary Product Engine | Deep master data approval workflow, auto code generation, & duplicate detection |
-| **ADR-014** | Procurement Product Gallery | Bi-directional interactive highlighting, image rendering, & multi-view modes |
-| **ADR-015** | Procurement Variant Matrix | Color × Size grid, 2D matrix entry, & 5-mode data grid pivot engines |
-| **ADR-016** | SUPP Printing Profiles | Thermal ESC/POS, A4 PDF, QR Code, and Industry PO print templates |
-| **ADR-017** | Metadata Configuration | Centralized YAML config schema in `SPK.configuration` |
-| **ADR-018** | Procurement AI Assistant | `SPK.ai.executeSkill(...)` integrations for supplier & reorder recommendations |
-| **ADR-019** | Procurement Inbox & Audit | Centralized procurement inbox, fuzzy duplicate matching, & PO audit timeline |
+| **ADR-020** | Common Workspace Framework | **Layer 1 Shared UX Layout Constitution** |
+| **ADR-012** | Procurement Studio Standard | **FROZEN v1.0 Procurement Domain Standard** |
+| **ADR-013** | Item Master Studio Standard | **FROZEN v1.0 Inventory Domain Standard** |
+| **ADR-014** | Sales Billing Studio Standard | **FROZEN v1.0 Sales Domain Standard** |
+| **ADR-015** | Accounting Ledger Standard | **FROZEN v1.0 Financial Domain Standard** |
