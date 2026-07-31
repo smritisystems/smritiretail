@@ -39,7 +39,8 @@ import { Printer, MessageCircle, Mail,
   Info,
   Sliders,
   TrendingDown,
-  Award
+  Award,
+  ExternalLink
 } from "lucide-react";
 import { Product } from "../types.js";
 import { SmartFilter, FilterDefinition } from "./SmartFilter.tsx";
@@ -49,6 +50,7 @@ import { ProductImage } from "./common/ProductImage.tsx";
 import { FioriListReport, ListReportColumn } from "./common/FioriListReport.tsx";
 export { FioriListReport as SEEFListReport };
 import { useSEEF } from "../layout_engine/SEEFContext.tsx";
+import { WindowManager } from "../sdk/WindowManager.ts";
 import { PurchaseInvoiceRegistry } from "./purchase/PurchaseInvoiceRegistry.tsx";
 import { PurchaseInvoiceStudio } from "./purchase/PurchaseInvoiceStudio.tsx";
 import { PurchaseOperationsStudio } from "./purchase/PurchaseOperationsStudio.tsx";
@@ -836,6 +838,15 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         >
           <FileText className="w-3.5 h-3.5" />
           <span>Reports & Registers</span>
+        </button>
+
+        <button
+          onClick={() => WindowManager.openTabStandalone("purchase", "SMRITI Procurement Studio")}
+          className="px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer text-slate-400 hover:text-white hover:bg-slate-800 ml-auto"
+          title="Open Procurement Studio in New Standalone Window (SWMF v1.0)"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          <span>Pop-out Workspace</span>
         </button>
       </div>
 
