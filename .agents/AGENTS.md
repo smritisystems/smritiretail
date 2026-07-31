@@ -99,6 +99,12 @@ Every completion claim must be backed by directly observable evidence. If eviden
      - **Actions**: Top toolbar.
      - **Content**: Main grid / list workspace.
    - Domain filtering (such as Master Registry trees, Categories, Brands, Quick Views) MUST be implemented as a toggleable slide-out filter drawer or collapsible filter bar, granting 100% horizontal width to content when closed.
+5. **Enterprise Context-Aware Domain Navigation Model (WNG-004 — MANDATORY)**:
+   - Navigation MUST adhere strictly to the 5-Level Enterprise Navigation Hierarchy:
+     `Level 1 (Launchpad) ──► Level 2 (Business Domain) ──► Level 3 (Business Module) ──► Level 4 (Workspace Tabs) ──► Level 5 (Task / Form Inspector)`.
+   - **Context-Aware Left Sidebar**: The left navigation sidebar MUST NEVER display all system modules simultaneously. It MUST render exclusively the modules belonging to the currently active business domain (e.g. Sales, Purchase, Inventory, Accounting, CRM, Reports).
+   - **Domain Switching**: Selecting or switching business domains (via Launchpad or Domain Switcher) immediately updates the left sidebar to show only that domain's modules.
+   - **Module Workspace Scoping**: Workspace top tabs belong exclusively to the selected module (e.g., Master Registry, Spreadsheet Studio, Dynamic Attributes, Variant Templates, Analytics).
 
 ---
 
