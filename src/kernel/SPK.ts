@@ -8,6 +8,8 @@
 
 import { WindowManager } from "../sdk/WindowManager.js";
 import { NavigationRegistry, DomainDefinition } from "./upr/navigation/NavigationRegistry.js";
+import { EntityRegistry, EntityMetadata } from "./upr/forms/EntityRegistry.js";
+import { FormRegistry, FormDefinition } from "./upr/forms/FormRegistry.js";
 
 /* ── Kernel Interfaces ── */
 
@@ -243,6 +245,23 @@ export class SMRITIPlatformKernel {
     subscribe: (listener: () => void) => NavigationRegistry.subscribe(listener)
   };
 
+  /* ── Universal Form Registry Facade (SPK.forms / UFR-001) ── */
+  public forms = {
+    getForm: (id: string) => FormRegistry.getForm(id),
+    getForms: () => FormRegistry.getForms(),
+    registerForm: (form: FormDefinition) => FormRegistry.registerForm(form),
+    validateForm: (formId: string, values: Record<string, any>) => FormRegistry.validateForm(formId, values),
+    subscribe: (listener: () => void) => FormRegistry.subscribe(listener)
+  };
+
+  /* ── Universal Entity Definition Framework Facade (SPK.entities / UEDF) ── */
+  public entities = {
+    getEntity: (id: string) => EntityRegistry.getEntity(id),
+    getEntities: () => EntityRegistry.getEntities(),
+    registerEntity: (entity: EntityMetadata) => EntityRegistry.registerEntity(entity),
+    subscribe: (listener: () => void) => EntityRegistry.subscribe(listener)
+  };
+
   /* ── Extension SDK (SPK.sdk) ── */
   public sdk = {
     registerExtension: (manifest: IModuleMetadata, providers: ILookupProvider[] = []): void => {
@@ -251,6 +270,12 @@ export class SMRITIPlatformKernel {
     },
     registerDomain: (domain: DomainDefinition): void => {
       NavigationRegistry.registerDomain(domain);
+    },
+    registerForm: (form: FormDefinition): void => {
+      FormRegistry.registerForm(form);
+    },
+    registerEntity: (entity: EntityMetadata): void => {
+      EntityRegistry.registerEntity(entity);
     }
   };
 }
