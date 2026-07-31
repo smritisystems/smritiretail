@@ -2,38 +2,31 @@
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
- *
- * Founders
- *
- * * Pushpa Devi Jawahar Mallah
- *   * Founder & Chairperson
- *   * Phone: +91 9324117007
- *   * Email: founder@aitdl.com
- *
- * * Jawahar Ramkripal Mallah
- *   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
- *   * Email: founder@aitdl.com
- *
- * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
- *
- * * Version    : 5.0.0
- * * Created    : 2026-07-10
- * * Modified   : 2026-07-20
- * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
- * * License    : Proprietary Commercial Software
+ * Version      : 5.3.0  (SMRITI UI — Custom Scrollbar & Layout Density Engine)
+ * License      : Proprietary Commercial Software
  */
 
-/* Class to completely hide native scrollbars while preserving touch, touchpad, mouse, and keyboard scrolling */
+/* ═══════════════════════════════════════════════════════════════════════════
+   1. SMRITI HIDE SCROLLBAR UTILITY
+   Completely hides native scrollbars while retaining full touch, touchpad, mouse wheel,
+   and keyboard scrolling functionality.
+   ═══════════════════════════════════════════════════════════════════════════ */
 .smriti-hide-scrollbar,
-.smriti-hide-scrollbar:hover {
+.smriti-hide-scrollbar:hover,
+.no-scrollbar,
+.no-scrollbar:hover {
   -ms-overflow-style: none !important;  /* IE and Edge */
-  scrollbar-width: none !important;  /* Firefox */
+  scrollbar-width: none !important;     /* Firefox */
 }
 
 .smriti-hide-scrollbar::-webkit-scrollbar,
 .smriti-hide-scrollbar:hover::-webkit-scrollbar,
 .smriti-hide-scrollbar::-webkit-scrollbar-thumb,
-.smriti-hide-scrollbar:hover::-webkit-scrollbar-thumb {
+.smriti-hide-scrollbar:hover::-webkit-scrollbar-thumb,
+.no-scrollbar::-webkit-scrollbar,
+.no-scrollbar:hover::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar-thumb,
+.no-scrollbar:hover::-webkit-scrollbar-thumb {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
@@ -41,17 +34,61 @@
   background-color: transparent !important;
 }
 
-/* Custom premium scrollbar styling class (legacy alias mapping to global style) */
+/* ═══════════════════════════════════════════════════════════════════════════
+   2. SMRITI SLEEK CUSTOM SCROLLBAR ENGINE
+   Provides ultra-thin, elegant, non-intrusive scrollbars that automatically adapt
+   to active dark, light, Quartz, and high-contrast themes without layout shift.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.smriti-custom-scroll,
 .custom-scrollbar {
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-theme-divider, rgba(148, 163, 184, 0.3)) transparent;
 }
 
-/* Smooth, responsive animations for custom scrollbar overlay elements */
+/* WebKit Scrollbar Styling (Chrome, Safari, Edge, Opera) */
+:not(.smriti-hide-scrollbar):not(.no-scrollbar)::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+:not(.smriti-hide-scrollbar):not(.no-scrollbar)::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 9999px;
+}
+
+:not(.smriti-hide-scrollbar):not(.no-scrollbar)::-webkit-scrollbar-thumb {
+  background-color: var(--c-theme-divider, rgba(148, 163, 184, 0.3));
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 200ms ease, opacity 200ms ease;
+}
+
+/* Interactive Scrollbar Hover State */
+:not(.smriti-hide-scrollbar):not(.no-scrollbar):hover::-webkit-scrollbar-thumb,
+:not(.smriti-hide-scrollbar):not(.no-scrollbar)::-webkit-scrollbar-thumb:hover {
+  background-color: var(--c-theme-primary, rgba(99, 102, 241, 0.75)) !important;
+}
+
+/* Firefox Compatibility */
+*:not(.smriti-hide-scrollbar):not(.no-scrollbar) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-theme-divider, rgba(148, 163, 184, 0.3)) transparent;
+}
+
+*:not(.smriti-hide-scrollbar):not(.no-scrollbar):hover {
+  scrollbar-color: var(--c-theme-primary, rgba(99, 102, 241, 0.75)) transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3. OVERLAY SCROLLBAR ANIMATION THUMB
+   Smooth overlay scrollbar indicators for complex workspaces & data tables.
+   ═══════════════════════════════════════════════════════════════════════════ */
 .smriti-scroll-thumb-active {
   transition: opacity 300ms cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms ease;
 }
 
-/* Gradient shadow indicator for more content at top/bottom of panels */
+/* Gradient fade indicators for top and bottom of scroll containers */
 .smriti-scroll-indicator {
   position: absolute;
   left: 0;
@@ -68,37 +105,4 @@
 
 .smriti-scroll-indicator-bottom {
   bottom: 0;
-}
-
-/* Global Scrollbar Overrides for Webkit browsers (Chrome, Safari, Edge, Opera) */
-/* Apply to all scrollable elements except elements with the explicit hide class */
-:not(.smriti-hide-scrollbar)::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-:not(.smriti-hide-scrollbar)::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-:not(.smriti-hide-scrollbar)::-webkit-scrollbar-thumb {
-  background-color: var(--c-theme-divider, rgba(148, 163, 184, 0.35));
-  border-radius: 9999px;
-  transition: background-color 200ms ease-in-out;
-}
-
-/* Highlight the scrollbar thumb when hovered */
-:not(.smriti-hide-scrollbar):hover::-webkit-scrollbar-thumb,
-:not(.smriti-hide-scrollbar)::-webkit-scrollbar-thumb:hover {
-  background-color: var(--c-theme-primary, rgba(99, 102, 241, 0.8)) !important;
-}
-
-/* Firefox scrollbar compatibility (sleek thin visible scrollbar) */
-*:not(.smriti-hide-scrollbar) {
-  scrollbar-width: thin;
-  scrollbar-color: var(--c-theme-divider, rgba(148, 163, 184, 0.35)) transparent;
-}
-
-*:not(.smriti-hide-scrollbar):hover {
-  scrollbar-color: var(--c-theme-primary, rgba(99, 102, 241, 0.8)) transparent;
 }

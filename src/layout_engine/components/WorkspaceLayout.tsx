@@ -56,7 +56,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
             {toolbar}
           </div>
         )}
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6">
+        <div className="flex-1 min-h-0 overflow-y-auto smriti-custom-scroll p-4 md:p-6">
           {children}
         </div>
         {statusBar && (
@@ -70,7 +70,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
 
   // Mode 3: Continuous Document Scroll Page (Pattern A - Default)
   return (
-    <div className={`w-full h-full overflow-y-auto bg-theme-base ${className}`}>
+    <div className={`w-full h-full overflow-y-auto smriti-custom-scroll bg-theme-base ${className}`}>
       {toolbar && (
         <div className="sticky top-0 z-10 border-b border-theme-divider bg-theme-surface-1/95 backdrop-blur-xs px-6 py-3 shadow-xs">
           {toolbar}

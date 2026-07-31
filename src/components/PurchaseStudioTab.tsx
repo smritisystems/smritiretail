@@ -717,7 +717,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
   );
 
   return (
-    <div id="smriti-purchase-studio-root" className="space-y-6">
+    <div id="smriti-purchase-studio-root" className="space-y-6 smriti-custom-scroll">
       {isReadOnly && (
         <div className="bg-amber-950/40 border border-amber-500/30 rounded-xl px-4 py-3 flex items-center space-x-2 text-amber-400 text-xs shadow-lg">
           <span className="material-symbols-outlined text-[14px]">warning</span>
@@ -772,7 +772,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
       </div>
 
       {/* Five Studio Sub-Tabs Grid Selector */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 overflow-x-auto smriti-hide-scrollbar py-0.5">
         <button
           onClick={() => setActiveSubTab("create")}
           className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer ${
