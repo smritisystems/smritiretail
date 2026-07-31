@@ -52,6 +52,9 @@ import { SalesLookupProvider } from "../kernel/ule/SalesLookupProvider.js";
 import { AuditService } from "../kernel/internal/AuditService.js";
 import { RecordAuditLogCommandHandler } from "../kernel/commands/RecordAuditLogCommand.js";
 import { AuditLookupProvider } from "../kernel/ule/AuditLookupProvider.js";
+import { AccountingService } from "../kernel/internal/AccountingService.js";
+import { PostJournalVoucherCommandHandler } from "../kernel/commands/PostJournalVoucherCommand.js";
+import { AccountingLookupProvider } from "../kernel/ule/AccountingLookupProvider.js";
 
 dotenv.config();
 
@@ -117,6 +120,11 @@ export function bootstrapDI(): DIContainer {
   SPK.services.register("AUDIT", auditServiceInstance);
   SPK.commands.registerHandler("RECORD_AUDIT_LOG", new RecordAuditLogCommandHandler());
   SPK.ule.registerProvider(new AuditLookupProvider());
+
+  const accountingServiceInstance = new AccountingService();
+  SPK.services.register("ACCOUNTING", accountingServiceInstance);
+  SPK.commands.registerHandler("POST_JOURNAL_VOUCHER", new PostJournalVoucherCommandHandler());
+  SPK.ule.registerProvider(new AccountingLookupProvider());
 
   if (dbProvider === "postgres") {
     instances.products = new PostgresProductRepository();
