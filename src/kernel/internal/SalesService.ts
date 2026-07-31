@@ -7,6 +7,7 @@
  */
 
 import { ISalesService, SalesInvoiceRecord } from "../public/ISalesService.js";
+import { IAccountingService } from "../public/IAccountingService.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 import { SPK } from "../SPK.js";
 
@@ -132,6 +133,15 @@ export class SalesService implements ISalesService {
 
       const normalized = this.normalizeBackendInvoice(savedResponse || record);
       this.upsertLocalCache(normalized);
+
+      /* Rule 18: Automatic Silent Accounting Journal Posting */
+      try {
+        const accountingService = SPK.services.resolve<IAccountingService>("ACCOUNTING");
+        accountingService.postSalesInvoiceJournal(normalized.invoiceNumber, normalized.customerName, normalized.netPayable, normalized.taxTotal);
+      } catch (aErr) {
+        console.warn("[SalesService] Silent accounting journal posting skipped:", aErr);
+      }
+
       SPK.events.emit("InvoiceCreated", normalized.id, normalized);
       return normalized;
     } catch (err) {
