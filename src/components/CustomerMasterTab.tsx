@@ -15,6 +15,9 @@ import { getCustomers, saveCustomers, getCustomerGroups } from "../services/cust
 import { Customer, AdditionalAddress } from "../types";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { SPK } from "../kernel/SPK.js";
+import { CreateCustomerCommand } from "../kernel/commands/CreateCustomerCommand.js";
+import { ICustomerService } from "../kernel/public/ICustomerService.js";
 import { CustomerLedger } from "./customer/CustomerLedger.tsx";
 import { FioriListReport, ListReportColumn } from "./common/FioriListReport.tsx";
 import { FioriObjectPage, ObjectPageTab, ObjectPageMetric } from "./common/FioriObjectPage.tsx";
@@ -461,19 +464,10 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
     };
 
     try {
-      await apiFetchV1("/crm/customers", {
-        method: "POST",
-        body: JSON.stringify({
-          name: newCust.name,
-          mobile: newCust.mobile,
-          email: newCust.email,
-          gstNumber: newCust.gstNumber,
-          customerGroupId: newCust.customerGroupId
-        })
-      });
-      onNotification?.("Customer Registered ✓", `${newCust.name} (${newCust.id}) created successfully.`, "success");
-    } catch {
-      onNotification?.("Customer Added Locally", `${newCust.name} added to directory.`, "success");
+      const savedCustomer = await SPK.commands.execute(new CreateCustomerCommand(newCust));
+      onNotification?.("Customer Registered ✓", `${savedCustomer.name} (${savedCustomer.id}) created successfully.`, "success");
+    } catch (err: any) {
+      onNotification?.("Customer Registration Error", err.message || "Failed to register customer.", "error");
     } finally {
       const updated = [newCust, ...customers];
       setCustomers(updated);

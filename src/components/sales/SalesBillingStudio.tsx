@@ -34,6 +34,7 @@ export interface HeldBill {
 import { Product } from "../../types";
 import { SPK } from "../../kernel/SPK";
 import { IItemService } from "../../kernel/public/IItemService";
+import { ICustomerService } from "../../kernel/public/ICustomerService";
 
 export interface SalesBillingStudioProps {
   products?: Product[];
@@ -193,14 +194,27 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
     },
   ]);
 
-  // Fetch Customers on Mount
+  // Fetch Customers on Mount via SPK CustomerService
   useEffect(() => {
-    try {
-      const custs = getCustomers();
-      if (Array.isArray(custs)) setCustomerList(custs);
-    } catch {
-      // Fallback
-    }
+    const fetchCusts = () => {
+      try {
+        const custService = SPK.services.resolve<ICustomerService>("CUSTOMER");
+        custService.getAll().then((list) => {
+          if (list && list.length > 0) setCustomerList(list);
+        });
+      } catch {
+        const custs = getCustomers();
+        if (Array.isArray(custs)) setCustomerList(custs);
+      }
+    };
+
+    fetchCusts();
+    const unsub1 = SPK.events.subscribe("CustomerCreated", fetchCusts);
+    const unsub2 = SPK.events.subscribe("CustomerUpdated", fetchCusts);
+    return () => {
+      unsub1();
+      unsub2();
+    };
   }, []);
 
   // Keyboard Shortcuts Listener (F2, F3, F4, F6, F7, F8, F9, F10)

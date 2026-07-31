@@ -579,6 +579,14 @@ export interface Customer {
   preferredLanguageEnum?: InvoiceLanguage;
   marketingOptIn?: boolean;
 
+  // Additional aliases & Address compatibility
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  loyaltyPoints?: number;
+  createdAt?: string;
+
   // --- Always customer-specific, never inherited ---
   outstanding: number; // current amount owed, updated by ledger transactions
   status: "Active" | "Inactive" | "Blocked" | string;
