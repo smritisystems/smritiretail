@@ -202,3 +202,20 @@ Procurement Studio delegates all AI Advisory skills exclusively through the **Un
 - [x] **Sticky Summary Panel**: Net Payable Summary docked on the right side.
 - [x] **SWMF Pop-out Workspace**: Standalone window trigger calling `WindowManager.openTabStandalone`.
 - [x] **Themes & Resolutions**: Verified on 1366×768, 1920×1080, Dark theme, and Light theme.
+
+---
+
+## 11. PROCUREMENT ENHANCEMENT ROADMAP (v1.1 WAVE)
+
+To preserve `ADR-012` as a frozen constitutional standard, future procurement enhancements will be governed by dedicated follow-on ADRs:
+
+| ADR Key | Feature Module | Scope & Objectives |
+|---|---|---|
+| **ADR-012** | Procurement Studio Standard | **FROZEN v1.0 Constitutional Standard** |
+| **ADR-013** | Temporary Product Engine | Deep master data approval workflow, auto code generation, & duplicate detection |
+| **ADR-014** | Procurement Product Gallery | Bi-directional interactive highlighting, image rendering, & multi-view modes |
+| **ADR-015** | Procurement Variant Matrix | Color × Size grid, 2D matrix entry, & 5-mode data grid pivot engines |
+| **ADR-016** | SUPP Printing Profiles | Thermal ESC/POS, A4 PDF, QR Code, and Industry PO print templates |
+| **ADR-017** | Metadata Configuration | Centralized YAML config schema in `SPK.configuration` |
+| **ADR-018** | Procurement AI Assistant | `SPK.ai.executeSkill(...)` integrations for supplier & reorder recommendations |
+| **ADR-019** | Procurement Inbox & Audit | Centralized procurement inbox, fuzzy duplicate matching, & PO audit timeline |
