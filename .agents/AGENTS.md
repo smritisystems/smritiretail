@@ -105,6 +105,11 @@ Every completion claim must be backed by directly observable evidence. If eviden
    - **Context-Aware Left Sidebar**: The left navigation sidebar MUST NEVER display all system modules simultaneously. It MUST render exclusively the modules belonging to the currently active business domain (e.g. Sales, Purchase, Inventory, Accounting, CRM, Reports).
    - **Domain Switching**: Selecting or switching business domains (via Launchpad or Domain Switcher) immediately updates the left sidebar to show only that domain's modules.
    - **Module Workspace Scoping**: Workspace top tabs belong exclusively to the selected module (e.g., Master Registry, Spreadsheet Studio, Dynamic Attributes, Variant Templates, Analytics).
+6. **Declarative UPR Navigation Architecture (WNG-005 — MANDATORY)**:
+   - Navigation MUST NEVER be constructed procedurally or using hardcoded `if (domain === "...")` branches in UI components.
+   - All domain metadata, icons, emojis, ordering, permissions, feature flags, and module relationships MUST be declared through metadata in the Universal Platform Registry (`UPR` / `SPK.navigation`).
+   - Renderer components MUST act strictly as generic consumers of UPR metadata facade (`SPK.navigation.getSidebar(activeDomain)`).
+   - Plugins and Industry Packs (e.g. Manufacturing, Restaurant, Medical, Jewellery) MUST extend navigation by registering domain metadata with UPR without modifying React UI component code.
 
 ---
 

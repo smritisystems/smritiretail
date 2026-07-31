@@ -35,6 +35,7 @@ import { SmritiScrollArea } from "../components/SmritiScrollArea.tsx";
 import { useWorkspace } from "../contexts/WorkspaceContext.tsx";
 import { useAdaptiveWorkspace } from "./adaptive_workspace_store.ts";
 import { useSEEFNavigation } from "./SEEFContext.tsx";
+import { SPK } from "../kernel/SPK.js";
 
 interface NavigationRendererProps {
   activeTab: string;
@@ -109,39 +110,31 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
   const [showMoreBottomMenu, setShowMoreBottomMenu] = useState(false);
   const [activeDropdownGroup, setActiveDropdownGroup] = useState<string | null>(null);
   const [activeDomain, setActiveDomain] = useState<string>("ALL");
+  const [lastWorkspacePerDomain, setLastWorkspacePerDomain] = useState<Record<string, string>>({});
+
+  // UPR Metadata-Driven Navigation Facade (Rule SAP-018, SAP-020, WNG-005)
+  const sidebarDef = SPK.navigation.getSidebar(activeDomain);
+  const registeredDomains = sidebarDef.allDomains;
+  const activeDomainModuleIds = sidebarDef.moduleIds;
+
+  const handleDomainChange = (newDomainId: string) => {
+    setActiveDomain(newDomainId);
+    const domainDef = SPK.navigation.getDomain(newDomainId);
+    const lastWorkspace = lastWorkspacePerDomain[newDomainId] || domainDef?.defaultWorkspaceId;
+    if (lastWorkspace) {
+      onTabSelect(lastWorkspace);
+      addToRecentlyUsed(lastWorkspace);
+    }
+  };
 
   const handleItemClick = (id: string) => {
     onTabSelect(id);
     addToRecentlyUsed(id);
     setShowMoreBottomMenu(false);
     setActiveDropdownGroup(null);
-  };
-
-  const isWorkspaceInDomain = (workspace: { id: string; label: string; category: string }, domain: string): boolean => {
-    if (domain === "ALL") return true;
-    const cat = (workspace.category || "").toLowerCase();
-    const id = (workspace.id || "").toLowerCase();
-    const label = (workspace.label || "").toLowerCase();
-
-    if (domain === "Sales") {
-      return cat.includes("sales") || id.includes("pos") || id.includes("sales") || id.includes("billing") || label.includes("sales") || label.includes("billing");
+    if (activeDomain !== "ALL") {
+      setLastWorkspacePerDomain(prev => ({ ...prev, [activeDomain]: id }));
     }
-    if (domain === "Inventory") {
-      return cat.includes("inventory") || cat.includes("sourcing") || id.includes("item") || id.includes("barcode") || id.includes("stock") || id.includes("warehouse") || label.includes("item") || label.includes("barcode") || label.includes("stock");
-    }
-    if (domain === "Purchase") {
-      return cat.includes("sourcing") || id.includes("purchase") || id.includes("supplier") || label.includes("purchase") || label.includes("supplier");
-    }
-    if (domain === "Accounting") {
-      return cat.includes("account") || id.includes("ledger") || id.includes("accounting") || label.includes("ledger") || label.includes("account");
-    }
-    if (domain === "CRM") {
-      return id.includes("crm") || id.includes("loyalty") || id.includes("customer") || label.includes("crm") || label.includes("customer");
-    }
-    if (domain === "Reports") {
-      return cat.includes("report") || cat.includes("operation") || id.includes("report") || id.includes("bi") || id.includes("audit") || label.includes("report") || label.includes("executive");
-    }
-    return true;
   };
 
   // Group workspaces by category
@@ -149,12 +142,12 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
 
   const { isTabAllowed } = useAdaptiveWorkspace();
 
-  // Filter workspaces by search term, activeDomain (WNG-004 context-aware sidebar) and Adaptive Workspace Mode
+  // Filter workspaces by search term, UPR activeDomain metadata (WNG-004/WNG-005) and Adaptive Workspace Mode
   // WNG-002: Exclude 'launchpad' — it is a top-level single-purpose screen, not a sidebar module
   const filteredWorkspaces = registeredWorkspaces.filter(w => 
     w.id !== "launchpad" &&
     isTabAllowed(w.id) &&
-    isWorkspaceInDomain(w, activeDomain) && (
+    (activeDomain === "ALL" || activeDomainModuleIds.includes(w.id)) && (
       w.label.toLowerCase().includes(searchTerm.toLowerCase()) || 
       w.category.toLowerCase().includes(searchTerm.toLowerCase())
     )
@@ -189,19 +182,17 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
               </button>
             </div>
 
-            {/* Domain Switcher Selector */}
+            {/* UPR Declarative Domain Switcher Selector (WNG-005) */}
             <select
               value={activeDomain}
-              onChange={(e) => setActiveDomain(e.target.value)}
+              onChange={(e) => handleDomainChange(e.target.value)}
               className="w-full p-1.5 text-xs bg-theme-surface-1 border border-theme-divider rounded-lg font-bold text-theme-heading focus:outline-none focus:border-[#0a6ed1] cursor-pointer"
             >
-              <option value="ALL">🌐 All Business Domains</option>
-              <option value="Sales">🛍️ Sales & POS Domain</option>
-              <option value="Inventory">📦 Inventory & Stock Domain</option>
-              <option value="Purchase">🛒 Purchase & Sourcing Domain</option>
-              <option value="Accounting">💼 Accounting & Finance Domain</option>
-              <option value="CRM">👥 Customer CRM & Loyalty Domain</option>
-              <option value="Reports">📊 Analytics & Reports Domain</option>
+              {registeredDomains.map((dom) => (
+                <option key={dom.id} value={dom.id}>
+                  {dom.emoji} {dom.label}
+                </option>
+              ))}
             </select>
 
             <div className="relative pt-1">

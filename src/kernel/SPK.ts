@@ -7,6 +7,7 @@
  */
 
 import { WindowManager } from "../sdk/WindowManager.js";
+import { NavigationRegistry, DomainDefinition } from "./upr/navigation/NavigationRegistry.js";
 
 /* ── Kernel Interfaces ── */
 
@@ -232,11 +233,24 @@ export class SMRITIPlatformKernel {
     }
   };
 
+  /* ── Universal Navigation Registry Facade (SPK.navigation) ── */
+  public navigation = {
+    getDomains: () => NavigationRegistry.getDomains(),
+    getDomain: (id: string) => NavigationRegistry.getDomain(id),
+    getModuleIdsForDomain: (domainId: string) => NavigationRegistry.getModuleIdsForDomain(domainId),
+    getSidebar: (activeDomainId: string) => NavigationRegistry.getSidebar(activeDomainId),
+    registerDomain: (domain: DomainDefinition) => NavigationRegistry.registerDomain(domain),
+    subscribe: (listener: () => void) => NavigationRegistry.subscribe(listener)
+  };
+
   /* ── Extension SDK (SPK.sdk) ── */
   public sdk = {
     registerExtension: (manifest: IModuleMetadata, providers: ILookupProvider[] = []): void => {
       this.modules.register(manifest);
       providers.forEach((p) => this.ule.registerProvider(p));
+    },
+    registerDomain: (domain: DomainDefinition): void => {
+      NavigationRegistry.registerDomain(domain);
     }
   };
 }
