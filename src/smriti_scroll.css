@@ -106,3 +106,37 @@
 .smriti-scroll-indicator-bottom {
   bottom: 0;
 }
+
+/* Mobile and tablet keep touch scrolling without reserving scrollbar space. */
+@media (max-width: 1023px) {
+  .srux-responsive-scroll {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .srux-responsive-scroll::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
+/* The shell remains a fallback page scroller when a module has no inner scroller. */
+.srux-main-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.srux-main-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* A workspace page with its own full-height scroller owns scrolling. */
+.srux-main-scroll:has(> [class*="overflow-y-auto"]),
+.srux-main-scroll:has(> [class*="overflow-auto"]),
+.srux-main-scroll:has(> * > [class*="overflow-y-auto"]),
+.srux-main-scroll:has(> * > [class*="overflow-auto"]) {
+  overflow-y: hidden;
+}

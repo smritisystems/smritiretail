@@ -207,6 +207,7 @@ const blankForm = () => ({
 
 type FormData = ReturnType<typeof blankForm>;
 type FormMode = "quick" | "advanced";
+type WorkspaceMode = "simple" | "advanced";
 type SectionKey = "company" | "gst" | "contacts" | "addresses" | "banking" | "purchase" | "finance" | "logistics" | "documents" | "labels";
 
 interface Props {
@@ -222,6 +223,9 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
   const [activeSubTab, setActiveSubTab] = useState<
     "directory" | "dashboard" | "msme" | "tds" | "expiry" | "performance"
   >("directory");
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() => {
+    try { return (localStorage.getItem("smriti_supplier_workspace_mode_v1") as WorkspaceMode) || "simple"; } catch { return "simple"; }
+  });
 
   /* ── Seeded suppliers ── */
   const [suppliers, setSuppliers] = useState<SupplierItem[]>([
@@ -333,6 +337,10 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
   >("overview");
   const [newLogMessage, setNewLogMessage] = useState("");
   const [logType, setLogType] = useState<"Email"|"WhatsApp"|"Call"|"Payment Reminder">("Call");
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMode, setPaymentMode] = useState<"Cash" | "UPI" | "Bank" | "Cheque">("UPI");
+  const [paymentReference, setPaymentReference] = useState("");
 
   /* ── Draft auto-save ── */
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -372,6 +380,27 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
     setFormMode(mode);
     try { localStorage.setItem(MODE_KEY, mode); } catch { /* ignore */ }
     if (mode === "advanced") setOpenSections(new Set(["company", "gst"]));
+  };
+
+  const switchWorkspaceMode = (mode: WorkspaceMode) => {
+    setWorkspaceMode(mode);
+    try { localStorage.setItem("smriti_supplier_workspace_mode_v1", mode); } catch { /* ignore */ }
+  };
+
+  const openPayment = (supplier: SupplierItem) => {
+    setSelectedSupplier(supplier);
+    setPaymentAmount("");
+    setPaymentReference("");
+    setIsPaymentOpen(true);
+  };
+
+  const submitPayment = () => {
+    if (!selectedSupplier || !paymentAmount || Number(paymentAmount) <= 0) {
+      onNotification?.("Payment Amount Required", "Enter an amount greater than zero.", "error");
+      return;
+    }
+    onNotification?.("Payment Recorded", `${paymentMode} payment of ₹${Number(paymentAmount).toLocaleString("en-IN")} recorded for ${selectedSupplier.name}.`, "success");
+    setIsPaymentOpen(false);
   };
 
   /* ── Section toggle ── */
@@ -598,6 +627,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
   });
   const totalOutstanding = suppliers.reduce((a, s) => a + (s.outstanding_balance||0), 0);
   const expiryAlerts = suppliers.reduce((a, s) => a + (s.documents?.filter(d => d.status !== "Valid").length||0), 0);
+  const primarySupplier = selectedSupplier || filtered[0] || suppliers[0];
 
   /* ── Style tokens ── */
   const inp = "w-full p-2.5 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading text-xs focus:outline-none focus:border-[#0a6ed1] focus:ring-1 focus:ring-[#0a6ed1]/20 transition-all placeholder:text-theme-muted";
@@ -688,10 +718,21 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
             <div className={`text-sm font-bold font-mono ${expiryAlerts > 0 ? "text-amber-400" : "text-emerald-400"}`}>{expiryAlerts} Expiring</div>
           </div>
         </div>
+        <div className="flex items-center gap-1 p-1 bg-theme-surface-3 border border-theme-divider rounded-xl" aria-label="Supplier workspace mode">
+          {(["simple", "advanced"] as const).map(mode => (
+            <button key={mode} type="button" onClick={() => switchWorkspaceMode(mode)}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                workspaceMode === mode
+                  ? mode === "simple" ? "bg-emerald-500 text-white" : "bg-[#0a6ed1] text-white"
+                  : "text-theme-muted hover:text-theme-heading"}`}>
+              {mode}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── Sub-tab bar ── */}
-      <div className="flex items-center justify-between px-6 bg-theme-surface-2 border-b border-theme-divider overflow-x-auto scrollbar-none">
+      {workspaceMode === "advanced" && <div className="flex items-center justify-between px-6 bg-theme-surface-2 border-b border-theme-divider overflow-x-auto scrollbar-none">
         <div className="flex items-center">
           {(["directory","dashboard","msme","tds","expiry","performance"] as const).map(tab => (
             <button key={tab} onClick={() => setActiveSubTab(tab)}
@@ -715,10 +756,52 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
             <Plus className="w-4 h-4" /> Onboard Vendor
           </button>
         )}
-      </div>
+      </div>}
 
       {/* ── Main content ── */}
       <SmritiScrollArea className="flex-1 bg-theme-base p-6">
+        {workspaceMode === "simple" ? (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }} className="max-w-6xl mx-auto space-y-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-emerald-400 font-mono font-bold">Daily supplier desk</p>
+                <h3 className="text-lg font-bold text-theme-heading mt-1">Quick operations</h3>
+              </div>
+              <button onClick={handleOpenModal} disabled={isReadOnly} className="px-4 py-2 bg-[#0a6ed1] hover:bg-[#085caf] disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer">
+                <Plus className="w-4 h-4" /> New Purchase
+              </button>
+            </div>
+
+            {primarySupplier && <>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="md:col-span-2 p-5 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                  <div className="flex items-start justify-between gap-3">
+                    <div><p className="text-xs text-theme-muted">Supplier</p><h4 className="text-xl font-bold text-theme-heading mt-1">{primarySupplier.name}</h4><p className="text-xs text-theme-muted mt-1">{primarySupplier.mobile || "No mobile added"}</p></div>
+                    <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">{primarySupplier.status}</span>
+                  </div>
+                </div>
+                <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl"><p className="text-xs text-theme-muted">Outstanding</p><p className="text-2xl font-bold text-rose-400 font-mono mt-2">{primarySupplier.balance || "₹0"}</p></div>
+                <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl"><p className="text-xs text-theme-muted">Credit limit</p><p className="text-2xl font-bold text-theme-heading font-mono mt-2">₹{(primarySupplier.credit_limit || 0).toLocaleString("en-IN")}</p></div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <button onClick={handleOpenModal} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl text-left hover:border-[#0a6ed1] cursor-pointer"><PackageCheck className="w-5 h-5 text-[#0a6ed1]"/><span className="block text-xs font-bold text-theme-heading mt-3">New Purchase</span></button>
+                <button onClick={() => openPayment(primarySupplier)} disabled={isReadOnly} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl text-left hover:border-emerald-500 disabled:opacity-50 cursor-pointer"><CreditCard className="w-5 h-5 text-emerald-400"/><span className="block text-xs font-bold text-theme-heading mt-3">Pay Supplier</span></button>
+                <button onClick={() => { setWorkspaceMode("advanced"); setActiveSubTab("directory"); }} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl text-left hover:border-[#0a6ed1] cursor-pointer"><History className="w-5 h-5 text-amber-400"/><span className="block text-xs font-bold text-theme-heading mt-3">Purchase History</span></button>
+                <button onClick={() => { setSelectedSupplier(primarySupplier); setStudioTab("overview"); }} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl text-left hover:border-[#0a6ed1] cursor-pointer"><Receipt className="w-5 h-5 text-purple-400"/><span className="block text-xs font-bold text-theme-heading mt-3">Supplier Ledger</span></button>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                {[{ label: "Pending PO", value: "3" }, { label: "Pending Bills", value: "2" }, { label: "Overdue", value: "₹5,000" }, { label: "Last Payment", value: "₹10,000" }].map(item => <div key={item.label} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl"><p className="text-[10px] uppercase tracking-wider text-theme-muted font-mono">{item.label}</p><p className="text-lg font-bold text-theme-heading font-mono mt-2">{item.value}</p></div>)}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl"><h4 className="text-xs font-bold text-theme-heading uppercase tracking-wider">Payment methods</h4><div className="grid grid-cols-2 gap-3 mt-4">{(["Cash", "UPI", "Bank", "Cheque"] as const).map(mode => <button key={mode} onClick={() => { setPaymentMode(mode); openPayment(primarySupplier); }} disabled={isReadOnly} className="px-3 py-2 text-xs text-left border border-theme-divider rounded-lg hover:border-emerald-500 disabled:opacity-50 cursor-pointer"><span className="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-2" />{mode}</button>)}</div></div>
+                <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl"><h4 className="text-xs font-bold text-theme-heading uppercase tracking-wider">Recent transactions</h4><div className="mt-3 space-y-3">{(primarySupplier.communication_logs || []).slice(0, 3).map(log => <div key={log.id} className="flex items-center justify-between gap-3 text-xs"><span className="text-theme-heading truncate">{log.summary}</span><span className="text-theme-muted font-mono whitespace-nowrap">{log.timestamp.slice(0, 10)}</span></div>)}{!(primarySupplier.communication_logs || []).length && <p className="text-xs text-theme-muted">No recent transactions.</p>}</div></div>
+              </div>
+            </>}
+          </motion.div>
+        ) : (
         <motion.div key={activeSubTab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
 
           {/* DIRECTORY */}
@@ -919,7 +1002,23 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
           )}
 
         </motion.div>
+        )}
       </SmritiScrollArea>
+
+      {isPaymentOpen && selectedSupplier && (
+        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="w-full max-w-md bg-theme-surface-1 border border-theme-divider rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-theme-divider"><div><p className="text-[10px] uppercase tracking-wider text-emerald-400 font-mono font-bold">Quick payment</p><h3 className="text-base font-bold text-theme-heading mt-1">{selectedSupplier.name}</h3></div><button onClick={() => setIsPaymentOpen(false)} className="p-1.5 text-theme-muted hover:text-theme-heading cursor-pointer"><X className="w-5 h-5" /></button></div>
+            <div className="p-5 space-y-4">
+              <div className="p-3 bg-theme-surface-2 rounded-lg flex items-center justify-between"><span className="text-xs text-theme-muted">Outstanding</span><strong className="text-rose-400 font-mono">{selectedSupplier.balance || "₹0"}</strong></div>
+              <div><label className={lbl}>Amount</label><input autoFocus type="number" min="1" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="Enter amount" className={inpMono} /></div>
+              <div><label className={lbl}>Mode</label><div className="grid grid-cols-4 gap-2">{(["Cash", "UPI", "Bank", "Cheque"] as const).map(mode => <button key={mode} type="button" onClick={() => setPaymentMode(mode)} className={`px-2 py-2 rounded-lg text-xs font-bold border cursor-pointer ${paymentMode === mode ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/40" : "text-theme-muted border-theme-divider"}`}>{mode}</button>)}</div></div>
+              <div><label className={lbl}>Reference</label><input value={paymentReference} onChange={e => setPaymentReference(e.target.value)} placeholder="Optional UTR / receipt number" className={inpMono} /></div>
+              <button onClick={submitPayment} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold cursor-pointer">Pay Supplier</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* ════════════════════════════════════════════════ */}
       {/*         ADAPTIVE ONBOARDING MODAL               */}

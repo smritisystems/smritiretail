@@ -84,6 +84,11 @@ export class QZProvider implements IPrintProvider {
     const start = Date.now();
     try {
       const win = window as any;
+      if (win.qz && win.qz.websocket) {
+        if (!win.qz.websocket.isActive()) {
+          await win.qz.websocket.connect({ retries: 2, delay: 1 });
+        }
+      }
       if (win.qz && win.qz.websocket && win.qz.websocket.isActive()) {
         const config = win.qz.configs.create(job.printerName);
         const data = [job.payload];

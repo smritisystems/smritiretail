@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from "react";
+import { Menu, X } from "lucide-react";
 import { AdaptiveWorkspaceHeader } from "../components/common/AdaptiveWorkspaceHeader.tsx";
 import { ContextualSidebar, DomainCategory } from "../components/common/ContextualSidebar.tsx";
 import { NotificationCenter } from "../notifications/NotificationCenter.tsx";
@@ -33,6 +34,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSearchPalette, setShowSearchPalette] = useState(false);
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
 
   // Map active tab to current domain category
   const activeDomain: DomainCategory = useMemo(() => {
@@ -92,7 +94,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
   const isLaunchpad = activeTab === "launchpad";
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-theme-base text-theme-body font-sans antialiased select-none relative">
+    <div className="h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex flex-col overflow-hidden bg-theme-base text-theme-body font-sans antialiased select-none relative pb-[env(safe-area-inset-bottom)]">
       {/* 1. SAP Fiori Slim Header (Only rendered in operational workspaces, not Launchpad) */}
       {!isLaunchpad && (
         <AdaptiveWorkspaceHeader
@@ -121,7 +123,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
       />
 
       {/* 2. Main Workspace Body (Sidebar + Content Viewport) */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 min-h-0 min-w-0 flex overflow-hidden relative">
         {/* Context-Aware Collapsible Sidebar (Only rendered in operational workspaces) */}
         {!isLaunchpad && (
           <ContextualSidebar
@@ -129,10 +131,31 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
             activeDomain={activeDomain}
             onSelectTab={onTabSelect}
             onReturnToLaunchpad={() => onTabSelect("launchpad")}
+            mobileOpen={mobileNavigationOpen}
+            onMobileClose={() => setMobileNavigationOpen(false)}
           />
         )}
+        {!isLaunchpad && mobileNavigationOpen && (
+          <button
+            type="button"
+            aria-label="Close navigation menu"
+            onClick={() => setMobileNavigationOpen(false)}
+            className="fixed inset-0 top-12 z-30 bg-black/40 md:hidden cursor-default"
+          />
+        )}
+        {!isLaunchpad && (
+          <button
+            type="button"
+            aria-label="Open navigation menu"
+            aria-expanded={mobileNavigationOpen}
+            onClick={() => setMobileNavigationOpen((open) => !open)}
+            className="fixed left-2 top-14 z-50 min-w-[var(--sds-touch-target-min)] min-h-[var(--sds-touch-target-min)] rounded-lg bg-theme-surface-1 border border-theme-divider text-theme-body shadow-lg flex items-center justify-center md:hidden"
+          >
+            {mobileNavigationOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        )}
         {/* Operational Viewport Content Area */}
-        <main className="flex-1 min-h-0 flex flex-col overflow-y-auto bg-theme-base relative">
+        <main className="flex-1 min-h-0 min-w-0 flex flex-col overflow-y-auto overflow-x-hidden srux-main-scroll bg-theme-base relative">
           {children}
         </main>
 

@@ -67,6 +67,18 @@
   --sds-space-xl: 32px;
   --sds-space-2xl: 48px;
 
+  /* SRUX-005 / SRUX-009: Shared responsive layout contract */
+  --sds-breakpoint-mobile: 640px;
+  --sds-breakpoint-tablet: 1024px;
+  --sds-breakpoint-desktop: 1440px;
+  --sds-container-sm: 100%;
+  --sds-container-md: 768px;
+  --sds-container-lg: 1200px;
+  --sds-container-xl: 1600px;
+  --sds-touch-target-min: 44px;
+  --sds-dialog-margin: 12px;
+  --sds-density-compact: 0.875;
+
   /* Radius Tokens */
   --sds-radius-xs: 2px;
   --sds-radius-sm: 4px;

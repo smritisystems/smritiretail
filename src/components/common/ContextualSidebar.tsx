@@ -89,6 +89,8 @@ interface ContextualSidebarProps {
   activeDomain?: DomainCategory;
   onSelectTab: (tabId: string) => void;
   onReturnToLaunchpad: () => void;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
@@ -96,6 +98,8 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
   activeDomain = "Sales",
   onSelectTab,
   onReturnToLaunchpad,
+  mobileOpen = false,
+  onMobileClose,
 }) => {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -103,9 +107,9 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
 
   return (
     <aside
-      className={`h-full bg-theme-surface-1 border-r border-theme-divider flex flex-col justify-between transition-all duration-300 select-none z-20 ${
-        collapsed ? "w-16" : "w-60"
-      }`}
+      className={`h-full bg-theme-surface-1 border-r border-theme-divider flex flex-col justify-between transition-all duration-300 select-none z-40 fixed left-0 top-12 bottom-0 md:relative md:inset-auto md:z-20 md:translate-x-0 ${
+        mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      } ${collapsed ? "w-16" : "w-60"}`}
     >
       {/* Sidebar Header */}
       <div className="p-3 border-b border-theme-divider flex items-center justify-between">
@@ -149,7 +153,10 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
           return (
             <button
               key={item.id}
-              onClick={() => onSelectTab(item.targetTab)}
+              onClick={() => {
+                onSelectTab(item.targetTab);
+                onMobileClose?.();
+              }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg seds-text-small font-medium transition-all ${
                 isActive
                   ? "bg-[#0a6ed1] text-white font-bold shadow-xs"

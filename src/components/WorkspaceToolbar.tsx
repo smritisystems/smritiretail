@@ -42,7 +42,8 @@ import {
   PanelLeft,
   PanelRight,
   PanelTop,
-  PanelBottom
+  PanelBottom,
+  MoreHorizontal
 } from "lucide-react";
 import { useWorkspace } from "../contexts/WorkspaceContext.tsx";
 import { useLayoutEngine } from "../layout_engine/layout_store.tsx";
@@ -87,6 +88,7 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
   } = useLayoutEngine();
   const { setPaletteOpen } = useShortcuts();
   const [seefOpen, setSeefOpen] = useState(false);
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   
   // Find current tab details
   const tabConfig = registeredWorkspaces.find((w) => w.id === currentTabId);
@@ -157,7 +159,7 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
       </div>
 
       {/* Control Actions Panel */}
-      <div className="flex items-center space-x-1.5">
+      <div className="hidden md:flex items-center space-x-1.5 shrink-0">
         {/* Workspace Layout Arrangement (Only show in main area if floating windows exist) */}
         {!isFloating && floatingWindows.length > 0 && (
           <div className="flex items-center space-x-1 pr-3 mr-3 border-r border-theme-divider">
@@ -330,6 +332,31 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
               <Minimize2 size={14} />
             </button>
           </>
+        )}
+      </div>
+
+      <div className="relative md:hidden">
+        <button
+          onClick={() => setMobileActionsOpen((open) => !open)}
+          className="min-w-[var(--sds-touch-target-min)] min-h-[var(--sds-touch-target-min)] rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-all cursor-pointer flex items-center justify-center"
+          title="Workspace actions"
+          aria-label="Workspace actions"
+          aria-expanded={mobileActionsOpen}
+        >
+          <MoreHorizontal size={18} />
+        </button>
+
+        {mobileActionsOpen && (
+          <div className="absolute right-0 top-full mt-1 z-50 w-56 p-1.5 bg-theme-surface-1 border border-theme-divider rounded-lg shadow-xl flex flex-col gap-1">
+            <button onClick={handleZoomOut} disabled={zoomValue <= 0.5} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2 disabled:opacity-40">Zoom out</button>
+            <button onClick={handleZoomIn} disabled={zoomValue >= 2.0} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2 disabled:opacity-40">Zoom in</button>
+            <button onClick={handleResetZoom} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2">Reset zoom</button>
+            {!isFloating && <button onClick={toggleFocusMode} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2">{focusMode ? "Exit focus mode" : "Focus mode"}</button>}
+            {!isFloating && <button onClick={() => window.dispatchEvent(new CustomEvent("smriti_open_print_preview"))} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2">Print preview</button>}
+            <button onClick={handleFullScreenToggle} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2">Fullscreen</button>
+            <button onClick={() => setPaletteOpen(true)} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2">Keyboard shortcuts</button>
+            {!isFloating && <button onClick={() => setSeefOpen(true)} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2">Experience settings</button>}
+          </div>
         )}
       </div>
     </div>

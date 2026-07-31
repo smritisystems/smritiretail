@@ -285,6 +285,24 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleSavePRNFile = () => {
+    if (!compiledPRNScript.trim()) {
+      onNotification?.("PRN Save Failed", "No barcode labels are available to save.", "error");
+      return;
+    }
+
+    const blob = new Blob([compiledPRNScript], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `smriti_barcode_labels_${activeTemplate.language.toLowerCase()}.prn`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    onNotification?.("PRN File Saved", "Generated barcode PRN file downloaded successfully.", "success");
+  };
+
   return (
     <div className="w-full bg-[var(--sds-color-surface)] border border-[var(--sds-color-border)] rounded-2xl overflow-hidden shadow-2xl animate-in fade-in duration-200 text-[var(--sds-color-text-main)] font-sans flex flex-col max-h-[92vh]">
       {/* 1. SAP Fiori Sticky Object Header */}
@@ -420,7 +438,10 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                     <input
                       type="checkbox"
                       checked={outputFile}
-                      onChange={(e) => setOutputFile(e.target.checked)}
+                      onChange={(e) => {
+                        setOutputFile(e.target.checked);
+                        if (e.target.checked) setProviderType("prn");
+                      }}
                       className="accent-indigo-500 rounded"
                     />
                     <span>File (.txt/.prn)</span>
@@ -1145,6 +1166,15 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
           >
             <Printer size={14} />
             <span>Print ({totalLabelsCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSavePRNFile}
+            className="px-4 py-1.5 bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer font-mono"
+          >
+            <Download size={14} />
+            <span>Save PRN File</span>
           </button>
 
           <button

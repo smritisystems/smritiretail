@@ -144,6 +144,8 @@ class Customer(RowSecuredMixin, BaseEntity):
     # SupplyModel: Normal | ModernTrade | Distributor | Franchise | Institutional
     sellout_source = Column(String(30), nullable=True)
     # SellOutSource: Manual | Excel | CSV | API | EDI | POSFeed | FTP | SFTP | Webhook
+    billing_policy = Column(String(30), nullable=False, server_default="InvoiceOnDispatch", default="InvoiceOnDispatch")
+    # InvoiceOnDispatch | InvoiceOnSellOut | InvoiceWeekly | InvoiceMonthly | Hybrid
     # ─────────────────────────────────────────────────────────────────────────
 
     group = relationship("CustomerGroup", back_populates="customers")

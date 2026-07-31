@@ -38,6 +38,7 @@ from ..schemas.consignment import (
 )
 from .numbering import numbering_service
 from .accounting import accounting_service
+from .scdm_service import SCDMService
 from ..api.deps import TenantContext
 
 
@@ -75,6 +76,10 @@ class ConsignmentService:
             outstanding=0.00,
             billing_address_line1=partner_in.billing_address,
             shipping_address_line1=partner_in.shipping_address,
+            channel_tracking_enabled=True,
+            supply_model="ModernTrade",
+            sellout_source="Manual",
+            billing_policy="InvoiceOnDispatch",
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id
         )
@@ -295,6 +300,8 @@ class ConsignmentService:
         self.db.add(transfer)
 
         await self.db.commit()
+        await SCDMService(self.db, self.tenant_ctx).create_channel_dispatch_from_invoice(invoice_id)
+        await self.db.commit()
         await self.db.refresh(transfer)
         return transfer
 
@@ -422,20 +429,21 @@ class ConsignmentService:
             select(Customer).filter(Customer.id == report.partner_id)
         )
         cust = cust_res.scalars().first()
-        if cust:
+        billing_policy = getattr(cust, "billing_policy", "InvoiceOnDispatch") if cust else "InvoiceOnDispatch"
+        if cust and billing_policy != "InvoiceOnDispatch":
             cust.outstanding += float(report.total_sales_value)
             self.db.add(cust)
 
-        # 3. Post to accounting ledger (Accounts Receivable Dr, Consignment Sales Cr)
-        await accounting_service.post_journal(
-            credit_ledger_id="ConsignmentSalesRevenue",
-            debit_ledger_id=f"Receivables-{report.partner_id}",
-            amount=report.total_sales_value,
-            narration=f"Consignment sales recognized from report {report.report_no}",
-            db=self.db,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id
-        )
+        if billing_policy != "InvoiceOnDispatch":
+            await accounting_service.post_journal(
+                credit_ledger_id="ConsignmentSalesRevenue",
+                debit_ledger_id=f"Receivables-{report.partner_id}",
+                amount=report.total_sales_value,
+                narration=f"Consignment sales recognized from report {report.report_no}",
+                db=self.db,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id
+            )
 
         report.status = "Processed"
         self.db.add(report)

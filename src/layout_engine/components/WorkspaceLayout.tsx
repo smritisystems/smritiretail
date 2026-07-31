@@ -71,13 +71,13 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
   // Mode 2: Viewport-Constrained Studio (Pattern B)
   if (mode === "studio") {
     return (
-      <div className={`w-full h-full flex flex-col overflow-hidden bg-theme-base ${className}`}>
+      <div className={`w-full h-full min-w-0 flex flex-col overflow-hidden bg-theme-base ${className}`}>
         {toolbar && (
           <div className="shrink-0 border-b border-theme-divider bg-theme-surface-1 px-4 py-1.5 flex items-center justify-between shadow-xs">
             {toolbar}
           </div>
         )}
-        <div className={`flex-1 min-h-0 overflow-y-auto smriti-custom-scroll ${widthContainerClass} ${spacingClass}`}>
+        <div className={`flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden smriti-custom-scroll srux-responsive-scroll ${widthContainerClass} ${spacingClass}`}>
           {children}
         </div>
         {statusBar && (
@@ -91,7 +91,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
 
   // Mode 3: Continuous Document Scroll Page (Pattern A - Default)
   return (
-    <div className={`w-full h-full overflow-y-auto smriti-custom-scroll bg-theme-base ${className}`}>
+    <div className={`w-full h-full min-w-0 overflow-y-auto overflow-x-hidden smriti-custom-scroll srux-responsive-scroll bg-theme-base ${className}`}>
       {toolbar && (
         <div className="sticky top-0 z-10 border-b border-theme-divider bg-theme-surface-1/95 backdrop-blur-xs px-4 py-2 shadow-xs">
           {toolbar}

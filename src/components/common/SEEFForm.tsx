@@ -146,7 +146,7 @@ const TabbedForm: React.FC<{ sections: SEEFFormSection[] }> = ({ sections }) => 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Tab bar */}
-      <div style={{
+      <div className="srux-responsive-scroll" style={{
         display: "flex",
         borderBottom: "1px solid var(--c-theme-divider)",
         overflowX: "auto",
@@ -163,6 +163,7 @@ const TabbedForm: React.FC<{ sections: SEEFFormSection[] }> = ({ sections }) => 
               className="seef-interactive seef-focus-ring"
               style={{
                 padding: "var(--seef-space-md) var(--seef-space-lg)",
+                minHeight: "var(--sds-touch-target-min)",
                 border: "none",
                 borderBottom: active ? "2px solid var(--c-seef-accent)" : "2px solid transparent",
                 background: "none",
@@ -195,7 +196,7 @@ const TabbedForm: React.FC<{ sections: SEEFFormSection[] }> = ({ sections }) => 
         })}
       </div>
       {/* Active section content */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "var(--seef-space-xl)" }}>
+      <div className="min-w-0" style={{ flex: 1, overflowY: "auto", padding: "var(--seef-space-xl)" }}>
         {activeSection?.content}
       </div>
     </div>

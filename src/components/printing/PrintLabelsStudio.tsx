@@ -596,25 +596,25 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
   };
 
   const downloadPrintFile = () => {
-    if (filteredPrintItems.length === 0) {
+    const selectedItems = filteredPrintItems.filter((item) => item.selected);
+    if (selectedItems.length === 0) {
       showToast("No items available to save!");
       return;
     }
 
-    const rawScript = filteredPrintItems
-      .filter((item) => item.selected)
+    const rawScript = selectedItems
       .map((item) => PRNVariableEngine.renderTemplate(TATTLY_THREADS_ZPL_SCRIPT, item, item.printQty))
       .join("\n");
     const blob = new Blob([rawScript], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `smriti_barcode_labels_${new Date().toISOString().slice(0, 10)}.zpl`;
+    link.download = `smriti_barcode_labels_${new Date().toISOString().slice(0, 10)}.prn`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast("ZPL label file downloaded");
+    showToast("PRN label file downloaded");
   };
 
   const printToFile = () => {
@@ -1939,7 +1939,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
             className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
           >
             <span className="material-symbols-outlined text-sm mr-1.5">download</span>
-            Save .ZPL File
+            Save .PRN File
           </button>
           <button
             onClick={() => showToast("Label Template Saved")}

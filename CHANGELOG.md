@@ -28,6 +28,27 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+- **SRUX-001 to SRUX-012 Responsive UX Foundation**:
+  - Added the approved responsive UX constitution and linked it from repository governance.
+  - Added shared responsive breakpoints, container, touch-target, dialog-margin, and density tokens.
+  - Added mobile-safe shared dialog sizing and a responsive workspace-toolbar overflow menu.
+  - Updated the shared workspace shell for dynamic viewport height, safe-area insets, min-width containment, and page-level horizontal overflow protection.
+  - Removed the redundant outer workspace scrollbar and kept module content as the single vertical scroll owner.
+  - Restricted the Layout Inspector to development builds so its debug trigger cannot overlap production content.
+  - Added responsive scrollbar behavior: touch-sized viewports hide the visual scrollbar while retaining full scrolling interaction.
+  - Added a shared mobile navigation drawer with backdrop dismissal and touch-safe menu controls.
+  - Updated shared SEEF form tabs with 44px touch targets, mobile scrollbar hiding, and width containment.
+  - Removed the empty workspace-tab strip that rendered as a black bar when no workspace tabs were open.
+
+### Modern Trade
+- Added the SCDM customer `billing_policy` field with `InvoiceOnDispatch` as the backward-compatible default.
+- Added additive migration `v1330_scdm_billing_policy` for configurable InvoiceOnDispatch, InvoiceOnSellOut, InvoiceWeekly, InvoiceMonthly, and Hybrid policies.
+- Policy storage is now available for partner configuration; invoice-posting enforcement remains a follow-up integration step.
+- SCDM dispatches now snapshot the active billing policy for audit and reconciliation without creating additional accounting entries.
+
 ## [3.39.0] — 2026-07-30
 
 ### Fixed

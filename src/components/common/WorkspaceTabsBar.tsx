@@ -50,6 +50,8 @@ export const WorkspaceTabsBar: React.FC = () => {
     syncState();
   };
 
+  if (openWorkspaces.length === 0) return null;
+
   return (
     <div className="flex items-center bg-slate-950 border-b border-slate-800/80 px-2 pt-1.5 gap-1 overflow-x-auto select-none font-sans text-xs">
       {openWorkspaces.map((ws) => {

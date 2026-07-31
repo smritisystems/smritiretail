@@ -36,12 +36,12 @@ export const SmritiDialog: React.FC<SmritiDialogProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-[var(--sds-dialog-margin)]">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: -10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: -10 }}
-          className={`w-full ${maxWidthClass} max-h-[85vh] bg-theme-surface-1 border border-theme-divider rounded-xl shadow-2xl flex flex-col overflow-hidden`}
+          className={`w-full h-full sm:h-auto ${maxWidthClass} max-h-[calc(100dvh-24px)] bg-theme-surface-1 border border-theme-divider rounded-none sm:rounded-xl shadow-2xl flex flex-col overflow-hidden`}
         >
           {/* Fixed Dialog Header (shrink-0) */}
           <div className="shrink-0 p-4 border-b border-theme-divider flex items-center justify-between bg-theme-surface-1">
@@ -59,14 +59,14 @@ export const SmritiDialog: React.FC<SmritiDialogProps> = ({
 
             <button
               onClick={onClose}
-              className="p-1.5 rounded-md text-theme-muted hover:text-theme-heading hover:bg-theme-surface-2 transition-colors"
+              className="min-w-[var(--sds-touch-target-min)] min-h-[var(--sds-touch-target-min)] p-1.5 rounded-md text-theme-muted hover:text-theme-heading hover:bg-theme-surface-2 transition-colors flex items-center justify-center"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Scrollable Dialog Body (flex-1 min-h-0 overflow-y-auto) */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-6 space-y-4">
             {children}
           </div>
 

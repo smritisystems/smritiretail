@@ -330,6 +330,9 @@ class CustomerBase(BaseModel):
     shipping_pincode: Optional[str] = Field(None, max_length=10)
     additional_addresses: List[dict] = []
 
+    # SCDM billing policy for modern-trade customers.
+    billing_policy: str = "InvoiceOnDispatch"
+
     @field_validator("gst_number")
     @classmethod
     def validate_legacy_gstin(cls, v: Optional[str]) -> Optional[str]:
@@ -369,6 +372,7 @@ class CustomerUpdate(BaseModel):
     status: Optional[str] = None
     tags: Optional[List[str]] = None
     custom_attributes: Optional[Dict[str, Any]] = None
+    billing_policy: Optional[str] = None
 
     # Legacy Backward-Compatibility Address Fields
     billing_address_line1: Optional[str] = None
@@ -401,6 +405,7 @@ class CustomerResponse(CustomerBase):
     loyalty_tier: str
     loyalty_points_balance: Decimal
     lifetime_points: Decimal
+    billing_policy: str
 
     created_at: datetime
     modified_at: datetime

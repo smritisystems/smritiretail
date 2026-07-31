@@ -16,11 +16,13 @@ export const LayoutInspectorOverlay: React.FC = () => {
   const [isEnabled, setIsEnabled] = useState(false);
   const bounds = useLayoutBounds();
 
+  if (!import.meta.env.DEV) return null;
+
   if (!isEnabled) {
     return (
       <button
         onClick={() => setIsEnabled(true)}
-        className="fixed bottom-3 right-3 z-50 p-2 rounded-full bg-[#0a6ed1] text-white shadow-lg hover:scale-105 transition-all text-xs flex items-center gap-1.5 cursor-pointer"
+        className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom))] right-3 z-50 p-2 rounded-full bg-[#0a6ed1] text-white shadow-lg hover:scale-105 transition-all text-xs flex items-center gap-1.5 cursor-pointer"
         title="Toggle Layout Inspector Overlay"
       >
         <Layout className="w-4 h-4" />
@@ -68,7 +70,7 @@ export const LayoutInspectorOverlay: React.FC = () => {
       </div>
 
       {/* Floating Control Widget */}
-      <div className="fixed bottom-3 right-3 z-50 bg-theme-surface-1 border border-[#0a6ed1] rounded-lg p-3 shadow-2xl space-y-2 text-xs font-mono w-72">
+      <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom))] right-3 z-50 bg-theme-surface-1 border border-[#0a6ed1] rounded-lg p-3 shadow-2xl space-y-2 text-xs font-mono w-72">
         <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
           <span className="font-bold text-theme-heading flex items-center gap-1.5">
             <Box className="w-4 h-4 text-[#0a6ed1]" /> Layout Inspector v2.0

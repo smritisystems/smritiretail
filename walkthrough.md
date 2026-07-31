@@ -57,3 +57,34 @@ Visual demonstration and implementation summary of **SMRITI Retail OS v4.0.0**, 
 [Done] backend/app/models/analytics_bi.py — change made and verified
 [Done] backend/app/models/__init__.py — change made and verified
 ```
+
+## Responsive UX Foundation (SRUX v1.0)
+
+The Layer 1 responsive foundation now includes:
+
+- Centralized SRUX tokens in `src/styles/smriti-tokens.css`.
+- Viewport-safe shared dialogs in `src/layout_engine/components/SmritiDialog.tsx`.
+- Mobile overflow actions in `src/components/WorkspaceToolbar.tsx`.
+- Dynamic viewport and overflow-safe workspace shell behavior in `src/layout_engine/layout_manager.tsx` and `src/layout_engine/components/WorkspaceLayout.tsx`.
+- The approved standard in `docs/SMRITI_RESPONSIVE_UX_CONSTITUTION.md`.
+
+Validation completed:
+
+- `npm run lint -- --pretty false` passed.
+- Browser check at 390px viewport reported `scrollWidth === innerWidth`.
+- Viewport matrix at 320, 768, 1024, 1440, and 2560px reported no page-level horizontal overflow.
+- Deep scroll review confirmed the outer `main` shell no longer competes with module-owned scrolling; the production Layout Inspector is disabled to prevent overlay collisions.
+- Workspace scrollbars remain discoverable on desktop and are visually hidden below 1024px while touch, wheel, keyboard, and programmatic scrolling remain available.
+- Mobile navigation uses the shared sidebar as a drawer below the app header, with a 44px menu trigger and backdrop dismissal; desktop keeps the existing sidebar.
+- Shared SEEF form tabs use the same touch-safe and scrollbar-free mobile behavior without duplicating form layouts.
+- Empty `WorkspaceTabsBar` now renders nothing, preventing a stray dark strip above the page on every viewport.
+
+## Modern Trade Billing Policy
+
+SCDM customers now carry a backward-compatible `billing_policy`, defaulting to `InvoiceOnDispatch` for the stated Reliance/Shoppers Stop workflow. The policy supports `InvoiceOnDispatch`, `InvoiceOnSellOut`, `InvoiceWeekly`, `InvoiceMonthly`, and `Hybrid` values. Migration `v1330_scdm_billing_policy` was applied successfully. The next implementation step is to enforce the selected policy in invoice and sell-out posting so sell-out never creates duplicate revenue.
+
+Each new SCDM dispatch also snapshots the active billing policy in `billing_policy` and `metadata_json`, preserving the commercial rule that applied when the GST invoice was posted.
+
+Focused SCDM tests were not runnable in the production API container because `pytest` is not installed there; backend model, schema, and migration compilation passed.
+
+Rollback plan: revert the shared token, dialog, toolbar, changelog, walkthrough, and governance-document changes together; no database or API changes are involved.
