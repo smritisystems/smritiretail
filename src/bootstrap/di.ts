@@ -38,6 +38,9 @@ import { ItemLookupProvider } from "../kernel/ule/ItemLookupProvider.js";
 import { CustomerService } from "../kernel/internal/CustomerService.js";
 import { CreateCustomerCommandHandler } from "../kernel/commands/CreateCustomerCommand.js";
 import { CustomerLookupProvider } from "../kernel/ule/CustomerLookupProvider.js";
+import { SupplierService } from "../kernel/internal/SupplierService.js";
+import { CreateSupplierCommandHandler } from "../kernel/commands/CreateSupplierCommand.js";
+import { SupplierLookupProvider } from "../kernel/ule/SupplierLookupProvider.js";
 
 dotenv.config();
 
@@ -79,6 +82,11 @@ export function bootstrapDI(): DIContainer {
   SPK.services.register("CUSTOMER", customerServiceInstance);
   SPK.commands.registerHandler("CREATE_CUSTOMER", new CreateCustomerCommandHandler());
   SPK.ule.registerProvider(new CustomerLookupProvider());
+
+  const supplierServiceInstance = new SupplierService();
+  SPK.services.register("SUPPLIER", supplierServiceInstance);
+  SPK.commands.registerHandler("CREATE_SUPPLIER", new CreateSupplierCommandHandler());
+  SPK.ule.registerProvider(new SupplierLookupProvider());
 
   if (dbProvider === "postgres") {
     instances.products = new PostgresProductRepository();
