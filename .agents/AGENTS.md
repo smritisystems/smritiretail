@@ -1337,4 +1337,41 @@ To prevent over-engineering the core accounting logic in normal retail/distribut
 
 Every workspace shall declare its metadata, lifecycle, actions, capabilities, permissions, search providers, events, and routing through versioned manifests (`schemaVersion: "1.0"`). Platform services (SUNEF, SPF, SUPOE) consume these manifests to provide standardized behavior. Workspaces shall not directly implement platform concerns that are already provided by the platform. All workspace manifests must pass the 6-stage schema and dependency validation pipeline before registration: `Schema Validation` ──► `Dependency Validation` ──► `Permission Validation` ──► `Capability Validation` ──► `Route Validation` ──► `Registration`.
 
+---
+
+# SMRITI Intelligent Change Management Engine (ICME) v1.0
+
+**Status:** CONSTITUTIONAL MANDATE — ICME-001 through ICME-010 (2026-07-31)
+
+## Constitutional Rule ICME-001: Mandatory Impact & Dependency Analysis
+No file shall be modified until its dependency graph, impact analysis, compatibility validation, regression risk assessment, and auto-remediation plan have been completed.
+
+## Constitutional Rules ICME-001 — ICME-010
+- **ICME-001**: No code modification without complete dependency analysis.
+- **ICME-002**: All reverse dependencies (direct and indirect usages) must be scanned before applying edits.
+- **ICME-003**: All affected interfaces, builders, mocks, and type contracts must be synchronized automatically.
+- **ICME-004**: API contracts must remain strictly backward compatible or follow semantic versioning.
+- **ICME-005**: Every change must produce a Change Impact Matrix evaluating UI, API, DB, Tests, Docs, Config, Types, Events, and Security.
+- **ICME-006**: Auto-remediation is mandatory for imports, types, interfaces, forms, and test assertions.
+- **ICME-007**: Compilation (`npx tsc`), linting, unit tests, integration tests, and architecture validation must pass before completion.
+- **ICME-008**: Documentation, examples, and SDK manifests must be updated whenever public contracts change.
+- **ICME-009**: No change may introduce circular dependencies, orphaned code, or unhandled exports.
+- **ICME-010**: A task is considered complete ONLY after all 13 execution phases and validation gates pass.
+
+## ICME 13-Phase Execution Flow
+1. **Dependency Scanner**: Identify imports, exports, interfaces, hooks, stores, routes, configs, and schemas.
+2. **Reverse Dependency Scanner**: Tracing all downstream components consuming modified symbols.
+3. **Change Impact Matrix**: Evaluate multi-layer impact (UI, API, DB, Tests, Docs, Config, Types, Events).
+4. **Auto-Remediation Plan**: Prepare automatic drop-in updates for caller functions and test mocks.
+5. **Smart Refactoring**: Synchronize builder functions, test fixtures, validators, and serializers.
+6. **Database Impact Assessment**: Validate migrations, ORM entities, repositories, DTOs, and seeds.
+7. **API Contract Validation**: Verify endpoints against OpenAPI specs, frontend SDKs, and tests.
+8. **UI Impact Assessment**: Audit forms, grids, dialogs, filters, and reports for visual/state continuity.
+9. **Regression Risk Scanner**: Verify impact on Billing, POS, Inventory, Purchase, Printing, and Auth.
+10. **Auto-Fix Engine**: Execute updates across all affected files simultaneously.
+11. **11-Point Validation Gate**: Run TS Compiler, Linter, Unit Tests, Integration Tests, and Dependency Rules.
+12. **AI Change Report**: Generate comprehensive Change Impact Report detailing all updated files.
+13. **Constitutional Compliance Gate**: Verify zero violations of SMRITI Constitution v1.0.
+
+
 
