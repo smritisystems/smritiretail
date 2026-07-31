@@ -442,7 +442,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           />
         }
       >
-        <ExcelGridEntrySection onRefreshProducts={onRefreshProducts} onNotification={onNotification} />
+        <ExcelGridEntrySection products={filteredProducts} onRefreshProducts={onRefreshProducts} onNotification={onNotification} />
       </WorkspaceLayout>
     );
   }

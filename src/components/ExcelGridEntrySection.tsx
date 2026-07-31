@@ -19,11 +19,12 @@ import {
   ClipboardCopy, ChevronDown, ChevronUp, Info, Maximize2, Printer,
   AlertCircle, X
 } from "lucide-react";
-import { AttributeGroup, AttributeDefinition } from "../types.js";
+import { AttributeGroup, AttributeDefinition, Product } from "../types.js";
 import { ExpandedCellEditor, ExpandContextMenu } from "./ExpandedCellEditor";
 import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
 
 interface ExcelGridEntrySectionProps {
+  products?: Product[];
   onRefreshProducts: () => Promise<void>;
   onNotification: (title: string, message: string, type?: "success" | "error") => void;
 }
@@ -222,6 +223,7 @@ const defaultFieldConfigs: FieldConfig[] = [
 ];
 
 export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
+  products,
   onRefreshProducts,
   onNotification
 }) => {
@@ -368,16 +370,60 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
     ...activeAttrs.map(a => `attr_${a.name}`)
   ];
 
-  // Initialize spreadsheet with blank rows
+  const productToGridRow = useCallback((p: Product): GridRow => {
+    const attrs: Record<string, string> = {};
+    if ((p as any).attributes) {
+      Object.entries((p as any).attributes).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) {
+          attrs[k] = v.toString();
+        }
+      });
+    }
+    return {
+      code: p.code || p.sku || "",
+      name: p.name || "",
+      barcode: p.barcode || "",
+      costPrice: (p.costPrice !== undefined ? p.costPrice : p.purchase_price !== undefined ? p.purchase_price : "").toString(),
+      price: (p.price !== undefined ? p.price : "").toString(),
+      mrp: (p.mrp !== undefined ? p.mrp : p.price !== undefined ? p.price : "").toString(),
+      gstPercentage: (p.gstPercentage !== undefined ? p.gstPercentage : p.gst_rate !== undefined ? p.gst_rate : "18").toString(),
+      stock: (p.stock_qty !== undefined ? p.stock_qty : p.stock !== undefined ? p.stock : p.qty !== undefined ? p.qty : "").toString(),
+      brand: p.brand || "",
+      styleCode: (p as any).styleCode || (p as any).style_code || p.code || p.sku || "",
+      category: p.category || "",
+      hsnCode: p.hsnCode || p.hsn_code || "",
+      vendorCode: (p as any).vendorCode || "",
+      purchaseClass: (p as any).purchaseClass || "",
+      department: (p as any).department || "",
+      merchandiseCategory: p.subCategory || p.sub_category || "",
+      subCategory: p.subCategory || p.sub_category || "",
+      gender: p.color || "",
+      heels: "",
+      upperMaterial: "",
+      outsole: "",
+      imageLink: (p as any).primary_image_url || "",
+      attributes: attrs,
+    };
+  }, []);
+
+  const resetGrid = useCallback(() => {
+    if (products && products.length > 0) {
+      const initialRows: GridRow[] = [
+        ...products.map(productToGridRow),
+        createBlankRow()
+      ];
+      setRows(initialRows);
+    } else {
+      const initialRows: GridRow[] = Array.from({ length: 5 }, () => createBlankRow());
+      setRows(initialRows);
+    }
+    setFocusedCell(null);
+  }, [products, productToGridRow]);
+
+  // Initialize spreadsheet with product rows or blank rows
   useEffect(() => {
     resetGrid();
-  }, [selectedGroupId]);
-
-  const resetGrid = () => {
-    const initialRows: GridRow[] = Array.from({ length: 5 }, () => createBlankRow());
-    setRows(initialRows);
-    setFocusedCell(null);
-  };
+  }, [resetGrid, selectedGroupId]);
 
   const createBlankRow = (): GridRow => {
     return {
