@@ -31,18 +31,52 @@ export interface HeldBill {
   items: LineItem[];
 }
 
-// Product catalog for item search lookup with Live Available Stock levels
-const CATALOG_PRODUCTS = [
-  { barcode: "8901234567890", name: "Nike Sports Shoes", hsn: "6404", rate: 2500.0, uom: "Pair", stock: 45 },
-  { barcode: "8901234567891", name: "Cotton Socks", hsn: "6115", rate: 250.0, uom: "Pair", stock: 120 },
-  { barcode: "8901234567892", name: "Adidas Cap", hsn: "6505", rate: 500.0, uom: "Pcs", stock: 8 },
-  { barcode: "8901234567893", name: "Puma Running T-Shirt", hsn: "6109", rate: 1200.0, uom: "Pcs", stock: 25 },
-  { barcode: "8901234567894", name: "Formal Leather Shoes", hsn: "6403", rate: 3500.0, uom: "Pair", stock: 14 },
-  { barcode: "8901234567895", name: "Denim Jeans Trousers", hsn: "6203", rate: 1800.0, uom: "Pcs", stock: 3 },
-  { barcode: "8901234567896", name: "Smart POS Printer", hsn: "8471", rate: 6500.0, uom: "Pcs", stock: 60 },
-];
+import { Product } from "../../types";
+import { SPK } from "../../kernel/SPK";
+import { IItemService } from "../../kernel/public/IItemService";
 
-export const SalesBillingStudio: React.FC = () => {
+export interface SalesBillingStudioProps {
+  products?: Product[];
+  onRefreshProducts?: () => void;
+}
+
+export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products: propsProducts }) => {
+  const [liveProducts, setLiveProducts] = useState<Product[]>(propsProducts || []);
+
+  useEffect(() => {
+    if (propsProducts && propsProducts.length > 0) {
+      setLiveProducts(propsProducts);
+    } else {
+      try {
+        const itemService = SPK.services.resolve<IItemService>("ITEM");
+        itemService.getAll().then((prods) => {
+          if (prods && prods.length > 0) setLiveProducts(prods);
+        });
+      } catch (e) {
+        console.warn("[SalesBillingStudio] SPK ItemService non-initialized", e);
+      }
+    }
+  }, [propsProducts]);
+
+  // Subscribe to real-time Item Master events
+  useEffect(() => {
+    const unsubCreated = SPK.events.subscribe("ItemCreated", () => {
+      try {
+        const itemService = SPK.services.resolve<IItemService>("ITEM");
+        itemService.getAll().then((prods) => setLiveProducts(prods));
+      } catch { /* ignore */ }
+    });
+    const unsubUpdated = SPK.events.subscribe("ItemUpdated", () => {
+      try {
+        const itemService = SPK.services.resolve<IItemService>("ITEM");
+        itemService.getAll().then((prods) => setLiveProducts(prods));
+      } catch { /* ignore */ }
+    });
+    return () => {
+      unsubCreated();
+      unsubUpdated();
+    };
+  }, []);
   // Input Refs for Keyboard Shortcuts
   const topSearchRef = useRef<HTMLInputElement>(null);
   const itemSearchRef = useRef<HTMLInputElement>(null);
@@ -219,15 +253,17 @@ export const SalesBillingStudio: React.FC = () => {
 
   // Filter Catalog Items based on search
   const filteredCatalog = useMemo(() => {
-    if (!itemSearch.trim()) return [];
+    if (!itemSearch.trim()) return liveProducts.slice(0, 10);
     const q = itemSearch.toLowerCase();
-    return CATALOG_PRODUCTS.filter(
+    return liveProducts.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
-        p.barcode.includes(q) ||
-        p.hsn.includes(q)
+        (p.sku && p.sku.toLowerCase().includes(q)) ||
+        (p.code && p.code.toLowerCase().includes(q)) ||
+        (p.barcode && p.barcode.includes(q)) ||
+        (p.hsn_code || p.hsnCode || "").includes(q)
     );
-  }, [itemSearch]);
+  }, [itemSearch, liveProducts]);
 
   // Select Customer from Autocomplete Lookup
   const handleSelectCustomer = (c: Customer) => {
@@ -258,8 +294,9 @@ export const SalesBillingStudio: React.FC = () => {
   };
 
   // Add Item from Autocomplete Lookup
-  const handleSelectCatalogItem = (p: typeof CATALOG_PRODUCTS[0]) => {
-    const existingIndex = items.findIndex((i) => i.barcode === p.barcode);
+  const handleSelectCatalogItem = (p: Product) => {
+    const itemBarcode = p.barcode || p.sku || p.code;
+    const existingIndex = items.findIndex((i) => i.barcode === itemBarcode || i.name === p.name);
     if (existingIndex >= 0) {
       setItems((prev) =>
         prev.map((item, idx) =>
@@ -269,13 +306,13 @@ export const SalesBillingStudio: React.FC = () => {
     } else {
       const newItem: LineItem = {
         id: `item-${Date.now()}`,
-        barcode: p.barcode,
+        barcode: itemBarcode,
         name: p.name,
-        hsnCode: p.hsn,
+        hsnCode: p.hsn_code || p.hsnCode || "8471",
         qty: 1,
-        availableStock: p.stock,
-        uom: p.uom,
-        rate: p.rate,
+        availableStock: p.stock ?? p.stock_qty ?? 100,
+        uom: p.uom || "Pcs",
+        rate: p.price || 0,
         discountPct: 0.0,
       };
       setItems((prev) => [...prev, newItem]);
@@ -772,11 +809,11 @@ export const SalesBillingStudio: React.FC = () => {
                         <div>
                           <div className="font-bold text-slate-800">{p.name}</div>
                           <div className="text-[10px] text-slate-500 font-mono">
-                            Barcode: {p.barcode} | HSN: {p.hsn} | Stock: <span className="font-bold text-emerald-700">{p.stock} {p.uom}</span>
+                            Barcode: {p.barcode || p.sku || p.code} | HSN: {p.hsn_code || p.hsnCode || "8471"} | Stock: <span className="font-bold text-emerald-700">{p.stock ?? p.stock_qty ?? 0} {p.uom || "Pcs"}</span>
                           </div>
                         </div>
                         <div className="text-right">
-                          <span className="font-mono font-bold text-slate-900">₹{p.rate.toFixed(2)}</span>
+                          <span className="font-mono font-bold text-slate-900">₹{Number(p.price || 0).toFixed(2)}</span>
                           <span className="text-[10px] text-blue-600 block">Select Item</span>
                         </div>
                       </div>
@@ -1405,12 +1442,14 @@ export const SalesBillingStudio: React.FC = () => {
               </div>
               <button
                 onClick={() => {
-                  handleSelectCatalogItem(CATALOG_PRODUCTS[0]);
+                  if (liveProducts.length > 0) {
+                    handleSelectCatalogItem(liveProducts[0]);
+                  }
                   setIsScannerModalOpen(false);
                 }}
                 className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs cursor-pointer shadow-md"
               >
-                Simulate Barcode Scan (Nike Shoes)
+                Simulate Barcode Scan ({liveProducts[0]?.name || "First SKU"})
               </button>
             </div>
           </div>

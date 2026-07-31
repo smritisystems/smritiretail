@@ -29,6 +29,9 @@ import { ExcelGridEntrySection } from "./ExcelGridEntrySection.tsx";
 import { AttributeAnalyticsSection } from "./AttributeAnalyticsSection.tsx";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.js";
+import { SPK } from "../kernel/SPK.js";
+import { CreateItemCommand } from "../kernel/commands/CreateItemCommand.js";
+import { IItemService } from "../kernel/public/IItemService.js";
 import {
   Package, Plus, Search, X, Barcode, CheckCircle2, AlertCircle, FileText,
   ShieldCheck, DollarSign, Percent, Truck, Tag, Zap, Settings2, RotateCcw,
@@ -271,18 +274,15 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     };
 
     try {
-      await apiFetchV1("/products/", {
-        method: "POST",
-        body: JSON.stringify(newSku)
-      });
-      onNotification("SKU Created ✓", `${newSku.name} (${newSku.code}) added to Product Master.`, "success");
-    } catch {
-      onNotification("SKU Created Locally", `${newSku.name} added to workspace.`, "success");
+      const createdItem = await SPK.commands.execute(new CreateItemCommand(newSku));
+      onNotification("SKU Created ✓", `${createdItem.name} (${createdItem.code || createdItem.sku}) added to Product Master.`, "success");
+      setSelectedProduct(createdItem);
+    } catch (err: any) {
+      onNotification("SKU Creation Error", err.message || "Failed to save item.", "error");
     } finally {
       clearDraft();
       setIsSubmitting(false);
       await onRefreshProducts();
-      setSelectedProduct(newSku);
 
       if (saveAndNew) {
         setFormData(blankItemForm());
@@ -492,12 +492,14 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           <ItemMasterFormInspector
             product={selectedProduct}
             onSaveProduct={async (u) => {
-              await apiFetchV1(`/products/${u.id}`, { method: "PUT", body: JSON.stringify(u) });
+              const itemService = SPK.services.resolve<IItemService>("ITEM");
+              await itemService.save(u);
               onNotification("Product Updated", `Saved ${u.name}`, "success");
               await onRefreshProducts();
             }}
             onDeleteProduct={async (id) => {
-              await apiFetchV1(`/products/${id}`, { method: "DELETE" });
+              const itemService = SPK.services.resolve<IItemService>("ITEM");
+              await itemService.delete(id);
               onNotification("Product Deleted", "Removed SKU", "success");
               setSelectedProduct(null);
               await onRefreshProducts();

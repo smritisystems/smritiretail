@@ -711,7 +711,7 @@ const AppContent: React.FC = () => {
       case "pos":
       case "billing":
       case "quick-billing":
-        return <SalesBillingStudio />;
+        return <SalesBillingStudio products={products} onRefreshProducts={fetchSystemState} />;
       case "crm":
       case "crm-studio":
         return <CrmStudioTab currentUser={currentUser} onNotification={addNotification} />;
@@ -764,7 +764,7 @@ const AppContent: React.FC = () => {
       case "sales-billing":
       case "sales-billing-studio":
       case "sales":
-        return <SalesBillingStudio />;
+        return <SalesBillingStudio products={products} onRefreshProducts={fetchSystemState} />;
       case "purchase":
         return (
           <PurchaseStudioTab
@@ -825,7 +825,7 @@ const AppContent: React.FC = () => {
       case "barcode-printing":
       case "label-printing":
       case "universal-label":
-        return <PrintLabelsStudio />;
+        return <PrintLabelsStudio products={products} />;
       case "print-history":
         return <PrintHistoryTab />;
       case "about-smriti":

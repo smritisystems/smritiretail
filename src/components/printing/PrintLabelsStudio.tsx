@@ -12,6 +12,14 @@ import { PRNVariableEngine, TATTLY_THREADS_ZPL_SCRIPT } from "../../services/lab
 import { PrintProviderRegistry, SystemPrinterDiscovery, SystemPrinterInfo } from "../../services/label_print/PrintProviderFramework";
 import { UniversalAttributeEngine, IndustryPackManager, IndustryType } from "../../core/metadata";
 import { PrintingService, PrintDocument } from "../../core/printing";
+import { PRNTemplateStudio } from "./PRNTemplateStudio.tsx";
+import { Product } from "../../types";
+import { SPK } from "../../kernel/SPK";
+import { IItemService } from "../../kernel/public/IItemService";
+
+export interface PrintLabelsStudioProps {
+  products?: Product[];
+}
 
 export interface PrintItemRow {
   id: string;
@@ -82,7 +90,24 @@ const SOURCE_DATASETS: Record<SourceType, PrintItemRow[]> = {
   direct_scan: [],
 };
 
-export const PrintLabelsStudio: React.FC = () => {
+export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: propsProducts }) => {
+  const [liveProducts, setLiveProducts] = useState<Product[]>(propsProducts || []);
+
+  useEffect(() => {
+    if (propsProducts && propsProducts.length > 0) {
+      setLiveProducts(propsProducts);
+    } else {
+      try {
+        const itemService = SPK.services.resolve<IItemService>("ITEM");
+        itemService.getAll().then((prods) => {
+          if (prods && prods.length > 0) setLiveProducts(prods);
+        });
+      } catch (e) {
+        console.warn("[PrintLabelsStudio] SPK ItemService unavailable", e);
+      }
+    }
+  }, [propsProducts]);
+
   // Industry Pack Selection via SMP-M
   const [activeIndustry, setActiveIndustry] = useState<IndustryType>("apparel");
 
@@ -101,6 +126,9 @@ export const PrintLabelsStudio: React.FC = () => {
   const [isRangeFiltersExpanded, setIsRangeFiltersExpanded] = useState<boolean>(true);
   const [isPreviewExpanded, setIsPreviewExpanded] = useState<boolean>(true);
   const [isSettingsExpanded, setIsSettingsExpanded] = useState<boolean>(true);
+
+  // Main Navigation Tab (Batch Printing vs PRN Studio)
+  const [activeMainTab, setActiveMainTab] = useState<"batch_print" | "prn_studio">("batch_print");
 
   // Context & Filter Inputs
   const [docFrom, setDocFrom] = useState<string>("");
@@ -121,8 +149,39 @@ export const PrintLabelsStudio: React.FC = () => {
   const [filterCategoryFrom, setFilterCategoryFrom] = useState<string>("");
   const [filterCategoryTo, setFilterCategoryTo] = useState<string>("");
 
+  // Convert live Product array to PrintItemRow array
+  const dynamicItemMasterRows = useMemo<PrintItemRow[]>(() => {
+    if (!liveProducts || liveProducts.length === 0) return SOURCE_DATASETS.item_master;
+    return liveProducts.map((p, idx) => ({
+      id: `im-dyn-${p.id || idx}`,
+      selected: true,
+      barcode: p.barcode || p.sku || p.code,
+      itemCode: p.sku || p.code,
+      itemName: p.name,
+      uom: p.uom || "Pcs",
+      batchSerial: "-",
+      qty: Math.max(1, p.stock ?? p.stock_qty ?? 10),
+      printQty: Math.max(1, p.stock ?? p.stock_qty ?? 10),
+      labelTemplate: "Tattly Threads Dual Tag (ZPL)",
+      sizeMm: "100 x 50.7",
+      mrp: p.mrp || p.price || 100.0,
+      hsn: p.hsn_code || p.hsnCode || "8471",
+      taxRate: `${p.gst_rate || p.gstPercentage || 18}% GST`,
+      brand: p.brand || "Smriti Standard",
+      category: p.category || "General"
+    }));
+  }, [liveProducts]);
+
   // Items to Print Table Dataset
   const [printItems, setPrintItems] = useState<PrintItemRow[]>(SOURCE_DATASETS.manual);
+
+  useEffect(() => {
+    if (selectedSource === "item_master") {
+      setPrintItems(dynamicItemMasterRows);
+    } else if (SOURCE_DATASETS[selectedSource]) {
+      setPrintItems(SOURCE_DATASETS[selectedSource]);
+    }
+  }, [selectedSource, dynamicItemMasterRows]);
 
   // Preview Index
   const [activePreviewIndex, setActivePreviewIndex] = useState<number>(0);
@@ -384,6 +443,32 @@ export const PrintLabelsStudio: React.FC = () => {
             <h1 className="text-base font-bold text-slate-800">Print Labels Studio</h1>
             <span className="text-[10px] text-slate-500 font-medium block -mt-0.5">Barcode / Label Printing</span>
           </div>
+
+          {/* Dedicated Studio View Switcher */}
+          <div className="flex items-center space-x-1 ml-4 bg-slate-100 p-1 border border-slate-200 rounded-xl">
+            <button
+              onClick={() => setActiveMainTab("batch_print")}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeMainTab === "batch_print"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Batch Printing
+            </button>
+            <button
+              onClick={() => setActiveMainTab("prn_studio")}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center space-x-1 ${
+                activeMainTab === "prn_studio"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span>PRN / ZPL Authoring Studio</span>
+              <span className="px-1.5 py-0.2 bg-emerald-500 text-white text-[9px] font-extrabold rounded-full uppercase">New</span>
+            </button>
+          </div>
+
           <span className="flex items-center text-xs text-emerald-600 font-medium ml-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
             Online
@@ -468,7 +553,11 @@ export const PrintLabelsStudio: React.FC = () => {
       </header>
 
       {/* Main Container */}
-      <main className="p-4 flex-1 grid grid-cols-12 gap-4">
+      {activeMainTab === "prn_studio" ? (
+        <PRNTemplateStudio onNotification={(t, m, type) => showToast(`${t}: ${m}`)} />
+      ) : (
+        <>
+          <main className="p-4 flex-1 grid grid-cols-12 gap-4">
         {/* Left Column (8 cols): Sources, Filters & Items Table */}
         <div className="col-span-8 space-y-4">
           {/* Section 1: Select Source (Hidable) */}
@@ -1307,6 +1396,8 @@ export const PrintLabelsStudio: React.FC = () => {
           Close (ESC)
         </button>
       </footer>
+        </>
+      )}
 
       {/* MODAL 1: Full Sheet Label Print Preview (F5) */}
       {isFullPreviewModalOpen && (
