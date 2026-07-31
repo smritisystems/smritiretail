@@ -87,7 +87,7 @@ export class PolicyRegistryService {
     const policy = this.getPolicy(policyId);
     if (!policy) return true; // Default permissive if policy not found
 
-    const allAttrs = { ...context, ...context.attributes, ...attrValues };
+    const allAttrs: Record<string, any> = { ...context, ...context.attributes, ...attrValues };
 
     for (const cond of policy.conditions) {
       const actualVal = allAttrs[cond.attribute];
