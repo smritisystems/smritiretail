@@ -235,6 +235,20 @@ Every completion claim must be backed by directly observable evidence. If eviden
 6. **UDR Standard v1.0 Status (FROZEN)**:
    - Rules `UDR-001` through `UDR-006` are officially **FROZEN v1.0**.
 
+## 19. Universal AI Skill Governance (UAR Standard v1.0 — FROZEN)
+1. **Metadata-Driven AI Skills (UAR-001 — MANDATORY)**:
+   - All AI skills, prompt templates, and advisory schemas MUST be declared in UPR metadata (`AIRegistry` / `SPK.ai`).
+2. **Single Skill Execution Entry Point (UAR-002 — MANDATORY)**:
+   - Skill execution MUST execute exclusively through `SPK.ai.executeSkill()`.
+3. **AI Optionality & Advisory Enforcement (UAR-003 — MANDATORY)**:
+   - In accordance with **Rule AOP-001 (AI Optionality Principle)**, all AI skill recommendations MUST specify `isAdvisoryOnly: true` and NEVER execute financial or core domain transactions automatically.
+4. **Delegated Security Authorization (UAR-004 — MANDATORY)**:
+   - Skill execution permissions MUST delegate exclusively to `SPK.security`.
+5. **Immutable Context Enforcement (UAR-005 — MANDATORY)**:
+   - Skill execution MUST consume immutable `PlatformContext`.
+6. **UAR Standard v1.0 Status (FROZEN)**:
+   - Rules `UAR-001` through `UAR-006` are officially **FROZEN v1.0**.
+
 ---
 
 
