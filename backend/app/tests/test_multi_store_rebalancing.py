@@ -180,7 +180,7 @@ async def test_sto_full_lifecycle_dispatch_and_receive(db_session):
 
 
 @pytest.mark.asyncio
-async def test_transfers_rest_api_endpoints(db_session):
+async def test_transfers_rest_api_endpoints(db_session, auth_headers):
     """Tests FastAPI /transfers REST API endpoints."""
     prod = Product(
         id="prod-reb-400",
@@ -196,7 +196,7 @@ async def test_transfers_rest_api_endpoints(db_session):
     await db_session.commit()
 
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test", headers=auth_headers) as ac:
         # 1. Calculate rebalance
         res_calc = await ac.post(
             "/api/v1/transfers/rebalance/calculate",

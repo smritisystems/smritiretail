@@ -23,6 +23,8 @@
   * License    : Proprietary Commercial Software
 -->
 
+> **SUPERSEDED:** This audit is historical and does not describe the current release. Use the current source, tests, and changelog for present-state verification.
+
 # SMRITI Retail OS - Enterprise ERP Deep Review (Version 2)
 
 This document provides a comprehensive functional, technical, architectural, UI/UX, database, workflow, security, and business process audit of SMRITI Retail OS, benchmarking against enterprise retail ERP standards while maintaining SMRITI's native architecture.

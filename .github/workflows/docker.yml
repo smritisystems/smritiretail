@@ -23,7 +23,7 @@
 
 name: Docker Build & Compose Verify
 
-on:
+"on":
   push:
     branches: [ main, develop, smritiNX ]
   pull_request:

@@ -16,7 +16,7 @@ Classification: Internal
 
 from decimal import Decimal
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, DateTime, Text, text
+from sqlalchemy import CheckConstraint, Column, String, Numeric, Boolean, Integer, ForeignKey, Date, DateTime, Text, text
 from sqlalchemy.orm import relationship, synonym
 from ..db.base import Base, BaseEntity, RowSecuredMixin
 
@@ -56,6 +56,12 @@ class SalesInvoiceItem(Base):
     SalesInvoiceItem — Individual product line item in a SalesInvoice.
     """
     __tablename__ = "sales_invoice_items"
+    __table_args__ = (
+        CheckConstraint(
+            "gst_rate IN (0, 0.25, 3, 5, 12, 18, 28)",
+            name="ck_sales_invoice_items_gst_rate_slab",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     invoice_id     = Column(String(50), ForeignKey("sales_invoices.id", ondelete="CASCADE"), nullable=False)

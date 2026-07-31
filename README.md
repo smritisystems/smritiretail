@@ -152,7 +152,7 @@ f:\SMRITRretailNXmgrt\
 ## 6. Installation & Setup
 
 ### Local Prerequisites
-* Node.js v18+
+* Node.js v22.x
 * Python v3.11
 * PostgreSQL v16
 

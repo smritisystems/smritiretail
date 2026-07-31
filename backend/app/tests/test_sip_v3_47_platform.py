@@ -162,10 +162,10 @@ async def test_sip_decoupled_ai_advisory_service():
 
 
 @pytest.mark.asyncio
-async def test_sip_rest_api_endpoints(db_session):
+async def test_sip_rest_api_endpoints(db_session, auth_headers):
     """Verifies REST API surface under /api/v1/sip/*."""
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test", headers=auth_headers) as ac:
         # 1. Health Endpoint
         res_health = await ac.get("/api/v1/sip/health")
         assert res_health.status_code == 200

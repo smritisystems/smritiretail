@@ -32,7 +32,7 @@ from ..core.logging import logger
 class RequestLoggerMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         # 1. Attach Request ID
-        request_id = str(uuid.uuid4())
+        request_id = getattr(request.state, "request_id", None) or f"req_{uuid.uuid4().hex[:12]}"
         request.state.request_id = request_id
         
         start_time = time.time()
@@ -46,7 +46,7 @@ class RequestLoggerMiddleware(BaseHTTPMiddleware):
         
         # 4. Attach request ID to response header
         response.headers["X-Request-ID"] = request_id
-        response.headers["X-Process-Time"] = formatted_process_time
+        response.headers["X-Response-Time-Ms"] = formatted_process_time.removesuffix("ms")
         
         # 5. Log metrics
         logger.info(

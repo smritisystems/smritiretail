@@ -23,6 +23,8 @@
   * License    : Proprietary Commercial Software
 -->
 
+> **SUPERSEDED:** This audit is historical and does not describe the current release. Use the current source, tests, and changelog for present-state verification.
+
 # SMRITI Retail OS - Business Operations Audit Report
 
 **Date:** 2026-07-10

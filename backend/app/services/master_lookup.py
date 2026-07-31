@@ -189,7 +189,7 @@ class LookupService:
             sort_order=value_in.sort_order or 0,
             effective_from=datetime.now(timezone.utc),
             effective_to=None,
-            is_system=mtype.is_system if mtype else False,  # inherit system flag from category
+            is_system=bool(mtype.is_system and tenant_id is None),
             tenant_id=tenant_id,  # scope to this tenant
             branch_id=value_in.branch_id,
         )

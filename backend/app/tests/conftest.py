@@ -58,6 +58,38 @@ async def db_session(db_engine) -> AsyncSession:
     active_tenant_ctx.set(None)
     active_security_context.set(None)
 
+
+@pytest.fixture
+async def auth_headers(db_session: AsyncSession):
+    """Create a real test session for protected API integration tests."""
+    import uuid
+
+    from app.core.security import create_access_token, hash_password
+    from app.models.auth import User, UserRole
+
+    user = User(
+        id=f"usr-api-{uuid.uuid4().hex[:10]}",
+        username=f"api_test_{uuid.uuid4().hex[:8]}",
+        hashed_password=hash_password("Test@1234"),
+        role=UserRole.SYSADMIN,
+        is_active=True,
+        is_deleted=False,
+        company_id="comp-default",
+        branch_id="br-default",
+    )
+    db_session.add(user)
+    await db_session.commit()
+
+    token = create_access_token({
+        "sub": user.id,
+        "username": user.username,
+        "role": user.role.value,
+        "company_id": user.company_id,
+        "branch_id": user.branch_id,
+        "jti": str(uuid.uuid4()),
+    })
+    return {"Authorization": f"Bearer {token}"}
+
 async def clear_db(db_session: AsyncSession):
     """
     Cleans up all database tables atomically using TRUNCATE ... RESTART IDENTITY CASCADE.
