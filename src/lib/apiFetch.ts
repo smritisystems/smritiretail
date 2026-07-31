@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -51,15 +51,22 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}): Pro
   return response.json();
 }
 
+import { SPK } from "../kernel/SPK.js";
+import { RecordAuditLogCommand } from "../kernel/commands/RecordAuditLogCommand.js";
+
 /**
  * Record UI-driven audit actions (views, prints, exports) to system logs
  */
 export async function recordAuditAction(actionType: string, tableName: string, recordId: string, reason: string): Promise<void> {
   try {
-    await apiFetchV1("/audit-logs", {
-      method: "POST",
-      body: JSON.stringify({ actionType, tableName, recordId, reason })
-    });
+    await SPK.commands.execute(
+      new RecordAuditLogCommand({
+        action: actionType,
+        module: tableName,
+        entityId: recordId,
+        details: reason
+      })
+    );
   } catch (err) {
     console.error("[Audit Logger] Failed to record audit action:", err);
   }
