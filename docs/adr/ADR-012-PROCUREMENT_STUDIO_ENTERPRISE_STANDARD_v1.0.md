@@ -1,5 +1,5 @@
 # Architecture Decision Record (ADR-012)
-# PROCUREMENT_STUDIO_ENTERPRISE_STANDARD_v1.0
+# SMRITI_PROCUREMENT_STUDIO_ENTERPRISE_STANDARD_v1.0
 
 **Status:** FROZEN — v1.0 (2026-07-31)  
 **Author:** Jawahar Ramkripal Mallah, Chief Systems Architect & Creator  
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-`PROCUREMENT_STUDIO_ENTERPRISE_STANDARD_v1.0` establishes the frozen architectural blueprint for enterprise workspaces across SMRITI Retail OS. It defines the workspace lifecycle, auto-layout persistence via `SPK.configuration`, the SMRITI Universal Procurement Grid (SUPG) specification, telemetry metrics, SWMF pop-out window integration, and UAR AI skill extension points.
+`SMRITI_PROCUREMENT_STUDIO_ENTERPRISE_STANDARD_v1.0` establishes the frozen constitutional blueprint for enterprise procurement workspaces across SMRITI Retail OS. It defines the workspace lifecycle, auto-layout persistence via `SPK.configuration`, the SMRITI Universal Procurement Grid (SUPG) specification, On-the-Fly Temporary Product Engine, Master Data Approval Queue, Collapsible Visual Product Gallery, SWMF pop-out window integration, UAR AI skill extension points, and Industry Pack adaptability.
 
 ---
 
@@ -41,25 +41,82 @@ Suspend ──► Resume ──► Close ──► Persist Workspace (SPK.config
 
 ---
 
-## 2. AUTO LAYOUT PERSISTENCE (`SPK.configuration`)
+## 2. PROCUREMENT WORKSPACE CAPABILITY MATRIX
 
-Workspace preferences MUST be automatically saved and restored across sessions:
-
-| Preference Attribute | Storage Key | Description |
-|---|---|---|
-| Sidebar State | `spk.config.workspace.sidebarCollapsed` | Collapsed / Expanded left navigation state |
-| Grid Column Widths | `spk.config.procurement.gridColumnWidths` | Pixel width per data table column |
-| Grid Sorting & Filters | `spk.config.procurement.gridSortFilterState` | Active column sort order and filters |
-| Workspace Density | `spk.config.workspace.density` | Mode: `comfortable`, `compact` (default), `dense` |
-| Summary Panel State | `spk.config.procurement.summaryDocked` | Collapsed / Expanded state of right summary panel |
-| Selected Warehouse | `spk.config.procurement.defaultWarehouse` | Active warehouse default selection |
-| Selected Supplier | `spk.config.procurement.defaultSupplierId` | Last selected vendor ID |
+| Capability | Basic | Standard | Enterprise | Industry Pack | Configurable |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Purchase Order | ✅ | ✅ | ✅ | ✅ | ✓ |
+| Purchase Requisition | ❌ | ✅ | ✅ | ✅ | ✓ |
+| RFQ Management | ❌ | ✅ | ✅ | ✅ | ✓ |
+| Supplier Quotation Comparison | ❌ | ✅ | ✅ | ✅ | ✓ |
+| Blanket Purchase Orders | ❌ | ❌ | ✅ | ✅ | ✓ |
+| Contract Purchasing | ❌ | ❌ | ✅ | ✅ | ✓ |
+| Approval Workflow | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Temporary Product Engine | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Product Gallery | Optional | ✓ | ✓ | ✓ | ✓ |
+| Variant Matrix | Optional | ✓ | ✓ | Fashion/Footwear | ✓ |
+| Barcode Scanning | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Supplier Catalog | Optional | ✓ | ✓ | ✓ | ✓ |
+| Rich Printing (SUPP) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Pop-out Workspace (SWMF) | ❌ | Optional | ✓ | ✓ | ✓ |
+| AI Procurement Assistant | ❌ | Optional | ✓ | ✓ | ✓ |
 
 ---
 
-## 3. SMRITI UNIVERSAL PROCUREMENT GRID (SUPG CONTRACT)
+## 3. PROCUREMENT CONFIGURATION METADATA (`SPK.configuration`)
 
-The **SMRITI Universal Procurement Grid (SUPG)** defines the enterprise data grid specification:
+```yaml
+ProcurementStudio:
+  enableTemporaryProducts: true
+  requireApprovalForMasterData: true
+  enableArticleGallery: true
+  galleryView: grid
+  enableVariantMatrix: true
+  defaultVariantPivot: color_size
+  enableBarcodeScanner: true
+  enableSupplierCatalog: true
+  enableRichPrinting: true
+  printImages: medium
+  printQRCode: true
+  printVariantMatrix: true
+  enablePopoutWorkspace: true
+  enableAIRecommendations: false
+  duplicateDetection: strict
+  autoGenerateArticleCode: true
+  autoGenerateStyleCode: true
+  autoGenerateModelCode: true
+```
+
+---
+
+## 4. PROCUREMENT PERSONAS
+
+| Persona | Primary Needs & Actions |
+|---|---|
+| **Buyer** | Fast PO creation, temporary product entry, barcode scanning, variant matrix buying |
+| **Purchase Manager** | Approvals, pricing variance analysis, supplier performance evaluation |
+| **Master Data Manager** | Validate, enrich, and approve temporary products into permanent Item Master |
+| **Warehouse Inspector** | GRN verification, receipt logging, thermal barcode label printing |
+| **Finance Accountant** | GST ITC validation, landed cost calculation, supplier invoice matching |
+
+---
+
+## 5. INDUSTRY PACK ADAPTATION MATRIX
+
+| Industry | Default Item Entry Mode | Primary Entity Hierarchy |
+|---|---|---|
+| **Apparel** | Article ➔ Color × Size Matrix | Article ➔ Style ➔ Color ➔ Size |
+| **Footwear** | Style ➔ Color × Size Matrix | Style ➔ Brand ➔ Color ➔ Size |
+| **Jewellery** | Design ➔ Purity ➔ Size | Design ➔ Gold Purity ➔ Net Weight |
+| **Electronics** | Model ➔ Serial Number | Model ➔ Brand ➔ Serial / IMEI |
+| **Furniture** | Model ➔ Finish ➔ Dimension | Model ➔ Wood Type ➔ Finish ➔ Dimensions |
+| **Grocery** | SKU / Barcode | SKU ➔ EAN Barcode ➔ Unit |
+| **Pharmacy** | Product ➔ Batch ➔ Expiry | Drug ➔ Composition ➔ Batch ➔ Expiry |
+| **Restaurant** | Ingredient / Recipe Item | Raw Material ➔ Recipe Ingredient ➔ UOM |
+
+---
+
+## 6. SMRITI UNIVERSAL PROCUREMENT GRID (SUPG CONTRACT)
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -73,7 +130,42 @@ The **SMRITI Universal Procurement Grid (SUPG)** defines the enterprise data gri
 
 ---
 
-## 4. SWMF — SMRITI WORKSPACE MANAGEMENT FRAMEWORK
+## 7. END-TO-END ENTERPRISE WORKFLOW
+
+```text
+Dashboard ──► Purchase Order ──► Add Existing Product / Multi-Mode Entry
+                                        │
+                                        ├─► Add New Article ──┐
+                                        ├─► Add New Style    ├──► Temporary Product Engine
+                                        └─► Add New Model   ──┘          │
+                                                                         ▼
+                                                           Variant Matrix Entry (Color x Size)
+                                                                         │
+                                                                         ▼
+                                                              Visual Product Gallery
+                                                                         │
+                                                                         ▼
+                                                              Submit Purchase Order
+                                                                         │
+                                                                         ▼
+                                                              Approval Workflow Queue
+                                                                         │
+                                                                         ▼
+                                                            Create Permanent Item Master
+                                                                         │
+                                                                         ▼
+                                                               SUPP Rich Printing
+                                                                         │
+                                                                         ▼
+                                                               GRN / Goods Receipt
+                                                                         │
+                                                                         ▼
+                                                               Accounts Payable
+```
+
+---
+
+## 8. SWMF — SMRITI WORKSPACE MANAGEMENT FRAMEWORK
 
 Multi-window and pop-out support is governed by **SWMF (SMRITI Workspace Management Framework v1.0)**:
 
@@ -82,27 +174,9 @@ Multi-window and pop-out support is governed by **SWMF (SMRITI Workspace Managem
 WindowManager.openTabStandalone("purchase", "SMRITI Procurement Studio");
 ```
 
-- Launches a dedicated browser window (`/?popout=purchase`).
-- Restores geometry (width, height, X/Y screen coordinates).
-- Establishes two-way state synchronization via BroadcastChannel (`smriti_sawf_window_channel`).
-
 ---
 
-## 5. WORKSPACE TELEMETRY & METRICS
-
-Procurement Studio collects real-time operational telemetry for UX optimization:
-
-- **Workspace Open Time**: Initial load latency (< 500 ms target).
-- **Toolbar Action Frequency**: Click counts on F-keys and action buttons.
-- **Grid Edit Count**: Total line-item cell updates per session.
-- **Rows Added / Deleted**: Line-item creation and removal frequency.
-- **Save / Submit / Print Latencies**: Performance SLA metrics.
-- **SWMF Pop-out Launch Count**: Frequency of multi-window workspace usage.
-- **Auto Save Frequency**: Background save success rates.
-
----
-
-## 6. AI READINESS & EXTENSION POINTS (`SPK.ai` / UAR)
+## 9. AI READINESS & EXTENSION POINTS (`SPK.ai` / UAR)
 
 Procurement Studio delegates all AI Advisory skills exclusively through the **Universal AI Skill Registry (`SPK.ai`)** in compliance with Rule AOP-001 (AI Optionality Principle):
 
@@ -117,7 +191,7 @@ Procurement Studio delegates all AI Advisory skills exclusively through the **Un
 
 ---
 
-## 7. MANDATORY UI REGRESSION CHECKLIST
+## 10. MANDATORY UI REGRESSION CHECKLIST
 
 - [x] **Hero Banner**: Fits in a single row (~55px height) with title, subtitle, desk role, and tax jurisdiction badge.
 - [x] **Subtab Bar**: Single horizontal toolbar row (42px height) without line wrapping.

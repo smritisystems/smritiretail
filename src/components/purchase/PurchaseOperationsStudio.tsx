@@ -1,13 +1,13 @@
 /**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
- * Component    : PurchaseOperationsStudio (Unified Enterprise Purchase Studio — Multi-Mode Selection & Variant Matrix v6.0)
- * Description  : Enterprise Procurement Studio supporting multi-mode item entry (+ Add Items dropdown),
- *                Fashion / Apparel Variant Matrix Entry (Color × Size Grid), Pivot View Modes,
- *                and metadata-driven SPK.entities integration.
+ * Component    : PurchaseOperationsStudio (Unified Enterprise Purchase Studio — Constitutional Edition v7.0)
+ * Description  : Enterprise Procurement Studio featuring On-the-Fly Temporary Product Engine (+New Article/Style/Model),
+ *                Master Data Approval Queue, Collapsible Visual Product Gallery, Metadata Studio Configuration,
+ *                and SWMF / SUPP Printing integration.
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Version      : 6.0.0
+ * Version      : 7.0.0
  * License      : Proprietary Commercial Software
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  */
@@ -38,7 +38,15 @@ import {
   Tag,
   Package,
   X,
-  Check
+  Check,
+  CheckCircle2,
+  AlertCircle,
+  Image as ImageIcon,
+  Sliders,
+  Filter,
+  Eye,
+  ShieldCheck,
+  QrCode
 } from "lucide-react";
 import { Product } from "../../types.js";
 import { PrintingService, PrintDocument } from "../../core/printing/index.js";
@@ -53,10 +61,13 @@ export type AddItemMode =
   | "MATRIX"
   | "BRAND"
   | "CATEGORY"
-  | "CATALOG"
-  | "EXCEL";
+  | "EXCEL"
+  | "NEW_ARTICLE"
+  | "NEW_STYLE"
+  | "NEW_MODEL";
 
 export type PivotViewMode = "STANDARD" | "SIZE" | "COLOR" | "ARTICLE" | "STYLE";
+export type ItemFilterMode = "ALL" | "EXISTING" | "NEW_ARTICLE" | "PENDING_APPROVAL";
 
 export interface PurchaseItemRow {
   id: string;
@@ -74,6 +85,11 @@ export interface PurchaseItemRow {
   color?: string;
   size?: string;
   style?: string;
+  brand?: string;
+  imageUrl?: string;
+  isTemporary?: boolean;
+  tempType?: "NEW_ARTICLE" | "NEW_STYLE" | "NEW_MODEL";
+  approvalStatus?: "PENDING_APPROVAL" | "APPROVED" | "REJECTED";
 }
 
 export interface SupplierInfo {
@@ -150,15 +166,43 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
   const [currency] = useState<string>("INR - Indian Rupee");
   const [priceList] = useState<string>("Standard Buying");
 
+  // Metadata Configuration Settings
+  const [showConfigModal, setShowConfigModal] = useState<boolean>(false);
+  const [studioConfig, setStudioConfig] = useState({
+    allowOntheFlyArticle: true,
+    requireMasterApproval: true,
+    showProductGallery: true,
+    printImagesInPO: true,
+    includeQRCodeInPO: true,
+    defaultGalleryView: "GRID" as "GRID" | "LIST",
+  });
+
   // UI Multi-Mode States
   const [showAddItemsMenu, setShowAddItemsMenu] = useState<boolean>(false);
   const [showVariantMatrixModal, setShowVariantMatrixModal] = useState<boolean>(false);
   const [showItemPickerModal, setShowItemPickerModal] = useState<boolean>(false);
+  const [showNewArticleModal, setShowNewArticleModal] = useState<boolean>(false);
   const [pivotViewMode, setPivotViewMode] = useState<PivotViewMode>("STANDARD");
+  const [itemFilterMode, setItemFilterMode] = useState<ItemFilterMode>("ALL");
+  const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
 
   // Bottom Tabs State
   const [activeBottomTab, setActiveBottomTab] = useState<"taxes" | "shipping" | "terms" | "attachments" | "notes">("taxes");
   const [notesText, setNotesText] = useState<string>(initialData?.notes || "");
+
+  // On-the-Fly New Article Form State
+  const [newArticleForm, setNewArticleForm] = useState({
+    articleCode: "ART-2026-X",
+    articleName: "Linen Summer Casual Shirt",
+    style: "Casual Fit",
+    brand: "SMRITI Line",
+    hsn: "6105",
+    uom: "Pcs",
+    buyingRate: 920,
+    gstRate: 12,
+    color: "Sky Blue",
+    size: "L",
+  });
 
   // Item List State
   const [items, setItems] = useState<PurchaseItemRow[]>(
@@ -179,6 +223,10 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
         color: "Black",
         size: "M",
         style: "Polo T-Shirt",
+        brand: "SMRITI Fashion",
+        imageUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=150&auto=format&fit=crop&q=60",
+        isTemporary: false,
+        approvalStatus: "APPROVED",
       },
       {
         id: "2",
@@ -196,28 +244,121 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
         color: "Blue",
         size: "L",
         style: "Polo T-Shirt",
+        brand: "SMRITI Fashion",
+        imageUrl: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=150&auto=format&fit=crop&q=60",
+        isTemporary: false,
+        approvalStatus: "APPROVED",
       },
       {
         id: "3",
-        itemCode: "SH-205-BRN-42",
-        itemName: "Oxford Leather Shoe (Brown / 42)",
-        hsn: "6403",
+        itemCode: "TEMP-ART-9901-WHT-XL",
+        itemName: "Designer Silk Blend Shirt (White / XL)",
+        hsn: "6205",
         warehouse: "Main Warehouse",
-        uom: "Pair",
-        qty: 10,
-        rate: 2450.00,
+        uom: "Pcs",
+        qty: 30,
+        rate: 1450.00,
         discountPercent: 0,
-        gstRate: 18,
+        gstRate: 12,
         taxType: "IGST",
-        articleCode: "SH-205",
-        color: "Brown",
-        size: "42",
-        style: "Oxford Leather",
+        articleCode: "ART-9901",
+        color: "White",
+        size: "XL",
+        style: "Silk Blend",
+        brand: "Haute Couture",
+        imageUrl: "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=150&auto=format&fit=crop&q=60",
+        isTemporary: true,
+        tempType: "NEW_ARTICLE",
+        approvalStatus: "PENDING_APPROVAL",
       },
     ]
   );
 
   const [selectedItemIds, setSelectedItemIds] = useState<Record<string, boolean>>({});
+
+  // Filtered Item List based on Quick Filter Counters
+  const filteredItems = useMemo(() => {
+    if (itemFilterMode === "EXISTING") {
+      return items.filter((i) => !i.isTemporary);
+    }
+    if (itemFilterMode === "NEW_ARTICLE") {
+      return items.filter((i) => i.isTemporary);
+    }
+    if (itemFilterMode === "PENDING_APPROVAL") {
+      return items.filter((i) => i.approvalStatus === "PENDING_APPROVAL");
+    }
+    return items;
+  }, [items, itemFilterMode]);
+
+  // Counts of Temporary vs Approved Products
+  const tempCounts = useMemo(() => {
+    const newArticles = items.filter((i) => i.isTemporary).length;
+    const pendingApproval = items.filter((i) => i.approvalStatus === "PENDING_APPROVAL").length;
+    return {
+      total: items.length,
+      existing: items.length - newArticles,
+      newArticles,
+      pendingApproval,
+    };
+  }, [items]);
+
+  // Handle Master Data Approval (Promote Temporary Product to Item Master)
+  const handleApproveMasterItems = () => {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.isTemporary) {
+          return {
+            ...item,
+            isTemporary: false,
+            approvalStatus: "APPROVED",
+            itemCode: item.itemCode.replace("TEMP-", ""),
+          };
+        }
+        return item;
+      })
+    );
+    if (onNotification)
+      onNotification(
+        "Master Data Approved",
+        "Promoted temporary procurement products into Item Master registry!",
+        "success"
+      );
+  };
+
+  // Create On-the-Fly Temporary Article
+  const handleCreateTemporaryArticle = () => {
+    const newItem: PurchaseItemRow = {
+      id: String(Date.now()),
+      itemCode: `TEMP-${newArticleForm.articleCode}-${newArticleForm.color.substring(0, 3).toUpperCase()}-${newArticleForm.size}`,
+      itemName: `${newArticleForm.articleName} (${newArticleForm.color} / ${newArticleForm.size})`,
+      hsn: newArticleForm.hsn,
+      warehouse: warehouse,
+      uom: newArticleForm.uom,
+      qty: 12,
+      rate: newArticleForm.buyingRate,
+      discountPercent: 0,
+      gstRate: newArticleForm.gstRate,
+      taxType: "CGST_SGST",
+      articleCode: newArticleForm.articleCode,
+      color: newArticleForm.color,
+      size: newArticleForm.size,
+      style: newArticleForm.style,
+      brand: newArticleForm.brand,
+      isTemporary: true,
+      tempType: "NEW_ARTICLE",
+      approvalStatus: "PENDING_APPROVAL",
+    };
+
+    setItems((prev) => [...prev, newItem]);
+    setShowNewArticleModal(false);
+    setShowAddItemsMenu(false);
+    if (onNotification)
+      onNotification(
+        "Temporary Article Created",
+        `Added new temporary article ${newItem.articleCode} to PO. Marked as PENDING APPROVAL.`,
+        "success"
+      );
+  };
 
   // Variant Matrix Modal State (Color × Size Grid)
   const [selectedArticle, setSelectedArticle] = useState({
@@ -252,7 +393,6 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
     }));
   };
 
-  // Generate Individual Purchase Line Items from Variant Matrix
   const handleGenerateMatrixLines = () => {
     const newLines: PurchaseItemRow[] = [];
     let totalAddedQty = 0;
@@ -281,6 +421,8 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
             color: color,
             size: size,
             style: selectedArticle.style,
+            isTemporary: false,
+            approvalStatus: "APPROVED",
           });
         }
       });
@@ -320,10 +462,14 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
     }));
   };
 
-  // Add Item Handler
   const handleAddItem = (prod?: Product, mode: AddItemMode = "CODE") => {
     if (mode === "MATRIX") {
       setShowVariantMatrixModal(true);
+      setShowAddItemsMenu(false);
+      return;
+    }
+    if (mode === "NEW_ARTICLE") {
+      setShowNewArticleModal(true);
       setShowAddItemsMenu(false);
       return;
     }
@@ -342,6 +488,8 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
           gstRate: prod.gstPercentage || 18,
           taxType: "CGST_SGST",
           articleCode: prod.code || "ART-100",
+          isTemporary: false,
+          approvalStatus: "APPROVED",
         }
       : {
           id: String(Date.now()),
@@ -359,6 +507,8 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
           color: "Black",
           size: "L",
           style: "Polo Fit",
+          isTemporary: false,
+          approvalStatus: "APPROVED",
         };
 
     setItems((prev) => [...prev, newItem]);
@@ -489,6 +639,9 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
       } else if (e.key === "F7") {
         e.preventDefault();
         setShowVariantMatrixModal(true);
+      } else if (e.key === "F8") {
+        e.preventDefault();
+        setShowNewArticleModal(true);
       } else if (e.key === "F9") {
         e.preventDefault();
         setStatus("DRAFT");
@@ -533,7 +686,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
           </span>
         </div>
 
-        {/* Right Actions & PO Number */}
+        {/* Right Actions & Studio Config Button */}
         <div className="flex items-center space-x-2 text-xs">
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" />
@@ -568,6 +721,13 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
           >
             <Printer className="w-3.5 h-3.5 mr-1" />
             Print
+          </button>
+          <button
+            onClick={() => setShowConfigModal(true)}
+            className="p-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md cursor-pointer"
+            title="Procurement Studio Configuration"
+          >
+            <Sliders className="w-3.5 h-3.5 text-indigo-600" />
           </button>
           <div className="pl-2 border-l border-slate-200 text-right">
             <span className="text-[10px] text-slate-400 font-bold block uppercase">PO No.</span>
@@ -664,13 +824,66 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
         </div>
       </div>
 
-      {/* ================= ITEMS DATA TABLE CARD (WITH MULTI-MODE + VARIANT MATRIX ENTRY) ================= */}
+      {/* ================= QUICK FILTER PILLS & TEMPORARY PRODUCT APPROVAL BAR ================= */}
+      <div className="bg-white border border-slate-200 rounded-xl p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs">
+        {/* Filter Counters */}
+        <div className="flex items-center space-x-1.5">
+          <span className="text-[10px] font-bold text-slate-400 uppercase mr-1">Product Filters:</span>
+          <button
+            onClick={() => setItemFilterMode("ALL")}
+            className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer ${
+              itemFilterMode === "ALL" ? "bg-blue-600 text-white shadow-2xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            }`}
+          >
+            All ({tempCounts.total})
+          </button>
+          <button
+            onClick={() => setItemFilterMode("EXISTING")}
+            className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer ${
+              itemFilterMode === "EXISTING" ? "bg-blue-600 text-white shadow-2xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            }`}
+          >
+            Existing ({tempCounts.existing})
+          </button>
+          <button
+            onClick={() => setItemFilterMode("NEW_ARTICLE")}
+            className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer flex items-center space-x-1 ${
+              itemFilterMode === "NEW_ARTICLE" ? "bg-amber-600 text-white shadow-2xs" : "bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
+            }`}
+          >
+            <Sparkles className="w-3 h-3 text-amber-500 mr-0.5" />
+            <span>New Articles ({tempCounts.newArticles})</span>
+          </button>
+          <button
+            onClick={() => setItemFilterMode("PENDING_APPROVAL")}
+            className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer flex items-center space-x-1 ${
+              itemFilterMode === "PENDING_APPROVAL" ? "bg-rose-600 text-white shadow-2xs" : "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
+            }`}
+          >
+            <AlertCircle className="w-3 h-3 text-rose-500 mr-0.5" />
+            <span>Pending Approval ({tempCounts.pendingApproval})</span>
+          </button>
+        </div>
+
+        {/* Master Data Approval Button */}
+        {tempCounts.pendingApproval > 0 && (
+          <button
+            onClick={handleApproveMasterItems}
+            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] flex items-center cursor-pointer shadow-xs"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 mr-1" />
+            Approve & Generate Item Master ({tempCounts.pendingApproval})
+          </button>
+        )}
+      </div>
+
+      {/* ================= ITEMS DATA TABLE CARD ================= */}
       <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <ShoppingCart className="w-4 h-4" />
-              <span>Items ({items.length})</span>
+              <span>Items ({filteredItems.length})</span>
             </div>
 
             {/* Pivot View Selector */}
@@ -713,7 +926,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
               {/* Multi-Mode Dropdown Menu */}
               {showAddItemsMenu && (
-                <div className="absolute left-0 top-full mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-1 text-xs space-y-0.5">
+                <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-1 text-xs space-y-0.5">
                   <div className="text-[10px] font-bold text-slate-400 uppercase px-2 py-1 tracking-wider border-b border-slate-100">
                     Selection Entry Mode
                   </div>
@@ -721,14 +934,21 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                     onClick={() => handleAddItem(undefined, "MATRIX")}
                     className="w-full text-left px-2.5 py-1.5 hover:bg-blue-50 rounded-lg flex items-center justify-between text-blue-700 font-bold"
                   >
-                    <span className="flex items-center"><Grid className="w-3.5 h-3.5 mr-2 text-indigo-600" />By Variant Matrix (Color × Size)</span>
+                    <span className="flex items-center"><Grid className="w-3.5 h-3.5 mr-2 text-indigo-600" />Variant Matrix (Color × Size)</span>
                     <span className="text-[9px] bg-indigo-100 text-indigo-800 px-1 rounded font-mono">RECOMMENDED</span>
+                  </button>
+                  <button
+                    onClick={() => handleAddItem(undefined, "NEW_ARTICLE")}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-amber-50 rounded-lg flex items-center justify-between text-amber-800 font-bold border-t border-slate-100"
+                  >
+                    <span className="flex items-center"><Sparkles className="w-3.5 h-3.5 mr-2 text-amber-600" />+ Create On-the-Fly Article (F8)</span>
+                    <span className="text-[9px] bg-amber-100 text-amber-800 px-1 rounded font-mono">TEMP</span>
                   </button>
                   <button
                     onClick={() => handleAddItem(undefined, "ARTICLE")}
                     className="w-full text-left px-2.5 py-1.5 hover:bg-slate-100 rounded-lg flex items-center text-slate-700 font-semibold"
                   >
-                    <Tag className="w-3.5 h-3.5 mr-2 text-slate-500" />By Article Code
+                    <Tag className="w-3.5 h-3.5 mr-2 text-slate-500" />By Existing Article
                   </button>
                   <button
                     onClick={() => handleAddItem(undefined, "BARCODE")}
@@ -741,12 +961,6 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                     className="w-full text-left px-2.5 py-1.5 hover:bg-slate-100 rounded-lg flex items-center text-slate-700 font-semibold"
                   >
                     <Package className="w-3.5 h-3.5 mr-2 text-slate-500" />By Style / Model
-                  </button>
-                  <button
-                    onClick={() => handleAddItem(undefined, "BRAND")}
-                    className="w-full text-left px-2.5 py-1.5 hover:bg-slate-100 rounded-lg flex items-center text-slate-700 font-semibold"
-                  >
-                    <Building2 className="w-3.5 h-3.5 mr-2 text-slate-500" />By Brand / Category
                   </button>
                   <button
                     onClick={() => handleAddItem(undefined, "EXCEL")}
@@ -783,7 +997,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
           </div>
         </div>
 
-        {/* Data Table with Article & Color/Size Variant Columns */}
+        {/* Data Table */}
         <div className="overflow-x-auto border border-slate-200 rounded-lg smriti-custom-scroll">
           <table className="w-full text-left text-xs border-collapse min-w-[950px]">
             <thead>
@@ -795,8 +1009,8 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                 <th className="py-1.5 px-2">Article / SKU *</th>
                 <th className="py-1.5 px-2">Item Description *</th>
                 <th className="py-1.5 px-2">Color / Size</th>
+                <th className="py-1.5 px-2 text-center">Master Status</th>
                 <th className="py-1.5 px-2">Warehouse *</th>
-                <th className="py-1.5 px-2">UOM</th>
                 <th className="py-1.5 px-2 text-right">Qty *</th>
                 <th className="py-1.5 px-2 text-right">Rate (INR) *</th>
                 <th className="py-1.5 px-2 text-right">Discount %</th>
@@ -805,13 +1019,20 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-[11px]">
-              {items.map((item, idx) => {
+              {filteredItems.map((item, idx) => {
                 const gross = item.qty * item.rate;
                 const disc = (gross * (item.discountPercent || 0)) / 100;
                 const lineTotal = gross - disc;
+                const isHighlighted = highlightedItemId === item.id;
 
                 return (
-                  <tr key={item.id} className="hover:bg-blue-50/40 transition-colors">
+                  <tr
+                    key={item.id}
+                    onClick={() => setHighlightedItemId(item.id)}
+                    className={`transition-colors cursor-pointer ${
+                      isHighlighted ? "bg-amber-100/70 border-l-4 border-amber-500" : "hover:bg-blue-50/40"
+                    }`}
+                  >
                     <td className="py-1 px-2 text-center">
                       <input
                         type="checkbox"
@@ -841,6 +1062,19 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                       )}
                     </td>
 
+                    {/* Temporary Product Master Status Badge */}
+                    <td className="py-1 px-2 text-center">
+                      {item.isTemporary ? (
+                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-300 rounded text-[9px] font-mono font-extrabold animate-pulse">
+                          NEW ARTICLE (PENDING)
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[9px] font-mono font-bold">
+                          APPROVED MASTER
+                        </span>
+                      )}
+                    </td>
+
                     <td className="py-1 px-2">
                       <select
                         value={item.warehouse}
@@ -851,7 +1085,6 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                         <option value="Central Store">Central Store</option>
                       </select>
                     </td>
-                    <td className="py-1 px-2 text-slate-600">{item.uom}</td>
 
                     <td className="py-1 px-2 text-right">
                       <input
@@ -933,6 +1166,61 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
           </div>
         </div>
       </div>
+
+      {/* ================= BOTTOM COLLAPSIBLE VISUAL PRODUCT GALLERY ================= */}
+      {studioConfig.showProductGallery && (
+        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+            <div className="flex items-center space-x-2 text-indigo-600 font-bold text-xs uppercase tracking-wide">
+              <ImageIcon className="w-4 h-4" />
+              <span>Article & Visual Product Gallery ({items.length})</span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-mono">Bi-directional Interactive Highlighting Active</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+            {items.map((item) => {
+              const isSelected = highlightedItemId === item.id;
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => setHighlightedItemId(item.id)}
+                  className={`p-2 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
+                    isSelected
+                      ? "bg-amber-50 border-amber-500 ring-2 ring-amber-400/40 shadow-sm"
+                      : "bg-slate-50 border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="space-y-1">
+                    <div className="h-24 w-full bg-slate-200 rounded-lg overflow-hidden relative flex items-center justify-center">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.itemName} className="h-full w-full object-cover" />
+                      ) : (
+                        <Package className="w-8 h-8 text-slate-400" />
+                      )}
+                      {item.isTemporary && (
+                        <span className="absolute top-1 left-1 bg-amber-600 text-white font-mono font-bold text-[8px] px-1 rounded shadow-xs">
+                          NEW
+                        </span>
+                      )}
+                    </div>
+                    <div className="font-bold text-slate-900 text-xs truncate">{item.itemName}</div>
+                    <div className="text-[10px] text-slate-500 font-mono flex items-center justify-between">
+                      <span>{item.articleCode || item.itemCode}</span>
+                      <span className="font-bold text-indigo-600">{item.size || "M"}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-1.5 mt-1 border-t border-slate-200/60 flex items-center justify-between text-[10px]">
+                    <span className="font-bold text-slate-600 font-mono">{item.qty} Pcs</span>
+                    <span className="font-bold text-emerald-600 font-mono">₹ {item.rate}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ================= BOTTOM SPLIT SECTION (TAXES BREAKDOWN + RIGHT DOCKED SUMMARY CARD) ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
@@ -1082,11 +1370,116 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
         </div>
       </div>
 
+      {/* ================= ON-THE-FLY NEW ARTICLE CREATION MODAL ================= */}
+      {showNewArticleModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm">Create On-the-Fly Article (Temporary)</h3>
+                  <p className="text-xs text-slate-500">Add a new article specification directly to PO without pre-existing Item Master.</p>
+                </div>
+              </div>
+              <button onClick={() => setShowNewArticleModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Article Code *</label>
+                  <input
+                    type="text"
+                    value={newArticleForm.articleCode}
+                    onChange={(e) => setNewArticleForm({ ...newArticleForm, articleCode: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Article Name *</label>
+                  <input
+                    type="text"
+                    value={newArticleForm.articleName}
+                    onChange={(e) => setNewArticleForm({ ...newArticleForm, articleName: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Style / Fit</label>
+                  <input
+                    type="text"
+                    value={newArticleForm.style}
+                    onChange={(e) => setNewArticleForm({ ...newArticleForm, style: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Color</label>
+                  <input
+                    type="text"
+                    value={newArticleForm.color}
+                    onChange={(e) => setNewArticleForm({ ...newArticleForm, color: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Size</label>
+                  <input
+                    type="text"
+                    value={newArticleForm.size}
+                    onChange={(e) => setNewArticleForm({ ...newArticleForm, size: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Buying Rate (₹) *</label>
+                  <input
+                    type="number"
+                    value={newArticleForm.buyingRate}
+                    onChange={(e) => setNewArticleForm({ ...newArticleForm, buyingRate: parseFloat(e.target.value) || 0 })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold text-blue-700"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">GST Rate %</label>
+                  <input
+                    type="number"
+                    value={newArticleForm.gstRate}
+                    onChange={(e) => setNewArticleForm({ ...newArticleForm, gstRate: parseFloat(e.target.value) || 0 })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button onClick={() => setShowNewArticleModal(false)} className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-xl font-bold">
+                Cancel
+              </button>
+              <button onClick={handleCreateTemporaryArticle} className="px-5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold flex items-center shadow-md">
+                <Check className="w-4 h-4 mr-1" />
+                Add Temporary Article
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ================= FASHION / FOOTWEAR VARIANT MATRIX ENTRY MODAL ================= */}
       {showVariantMatrixModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-4xl w-full p-5 space-y-4 shadow-2xl border border-slate-200">
-            {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-2">
                 <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
@@ -1105,7 +1498,6 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               </button>
             </div>
 
-            {/* Article Details Card */}
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase block">Article Code</span>
@@ -1140,7 +1532,6 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               </div>
             </div>
 
-            {/* 2D Matrix Grid Table (Colors × Sizes) */}
             <div className="overflow-x-auto border border-slate-200 rounded-xl smriti-custom-scroll">
               <table className="w-full text-center text-xs border-collapse">
                 <thead>
@@ -1196,26 +1587,107 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               </table>
             </div>
 
-            {/* Modal Actions Footer */}
             <div className="flex items-center justify-between pt-2 border-t border-slate-100">
               <div className="text-xs text-slate-600 font-semibold">
                 Total Matrix Items: <span className="font-mono font-bold text-blue-700">{Object.values(matrixQtyMap).reduce((a, b) => a + (b || 0), 0)} Pcs</span>
               </div>
               <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setShowVariantMatrixModal(false)}
-                  className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
-                >
+                <button onClick={() => setShowVariantMatrixModal(false)} className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold cursor-pointer">
                   Cancel
                 </button>
-                <button
-                  onClick={handleGenerateMatrixLines}
-                  className="px-5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center shadow-md"
-                >
+                <button onClick={handleGenerateMatrixLines} className="px-5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center shadow-md">
                   <Check className="w-4 h-4 mr-1" />
                   Generate Purchase Lines
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= PROCUREMENT STUDIO CONFIGURATION MODAL ================= */}
+      {showConfigModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm">Procurement Studio Metadata Configuration</h3>
+                  <p className="text-xs text-slate-500">Configure operational rules, approval queues, gallery views, and SUPP print profiles.</p>
+                </div>
+              </div>
+              <button onClick={() => setShowConfigModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div>
+                  <div className="font-bold text-slate-800">On-the-Fly Article Creation</div>
+                  <div className="text-[11px] text-slate-500">Allow buyers to add temporary articles without pre-existing Item Master</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={studioConfig.allowOntheFlyArticle}
+                  onChange={(e) => setStudioConfig({ ...studioConfig, allowOntheFlyArticle: e.target.checked })}
+                  className="rounded border-slate-300 w-4 h-4"
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div>
+                  <div className="font-bold text-slate-800">Require Master Approval Queue</div>
+                  <div className="text-[11px] text-slate-500">Require manager review before promoting temporary items into Item Master</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={studioConfig.requireMasterApproval}
+                  onChange={(e) => setStudioConfig({ ...studioConfig, requireMasterApproval: e.target.checked })}
+                  className="rounded border-slate-300 w-4 h-4"
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div>
+                  <div className="font-bold text-slate-800">Show Visual Product Gallery</div>
+                  <div className="text-[11px] text-slate-500">Display bottom interactive article & product gallery</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={studioConfig.showProductGallery}
+                  onChange={(e) => setStudioConfig({ ...studioConfig, showProductGallery: e.target.checked })}
+                  className="rounded border-slate-300 w-4 h-4"
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div>
+                  <div className="font-bold text-slate-800">SUPP Print Product Images</div>
+                  <div className="text-[11px] text-slate-500">Include article images in thermal & A4 printouts</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={studioConfig.printImagesInPO}
+                  onChange={(e) => setStudioConfig({ ...studioConfig, printImagesInPO: e.target.checked })}
+                  className="rounded border-slate-300 w-4 h-4"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                onClick={() => {
+                  setShowConfigModal(false);
+                  if (onNotification) onNotification("Config Saved", "Procurement metadata studio settings updated", "success");
+                }}
+                className="px-5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold"
+              >
+                Save Preferences
+              </button>
             </div>
           </div>
         </div>
