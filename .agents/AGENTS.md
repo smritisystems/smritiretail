@@ -123,6 +123,22 @@ Every completion claim must be backed by directly observable evidence. If eviden
    - `UDR`: Universal Dashboard Registry (`SPK.dashboard`)
    - `UAR`: Universal AI Skill Registry (`SPK.ai`)
 
+## 12. Universal Form Registry Governance (UFR Standard v1.0 — FROZEN)
+1. **Metadata-Driven Forms Only (UFR-001 — MANDATORY)**:
+   - Forms MUST NEVER be constructed as handcrafted TSX forms. All form sections, field spans, and labels MUST be declared in UPR metadata (`FormRegistry` / `SPK.forms`).
+2. **Universal Entity Definition Framework (UFR-002 — MANDATORY)**:
+   - Business entities, fields, data types, and primary keys MUST be defined exclusively in `EntityRegistry` (`UEDF` / `SPK.entities`).
+3. **Registry-Driven Field Control Resolution (UFR-003 — MANDATORY)**:
+   - UI input controls MUST be resolved exclusively through `FieldRegistry` (`SPK.fields.getFieldControl()`). Handcrafted `switch(field.type)` statements in UI components are strictly prohibited.
+4. **Centralized Validation Engine Execution (UFR-004 — MANDATORY)**:
+   - Form validation rules (required, min, max, email, GSTIN, PAN, mobile, custom) MUST execute exclusively through `ValidationRegistry` (`SPK.validation`).
+5. **Declarative Layout Grid Resolution (UFR-005 — MANDATORY)**:
+   - Form and section responsive grid spans and column breakpoints MUST be resolved exclusively through `LayoutRegistry` (`SPK.layouts`).
+6. **Business-Agnostic Renderer Component (UFR-006 — MANDATORY)**:
+   - `UniversalFormRenderer` MUST remain 100% generic and contain zero domain-specific or hardcoded business logic.
+7. **UFR Standard v1.0 Status (FROZEN)**:
+   - Rules `UFR-001` through `UFR-006` are officially **FROZEN v1.0**.
+
 ---
 
 
