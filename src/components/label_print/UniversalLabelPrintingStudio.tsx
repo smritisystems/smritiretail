@@ -69,8 +69,9 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
   const [fixedCopies, setFixedCopies] = useState<number>(1);
 
   // Apparel/Footwear Size Allocation Pivot Matrix State
+  const [pivotBasis, setPivotBasis] = useState<string>("styleCode");
   const [pivotArticle, setPivotArticle] = useState<string>("");
-  const [pivotColor, setPivotColor] = useState<string>("");
+  const [pivotColor, setPivotColor] = useState<string>("ALL");
   const [pivotQuantities, setPivotQuantities] = useState<Record<string, number>>({});
 
   // Printer & Template configuration
@@ -134,35 +135,76 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
       .join("\n\n");
   }, [selectedItemsList, itemCopies, copiesMode, fixedCopies, activeTemplate]);
 
-  // Unique Base Articles for Pivot Matrix
-  const baseArticles = useMemo(() => {
+  const resolveBaseValue = (product: Product) => {
+    if (pivotBasis === "styleCode") return product.styleCode || product.code || "";
+    if (pivotBasis === "modelNo") return ((product as any).modelNo as string) || product.code || "";
+    if (pivotBasis === "articleNo") return ((product as any).articleNo as string) || product.code || "";
+    if (pivotBasis === "brand") return product.brand || product.code || "";
+    if (pivotBasis === "category") return product.category || "";
+    if (pivotBasis.startsWith("attr:")) {
+      const attrKey = pivotBasis.slice(5);
+      return product.attributes?.[attrKey] || "";
+    }
+    return product.code || "";
+  };
+
+  // Unique Base values for Pivot Matrix based on chosen basis
+  const baseOptions = useMemo(() => {
     const set = new Set<string>();
     products.forEach((p) => {
-      if ((p as any).articleNo) set.add((p as any).articleNo);
-      else if (p.code) set.add(p.code);
+      const value = resolveBaseValue(p);
+      if (value) set.add(value);
     });
     return Array.from(set);
-  }, [products]);
+  }, [products, pivotBasis]);
 
-  // Available colors for selected base article
+  // Available colors for selected pivot base
   const availableColors = useMemo(() => {
     if (!pivotArticle) return [];
     const set = new Set<string>();
     products
-      .filter((p) => (p as any).articleNo === pivotArticle || p.code === pivotArticle)
+      .filter((p) => resolveBaseValue(p) === pivotArticle)
       .forEach((p) => {
         if (p.color) set.add(p.color);
       });
     return Array.from(set);
-  }, [products, pivotArticle]);
+  }, [products, pivotArticle, pivotBasis]);
 
-  // Variant size allocation list for selected article & color
-  const matrixVariants = useMemo(() => {
-    if (!pivotArticle || !pivotColor) return [];
-    return products.filter(
-      (p) => ((p as any).articleNo === pivotArticle || p.code === pivotArticle) && p.color === pivotColor
-    );
-  }, [products, pivotArticle, pivotColor]);
+  const pivotProducts = useMemo(() => {
+    if (!pivotArticle) return [];
+    return products.filter((p) => {
+      const matchesBase = resolveBaseValue(p) === pivotArticle;
+      const matchesColor = !pivotColor || pivotColor === "ALL" ? true : p.color === pivotColor;
+      return matchesBase && matchesColor;
+    });
+  }, [products, pivotArticle, pivotColor, pivotBasis]);
+
+  const pivotSizes = useMemo(() => {
+    const set = new Set<string>();
+    pivotProducts.forEach((p) => set.add(p.size || "OS"));
+    return Array.from(set);
+  }, [pivotProducts]);
+
+  const pivotColorColumns = useMemo(() => {
+    const set = new Set<string>();
+    pivotProducts.forEach((p) => set.add(p.color || "N/A"));
+    return Array.from(set);
+  }, [pivotProducts]);
+
+  const findPivotVariant = (size: string, color: string) => {
+    return pivotProducts.find((p) => (p.size || "OS") === size && (p.color || "N/A") === color);
+  };
+
+  const pivotMatrixRows = useMemo(() => {
+    return pivotSizes.map((size) => ({
+      size,
+      variants: pivotColorColumns.map((color) => findPivotVariant(size, color)),
+    }));
+  }, [pivotSizes, pivotColorColumns]);
+
+  const totalPivotSelectionCount = useMemo(() => {
+    return pivotProducts.reduce((sum, product) => sum + (pivotQuantities[product.id] || 0), 0);
+  }, [pivotProducts, pivotQuantities]);
 
   // Handlers
   const handleToggleSelectAll = () => {
@@ -184,7 +226,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
     const nextSelected = new Set(selectedProductIds);
     const nextCopies = { ...itemCopies };
 
-    matrixVariants.forEach((v) => {
+    pivotProducts.forEach((v) => {
       const qty = pivotQuantities[v.id] || 0;
       if (qty > 0) {
         nextSelected.add(v.id);
@@ -244,9 +286,9 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
   };
 
   return (
-    <div className="w-full bg-[#0B0F17] border border-theme-divider rounded-2xl overflow-hidden shadow-2xl animate-in fade-in duration-200 text-theme-body font-sans flex flex-col max-h-[92vh]">
+    <div className="w-full bg-[var(--sds-color-surface)] border border-[var(--sds-color-border)] rounded-2xl overflow-hidden shadow-2xl animate-in fade-in duration-200 text-[var(--sds-color-text-main)] font-sans flex flex-col max-h-[92vh]">
       {/* 1. SAP Fiori Sticky Object Header */}
-      <div className="bg-[#121824] border-b border-theme-divider px-6 py-4 space-y-3 shrink-0">
+      <div className="bg-[var(--sds-color-surface)] border-b border-[var(--sds-color-border)] px-6 py-4 space-y-3 shrink-0">
         {/* Breadcrumb Trail */}
         <div className="flex items-center gap-2 text-[11px] text-theme-muted font-mono">
           <span>Platform Services</span>
@@ -772,26 +814,55 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-mono text-theme-muted block mb-1">BASE PIVOT DIMENSION</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { value: "styleCode", label: "Style Code" },
+                      { value: "modelNo", label: "Model No" },
+                      { value: "articleNo", label: "Article No" },
+                      { value: "brand", label: "Brand" },
+                      { value: "category", label: "Category" },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          setPivotBasis(option.value);
+                          setPivotArticle("");
+                          setPivotColor("ALL");
+                          setPivotQuantities({});
+                        }}
+                        className={`px-3 py-2 rounded-xl border text-[11px] font-semibold transition ${pivotBasis === option.value ? "bg-indigo-600 border-indigo-500 text-white" : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:bg-theme-surface-hover"}`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
-                  <label className="text-[10px] font-mono text-theme-muted block mb-1">SELECT BASE ARTICLE</label>
+                  <label className="text-[10px] font-mono text-theme-muted block mb-1">SELECT BASE VALUE</label>
                   <select
                     value={pivotArticle}
                     onChange={(e) => {
                       setPivotArticle(e.target.value);
-                      setPivotColor("");
+                      setPivotColor("ALL");
                       setPivotQuantities({});
                     }}
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body"
                   >
-                    <option value="">-- Choose Base Article --</option>
-                    {baseArticles.map((art) => (
-                      <option key={art} value={art}>{art}</option>
+                    <option value="">-- Choose Base --</option>
+                    {baseOptions.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
                     ))}
                   </select>
                 </div>
+              </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-mono text-theme-muted block mb-1">SELECT COLOR</label>
+                  <label className="text-[10px] font-mono text-theme-muted block mb-1">COLOR FILTER</label>
                   <select
                     value={pivotColor}
                     onChange={(e) => {
@@ -801,41 +872,75 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                     disabled={!pivotArticle}
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body disabled:opacity-50"
                   >
-                    <option value="">-- Choose Color --</option>
+                    <option value="ALL">All Colors</option>
                     {availableColors.map((col) => (
                       <option key={col} value={col}>{col}</option>
                     ))}
                   </select>
                 </div>
+
+                <div className="flex items-center justify-between rounded-2xl border border-theme-divider bg-theme-surface-2 p-3">
+                  <div>
+                    <span className="text-[10px] font-mono text-theme-muted block">Total Matrix Labels</span>
+                    <span className="text-sm font-bold text-theme-heading">{totalPivotSelectionCount}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-mono text-theme-muted block">Rows × Columns</span>
+                    <span className="text-sm font-bold text-theme-heading">{pivotMatrixRows.length}×{pivotColorColumns.length}</span>
+                  </div>
+                </div>
               </div>
 
-              {pivotArticle && pivotColor && (
+              {pivotArticle && pivotMatrixRows.length > 0 && (
                 <div className="space-y-4 pt-2 border-t border-theme-divider/50">
-                  <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider">
-                    <h4 className="text-[10px] font-mono text-indigo-400 uppercase tracking-wider mb-3">SIZE ALLOCATION COPIES MATRIX</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                      {matrixVariants.map((v) => (
-                        <div key={v.id} className="bg-theme-surface-1 p-3 rounded-xl border border-theme-divider flex flex-col items-center">
-                          <span className="text-[10px] font-mono text-theme-muted">Size {v.size || "OS"}</span>
-                          <span className="text-xs font-bold text-theme-heading mt-0.5">₹{v.price}</span>
-                          <span className="text-[9px] text-emerald-400 mt-0.5">Stock: {v.stock}</span>
-                          <input
-                            type="number"
-                            min="0"
-                            value={pivotQuantities[v.id] || ""}
-                            placeholder="0"
-                            onChange={(e) => {
-                              const val = Math.max(0, parseInt(e.target.value) || 0);
-                              setPivotQuantities({ ...pivotQuantities, [v.id]: val });
-                            }}
-                            className="w-full text-center bg-theme-surface-2 border border-theme-divider rounded-lg mt-2 py-1 text-xs text-theme-body font-mono"
-                          />
-                        </div>
-                      ))}
-                    </div>
+                  <div className="overflow-x-auto bg-theme-surface-2 p-4 rounded-xl border border-theme-divider">
+                    <h4 className="text-[10px] font-mono text-indigo-400 uppercase tracking-wider mb-3">SIZE × COLOR ALLOCATION MATRIX</h4>
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-theme-surface-1 text-theme-muted uppercase font-mono text-[9px] border-b border-theme-divider">
+                          <th className="px-3 py-2">Size</th>
+                          {pivotColorColumns.map((color) => (
+                            <th key={color} className="px-3 py-2 text-center">{color}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-theme-divider/60">
+                        {pivotMatrixRows.map((row) => (
+                          <tr key={row.size} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="px-3 py-2 font-mono font-semibold">{row.size}</td>
+                            {row.variants.map((variant, idx) => (
+                              <td key={idx} className="px-3 py-2 text-center align-top">
+                                {variant ? (
+                                  <div className="space-y-2">
+                                    <div className="text-[10px] text-theme-muted">SKU: {variant.code || "N/A"}</div>
+                                    <div className="text-[10px] text-emerald-400">Stock: {variant.stock || 0}</div>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={pivotQuantities[variant.id] || ""}
+                                      placeholder="0"
+                                      onChange={(e) => {
+                                        const val = Math.max(0, parseInt(e.target.value) || 0);
+                                        setPivotQuantities({ ...pivotQuantities, [variant.id]: val });
+                                      }}
+                                      className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg py-1 text-xs text-theme-body font-mono"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="text-[10px] text-theme-muted">N/A</div>
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
 
-                  <div className="flex justify-end">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-[10px] font-mono text-theme-muted">
+                      Select a base value and enter quantities for each size/color cell. The grid is generated from the chosen {pivotBasis} and available color variants.
+                    </div>
                     <button
                       type="button"
                       onClick={handleAddMatrixItemsToSelection}

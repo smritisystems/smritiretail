@@ -192,9 +192,9 @@ export const ProductBrandComboStudio: React.FC<ProductBrandComboStudioProps> = (
   };
 
   return (
-    <div className="w-full bg-[#0B0F17] border border-theme-divider rounded-2xl overflow-hidden shadow-2xl animate-in fade-in duration-200 text-theme-body font-sans flex flex-col">
+    <div className="w-full bg-[var(--sds-color-surface)] border border-[var(--sds-color-border)] rounded-2xl overflow-hidden shadow-2xl animate-in fade-in duration-200 text-[var(--sds-color-text-main)] font-sans flex flex-col">
       {/* Header Bar */}
-      <div className="bg-[#121824] border-b border-theme-divider px-6 py-4 flex items-center justify-between">
+      <div className="bg-[var(--sds-color-surface)] border-b border-[var(--sds-color-border)] px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-indigo-950/80 border border-indigo-500/40 rounded-xl text-indigo-400">
             <Package size={22} />

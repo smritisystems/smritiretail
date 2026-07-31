@@ -227,7 +227,7 @@ export const PrintStudioTab: React.FC = () => {
                  }>
               {/* Isolated preview wrapper so theme colors don't bleed into print components easily */}
               <div className="text-black bg-white w-full h-full">
-                <PreviewComponent data={MOCK_DATA} />
+                <PreviewComponent data={previewData} />
               </div>
             </div>
           </div>

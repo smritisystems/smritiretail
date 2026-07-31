@@ -90,6 +90,16 @@ class ModuleRegistryImpl {
         orderIndex: 7
       },
       {
+        id: "universal-label-printer",
+        title: "Universal Label Printer",
+        subtitle: "Apparel Size/Color Pivot Printing",
+        category: "Masters",
+        iconName: "Printer",
+        permissionScope: "PRINT_VIEW",
+        targetTab: "universal-label-printer",
+        orderIndex: 8
+      },
+      {
         id: "daily-reports",
         title: "Reports & Analytics",
         subtitle: "Valuation, GST & Daily Summaries",
@@ -97,7 +107,7 @@ class ModuleRegistryImpl {
         iconName: "FileText",
         permissionScope: "REPORT_VIEW",
         targetTab: "reports",
-        orderIndex: 8
+        orderIndex: 9
       },
       {
         id: "business-ledger",

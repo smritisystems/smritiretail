@@ -25,7 +25,6 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { ThemeProvider } from "./contexts/ThemeContext.tsx";
 import { TaxInvoicePrintPage } from "./print_engine/TaxInvoicePrintPage.tsx";
 // SEEF — must be the outermost provider so CSS data-attributes are written
 // to <html> before any child component renders (prevents theme flash).
@@ -61,9 +60,7 @@ const isInvoicePrint =
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <SEEFProvider>
-        <ThemeProvider>
-          {isInvoicePrint ? <TaxInvoicePrintPage /> : <App />}
-        </ThemeProvider>
+        {isInvoicePrint ? <TaxInvoicePrintPage /> : <App />}
       </SEEFProvider>
     </React.StrictMode>
   );

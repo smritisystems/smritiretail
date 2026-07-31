@@ -56,6 +56,7 @@ import { OperationalWorkspacesTab } from "./components/OperationalWorkspacesTab.
 import { TransactionWorkspacesTab } from "./components/TransactionWorkspacesTab.tsx";
 import { BiReportingAndPrintingTab } from "./components/BiReportingAndPrintingTab.tsx";
 import { PrintLabelsStudio } from "./components/printing/PrintLabelsStudio.tsx";
+import { UniversalLabelPrintingStudio } from "./components/label_print/UniversalLabelPrintingStudio.tsx";
 import { ConsignmentStudioTab } from "./components/ConsignmentStudioTab.tsx";
 import { SCDMStudioTab } from "./components/SCDMStudioTab.tsx";
 
@@ -178,9 +179,9 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
   };
 
   return (
-    <div className="relative w-screen h-screen bg-[#0B0F17] overflow-hidden flex flex-col m-0 p-0 font-sans border border-slate-800">
+    <div className="relative w-screen h-screen bg-[var(--sds-color-background)] overflow-hidden flex flex-col m-0 p-0 font-[var(--sds-font-family)] border border-[var(--sds-color-border)] text-[var(--sds-color-text-main)]">
       {/* SMRITI Desktop Workspace v1.0 Header Bar */}
-      <div className="h-10 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between shrink-0 select-none text-slate-200">
+      <div className="h-10 bg-[var(--sds-color-surface)] border-b border-[var(--sds-color-border)] px-4 flex items-center justify-between shrink-0 select-none text-[var(--sds-color-text-main)]">
         {/* Left Section: Document Title & Badges */}
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-1.5">
@@ -212,18 +213,18 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
         {/* Right Section: Toolbar Controls */}
         <div className="flex items-center space-x-2">
           {/* Zoom Controls */}
-          <div className="flex items-center bg-slate-800/80 rounded border border-slate-700/60 px-1 py-0.5 text-xs text-slate-300 space-x-1">
+          <div className="flex items-center bg-[var(--sds-color-surface)] rounded border border-[var(--sds-color-border)] px-1 py-0.5 text-xs text-[var(--sds-color-text-secondary)] space-x-1">
             <button
               onClick={() => setZoom((z) => Math.max(70, z - 10))}
-              className="px-1 hover:text-white transition font-bold"
+              className="px-1 hover:text-[var(--sds-color-text-main)] transition font-bold"
               title="Zoom Out"
             >
               -
             </button>
-            <span className="font-mono text-[11px] w-8 text-center text-indigo-300">{zoom}%</span>
+            <span className="font-mono text-[11px] w-8 text-center text-[var(--sds-color-primary)]">{zoom}%</span>
             <button
               onClick={() => setZoom((z) => Math.min(150, z + 10))}
-              className="px-1 hover:text-white transition font-bold"
+              className="px-1 hover:text-[var(--sds-color-text-main)] transition font-bold"
               title="Zoom In"
             >
               +
@@ -233,7 +234,7 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
           {/* Fullscreen Button */}
           <button
             onClick={toggleFullscreen}
-            className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition flex items-center text-xs space-x-1"
+            className="p-1 hover:bg-[var(--sds-color-surface-hover)] rounded text-[var(--sds-color-text-secondary)] hover:text-[var(--sds-color-text-main)] transition flex items-center text-xs space-x-1"
             title="Toggle Fullscreen (Ctrl+Shift+F or F11)"
           >
             <span className="material-symbols-outlined text-sm">
@@ -244,7 +245,7 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
           {/* Lock Workspace Button */}
           <button
             onClick={() => setIsLocked(true)}
-            className="px-2 py-1 hover:bg-amber-900/40 text-amber-400 hover:text-amber-300 rounded border border-amber-800/30 transition flex items-center text-xs space-x-1"
+            className="px-2 py-1 hover:bg-[var(--sds-color-surface-hover)] text-[var(--sds-color-text-secondary)] hover:text-[var(--sds-color-text-main)] rounded border border-[var(--sds-color-border)] transition flex items-center text-xs space-x-1"
             title="Lock Workspace Session"
           >
             <span className="material-symbols-outlined text-sm">lock</span>
@@ -254,7 +255,7 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
           {/* Refresh Data Button */}
           <button
             onClick={() => WindowManager.broadcast("REFRESH_SYSTEM_STATE", popoutTab, {})}
-            className="px-2 py-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition flex items-center text-xs space-x-1"
+            className="px-2 py-1 hover:bg-[var(--sds-color-surface-hover)] rounded text-[var(--sds-color-text-secondary)] hover:text-[var(--sds-color-text-main)] transition flex items-center text-xs space-x-1"
             title="Refresh Studio Data"
           >
             <span className="material-symbols-outlined text-sm">refresh</span>
@@ -264,7 +265,7 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
           {/* Print Button */}
           <button
             onClick={() => window.print()}
-            className="px-2 py-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition flex items-center text-xs space-x-1"
+            className="px-2 py-1 hover:bg-[var(--sds-color-surface-hover)] rounded text-[var(--sds-color-text-secondary)] hover:text-[var(--sds-color-text-main)] transition flex items-center text-xs space-x-1"
             title="Print Document"
           >
             <span className="material-symbols-outlined text-sm">print</span>
@@ -274,7 +275,7 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
           {/* Close Window Button */}
           <button
             onClick={() => window.close()}
-            className="px-2 py-1 hover:bg-rose-900/50 hover:text-rose-300 rounded text-slate-400 transition flex items-center text-xs space-x-1"
+            className="px-2 py-1 hover:bg-[var(--sds-color-surface-hover)] hover:text-[var(--sds-color-text-main)] rounded text-[var(--sds-color-text-secondary)] transition flex items-center text-xs space-x-1"
             title="Close Workspace Window"
           >
             <span className="material-symbols-outlined text-sm">close</span>
@@ -285,7 +286,7 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
 
       {/* Studio Content Canvas with Dynamic Zoom Scaling */}
       <div
-        className="flex-1 overflow-auto p-2 bg-[#0B0F17] transition-all duration-150"
+        className="flex-1 overflow-auto p-2 bg-[var(--sds-color-background)] transition-all duration-150"
         style={{ zoom: `${zoom}%` }}
       >
         {renderTabSafe(popoutTab)}
@@ -293,14 +294,14 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
 
       {/* SAWF Workspace Security Lock Overlay */}
       {isLocked && (
-        <div className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center text-slate-200">
-          <div className="w-full max-w-sm p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col items-center text-center space-y-4">
-            <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+        <div className="absolute inset-0 z-50 bg-[rgba(15,23,42,0.92)] backdrop-blur-md flex flex-col items-center justify-center text-[var(--sds-color-text-main)]">
+          <div className="w-full max-w-sm p-6 bg-[var(--sds-color-surface)] border border-[var(--sds-color-border)] rounded-2xl shadow-2xl flex flex-col items-center text-center space-y-4">
+            <div className="w-14 h-14 rounded-full bg-[var(--sds-color-primary-light)] border border-[var(--sds-color-primary)] flex items-center justify-center text-[var(--sds-color-primary)]">
               <span className="material-symbols-outlined text-3xl">lock</span>
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-100 uppercase tracking-wide">Workspace Locked</h3>
-              <p className="text-xs text-slate-400 mt-1">Transaction context preserved. Enter PIN to unlock.</p>
+              <h3 className="text-base font-bold text-[var(--sds-color-text-main)] uppercase tracking-wide">Workspace Locked</h3>
+              <p className="text-xs text-[var(--sds-color-text-secondary)] mt-1">Transaction context preserved. Enter PIN to unlock.</p>
             </div>
             <form onSubmit={handleUnlock} className="w-full space-y-3">
               <input
@@ -308,13 +309,13 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
                 placeholder="Enter Staff PIN (e.g. 1234)"
-                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-center text-lg tracking-widest font-mono text-white focus:outline-none focus:border-amber-500 transition"
+                className="w-full px-4 py-2.5 bg-[var(--sds-color-surface)] border border-[var(--sds-color-border)] rounded-xl text-center text-lg tracking-widest font-mono text-[var(--sds-color-text-main)] focus:outline-none focus:border-[var(--sds-color-primary)] transition"
                 autoFocus
               />
-              {pinError && <p className="text-xs text-rose-400">{pinError}</p>}
+              {pinError && <p className="text-xs text-[var(--c-seef-error)]">{pinError}</p>}
               <button
                 type="submit"
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 font-semibold text-xs uppercase tracking-wider rounded-xl transition shadow-lg shadow-indigo-600/30"
+                className="w-full py-2.5 bg-[var(--sds-color-primary)] hover:bg-[var(--sds-color-primary-hover)] font-semibold text-xs uppercase tracking-wider rounded-xl transition shadow-lg shadow-[rgba(0,86,179,0.18)]"
               >
                 Unlock Session
               </button>
@@ -822,9 +823,14 @@ const AppContent: React.FC = () => {
         return <ApprovalMatrixTab />;
       case "print-labels":
       case "print-studio":
-      case "barcode-printing":
       case "label-printing":
       case "universal-label":
+      case "universal-label-printer":
+        return <UniversalLabelPrintingStudio products={products} />;
+      case "barcode":
+      case "barcode-studio":
+      case "tag-printing":
+      case "barcode-printing":
         return <PrintLabelsStudio products={products} />;
       case "print-history":
         return <PrintHistoryTab />;

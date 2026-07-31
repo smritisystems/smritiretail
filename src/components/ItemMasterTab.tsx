@@ -433,6 +433,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
             }}
             onRefresh={() => onRefreshProducts && onRefreshProducts()}
             onOpenBarcodeHub={() => setIsBarcodeDialogOpen(true)}
+            onOpenPrintStudioDemo={() => WindowManager.openTabStandalone("print-studio", "Print Labels Studio")}
             isReadOnly={isReadOnly}
             onToggleFilterDrawer={() => setIsFilterDrawerOpen((prev) => !prev)}
             isFilterDrawerOpen={isFilterDrawerOpen}

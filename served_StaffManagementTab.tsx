@@ -39,7 +39,7 @@
     <link rel="modulepreload" crossorigin href="/assets/vendor-charts-CA9TZ-FL.js">
     <link rel="stylesheet" crossorigin href="/assets/index-DMk2RdDb.css">
   </head>
-  <body class="bg-[#1A2B5C] text-[#e2e8f0] antialiased selection:bg-[#2563EB] selection:text-white">
+  <body class="bg-[var(--sds-color-background)] text-[var(--sds-color-text-main)] antialiased selection:bg-[var(--sds-color-primary)] selection:text-white">
     <div id="root"></div>
   </body>
 </html>

@@ -65,15 +65,15 @@ export const SMRITIGrid: React.FC<SMRITIGridProps> = ({
         <table className={`w-full text-left text-xs text-theme-body ${fitToWidth ? "table-fixed" : ""}`}>
           <thead className="bg-theme-surface-1 text-[10px] uppercase font-bold font-display tracking-wider text-theme-muted border-b border-theme-divider sticky top-0 z-10">
             <tr>
-              <th className="py-3 px-4 w-12 text-center">#</th>
-              <th className="py-3 px-4">Item Code &amp; Description</th>
-              <th className="py-3 px-4 text-right w-28">Price (₹)</th>
-              <th className="py-3 px-4 text-center w-36">Qty</th>
+              <th className={fitToWidth ? "py-3 px-2 sm:px-4 w-[6%] text-center" : "py-3 px-4 w-12 text-center"}>#</th>
+              <th className={fitToWidth ? `py-3 px-2 sm:px-4 ${salespersonMode === "line" ? "w-[20%]" : "w-[40%]"}` : "py-3 px-4"}>Item Code &amp; Description</th>
+              <th className={fitToWidth ? "py-3 px-2 sm:px-4 w-[14%] text-right" : "py-3 px-4 text-right w-28"}>Price (₹)</th>
+              <th className={fitToWidth ? "py-3 px-2 sm:px-4 w-[18%] text-center" : "py-3 px-4 text-center w-36"}>Qty</th>
               {salespersonMode === "line" && (
-                <th className="py-3 px-4 text-center w-40">Salesperson</th>
+                <th className={fitToWidth ? "py-3 px-2 sm:px-4 w-[18%] text-center" : "py-3 px-4 text-center w-40"}>Salesperson</th>
               )}
-              <th className="py-3 px-4 text-right w-32">Total (₹)</th>
-              <th className="py-3 px-4 text-center w-14">Actions</th>
+              <th className={fitToWidth ? "py-3 px-2 sm:px-4 w-[14%] text-right" : "py-3 px-4 text-right w-32"}>Total (₹)</th>
+              <th className={fitToWidth ? "py-3 px-2 sm:px-4 w-[8%] text-center" : "py-3 px-4 text-center w-14"}>Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-theme-divider font-mono">
@@ -84,7 +84,7 @@ export const SMRITIGrid: React.FC<SMRITIGridProps> = ({
               return (
                 <tr key={productId} className="hover:bg-theme-surface-2 transition-colors group">
                   <td className="py-3 px-4 text-center text-theme-muted font-semibold">{index + 1}</td>
-                  <td className="py-3 px-4 truncate max-w-0">
+                  <td className="py-3 px-2 sm:px-4 truncate max-w-0 overflow-hidden">
                     <div className="font-semibold text-theme-heading text-xs truncate">{item.product?.name || "Unknown SKU"}</div>
                     <div className="text-[10px] text-theme-muted flex items-center space-x-2 truncate">
                       <span>Code: {item.product?.code || "N/A"}</span>
@@ -101,7 +101,7 @@ export const SMRITIGrid: React.FC<SMRITIGridProps> = ({
                   <td className="py-3 px-4 text-right font-bold text-theme-body">
                     ₹{price.toFixed(2)}
                   </td>
-                  <td className="py-3 px-4">
+                    <td className="py-3 px-2 sm:px-4">
                     <div className="flex items-center justify-center space-x-1 bg-theme-surface-2 rounded border border-theme-divider p-0.5 max-w-[120px] mx-auto">
                       <button
                         onClick={() => onUpdateQuantity(productId, (item.quantity || 1) - 1)}
@@ -125,7 +125,7 @@ export const SMRITIGrid: React.FC<SMRITIGridProps> = ({
                   </td>
 
                   {salespersonMode === "line" && (
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-3 px-2 sm:px-4 text-center">
                       <select
                         value={item.salespersonId || ""}
                         onChange={(e) => onUpdateSalesperson && onUpdateSalesperson(productId, e.target.value)}

@@ -173,11 +173,13 @@ export class NetworkProvider implements IPrintProvider {
   async sendJob(job: PrintJob): Promise<PrintResult> {
     const start = Date.now();
     try {
+      const printerIp = job.printerIp || job.printerName || "192.168.1.100";
+      const printerPort = job.printerPort || 9100;
       await apiFetch("/api/v1/print/raw-tcp", {
         method: "POST",
         body: JSON.stringify({
-          printerIp: job.printerName || "192.168.1.100",
-          port: 9100,
+          printerIp,
+          port: printerPort,
           rawScript: job.payload,
         }),
       });

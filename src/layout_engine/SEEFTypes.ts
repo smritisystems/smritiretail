@@ -166,7 +166,7 @@ export const SEEF_FEATURE_REGISTRY: SEEFFeatureRegistration[] = [
 
 // ── Default Configuration ───────────────────────────────────────────────────
 export const DEFAULT_SEEF_CONFIG: SEEFConfig = {
-  theme:              "dark",          // SMRITI default workspace theme
+  theme:              "enterprise",    // SAP Fiori-inspired default workspace theme
   density:            "comfortable",   // Default density
   cardStyle:          "elevated",      // Default card elevation
   fontScale:          "default",       // Standard font scale

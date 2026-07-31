@@ -18,6 +18,8 @@ import { PrintingEventBus } from "../events/PrintingEventBus.js";
 
 export interface DispatchOptions {
   printerName?: string;
+  printerIp?: string;
+  printerPort?: number;
   driverId?: string; // e.g. "zpl", "tspl", "esc_pos", "epl", "raw"
   providerId?: string; // e.g. "qz_tray", "windows_spooler", "network"
   copies?: number;
@@ -51,6 +53,8 @@ export class PrintOrchestrator {
       documentId: document.id,
       document: { ...document, immutable: true },
       printerName: targetPrinter,
+      printerIp: options.printerIp,
+      printerPort: options.printerPort,
       driverId,
       providerId: options.providerId || "qz_tray",
       priority: options.priority || "BARCODE",

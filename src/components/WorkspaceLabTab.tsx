@@ -4,7 +4,7 @@
  * Specification: SDS v1.0 & SUXG Governance Compliance
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
   SEDSButton, 
   SEDSInput, 
@@ -18,9 +18,11 @@ import {
 } from '../design-system/components';
 import { SEDSObjectPage } from '../design-system/components/patterns/SEDSObjectPage';
 import { SEDSListReport } from '../design-system/components/patterns/SEDSListReport';
+import { useSEEF } from '../layout_engine/SEEFContext.tsx';
 
 export const WorkspaceLabTab: React.FC = () => {
-  const [activeTheme, setActiveTheme] = useState<string>('fiori-lite');
+  const { config, updateSEEF } = useSEEF();
+  const activeTheme = config.theme;
   const [densityMode, setDensityMode] = useState<'simple' | 'hybrid' | 'advanced'>('hybrid');
   const [activeTab, setActiveTab] = useState<string>('components');
   
@@ -35,10 +37,9 @@ export const WorkspaceLabTab: React.FC = () => {
     ]
   }, null, 2));
 
-  // Apply theme to root data-theme attribute dynamically
+  // Apply theme to root data-theme and SEEF theme attributes dynamically
   const handleThemeChange = (theme: string) => {
-    setActiveTheme(theme);
-    document.documentElement.setAttribute('data-theme', theme);
+    updateSEEF({ theme: theme as any });
   };
 
   // Sample data for Enterprise DataGrid & List Report

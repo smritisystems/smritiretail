@@ -33,6 +33,7 @@ interface ItemMasterToolbarProps {
   onNewProduct: () => void;
   onRefresh: () => void;
   onOpenBarcodeHub: () => void;
+  onOpenPrintStudioDemo?: () => void;
   isReadOnly?: boolean;
   onToggleFilterDrawer?: () => void;
   isFilterDrawerOpen?: boolean;
@@ -49,6 +50,7 @@ export const ItemMasterToolbar: React.FC<ItemMasterToolbarProps> = ({
   onNewProduct,
   onRefresh,
   onOpenBarcodeHub,
+  onOpenPrintStudioDemo,
   isReadOnly = false,
   onToggleFilterDrawer,
   isFilterDrawerOpen = false,
@@ -139,6 +141,18 @@ export const ItemMasterToolbar: React.FC<ItemMasterToolbarProps> = ({
           <Printer className="w-3.5 h-3.5 text-[#0a6ed1]" />
           <span className="hidden sm:inline">Labels</span>
         </button>
+
+        {/* Demo Print Studio Button */}
+        {onOpenPrintStudioDemo && (
+          <button
+            onClick={onOpenPrintStudioDemo}
+            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/20 flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Open Barcode Demo Studio"
+          >
+            <Printer className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="hidden sm:inline">Demo</span>
+          </button>
+        )}
 
         {/* Refresh Button */}
         <button

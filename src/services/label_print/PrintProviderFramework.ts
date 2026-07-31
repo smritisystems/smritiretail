@@ -38,12 +38,63 @@ export interface IPrintProvider {
  * System Printer Hardware Discovery Service
  */
 export class SystemPrinterDiscovery {
+  static async requestUsbPrinter(): Promise<SystemPrinterInfo | null> {
+    if (typeof navigator === "undefined") return null;
+
+    if ((navigator as any).usb) {
+      try {
+        const device = await (navigator as any).usb.requestDevice({ filters: [] });
+        const name = device.productName || `USB Printer (VID:${device.vendorId} PID:${device.productId})`;
+        return { name, connection: "USB", driver: "Direct USB RAW" };
+      } catch (err: any) {
+        if (err?.name !== "NotFoundError") {
+          console.warn("[SystemPrinterDiscovery] USB permission request failed:", err);
+        }
+      }
+    }
+
+    if ((navigator as any).serial) {
+      try {
+        const port = await (navigator as any).serial.requestPort();
+        const info = port.getInfo?.() || {};
+        const name = `USB Serial Printer (VID:${info.usbVendorId || "unknown"} PID:${info.usbProductId || "unknown"})`;
+        return { name, connection: "USB", driver: "USB Serial / WebSerial" };
+      } catch (err: any) {
+        if (err?.name !== "NotFoundError") {
+          console.warn("[SystemPrinterDiscovery] USB serial permission request failed:", err);
+        }
+      }
+    }
+
+    return null;
+  }
+
   /**
    * Queries QZ Tray Daemon, WebUSB, and WebSerial to discover real physical printers connected to the desktop or network.
    */
   static async detectPrinters(): Promise<SystemPrinterInfo[]> {
     const discovered: SystemPrinterInfo[] = [];
     const seenNames = new Set<string>();
+
+    // The browser cannot enumerate Windows spooler printers directly. Ask the
+    // local backend as well, when it is running on the same desktop.
+    try {
+      const response = await apiFetch("/api/v1/barcode/local-printers");
+      const localPrinters = Array.isArray(response?.printers) ? response.printers : [];
+      for (const printer of localPrinters) {
+        if (printer?.name && !seenNames.has(printer.name)) {
+          seenNames.add(printer.name);
+          discovered.push({
+            name: printer.name,
+            connection: "SPOOLER",
+            driver: printer.driver || printer.port || "Windows / OS Spooler",
+            isDefault: Boolean(printer.isDefault),
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("[SystemPrinterDiscovery] Windows spooler discovery unavailable:", err);
+    }
 
     if (typeof window !== "undefined") {
       const win = window as any;

@@ -89,6 +89,10 @@ function applyConfigToDOM(config: SEEFConfig): void {
   // Theme — activates correct color palette in CSS
   html.setAttribute("data-seef-theme", config.theme);
 
+  // Legacy theme compatibility for imported theme files
+  const legacyTheme = config.theme === "enterprise" ? "fiori-lite" : config.theme;
+  html.setAttribute("data-theme", legacyTheme);
+
   // Density — activates spacing/typography scale overrides
   html.setAttribute("data-seef-density", config.density);
 
@@ -140,7 +144,23 @@ function detectAccessibilitySignals(): Pick<SEEFConfig, "reducedMotion" | "highC
 function loadPersistedConfig(): SEEFConfig {
   try {
     const raw = localStorage.getItem(SEEF_STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_SEEF_CONFIG };
+    if (!raw) {
+      const legacyTheme = localStorage.getItem("smriti-theme");
+      const validLegacyThemes = [
+        "dark",
+        "light",
+        "enterprise",
+        "fiori-light",
+        "high-contrast",
+        "corporate",
+        "minimal",
+        "custom",
+      ];
+      if (legacyTheme && validLegacyThemes.includes(legacyTheme)) {
+        return { ...DEFAULT_SEEF_CONFIG, theme: legacyTheme as SEEFTheme };
+      }
+      return { ...DEFAULT_SEEF_CONFIG };
+    }
     const parsed = JSON.parse(raw) as Partial<SEEFConfig>;
     return { ...DEFAULT_SEEF_CONFIG, ...parsed };
   } catch {

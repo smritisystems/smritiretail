@@ -176,7 +176,7 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         fontFamily: "'72', '72full', 'Inter', Arial, Helvetica, sans-serif",
         ...getBackgroundCanvasStyle(),
       }}
-      className="min-h-screen w-full flex flex-col text-[#32363a] relative overflow-hidden transition-all duration-500"
+      className="min-h-screen w-full flex flex-col text-[var(--sds-color-text-main)] relative overflow-hidden transition-all duration-500"
     >
       {/* ── Metadata-Driven Vector Background Layer ── */}
       {config.enabled && !isAccessibilityDisabled && resolvedItem && (
@@ -201,8 +201,8 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
       {/* ── SAP Fiori Shell Bar ── */}
       <header
-        style={{ backgroundColor: "#354a5e" }}
-        className="h-12 flex items-center px-6 shrink-0 shadow-md relative z-20"
+        style={{ backgroundColor: "var(--sds-color-surface)" }}
+        className="h-12 flex items-center px-6 shrink-0 border-b border-[var(--sds-color-border)] relative z-20"
       >
         <div className="flex items-center gap-3">
           {/* Waffle app launcher matrix */}
@@ -211,15 +211,15 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               <div key={i} className="w-[4px] h-[4px] rounded-[1px] bg-white" />
             ))}
           </div>
-          <span className="text-white font-semibold text-sm tracking-wide">
+          <span className="text-[var(--sds-color-text-main)] font-semibold text-sm tracking-wide">
             SMRITI Retail OS
           </span>
           {resolvedItem && (
             <span
-              style={{ backgroundColor: "rgba(255,255,255,0.15)", color: "#e2e8f0" }}
+              style={{ backgroundColor: "rgba(255,255,255,0.15)", color: "var(--sds-color-text-main)" }}
               className="hidden sm:flex items-center gap-1.5 text-[10px] px-2.5 py-0.5 rounded font-mono"
             >
-              <ImageIcon size={11} className="text-blue-300" />
+              <ImageIcon size={11} className="text-[var(--sds-color-primary)]" />
               <span>{resolvedItem.title}</span>
             </span>
           )}
@@ -229,8 +229,8 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           {/* Admin Background Configurator Button */}
           <button
             onClick={() => setShowAdminDrawer(true)}
-            style={{ backgroundColor: "rgba(255,255,255,0.12)", color: "#fff" }}
-            className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded font-semibold hover:bg-white/20 transition-all cursor-pointer"
+            style={{ backgroundColor: "rgba(0,0,0,0.04)", color: "var(--sds-color-text-main)" }}
+            className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded font-semibold hover:bg-[var(--sds-color-surface-hover)] transition-all cursor-pointer"
             title="Configure Metadata Background Engine"
           >
             <Sliders size={13} className="text-blue-300" />
@@ -238,14 +238,14 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           </button>
 
           <span
-            style={{ backgroundColor: "rgba(255,255,255,0.12)", color: "#fff" }}
+            style={{ backgroundColor: "rgba(0,0,0,0.04)", color: "var(--sds-color-text-secondary)" }}
             className="text-[10px] px-2 py-0.5 rounded font-mono"
           >
             v5.2.0
           </span>
           {isDev && (
             <span
-              style={{ backgroundColor: "#f29900", color: "#fff" }}
+              style={{ backgroundColor: "var(--sds-status-warning-text)", color: "#fff" }}
               className="text-[10px] px-2 py-0.5 rounded font-bold"
             >
               DEV
@@ -263,14 +263,14 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           {/* ── LEFT PANEL — Branding & Showcase ── */}
           <div
             className="hidden md:flex flex-col justify-between w-[420px] shrink-0 p-10 relative overflow-hidden"
-            style={{ background: "linear-gradient(160deg, rgba(53,74,94,0.95) 0%, rgba(27,58,75,0.95) 60%, rgba(10,32,56,0.98) 100%)" }}
+            style={{ background: "linear-gradient(160deg, rgba(26,110,209,0.95) 0%, rgba(13,81,164,0.95) 60%, rgba(10,32,56,0.98) 100%)" }}
           >
             {/* Logo block */}
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-8">
                 <div
                   className="w-11 h-11 rounded flex items-center justify-center text-white font-bold text-xl"
-                  style={{ background: "linear-gradient(135deg, #1a73e8, #0d47a1)", boxShadow: "0 4px 16px rgba(26,115,232,0.4)" }}
+                  style={{ background: "linear-gradient(135deg, var(--sds-color-primary), #0d47a1)", boxShadow: "0 4px 16px rgba(26,110,209,0.4)" }}
                 >
                   S
                 </div>
@@ -282,7 +282,7 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
               <h1 className="text-white text-2xl font-bold leading-snug mb-3">
                 Enterprise Retail<br />
-                <span style={{ color: "#6fa8dc" }}>Management Suite</span>
+                <span style={{ color: "var(--sds-color-primary-light)" }}>Management Suite</span>
               </h1>
               <p className="text-blue-200/70 text-sm leading-relaxed">
                 A unified platform for retail operations, inventory, procurement, and intelligent reporting — built for the modern enterprise.
@@ -307,7 +307,7 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   <div className="flex items-center gap-3">
                     <div
                       className="w-8 h-8 rounded flex items-center justify-center shrink-0"
-                      style={{ background: "rgba(26,115,232,0.25)" }}
+                      style={{ background: "rgba(10,110,209,0.25)" }}
                     >
                       <ActiveTile.icon size={16} className="text-blue-300" />
                     </div>
@@ -348,17 +348,17 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           </div>
 
           {/* ── RIGHT PANEL — Login Form ── */}
-          <div className="flex-1 bg-white/95 flex flex-col justify-center px-10 py-12">
+          <div className="flex-1 bg-[var(--sds-color-surface)]/95 flex flex-col justify-center px-10 py-12">
 
             {/* Form header */}
             <div className="mb-8">
-              <p className="text-[11px] text-[#6a6d70] uppercase tracking-widest font-semibold mb-1">
+              <p className="text-[11px] text-[var(--sds-color-text-secondary)] uppercase tracking-widest font-semibold mb-1">
                 Welcome to SMRITI
               </p>
-              <h2 className="text-[#32363a] text-2xl font-bold leading-tight">
+              <h2 className="text-[var(--sds-color-text-main)] text-2xl font-bold leading-tight">
                 Sign In
               </h2>
-              <p className="text-[#6a6d70] text-sm mt-1.5">
+              <p className="text-[var(--sds-color-text-secondary)] text-sm mt-1.5">
                 Use your SMRITI user credentials to access the workspace.
               </p>
             </div>
@@ -375,12 +375,12 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   <div
                     className="flex items-start gap-2.5 px-3.5 py-3 rounded text-sm border-l-4"
                     style={{
-                      backgroundColor: "#fdf2f0",
-                      borderLeftColor: "#bb0000",
-                      color: "#32363a",
+                      backgroundColor: "var(--sds-status-error-bg)",
+                      borderLeftColor: "var(--sds-status-error-text)",
+                      color: "var(--sds-color-text-main)",
                     }}
                   >
-                    <AlertCircle size={15} className="shrink-0 mt-0.5" style={{ color: "#bb0000" }} />
+                    <AlertCircle size={15} className="shrink-0 mt-0.5" style={{ color: "var(--sds-status-error-text)" }} />
                     <span className="text-[12px] leading-relaxed">{error}</span>
                   </div>
                 </motion.div>
@@ -394,15 +394,14 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               <div>
                 <label
                   htmlFor="login-username"
-                  className="block text-[12px] font-semibold mb-1.5"
-                  style={{ color: "#32363a" }}
+                  className="block text-[12px] font-semibold mb-1.5 text-[var(--sds-color-text-main)]"
                 >
-                  User ID<span style={{ color: "#bb0000" }}>*</span>
+                  User ID<span style={{ color: "var(--sds-status-error-text)" }}>*</span>
                 </label>
                 <div className="relative">
                   <div
                     className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none transition-colors"
-                    style={{ color: usernameFocused ? "#0854a0" : "#89919a" }}
+                    style={{ color: usernameFocused ? "var(--sds-color-primary)" : "var(--sds-color-text-secondary)" }}
                   >
                     <User size={15} />
                   </div>
@@ -417,12 +416,12 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     autoComplete="username"
                     placeholder="Enter your User ID"
                     style={{
-                      border: `1px solid ${usernameFocused ? "#0854a0" : "#89919a"}`,
-                      boxShadow: usernameFocused ? "0 0 0 2px rgba(8,84,160,0.15)" : "none",
+                      border: `1px solid ${usernameFocused ? "var(--sds-color-primary)" : "var(--sds-color-border)"}`,
+                      boxShadow: usernameFocused ? "0 0 0 2px rgba(10,110,209,0.15)" : "none",
                       borderRadius: 4,
                       fontSize: 14,
-                      color: "#32363a",
-                      backgroundColor: "#fff",
+                      color: "var(--sds-color-text-main)",
+                      backgroundColor: "var(--sds-color-surface)",
                       outline: "none",
                     }}
                     className="w-full pl-9 pr-4 py-2.5 transition-all placeholder:text-[#c2c2c2] disabled:bg-[#f4f4f4] disabled:cursor-not-allowed"
@@ -434,15 +433,14 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               <div>
                 <label
                   htmlFor="login-password"
-                  className="block text-[12px] font-semibold mb-1.5"
-                  style={{ color: "#32363a" }}
+                  className="block text-[12px] font-semibold mb-1.5 text-[var(--sds-color-text-main)]"
                 >
-                  Password<span style={{ color: "#bb0000" }}>*</span>
+                  Password<span style={{ color: "var(--sds-status-error-text)" }}>*</span>
                 </label>
                 <div className="relative">
                   <div
                     className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none transition-colors"
-                    style={{ color: passwordFocused ? "#0854a0" : "#89919a" }}
+                    style={{ color: passwordFocused ? "var(--sds-color-primary)" : "var(--sds-color-text-secondary)" }}
                   >
                     <Lock size={15} />
                   </div>
@@ -459,12 +457,12 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     autoComplete="current-password"
                     placeholder="Enter your password"
                     style={{
-                      border: `1px solid ${passwordFocused ? "#0854a0" : "#89919a"}`,
-                      boxShadow: passwordFocused ? "0 0 0 2px rgba(8,84,160,0.15)" : "none",
+                      border: `1px solid ${passwordFocused ? "var(--sds-color-primary)" : "var(--sds-color-border)"}`,
+                      boxShadow: passwordFocused ? "0 0 0 2px rgba(10,110,209,0.15)" : "none",
                       borderRadius: 4,
                       fontSize: 14,
-                      color: "#32363a",
-                      backgroundColor: "#fff",
+                      color: "var(--sds-color-text-main)",
+                      backgroundColor: "var(--sds-color-surface)",
                       outline: "none",
                     }}
                     className="w-full pl-9 pr-10 py-2.5 transition-all placeholder:text-[#c2c2c2] disabled:bg-[#f4f4f4] disabled:cursor-not-allowed"
@@ -473,8 +471,8 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     type="button"
                     onClick={() => setShowPassword(v => !v)}
                     tabIndex={-1}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center transition-colors hover:text-[#0854a0]"
-                    style={{ color: "#89919a" }}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center transition-colors hover:text-[var(--sds-color-primary)]"
+                    style={{ color: "var(--sds-color-text-secondary)" }}
                   >
                     {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
@@ -494,7 +492,7 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 type="submit"
                 disabled={loading}
                 style={{
-                  backgroundColor: loading ? "#89919a" : "#0854a0",
+                  backgroundColor: loading ? "var(--sds-color-border)" : "var(--sds-color-primary)",
                   borderRadius: 4,
                   border: "none",
                   cursor: loading ? "not-allowed" : "pointer",
@@ -519,8 +517,8 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             </form>
 
             {/* Success hint */}
-            <div className="mt-5 flex items-center gap-1.5 text-[11px]" style={{ color: "#89919a" }}>
-              <CheckCircle2 size={12} style={{ color: "#188038" }} />
+            <div className="mt-5 flex items-center gap-1.5 text-[11px] text-[var(--sds-color-text-secondary)]">
+              <CheckCircle2 size={12} style={{ color: "var(--sds-status-success-text)" }} />
               <span>Single Sign-On secured with JWT + Argon2id</span>
             </div>
 
@@ -528,7 +526,7 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             {isDev && (
               <div
                 className="mt-7 rounded border overflow-hidden"
-                style={{ borderColor: "#f29900", backgroundColor: "#fffcf0" }}
+                style={{ borderColor: "var(--sds-status-warning-text)", backgroundColor: "var(--sds-status-warning-bg)" }}
               >
                 {allowDevLogin && (
                   <>
@@ -536,7 +534,7 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                       type="button"
                       onClick={() => setShowDevPanel(!showDevPanel)}
                       className="w-full flex items-center justify-between px-3.5 py-2.5 transition-colors"
-                      style={{ backgroundColor: "rgba(242,153,0,0.08)", color: "#8a6000" }}
+                      style={{ backgroundColor: "var(--sds-status-warning-bg)", color: "var(--sds-status-warning-text)" }}
                     >
                       <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider">
                         <Terminal size={11} />
@@ -555,7 +553,7 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                           className="overflow-hidden"
                         >
                           <div className="p-3 space-y-2">
-                            <p className="text-[10px] mb-2" style={{ color: "#89919a" }}>
+                            <p className="text-[10px] mb-2 text-[var(--sds-color-text-secondary)]">
                               Click any account to auto-fill. Visible in DEV build only.
                             </p>
                             {DEV_ACCOUNTS.map(acc => (
@@ -567,8 +565,8 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                                 style={{ borderColor: "#e5e5e5", backgroundColor: "#fff" }}
                               >
                                 <div>
-                                  <span className="text-[12px] font-semibold block text-[#32363a] leading-none mb-0.5">{acc.label}</span>
-                                  <span className="text-[10px] font-mono" style={{ color: "#89919a" }}>
+                                  <span className="text-[12px] font-semibold block text-[var(--sds-color-text-main)] leading-none mb-0.5">{acc.label}</span>
+                                  <span className="text-[10px] font-mono text-[var(--sds-color-text-secondary)]">
                                     {acc.username} / {acc.password}
                                   </span>
                                 </div>
@@ -590,7 +588,7 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             )}
 
             {/* Footer */}
-            <div className="mt-8 pt-6 border-t border-[#e5e5e5] text-[10px]" style={{ color: "#c2c2c2" }}>
+            <div className="mt-8 pt-6 border-t border-[var(--sds-color-border)] text-[10px] text-[var(--sds-color-text-secondary)]">
               © 2026 SMRITIBooks.com · smritisys.com · Proprietary Commercial Software
             </div>
           </div>
@@ -599,8 +597,8 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
       {/* ── Fiori Footer Bar ── */}
       <footer
-        className="h-9 flex items-center justify-between px-6 text-[11px] relative z-20"
-        style={{ backgroundColor: "#354a5e", color: "rgba(255,255,255,0.45)" }}
+        className="h-9 flex items-center justify-between px-6 text-[11px] relative z-20 border-t border-[var(--sds-color-border)]"
+        style={{ backgroundColor: "var(--sds-color-surface)", color: "var(--sds-color-text-secondary)" }}
       >
         <span>SMRITI Retail OS — Enterprise Business Platform</span>
         <div className="flex items-center gap-1.5">

@@ -20,6 +20,7 @@ import {
   AlertCircle, X
 } from "lucide-react";
 import { AttributeGroup, AttributeDefinition, Product } from "../types.js";
+import { useSAEFExperience, IndustryPackType } from "../layout_engine/saef_experience_store.ts";
 import { ExpandedCellEditor, ExpandContextMenu } from "./ExpandedCellEditor";
 import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
 
@@ -65,6 +66,49 @@ interface FieldConfig {
 
 const FIELD_CONFIG_STORAGE_KEY = "smriti_excel_import_field_configs";
 
+const FIELD_CONFIG_OVERRIDES: Partial<Record<IndustryPackType, Partial<Record<string, Partial<FieldConfig>>>>> = {
+  FOOTWEAR: {
+    styleCode: {
+      aliases: ["Product Style Code", "Style Code", "Style No", "StyleCode", "Product Code", "SKU Style"],
+    },
+    gender: {
+      aliases: ["Gender", "Gender Code", "Sex", "Customer Gender"],
+    },
+    heels: {
+      aliases: ["Heels", "Heel Type", "Heel", "Heel Height", "Heel Style", "Heel Shape"],
+    },
+    upperMaterial: {
+      aliases: ["Upper Material", "UpperMaterial", "Upper", "Upper Shoe Material", "Upper Sole", "Upper Sole Material", "Vamp Material"],
+    },
+    outsole: {
+      aliases: ["Outsole", "Outer Sole", "Sole", "Out Sole", "Outer Sole Material", "Sole Material", "Outsole Material", "Sole Type"],
+    },
+  },
+  APPAREL: {
+    styleCode: {
+      aliases: ["Product Style Code", "Style Code", "Style No", "StyleCode", "Product Code", "Design Code"],
+    },
+    gender: {
+      aliases: ["Gender", "Gender Code", "Sex", "Customer Gender", "For"],
+    },
+    upperMaterial: {
+      aliases: ["Upper Material", "UpperMaterial", "Material", "Fabric", "Fabric Type", "Textile"],
+    },
+    outsole: {
+      aliases: ["Outsole", "Outer Sole", "Sole", "Out Sole", "Sole Material", "Outer Sole Material", "Heel Material"],
+    },
+  },
+};
+
+const getPackFieldConfigs = (packId: IndustryPackType): FieldConfig[] =>
+  defaultFieldConfigs.map((config) => ({
+    ...config,
+    ...(FIELD_CONFIG_OVERRIDES[packId]?.[config.key] ?? {}),
+  }));
+
+const getFieldConfigStorageKey = (packId: IndustryPackType) =>
+  `${FIELD_CONFIG_STORAGE_KEY}_${packId.toLowerCase()}`;
+
 const defaultFieldConfigs: FieldConfig[] = [
   {
     key: "code",
@@ -77,7 +121,7 @@ const defaultFieldConfigs: FieldConfig[] = [
     key: "name",
     label: "Item Name",
     required: true,
-    aliases: ["Item Name", "Description", "Item Description", "Name", "Product Name"],
+    aliases: ["Item Name", "Description", "Item Description", "Name", "Product Name", "Item Description", "Product Description"],
     editable: false,
   },
   {
@@ -112,7 +156,7 @@ const defaultFieldConfigs: FieldConfig[] = [
     key: "gstPercentage",
     label: "GST %",
     required: false,
-    aliases: ["GST %", "GST Percentage", "Tax", "Product Tax", "GST"],
+    aliases: ["GST %", "GST Percentage", "Tax", "Product Tax", "Product Tax %", "Product Tax Percent", "Tax Percentage", "GST"],
     editable: true,
   },
   {
@@ -126,7 +170,7 @@ const defaultFieldConfigs: FieldConfig[] = [
     key: "brand",
     label: "Brand Name",
     required: false,
-    aliases: ["Brand", "Brand Name", "Manufacturer", "Label"],
+    aliases: ["Brand", "Brand Name", "Brand Names", "Manufacturer", "Label"],
     editable: true,
   },
   {
@@ -196,21 +240,21 @@ const defaultFieldConfigs: FieldConfig[] = [
     key: "heels",
     label: "Heels",
     required: false,
-    aliases: ["Heels", "Heel Type", "Heel"],
+    aliases: ["Heels", "Heel Type", "Heel", "Heel Height", "Heel Style"],
     editable: true,
   },
   {
     key: "upperMaterial",
     label: "Upper Material",
     required: false,
-    aliases: ["Upper Material", "UpperMaterial", "Upper", "Upper Shoe Material"],
+    aliases: ["Upper Material", "UpperMaterial", "Upper", "Upper Shoe Material", "Upper Sole", "Upper Sole Material"],
     editable: true,
   },
   {
     key: "outsole",
     label: "Outsole",
     required: false,
-    aliases: ["Outsole", "Outer Sole", "Sole", "Out Sole"],
+    aliases: ["Outsole", "Outer Sole", "Sole", "Out Sole", "Outer Sole Material", "Sole Material", "Outsole Material"],
     editable: true,
   },
   {
@@ -227,6 +271,9 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
   onRefreshProducts,
   onNotification
 }) => {
+  const { pack } = useSAEFExperience();
+  const fieldConfigStorageKey = getFieldConfigStorageKey(pack.id);
+
   const [groups, setGroups] = useState<AttributeGroup[]>([]);
   const [definitions, setDefinitions] = useState<AttributeDefinition[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
@@ -235,7 +282,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
   const [loading, setLoading] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showLabelModal, setShowLabelModal] = useState(false);
-  const [fieldConfigs, setFieldConfigs] = useState<FieldConfig[]>(defaultFieldConfigs);
+  const [fieldConfigs, setFieldConfigs] = useState<FieldConfig[]>(getPackFieldConfigs(pack.id));
 
   // Configurable SKU Engine states for Excel Grid Entry
   const [skuMode, setSkuMode] = useState<SkuMode>("auto");
@@ -315,27 +362,30 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
       config.key === key ? { ...config, ...patch } : config
     );
     setFieldConfigs(nextConfigs);
-    localStorage.setItem(FIELD_CONFIG_STORAGE_KEY, JSON.stringify(nextConfigs));
+    localStorage.setItem(fieldConfigStorageKey, JSON.stringify(nextConfigs));
   };
 
   const resetFieldConfigs = () => {
-    setFieldConfigs(defaultFieldConfigs);
-    localStorage.removeItem(FIELD_CONFIG_STORAGE_KEY);
+    setFieldConfigs(getPackFieldConfigs(pack.id));
+    localStorage.removeItem(fieldConfigStorageKey);
   };
 
   useEffect(() => {
     try {
-      const savedConfig = localStorage.getItem(FIELD_CONFIG_STORAGE_KEY);
+      const savedConfig = localStorage.getItem(fieldConfigStorageKey);
       if (savedConfig) {
         const parsed = JSON.parse(savedConfig) as FieldConfig[];
         if (Array.isArray(parsed) && parsed.length > 0) {
           setFieldConfigs(parsed);
+          return;
         }
       }
     } catch {
-      setFieldConfigs(defaultFieldConfigs);
+      // ignore malformed storage
     }
-  }, []);
+
+    setFieldConfigs(getPackFieldConfigs(pack.id));
+  }, [fieldConfigStorageKey, pack.id]);
 
   // Core columns
   const coreCols = fieldConfigs;
@@ -1307,9 +1357,9 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
                       { field: "Merchandise Category", req: false, aliases: "Merchandise Category · Merchandise · Merch Category · Sub Category" },
                       { field: "Sub Category", req: false, aliases: "Sub Category · Sub-category · Subcategory · Segment" },
                       { field: "Gender",       req: false, aliases: "Gender · Gender Code · Sex" },
-                      { field: "Heels",        req: false, aliases: "Heels · Heel Type · Heel" },
-                      { field: "Upper Material", req: false, aliases: "Upper Material · UpperMaterial · Upper · Upper Shoe Material" },
-                      { field: "Outsole",      req: false, aliases: "Outsole · Outer Sole · Sole · Out Sole" },
+                      { field: "Heels",        req: false, aliases: "Heels · Heel Type · Heel · Heel Height · Heel Style" },
+                      { field: "Upper Material", req: false, aliases: "Upper Material · UpperMaterial · Upper · Upper Shoe Material · Upper Sole · Upper Sole Material" },
+                      { field: "Outsole",      req: false, aliases: "Outsole · Outer Sole · Sole · Out Sole · Outer Sole Material · Sole Material · Outsole Material" },
                       { field: "Image Link",   req: false, aliases: "Image Link · Image URL · Picture · Image · ImagePath" },
                       ...activeAttrs.map(a => ({
                         field: a.label,
@@ -1376,7 +1426,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                   
                   {/* SKU Code */}
                   <td
-                    className="p-1 border-r border-theme-divider/40 relative group/cell"
+                    className="p-1 border-r border-theme-divider/40 relative group"
                     onDoubleClick={() => handleExpandCell(rowIndex, "code")}
                     onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "code")}
                   >
@@ -1393,7 +1443,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                     <button
                       onClick={() => handleExpandCell(rowIndex, "code")}
                       title="Expand cell (F2)"
-                      className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10"
+                      className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10"
                       tabIndex={-1}
                     >
                       <Maximize2 size={9} />
@@ -1402,7 +1452,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
 
                   {/* Item Name */}
                   <td
-                    className="p-1 border-r border-theme-divider/40 relative group/cell"
+                    className="p-1 border-r border-theme-divider/40 relative group"
                     onDoubleClick={() => handleExpandCell(rowIndex, "name")}
                     onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "name")}
                   >
@@ -1416,12 +1466,12 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "name" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "name")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "name")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Barcode */}
                   <td
-                    className="p-1 border-r border-theme-divider/40 relative group/cell"
+                    className="p-1 border-r border-theme-divider/40 relative group"
                     onDoubleClick={() => handleExpandCell(rowIndex, "barcode")}
                     onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "barcode")}
                   >
@@ -1435,11 +1485,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "barcode" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "barcode")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "barcode")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Buy Cost */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "costPrice")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "costPrice")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "costPrice")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "costPrice")}>
                     <input
                       id={`cell-${rowIndex}-costPrice`}
                       type="number"
@@ -1450,11 +1500,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "costPrice" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "costPrice")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "costPrice")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Selling Price */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "price")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "price")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "price")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "price")}>
                     <input
                       id={`cell-${rowIndex}-price`}
                       type="number"
@@ -1465,11 +1515,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "price" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "price")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "price")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* MRP */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "mrp")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "mrp")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "mrp")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "mrp")}>
                     <input
                       id={`cell-${rowIndex}-mrp`}
                       type="number"
@@ -1480,11 +1530,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "mrp" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "mrp")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "mrp")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* GST */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "gstPercentage")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "gstPercentage")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "gstPercentage")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "gstPercentage")}>
                     <input
                       id={`cell-${rowIndex}-gstPercentage`}
                       type="number"
@@ -1495,11 +1545,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "gstPercentage" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "gstPercentage")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "gstPercentage")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Stock */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "stock")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "stock")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "stock")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "stock")}>
                     <input
                       id={`cell-${rowIndex}-stock`}
                       type="number"
@@ -1510,11 +1560,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "stock" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "stock")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "stock")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Brand */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "brand")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "brand")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "brand")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "brand")}>
                     <input
                       id={`cell-${rowIndex}-brand`}
                       type="text"
@@ -1525,11 +1575,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "brand" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "brand")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "brand")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Product Style Code */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "styleCode")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "styleCode")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "styleCode")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "styleCode")}>
                     <input
                       id={`cell-${rowIndex}-styleCode`}
                       type="text"
@@ -1540,11 +1590,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "styleCode" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "styleCode")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "styleCode")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Category */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "category")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "category")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "category")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "category")}>
                     <input
                       id={`cell-${rowIndex}-category`}
                       type="text"
@@ -1555,11 +1605,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "category" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "category")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "category")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* HSN Code */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "hsnCode")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "hsnCode")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "hsnCode")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "hsnCode")}>
                     <input
                       id={`cell-${rowIndex}-hsnCode`}
                       type="text"
@@ -1570,11 +1620,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "hsnCode" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "hsnCode")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "hsnCode")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Vendor Code */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "vendorCode")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "vendorCode")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "vendorCode")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "vendorCode")}>
                     <input
                       id={`cell-${rowIndex}-vendorCode`}
                       type="text"
@@ -1585,11 +1635,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "vendorCode" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "vendorCode")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "vendorCode")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Purchase Class */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "purchaseClass")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "purchaseClass")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "purchaseClass")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "purchaseClass")}>
                     <input
                       id={`cell-${rowIndex}-purchaseClass`}
                       type="text"
@@ -1600,11 +1650,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "purchaseClass" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "purchaseClass")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "purchaseClass")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Department */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "department")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "department")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "department")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "department")}>
                     <input
                       id={`cell-${rowIndex}-department`}
                       type="text"
@@ -1615,11 +1665,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "department" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "department")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "department")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Merchandise Category */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "merchandiseCategory")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "merchandiseCategory")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "merchandiseCategory")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "merchandiseCategory")}>
                     <input
                       id={`cell-${rowIndex}-merchandiseCategory`}
                       type="text"
@@ -1630,11 +1680,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "merchandiseCategory" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "merchandiseCategory")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "merchandiseCategory")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Sub Category */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "subCategory")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "subCategory")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "subCategory")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "subCategory")}>
                     <input
                       id={`cell-${rowIndex}-subCategory`}
                       type="text"
@@ -1645,11 +1695,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "subCategory" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "subCategory")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "subCategory")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Gender */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "gender")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "gender")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "gender")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "gender")}>
                     <input
                       id={`cell-${rowIndex}-gender`}
                       type="text"
@@ -1660,11 +1710,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "gender" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "gender")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "gender")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Heels */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "heels")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "heels")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "heels")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "heels")}>
                     <input
                       id={`cell-${rowIndex}-heels`}
                       type="text"
@@ -1675,11 +1725,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "heels" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "heels")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "heels")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Upper Material */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "upperMaterial")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "upperMaterial")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "upperMaterial")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "upperMaterial")}>
                     <input
                       id={`cell-${rowIndex}-upperMaterial`}
                       type="text"
@@ -1690,11 +1740,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "upperMaterial" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "upperMaterial")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "upperMaterial")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Outsole */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "outsole")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "outsole")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "outsole")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "outsole")}>
                     <input
                       id={`cell-${rowIndex}-outsole`}
                       type="text"
@@ -1705,11 +1755,11 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "outsole" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "outsole")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "outsole")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Image Link */}
-                  <td className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, "imageLink")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "imageLink")}>
+                  <td className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, "imageLink")} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, "imageLink")}>
                     <input
                       id={`cell-${rowIndex}-imageLink`}
                       type="text"
@@ -1720,7 +1770,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onFocus={() => setFocusedCell({ rowIndex, field: "imageLink" })}
                       className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                     />
-                    <button onClick={() => handleExpandCell(rowIndex, "imageLink")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                    <button onClick={() => handleExpandCell(rowIndex, "imageLink")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
 
                   {/* Dynamic Custom Attributes */}
@@ -1729,7 +1779,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                     const val = row.attributes[attr.name] || "";
                     
                     return (
-                      <td key={attr.id} className="p-1 border-r border-theme-divider/40 relative group/cell" onDoubleClick={() => handleExpandCell(rowIndex, fieldKey)} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, fieldKey)}>
+                      <td key={attr.id} className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, fieldKey)} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, fieldKey)}>
                         {attr.dataType === "select" ? (
                           <select
                             id={`cell-${rowIndex}-${fieldKey}`}
@@ -1755,7 +1805,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                             className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
                           />
                         )}
-                        <button onClick={() => handleExpandCell(rowIndex, fieldKey)} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                        <button onClick={() => handleExpandCell(rowIndex, fieldKey)} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                       </td>
                     );
                   })}

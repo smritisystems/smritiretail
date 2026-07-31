@@ -9,14 +9,15 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { WindowManager } from "../../sdk";
 import { PRNVariableEngine, TATTLY_THREADS_ZPL_SCRIPT } from "../../services/label_print/PRNVariableEngine";
-import { PrintProviderRegistry, SystemPrinterDiscovery, SystemPrinterInfo } from "../../services/label_print/PrintProviderFramework";
+import { SystemPrinterDiscovery, SystemPrinterInfo } from "../../services/label_print/PrintProviderFramework";
 import { UniversalAttributeEngine, IndustryPackManager, IndustryType } from "../../core/metadata";
 import { PrintingService, PrintDocument } from "../../core/printing";
 import { PRNTemplateStudio } from "./PRNTemplateStudio.tsx";
 import { Product } from "../../types";
 import { SPK } from "../../kernel/SPK";
 import { IItemService } from "../../kernel/public/IItemService";
-import { ISupplierService, SupplierRecord } from "../../kernel/public/ISupplierService";
+import { SupplierRecord } from "../../kernel/public/ISupplierService";
+import { apiFetchV1 } from "../../lib/apiFetchV1";
 
 export interface PrintLabelsStudioProps {
   products?: Product[];
@@ -32,6 +33,10 @@ export interface PrintItemRow {
   batchSerial: string;
   qty: number;
   printQty: number;
+  stock?: number;
+  styleCode?: string;
+  modelNo?: string;
+  articleNo?: string;
   labelTemplate: string;
   sizeMm: string;
   mrp: number;
@@ -41,9 +46,51 @@ export interface PrintItemRow {
   category?: string;
 }
 
+type ItemMasterFieldKey =
+  | "barcode"
+  | "sku"
+  | "code"
+  | "name"
+  | "uom"
+  | "hsnCode"
+  | "hsn_code"
+  | "gstPercentage"
+  | "gst_rate"
+  | "brand"
+  | "category"
+  | "styleCode"
+  | "modelNo"
+  | "articleNo"
+  | "stock"
+  | "stock_qty"
+  | "mrp"
+  | "price";
+
+const ITEM_MASTER_FIELD_OPTIONS: { key: ItemMasterFieldKey; label: string }[] = [
+  { key: "barcode", label: "Barcode" },
+  { key: "sku", label: "SKU" },
+  { key: "code", label: "Product Code" },
+  { key: "name", label: "Item Name" },
+  { key: "uom", label: "UOM" },
+  { key: "hsnCode", label: "HSN Code" },
+  { key: "hsn_code", label: "HSN Code (Legacy)" },
+  { key: "gstPercentage", label: "GST Percentage" },
+  { key: "gst_rate", label: "GST Rate" },
+  { key: "brand", label: "Brand" },
+  { key: "category", label: "Category" },
+  { key: "styleCode", label: "Style Code" },
+  { key: "modelNo", label: "Model Number" },
+  { key: "articleNo", label: "Article Number" },
+  { key: "stock", label: "Stock" },
+  { key: "stock_qty", label: "Stock Quantity" },
+  { key: "mrp", label: "MRP" },
+  { key: "price", label: "Price" },
+];
+
 export type SourceType =
   | "manual"
   | "item_master"
+  | "purchase_order"
   | "purchase_invoice"
   | "grn"
   | "purchase_return"
@@ -59,20 +106,23 @@ export type SourceType =
 // Source Datasets for Dynamic Switching
 const SOURCE_DATASETS: Record<SourceType, PrintItemRow[]> = {
   manual: [
-    { id: "row-1", selected: true, barcode: "8901234567890", itemCode: "SHO-1001", itemName: "Tattly Threads Dual Tag Item", uom: "Pair", batchSerial: "-", qty: 50, printQty: 50, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 2500.0, hsn: "6404", taxRate: "18% IGST", brand: "Tattly Threads", category: "Footwear" },
-    { id: "row-2", selected: true, barcode: "8901234567891", itemCode: "SOC-2001", itemName: "Cotton Sock Dual Tag", uom: "Pair", batchSerial: "-", qty: 100, printQty: 100, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 250.0, hsn: "6115", taxRate: "12% GST", brand: "Tattly Threads", category: "Apparel" },
-    { id: "row-3", selected: true, barcode: "BAT-001", itemCode: "BAT-001", itemName: "Batch Dual Tag Item", uom: "Pcs", batchSerial: "BATCH-2025-05", qty: 200, printQty: 200, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 1200.0, hsn: "6109", brand: "Tattly Threads", category: "Apparel" },
-    { id: "row-4", selected: true, barcode: "SRL-000123", itemCode: "SERIAL-001", itemName: "Serial Footwear Tag", uom: "Pcs", batchSerial: "SRL-000123", qty: 1, printQty: 1, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 3500.0, hsn: "6403", brand: "Tattly Threads", category: "Footwear" },
+    { id: "row-1", selected: true, barcode: "8901234567890", itemCode: "SHO-1001", itemName: "Tattly Threads Dual Tag Item", uom: "Pair", batchSerial: "-", qty: 50, printQty: 50, stock: 50, styleCode: "SHO-101", modelNo: "MDL-101", labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 2500.0, hsn: "6404", taxRate: "18% IGST", brand: "Tattly Threads", category: "Footwear" },
+    { id: "row-2", selected: true, barcode: "8901234567891", itemCode: "SOC-2001", itemName: "Cotton Sock Dual Tag", uom: "Pair", batchSerial: "-", qty: 100, printQty: 100, stock: 100, styleCode: "SCK-200", modelNo: "MDL-200", labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 250.0, hsn: "6115", taxRate: "12% GST", brand: "Tattly Threads", category: "Apparel" },
+    { id: "row-3", selected: true, barcode: "BAT-001", itemCode: "BAT-001", itemName: "Batch Dual Tag Item", uom: "Pcs", batchSerial: "BATCH-2025-05", qty: 200, printQty: 200, stock: 200, styleCode: "BAT-500", modelNo: "MDL-500", labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 1200.0, hsn: "6109", brand: "Tattly Threads", category: "Apparel" },
+    { id: "row-4", selected: true, barcode: "SRL-000123", itemCode: "SERIAL-001", itemName: "Serial Footwear Tag", uom: "Pcs", batchSerial: "SRL-000123", qty: 1, printQty: 1, stock: 1, styleCode: "SRL-999", modelNo: "MDL-999", labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 3500.0, hsn: "6403", brand: "Tattly Threads", category: "Footwear" },
   ],
   item_master: [
-    { id: "im-1", selected: true, barcode: "8901234567892", itemCode: "CAP-3001", itemName: "Tattly Cap Tag", uom: "Pcs", batchSerial: "-", qty: 40, printQty: 40, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 500.0, hsn: "6505", brand: "Tattly Threads", category: "Accessories" },
-    { id: "im-2", selected: true, barcode: "8901234567893", itemCode: "TSH-4001", itemName: "Tattly Running T-Shirt Tag", uom: "Pcs", batchSerial: "-", qty: 60, printQty: 60, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 1200.0, hsn: "6109", brand: "Tattly Threads", category: "Apparel" },
+    { id: "im-1", selected: true, barcode: "8901234567892", itemCode: "CAP-3001", itemName: "Tattly Cap Tag", uom: "Pcs", batchSerial: "-", qty: 40, printQty: 40, stock: 40, styleCode: "CAP-100", modelNo: "MDL-110", labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 500.0, hsn: "6505", brand: "Tattly Threads", category: "Accessories" },
+    { id: "im-2", selected: true, barcode: "8901234567893", itemCode: "TSH-4001", itemName: "Tattly Running T-Shirt Tag", uom: "Pcs", batchSerial: "-", qty: 60, printQty: 60, stock: 60, styleCode: "TSH-400", modelNo: "MDL-410", labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 1200.0, hsn: "6109", brand: "Tattly Threads", category: "Apparel" },
+  ],
+  purchase_order: [
+    { id: "po-1", selected: true, barcode: "8901234567897", itemCode: "PO-2026-001", itemName: "Purchase Order Textile Roll", uom: "Roll", batchSerial: "PO-2026-001", qty: 75, printQty: 75, stock: 75, styleCode: "TXT-301", modelNo: "MDL-301", labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 850.0, hsn: "5208", brand: "Tattly Threads", category: "Textiles" },
   ],
   purchase_invoice: [
-    { id: "pi-1", selected: true, barcode: "8901234567894", itemCode: "PINV-101", itemName: "Formal Leather Shoes", uom: "Pair", batchSerial: "PINV-9912", qty: 25, printQty: 25, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 3500.0, hsn: "6403", brand: "Tattly Threads", category: "Footwear" },
+    { id: "pi-1", selected: true, barcode: "8901234567894", itemCode: "PINV-101", itemName: "Formal Leather Shoes", uom: "Pair", batchSerial: "PINV-9912", qty: 25, printQty: 25, stock: 25, styleCode: "LEA-210", modelNo: "MDL-210", labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 3500.0, hsn: "6403", brand: "Tattly Threads", category: "Footwear" },
   ],
   grn: [
-    { id: "grn-1", selected: true, barcode: "8901234567895", itemCode: "GRN-901", itemName: "Denim Jeans Trousers", uom: "Pcs", batchSerial: "GRN-2025-08", qty: 80, printQty: 80, labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 1800.0, hsn: "6203", brand: "Tattly Threads", category: "Apparel" },
+    { id: "grn-1", selected: true, barcode: "8901234567895", itemCode: "GRN-901", itemName: "Denim Jeans Trousers", uom: "Pcs", batchSerial: "GRN-2025-08", qty: 80, printQty: 80, stock: 80, styleCode: "DEN-400", modelNo: "MDL-400", labelTemplate: "Tattly Threads Dual Tag (ZPL)", sizeMm: "100 x 50.7", mrp: 1800.0, hsn: "6203", brand: "Tattly Threads", category: "Apparel" },
   ],
   purchase_return: [],
   sales_invoice: [
@@ -142,14 +192,13 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
   const [supplierList, setSupplierList] = useState<SupplierRecord[]>([]);
 
   useEffect(() => {
-    try {
-      const supplierService = SPK.services.resolve<ISupplierService>("SUPPLIER");
-      supplierService.getAll().then((list) => {
-        if (list && list.length > 0) setSupplierList(list);
+    apiFetchV1("/suppliers/")
+      .then((list) => {
+        if (Array.isArray(list) && list.length > 0) setSupplierList(list);
+      })
+      .catch((error) => {
+        console.warn("[PrintLabelsStudio] Supplier filter data unavailable", error);
       });
-    } catch (e) {
-      console.warn("[PrintLabelsStudio] SPK SupplierService unavailable", e);
-    }
   }, []);
 
   // Range Filters
@@ -171,29 +220,75 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
   const [filterSectionTo, setFilterSectionTo] = useState<string>("");
   const [filterStyleFrom, setFilterStyleFrom] = useState<string>("");
   const [filterStyleTo, setFilterStyleTo] = useState<string>("");
+  const [filterStockFrom, setFilterStockFrom] = useState<string>("");
+  const [filterStockTo, setFilterStockTo] = useState<string>("");
+  const [filterModelFrom, setFilterModelFrom] = useState<string>("");
+  const [filterModelTo, setFilterModelTo] = useState<string>("");
+  const [filterArticleFrom, setFilterArticleFrom] = useState<string>("");
+  const [filterArticleTo, setFilterArticleTo] = useState<string>("");
+
+  const [itemMasterFieldMap, setItemMasterFieldMap] = useState<Record<
+    "barcode" | "itemCode" | "itemName" | "uom" | "brand" | "category" | "styleCode" | "modelNo" | "articleNo" | "stock" | "mrp" | "hsn",
+    ItemMasterFieldKey
+  >>({
+    barcode: "barcode",
+    itemCode: "sku",
+    itemName: "name",
+    uom: "uom",
+    brand: "brand",
+    category: "category",
+    styleCode: "styleCode",
+    modelNo: "modelNo",
+    articleNo: "articleNo",
+    stock: "stock",
+    mrp: "mrp",
+    hsn: "hsnCode",
+  });
+
+  const getMappedProductValue = (product: Product, field: ItemMasterFieldKey): string | undefined => {
+    const value = (product as any)[field];
+    if (value === undefined || value === null) return undefined;
+    return typeof value === "number" || typeof value === "string" ? String(value) : undefined;
+  };
 
   // Convert live Product array to PrintItemRow array
   const dynamicItemMasterRows = useMemo<PrintItemRow[]>(() => {
     if (!liveProducts || liveProducts.length === 0) return SOURCE_DATASETS.item_master;
-    return liveProducts.map((p, idx) => ({
-      id: `im-dyn-${p.id || idx}`,
-      selected: true,
-      barcode: p.barcode || p.sku || p.code,
-      itemCode: p.sku || p.code,
-      itemName: p.name,
-      uom: p.uom || "Pcs",
-      batchSerial: "-",
-      qty: Math.max(1, p.stock ?? p.stock_qty ?? 10),
-      printQty: Math.max(1, p.stock ?? p.stock_qty ?? 10),
-      labelTemplate: "Tattly Threads Dual Tag (ZPL)",
-      sizeMm: "100 x 50.7",
-      mrp: p.mrp || p.price || 100.0,
-      hsn: p.hsn_code || p.hsnCode || "8471",
-      taxRate: `${p.gst_rate || p.gstPercentage || 18}% GST`,
-      brand: p.brand || "Smriti Standard",
-      category: p.category || "General"
-    }));
-  }, [liveProducts]);
+    return liveProducts.map((p, idx) => {
+      const mappedStock = Number(
+        getMappedProductValue(p, itemMasterFieldMap.stock) ?? p.stock ?? p.stock_qty ?? 10
+      );
+      const mappedMrp = Number(getMappedProductValue(p, itemMasterFieldMap.mrp) ?? p.mrp ?? p.price ?? 100.0);
+      const mappedHsn =
+        getMappedProductValue(p, itemMasterFieldMap.hsn) || getMappedProductValue(p, "hsnCode") || getMappedProductValue(p, "hsn_code") || "8471";
+      const mappedTaxRate = getMappedProductValue(p, "gst_rate") || getMappedProductValue(p, "gstPercentage") || "18";
+
+      return {
+        id: `im-dyn-${p.id || idx}`,
+        selected: true,
+        barcode:
+          getMappedProductValue(p, itemMasterFieldMap.barcode) || getMappedProductValue(p, "sku") || getMappedProductValue(p, "code") || "",
+        itemCode:
+          getMappedProductValue(p, itemMasterFieldMap.itemCode) || getMappedProductValue(p, "sku") || getMappedProductValue(p, "code") || "",
+        itemName: getMappedProductValue(p, itemMasterFieldMap.itemName) || p.name || "",
+        uom: getMappedProductValue(p, itemMasterFieldMap.uom) || p.uom || "Pcs",
+        batchSerial: "-",
+        qty: Math.max(1, mappedStock),
+        printQty: Math.max(1, mappedStock),
+        labelTemplate: "Tattly Threads Dual Tag (ZPL)",
+        sizeMm: "100 x 50.7",
+        mrp: mappedMrp,
+        hsn: mappedHsn,
+        taxRate: `${parseFloat(mappedTaxRate) || 18}% GST`,
+        brand: getMappedProductValue(p, itemMasterFieldMap.brand) || p.brand || "Smriti Standard",
+        category: getMappedProductValue(p, itemMasterFieldMap.category) || p.category || "General",
+        styleCode: getMappedProductValue(p, itemMasterFieldMap.styleCode) || (p as any).styleCode,
+        modelNo: getMappedProductValue(p, itemMasterFieldMap.modelNo) || (p as any).modelNo,
+        articleNo: getMappedProductValue(p, itemMasterFieldMap.articleNo) || (p as any).articleNo,
+        stock: Number(getMappedProductValue(p, itemMasterFieldMap.stock) ?? p.stock ?? p.stock_qty ?? 0),
+      };
+    });
+  }, [liveProducts, itemMasterFieldMap]);
 
   // Items to Print Table Dataset
   const [printItems, setPrintItems] = useState<PrintItemRow[]>(SOURCE_DATASETS.manual);
@@ -209,37 +304,86 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
   // Datalist options derived from liveProducts & printItems
   const itemCodeOptions = useMemo(() => {
     const set = new Set<string>();
-    liveProducts.forEach((p) => { if (p.sku) set.add(p.sku); if (p.code) set.add(p.code); });
+    liveProducts.forEach((p) => {
+      const mappedValue = getMappedProductValue(p, itemMasterFieldMap.itemCode);
+      if (mappedValue) set.add(mappedValue);
+      if (p.sku) set.add(p.sku);
+      if (p.code) set.add(p.code);
+    });
     printItems.forEach((i) => { if (i.itemCode) set.add(i.itemCode); });
     return Array.from(set);
-  }, [liveProducts, printItems]);
+  }, [liveProducts, printItems, itemMasterFieldMap]);
 
   const barcodeOptions = useMemo(() => {
     const set = new Set<string>();
-    liveProducts.forEach((p) => { if (p.barcode) set.add(p.barcode); });
+    liveProducts.forEach((p) => {
+      const mappedValue = getMappedProductValue(p, itemMasterFieldMap.barcode);
+      if (mappedValue) set.add(mappedValue);
+      if (p.barcode) set.add(p.barcode);
+    });
     printItems.forEach((i) => { if (i.barcode) set.add(i.barcode); });
     return Array.from(set);
-  }, [liveProducts, printItems]);
+  }, [liveProducts, printItems, itemMasterFieldMap]);
 
   const productOptions = useMemo(() => {
     const set = new Set<string>();
-    liveProducts.forEach((p) => { if (p.name) set.add(p.name); });
+    liveProducts.forEach((p) => {
+      const mappedValue = getMappedProductValue(p, itemMasterFieldMap.itemName);
+      if (mappedValue) set.add(mappedValue);
+      if (p.name) set.add(p.name);
+    });
     printItems.forEach((i) => { if (i.itemName) set.add(i.itemName); });
     return Array.from(set);
-  }, [liveProducts, printItems]);
+  }, [liveProducts, printItems, itemMasterFieldMap]);
 
   const brandOptions = useMemo(() => {
     const set = new Set<string>();
-    liveProducts.forEach((p) => { if (p.brand) set.add(p.brand); });
+    liveProducts.forEach((p) => {
+      const mappedValue = getMappedProductValue(p, itemMasterFieldMap.brand);
+      if (mappedValue) set.add(mappedValue);
+      if (p.brand) set.add(p.brand);
+    });
     printItems.forEach((i) => { if (i.brand) set.add(i.brand); });
     return Array.from(set);
-  }, [liveProducts, printItems]);
+  }, [liveProducts, printItems, itemMasterFieldMap]);
 
   const categoryOptions = useMemo(() => {
     const set = new Set<string>();
-    liveProducts.forEach((p) => { if (p.category) set.add(p.category); });
+    liveProducts.forEach((p) => {
+      const mappedValue = getMappedProductValue(p, itemMasterFieldMap.category);
+      if (mappedValue) set.add(mappedValue);
+      if (p.category) set.add(p.category);
+    });
     printItems.forEach((i) => { if (i.category) set.add(i.category); });
     return Array.from(set);
+  }, [liveProducts, printItems, itemMasterFieldMap]);
+
+  const styleOptions = useMemo(() => {
+    const set = new Set<string>();
+    liveProducts.forEach((p) => { if (p.styleCode) set.add(p.styleCode); });
+    printItems.forEach((i) => { if (i.styleCode) set.add(i.styleCode); });
+    return Array.from(set);
+  }, [liveProducts, printItems]);
+
+  const modelOptions = useMemo(() => {
+    const set = new Set<string>();
+    liveProducts.forEach((p) => { if ((p as any).modelNo) set.add((p as any).modelNo); });
+    printItems.forEach((i) => { if (i.modelNo) set.add(i.modelNo); });
+    return Array.from(set);
+  }, [liveProducts, printItems]);
+
+  const articleOptions = useMemo(() => {
+    const set = new Set<string>();
+    liveProducts.forEach((p) => { if ((p as any).articleNo) set.add((p as any).articleNo); });
+    printItems.forEach((i) => { if (i.articleNo) set.add(i.articleNo); });
+    return Array.from(set);
+  }, [liveProducts, printItems]);
+
+  const stockOptions = useMemo(() => {
+    const set = new Set<string>();
+    liveProducts.forEach((p) => { if (typeof p.stock === "number") set.add(p.stock.toString()); });
+    printItems.forEach((i) => { if (typeof i.stock === "number") set.add(i.stock.toString()); });
+    return Array.from(set).sort((a, b) => Number(a) - Number(b));
   }, [liveProducts, printItems]);
 
   // Preview Index
@@ -249,8 +393,24 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
   const [detectedPrinters, setDetectedPrinters] = useState<SystemPrinterInfo[]>([]);
 
   const refreshPrinters = async () => {
-    const list = await SystemPrinterDiscovery.detectPrinters();
+    const capabilities = await PrintingService.discoverPrinters(false);
+    const list: SystemPrinterInfo[] = capabilities.map((printerInfo) => ({
+      name: printerInfo.name,
+      connection: printerInfo.connection === "USB" || printerInfo.connection === "SERIAL" || printerInfo.connection === "NETWORK" || printerInfo.connection === "VIRTUAL" ? printerInfo.connection : "SPOOLER",
+      driver: printerInfo.protocols?.join(" / ") || "Windows / OS Spooler",
+      isDefault: printerInfo.isDefault,
+    }));
     setDetectedPrinters(list);
+
+    // Prefer USB printers when USB connection mode is selected
+    if (connectionType === "USB") {
+      const usbPrinter = list.find((p) => p.connection === "USB");
+      if (usbPrinter) {
+        setPrinter(usbPrinter.name);
+        showToast(`USB printer detected: ${usbPrinter.name}`);
+        return;
+      }
+    }
 
     // Prefer Honeywell IH-2 or user's saved printer if present
     const honeywell = list.find((p) => p.name.includes("Honeywell"));
@@ -262,9 +422,34 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
     showToast(`Discovered ${list.length} Local System Printers`);
   };
 
+  const requestUsbPrinter = async () => {
+    const capabilities = await PrintingService.discoverPrinters(true);
+    const usbPrinter = capabilities.find((printerInfo) => printerInfo.connection === "USB" || printerInfo.connection === "SERIAL");
+    if (!usbPrinter) {
+      showToast("No USB printer selected or WebUSB/Web Serial is unavailable");
+      return;
+    }
+
+    setDetectedPrinters((current) => {
+      const withoutDuplicate = current.filter((printerInfo) => printerInfo.name !== usbPrinter.name);
+      return [{ name: usbPrinter.name, connection: usbPrinter.connection === "USB" || usbPrinter.connection === "SERIAL" ? usbPrinter.connection : "USB", driver: usbPrinter.protocols?.join(" / ") }, ...withoutDuplicate];
+    });
+    setPrinter(usbPrinter.name);
+    showToast(`USB printer authorized: ${usbPrinter.name}`);
+  };
+
   useEffect(() => {
     refreshPrinters();
   }, []);
+
+  // TCP/IP Printer Hardware State
+  const [connectionType, setConnectionType] = useState<string>("NETWORK_TCP");
+  const [printerIp, setPrinterIp] = useState<string>("192.168.1.100");
+  const [printerPort, setPrinterPort] = useState<number>(9100);
+  const [tcpStatus, setTcpStatus] = useState<string>("Connected (192.168.1.100:9100)");
+
+  const usbPrinters = detectedPrinters.filter((p) => p.connection === "USB");
+  const isUsbConnection = connectionType === "USB";
 
   // Print Settings State - Default to Tattly Threads ZPL Dual Barcode Tag (100 x 50.7 mm)
   const [printer, setPrinter] = useState<string>("Zebra ZD420 (ZPL II)");
@@ -284,12 +469,6 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
   const [isPrinterConfigModalOpen, setIsPrinterConfigModalOpen] = useState<boolean>(false);
   const [isFullPreviewModalOpen, setIsFullPreviewModalOpen] = useState<boolean>(false);
   const [editingRow, setEditingRow] = useState<PrintItemRow | null>(null);
-
-  // TCP/IP Printer Hardware State
-  const [connectionType, setConnectionType] = useState<string>("NETWORK_TCP");
-  const [printerIp, setPrinterIp] = useState<string>("192.168.1.100");
-  const [printerPort, setPrinterPort] = useState<number>(9100);
-  const [tcpStatus, setTcpStatus] = useState<string>("Connected (192.168.1.100:9100)");
 
   // QZ Tray Status State
   const [isQzConnected, setIsQzConnected] = useState<boolean>(false);
@@ -321,10 +500,15 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
   // Switch Source Handler
   const handleSelectSource = (src: SourceType) => {
     setSelectedSource(src);
-    const data = SOURCE_DATASETS[src] || [];
-    setPrintItems(data);
+    if (src === "item_master") {
+      setPrintItems(dynamicItemMasterRows);
+      showToast(`Source selected: ITEM MASTER (${dynamicItemMasterRows.length} Items Loaded)`);
+    } else {
+      const data = SOURCE_DATASETS[src] || [];
+      setPrintItems(data);
+      showToast(`Source selected: ${src.toUpperCase().replace("_", " ")} (${data.length} Items Loaded)`);
+    }
     setActivePreviewIndex(0);
-    showToast(`Source selected: ${src.toUpperCase().replace("_", " ")} (${data.length} Items Loaded)`);
   };
 
   // Filter items in real-time based on Range Filters
@@ -346,8 +530,14 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
       if (filterBrandTo && brand > filterBrandTo.toLowerCase()) return false;
       if (filterCategoryFrom && cat < filterCategoryFrom.toLowerCase()) return false;
       if (filterCategoryTo && cat > filterCategoryTo.toLowerCase()) return false;
-      if (filterStyleFrom && !(item.batchSerial || "").toLowerCase().includes(filterStyleFrom.toLowerCase())) return false;
-      if (filterStyleTo && !(item.batchSerial || "").toLowerCase().includes(filterStyleTo.toLowerCase())) return false;
+      if (filterStyleFrom && !(item.styleCode || item.batchSerial || "").toLowerCase().includes(filterStyleFrom.toLowerCase())) return false;
+      if (filterStyleTo && !(item.styleCode || item.batchSerial || "").toLowerCase().includes(filterStyleTo.toLowerCase())) return false;
+      if (filterModelFrom && !(item.modelNo || "").toLowerCase().includes(filterModelFrom.toLowerCase())) return false;
+      if (filterModelTo && !(item.modelNo || "").toLowerCase().includes(filterModelTo.toLowerCase())) return false;
+      if (filterArticleFrom && !(item.articleNo || "").toLowerCase().includes(filterArticleFrom.toLowerCase())) return false;
+      if (filterArticleTo && !(item.articleNo || "").toLowerCase().includes(filterArticleTo.toLowerCase())) return false;
+      if (filterStockFrom && Number(item.stock ?? 0) < Number(filterStockFrom)) return false;
+      if (filterStockTo && Number(item.stock ?? 0) > Number(filterStockTo)) return false;
       return true;
     });
   }, [
@@ -357,7 +547,10 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
     filterProductFrom, filterProductTo,
     filterBrandFrom, filterBrandTo,
     filterCategoryFrom, filterCategoryTo,
-    filterStyleFrom, filterStyleTo
+    filterStyleFrom, filterStyleTo,
+    filterModelFrom, filterModelTo,
+    filterArticleFrom, filterArticleTo,
+    filterStockFrom, filterStockTo
   ]);
 
   // Total Summaries
@@ -386,6 +579,8 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
 
     const res = await PrintingService.printDocument(document, {
       printerName: printer,
+      printerIp: printerIp,
+      printerPort: printerPort,
       driverId: "zpl",
       providerId: connectionType === "NETWORK_TCP" ? "network" : "qz_tray",
       copies,
@@ -398,6 +593,37 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
       showToast(`SUPP Fallback: Browser print execution (${res.error || ""})`);
       window.print();
     }
+  };
+
+  const downloadPrintFile = () => {
+    if (filteredPrintItems.length === 0) {
+      showToast("No items available to save!");
+      return;
+    }
+
+    const rawScript = filteredPrintItems
+      .filter((item) => item.selected)
+      .map((item) => PRNVariableEngine.renderTemplate(TATTLY_THREADS_ZPL_SCRIPT, item, item.printQty))
+      .join("\n");
+    const blob = new Blob([rawScript], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `smriti_barcode_labels_${new Date().toISOString().slice(0, 10)}.zpl`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast("ZPL label file downloaded");
+  };
+
+  const printToFile = () => {
+    if (filteredPrintItems.length === 0) {
+      showToast("No items available to print!");
+      return;
+    }
+    showToast("Choose Microsoft Print to PDF or Save as PDF in the print dialog");
+    window.print();
   };
 
   // Keyboard Shortcuts Listener
@@ -493,6 +719,12 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
     setFilterSectionTo("");
     setFilterStyleFrom("");
     setFilterStyleTo("");
+    setFilterStockFrom("");
+    setFilterStockTo("");
+    setFilterModelFrom("");
+    setFilterModelTo("");
+    setFilterArticleFrom("");
+    setFilterArticleTo("");
     showToast("Filters reset to default");
   };
 
@@ -678,6 +910,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                 {[
                   { id: "manual", label: "Manual Entry", icon: "edit_note" },
                   { id: "item_master", label: "Item Master", icon: "inventory_2" },
+                  { id: "purchase_order", label: "Purchase Order", icon: "inventory_2" },
                   { id: "purchase_invoice", label: "Purchase Invoice", icon: "receipt_long" },
                   { id: "grn", label: "GRN", icon: "move_to_inbox" },
                   { id: "purchase_return", label: "Purchase Return", icon: "settings_backup_restore" },
@@ -870,6 +1103,18 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                 <datalist id="category-list">
                   {categoryOptions.map((c) => (<option key={c} value={c} />))}
                 </datalist>
+                <datalist id="style-list">
+                  {styleOptions.map((s) => (<option key={s} value={s} />))}
+                </datalist>
+                <datalist id="model-list">
+                  {modelOptions.map((m) => (<option key={m} value={m} />))}
+                </datalist>
+                <datalist id="article-list">
+                  {articleOptions.map((a) => (<option key={a} value={a} />))}
+                </datalist>
+                <datalist id="stock-list">
+                  {stockOptions.map((s) => (<option key={s} value={s} />))}
+                </datalist>
 
                 {/* Row 1 */}
                 <div>
@@ -1051,6 +1296,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
+                      list="style-list"
                       placeholder="From"
                       value={filterStyleFrom}
                       onChange={(e) => setFilterStyleFrom(e.target.value)}
@@ -1058,9 +1304,76 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                     />
                     <input
                       type="text"
+                      list="style-list"
                       placeholder="To"
                       value={filterStyleTo}
                       onChange={(e) => setFilterStyleTo(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Model</label>
+                  <div className="flex items-center space-x-1">
+                    <input
+                      type="text"
+                      list="model-list"
+                      placeholder="From"
+                      value={filterModelFrom}
+                      onChange={(e) => setFilterModelFrom(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                    />
+                    <input
+                      type="text"
+                      list="model-list"
+                      placeholder="To"
+                      value={filterModelTo}
+                      onChange={(e) => setFilterModelTo(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Article</label>
+                  <div className="flex items-center space-x-1">
+                    <input
+                      type="text"
+                      list="article-list"
+                      placeholder="From"
+                      value={filterArticleFrom}
+                      onChange={(e) => setFilterArticleFrom(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                    />
+                    <input
+                      type="text"
+                      list="article-list"
+                      placeholder="To"
+                      value={filterArticleTo}
+                      onChange={(e) => setFilterArticleTo(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Stock Available</label>
+                  <div className="flex items-center space-x-1">
+                    <input
+                      type="number"
+                      list="stock-list"
+                      placeholder="Min"
+                      value={filterStockFrom}
+                      onChange={(e) => setFilterStockFrom(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                    />
+                    <input
+                      type="number"
+                      list="stock-list"
+                      placeholder="Max"
+                      value={filterStockTo}
+                      onChange={(e) => setFilterStockTo(e.target.value)}
                       className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                   </div>
@@ -1136,6 +1449,8 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                     <th className="py-2.5 px-3">Item Name</th>
                     <th className="py-2.5 px-3 text-center">UOM</th>
                     <th className="py-2.5 px-3 text-center">Batch / Serial</th>
+                    <th className="py-2.5 px-3 text-center">Stock</th>
+                    <th className="py-2.5 px-3 text-center">Style / Model</th>
                     <th className="py-2.5 px-3 text-center">Qty</th>
                     <th className="py-2.5 px-3 text-center">Print Qty</th>
                     <th className="py-2.5 px-3 text-center">Label</th>
@@ -1166,6 +1481,8 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       <td className="py-2.5 px-3 font-semibold text-slate-800">{row.itemName}</td>
                       <td className="py-2.5 px-3 text-center text-slate-600">{row.uom}</td>
                       <td className="py-2.5 px-3 text-center font-mono text-slate-500">{row.batchSerial}</td>
+                      <td className="py-2.5 px-3 text-center font-mono">{typeof row.stock === "number" ? row.stock : "-"}</td>
+                      <td className="py-2.5 px-3 text-center text-slate-600">{row.styleCode || row.modelNo || row.articleNo || "-"}</td>
                       <td className="py-2.5 px-3 text-center font-mono">{row.qty}</td>
                       <td className="py-2.5 px-3 text-center">
                         <input
@@ -1267,6 +1584,14 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                         <div className="text-[9px] font-mono text-slate-600">Batch/Serial: {activeItem.batchSerial}</div>
                       )}
 
+                      {typeof activeItem.stock === "number" && (
+                        <div className="text-[9px] font-bold text-emerald-700">Stock: {activeItem.stock}</div>
+                      )}
+
+                      {(activeItem.styleCode || activeItem.modelNo || activeItem.articleNo) && (
+                        <div className="text-[9px] text-slate-500">{activeItem.styleCode || activeItem.articleNo || activeItem.modelNo}</div>
+                      )}
+
                       {/* SVG Barcode Representation */}
                       <div className="py-1">
                         <svg className="w-full h-12" viewBox="0 0 200 50">
@@ -1338,7 +1663,13 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase block">Installed Hardware Printer</label>
                     <span className="text-[9px] font-mono font-bold text-blue-900">
-                      {detectedPrinters.length > 0 ? `${detectedPrinters.length} Real Printers Discovered` : "Manual / Hardware Direct"}
+                      {isUsbConnection
+                        ? usbPrinters.length > 0
+                          ? `${usbPrinters.length} USB Printer${usbPrinters.length === 1 ? "" : "s"} Detected`
+                          : "USB auto-detect active"
+                        : detectedPrinters.length > 0
+                        ? `${detectedPrinters.length} Real Printers Discovered`
+                        : "Manual / Hardware Direct"}
                     </span>
                   </div>
                   <div className="flex items-center space-x-1.5">
@@ -1348,7 +1679,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                         onChange={(e) => setPrinter(e.target.value)}
                         className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-800"
                       >
-                        {detectedPrinters.map((p) => (
+                        {(isUsbConnection ? usbPrinters : detectedPrinters).map((p) => (
                           <option key={p.name} value={p.name}>
                             {p.name} ({p.driver || p.connection || "System Spooler"})
                           </option>
@@ -1359,40 +1690,42 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                         type="text"
                         value={printer}
                         onChange={(e) => setPrinter(e.target.value)}
-                        placeholder="Enter Real System Printer Name (e.g. IMPACT by Honeywell IH-2 (300 dpi) - DPL)"
+                        placeholder={isUsbConnection ? "No USB printers detected. Connect USB device and rescan." : "Enter Real System Printer Name (e.g. IMPACT by Honeywell IH-2 (300 dpi) - DPL)"}
                         className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-800"
                       />
                     )}
+                    {!isUsbConnection && (
+                      <button
+                        onClick={async () => {
+                          const customName = prompt(
+                            "Enter your exact Windows Printer Name (as shown in Windows Printers & Scanners):",
+                            "IMPACT by Honeywell IH-2 (300 dpi) - DPL"
+                          );
+                          if (customName) {
+                            SystemPrinterDiscovery.savePrinter({
+                              name: customName,
+                              connection: "SPOOLER",
+                              driver: customName.toLowerCase().includes("honeywell") ? "Honeywell DPL" : "Windows Spooler",
+                            });
+                            await refreshPrinters();
+                            setPrinter(customName);
+                            showToast(`Registered physical printer: ${customName}`);
+                          }
+                        }}
+                        title="Add Custom / Physical Windows Printer Name"
+                        className="px-2.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center cursor-pointer shadow-xs"
+                      >
+                        <span className="material-symbols-outlined text-sm mr-1">add</span>
+                        Add
+                      </button>
+                    )}
                     <button
-                      onClick={async () => {
-                        const customName = prompt(
-                          "Enter your exact Windows Printer Name (as shown in Windows Printers & Scanners):",
-                          "IMPACT by Honeywell IH-2 (300 dpi) - DPL"
-                        );
-                        if (customName) {
-                          SystemPrinterDiscovery.savePrinter({
-                            name: customName,
-                            connection: "SPOOLER",
-                            driver: customName.toLowerCase().includes("honeywell") ? "Honeywell DPL" : "Windows Spooler",
-                          });
-                          await refreshPrinters();
-                          setPrinter(customName);
-                          showToast(`Registered physical printer: ${customName}`);
-                        }
-                      }}
-                      title="Add Custom / Physical Windows Printer Name"
-                      className="px-2.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center cursor-pointer shadow-xs"
-                    >
-                      <span className="material-symbols-outlined text-sm mr-1">add</span>
-                      Add
-                    </button>
-                    <button
-                      onClick={refreshPrinters}
-                      title="Scan PC System Printers via QZ Tray"
+                      onClick={isUsbConnection ? requestUsbPrinter : refreshPrinters}
+                      title={isUsbConnection ? "Authorize and detect a USB printer" : "Scan PC System Printers via QZ Tray"}
                       className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center cursor-pointer shadow-xs"
                     >
                       <span className="material-symbols-outlined text-sm mr-1">sync</span>
-                      Scan
+                      {isUsbConnection ? "Detect USB" : "Scan"}
                     </button>
                     <button
                       onClick={() => setIsPrinterConfigModalOpen(true)}
@@ -1506,6 +1839,47 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                   </label>
                 </div>
 
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[10px] text-slate-600">
+                  <div className="font-semibold text-slate-700 uppercase tracking-wide mb-2">Item Master Field Mapping</div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {(
+                      [
+                        { label: "Barcode Source", key: "barcode" as const },
+                        { label: "Item Code Source", key: "itemCode" as const },
+                        { label: "Item Name Source", key: "itemName" as const },
+                        { label: "Brand Source", key: "brand" as const },
+                        { label: "Category Source", key: "category" as const },
+                        { label: "Style Code Source", key: "styleCode" as const },
+                        { label: "Model Number Source", key: "modelNo" as const },
+                        { label: "Article Number Source", key: "articleNo" as const },
+                        { label: "Stock Source", key: "stock" as const },
+                        { label: "MRP Source", key: "mrp" as const },
+                        { label: "HSN Source", key: "hsn" as const },
+                      ] as const
+                    ).map((mapping) => (
+                      <div key={mapping.key}>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">{mapping.label}</label>
+                        <select
+                          value={itemMasterFieldMap[mapping.key]}
+                          onChange={(e) =>
+                            setItemMasterFieldMap((prev) => ({
+                              ...prev,
+                              [mapping.key]: e.target.value as ItemMasterFieldKey,
+                            }))
+                          }
+                          className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-blue-500"
+                        >
+                          {ITEM_MASTER_FIELD_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Print Direction</label>
@@ -1554,11 +1928,18 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
             Print (F10)
           </button>
           <button
-            onClick={() => showToast("Generating PDF Label Sheet...")}
+            onClick={printToFile}
             className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
           >
             <span className="material-symbols-outlined text-sm mr-1.5">picture_as_pdf</span>
             Print & Save PDF
+          </button>
+          <button
+            onClick={downloadPrintFile}
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+          >
+            <span className="material-symbols-outlined text-sm mr-1.5">download</span>
+            Save .ZPL File
           </button>
           <button
             onClick={() => showToast("Label Template Saved")}

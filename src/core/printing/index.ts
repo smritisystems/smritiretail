@@ -21,3 +21,7 @@ export * from "./templates/PrintVariableDictionary.js";
 export * from "./documents/PrintDocumentRegistry.js";
 export * from "./orchestrator/PrintOrchestrator.js";
 export * from "./api/PrintingService.js";
+export * from "./discovery/PrinterDiscoveryService.js";
+export * from "./discovery/PrinterCapabilityEngine.js";
+export * from "./discovery/PrinterProfileManager.js";
+export * from "./audit/PrintAuditLogger.js";

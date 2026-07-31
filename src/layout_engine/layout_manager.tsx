@@ -49,7 +49,11 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
       case "stock-ledger":
       case "consignment":
       case "barcode":
+      case "barcode-studio":
+      case "print-studio":
       case "print-labels":
+      case "label-printing":
+      case "universal-label":
       case "universal-label-printer":
       case "tag-printing":
         return "Inventory";
@@ -128,7 +132,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
           />
         )}
         {/* Operational Viewport Content Area */}
-        <main className="flex-1 min-h-0 flex flex-col overflow-hidden bg-theme-base relative">
+        <main className="flex-1 min-h-0 flex flex-col overflow-y-auto bg-theme-base relative">
           {children}
         </main>
 

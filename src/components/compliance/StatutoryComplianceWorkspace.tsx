@@ -50,9 +50,9 @@ export const StatutoryComplianceWorkspace: React.FC<StatutoryComplianceWorkspace
   };
 
   return (
-    <div className="w-full h-full bg-[#0B0F17] text-theme-body flex flex-col overflow-hidden font-sans">
+    <div className="w-full h-full bg-[var(--sds-color-background)] text-[var(--sds-color-text-main)] flex flex-col overflow-hidden font-sans">
       {/* Workspace Header */}
-      <div className="px-6 py-4 border-b border-theme-divider bg-[#121824] flex items-center justify-between">
+      <div className="px-6 py-4 border-b border-[var(--sds-color-border)] bg-[var(--sds-color-surface)] flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-indigo-950/80 border border-indigo-500/40 rounded-xl text-indigo-400 shadow-md">
             <ShieldCheck size={22} />

@@ -26,6 +26,8 @@ class QuickActionRegistryImpl {
       { id: "qa-stock-transfer", label: "Stock Transfer", iconName: "Truck", targetTab: "stock-ledger", category: "Inventory" },
       { id: "qa-ledger-entry", label: "Payment / Receipt", iconName: "DollarSign", targetTab: "ledger", category: "Finance" },
       { id: "qa-print-labels", label: "Print Barcodes", iconName: "Printer", targetTab: "print-studio", category: "Masters" },
+      { id: "qa-print-labels-universal", label: "Universal Label Printer", iconName: "Printer", targetTab: "universal-label-printer", category: "Masters" },
+      { id: "qa-barcode-demo", label: "Barcode Demo", iconName: "Printer", targetTab: "barcode", category: "Inventory" },
       { id: "qa-data-backup", label: "Backup & Sync", iconName: "FileCode", targetTab: "data-exchange", category: "Platform" }
     ];
 

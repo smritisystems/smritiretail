@@ -134,9 +134,9 @@ export const ExceptionWorkbenchModal: React.FC<ExceptionWorkbenchModalProps> = (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-5xl bg-[#0B0F17] border border-indigo-500/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="relative w-full max-w-5xl bg-[var(--sds-color-surface)] border border-[var(--sds-color-border)] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-theme-divider flex items-center justify-between bg-[#121824]">
+        <div className="px-6 py-4 border-b border-[var(--sds-color-border)] flex items-center justify-between bg-[var(--sds-color-surface)]">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-indigo-950/60 border border-indigo-500/30 rounded-xl text-indigo-400">
               <AlertTriangle size={20} />
