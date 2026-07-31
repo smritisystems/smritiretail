@@ -1,19 +1,25 @@
 /**
  * Project      : SMRITI Retail OS
- * Module       : Unified Workspace Layout Component (SLGP-001 v2.0 Standard)
+ * Module       : Unified Enterprise Workspace Layout Component (SLGP-001 v3.0 Standard)
+ * Description  : Enterprise-grade layout engine supporting fluid full-width layouts, density modes
+ *                (comfortable, compact, dense), sticky toolbars, and master-detail split views.
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * Version      : 5.4.0
+ * Version      : 5.5.0
  */
 
 import React from "react";
 import { MasterDetailWorkspace } from "./MasterDetailWorkspace.tsx";
 
 export type WorkspaceLayoutMode = "scroll" | "studio" | "master-detail";
+export type WorkspaceDensity = "comfortable" | "compact" | "dense";
+export type WorkspaceWidth = "fluid" | "contained";
 
 interface WorkspaceLayoutProps {
   mode: WorkspaceLayoutMode;
+  density?: WorkspaceDensity;
+  width?: WorkspaceWidth;
   toolbar?: React.ReactNode;
   statusBar?: React.ReactNode;
   children?: React.ReactNode;
@@ -26,6 +32,8 @@ interface WorkspaceLayoutProps {
 
 export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
   mode,
+  density = "compact",
+  width = "fluid",
   toolbar,
   statusBar,
   children,
@@ -34,6 +42,19 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
   masterWidthPx = 360,
   className = ""
 }) => {
+  // Density Spacing Utilities
+  const spacingClass =
+    density === "dense"
+      ? "p-2 md:p-3 space-y-2.5 pb-6"
+      : density === "compact"
+      ? "p-3 md:p-4 space-y-3 pb-8"
+      : "p-4 md:p-6 space-y-4 pb-12";
+
+  const widthContainerClass =
+    width === "contained"
+      ? "max-w-7xl mx-auto"
+      : "w-full";
+
   // Mode 1: Master-Detail Split Pane (Pattern C)
   if (mode === "master-detail" && masterPanel && detailPanel) {
     return (
@@ -52,15 +73,15 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
     return (
       <div className={`w-full h-full flex flex-col overflow-hidden bg-theme-base ${className}`}>
         {toolbar && (
-          <div className="shrink-0 border-b border-theme-divider bg-theme-surface-1 px-4 py-2 flex items-center justify-between shadow-xs">
+          <div className="shrink-0 border-b border-theme-divider bg-theme-surface-1 px-4 py-1.5 flex items-center justify-between shadow-xs">
             {toolbar}
           </div>
         )}
-        <div className="flex-1 min-h-0 overflow-y-auto smriti-custom-scroll p-4 md:p-6">
+        <div className={`flex-1 min-h-0 overflow-y-auto smriti-custom-scroll ${widthContainerClass} ${spacingClass}`}>
           {children}
         </div>
         {statusBar && (
-          <div className="shrink-0 border-t border-theme-divider bg-theme-surface-1 px-4 py-2 flex items-center justify-between font-mono text-xs text-theme-muted">
+          <div className="shrink-0 border-t border-theme-divider bg-theme-surface-1 px-4 py-1.5 flex items-center justify-between font-mono text-xs text-theme-muted">
             {statusBar}
           </div>
         )}
@@ -72,15 +93,15 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
   return (
     <div className={`w-full h-full overflow-y-auto smriti-custom-scroll bg-theme-base ${className}`}>
       {toolbar && (
-        <div className="sticky top-0 z-10 border-b border-theme-divider bg-theme-surface-1/95 backdrop-blur-xs px-6 py-3 shadow-xs">
+        <div className="sticky top-0 z-10 border-b border-theme-divider bg-theme-surface-1/95 backdrop-blur-xs px-4 py-2 shadow-xs">
           {toolbar}
         </div>
       )}
-      <div className="w-full px-4 md:px-6 py-4 space-y-4 pb-12">
+      <div className={`${widthContainerClass} ${spacingClass}`}>
         {children}
       </div>
       {statusBar && (
-        <div className="border-t border-theme-divider bg-theme-surface-1 p-4 font-mono text-xs text-theme-muted">
+        <div className="border-t border-theme-divider bg-theme-surface-1 p-3 font-mono text-xs text-theme-muted">
           {statusBar}
         </div>
       )}

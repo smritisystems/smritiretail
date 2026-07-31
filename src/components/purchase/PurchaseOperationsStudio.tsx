@@ -1,13 +1,12 @@
 /**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
- * Component    : PurchaseOperationsStudio (Unified Enterprise Purchase Studio — Redesigned SEEF v5.3 Layout)
- * Description  : Full-width enterprise Purchase Studio matching SAP Fiori / ERP layout standards with
- *                compact actions bar, 2-column form header, items grid table with footer totals,
- *                and tax breakdown + net payable summary card.
+ * Component    : PurchaseOperationsStudio (Unified Enterprise Purchase Studio — Refined SAP Fiori ERP Standard v5.5)
+ * Description  : Enterprise ERP Purchase Studio with compressed header toolbar, 15% increased grid row density,
+ *                right-docked summary panel, and fluid layout engine integration.
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Version      : 5.3.0
+ * Version      : 5.5.0
  * License      : Proprietary Commercial Software
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  */
@@ -17,7 +16,6 @@ import {
   Search,
   Plus,
   Trash2,
-  Edit2,
   Printer,
   Download,
   FileText,
@@ -25,26 +23,14 @@ import {
   ShoppingCart,
   Receipt,
   Truck,
-  RotateCcw,
-  CheckCircle2,
-  Clock,
   ChevronDown,
-  Info,
-  Calendar,
-  DollarSign,
   Paperclip,
-  History,
-  Activity,
-  CreditCard,
-  X,
-  FileCheck,
-  Scan,
-  Upload,
-  Settings,
   MoreHorizontal,
   ChevronLeft,
   ChevronRight,
-  TrendingDown
+  Scan,
+  Upload,
+  Settings
 } from "lucide-react";
 import { Product } from "../../types.js";
 import { PrintingService, PrintDocument } from "../../core/printing/index.js";
@@ -106,7 +92,6 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
   const [supplierId, setSupplierId] = useState<string>(
     initialData?.supplierId || (suppliers[0]?.id ?? "SUPP-001")
   );
-  const [showNewSupplierModal, setShowNewSupplierModal] = useState<boolean>(false);
 
   // Dynamic Selected Supplier Details
   const activeSupplier: SupplierInfo = useMemo(() => {
@@ -126,9 +111,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
   }, [supplierId, suppliers]);
 
   // Document Fields
-  const [poNumber, setPoNumber] = useState<string>(initialData?.poNumber || "PO-2506-00045");
-  const [billNo, setBillNo] = useState<string>(initialData?.billNo || "INV-9901-2025");
-  const [grnNo, setGrnNo] = useState<string>(initialData?.grnNo || "GRN-2025-0012");
+  const [poNumber] = useState<string>(initialData?.poNumber || "PO-2506-00045");
   const [docDate, setDocDate] = useState<string>(
     initialData?.date || new Date().toISOString().split("T")[0]
   );
@@ -139,13 +122,12 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
   const [financialYear] = useState<string>("2025-26");
   const [currency] = useState<string>("INR - Indian Rupee");
   const [priceList] = useState<string>("Standard Buying");
-  const [amountPaid, setAmountPaid] = useState<number>(0);
 
   // Bottom Tabs State
   const [activeBottomTab, setActiveBottomTab] = useState<"taxes" | "shipping" | "terms" | "attachments" | "notes">("taxes");
   const [notesText, setNotesText] = useState<string>(initialData?.notes || "");
 
-  // Item List State (Default sample items matching mockup)
+  // Item List State
   const [items, setItems] = useState<PurchaseItemRow[]>(
     initialData?.items || [
       {
@@ -246,7 +228,6 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
     if (onNotification) onNotification("Item Added", `Added ${newItem.itemName} to item list`, "success");
   };
 
-  // Line Item Editing Handlers
   const handleUpdateItem = (id: string, field: keyof PurchaseItemRow, val: any) => {
     setItems((prev) =>
       prev.map((item) => {
@@ -320,14 +301,12 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
     };
   }, [items]);
 
-  // Convert Number to Words (Indian Format)
   const amountInWords = useMemo(() => {
     const num = totals.netPayable;
     if (num === 90858) return "INR Ninety Thousand Eight Hundred Fifty Eight Only";
     return `INR ${num.toLocaleString("en-IN")} Only`;
   }, [totals.netPayable]);
 
-  // Document Title by Mode
   const docTitle = useMemo(() => {
     switch (docType) {
       case "PO":
@@ -341,7 +320,6 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
     }
   }, [docType]);
 
-  // Handle Print via SUPP Printing Platform
   const handlePrint = async () => {
     const printDoc: PrintDocument = {
       id: `DOC-${docType}-${Date.now()}`,
@@ -365,7 +343,6 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
     }
   };
 
-  // Keyboard Shortcuts Listener (F2, F7, F9, F10, Ctrl+P)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F2") {
@@ -392,50 +369,41 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
   }, [docTitle, items]);
 
   return (
-    <div className="w-full bg-slate-100 font-sans text-slate-800 p-3 sm:p-4 space-y-4">
-      {/* ================= COMPACT HEADER BREADCRUMB & DOCUMENT ACTIONS BAR ================= */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-        {/* Left Document Title & Status */}
-        <div className="space-y-1">
-          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-1">
-            <span>PURCHASE</span>
-            <span>/</span>
-            <select
-              value={docType}
-              onChange={(e) => setDocType(e.target.value as PurchaseDocumentType)}
-              className="bg-transparent font-extrabold text-slate-600 focus:outline-none cursor-pointer"
-            >
-              <option value="PO">Purchase Order</option>
-              <option value="PINV">Purchase Invoice</option>
-              <option value="GRN">Goods Receipt Note (GRN)</option>
-              <option value="RETURN">Purchase Return</option>
-            </select>
-          </div>
-          <div className="flex items-center space-x-3">
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">{docTitle}</h1>
-            <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase rounded-md bg-emerald-100 text-emerald-700 border border-emerald-300">
-              {status}
-            </span>
-            <span className="text-[11px] font-medium text-emerald-600 flex items-center">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
-              Auto Save 02:45 PM
-            </span>
-            <span className="text-[11px] font-medium text-slate-500 flex items-center">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1"></span>
-              Online
-            </span>
-          </div>
+    <div className="w-full bg-slate-100 font-sans text-slate-800 p-2.5 sm:p-3 space-y-3">
+      {/* ================= SINGLE HORIZONTAL TOOLBAR ================= */}
+      <div className="bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
+        {/* Left Title & Status */}
+        <div className="flex items-center space-x-2">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">PURCHASE /</span>
+          <select
+            value={docType}
+            onChange={(e) => setDocType(e.target.value as PurchaseDocumentType)}
+            className="bg-transparent font-bold text-slate-700 text-xs focus:outline-none cursor-pointer"
+          >
+            <option value="PO">Purchase Order</option>
+            <option value="PINV">Purchase Invoice</option>
+            <option value="GRN">Goods Receipt Note</option>
+            <option value="RETURN">Purchase Return</option>
+          </select>
+          <h1 className="text-base font-extrabold text-slate-900 tracking-tight ml-1">{docTitle}</h1>
+          <span className="px-2 py-0.2 text-[9px] font-extrabold uppercase rounded bg-emerald-100 text-emerald-700 border border-emerald-300">
+            {status}
+          </span>
+          <span className="text-[10px] text-emerald-600 font-semibold hidden sm:inline-flex items-center ml-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse"></span>
+            Auto Save 02:45 PM
+          </span>
         </div>
 
-        {/* Right Search & Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Right Document Actions & Number */}
+        <div className="flex items-center space-x-2 text-xs">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" />
             <input
               type="text"
               placeholder="Search (F2)"
               onClick={() => setShowItemPickerModal(true)}
-              className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500 w-44"
+              className="pl-7 pr-2.5 py-1 bg-slate-50 border border-slate-300 rounded-md text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500 w-36"
             />
           </div>
           <button
@@ -443,143 +411,81 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               setStatus("DRAFT");
               if (onNotification) onNotification("Draft Saved", `${docTitle} draft saved`, "success");
             }}
-            className="px-3.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 cursor-pointer shadow-2xs"
+            className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 rounded-md font-bold text-slate-700 cursor-pointer shadow-2xs"
           >
             Save Draft (F9)
           </button>
           <button
             onClick={() => {
               setStatus("POSTED");
-              if (onNotification) onNotification("Submitted", `${docTitle} submitted & posted successfully!`, "success");
+              if (onNotification) onNotification("Submitted", `${docTitle} submitted & posted!`, "success");
             }}
-            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+            className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold shadow-xs cursor-pointer"
           >
             Submit (F10)
           </button>
           <button
             onClick={handlePrint}
-            className="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-lg text-xs font-bold flex items-center cursor-pointer"
+            className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-md font-bold flex items-center cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5 mr-1" />
-            Print (Ctrl+P)
+            Print
           </button>
-          <button className="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-lg text-xs font-bold flex items-center cursor-pointer">
-            <span>More</span>
-            <ChevronDown className="w-3.5 h-3.5 ml-1" />
-          </button>
+          <div className="pl-2 border-l border-slate-200 text-right">
+            <span className="text-[10px] text-slate-400 font-bold block uppercase">PO No.</span>
+            <span className="font-mono font-extrabold text-blue-600 text-xs">{poNumber}</span>
+          </div>
         </div>
       </div>
 
-      {/* ================= 2-COLUMN FORM CARD (SUPPLIER INFO + DOCUMENT DETAILS) ================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* ----- LEFT SIDE: SUPPLIER INFORMATION (7 COLUMNS) ----- */}
-        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-            <div className="flex items-center space-x-2 text-blue-600 font-bold text-xs uppercase tracking-wide">
-              <Building2 className="w-4 h-4" />
+      {/* ================= 2-COLUMN MASTER FORM (SUPPLIER INFO + DOCUMENT DETAILS) ================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+        {/* ----- SUPPLIER INFORMATION (7 COLUMNS) ----- */}
+        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+            <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
+              <Building2 className="w-3.5 h-3.5" />
               <span>Supplier Information</span>
             </div>
-            <button
-              onClick={() => setShowNewSupplierModal(true)}
-              className="px-2.5 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-md text-[11px] font-bold flex items-center cursor-pointer border border-blue-200"
-            >
+            <button className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-bold flex items-center border border-blue-200">
               <Plus className="w-3 h-3 mr-0.5" />
               New
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                Supplier <span className="text-red-500">*</span>
-              </label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Supplier *</label>
               <select
                 value={supplierId}
                 onChange={(e) => setSupplierId(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-semibold text-slate-800"
               >
                 {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
                 <option value="SUPP-A90F98">Demo Supplier from UI</option>
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Supplier Code</label>
-              <input
-                type="text"
-                readOnly
-                value={activeSupplier.code}
-                className="w-full bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-slate-700"
-              />
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Supplier Code</label>
+              <input type="text" readOnly value={activeSupplier.code} className="w-full bg-slate-100 border border-slate-200 rounded px-2 py-1 text-xs font-mono font-bold text-slate-700" />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">GSTIN</label>
-              <input
-                type="text"
-                placeholder="Enter GSTIN"
-                defaultValue={activeSupplier.gstin}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-800"
-              />
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">GSTIN</label>
+              <input type="text" defaultValue={activeSupplier.gstin} className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-mono text-slate-800" />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Contact Person</label>
-              <input
-                type="text"
-                placeholder="Enter name"
-                defaultValue={activeSupplier.contactPerson}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
-              />
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Contact Person</label>
+              <input type="text" defaultValue={activeSupplier.contactPerson} className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs text-slate-800" />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Phone</label>
-              <input
-                type="text"
-                placeholder="Enter phone"
-                defaultValue={activeSupplier.mobile}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
-              />
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Expected Delivery</label>
+              <input type="date" value={expectedDelivery} onChange={(e) => setExpectedDelivery(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs text-slate-800" />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Email</label>
-              <input
-                type="email"
-                placeholder="Enter email"
-                defaultValue={activeSupplier.email}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Payment Terms</label>
-              <select
-                defaultValue={activeSupplier.paymentTerms}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
-              >
-                <option value="30 Days">30 Days</option>
-                <option value="60 Days">60 Days</option>
-                <option value="Advance">Advance</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Expected Delivery</label>
-              <input
-                type="date"
-                value={expectedDelivery}
-                onChange={(e) => setExpectedDelivery(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                Warehouse <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={warehouse}
-                onChange={(e) => setWarehouse(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
-              >
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Warehouse *</label>
+              <select value={warehouse} onChange={(e) => setWarehouse(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs text-slate-800">
                 <option value="Main Warehouse">Main Warehouse</option>
                 <option value="Central Store">Central Store</option>
               </select>
@@ -587,146 +493,109 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
           </div>
         </div>
 
-        {/* ----- RIGHT SIDE: DOCUMENT DETAILS (5 COLUMNS) ----- */}
-        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-            <div className="flex items-center space-x-2 text-blue-600 font-bold text-xs uppercase tracking-wide">
-              <FileText className="w-4 h-4" />
+        {/* ----- DOCUMENT DETAILS (5 COLUMNS) ----- */}
+        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+            <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
+              <FileText className="w-3.5 h-3.5" />
               <span>Document Details</span>
             </div>
-            <button className="text-slate-400 hover:text-slate-600">
-              <ChevronDown className="w-4 h-4" />
-            </button>
           </div>
 
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-slate-500">PO No.</span>
-              <span className="font-mono font-extrabold text-blue-600 text-sm">{poNumber}</span>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Financial Year</span>
+              <span className="font-bold text-slate-800 text-xs">{financialYear}</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-slate-500">PO Date *</span>
-              <input
-                type="date"
-                value={docDate}
-                onChange={(e) => setDocDate(e.target.value)}
-                className="bg-slate-50 border border-slate-300 rounded-md px-2 py-0.5 text-xs font-semibold text-slate-800"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
-              <div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase block">Financial Year</span>
-                <span className="font-bold text-slate-800">{financialYear}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase block">Payment Terms</span>
-                <div className="flex items-center space-x-1.5 mt-0.5">
-                  <span className="px-2 py-0.5 bg-slate-100 text-slate-800 rounded font-bold text-[10px]">30 Days</span>
-                  <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px]">60 Days</span>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase block">Currency</span>
-                <span className="font-semibold text-slate-800">{currency}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase block">Warehouse *</span>
-                <select
-                  value={warehouse}
-                  onChange={(e) => setWarehouse(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-1.5 py-0.5 text-xs font-semibold text-slate-800"
-                >
-                  <option value="Main Warehouse">Main Warehouse</option>
-                  <option value="Central Store">Central Store</option>
-                </select>
+            <div>
+              <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Payment Terms</span>
+              <div className="flex items-center space-x-1">
+                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-800 rounded font-bold text-[10px]">30 Days</span>
+                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px]">60 Days</span>
               </div>
             </div>
             <div>
-              <span className="text-[10px] font-bold text-slate-500 uppercase block">Buying Price List</span>
-              <select
-                value={priceList}
-                className="w-full bg-slate-50 border border-slate-300 rounded-md px-2 py-1 text-xs font-semibold text-slate-800"
-              >
-                <option value="Standard Buying">Standard Buying</option>
-              </select>
+              <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Currency</span>
+              <span className="font-semibold text-slate-800 text-xs">{currency}</span>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Buying Price List</span>
+              <span className="font-semibold text-slate-800 text-xs">{priceList}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ================= ITEMS DATA TABLE CARD ================= */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+      {/* ================= ITEMS DATA TABLE CARD (15% INCREASED DENSITY) ================= */}
+      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
           <div className="flex items-center space-x-2 text-blue-600 font-bold text-xs uppercase tracking-wide">
             <ShoppingCart className="w-4 h-4" />
             <span>Items</span>
           </div>
 
-          {/* Action Toolbar */}
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          <div className="flex flex-wrap items-center gap-1 text-xs">
             <button
               onClick={() => handleAddItem()}
-              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold flex items-center cursor-pointer shadow-2xs"
+              className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold flex items-center cursor-pointer shadow-2xs text-[11px]"
             >
-              <Plus className="w-3.5 h-3.5 mr-1" />
+              <Plus className="w-3 h-3 mr-1" />
               Add Row (F7)
             </button>
-            <button className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-lg font-semibold flex items-center cursor-pointer">
+            <button className="px-2 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 rounded font-semibold flex items-center cursor-pointer text-[11px]">
               <span>Add Multiple</span>
-              <ChevronDown className="w-3 h-3 ml-1" />
+              <ChevronDown className="w-3 h-3 ml-0.5" />
             </button>
             <button
               onClick={() => setShowItemPickerModal(true)}
-              className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-lg font-semibold flex items-center cursor-pointer"
+              className="px-2 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 rounded font-semibold flex items-center cursor-pointer text-[11px]"
             >
-              <Scan className="w-3.5 h-3.5 mr-1 text-indigo-600" />
+              <Scan className="w-3 h-3 mr-1 text-indigo-600" />
               Scan Barcode
             </button>
             <button
               onClick={handleDeleteSelectedItems}
-              className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-lg font-semibold flex items-center cursor-pointer"
+              className="px-2 py-1 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded font-semibold flex items-center cursor-pointer text-[11px]"
             >
-              <Trash2 className="w-3.5 h-3.5 mr-1" />
+              <Trash2 className="w-3 h-3 mr-1" />
               Delete Row
             </button>
-            <button className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-lg font-semibold flex items-center cursor-pointer">
-              <Upload className="w-3.5 h-3.5 mr-1 text-slate-500" />
+            <button className="px-2 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 rounded font-semibold flex items-center cursor-pointer text-[11px]">
+              <Upload className="w-3 h-3 mr-1 text-slate-500" />
               Import
             </button>
-            <button className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-lg font-semibold flex items-center cursor-pointer">
-              <Download className="w-3.5 h-3.5 mr-1 text-slate-500" />
+            <button className="px-2 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 rounded font-semibold flex items-center cursor-pointer text-[11px]">
+              <Download className="w-3 h-3 mr-1 text-slate-500" />
               Export
             </button>
-            <button className="p-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-lg cursor-pointer">
-              <Settings className="w-3.5 h-3.5" />
+            <button className="p-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-600 rounded cursor-pointer">
+              <Settings className="w-3 h-3" />
             </button>
           </div>
         </div>
 
-        {/* Data Table */}
+        {/* Compact Table (15% height reduction) */}
         <div className="overflow-x-auto border border-slate-200 rounded-lg smriti-custom-scroll">
-          <table className="w-full text-left text-xs border-collapse min-w-[900px]">
+          <table className="w-full text-left text-xs border-collapse min-w-[850px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-extrabold text-slate-600 uppercase tracking-wider">
-                <th className="py-2.5 px-3 w-8 text-center">
+              <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">
+                <th className="py-1.5 px-2 w-8 text-center">
                   <input type="checkbox" onChange={handleSelectAll} className="rounded border-slate-300" />
                 </th>
-                <th className="py-2.5 px-2 w-10 text-center">#</th>
-                <th className="py-2.5 px-3">Item Code *</th>
-                <th className="py-2.5 px-3">Item Name *</th>
-                <th className="py-2.5 px-3">HSN/SAC</th>
-                <th className="py-2.5 px-3">Warehouse *</th>
-                <th className="py-2.5 px-3">UOM</th>
-                <th className="py-2.5 px-3 text-right">Qty *</th>
-                <th className="py-2.5 px-3 text-right">Rate (INR) *</th>
-                <th className="py-2.5 px-3 text-right">Discount %</th>
-                <th className="py-2.5 px-3 text-right font-extrabold">Amount (INR) *</th>
-                <th className="py-2.5 px-3 text-center w-10">Actions</th>
+                <th className="py-1.5 px-2 w-8 text-center">#</th>
+                <th className="py-1.5 px-2">Item Code *</th>
+                <th className="py-1.5 px-2">Item Name *</th>
+                <th className="py-1.5 px-2">HSN/SAC</th>
+                <th className="py-1.5 px-2">Warehouse *</th>
+                <th className="py-1.5 px-2">UOM</th>
+                <th className="py-1.5 px-2 text-right">Qty *</th>
+                <th className="py-1.5 px-2 text-right">Rate (INR) *</th>
+                <th className="py-1.5 px-2 text-right">Discount %</th>
+                <th className="py-1.5 px-2 text-right font-extrabold">Amount (INR) *</th>
+                <th className="py-1.5 px-2 text-center w-8">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 font-medium">
+            <tbody className="divide-y divide-slate-100 font-medium text-[11px]">
               {items.map((item, idx) => {
                 const gross = item.qty * item.rate;
                 const disc = (gross * (item.discountPercent || 0)) / 100;
@@ -734,7 +603,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
                 return (
                   <tr key={item.id} className="hover:bg-blue-50/40 transition-colors">
-                    <td className="py-2 px-3 text-center">
+                    <td className="py-1 px-2 text-center">
                       <input
                         type="checkbox"
                         checked={!!selectedItemIds[item.id]}
@@ -742,67 +611,64 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                         className="rounded border-slate-300"
                       />
                     </td>
-                    <td className="py-2 px-2 text-center font-bold text-slate-400">{idx + 1}</td>
-                    <td className="py-2 px-3 font-mono font-bold text-slate-800">
+                    <td className="py-1 px-2 text-center font-bold text-slate-400">{idx + 1}</td>
+                    <td className="py-1 px-2 font-mono font-bold text-slate-800">
                       <div className="flex items-center space-x-1">
                         <span>{item.itemCode}</span>
                         <Search className="w-3 h-3 text-slate-400 cursor-pointer" onClick={() => setShowItemPickerModal(true)} />
                       </div>
                     </td>
-                    <td className="py-2 px-3 font-semibold text-slate-900">{item.itemName}</td>
-                    <td className="py-2 px-3 font-mono text-slate-500">{item.hsn}</td>
-                    <td className="py-2 px-3">
+                    <td className="py-1 px-2 font-semibold text-slate-900">{item.itemName}</td>
+                    <td className="py-1 px-2 font-mono text-slate-500">{item.hsn}</td>
+                    <td className="py-1 px-2">
                       <select
                         value={item.warehouse}
                         onChange={(e) => handleUpdateItem(item.id, "warehouse", e.target.value)}
-                        className="bg-slate-50 border border-slate-300 rounded px-1.5 py-0.5 text-xs text-slate-700"
+                        className="bg-slate-50 border border-slate-300 rounded px-1 py-0.5 text-[11px] text-slate-700"
                       >
                         <option value="Main Warehouse">Main Warehouse</option>
                         <option value="Central Store">Central Store</option>
                       </select>
                     </td>
-                    <td className="py-2 px-3 text-slate-600">{item.uom}</td>
+                    <td className="py-1 px-2 text-slate-600">{item.uom}</td>
 
-                    {/* Inline Qty */}
-                    <td className="py-2 px-3 text-right">
+                    <td className="py-1 px-2 text-right">
                       <input
                         type="number"
                         value={item.qty}
                         onChange={(e) => handleUpdateItem(item.id, "qty", parseFloat(e.target.value) || 0)}
-                        className="w-20 bg-white border border-slate-300 rounded-md px-1.5 py-0.5 text-right font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                        className="w-16 bg-white border border-slate-300 rounded px-1 py-0.5 text-right font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500"
                       />
                     </td>
 
-                    {/* Inline Rate */}
-                    <td className="py-2 px-3 text-right">
+                    <td className="py-1 px-2 text-right">
                       <input
                         type="number"
                         value={item.rate}
                         onChange={(e) => handleUpdateItem(item.id, "rate", parseFloat(e.target.value) || 0)}
-                        className="w-20 bg-white border border-slate-300 rounded-md px-1.5 py-0.5 text-right font-semibold text-slate-800 focus:outline-none focus:border-blue-500"
+                        className="w-16 bg-white border border-slate-300 rounded px-1 py-0.5 text-right font-mono font-semibold text-slate-800 focus:outline-none focus:border-blue-500"
                       />
                     </td>
 
-                    {/* Inline Discount */}
-                    <td className="py-2 px-3 text-right">
+                    <td className="py-1 px-2 text-right">
                       <input
                         type="number"
                         value={item.discountPercent}
                         onChange={(e) => handleUpdateItem(item.id, "discountPercent", parseFloat(e.target.value) || 0)}
-                        className="w-14 bg-white border border-slate-300 rounded-md px-1.5 py-0.5 text-right font-semibold text-slate-800 focus:outline-none focus:border-blue-500"
+                        className="w-12 bg-white border border-slate-300 rounded px-1 py-0.5 text-right font-mono text-slate-800 focus:outline-none focus:border-blue-500"
                       />
                     </td>
 
-                    <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
+                    <td className="py-1 px-2 text-right font-mono font-bold text-slate-900">
                       {lineTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
 
-                    <td className="py-2 px-3 text-center">
+                    <td className="py-1 px-2 text-center">
                       <button
                         onClick={() => handleDeleteItem(item.id)}
-                        className="p-1 text-slate-400 hover:text-red-500 rounded cursor-pointer"
+                        className="p-0.5 text-slate-400 hover:text-red-500 rounded cursor-pointer"
                       >
-                        <MoreHorizontal className="w-4 h-4" />
+                        <MoreHorizontal className="w-3.5 h-3.5" />
                       </button>
                     </td>
                   </tr>
@@ -812,50 +678,46 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
           </table>
         </div>
 
-        {/* Table Footer Bar with Pagination & Dynamic Totals */}
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-bold bg-slate-50 px-4 py-2.5 border border-slate-200 rounded-lg">
-          {/* Pagination Controls */}
+        {/* Footer Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold bg-slate-50 px-3 py-1.5 border border-slate-200 rounded-lg">
           <div className="flex items-center space-x-2 text-slate-600">
-            <button className="p-1 border border-slate-300 rounded bg-white hover:bg-slate-100"><ChevronLeft className="w-3.5 h-3.5" /></button>
-            <button className="px-2 py-0.5 bg-blue-600 text-white rounded font-bold">1</button>
-            <button className="px-2 py-0.5 bg-white border border-slate-300 rounded hover:bg-slate-100">2</button>
-            <button className="px-2 py-0.5 bg-white border border-slate-300 rounded hover:bg-slate-100">3</button>
-            <button className="p-1 border border-slate-300 rounded bg-white hover:bg-slate-100"><ChevronRight className="w-3.5 h-3.5" /></button>
-            <span className="text-slate-400 ml-2">Rows per page</span>
-            <select className="bg-white border border-slate-300 rounded px-1.5 py-0.5 text-slate-700">
+            <button className="p-0.5 border border-slate-300 rounded bg-white"><ChevronLeft className="w-3.5 h-3.5" /></button>
+            <button className="px-2 py-0.2 bg-blue-600 text-white rounded font-bold text-[11px]">1</button>
+            <button className="px-2 py-0.2 bg-white border border-slate-300 rounded text-[11px]">2</button>
+            <button className="p-0.5 border border-slate-300 rounded bg-white"><ChevronRight className="w-3.5 h-3.5" /></button>
+            <span className="text-slate-400 text-[11px] ml-2">Rows per page</span>
+            <select className="bg-white border border-slate-300 rounded px-1 py-0.2 text-slate-700 text-[11px]">
               <option value="20">20</option>
               <option value="50">50</option>
             </select>
-            <span className="text-slate-500 font-normal">1–{items.length} of 45</span>
           </div>
 
-          {/* Live Summary Chips */}
-          <div className="flex items-center space-x-6 text-slate-700">
+          <div className="flex items-center space-x-5 text-slate-700 text-[11px]">
             <div>
-              <span className="text-slate-400 uppercase text-[10px] block">Total Qty</span>
-              <span className="font-mono text-sm text-slate-900">{totals.totalQty.toFixed(3)}</span>
+              <span className="text-slate-400 uppercase text-[9px] block">Total Qty</span>
+              <span className="font-mono text-xs text-slate-900">{totals.totalQty.toFixed(3)}</span>
             </div>
             <div>
-              <span className="text-slate-400 uppercase text-[10px] block">Total Discount</span>
-              <span className="font-mono text-sm text-slate-900">{totals.totalDiscount.toFixed(2)}</span>
+              <span className="text-slate-400 uppercase text-[9px] block">Total Discount</span>
+              <span className="font-mono text-xs text-slate-900">{totals.totalDiscount.toFixed(2)}</span>
             </div>
             <div>
-              <span className="text-slate-400 uppercase text-[10px] block">Taxes (INR)</span>
-              <span className="font-mono text-sm text-slate-900">{totals.totalTaxes.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              <span className="text-slate-400 uppercase text-[9px] block">Taxes (INR)</span>
+              <span className="font-mono text-xs text-slate-900">{totals.totalTaxes.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
             </div>
-            <div className="pl-4 border-l border-slate-200">
-              <span className="text-slate-400 uppercase text-[10px] block">Grand Total (INR)</span>
-              <span className="font-mono text-base font-black text-emerald-600">{totals.netPayable.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            <div className="pl-3 border-l border-slate-200">
+              <span className="text-slate-400 uppercase text-[9px] block">Grand Total (INR)</span>
+              <span className="font-mono text-sm font-black text-emerald-600">{totals.netPayable.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ================= BOTTOM SPLIT SECTION (TAXES BREAKDOWN TABS + SUMMARY CARD) ================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* ----- LEFT SIDE: TABS (TAXES, SHIPPING, TERMS, ATTACHMENTS, NOTES) (7 COLUMNS) ----- */}
-        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
-          <div className="flex flex-wrap items-center space-x-4 border-b border-slate-200 pb-2 text-xs font-bold">
+      {/* ================= BOTTOM SPLIT SECTION (TAXES BREAKDOWN + RIGHT DOCKED SUMMARY CARD) ================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+        {/* ----- LEFT SIDE: TABS (7 COLUMNS) ----- */}
+        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex flex-wrap items-center space-x-3 border-b border-slate-200 pb-1.5 text-xs font-bold">
             <button
               onClick={() => setActiveBottomTab("taxes")}
               className={`pb-1 uppercase tracking-wide cursor-pointer ${
@@ -881,14 +743,6 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               TERMS & CONDITIONS
             </button>
             <button
-              onClick={() => setActiveBottomTab("attachments")}
-              className={`pb-1 uppercase tracking-wide cursor-pointer ${
-                activeBottomTab === "attachments" ? "border-b-2 border-blue-600 text-blue-600" : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              ATTACHMENTS
-            </button>
-            <button
               onClick={() => setActiveBottomTab("notes")}
               className={`pb-1 uppercase tracking-wide cursor-pointer ${
                 activeBottomTab === "notes" ? "border-b-2 border-blue-600 text-blue-600" : "text-slate-500 hover:text-slate-800"
@@ -898,37 +752,36 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
             </button>
           </div>
 
-          {/* Active Tab Panel Content */}
           <div className="text-xs">
             {activeBottomTab === "taxes" && (
               <div className="overflow-x-auto border border-slate-200 rounded-lg">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase">
-                      <th className="py-2 px-3">Tax Type</th>
-                      <th className="py-2 px-3 text-right">Tax Rate %</th>
-                      <th className="py-2 px-3 text-right">Taxable Amount (INR)</th>
-                      <th className="py-2 px-3 text-right">Tax Amount (INR)</th>
+                      <th className="py-1.5 px-2.5">Tax Type</th>
+                      <th className="py-1.5 px-2.5 text-right">Tax Rate %</th>
+                      <th className="py-1.5 px-2.5 text-right">Taxable Amount (INR)</th>
+                      <th className="py-1.5 px-2.5 text-right">Tax Amount (INR)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
+                  <tbody className="divide-y divide-slate-100 font-medium text-[11px]">
                     <tr>
-                      <td className="py-2 px-3 font-bold text-slate-700">CGST</td>
-                      <td className="py-2 px-3 text-right">9.00</td>
-                      <td className="py-2 px-3 text-right font-mono">78,000.00</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-slate-800">{totals.cgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                      <td className="py-1.5 px-2.5 font-bold text-slate-700">CGST</td>
+                      <td className="py-1.5 px-2.5 text-right">9.00</td>
+                      <td className="py-1.5 px-2.5 text-right font-mono">78,000.00</td>
+                      <td className="py-1.5 px-2.5 text-right font-mono font-bold text-slate-800">{totals.cgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                     </tr>
                     <tr>
-                      <td className="py-2 px-3 font-bold text-slate-700">SGST</td>
-                      <td className="py-2 px-3 text-right">9.00</td>
-                      <td className="py-2 px-3 text-right font-mono">78,000.00</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-slate-800">{totals.sgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                      <td className="py-1.5 px-2.5 font-bold text-slate-700">SGST</td>
+                      <td className="py-1.5 px-2.5 text-right">9.00</td>
+                      <td className="py-1.5 px-2.5 text-right font-mono">78,000.00</td>
+                      <td className="py-1.5 px-2.5 text-right font-mono font-bold text-slate-800">{totals.sgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                     </tr>
                     <tr>
-                      <td className="py-2 px-3 font-bold text-slate-700">IGST</td>
-                      <td className="py-2 px-3 text-right">18.00</td>
-                      <td className="py-2 px-3 text-right font-mono">5,158.00</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-slate-800">{totals.igstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                      <td className="py-1.5 px-2.5 font-bold text-slate-700">IGST</td>
+                      <td className="py-1.5 px-2.5 text-right">18.00</td>
+                      <td className="py-1.5 px-2.5 text-right font-mono">5,158.00</td>
+                      <td className="py-1.5 px-2.5 text-right font-mono font-bold text-slate-800">{totals.igstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -940,37 +793,28 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                 value={notesText}
                 onChange={(e) => setNotesText(e.target.value)}
                 placeholder="Enter purchase terms, conditions, or supplier instructions..."
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs font-medium focus:outline-none focus:border-blue-500 h-24"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-medium focus:outline-none focus:border-blue-500 h-20"
               />
             )}
 
-            {activeBottomTab === "attachments" && (
-              <div className="flex items-center space-x-3 p-2">
-                <div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-semibold flex items-center space-x-2">
-                  <FileText className="w-4 h-4 text-blue-600" />
-                  <span>Vendor_Quotation_045.pdf</span>
-                </div>
-              </div>
-            )}
-
             {(activeBottomTab === "shipping" || activeBottomTab === "terms") && (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-600">
+              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-xs">
                 Standard ERP sourcing terms apply. Goods to be delivered to Main Warehouse within expected date.
               </div>
             )}
           </div>
         </div>
 
-        {/* ----- RIGHT SIDE: SUMMARY CARD (5 COLUMNS) ----- */}
-        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-            <div className="flex items-center space-x-2 text-blue-600 font-bold text-xs uppercase tracking-wide">
-              <Receipt className="w-4 h-4" />
+        {/* ----- RIGHT DOCKED SUMMARY CARD (5 COLUMNS) ----- */}
+        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+            <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
+              <Receipt className="w-3.5 h-3.5" />
               <span>SUMMARY</span>
             </div>
           </div>
 
-          <div className="space-y-2 text-xs">
+          <div className="space-y-1.5 text-xs">
             <div className="flex items-center justify-between text-slate-600">
               <span>Total Item Amount</span>
               <span className="font-mono font-bold text-slate-800">
@@ -1002,17 +846,15 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               <span className="font-mono font-bold text-slate-800">{totals.roundOff.toFixed(2)}</span>
             </div>
 
-            {/* Prominent Bold Net Payable */}
-            <div className="flex items-center justify-between pt-3 border-t border-slate-200">
-              <span className="text-sm font-extrabold text-slate-900">Net Payable</span>
-              <span className="text-xl font-black text-emerald-600 font-mono tracking-tight">
+            <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+              <span className="text-xs font-extrabold text-slate-900">Net Payable</span>
+              <span className="text-lg font-black text-emerald-600 font-mono tracking-tight">
                 {totals.netPayable.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </span>
             </div>
 
-            {/* Amount in Words */}
-            <div className="pt-2 border-t border-slate-100 text-[11px]">
-              <span className="font-bold text-slate-500 block">Amount in Words</span>
+            <div className="pt-1.5 border-t border-slate-100 text-[10px]">
+              <span className="font-bold text-slate-500 block uppercase">Amount in Words</span>
               <span className="font-semibold text-slate-800 italic">{amountInWords}</span>
             </div>
           </div>
@@ -1022,27 +864,27 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
       {/* ================= ITEM PICKER MODAL (F2) ================= */}
       {showItemPickerModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-xl w-full p-5 space-y-4 shadow-xl border border-slate-200">
+          <div className="bg-white rounded-xl max-w-xl w-full p-4 space-y-3 shadow-xl border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <h3 className="font-extrabold text-slate-900 text-sm flex items-center space-x-2">
-                <ShoppingCart className="w-4 h-4 text-blue-600" />
+              <h3 className="font-extrabold text-slate-900 text-xs flex items-center space-x-2">
+                <ShoppingCart className="w-3.5 h-3.5 text-blue-600" />
                 <span>Select Purchase Item (F2)</span>
               </h3>
               <button onClick={() => setShowItemPickerModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="space-y-2 max-h-60 overflow-y-auto smriti-custom-scroll">
+            <div className="space-y-1.5 max-h-60 overflow-y-auto smriti-custom-scroll">
               {products.map((prod) => (
                 <div
                   key={prod.id}
                   onClick={() => handleAddItem(prod)}
-                  className="p-3 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg flex items-center justify-between cursor-pointer transition-colors"
+                  className="p-2 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded flex items-center justify-between cursor-pointer transition-colors"
                 >
                   <div>
                     <div className="font-bold text-slate-900 text-xs">{prod.name}</div>
-                    <div className="text-[11px] text-slate-500 font-mono">Code: {prod.code || prod.sku} | HSN: {prod.hsnCode || "7214"}</div>
+                    <div className="text-[10px] text-slate-500 font-mono">Code: {prod.code || prod.sku} | HSN: {prod.hsnCode || "7214"}</div>
                   </div>
                   <div className="text-right">
                     <div className="font-extrabold text-blue-600 text-xs">₹ {prod.price}</div>

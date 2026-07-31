@@ -726,27 +726,27 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         </div>
       )}
       
-      {/* Dynamic Sourcing Control Header */}
-      <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-            <ShoppingCart className="w-6 h-6" />
+      {/* Dynamic Sourcing Control Header — Compact 55px Hero */}
+      <div className="bg-theme-surface-1 border border-theme-divider rounded-xl px-4 py-2.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+            <ShoppingCart className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-bold font-display text-theme-body tracking-wide">SMRITI Purchase Studio</h2>
-              <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-500/30 rounded px-2 py-0.5 font-mono font-bold">REPLENISHMENT DESK</span>
+              <h2 className="text-sm font-bold font-display text-theme-body tracking-wide">SMRITI Purchase Studio</h2>
+              <span className="text-[9px] bg-indigo-950 text-indigo-300 border border-indigo-500/30 rounded px-1.5 py-0.5 font-mono font-bold">REPLENISHMENT DESK</span>
             </div>
-            <p className="text-xs text-theme-muted mt-0.5">Procure inventory, analyze trigger reorders, receive goods and manage suppliers dynamically.</p>
+            <p className="text-[11px] text-theme-muted">Procure inventory, analyze trigger reorders, receive goods and manage suppliers dynamically.</p>
           </div>
         </div>
 
         {/* Security / Simulation Hub Controls */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center space-x-2">
           {/* Active SMRITI Role Badge */}
-          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-1.5 px-3 flex items-center space-x-2.5">
-            <span className="text-[10px] text-theme-muted font-mono uppercase tracking-wider font-bold">DESK ROLE:</span>
-            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1 flex items-center space-x-2">
+            <span className="text-[9px] text-theme-muted font-mono uppercase tracking-wider font-bold">DESK ROLE:</span>
+            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
               userRole === "Store Manager"
                 ? "bg-indigo-950 text-indigo-300 border border-indigo-500/30"
                 : "bg-emerald-950 text-emerald-300 border border-emerald-500/30"
@@ -759,56 +759,56 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
           <button
             onClick={toggleJurisdiction}
             disabled={updatingJurisdiction}
-            className={`px-3 py-2 rounded-xl border text-[11px] font-mono font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer ${
+            className={`px-2.5 py-1 rounded-lg border text-[10px] font-mono font-semibold flex items-center space-x-1 transition-colors cursor-pointer ${
               companyState 
                 ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-300 hover:bg-emerald-950/60" 
                 : "bg-rose-950/40 border-rose-500/30 text-rose-300 hover:bg-rose-950/60"
             }`}
           >
-            <Shield className="w-3.5 h-3.5" />
+            <Shield className="w-3 h-3" />
             <span>Tax Config: {companyState ? "DL (Delhi)" : "UNCONFIGURED"}</span>
           </button>
         </div>
       </div>
 
-      {/* Five Studio Sub-Tabs Grid Selector */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 overflow-x-auto smriti-hide-scrollbar py-0.5">
+      {/* Five Studio Sub-Tabs Bar — Sleek Single Horizontal Row (42px) */}
+      <div className="flex items-center space-x-1.5 overflow-x-auto smriti-hide-scrollbar py-0.5 bg-theme-surface-2 p-1 border border-theme-divider rounded-xl text-xs font-semibold">
         <button
           onClick={() => setActiveSubTab("create")}
-          className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer ${
+          className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer ${
             activeSubTab === "create"
-              ? "bg-[#2563EB] text-theme-body border-transparent shadow-md"
-              : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:bg-theme-surface-3 hover:text-theme-primary"
+              ? "bg-[#2563EB] text-white shadow-xs font-bold"
+              : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
-          <ShoppingCart className="w-4 h-4" />
+          <ShoppingCart className="w-3.5 h-3.5" />
           <span>Create Order</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab("suppliers")}
-          className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer ${
+          className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer ${
             activeSubTab === "suppliers"
-              ? "bg-[#2563EB] text-theme-body border-transparent shadow-md"
-              : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:bg-theme-surface-3 hover:text-theme-primary"
+              ? "bg-[#2563EB] text-white shadow-xs font-bold"
+              : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
-          <User className="w-4 h-4" />
+          <User className="w-3.5 h-3.5" />
           <span>Suppliers</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab("reorder")}
-          className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all relative cursor-pointer ${
+          className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all relative cursor-pointer ${
             activeSubTab === "reorder"
-              ? "bg-[#2563EB] text-theme-body border-transparent shadow-md"
-              : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:bg-theme-surface-3 hover:text-theme-primary"
+              ? "bg-[#2563EB] text-white shadow-xs font-bold"
+              : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
-          <TrendingDown className="w-4 h-4" />
+          <TrendingDown className="w-3.5 h-3.5" />
           <span>Reorder Suggestions</span>
           {reorderSuggestions.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-rose-600 text-white font-mono font-bold text-[9px] w-5 h-5 rounded-full flex items-center justify-center shadow-lg animate-pulse">
+            <span className="bg-rose-600 text-white font-mono font-bold text-[9px] px-1.5 py-0.2 rounded-full shadow-xs">
               {reorderSuggestions.length}
             </span>
           )}
@@ -816,25 +816,25 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 
         <button
           onClick={() => setActiveSubTab("receive")}
-          className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer ${
+          className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer ${
             activeSubTab === "receive"
-              ? "bg-[#2563EB] text-theme-body border-transparent shadow-md"
-              : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:bg-theme-surface-3 hover:text-theme-primary"
+              ? "bg-[#2563EB] text-white shadow-xs font-bold"
+              : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
-          <Truck className="w-4 h-4" />
+          <Truck className="w-3.5 h-3.5" />
           <span>Receive Goods</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab("reports")}
-          className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer ${
+          className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer ${
             activeSubTab === "reports"
-              ? "bg-[#2563EB] text-theme-body border-transparent shadow-md"
-              : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:bg-theme-surface-3 hover:text-theme-primary"
+              ? "bg-[#2563EB] text-white shadow-xs font-bold"
+              : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
-          <FileText className="w-4 h-4" />
+          <FileText className="w-3.5 h-3.5" />
           <span>Reports & Registers</span>
         </button>
       </div>
