@@ -205,6 +205,22 @@ Every completion claim must be backed by directly observable evidence. If eviden
 7. **URR Standard v1.0 Status (FROZEN)**:
    - Rules `URR-001` through `URR-006` are officially **FROZEN v1.0**.
 
+## 17. Universal Print Governance (UPRT Standard v1.0 — FROZEN)
+1. **Metadata-Driven Templates (UPRT-001 — MANDATORY)**:
+   - Print templates, layout schemas, and paper size profiles MUST be declared in UPR metadata (`PrintRegistry` / `SPK.printing`).
+2. **Single Rendering Execution Entry Point (UPRT-002 — MANDATORY)**:
+   - Print document rendering MUST execute exclusively through `SPK.printing.renderDocument()`.
+3. **Automated Placeholder Data Binding (UPRT-003 — MANDATORY)**:
+   - Dynamic parameter substitution MUST be executed by the print engine.
+4. **Delegated Security Authorization (UPRT-004 — MANDATORY)**:
+   - Template printing permissions MUST delegate exclusively to `SPK.security`.
+5. **Immutable Context Enforcement (UPRT-005 — MANDATORY)**:
+   - Document rendering MUST consume immutable `PlatformContext`.
+6. **Delegated Renderers (UPRT-006 — MANDATORY)**:
+   - Output generation (Thermal ESC/POS, HTML, PDF, ZPL) MUST be delegated to registered renderers.
+7. **UPRT Standard v1.0 Status (FROZEN)**:
+   - Rules `UPRT-001` through `UPRT-006` are officially **FROZEN v1.0**.
+
 ---
 
 
