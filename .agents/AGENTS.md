@@ -1367,11 +1367,18 @@ No file shall be modified until its dependency graph, impact analysis, compatibi
 6. **Database Impact Assessment**: Validate migrations, ORM entities, repositories, DTOs, and seeds.
 7. **API Contract Validation**: Verify endpoints against OpenAPI specs, frontend SDKs, and tests.
 8. **UI Impact Assessment**: Audit forms, grids, dialogs, filters, and reports for visual/state continuity.
-9. **Regression Risk Scanner**: Verify impact on Billing, POS, Inventory, Purchase, Printing, and Auth.
-10. **Auto-Fix Engine**: Execute updates across all affected files simultaneously.
-11. **11-Point Validation Gate**: Run TS Compiler, Linter, Unit Tests, Integration Tests, and Dependency Rules.
-12. **AI Change Report**: Generate comprehensive Change Impact Report detailing all updated files.
-13. **Constitutional Compliance Gate**: Verify zero violations of SMRITI Constitution v1.0.
+---
+
+# SMRITI Knowledge Graph Framework (KGF) & Guiding Governance Principle
+
+**Status:** MANDATORY LEVEL-1 CONSTITUTION — v1.0 (2026-07-31)
+
+## The Guiding Governance Principle
+> **"No code change is complete until its architectural impact has been analyzed, all dependent artifacts have been synchronized, all validation gates have passed, and the platform remains internally consistent."**
+
+## Rule KGF-001 – Persistent Knowledge Graph & Semantic Dependency Engine
+The SMRITI Platform Kernel (SPK) shall maintain a persistent project Knowledge Graph (`KGF`) indexing all Files, Classes, Interfaces, APIs, Domain Events, Database Schemas, Routes, Tests, and Documentation. All ICME dependency scans and impact analyses shall consume `KGF` for semantic dependency resolution and sub-second incremental change evaluation.
+
 
 
 
