@@ -43,6 +43,9 @@ import { CreateSupplierCommandHandler } from "../kernel/commands/CreateSupplierC
 import { SupplierLookupProvider } from "../kernel/ule/SupplierLookupProvider.js";
 import { TaxResolutionEngine } from "../kernel/internal/TaxResolutionEngine.js";
 import { ResolveTaxCommandHandler } from "../kernel/commands/ResolveTaxCommand.js";
+import { PurchaseService } from "../kernel/internal/PurchaseService.js";
+import { CreatePurchaseOrderCommandHandler } from "../kernel/commands/CreatePurchaseOrderCommand.js";
+import { PurchaseLookupProvider } from "../kernel/ule/PurchaseLookupProvider.js";
 
 dotenv.config();
 
@@ -93,6 +96,11 @@ export function bootstrapDI(): DIContainer {
   const taxEngineInstance = new TaxResolutionEngine();
   SPK.services.register("TAX_ENGINE", taxEngineInstance);
   SPK.commands.registerHandler("RESOLVE_TAX", new ResolveTaxCommandHandler());
+
+  const purchaseServiceInstance = new PurchaseService();
+  SPK.services.register("PURCHASE", purchaseServiceInstance);
+  SPK.commands.registerHandler("CREATE_PURCHASE_ORDER", new CreatePurchaseOrderCommandHandler());
+  SPK.ule.registerProvider(new PurchaseLookupProvider());
 
   if (dbProvider === "postgres") {
     instances.products = new PostgresProductRepository();
