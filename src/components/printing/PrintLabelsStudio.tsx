@@ -16,6 +16,7 @@ import { PRNTemplateStudio } from "./PRNTemplateStudio.tsx";
 import { Product } from "../../types";
 import { SPK } from "../../kernel/SPK";
 import { IItemService } from "../../kernel/public/IItemService";
+import { ISupplierService, SupplierRecord } from "../../kernel/public/ISupplierService";
 
 export interface PrintLabelsStudioProps {
   products?: Product[];
@@ -138,6 +139,18 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
   const [selectedSupplier, setSelectedSupplier] = useState<string>("All Suppliers");
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("All Warehouses");
   const [selectedSalesman, setSelectedSalesman] = useState<string>("All Salesmans");
+  const [supplierList, setSupplierList] = useState<SupplierRecord[]>([]);
+
+  useEffect(() => {
+    try {
+      const supplierService = SPK.services.resolve<ISupplierService>("SUPPLIER");
+      supplierService.getAll().then((list) => {
+        if (list && list.length > 0) setSupplierList(list);
+      });
+    } catch (e) {
+      console.warn("[PrintLabelsStudio] SPK SupplierService unavailable", e);
+    }
+  }, []);
 
   // Range Filters
   const [filterItemCodeFrom, setFilterItemCodeFrom] = useState<string>("");
@@ -763,11 +776,14 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                   <select
                     value={selectedSupplier}
                     onChange={(e) => setSelectedSupplier(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-slate-700 font-medium"
                   >
-                    <option>All Suppliers</option>
-                    <option>Apex Footwear Corp</option>
-                    <option>Reliance Retail Ltd</option>
+                    <option value="All Suppliers">All Suppliers</option>
+                    {supplierList.map((sup) => (
+                      <option key={sup.id} value={sup.name}>
+                        {sup.name} ({sup.code})
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
