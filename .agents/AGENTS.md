@@ -221,6 +221,20 @@ Every completion claim must be backed by directly observable evidence. If eviden
 7. **UPRT Standard v1.0 Status (FROZEN)**:
    - Rules `UPRT-001` through `UPRT-006` are officially **FROZEN v1.0**.
 
+## 18. Universal Dashboard Governance (UDR Standard v1.0 — FROZEN)
+1. **Metadata-Driven Dashboards (UDR-001 — MANDATORY)**:
+   - Dashboard layouts, widget schemas, and chart parameters MUST be declared in UPR metadata (`DashboardRegistry` / `SPK.dashboard`).
+2. **Single Widget Rendering Entry Point (UDR-002 — MANDATORY)**:
+   - Widget calculations and layout rendering MUST execute exclusively through `SPK.dashboard.renderWidget()`.
+3. **Delegated Security Authorization (UDR-003 — MANDATORY)**:
+   - Dashboard domain and widget access MUST delegate exclusively to `SPK.security`.
+4. **Delegated Layout Grid Resolution (UDR-004 — MANDATORY)**:
+   - Dashboard widget column/row grid spans MUST delegate exclusively to `SPK.layouts`.
+5. **Immutable Context Enforcement (UDR-005 — MANDATORY)**:
+   - Dashboard widget execution MUST consume immutable `PlatformContext`.
+6. **UDR Standard v1.0 Status (FROZEN)**:
+   - Rules `UDR-001` through `UDR-006` are officially **FROZEN v1.0**.
+
 ---
 
 
