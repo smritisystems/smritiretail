@@ -34,6 +34,17 @@ export interface ITenantContext {
   timezone: string;
 }
 
+export interface SecurityDecision {
+  allowed: boolean;
+  permissionId: string;
+  roleId: string;
+  userId: string;
+  tenantId: string;
+  featureId?: string;
+  policyId?: string;
+  reason: string;
+}
+
 export interface ICommand<TResult = any> {
   type: string;
   payload: any;
@@ -348,12 +359,15 @@ export class SMRITIPlatformKernel {
       permissionId: string,
       featureId?: string,
       attributes?: Record<string, any>
-    ): { allowed: boolean; reason: string } => {
+    ): SecurityDecision => {
+      const activeTenant = TenantRegistry.getActiveTenant();
+      const tenantId = activeTenant ? activeTenant.tenantId : "smriti-default";
+
       // 1. License Check
       if (featureId && !LicenseRegistry.isFeatureEnabled(featureId)) {
         const reason = `Feature '${featureId}' is disabled under current enterprise license edition.`;
         AuditRegistry.logEvent({ userId, roleId, action: "evaluateAccess", permissionId, isAllowed: false, reason });
-        return { allowed: false, reason };
+        return { allowed: false, permissionId, roleId, userId, tenantId, featureId, reason };
       }
 
       // 2. Role / Permission Check
@@ -361,12 +375,12 @@ export class SMRITIPlatformKernel {
       if (!hasPerm) {
         const reason = `Role '${roleId}' lacks granted permission '${permissionId}'.`;
         AuditRegistry.logEvent({ userId, roleId, action: "evaluateAccess", permissionId, isAllowed: false, reason });
-        return { allowed: false, reason };
+        return { allowed: false, permissionId, roleId, userId, tenantId, featureId, reason };
       }
 
       const reason = `Access granted for permission '${permissionId}'.`;
       AuditRegistry.logEvent({ userId, roleId, action: "evaluateAccess", permissionId, isAllowed: true, reason });
-      return { allowed: true, reason };
+      return { allowed: true, permissionId, roleId, userId, tenantId, featureId, reason };
     }
   };
 

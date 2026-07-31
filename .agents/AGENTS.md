@@ -139,6 +139,24 @@ Every completion claim must be backed by directly observable evidence. If eviden
 7. **UFR Standard v1.0 Status (FROZEN)**:
    - Rules `UFR-001` through `UFR-006` are officially **FROZEN v1.0**.
 
+## 13. Universal Security Governance (USR Standard v1.0 — FROZEN)
+1. **Permission Definitions (USR-001 — MANDATORY)**:
+   - All permissions MUST be defined in `PermissionRegistry` (`SPK.security.permissions`). Handcoded permission string assertions in UI components are strictly prohibited.
+2. **Role Hierarchy & Inheritance (USR-002 — MANDATORY)**:
+   - Roles and parent role inheritance MUST be declared in `RoleRegistry` (`SPK.security.roles`).
+3. **Attribute-Based Policy Authorization (USR-003 — MANDATORY)**:
+   - ABAC authorization rules MUST execute through `PolicyRegistry` (`SPK.security.policies`).
+4. **Licensing & Feature Enablement (USR-004 — MANDATORY)**:
+   - Platform editions and feature flag enablement MUST be verified via `LicenseRegistry` (`SPK.security.licenses`).
+5. **Tenant Isolation & Metadata (USR-005 — MANDATORY)**:
+   - Multi-tenant organization metadata MUST be resolved via `TenantRegistry` (`SPK.security.tenants`).
+6. **Security Audit Logging (USR-006 — MANDATORY)**:
+   - Security access decisions MUST be logged to `AuditRegistry` (`SPK.security.audit`).
+7. **Single Authorization Entry Point (USR-007 — MANDATORY)**:
+   - All workspace access decisions MUST execute exclusively through `SPK.security.evaluateAccess()`.
+8. **USR Standard v1.0 Status (FROZEN)**:
+   - Rules `USR-001` through `USR-007` are officially **FROZEN v1.0**.
+
 ---
 
 
