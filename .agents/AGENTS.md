@@ -189,6 +189,22 @@ Every completion claim must be backed by directly observable evidence. If eviden
 7. **UWR Standard v1.0 Status (FROZEN)**:
    - Rules `UWR-001` through `UWR-006` are officially **FROZEN v1.0**.
 
+## 16. Universal Report Governance (URR Standard v1.0 — FROZEN)
+1. **Metadata-Driven Reports Only (URR-001 — MANDATORY)**:
+   - All report definitions, parameters, and analytical columns MUST be declared in UPR metadata (`ReportRegistry` / `SPK.reports`).
+2. **Single Execution Entry Point (URR-002 — MANDATORY)**:
+   - Reports MUST execute exclusively through `SPK.reports.executeReport()`.
+3. **Delegated Security Authorization (URR-003 — MANDATORY)**:
+   - Report permissions and user access MUST delegate exclusively to `SPK.security`.
+4. **Delegated Parameter Validation (URR-004 — MANDATORY)**:
+   - Report parameter validation MUST delegate exclusively to `SPK.validation`.
+5. **Immutable Context Enforcement (URR-005 — MANDATORY)**:
+   - Report execution MUST consume immutable `PlatformContext`.
+6. **Delegated Exporter Engine (URR-006 — MANDATORY)**:
+   - PDF, Excel, CSV, and JSON export rendering MUST be delegated to registered exporter engines.
+7. **URR Standard v1.0 Status (FROZEN)**:
+   - Rules `URR-001` through `URR-006` are officially **FROZEN v1.0**.
+
 ---
 
 
