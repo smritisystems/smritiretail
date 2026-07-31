@@ -16,6 +16,9 @@ import { LayoutRegistry, LayoutDefinition } from "./upr/forms/LayoutRegistry.js"
 import { PermissionRegistry, PermissionDefinition } from "./upr/security/PermissionRegistry.js";
 import { RoleRegistry, RoleDefinition } from "./upr/security/RoleRegistry.js";
 import { LicenseRegistry, LicenseMetadata } from "./upr/security/LicenseRegistry.js";
+import { PolicyRegistry, PolicyDefinition, SecurityEvaluationContext } from "./upr/security/PolicyRegistry.js";
+import { TenantRegistry, TenantDefinition } from "./upr/security/TenantRegistry.js";
+import { AuditRegistry, SecurityAuditEvent } from "./upr/security/AuditRegistry.js";
 
 /* ── Kernel Interfaces ── */
 
@@ -311,11 +314,59 @@ export class SMRITIPlatformKernel {
       registerRole: (role: RoleDefinition) => RoleRegistry.registerRole(role),
       subscribe: (listener: () => void) => RoleRegistry.subscribe(listener)
     },
+    policies: {
+      getPolicy: (id: string) => PolicyRegistry.getPolicy(id),
+      getPolicies: () => PolicyRegistry.getPolicies(),
+      evaluatePolicy: (policyId: string, context: SecurityEvaluationContext, attrValues?: Record<string, any>) =>
+        PolicyRegistry.evaluatePolicy(policyId, context, attrValues),
+      registerPolicy: (policy: PolicyDefinition) => PolicyRegistry.registerPolicy(policy),
+      subscribe: (listener: () => void) => PolicyRegistry.subscribe(listener)
+    },
     licenses: {
       getLicense: () => LicenseRegistry.getLicense(),
       isFeatureEnabled: (featureId: string) => LicenseRegistry.isFeatureEnabled(featureId),
       getFeatures: () => LicenseRegistry.getFeatures(),
       subscribe: (listener: () => void) => LicenseRegistry.subscribe(listener)
+    },
+    tenants: {
+      getTenant: (id: string) => TenantRegistry.getTenant(id),
+      getActiveTenant: () => TenantRegistry.getActiveTenant(),
+      setActiveTenant: (id: string) => TenantRegistry.setActiveTenant(id),
+      getTenants: () => TenantRegistry.getTenants(),
+      registerTenant: (tenant: TenantDefinition) => TenantRegistry.registerTenant(tenant),
+      subscribe: (listener: () => void) => TenantRegistry.subscribe(listener)
+    },
+    audit: {
+      logEvent: (event: Omit<SecurityAuditEvent, "id" | "timestamp">) => AuditRegistry.logEvent(event),
+      getAuditLogs: () => AuditRegistry.getAuditLogs(),
+      getAuditLogsByUser: (userId: string) => AuditRegistry.getAuditLogsByUser(userId),
+      subscribe: (listener: () => void) => AuditRegistry.subscribe(listener)
+    },
+    evaluateAccess: (
+      userId: string,
+      roleId: string,
+      permissionId: string,
+      featureId?: string,
+      attributes?: Record<string, any>
+    ): { allowed: boolean; reason: string } => {
+      // 1. License Check
+      if (featureId && !LicenseRegistry.isFeatureEnabled(featureId)) {
+        const reason = `Feature '${featureId}' is disabled under current enterprise license edition.`;
+        AuditRegistry.logEvent({ userId, roleId, action: "evaluateAccess", permissionId, isAllowed: false, reason });
+        return { allowed: false, reason };
+      }
+
+      // 2. Role / Permission Check
+      const hasPerm = RoleRegistry.hasPermission(roleId, permissionId);
+      if (!hasPerm) {
+        const reason = `Role '${roleId}' lacks granted permission '${permissionId}'.`;
+        AuditRegistry.logEvent({ userId, roleId, action: "evaluateAccess", permissionId, isAllowed: false, reason });
+        return { allowed: false, reason };
+      }
+
+      const reason = `Access granted for permission '${permissionId}'.`;
+      AuditRegistry.logEvent({ userId, roleId, action: "evaluateAccess", permissionId, isAllowed: true, reason });
+      return { allowed: true, reason };
     }
   };
 

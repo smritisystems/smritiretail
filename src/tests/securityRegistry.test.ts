@@ -74,4 +74,34 @@ describe("Universal Security Registry (USR Phase 2 Core)", () => {
     const goldsmithHasRate = SPK.security.roles.hasPermission("goldsmith", "jewellery.rate.update");
     expect(goldsmithHasRate).toBe(true);
   });
+
+  it("should evaluate ABAC policy rules, tenant metadata, and audit logs via SPK.security", () => {
+    // ABAC Policy evaluation test
+    const policyResult = SPK.security.policies.evaluatePolicy("policy.pos.discount_limit", {
+      userId: "u-101",
+      roleId: "cashier"
+    }, { discountPercent: 15 });
+    expect(policyResult).toBe(true);
+
+    const exceedPolicyResult = SPK.security.policies.evaluatePolicy("policy.pos.discount_limit", {
+      userId: "u-101",
+      roleId: "cashier"
+    }, { discountPercent: 25 });
+    expect(exceedPolicyResult).toBe(false);
+
+    // Tenant metadata test
+    const activeTenant = SPK.security.tenants.getActiveTenant();
+    expect(activeTenant).toBeDefined();
+    expect(activeTenant.stores.length).toBeGreaterThanOrEqual(2);
+
+    // Evaluate access decision pipeline & Audit logging
+    const accessGranted = SPK.security.evaluateAccess("user-01", "store_manager", "sales.pos.billing", "pos");
+    expect(accessGranted.allowed).toBe(true);
+
+    const accessDeniedRole = SPK.security.evaluateAccess("user-02", "cashier", "inventory.item.create", "inventory");
+    expect(accessDeniedRole.allowed).toBe(false);
+
+    const logs = SPK.security.audit.getAuditLogs();
+    expect(logs.length).toBeGreaterThanOrEqual(2);
+  });
 });
