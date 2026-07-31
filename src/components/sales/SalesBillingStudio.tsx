@@ -36,6 +36,7 @@ import { SPK } from "../../kernel/SPK";
 import { IItemService } from "../../kernel/public/IItemService";
 import { ICustomerService } from "../../kernel/public/ICustomerService";
 import { ITaxResolutionEngine } from "../../kernel/public/ITaxResolutionEngine";
+import { CreateSalesInvoiceCommand } from "../../kernel/commands/CreateSalesInvoiceCommand";
 
 export interface SalesBillingStudioProps {
   products?: Product[];
@@ -465,19 +466,67 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
   const isCreditLimitExceeded = isCorporateClient && roundedNetPayable > availableCredit;
 
   // Final Post Invoice Handler
-  const handleConfirmPostInvoice = () => {
+  const handleConfirmPostInvoice = async () => {
     if (items.length === 0) {
       showToast("Cannot post an empty invoice!");
       return;
     }
     const invNo = `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    setPostedInvoiceData({
-      invNo,
-      grandTotal: roundedNetPayable,
-      customer: selectedCustomerName,
-      paymentMode
-    });
-    setIsPaymentModalOpen(false);
+
+    try {
+      await SPK.commands.execute(
+        new CreateSalesInvoiceCommand({
+          invoiceNumber: invNo,
+          customerName: selectedCustomerName,
+          customerMobile: mobileNumber,
+          customerGstin: gstin,
+          invoiceDate: new Date().toISOString().slice(0, 10),
+          paymentMode,
+          cashierName: "System Operator",
+          itemsTotal,
+          discountTotal: itemDiscountTotal + totalBillDiscount,
+          taxableTotal: taxableValue,
+          cgstTotal: taxCalculation.totalCgstAmount,
+          sgstTotal: taxCalculation.totalSgstAmount,
+          igstTotal: taxCalculation.totalIgstAmount,
+          taxTotal: taxCalculation.totalTaxAmount,
+          netPayable: roundedNetPayable,
+          roundedAmount: roundedNetPayable,
+          taxSnapshot: taxCalculation as any,
+          lines: items.map((i, idx) => ({
+            id: `invl-${idx}`,
+            itemId: i.id,
+            itemCode: i.barcode,
+            itemName: i.name,
+            hsnCode: i.hsnCode,
+            qty: i.qty,
+            uom: i.uom,
+            rate: i.rate,
+            discountPct: i.discountPct,
+            discountAmount: (i.qty * i.rate * i.discountPct) / 100,
+            taxableValue: i.qty * i.rate * (1 - i.discountPct / 100),
+            gstRate: 18,
+            cgstAmount: (i.qty * i.rate * 0.09),
+            sgstAmount: (i.qty * i.rate * 0.09),
+            igstAmount: 0,
+            totalTaxAmount: (i.qty * i.rate * 0.18),
+            lineTotal: i.qty * i.rate
+          })),
+          status: "Paid"
+        })
+      );
+
+      setPostedInvoiceData({
+        invNo,
+        grandTotal: roundedNetPayable,
+        customer: selectedCustomerName,
+        paymentMode
+      });
+      setIsPaymentModalOpen(false);
+      showToast(`Invoice ${invNo} Posted ✓`);
+    } catch (err: any) {
+      showToast(err.message || "Failed to post invoice");
+    }
   };
 
   // Handlers for Items
