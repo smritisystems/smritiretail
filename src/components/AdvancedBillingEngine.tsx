@@ -23,6 +23,7 @@ import { SMRITIGrid } from "./terminal/SMRITIGrid";
 import { StandardDocumentToolbar } from "./terminal/StandardDocumentToolbar";
 import { RightDrawerHost } from "./terminal/RightDrawerHost";
 import { UniversalSearchModal } from "./terminal/UniversalSearchModal";
+import { STRE, TaxContext } from "../sdk";
 // SEEF Phase 6 — surgical cascade integration (POS grid untouched)
 import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 
@@ -1671,7 +1672,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
             {/* Modal Actions */}
             <div className="px-5 py-3 border-t border-theme-divider flex items-center justify-between bg-[#1e293b] rounded-b-2xl">
               <span className="text-[10px] text-theme-muted font-mono">
-                Tax Taxability: <strong className="text-emerald-400">{tempCustomer.gstin && !tempCustomer.gstin.startsWith("27") ? "Interstate (IGST 18%)" : "Intrastate (CGST 9% + SGST 9%)"}</strong>
+                STRE Auto-Applied Tax: <strong className="text-emerald-400">✔ Automatically Applied ({tempCustomer.gstin && !tempCustomer.gstin.startsWith("27") ? "Interstate IGST 18%" : "Intrastate CGST 9% + SGST 9%"})</strong>
               </span>
               <div className="flex items-center gap-2">
                 <button

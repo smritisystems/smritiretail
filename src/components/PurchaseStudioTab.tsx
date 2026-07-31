@@ -51,6 +51,7 @@ export { FioriListReport as SEEFListReport };
 import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 import { PurchaseInvoiceRegistry } from "./purchase/PurchaseInvoiceRegistry.tsx";
 import { PurchaseInvoiceStudio } from "./purchase/PurchaseInvoiceStudio.tsx";
+import { PurchaseOperationsStudio } from "./purchase/PurchaseOperationsStudio.tsx";
 
 interface PurchaseStudioTabProps {
   products: Product[];
@@ -853,37 +854,15 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 
       {/* Dynamic Sourcing Workspace Content */}
       <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6 shadow-xl min-h-[450px]">
-        {/* ──── SUB-TAB 1: PURCHASE INVOICES & BILLS WORKSPACE ──── */}
+        {/* ──── SUB-TAB 1: UNIFIED PURCHASE OPERATIONS STUDIO WORKSPACE ──── */}
         {activeSubTab === "create" && (
-          isCreatingBill ? (
-            /* SAWF Purchase Invoice Studio Workspace */
-            <PurchaseInvoiceStudio
-              suppliers={suppliersList}
-              products={products}
-              currentUser={currentUser}
-              onBack={() => {
-                setIsCreatingBill(false);
-                fetchPurchaseOrders();
-              }}
-              onNotification={onNotification}
-            />
-          ) : (
-            /* SAWF Purchase Invoices & Bills Registry Workspace */
-            <PurchaseInvoiceRegistry
-              purchaseOrders={purchaseOrders}
-              suppliers={suppliersList}
-              loading={loading}
-              onRefresh={fetchPurchaseOrders}
-              onNewInvoice={() => {
-                setIsCreatingBill(true);
-              }}
-              onSelectInvoice={(po) => {
-                setSelectedPO(po);
-                setIsCreatingBill(true);
-              }}
-              currentUser={currentUser}
-            />
-          )
+          <PurchaseOperationsStudio
+            initialDocumentType="PO"
+            suppliers={suppliersList}
+            products={products}
+            currentUser={currentUser}
+            onNotification={onNotification}
+          />
         )}
 
 

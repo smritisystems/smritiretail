@@ -24,6 +24,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { WindowManager } from "../sdk/WindowManager";
 
 export interface WindowTab {
   tabId: string;
@@ -64,7 +65,7 @@ interface WorkspaceContextType {
   adjustGlobalZoom: (delta: number) => void;
   resetGlobalZoom: () => void;
   
-  popOutTab: (tabId: string, title: string, icon: string) => void;
+  popOutTab: (tabId: string, title: string, icon: string, forceInternal?: boolean) => void;
   closeWindow: (id: string) => void;
   minimizeWindow: (id: string) => void;
   maximizeWindow: (id: string) => void;
@@ -144,8 +145,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return maxZ + 1;
   };
 
-  const popOutTab = (tabId: string, title: string, icon: string) => {
-    // If the tab is already opened in a floating window, focus it
+  const popOutTab = (tabId: string, title: string, icon: string, forceInternal = false) => {
+    if (!forceInternal) {
+      // Open in a new dedicated independent browser window/tab
+      WindowManager.openTabStandalone(tabId, title);
+      return;
+    }
+
+    // Fallback: If the tab is already opened in an internal floating window, focus it
     const existing = floatingWindows.find((w) => w.tabs.some((t) => t.tabId === tabId));
     if (existing) {
       const tabIdx = existing.tabs.findIndex((t) => t.tabId === tabId);

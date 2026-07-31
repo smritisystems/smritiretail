@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -31,6 +31,10 @@ import { IndexedDbProductRepository, IndexedDbCustomerRepository, IndexedDbShift
 import { MemoryProductRepository, MemoryCustomerRepository, MemoryShiftRepository, MemorySalesInvoiceRepository, MemoryAuditRepository, MemorySyncRepository, MemoryUserRepository, MemoryPOSProfileRepository, MemoryPurchaseRepository, MemoryStateRepository } from "../db/memory/MemoryRepositories.js";
 import { SyncEngine } from "../core/sync/SyncEngine.js";
 import { BillingService } from "../core/services/BillingService.js";
+import { SPK } from "../kernel/SPK.js";
+import { ItemService } from "../kernel/internal/ItemService.js";
+import { CreateItemCommandHandler } from "../kernel/commands/CreateItemCommand.js";
+import { ItemLookupProvider } from "../kernel/ule/ItemLookupProvider.js";
 
 dotenv.config();
 
@@ -59,6 +63,14 @@ export function bootstrapDI(): DIContainer {
   }
 
   console.log(`[SMRITI Bootstrap] Initializing Platform Abstraction Layer (PAL) with DATABASE_PROVIDER: ${dbProvider}`);
+
+  /* Initialize SMRITI Platform Kernel (SPK) */
+  SPK.start();
+
+  const itemServiceInstance = new ItemService();
+  SPK.services.register("ITEM", itemServiceInstance);
+  SPK.commands.registerHandler("CREATE_ITEM", new CreateItemCommandHandler());
+  SPK.ule.registerProvider(new ItemLookupProvider());
 
   if (dbProvider === "postgres") {
     instances.products = new PostgresProductRepository();

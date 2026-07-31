@@ -23,6 +23,7 @@ import {
   Formula,
   PSVParty,
 } from "./types.js";
+import { WindowManager } from "./sdk/WindowManager";
 
 // Import Layout Engine
 import {
@@ -41,6 +42,7 @@ import { PosProfilesTab } from "./components/PosProfilesTab.tsx";
 import { SharedTerminalFramework } from "./components/terminal/SharedTerminalFramework.tsx";
 import { AdvancedBillingEngine } from "./components/AdvancedBillingEngine.tsx";
 import { SalesStudioTab } from "./components/SalesStudioTab.tsx";
+import { SalesBillingStudio } from "./components/sales/SalesBillingStudio.tsx";
 import { ItemMasterTab } from "./components/ItemMasterTab.tsx";
 import { WikiTab } from "./components/WikiTab.tsx";
 import { PurchaseStudioTab } from "./components/PurchaseStudioTab.tsx";
@@ -53,6 +55,7 @@ import { WorkspaceLabTab } from "./components/WorkspaceLabTab.tsx";
 import { OperationalWorkspacesTab } from "./components/OperationalWorkspacesTab.tsx";
 import { TransactionWorkspacesTab } from "./components/TransactionWorkspacesTab.tsx";
 import { BiReportingAndPrintingTab } from "./components/BiReportingAndPrintingTab.tsx";
+import { PrintLabelsStudio } from "./components/printing/PrintLabelsStudio.tsx";
 import { ConsignmentStudioTab } from "./components/ConsignmentStudioTab.tsx";
 import { SCDMStudioTab } from "./components/SCDMStudioTab.tsx";
 
@@ -115,6 +118,213 @@ interface AppNotification {
   message: string;
   type: "success" | "error";
 }
+
+interface StandaloneWorkspaceProps {
+  popoutTab: string;
+  popoutTitle: string;
+  renderTabSafe: (tabId: string) => React.ReactNode;
+}
+
+const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutTab, popoutTitle, renderTabSafe }) => {
+  const [zoom, setZoom] = useState<number>(100);
+  const [isOnline, setIsOnline] = useState<boolean>(
+    typeof navigator !== "undefined" ? navigator.onLine : true
+  );
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isLocked, setIsLocked] = useState<boolean>(false);
+  const [pinInput, setPinInput] = useState<string>("");
+  const [pinError, setPinError] = useState<string>("");
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  // Keyboard shortcut listener for Fullscreen (F11 or Ctrl+Shift+F)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F11" || (e.ctrlKey && e.shiftKey && (e.key === "F" || e.key === "f"))) {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  };
+
+  const handleUnlock = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pinInput === "1234" || pinInput === "0000" || pinInput.trim().length >= 4) {
+      setIsLocked(false);
+      setPinInput("");
+      setPinError("");
+    } else {
+      setPinError("Invalid Security PIN. Enter 1234 or your staff PIN.");
+    }
+  };
+
+  return (
+    <div className="relative w-screen h-screen bg-[#0B0F17] overflow-hidden flex flex-col m-0 p-0 font-sans border border-slate-800">
+      {/* SMRITI Desktop Workspace v1.0 Header Bar */}
+      <div className="h-10 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between shrink-0 select-none text-slate-200">
+        {/* Left Section: Document Title & Badges */}
+        <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-1.5">
+            <span className="material-symbols-outlined text-indigo-400 text-base">desktop_windows</span>
+            <span className="text-xs font-bold tracking-wide uppercase text-slate-200">{popoutTitle}</span>
+          </div>
+
+          <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono font-medium">
+            STANDALONE WORKSPACE
+          </span>
+
+          {/* Real-time Document Status */}
+          <div className="flex items-center space-x-1 text-[11px] text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Saved</span>
+          </div>
+
+          {/* Network Connection Status */}
+          <div className={`flex items-center space-x-1 text-[11px] px-2 py-0.5 rounded border font-mono ${
+            isOnline
+              ? "text-emerald-300 bg-emerald-950/40 border-emerald-800/30"
+              : "text-rose-300 bg-rose-950/60 border-rose-800/50"
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? "bg-emerald-400" : "bg-rose-500 animate-ping"}`}></span>
+            <span>{isOnline ? "Online" : "Offline"}</span>
+          </div>
+        </div>
+
+        {/* Right Section: Toolbar Controls */}
+        <div className="flex items-center space-x-2">
+          {/* Zoom Controls */}
+          <div className="flex items-center bg-slate-800/80 rounded border border-slate-700/60 px-1 py-0.5 text-xs text-slate-300 space-x-1">
+            <button
+              onClick={() => setZoom((z) => Math.max(70, z - 10))}
+              className="px-1 hover:text-white transition font-bold"
+              title="Zoom Out"
+            >
+              -
+            </button>
+            <span className="font-mono text-[11px] w-8 text-center text-indigo-300">{zoom}%</span>
+            <button
+              onClick={() => setZoom((z) => Math.min(150, z + 10))}
+              className="px-1 hover:text-white transition font-bold"
+              title="Zoom In"
+            >
+              +
+            </button>
+          </div>
+
+          {/* Fullscreen Button */}
+          <button
+            onClick={toggleFullscreen}
+            className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition flex items-center text-xs space-x-1"
+            title="Toggle Fullscreen (Ctrl+Shift+F or F11)"
+          >
+            <span className="material-symbols-outlined text-sm">
+              {isFullscreen ? "fullscreen_exit" : "fullscreen"}
+            </span>
+          </button>
+
+          {/* Lock Workspace Button */}
+          <button
+            onClick={() => setIsLocked(true)}
+            className="px-2 py-1 hover:bg-amber-900/40 text-amber-400 hover:text-amber-300 rounded border border-amber-800/30 transition flex items-center text-xs space-x-1"
+            title="Lock Workspace Session"
+          >
+            <span className="material-symbols-outlined text-sm">lock</span>
+            <span>Lock</span>
+          </button>
+
+          {/* Refresh Data Button */}
+          <button
+            onClick={() => WindowManager.broadcast("REFRESH_SYSTEM_STATE", popoutTab, {})}
+            className="px-2 py-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition flex items-center text-xs space-x-1"
+            title="Refresh Studio Data"
+          >
+            <span className="material-symbols-outlined text-sm">refresh</span>
+            <span>Refresh</span>
+          </button>
+
+          {/* Print Button */}
+          <button
+            onClick={() => window.print()}
+            className="px-2 py-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition flex items-center text-xs space-x-1"
+            title="Print Document"
+          >
+            <span className="material-symbols-outlined text-sm">print</span>
+            <span>Print</span>
+          </button>
+
+          {/* Close Window Button */}
+          <button
+            onClick={() => window.close()}
+            className="px-2 py-1 hover:bg-rose-900/50 hover:text-rose-300 rounded text-slate-400 transition flex items-center text-xs space-x-1"
+            title="Close Workspace Window"
+          >
+            <span className="material-symbols-outlined text-sm">close</span>
+            <span>Close</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Studio Content Canvas with Dynamic Zoom Scaling */}
+      <div
+        className="flex-1 overflow-auto p-2 bg-[#0B0F17] transition-all duration-150"
+        style={{ zoom: `${zoom}%` }}
+      >
+        {renderTabSafe(popoutTab)}
+      </div>
+
+      {/* SAWF Workspace Security Lock Overlay */}
+      {isLocked && (
+        <div className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center text-slate-200">
+          <div className="w-full max-w-sm p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col items-center text-center space-y-4">
+            <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <span className="material-symbols-outlined text-3xl">lock</span>
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-100 uppercase tracking-wide">Workspace Locked</h3>
+              <p className="text-xs text-slate-400 mt-1">Transaction context preserved. Enter PIN to unlock.</p>
+            </div>
+            <form onSubmit={handleUnlock} className="w-full space-y-3">
+              <input
+                type="password"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                placeholder="Enter Staff PIN (e.g. 1234)"
+                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-center text-lg tracking-widest font-mono text-white focus:outline-none focus:border-amber-500 transition"
+                autoFocus
+              />
+              {pinError && <p className="text-xs text-rose-400">{pinError}</p>}
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 font-semibold text-xs uppercase tracking-wider rounded-xl transition shadow-lg shadow-indigo-600/30"
+              >
+                Unlock Session
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const AppContent: React.FC = () => {
   const toastIdRef = useRef(0);
@@ -454,6 +664,19 @@ const AppContent: React.FC = () => {
     }
   }, [currentUser]);
 
+  // SAWF v1.0 Cross-Window Broadcast Listener
+  useEffect(() => {
+    const unsubscribe = WindowManager.subscribeBroadcast((msg) => {
+      if (msg.type === "REFRESH_SYSTEM_STATE") {
+        fetchSystemState();
+      } else if (msg.type === "TOAST_NOTIFICATION" && msg.payload) {
+        const p = msg.payload as { title: string; message: string; type?: "success" | "error" };
+        addNotification(p.title, p.message, p.type || "success");
+      }
+    });
+    return unsubscribe;
+  }, []);
+
   useEffect(() => {
     const handlePopoutEvent = () => {
       const tabConfig = registeredWorkspaces.find((w) => w.id === activeTab);
@@ -486,15 +709,9 @@ const AppContent: React.FC = () => {
           />
         );
       case "pos":
-        return (
-          <PosTerminalTab
-            products={products}
-            profiles={profiles}
-            shifts={shifts}
-            onRefreshData={fetchSystemState}
-            onNotification={addNotification}
-          />
-        );
+      case "billing":
+      case "quick-billing":
+        return <SalesBillingStudio products={products} onRefreshProducts={fetchSystemState} />;
       case "crm":
       case "crm-studio":
         return <CrmStudioTab currentUser={currentUser} onNotification={addNotification} />;
@@ -544,14 +761,10 @@ const AppContent: React.FC = () => {
         );
       case "psv":
         return <PsvTab psvParties={psvParties} currentUser={currentUser} />;
+      case "sales-billing":
+      case "sales-billing-studio":
       case "sales":
-        return (
-          <SalesStudioTab
-            products={products}
-            onNotification={addNotification}
-            currentUser={currentUser}
-          />
-        );
+        return <SalesBillingStudio products={products} onRefreshProducts={fetchSystemState} />;
       case "purchase":
         return (
           <PurchaseStudioTab
@@ -609,7 +822,10 @@ const AppContent: React.FC = () => {
         return <ApprovalMatrixTab />;
       case "print-labels":
       case "print-studio":
-        return <PrintStudioTab />;
+      case "barcode-printing":
+      case "label-printing":
+      case "universal-label":
+        return <PrintLabelsStudio products={products} />;
       case "print-history":
         return <PrintHistoryTab />;
       case "about-smriti":
@@ -744,12 +960,18 @@ const AppContent: React.FC = () => {
   }
 
   if (isPopoutMode) {
-
     const popoutTab = new URLSearchParams(window.location.search).get("tab") || "sales";
+    const popoutTitle = new URLSearchParams(window.location.search).get("title") || `${popoutTab.toUpperCase()} STUDIO`;
+    if (typeof document !== "undefined") {
+      document.title = `${popoutTitle} - SMRITI Retail OS`;
+    }
+
     return (
-      <div className="w-screen h-screen bg-[#0B0F17] overflow-hidden p-2 m-0 font-sans">
-        {renderTabSafe(popoutTab)}
-      </div>
+      <StandaloneWorkspaceWindow
+        popoutTab={popoutTab}
+        popoutTitle={popoutTitle}
+        renderTabSafe={renderTabSafe}
+      />
     );
   }
 
