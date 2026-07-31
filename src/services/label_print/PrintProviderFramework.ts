@@ -7,6 +7,8 @@
  * Classification: SMRITI Platform Services
  */
 
+import { apiFetch } from "../../lib/apiFetch";
+
 export type PrintProviderType = "browser" | "pdf" | "prn" | "qz_tray" | "network";
 
 export interface SystemPrinterInfo {
@@ -307,18 +309,14 @@ export class NetworkRawPrintProvider implements IPrintProvider {
 
   async sendJob(payload: PrintJobPayload): Promise<{ success: boolean; error?: string }> {
     try {
-      const response = await fetch("/api/v1/print/raw-tcp", {
+      await apiFetch("/api/v1/print/raw-tcp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           printerIp: payload.printerName || "192.168.1.100",
           port: 9100,
           rawScript: payload.script,
         }),
       });
-      if (!response.ok) {
-        throw new Error(`TCP Printer raw socket error: HTTP ${response.status}`);
-      }
       return { success: true };
     } catch (e: any) {
       return { success: false, error: e.message || "RAW TCP/IP Port 9100 direct print failed" };

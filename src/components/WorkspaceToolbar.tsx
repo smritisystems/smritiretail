@@ -38,7 +38,11 @@ import {
   EyeOff,
   Keyboard,
   Printer,
-  Paintbrush
+  Paintbrush,
+  PanelLeft,
+  PanelRight,
+  PanelTop,
+  PanelBottom
 } from "lucide-react";
 import { useWorkspace } from "../contexts/WorkspaceContext.tsx";
 import { useLayoutEngine } from "../layout_engine/layout_store.tsx";
@@ -73,7 +77,14 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
     snapWindow
   } = useWorkspace();
 
-  const { registeredWorkspaces } = useLayoutEngine();
+  const {
+    registeredWorkspaces,
+    preferences,
+    setLayout,
+    toggleNavbar,
+    toggleSidebarVisibility,
+    toggleBottombar,
+  } = useLayoutEngine();
   const { setPaletteOpen } = useShortcuts();
   const [seefOpen, setSeefOpen] = useState(false);
   
@@ -168,6 +179,47 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
         )}
 
         {/* Zoom Level Indicator */}
+        {!isFloating && (
+          <div className="flex items-center gap-1 border-r border-theme-divider pr-2 mr-1.5">
+            <select
+              value={preferences.position}
+              onChange={(e) => setLayout(e.target.value as "left" | "right" | "top" | "bottom")}
+              className="bg-theme-surface-2 border border-theme-divider rounded px-1.5 py-1 text-[10px] text-theme-body cursor-pointer"
+              aria-label="Navigation dock position"
+              title="Navigation dock position"
+            >
+              <option value="left">Left dock</option>
+              <option value="right">Right dock</option>
+              <option value="top">Top dock</option>
+              <option value="bottom">Bottom dock</option>
+            </select>
+            <button
+              onClick={toggleNavbar}
+              className="p-1.5 rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-all cursor-pointer"
+              title={preferences.hideNavbar ? "Show top bar" : "Hide top bar"}
+              aria-label={preferences.hideNavbar ? "Show top bar" : "Hide top bar"}
+            >
+              <PanelTop size={14} />
+            </button>
+            <button
+              onClick={toggleSidebarVisibility}
+              className="p-1.5 rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-all cursor-pointer"
+              title={preferences.hideSidebar ? "Show side bar" : "Hide side bar"}
+              aria-label={preferences.hideSidebar ? "Show side bar" : "Hide side bar"}
+            >
+              {preferences.position === "right" ? <PanelRight size={14} /> : <PanelLeft size={14} />}
+            </button>
+            <button
+              onClick={toggleBottombar}
+              className="p-1.5 rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-all cursor-pointer"
+              title={preferences.hideBottombar ? "Show bottom bar" : "Hide bottom bar"}
+              aria-label={preferences.hideBottombar ? "Show bottom bar" : "Hide bottom bar"}
+            >
+              <PanelBottom size={14} />
+            </button>
+          </div>
+        )}
+
         <div className="text-[10px] font-mono text-theme-muted bg-theme-surface-2 px-2 py-1 rounded border border-theme-divider mr-1.5">
           Zoom: <strong className="text-theme-body">{(zoomValue * 100).toFixed(0)}%</strong>
         </div>

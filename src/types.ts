@@ -52,6 +52,8 @@ export interface Product {
   mrp?: number;
   costPrice?: number; // Added for variant cost price support
   purchase_price?: number;
+  purchasePrice?: number;
+  unit?: string;
   sku?: string; // Added for variant SKU support
   hsnCode?: string; // Added for HSN Code support
   hsn_code?: string;
@@ -59,6 +61,7 @@ export interface Product {
   gst_rate?: number;
   tax_rate?: number;
   uom?: string;
+  warehouse?: string;
   has_batch_tracking?: boolean;
   has_expiry_date?: boolean;
   has_serial_number?: boolean;
@@ -590,7 +593,7 @@ export interface Customer {
   // --- Always customer-specific, never inherited ---
   outstanding: number; // current amount owed, updated by ledger transactions
   status: "Active" | "Inactive" | "Blocked" | string;
-  createdDate: string;
+  createdDate?: string;
   lastPurchaseDate?: string;
   lastPaymentDate?: string;
   tags?: string[];

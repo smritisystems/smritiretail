@@ -19,6 +19,7 @@ import { UniversalSearchModal } from "./terminal/UniversalSearchModal";
 import { HardwareAdapterRegistry } from "../hardware/HardwareAdapterRegistry";
 import { Search, ShoppingBag, CreditCard, User, PauseCircle, PlayCircle, Trash2, Printer, Zap, CheckCircle2 } from "lucide-react";
 import { SEDSStatusBadge } from "../design-system/components/SEDSStatusBadge";
+import { VariantPivotMatrix } from "./common/VariantPivotMatrix";
 
 interface PosTerminalTabProps {
   products: Product[];
@@ -60,6 +61,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
   const [cashTendered, setCashTendered] = useState("");
   const [discountPercent, setDiscountPercent] = useState<number>(0);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [showVariantMatrix, setShowVariantMatrix] = useState(false);
 
   // Search input ref for instant F1 focus
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -263,14 +265,31 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
               <ShoppingBag className="w-4 h-4 text-[var(--sds-color-primary)]" />
               <h2 className="text-sm font-bold">Active Cart ({cart.length} Items)</h2>
             </div>
-            <button onClick={() => setCart([])} className="text-xs text-red-600 hover:underline flex items-center gap-1">
-              <Trash2 className="w-3.5 h-3.5" /> Clear [ESC]
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowVariantMatrix((visible) => !visible)} className="rounded border border-[var(--sds-color-border)] px-2 py-1 text-[10px] font-bold text-[var(--sds-color-primary)]">
+                {showVariantMatrix ? "Cart Grid" : "Color x Size"}
+              </button>
+              <button onClick={() => setCart([])} className="text-xs text-red-600 hover:underline flex items-center gap-1">
+                <Trash2 className="w-3.5 h-3.5" /> Clear [ESC]
+              </button>
+            </div>
           </div>
 
           {/* Cart Items List */}
           <div className="flex-1 overflow-y-auto py-3 space-y-2">
-            {cart.length === 0 ? (
+            {showVariantMatrix ? (
+              <VariantPivotMatrix
+                compact
+                items={cart.map((item) => ({
+                  id: item.product.id,
+                  label: item.product.name,
+                  color: item.product.color,
+                  size: item.product.size,
+                  quantity: item.quantity,
+                  unitValue: item.product.price,
+                }))}
+              />
+            ) : cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-xs text-[var(--sds-color-text-muted)] font-mono">
                 Cart is empty. Scan barcode or click items on the left to add.
               </div>

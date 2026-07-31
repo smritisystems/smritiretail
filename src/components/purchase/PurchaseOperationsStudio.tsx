@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 import { Product } from "../../types.js";
 import { PrintingService, PrintDocument } from "../../core/printing/index.js";
+import { BUSINESS_DOMAIN_PROFILES, BusinessDomain } from "../../domain/BusinessDomainProfiles.ts";
 
 export type PurchaseDocumentType = "PO" | "PINV" | "GRN" | "RETURN";
 export type AddItemMode =
@@ -66,9 +67,8 @@ export type AddItemMode =
   | "NEW_STYLE"
   | "NEW_MODEL";
 
-export type PivotViewMode = "STANDARD" | "SIZE" | "COLOR" | "ARTICLE" | "STYLE";
+export type PivotViewMode = "STANDARD" | "SIZE" | "COLOR" | "ARTICLE" | "STYLE" | "MATRIX";
 export type ItemFilterMode = "ALL" | "EXISTING" | "NEW_ARTICLE" | "PENDING_APPROVAL";
-
 export interface PurchaseItemRow {
   id: string;
   itemCode: string;
@@ -86,6 +86,8 @@ export interface PurchaseItemRow {
   size?: string;
   style?: string;
   brand?: string;
+  category?: string;
+  categoryStatus?: "ITEM_MASTER" | "PENDING_APPROVAL";
   imageUrl?: string;
   isTemporary?: boolean;
   tempType?: "NEW_ARTICLE" | "NEW_STYLE" | "NEW_MODEL";
@@ -361,17 +363,45 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
   };
 
   // Variant Matrix Modal State (Color × Size Grid)
-  const [selectedArticle, setSelectedArticle] = useState({
+  const [selectedArticle, setSelectedArticle] = useState<{
+    articleCode: string;
+    articleName: string;
+    style: string;
+    hsn: string;
+    uom: string;
+    baseRate: number;
+    category: string;
+  }>({
     articleCode: "TS-1001",
     articleName: "Cotton Polo T-Shirt Premium",
     style: "Polo Fit",
     hsn: "6109",
     uom: "Pcs",
     baseRate: 850,
+    category: industryPack || "Apparel",
   });
 
-  const availableColors = ["Black", "Blue", "White", "Red", "Navy"];
-  const availableSizes = ["XS", "S", "M", "L", "XL", "XXL"];
+  const [availableMatrixCategories, setAvailableMatrixCategories] = useState<string[]>(() => Array.from(new Set(
+    products.map((product) => product.category).filter(Boolean),
+  )));
+  const [newMatrixCategory, setNewMatrixCategory] = useState("");
+  const [selectedCategoryStatus, setSelectedCategoryStatus] = useState<"ITEM_MASTER" | "PENDING_APPROVAL">("ITEM_MASTER");
+
+  const [availableColors, setAvailableColors] = useState(["Black", "Blue", "White", "Red", "Navy"]);
+  const [availableSizes, setAvailableSizes] = useState(["XS", "S", "M", "L", "XL", "XXL"]);
+  const [matrixSizeCategories, setMatrixSizeCategories] = useState<Record<string, "apparel" | "footwear">>({
+    XS: "apparel", S: "apparel", M: "apparel", L: "apparel", XL: "apparel", XXL: "apparel",
+  });
+  const [matrixSizeMode, setMatrixSizeMode] = useState<"apparel" | "footwear" | "hybrid">("apparel");
+  const [businessDomain, setBusinessDomain] = useState<BusinessDomain>(industryPack);
+  const [newMatrixColor, setNewMatrixColor] = useState("");
+  const [newMatrixSize, setNewMatrixSize] = useState("");
+  const [newMatrixSizeCategory, setNewMatrixSizeCategory] = useState<"apparel" | "footwear">("footwear");
+
+  const activeMatrixSizes = availableSizes.filter(
+    (size) => matrixSizeMode === "hybrid" || matrixSizeCategories[size] === matrixSizeMode,
+  );
+  const activeDomainProfile = BUSINESS_DOMAIN_PROFILES[businessDomain];
 
   // 2D Matrix Qty Map: [color_size] -> quantity
   const [matrixQtyMap, setMatrixQtyMap] = useState<Record<string, number>>({
@@ -393,18 +423,71 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
     }));
   };
 
+  const handleAddMatrixColor = () => {
+    const color = newMatrixColor.trim();
+    if (!color || availableColors.some((entry) => entry.toLowerCase() === color.toLowerCase())) return;
+    setAvailableColors((prev) => [...prev, color]);
+    setNewMatrixColor("");
+  };
+
+  const handleAddMatrixSize = () => {
+    const size = newMatrixSize.trim();
+    if (!size || availableSizes.some((entry) => entry.toLowerCase() === size.toLowerCase())) return;
+    if (newMatrixSizeCategory === "footwear") {
+      const numericSize = Number(size);
+      if (!Number.isFinite(numericSize) || numericSize < 10 || numericSize > 50) {
+        onNotification?.("Invalid Footwear Size", "Use a footwear size between 10 and 50, such as 26 or 26.5.", "error");
+        return;
+      }
+    }
+    setAvailableSizes((prev) => [...prev, size]);
+    setMatrixSizeCategories((prev) => ({ ...prev, [size]: newMatrixSizeCategory }));
+    setNewMatrixSize("");
+  };
+
+  const handleBusinessDomainChange = (domain: BusinessDomain) => {
+    setBusinessDomain(domain);
+    setMatrixSizeMode(BUSINESS_DOMAIN_PROFILES[domain].sizeMode);
+    setAvailableMatrixCategories((prev) => prev.some((category) => category.toLowerCase() === domain.toLowerCase())
+      ? prev
+      : [...prev, domain]);
+    setSelectedArticle((prev) => ({ ...prev, category: domain }));
+    setSelectedCategoryStatus(availableMatrixCategories.some((category) => category.toLowerCase() === domain.toLowerCase())
+      ? "ITEM_MASTER"
+      : "PENDING_APPROVAL");
+  };
+
+  const handleCreateMissingMatrixCategory = () => {
+    const category = newMatrixCategory.trim();
+    if (!category || availableMatrixCategories.some((entry) => entry.toLowerCase() === category.toLowerCase())) return;
+    setAvailableMatrixCategories((prev) => [...prev, category]);
+    setSelectedArticle((prev) => ({ ...prev, category }));
+    setSelectedCategoryStatus("PENDING_APPROVAL");
+    setNewMatrixCategory("");
+    onNotification?.("Temporary Category Added", `${category} is pending Item Master approval.`, "success");
+  };
+
   const handleGenerateMatrixLines = () => {
     const newLines: PurchaseItemRow[] = [];
     let totalAddedQty = 0;
+    const generatedKeys = new Set<string>();
+    const existingKeys = new Set(items.map((item) => `${item.articleCode || item.itemCode}|${item.color || ""}|${item.size || ""}`.toLowerCase()));
 
     availableColors.forEach((color) => {
-      availableSizes.forEach((size) => {
+      activeMatrixSizes.forEach((size) => {
         const key = `${color}_${size}`;
         const qty = matrixQtyMap[key] || 0;
         if (qty > 0) {
-          totalAddedQty += qty;
           const colorCode = color.substring(0, 3).toUpperCase();
           const itemCode = `${selectedArticle.articleCode}-${colorCode}-${size}`;
+          const variantKey = `${selectedArticle.articleCode}|${color}|${size}`.toLowerCase();
+          if (generatedKeys.has(variantKey) || existingKeys.has(variantKey)) return;
+          if (products.some((product) => (product.sku || product.code || "").toLowerCase() === itemCode.toLowerCase())) {
+            onNotification?.("Duplicate SKU", `${itemCode} already exists in Item Master.`, "error");
+            return;
+          }
+          generatedKeys.add(variantKey);
+          totalAddedQty += qty;
           newLines.push({
             id: String(Date.now() + Math.random()),
             itemCode: itemCode,
@@ -412,6 +495,8 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
             hsn: selectedArticle.hsn,
             warehouse: warehouse,
             uom: selectedArticle.uom,
+            category: selectedArticle.category,
+            categoryStatus: selectedCategoryStatus,
             qty: qty,
             rate: selectedArticle.baseRate,
             discountPercent: 0,
@@ -430,6 +515,11 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
     if (newLines.length === 0) {
       if (onNotification) onNotification("Empty Matrix", "Enter quantities in color/size matrix before generating lines", "error");
+      return;
+    }
+
+    if (newLines.some((line) => !line.category || line.qty <= 0 || line.rate < 0)) {
+      onNotification?.("Invalid Matrix Values", "Every variant needs a category, positive quantity, and non-negative rate.", "error");
       return;
     }
 
@@ -658,6 +748,26 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [docTitle, items]);
+
+  const pivotSummary = useMemo(() => {
+    const groups = new Map<string, { label: string; quantity: number; value: number }>();
+    filteredItems.forEach((item) => {
+      const label = pivotViewMode === "COLOR" ? (item.color || "Unspecified")
+        : pivotViewMode === "ARTICLE" ? (item.articleCode || item.itemCode)
+        : pivotViewMode === "STYLE" ? (item.style || "Unspecified")
+        : (item.size || "Unspecified");
+      const current = groups.get(label) || { label, quantity: 0, value: 0 };
+      current.quantity += item.qty;
+      current.value += item.qty * item.rate;
+      groups.set(label, current);
+    });
+    return Array.from(groups.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [filteredItems, pivotViewMode]);
+
+  const matrixColumns = useMemo(
+    () => Array.from(new Set(filteredItems.map((item) => item.size).filter(Boolean))) as string[],
+    [filteredItems],
+  );
 
   return (
     <div className="w-full bg-slate-100 font-sans text-slate-800 p-2.5 sm:p-3 space-y-3">
@@ -899,6 +1009,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                 <option value="COLOR">Pivot by Color</option>
                 <option value="ARTICLE">Pivot by Article</option>
                 <option value="STYLE">Pivot by Style</option>
+                <option value="MATRIX">Color × Size Matrix</option>
               </select>
             </div>
           </div>
@@ -997,139 +1108,258 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
           </div>
         </div>
 
-        {/* Data Table */}
+        {/* Data Table / Pivot by Size View */}
         <div className="overflow-x-auto border border-slate-200 rounded-lg smriti-custom-scroll">
-          <table className="w-full text-left text-xs border-collapse min-w-[950px]">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">
-                <th className="py-1.5 px-2 w-8 text-center">
-                  <input type="checkbox" onChange={handleSelectAll} className="rounded border-slate-300" />
-                </th>
-                <th className="py-1.5 px-2 w-8 text-center">#</th>
-                <th className="py-1.5 px-2">Article / SKU *</th>
-                <th className="py-1.5 px-2">Item Description *</th>
-                <th className="py-1.5 px-2">Color / Size</th>
-                <th className="py-1.5 px-2 text-center">Master Status</th>
-                <th className="py-1.5 px-2">Warehouse *</th>
-                <th className="py-1.5 px-2 text-right">Qty *</th>
-                <th className="py-1.5 px-2 text-right">Rate (INR) *</th>
-                <th className="py-1.5 px-2 text-right">Discount %</th>
-                <th className="py-1.5 px-2 text-right font-extrabold">Amount (INR) *</th>
-                <th className="py-1.5 px-2 text-center w-8">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-medium text-[11px]">
-              {filteredItems.map((item, idx) => {
-                const gross = item.qty * item.rate;
-                const disc = (gross * (item.discountPercent || 0)) / 100;
-                const lineTotal = gross - disc;
-                const isHighlighted = highlightedItemId === item.id;
+          {pivotViewMode === "MATRIX" ? (
+            <table className="w-full text-left text-xs border-collapse min-w-[720px]">
+              <thead>
+                <tr className="bg-indigo-900 text-white text-[10px] font-extrabold uppercase tracking-wider">
+                  <th className="py-2 px-2.5">Color</th>
+                  {matrixColumns.map((size) => <th key={size} className="py-2 px-2 text-right bg-indigo-800">{size}</th>)}
+                  <th className="py-2 px-2 text-right bg-indigo-950">Total Qty</th>
+                  <th className="py-2 px-2 text-right">Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 bg-white font-medium text-[11px]">
+                {Array.from(new Set(filteredItems.map((item) => item.color || "Unspecified"))).map((color) => {
+                  const colorItems = filteredItems.filter((item) => (item.color || "Unspecified") === color);
+                  const totalQty = colorItems.reduce((sum, item) => sum + item.qty, 0);
+                  const totalValue = colorItems.reduce((sum, item) => sum + item.qty * item.rate, 0);
+                  return (
+                    <tr key={color} className="hover:bg-indigo-50/50">
+                      <td className="py-2 px-2.5 font-bold text-slate-800">{color}</td>
+                      {matrixColumns.map((size) => (
+                        <td key={size} className="py-2 px-2 text-right font-mono text-indigo-800">
+                          {colorItems.filter((item) => item.size === size).reduce((sum, item) => sum + item.qty, 0)}
+                        </td>
+                      ))}
+                      <td className="py-2 px-2 text-right font-mono font-black text-indigo-950">{totalQty}</td>
+                      <td className="py-2 px-2 text-right font-mono font-bold text-emerald-700">₹{totalValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : pivotViewMode === "SIZE" ? (
+            <table className="w-full text-left text-xs border-collapse min-w-[950px]">
+              <thead>
+                <tr className="bg-indigo-900 text-white text-[10px] font-extrabold uppercase tracking-wider">
+                  <th className="py-2 px-2.5 w-8 text-center">#</th>
+                  <th className="py-2 px-2.5">Article / SKU</th>
+                  <th className="py-2 px-2.5">Item Description</th>
+                  <th className="py-2 px-2.5">Colorway</th>
+                  <th className="py-2 px-2 text-center bg-indigo-800 w-14">S (38)</th>
+                  <th className="py-2 px-2 text-center bg-indigo-800 w-14">M (40)</th>
+                  <th className="py-2 px-2 text-center bg-indigo-800 w-14">L (42)</th>
+                  <th className="py-2 px-2 text-center bg-indigo-800 w-14">XL (44)</th>
+                  <th className="py-2 px-2 text-center bg-indigo-800 w-14">XXL (46)</th>
+                  <th className="py-2 px-2 text-right bg-indigo-950 font-black">Total Qty</th>
+                  <th className="py-2 px-2.5 text-right">Rate (₹)</th>
+                  <th className="py-2 px-2.5 text-right font-black">Total Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 font-medium text-[11px] bg-white">
+                {filteredItems.map((item, idx) => {
+                  const sizeQtyS = item.size === "S" ? item.qty : Math.floor(item.qty * 0.2);
+                  const sizeQtyM = item.size === "M" ? item.qty : Math.floor(item.qty * 0.3);
+                  const sizeQtyL = item.size === "L" ? item.qty : Math.floor(item.qty * 0.3);
+                  const sizeQtyXL = item.size === "XL" ? item.qty : Math.floor(item.qty * 0.15);
+                  const sizeQtyXXL = item.size === "XXL" ? item.qty : Math.floor(item.qty * 0.05);
+                  const totalMatrixQty = sizeQtyS + sizeQtyM + sizeQtyL + sizeQtyXL + sizeQtyXXL;
+                  const totalAmount = totalMatrixQty * item.rate;
 
-                return (
-                  <tr
-                    key={item.id}
-                    onClick={() => setHighlightedItemId(item.id)}
-                    className={`transition-colors cursor-pointer ${
-                      isHighlighted ? "bg-amber-100/70 border-l-4 border-amber-500" : "hover:bg-blue-50/40"
-                    }`}
-                  >
-                    <td className="py-1 px-2 text-center">
-                      <input
-                        type="checkbox"
-                        checked={!!selectedItemIds[item.id]}
-                        onChange={() => handleSelectItem(item.id)}
-                        className="rounded border-slate-300"
-                      />
-                    </td>
-                    <td className="py-1 px-2 text-center font-bold text-slate-400">{idx + 1}</td>
-                    <td className="py-1 px-2 font-mono font-bold text-slate-800">
-                      <div className="flex items-center space-x-1">
-                        <span>{item.itemCode}</span>
-                        <Search className="w-3 h-3 text-slate-400 cursor-pointer" onClick={() => setShowItemPickerModal(true)} />
-                      </div>
-                    </td>
-                    <td className="py-1 px-2 font-semibold text-slate-900">{item.itemName}</td>
+                  return (
+                    <tr key={item.id} className="hover:bg-indigo-50/50 transition-colors">
+                      <td className="py-2 px-2.5 text-center font-bold text-slate-400">{idx + 1}</td>
+                      <td className="py-2 px-2.5 font-mono font-bold text-indigo-700">{item.itemCode}</td>
+                      <td className="py-2 px-2.5 font-semibold text-slate-800">{item.itemName}</td>
+                      <td className="py-2 px-2.5">
+                        <span className="px-2 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-700">
+                          {item.color || "Black"}
+                        </span>
+                      </td>
+                      <td className="py-1.5 px-2 text-center bg-indigo-50/30">
+                        <input
+                          type="number"
+                          defaultValue={sizeQtyS}
+                          className="w-12 text-center font-mono font-bold bg-white border border-indigo-200 rounded py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-600"
+                        />
+                      </td>
+                      <td className="py-1.5 px-2 text-center bg-indigo-50/30">
+                        <input
+                          type="number"
+                          defaultValue={sizeQtyM}
+                          className="w-12 text-center font-mono font-bold bg-white border border-indigo-200 rounded py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-600"
+                        />
+                      </td>
+                      <td className="py-1.5 px-2 text-center bg-indigo-50/30">
+                        <input
+                          type="number"
+                          defaultValue={sizeQtyL}
+                          className="w-12 text-center font-mono font-bold bg-white border border-indigo-200 rounded py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-600"
+                        />
+                      </td>
+                      <td className="py-1.5 px-2 text-center bg-indigo-50/30">
+                        <input
+                          type="number"
+                          defaultValue={sizeQtyXL}
+                          className="w-12 text-center font-mono font-bold bg-white border border-indigo-200 rounded py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-600"
+                        />
+                      </td>
+                      <td className="py-1.5 px-2 text-center bg-indigo-50/30">
+                        <input
+                          type="number"
+                          defaultValue={sizeQtyXXL}
+                          className="w-12 text-center font-mono font-bold bg-white border border-indigo-200 rounded py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-600"
+                        />
+                      </td>
+                      <td className="py-2 px-2 text-right font-mono font-black text-indigo-950 bg-indigo-100/50">
+                        {totalMatrixQty}
+                      </td>
+                      <td className="py-2 px-2.5 text-right font-mono font-semibold text-slate-800">
+                        {item.rate.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-2 px-2.5 text-right font-mono font-black text-emerald-700">
+                        ₹{totalAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <table className="w-full text-left text-xs border-collapse min-w-[950px]">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">
+                  <th className="py-1.5 px-2 w-8 text-center">
+                    <input type="checkbox" onChange={handleSelectAll} className="rounded border-slate-300" />
+                  </th>
+                  <th className="py-1.5 px-2 w-8 text-center">#</th>
+                  <th className="py-1.5 px-2">Article / SKU *</th>
+                  <th className="py-1.5 px-2">Item Description *</th>
+                  <th className="py-1.5 px-2">Color / Size</th>
+                  <th className="py-1.5 px-2 text-center">Master Status</th>
+                  <th className="py-1.5 px-2">Warehouse *</th>
+                  <th className="py-1.5 px-2 text-right">Qty *</th>
+                  <th className="py-1.5 px-2 text-right">Rate (INR) *</th>
+                  <th className="py-1.5 px-2 text-right">Discount %</th>
+                  <th className="py-1.5 px-2 text-right font-extrabold">Amount (INR) *</th>
+                  <th className="py-1.5 px-2 text-center w-8">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-[11px]">
+                {filteredItems.map((item, idx) => {
+                  const gross = item.qty * item.rate;
+                  const disc = (gross * (item.discountPercent || 0)) / 100;
+                  const lineTotal = gross - disc;
+                  const isHighlighted = highlightedItemId === item.id;
 
-                    {/* Color / Size Badge */}
-                    <td className="py-1 px-2">
-                      {item.color || item.size ? (
-                        <div className="flex items-center space-x-1 text-[10px]">
-                          <span className="px-1.5 py-0.2 bg-slate-100 text-slate-700 rounded font-mono font-bold">{item.color || "BLK"}</span>
-                          <span className="px-1.5 py-0.2 bg-indigo-50 text-indigo-700 rounded font-mono font-bold border border-indigo-200">{item.size || "M"}</span>
+                  return (
+                    <tr
+                      key={item.id}
+                      onClick={() => setHighlightedItemId(item.id)}
+                      className={`transition-colors cursor-pointer ${
+                        isHighlighted ? "bg-amber-100/70 border-l-4 border-amber-500" : "hover:bg-blue-50/40"
+                      }`}
+                    >
+                      <td className="py-1 px-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={!!selectedItemIds[item.id]}
+                          onChange={() => handleSelectItem(item.id)}
+                          className="rounded border-slate-300"
+                        />
+                      </td>
+                      <td className="py-1 px-2 text-center font-bold text-slate-400">{idx + 1}</td>
+                      <td className="py-1 px-2 font-mono font-bold text-slate-800">
+                        <div className="flex items-center space-x-1">
+                          <span>{item.itemCode}</span>
+                          <Search className="w-3 h-3 text-slate-400 cursor-pointer" onClick={() => setShowItemPickerModal(true)} />
                         </div>
-                      ) : (
-                        <span className="text-slate-400 italic">Standard</span>
-                      )}
-                    </td>
+                      </td>
+                      <td className="py-1 px-2 font-semibold text-slate-900">{item.itemName}</td>
 
-                    {/* Temporary Product Master Status Badge */}
-                    <td className="py-1 px-2 text-center">
-                      {item.isTemporary ? (
-                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-300 rounded text-[9px] font-mono font-extrabold animate-pulse">
-                          NEW ARTICLE (PENDING)
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[9px] font-mono font-bold">
-                          APPROVED MASTER
-                        </span>
-                      )}
-                    </td>
+                      {/* Color / Size Badge */}
+                      <td className="py-1 px-2">
+                        {item.color || item.size ? (
+                          <div className="flex items-center space-x-1 text-[10px]">
+                            <span className="px-1.5 py-0.2 bg-slate-100 text-slate-700 rounded font-mono font-bold">{item.color || "BLK"}</span>
+                            <span className="px-1.5 py-0.2 bg-indigo-50 text-indigo-700 rounded font-mono font-bold border border-indigo-200">{item.size || "M"}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic">Standard</span>
+                        )}
+                      </td>
 
-                    <td className="py-1 px-2">
-                      <select
-                        value={item.warehouse}
-                        onChange={(e) => handleUpdateItem(item.id, "warehouse", e.target.value)}
-                        className="bg-slate-50 border border-slate-300 rounded px-1 py-0.5 text-[11px] text-slate-700"
-                      >
-                        <option value="Main Warehouse">Main Warehouse</option>
-                        <option value="Central Store">Central Store</option>
-                      </select>
-                    </td>
+                      {/* Temporary Product Master Status Badge */}
+                      <td className="py-1 px-2 text-center">
+                        {item.isTemporary ? (
+                          <span className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-300 rounded text-[9px] font-mono font-extrabold animate-pulse">
+                            NEW ARTICLE (PENDING)
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[9px] font-mono font-bold">
+                            APPROVED MASTER
+                          </span>
+                        )}
+                      </td>
 
-                    <td className="py-1 px-2 text-right">
-                      <input
-                        type="number"
-                        value={item.qty}
-                        onChange={(e) => handleUpdateItem(item.id, "qty", parseFloat(e.target.value) || 0)}
-                        className="w-16 bg-white border border-slate-300 rounded px-1 py-0.5 text-right font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500"
-                      />
-                    </td>
+                      <td className="py-1 px-2">
+                        <select
+                          value={item.warehouse}
+                          onChange={(e) => handleUpdateItem(item.id, "warehouse", e.target.value)}
+                          className="bg-slate-50 border border-slate-300 rounded px-1 py-0.5 text-[11px] text-slate-700"
+                        >
+                          <option value="Main Warehouse">Main Warehouse</option>
+                          <option value="Central Store">Central Store</option>
+                        </select>
+                      </td>
 
-                    <td className="py-1 px-2 text-right">
-                      <input
-                        type="number"
-                        value={item.rate}
-                        onChange={(e) => handleUpdateItem(item.id, "rate", parseFloat(e.target.value) || 0)}
-                        className="w-16 bg-white border border-slate-300 rounded px-1 py-0.5 text-right font-mono font-semibold text-slate-800 focus:outline-none focus:border-blue-500"
-                      />
-                    </td>
+                      <td className="py-1 px-2 text-right">
+                        <input
+                          type="number"
+                          value={item.qty}
+                          onChange={(e) => handleUpdateItem(item.id, "qty", parseFloat(e.target.value) || 0)}
+                          className="w-16 bg-white border border-slate-300 rounded px-1 py-0.5 text-right font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                        />
+                      </td>
 
-                    <td className="py-1 px-2 text-right">
-                      <input
-                        type="number"
-                        value={item.discountPercent}
-                        onChange={(e) => handleUpdateItem(item.id, "discountPercent", parseFloat(e.target.value) || 0)}
-                        className="w-12 bg-white border border-slate-300 rounded px-1 py-0.5 text-right font-mono text-slate-800 focus:outline-none focus:border-blue-500"
-                      />
-                    </td>
+                      <td className="py-1 px-2 text-right">
+                        <input
+                          type="number"
+                          value={item.rate}
+                          onChange={(e) => handleUpdateItem(item.id, "rate", parseFloat(e.target.value) || 0)}
+                          className="w-16 bg-white border border-slate-300 rounded px-1 py-0.5 text-right font-mono font-semibold text-slate-800 focus:outline-none focus:border-blue-500"
+                        />
+                      </td>
 
-                    <td className="py-1 px-2 text-right font-mono font-bold text-slate-900">
-                      {lineTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </td>
+                      <td className="py-1 px-2 text-right">
+                        <input
+                          type="number"
+                          value={item.discountPercent}
+                          onChange={(e) => handleUpdateItem(item.id, "discountPercent", parseFloat(e.target.value) || 0)}
+                          className="w-12 bg-white border border-slate-300 rounded px-1 py-0.5 text-right font-mono text-slate-800 focus:outline-none focus:border-blue-500"
+                        />
+                      </td>
 
-                    <td className="py-1 px-2 text-center">
-                      <button
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="p-0.5 text-slate-400 hover:text-red-500 rounded cursor-pointer"
-                      >
-                        <MoreHorizontal className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      <td className="py-1 px-2 text-right font-mono font-bold text-slate-900">
+                        {lineTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+
+                      <td className="py-1 px-2 text-center">
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="p-0.5 text-slate-400 hover:text-red-500 rounded cursor-pointer"
+                        >
+                          <MoreHorizontal className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Footer Summary Bar */}
@@ -1479,15 +1709,15 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
       {/* ================= FASHION / FOOTWEAR VARIANT MATRIX ENTRY MODAL ================= */}
       {showVariantMatrixModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full p-5 space-y-4 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center space-x-2">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto p-4 sm:p-5 space-y-4 shadow-2xl border border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2 min-w-0">
                 <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
                   <Grid className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-extrabold text-slate-900 text-sm flex items-center space-x-2">
-                    <span>Fashion & Apparel Variant Matrix Entry</span>
+                    <span className="leading-tight">Fashion & Apparel Variant Matrix Entry</span>
                     <span className="px-2 py-0.2 bg-indigo-100 text-indigo-800 text-[9px] font-mono rounded-full font-bold">SPK.entities</span>
                   </h3>
                   <p className="text-xs text-slate-500">Enter quantities across Color × Size matrix to generate purchase order lines instantly.</p>
@@ -1498,7 +1728,18 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               </button>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 text-xs">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">Business domain</span>
+                <select
+                  value={businessDomain}
+                  onChange={(e) => handleBusinessDomainChange(e.target.value as BusinessDomain)}
+                  className="font-semibold text-slate-800 bg-white border border-slate-300 rounded px-2 py-1 w-full text-xs"
+                >
+                  {Object.keys(BUSINESS_DOMAIN_PROFILES).map((domain) => <option key={domain} value={domain}>{domain}</option>)}
+                </select>
+                <p className="mt-1 text-[10px] text-slate-500">{activeDomainProfile.dimensions.join(" • ")}</p>
+              </div>
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase block">Article Code</span>
                 <input
@@ -1530,6 +1771,110 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   className="font-mono font-bold text-blue-700 bg-white border border-slate-300 rounded px-2 py-1 w-full text-xs"
                 />
               </div>
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">Category</span>
+                <select
+                  value={selectedArticle.category}
+                  onChange={(e) => {
+                    setSelectedArticle({ ...selectedArticle, category: e.target.value });
+                    setSelectedCategoryStatus("ITEM_MASTER");
+                  }}
+                  className="font-semibold text-slate-800 bg-white border border-slate-300 rounded px-2 py-1 w-full text-xs"
+                >
+                  {availableMatrixCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+                </select>
+                <div className="mt-1 flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={newMatrixCategory}
+                    onChange={(e) => setNewMatrixCategory(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleCreateMissingMatrixCategory(); }}
+                    placeholder="Only if missing"
+                    className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-[10px] text-slate-800"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateMissingMatrixCategory}
+                    disabled={!newMatrixCategory.trim() || availableMatrixCategories.some((entry) => entry.toLowerCase() === newMatrixCategory.trim().toLowerCase())}
+                    className="rounded bg-amber-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-40"
+                  >
+                    Add pending
+                  </button>
+                </div>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  {selectedCategoryStatus === "PENDING_APPROVAL" ? "Pending Item Master approval" : "From Item Master"}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
+              <div className="sm:col-span-2">
+                <span className="text-[10px] font-bold uppercase text-slate-500">Size category</span>
+                <div className="mt-1 grid grid-cols-3 gap-1 rounded-lg bg-white p-1 border border-slate-200">
+                  {(["apparel", "footwear", "hybrid"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setMatrixSizeMode(mode)}
+                      className={`min-h-9 rounded-md px-2 py-1.5 text-[10px] font-bold uppercase transition-colors ${
+                        matrixSizeMode === mode ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-indigo-50"
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">
+                Add color
+                <input
+                  type="text"
+                  value={newMatrixColor}
+                  onChange={(e) => setNewMatrixColor(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAddMatrixColor(); }}
+                  placeholder="e.g. Maroon"
+                  className="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-2 text-xs font-semibold normal-case text-slate-800 outline-none focus:border-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddMatrixColor}
+                  disabled={!newMatrixColor.trim()}
+                  className="mt-2 inline-flex min-h-9 w-full items-center justify-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add color
+                </button>
+              </label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">
+                Add size
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={newMatrixSize}
+                  onChange={(e) => setNewMatrixSize(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAddMatrixSize(); }}
+                  placeholder="Footwear: 26, 27, 28"
+                  className="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-2 text-xs font-semibold normal-case text-slate-800 outline-none focus:border-indigo-500"
+                />
+                <select
+                  value={newMatrixSizeCategory}
+                  onChange={(e) => setNewMatrixSizeCategory(e.target.value as "apparel" | "footwear")}
+                  className="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-2 text-xs font-semibold normal-case text-slate-800 outline-none focus:border-indigo-500"
+                  aria-label="New size category"
+                >
+                  <option value="footwear">Footwear size</option>
+                  <option value="apparel">Apparel size</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={handleAddMatrixSize}
+                  disabled={!newMatrixSize.trim()}
+                  className="mt-2 inline-flex min-h-9 w-full items-center justify-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add size
+                </button>
+              </label>
             </div>
 
             <div className="overflow-x-auto border border-slate-200 rounded-xl smriti-custom-scroll">
@@ -1537,7 +1882,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                 <thead>
                   <tr className="bg-slate-100 border-b border-slate-200 text-[11px] font-extrabold text-slate-700 uppercase">
                     <th className="py-2.5 px-3 text-left bg-slate-200 w-28">Color \ Size</th>
-                    {availableSizes.map((sz) => (
+                    {activeMatrixSizes.map((sz) => (
                       <th key={sz} className="py-2.5 px-3 w-16 text-center font-mono">{sz}</th>
                     ))}
                     <th className="py-2.5 px-3 text-right bg-slate-200 w-20 font-bold">Total Qty</th>
@@ -1558,7 +1903,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                           ></span>
                           <span>{color}</span>
                         </td>
-                        {availableSizes.map((size) => {
+                        {activeMatrixSizes.map((size) => {
                           const key = `${color}_${size}`;
                           const qty = matrixQtyMap[key] || 0;
                           colorRowTotal += qty;
@@ -1587,15 +1932,15 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               </table>
             </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-slate-100">
               <div className="text-xs text-slate-600 font-semibold">
                 Total Matrix Items: <span className="font-mono font-bold text-blue-700">{Object.values(matrixQtyMap).reduce((a, b) => a + (b || 0), 0)} Pcs</span>
               </div>
-              <div className="flex items-center space-x-2">
-                <button onClick={() => setShowVariantMatrixModal(false)} className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold cursor-pointer">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2">
+                <button onClick={() => setShowVariantMatrixModal(false)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold cursor-pointer">
                   Cancel
                 </button>
-                <button onClick={handleGenerateMatrixLines} className="px-5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center shadow-md">
+                <button onClick={handleGenerateMatrixLines} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center justify-center shadow-md">
                   <Check className="w-4 h-4 mr-1" />
                   Generate Purchase Lines
                 </button>

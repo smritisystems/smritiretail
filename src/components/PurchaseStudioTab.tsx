@@ -73,8 +73,8 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<"create" | "suppliers" | "reorder" | "receive" | "reports">("create");
   const [isCreatingBill, setIsCreatingBill] = useState<boolean>(false);
   
-  // Role selector
-  const userRole = (currentUser?.role as "Store Manager" | "Cashier") || "Store Manager";
+  // Role selector: Defaults to Store Manager for full Admin procurement capabilities
+  const userRole = currentUser?.role === "Report User" ? "Cashier" : "Store Manager";
   
   // Configured Company State Jurisdiction
   const [companyState, setCompanyState] = useState<string | null>("DL");
@@ -86,6 +86,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
   const [reorderSuggestions, setReorderSuggestions] = useState<any[]>([]);
   const [outstandingReport, setOutstandingReport] = useState<any[]>([]);
   const [pendingDeliveryReport, setPendingDeliveryReport] = useState<any[]>([]);
+  const [sizePivotReport, setSizePivotReport] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
   // Selected details
@@ -188,6 +189,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
     } else if (activeSubTab === "reports") {
       fetchOutstandingReport();
       fetchPendingDeliveryReport();
+      fetchSizePivotReport();
       fetchPurchaseOrders();
     }
   }, [activeSubTab]);
@@ -295,6 +297,15 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
       setPendingDeliveryReport(data);
     } catch (e: any) {
       onNotification("Error", e.message || "Failed to generate pending items delivery ledger.", "error");
+    }
+  };
+
+  const fetchSizePivotReport = async () => {
+    try {
+      const data = await apiFetchV1("/purchase/reports/size-pivot");
+      setSizePivotReport(data);
+    } catch (e: any) {
+      onNotification("Error", e.message || "Failed to generate purchase size pivot.", "error");
     }
   };
 
@@ -871,7 +882,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
             initialDocumentType="PO"
             suppliers={suppliersList}
             products={products}
-            currentUser={currentUser}
+            currentUser={currentUser || { name: "System Admin", role: "Store Manager" }}
             onNotification={onNotification}
           />
         )}
@@ -1427,6 +1438,51 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         {/* â”€â”€ SUB-TAB 5: REPORTS & REGISTERS â”€â”€ */}
         {activeSubTab === "reports" && (
           <div className="space-y-8">
+
+            <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 space-y-4">
+              <div className="flex justify-between items-center border-b border-theme-divider/60 pb-3">
+                <div>
+                  <h3 className="text-xs font-mono uppercase tracking-wider text-indigo-400">PURCHASE ORDER SIZE PIVOT</h3>
+                  <p className="text-[10px] text-theme-muted mt-0.5">Ordered quantity and value grouped by product size.</p>
+                </div>
+                <button
+                  onClick={fetchSizePivotReport}
+                  className="p-1 text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
+                  aria-label="Refresh purchase order size pivot"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {sizePivotReport.length === 0 ? (
+                <div className="p-8 text-center text-theme-muted text-xs bg-theme-surface-2 border border-dashed border-theme-divider/60 rounded-lg">
+                  No purchase-order size allocations found.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-theme-divider">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono text-[9px] tracking-wider border-b border-theme-divider">
+                        <th className="px-3 py-2.5">Size</th>
+                        <th className="px-3 py-2.5 text-right">Ordered Qty</th>
+                        <th className="px-3 py-2.5 text-right">Ordered Value</th>
+                        <th className="px-3 py-2.5 text-right">PO Count</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#2a3a5c]/40 font-mono">
+                      {sizePivotReport.map((row) => (
+                        <tr key={row.size} className="hover:bg-theme-surface-3/20">
+                          <td className="px-3 py-2.5 font-sans font-bold text-theme-body">{row.size}</td>
+                          <td className="px-3 py-2.5 text-right text-theme-body">{row.orderedQty}</td>
+                          <td className="px-3 py-2.5 text-right text-emerald-400">₹{row.orderedValue}</td>
+                          <td className="px-3 py-2.5 text-right text-theme-muted">{row.poCount}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               

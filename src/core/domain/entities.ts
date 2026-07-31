@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -47,8 +47,11 @@ export interface Product {
   gstPercentage?: number;
   styleCode?: string;
   costPrice?: number;
+  purchasePrice?: number;
+  unit?: string;
   sku?: string;
   hsnCode?: string;
+  warehouse?: string;
   attributes?: Record<string, string>;
   pricingMode?: "Fixed" | "Weight-based" | "Negotiated" | "Service";
   trackingMode?: "Standard" | "Batch" | "Serial" | "No-stock";

@@ -83,9 +83,10 @@ export interface SalesBillingStudioProps {
   products?: Product[];
   onRefreshProducts?: () => void;
   onNotification?: (title: string, message: string, type?: "success" | "error") => void;
+  currentUser?: { name: string; role?: string } | null;
 }
 
-export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products: propsProducts, onNotification }) => {
+export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products: propsProducts, onNotification, currentUser }) => {
   const [liveProducts, setLiveProducts] = useState<Product[]>(propsProducts || []);
 
   useEffect(() => {
@@ -293,17 +294,24 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
   // STRE Tax Resolution Engine Computation
   const taxCalculation = useMemo(() => {
     const taxCtx: TaxContext = {
-      stateOfOrigin: "27-Maharashtra",
-      stateOfSupply: "27-Maharashtra",
-      customerGstType: "REGULAR",
+      companyState: "27-Maharashtra",
+      customerState: "27-Maharashtra",
+      customerGroupTaxProfile: "Retail Registered",
+      documentDate: docDate || new Date().toISOString().split("T")[0],
+      placeOfSupply: "27-Maharashtra",
+      pricingPolicy: "EXCLUSIVE",
+      currency: "INR",
       items: items.map((i) => ({
         itemId: i.id,
-        taxableAmount: (i.qty * i.rate * (100 - i.discountPct)) / 100,
-        gstRate: i.gstRate || 12,
+        itemCode: i.barcode,
+        itemName: i.name,
+        hsnCode: i.hsnCode,
+        quantity: i.qty,
+        unitPrice: (i.rate * (100 - i.discountPct)) / 100,
       })),
     };
     return STRE.calculateTaxes(taxCtx);
-  }, [items]);
+  }, [items, docDate]);
 
   const autoGstAmount = taxCalculation.totalTaxAmount;
   const netPayableCalculated = taxableValue + autoGstAmount;

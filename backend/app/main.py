@@ -109,6 +109,7 @@ from .api.v1 import (
     ecosystem,
     scp,
     scdm,
+    size_master,
 )
 
 
@@ -257,6 +258,7 @@ app.include_router(assignments.router,      prefix=settings.API_V1_STR,         
 app.include_router(numbering.router,        prefix=settings.API_V1_STR + "/numbering",     tags=["Numbering Engine"])
 app.include_router(terms.router,            prefix=settings.API_V1_STR + "/terms",         tags=["Terms & Conditions"])
 app.include_router(attributes.router,       prefix=settings.API_V1_STR + "/attributes",    tags=["Attributes & Variants"])  # noqa: E501
+app.include_router(size_master.router,      prefix=settings.API_V1_STR + "/item-master",   tags=["Item Master Size Scales"])
 app.include_router(barcode.router,          prefix=settings.API_V1_STR + "/barcode",       tags=["Barcode Studio"])
 app.include_router(product_identity.router, prefix=settings.API_V1_STR + "/product-identity", tags=["Product Identity Engine"])
 app.include_router(exchange.router,         prefix=settings.API_V1_STR + "/exchange",      tags=["Data Exchange Hub"])

@@ -70,6 +70,7 @@ from . import (
     ecosystem,
     scp,
     scdm,
+    size_master,
 )
 
 

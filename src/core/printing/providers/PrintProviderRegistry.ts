@@ -10,6 +10,7 @@
  */
 
 import { PrintJob, PrinterCapability, PrintResult } from "../models/PrintDocument.js";
+import { apiFetch } from "../../../lib/apiFetch.js";
 
 export interface IPrintProvider {
   id: string;
@@ -172,18 +173,14 @@ export class NetworkProvider implements IPrintProvider {
   async sendJob(job: PrintJob): Promise<PrintResult> {
     const start = Date.now();
     try {
-      const response = await fetch("/api/v1/print/raw-tcp", {
+      await apiFetch("/api/v1/print/raw-tcp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           printerIp: job.printerName || "192.168.1.100",
           port: 9100,
           rawScript: job.payload,
         }),
       });
-      if (!response.ok) {
-        throw new Error(`TCP Printer raw socket error: HTTP ${response.status}`);
-      }
       return {
         jobId: job.id,
         success: true,

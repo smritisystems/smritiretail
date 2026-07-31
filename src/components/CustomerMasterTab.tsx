@@ -32,6 +32,7 @@ import { ICustomerService } from "../kernel/public/ICustomerService.js";
 export type CustomerFilterMode = "ALL" | "CORPORATE" | "RETAIL" | "PENDING_APPROVAL";
 
 export interface CustomerExtendedRow extends Customer {
+  category?: "standard" | "corporate" | "vip" | "wholesaler" | string;
   isTemporary?: boolean;
   approvalStatus?: "PENDING_APPROVAL" | "APPROVED" | "REJECTED";
   loyaltyPoints?: number;

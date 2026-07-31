@@ -32,6 +32,7 @@ import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 import { getCustomers, getCustomerGroups, saveCustomers } from "../services/customerStore.ts";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
+import { VariantPivotMatrix } from "./common/VariantPivotMatrix.tsx";
 import { formatDate, formatDateTime, formatCurrency } from "../utils/formatters.ts";
 import { SalesInvoiceRegistry } from "./sales/SalesInvoiceRegistry.tsx";
 import { SalesBillingStudio } from "./sales/SalesBillingStudio.tsx";
@@ -1686,6 +1687,19 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                     </div>
                   ) : (
                     <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden">
+                      <div className="p-3 border-b border-theme-divider">
+                        <VariantPivotMatrix
+                          compact
+                          items={editorItems.map((item, index) => ({
+                            id: item.id || item.productId || `sales-line-${index}`,
+                            label: item.name || item.itemName || item.code || "Sales line",
+                            color: item.color,
+                            size: item.size,
+                            quantity: Number(item.quantity || 0),
+                            unitValue: Number(item.price || 0),
+                          }))}
+                        />
+                      </div>
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
                           <tr className="bg-theme-surface-3 text-theme-muted uppercase font-mono text-[9px] tracking-wider border-b border-theme-divider">

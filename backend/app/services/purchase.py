@@ -331,6 +331,48 @@ class PurchaseService:
         )
         return res.scalars().all()
 
+    async def purchase_order_size_pivot(self) -> list[dict]:
+        """Aggregate active purchase-order quantities and value by product size."""
+        res = await self.db.execute(
+            select(
+                Product.size,
+                PurchaseOrderItem.quantity,
+                PurchaseOrderItem.line_total,
+                PurchaseOrderItem.order_id,
+            )
+            .join(PurchaseOrder, PurchaseOrder.id == PurchaseOrderItem.order_id)
+            .join(Product, Product.id == PurchaseOrderItem.product_id)
+            .where(
+                PurchaseOrder.company_id == self.tenant.company_id,
+                PurchaseOrder.branch_id == self.tenant.branch_id,
+                PurchaseOrder.is_deleted == False,
+                PurchaseOrderItem.is_deleted == False,
+                Product.is_deleted == False,
+                PurchaseOrder.status != "CANCELLED",
+            )
+        )
+
+        grouped: dict[str, dict] = {}
+        for size, quantity, line_total, order_id in res.all():
+            size_label = size or "OS"
+            entry = grouped.setdefault(
+                size_label,
+                {"size": size_label, "orderedQty": Decimal("0"), "orderedValue": Decimal("0"), "poCount": set()},
+            )
+            entry["orderedQty"] += Decimal(str(quantity or 0))
+            entry["orderedValue"] += Decimal(str(line_total or 0))
+            entry["poCount"].add(order_id)
+
+        return [
+            {
+                "size": size,
+                "orderedQty": values["orderedQty"].quantize(Decimal("0.01")),
+                "orderedValue": values["orderedValue"].quantize(Decimal("0.01")),
+                "poCount": len(values["poCount"]),
+            }
+            for size, values in sorted(grouped.items(), key=lambda item: item[0])
+        ]
+
     async def get_purchase_order(self, order_id: str) -> tuple[PurchaseOrder, list[PurchaseOrderItem]]:
         res = await self.db.execute(
             select(PurchaseOrder).where(
