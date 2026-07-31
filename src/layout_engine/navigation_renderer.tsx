@@ -108,6 +108,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
 
   const [showMoreBottomMenu, setShowMoreBottomMenu] = useState(false);
   const [activeDropdownGroup, setActiveDropdownGroup] = useState<string | null>(null);
+  const [activeDomain, setActiveDomain] = useState<string>("ALL");
 
   const handleItemClick = (id: string) => {
     onTabSelect(id);
@@ -116,16 +117,44 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
     setActiveDropdownGroup(null);
   };
 
+  const isWorkspaceInDomain = (workspace: { id: string; label: string; category: string }, domain: string): boolean => {
+    if (domain === "ALL") return true;
+    const cat = (workspace.category || "").toLowerCase();
+    const id = (workspace.id || "").toLowerCase();
+    const label = (workspace.label || "").toLowerCase();
+
+    if (domain === "Sales") {
+      return cat.includes("sales") || id.includes("pos") || id.includes("sales") || id.includes("billing") || label.includes("sales") || label.includes("billing");
+    }
+    if (domain === "Inventory") {
+      return cat.includes("inventory") || cat.includes("sourcing") || id.includes("item") || id.includes("barcode") || id.includes("stock") || id.includes("warehouse") || label.includes("item") || label.includes("barcode") || label.includes("stock");
+    }
+    if (domain === "Purchase") {
+      return cat.includes("sourcing") || id.includes("purchase") || id.includes("supplier") || label.includes("purchase") || label.includes("supplier");
+    }
+    if (domain === "Accounting") {
+      return cat.includes("account") || id.includes("ledger") || id.includes("accounting") || label.includes("ledger") || label.includes("account");
+    }
+    if (domain === "CRM") {
+      return id.includes("crm") || id.includes("loyalty") || id.includes("customer") || label.includes("crm") || label.includes("customer");
+    }
+    if (domain === "Reports") {
+      return cat.includes("report") || cat.includes("operation") || id.includes("report") || id.includes("bi") || id.includes("audit") || label.includes("report") || label.includes("executive");
+    }
+    return true;
+  };
+
   // Group workspaces by category
   const categories = Array.from(new Set(registeredWorkspaces.map(w => w.category)));
 
   const { isTabAllowed } = useAdaptiveWorkspace();
 
-  // Filter workspaces by search term and Adaptive Workspace Mode
+  // Filter workspaces by search term, activeDomain (WNG-004 context-aware sidebar) and Adaptive Workspace Mode
   // WNG-002: Exclude 'launchpad' — it is a top-level single-purpose screen, not a sidebar module
   const filteredWorkspaces = registeredWorkspaces.filter(w => 
     w.id !== "launchpad" &&
-    isTabAllowed(w.id) && (
+    isTabAllowed(w.id) &&
+    isWorkspaceInDomain(w, activeDomain) && (
       w.label.toLowerCase().includes(searchTerm.toLowerCase()) || 
       w.category.toLowerCase().includes(searchTerm.toLowerCase())
     )
@@ -144,16 +173,44 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
 
     return (
       <div className="flex flex-col h-full bg-theme-surface-1 select-none text-sm border-r border-theme-divider">
-        {/* Workspace Quick Search (Satisfies Global Search & Workspace Toolbar requirements) */}
+        {/* Context-Aware Domain Switcher & Quick Search (WNG-004) */}
         {!isCollapsed && (
-          <div className="p-3 border-b border-theme-divider/60">
-            <div className="relative">
-              <span className="absolute left-2.5 top-2.5 text-theme-muted">
+          <div className="p-3 border-b border-theme-divider/60 space-y-2 bg-theme-surface-2/30">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-theme-muted flex items-center gap-1">
+                <span className="material-symbols-outlined text-xs text-[#0a6ed1]">hub</span> Active Domain
+              </span>
+              <button
+                onClick={() => handleItemClick("launchpad")}
+                className="text-[10px] font-bold text-[#0a6ed1] hover:underline flex items-center gap-1 cursor-pointer"
+                title="Return to SMRITI Launchpad"
+              >
+                <span>Launchpad</span> ➜
+              </button>
+            </div>
+
+            {/* Domain Switcher Selector */}
+            <select
+              value={activeDomain}
+              onChange={(e) => setActiveDomain(e.target.value)}
+              className="w-full p-1.5 text-xs bg-theme-surface-1 border border-theme-divider rounded-lg font-bold text-theme-heading focus:outline-none focus:border-[#0a6ed1] cursor-pointer"
+            >
+              <option value="ALL">🌐 All Business Domains</option>
+              <option value="Sales">🛍️ Sales & POS Domain</option>
+              <option value="Inventory">📦 Inventory & Stock Domain</option>
+              <option value="Purchase">🛒 Purchase & Sourcing Domain</option>
+              <option value="Accounting">💼 Accounting & Finance Domain</option>
+              <option value="CRM">👥 Customer CRM & Loyalty Domain</option>
+              <option value="Reports">📊 Analytics & Reports Domain</option>
+            </select>
+
+            <div className="relative pt-1">
+              <span className="absolute left-2.5 top-3.5 text-theme-muted">
                 <Search size={14} />
               </span>
               <input
                 type="text"
-                placeholder="Quick Workspace Search..."
+                placeholder="Search domain modules..."
                 value={searchTerm}
                 onChange={(e) => onSearchChange(e.target.value)}
                 className="w-full bg-theme-surface-2 text-theme-body border border-theme-divider rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-blue-500 placeholder-[#8892a4]"
@@ -161,7 +218,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
               {searchTerm && (
                 <button 
                   onClick={() => onSearchChange("")} 
-                  className="absolute right-2.5 top-2.5 text-theme-muted hover:text-theme-body"
+                  className="absolute right-2.5 top-3.5 text-theme-muted hover:text-theme-body"
                 >
                   <X size={12} />
                 </button>
