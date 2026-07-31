@@ -76,7 +76,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
           {toolbar}
         </div>
       )}
-      <div className="max-w-7xl mx-auto p-6 space-y-6 pb-12">
+      <div className="w-full px-4 md:px-6 py-4 space-y-4 pb-12">
         {children}
       </div>
       {statusBar && (
