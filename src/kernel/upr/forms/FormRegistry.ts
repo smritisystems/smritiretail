@@ -7,6 +7,7 @@
  */
 
 import { EntityRegistry } from "./EntityRegistry.js";
+import { ValidationRegistry } from "./ValidationRegistry.js";
 
 export type FormFieldType =
   | "text"
@@ -164,23 +165,30 @@ export class FormRegistryService {
       section.fields.forEach((field) => {
         const val = values[field.id];
 
-        if (field.required && (val === undefined || val === null || val === "")) {
-          errors[field.id] = `${field.label} is required.`;
-          return;
+        if (field.required) {
+          const reqErr = ValidationRegistry.validateField("required", {
+            fieldId: field.id,
+            fieldLabel: field.label,
+            value: val,
+            entityValues: values
+          });
+          if (reqErr) {
+            errors[field.id] = reqErr;
+            return;
+          }
         }
 
         if (field.validations) {
           for (const rule of field.validations) {
-            if (rule.type === "required" && (val === undefined || val === null || val === "")) {
-              errors[field.id] = rule.message;
-              break;
-            }
-            if (rule.type === "min" && Number(val) < Number(rule.value)) {
-              errors[field.id] = rule.message;
-              break;
-            }
-            if (rule.type === "max" && Number(val) > Number(rule.value)) {
-              errors[field.id] = rule.message;
+            const err = ValidationRegistry.validateField(rule.type, {
+              fieldId: field.id,
+              fieldLabel: field.label,
+              value: val,
+              ruleValue: rule.value,
+              entityValues: values
+            });
+            if (err) {
+              errors[field.id] = rule.message || err;
               break;
             }
           }

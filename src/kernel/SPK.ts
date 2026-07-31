@@ -10,7 +10,8 @@ import { WindowManager } from "../sdk/WindowManager.js";
 import { NavigationRegistry, DomainDefinition } from "./upr/navigation/NavigationRegistry.js";
 import { EntityRegistry, EntityMetadata } from "./upr/forms/EntityRegistry.js";
 import { FormRegistry, FormDefinition } from "./upr/forms/FormRegistry.js";
-import { FieldRegistry, FieldControlComponent } from "./upr/forms/FieldRegistry.tsx";
+import { FieldRegistry, FieldControlComponent } from "./upr/forms/FieldRegistry.js";
+import { ValidationRegistry, ValidatorDefinition, ValidationContext } from "./upr/forms/ValidationRegistry.js";
 
 /* ── Kernel Interfaces ── */
 
@@ -269,6 +270,15 @@ export class SMRITIPlatformKernel {
     getRegisteredTypes: () => FieldRegistry.getRegisteredTypes(),
     registerFieldControl: (type: string, component: FieldControlComponent) => FieldRegistry.registerFieldControl(type, component),
     subscribe: (listener: () => void) => FieldRegistry.subscribe(listener)
+  };
+
+  /* ── Universal Validation Registry Facade (SPK.validation / UFR-004) ── */
+  public validation = {
+    getValidator: (id: string) => ValidationRegistry.getValidator(id),
+    getValidators: () => ValidationRegistry.getValidators(),
+    validateField: (validatorId: string, context: ValidationContext) => ValidationRegistry.validateField(validatorId, context),
+    registerValidator: (validator: ValidatorDefinition) => ValidationRegistry.registerValidator(validator),
+    subscribe: (listener: () => void) => ValidationRegistry.subscribe(listener)
   };
 
   /* ── Extension SDK (SPK.sdk) ── */
