@@ -1,59 +1,38 @@
 /**
- * Project      : SMRITI Retail OS v6.5
- * Module       : Product & Item Master Composition Host (v6.5 Enterprise Standard)
- *                Adaptive Form Framework v2.0 — Quick Add (<15s) + 10-Panel Advanced Add
+ * Project      : SMRITI Retail OS
+ * Organization : SmritiSys
+ * Module       : Item Master & Inventory Studio Host (ADR-012 Standard v7.0)
+ * Standard     : ADR-012 (SMRITI_PROCUREMENT_STUDIO_ENTERPRISE_STANDARD_v1.0)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
- * Version      : 6.5.0
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Version      : 7.0.0
  */
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import { Product } from "../types.js";
-import { FioriObjectPage } from "./common/FioriObjectPage.tsx";
-export { FioriObjectPage as SEEFObjectPage };
-
-import { WorkspaceLayout } from "../layout_engine/components/WorkspaceLayout.tsx";
+import { WindowManager } from "../sdk/index.js";
 import { ItemMasterToolbar, ItemMasterViewMode } from "./item_master/ItemMasterToolbar.tsx";
 import { ItemMasterContextSidebar, ContextFilterState } from "./item_master/ItemMasterContextSidebar.tsx";
-import { ItemMasterMasterList } from "./item_master/ItemMasterMasterList.tsx";
-import { ItemMasterFormInspector } from "./item_master/ItemMasterFormInspector.tsx";
-import { ItemMasterBatchBar } from "./item_master/ItemMasterBatchBar.tsx";
 import { BarcodePrintDialog } from "./item_master/BarcodePrintDialog.tsx";
-
 import { AttributeManagerSection } from "./AttributeManagerSection.tsx";
 import { VariantTemplateSection } from "./VariantTemplateSection.tsx";
 import { BulkImportSection } from "./BulkImportSection.tsx";
 import { ExcelGridEntrySection } from "./ExcelGridEntrySection.tsx";
 import { AttributeAnalyticsSection } from "./AttributeAnalyticsSection.tsx";
-import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
-import { apiFetchV1 } from "../lib/apiFetchV1.js";
 import { SPK } from "../kernel/SPK.js";
 import { CreateItemCommand } from "../kernel/commands/CreateItemCommand.js";
 import { IItemService } from "../kernel/public/IItemService.js";
 import {
   Package, Plus, Search, X, Barcode, CheckCircle2, AlertCircle, FileText,
   ShieldCheck, DollarSign, Percent, Truck, Tag, Zap, Settings2, RotateCcw,
-  Save, AlertOctagon, Info, ChevronDown, ChevronUp, Layers, UploadCloud, Trash2
+  Save, AlertOctagon, Info, ChevronDown, ChevronUp, Layers, UploadCloud, Trash2,
+  Boxes, ExternalLink, Sparkles, Sliders, Filter, RefreshCw
 } from "lucide-react";
 
-/* ═══════════════════ TYPES & CONSTANTS ═══════════════════ */
 export type ItemFormMode = "quick" | "advanced";
-type SectionKey =
-  | "identity"
-  | "gst"
-  | "pricing"
-  | "inventory"
-  | "tracking"
-  | "variants"
-  | "suppliers"
-  | "media"
-  | "labels"
-  | "notes";
 
 const DRAFT_KEY = "smriti_item_draft_v2";
-const MODE_KEY  = "smriti_item_form_mode_v2";
 
 const blankItemForm = () => ({
   code: `SKU-${Math.floor(100000 + Math.random() * 900000)}`,
@@ -96,7 +75,7 @@ interface ItemMasterTabProps {
 }
 
 export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
-  products,
+  products = [],
   onRefreshProducts,
   onNotification,
   currentUser
@@ -110,212 +89,37 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   const [checkedProductIds, setCheckedProductIds] = useState<string[]>([]);
   const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState<boolean>(false);
 
-  /* ── Adaptive Modal State ── */
+  /* ── Modal & Form State ── */
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formMode, setFormMode] = useState<ItemFormMode>(() => {
-    try {
-      return (localStorage.getItem(MODE_KEY) as ItemFormMode) || "quick";
-    } catch {
-      return "quick";
-    }
-  });
-
+  const [formMode, setFormMode] = useState<ItemFormMode>("quick");
   const [formData, setFormData] = useState<ItemFormData>(blankItemForm);
-  const [isDirty, setIsDirty] = useState(false);
-  const [hasDraft, setHasDraft] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [openSections, setOpenSections] = useState<Set<SectionKey>>(
-    new Set(["identity", "gst", "pricing"])
-  );
 
-  /* ── Draft Auto-Save System ── */
-  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Compute Inventory Summaries
+  const inventoryTotals = useMemo(() => {
+    let totalStockQty = 0;
+    let totalValuation = 0;
+    let lowStockCount = 0;
 
-  const saveDraft = useCallback((data: ItemFormData) => {
-    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    draftTimerRef.current = setTimeout(() => {
-      try {
-        sessionStorage.setItem(DRAFT_KEY, JSON.stringify(data));
-      } catch {
-        /* storage quota exceeded */
-      }
-    }, 500);
-  }, []);
+    products.forEach((p) => {
+      const qty = p.stock_qty ?? p.qty ?? 0;
+      const price = p.price ?? 0;
+      const minStock = p.min_stock_level || 5;
 
-  const clearDraft = useCallback(() => {
-    try {
-      sessionStorage.removeItem(DRAFT_KEY);
-    } catch {
-      /* ignore */
-    }
-    setHasDraft(false);
-  }, []);
-
-  const set = (field: string, value: any) => {
-    setFormData((prev) => {
-      const next = { ...prev, [field]: value };
-      saveDraft(next);
-      setIsDirty(true);
-      return next;
+      totalStockQty += qty;
+      totalValuation += qty * price;
+      if (qty < minStock) lowStockCount++;
     });
-    if (validationErrors[field]) {
-      setValidationErrors((prev) => {
-        const next = { ...prev };
-        delete next[field];
-        return next;
-      });
-    }
-  };
 
-  const switchMode = (mode: ItemFormMode) => {
-    setFormMode(mode);
-    try {
-      localStorage.setItem(MODE_KEY, mode);
-    } catch {
-      /* ignore */
-    }
-    if (mode === "advanced") {
-      setOpenSections(new Set(["identity", "gst", "pricing"]));
-    }
-  };
-
-  const toggleSection = (key: SectionKey) => {
-    setOpenSections((prev) => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
-  };
-
-  /* ── Open Modal with Draft Recovery ── */
-  const handleOpenModal = () => {
-    if (isReadOnly) {
-      onNotification("Access Denied", "Read-Only operators cannot create new SKUs.", "error");
-      return;
-    }
-    try {
-      const raw = sessionStorage.getItem(DRAFT_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw) as ItemFormData;
-        setFormData(saved);
-        setHasDraft(true);
-        setIsDirty(false);
-        setIsModalOpen(true);
-        return;
-      }
-    } catch {
-      /* ignore bad json */
-    }
-    const fresh = blankItemForm();
-    setFormData(fresh);
-    setValidationErrors({});
-    setIsDirty(false);
-    setHasDraft(false);
-    setIsModalOpen(true);
-  };
-
-  const handleDiscardDraft = () => {
-    clearDraft();
-    const fresh = blankItemForm();
-    setFormData(fresh);
-    setIsDirty(false);
-  };
-
-  const handleCloseModal = () => {
-    if (isDirty) {
-      const ok = window.confirm("You have unsaved changes. Discard them?");
-      if (!ok) return;
-      clearDraft();
-    }
-    setIsModalOpen(false);
-    setIsDirty(false);
-  };
-
-  /* ── Dynamic Validation ── */
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
-    if (!formData.name.trim()) errors.name = "Item Name is required.";
-    if (!formData.hsn_code.trim()) errors.hsn_code = "HSN Code is required.";
-    const mrpVal = parseFloat(formData.mrp) || 0;
-    const saleVal = parseFloat(formData.price) || 0;
-    if (saleVal > mrpVal && mrpVal > 0) {
-      errors.price = "Sale Price cannot exceed MRP Price.";
-    }
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  /* ── Submit SKU Creation ── */
-  const handleSubmit = async (e: React.FormEvent, saveAndNew = false) => {
-    e.preventDefault();
-    if (!validateForm()) {
-      onNotification("Validation Error", "Please fix highlighted fields.", "error");
-      return;
-    }
-
-    setIsSubmitting(true);
-    const newSku: Product = {
-      id: `prod_${Date.now()}`,
-      code: formData.code,
-      sku: formData.sku,
-      barcode: formData.barcode,
-      name: formData.name.trim(),
-      category: formData.category,
-      brand: formData.brand,
-      hsn_code: formData.hsn_code,
-      gst_rate: parseFloat(formData.gst_rate) || 18,
-      mrp: parseFloat(formData.mrp) || 100,
-      price: parseFloat(formData.price) || 100,
-      purchase_price: parseFloat(formData.purchase_price) || 60,
-      stock: parseFloat(formData.stock_qty) || 0,
-      stock_qty: parseFloat(formData.stock_qty) || 0,
-      min_stock_level: parseFloat(formData.min_stock_level) || 5,
-      uom: formData.uom
+    return {
+      totalProducts: products.length,
+      totalStockQty,
+      totalValuation,
+      lowStockCount,
     };
-
-    try {
-      const createdItem = await SPK.commands.execute(new CreateItemCommand(newSku));
-      onNotification("SKU Created ✓", `${createdItem.name} (${createdItem.code || createdItem.sku}) added to Product Master.`, "success");
-      setSelectedProduct(createdItem);
-    } catch (err: any) {
-      onNotification("SKU Creation Error", err.message || "Failed to save item.", "error");
-    } finally {
-      clearDraft();
-      setIsSubmitting(false);
-      await onRefreshProducts();
-
-      if (saveAndNew) {
-        setFormData(blankItemForm());
-        setValidationErrors({});
-        setIsDirty(false);
-      } else {
-        setIsModalOpen(false);
-      }
-    }
-  };
-
-  /* ── Extract Categories & Brands ── */
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    products.forEach((p) => {
-      if (p.category) set.add(p.category);
-    });
-    return Array.from(set);
   }, [products]);
 
-  const brands = useMemo(() => {
-    const set = new Set<string>();
-    products.forEach((p) => {
-      if (p.brand) set.add(p.brand);
-    });
-    return Array.from(set);
-  }, [products]);
-
-  const lowStockCount = useMemo(() => {
-    return products.filter((p) => (p.stock_qty ?? p.qty ?? 0) < (p.min_stock_level || 5)).length;
-  }, [products]);
-
+  // Filtered Product List
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
       const matchSearch =
@@ -324,457 +128,421 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
         (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (p.barcode && p.barcode.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (p.category && p.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (p.subCategory && p.subCategory.toLowerCase().includes(searchTerm.toLowerCase()));
+        (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase()));
 
       let matchFilter = true;
       if (activeFilter.type === "CATEGORY") {
-        matchFilter = p.category === activeFilter.value || p.subCategory === activeFilter.value || p.sub_category === activeFilter.value;
+        matchFilter = p.category === activeFilter.value;
       } else if (activeFilter.type === "BRAND") {
         matchFilter = p.brand === activeFilter.value;
       } else if (activeFilter.type === "LOW_STOCK") {
         matchFilter = (p.stock_qty ?? p.qty ?? 0) < (p.min_stock_level || 5);
-      } else if (activeFilter.type === "FAVORITES") {
-        matchFilter = !!p.isFavorite;
-      } else if (activeFilter.type === "DEPARTMENT") {
-        matchFilter = p.category === activeFilter.value || Boolean(p.attributes?.department === activeFilter.value);
-      } else if (activeFilter.type === "SUPPLIER") {
-        matchFilter = Boolean(!p.attributes?.supplier || p.attributes?.supplier === activeFilter.value);
-      } else if (activeFilter.type === "WAREHOUSE") {
-        matchFilter = Boolean(!p.attributes?.warehouse || p.attributes?.warehouse === activeFilter.value);
       }
 
       return matchSearch && matchFilter;
     });
   }, [products, searchTerm, activeFilter]);
 
-  /* ── Global Hardware Barcode Scanner Listener ── */
-  useEffect(() => {
-    let buffer = "";
-    let lastKeyTime = Date.now();
+  // Create Item Handler
+  const handleCreateItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name) {
+      if (onNotification) onNotification("Validation Error", "Item Name is required", "error");
+      return;
+    }
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const now = Date.now();
-      if (now - lastKeyTime > 100) buffer = "";
-      lastKeyTime = now;
+    setIsSubmitting(true);
+    try {
+      await SPK.commands.execute(
+        new CreateItemCommand({
+          sku: formData.sku,
+          name: formData.name,
+          category: formData.category,
+          brand: formData.brand,
+          price: parseFloat(formData.price) || 0,
+          mrp: parseFloat(formData.mrp) || 0,
+          purchasePrice: parseFloat(formData.purchase_price) || 0,
+          stockQty: parseInt(formData.stock_qty) || 0,
+          uom: formData.uom,
+          hsnCode: formData.hsn_code,
+          gstPercentage: parseFloat(formData.gst_rate) || 18,
+          barcode: formData.barcode,
+          warehouse: formData.warehouse,
+        })
+      );
 
-      if (e.key === "Enter" && buffer.length >= 6) {
-        const scannedCode = buffer.trim();
-        const found = products.find(
-          (p) => p.barcode === scannedCode || p.sku === scannedCode || p.code === scannedCode
-        );
-        if (found) {
-          setSelectedProduct(found);
-          onNotification("Barcode Scanned", `Auto-selected matching SKU: ${found.name}`, "success");
-        }
-        buffer = "";
-      } else if (e.key.length === 1) {
-        buffer += e.key;
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [products, onNotification]);
-
-  /* ── Style Tokens ── */
-  const inp = "w-full p-2.5 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading text-xs focus:outline-none focus:border-[#0a6ed1] focus:ring-1 focus:ring-[#0a6ed1]/20 transition-all placeholder:text-theme-muted";
-  const inpErr = (f: string) => inp + (validationErrors[f] ? " border-rose-500 ring-1 ring-rose-500/20" : "");
-  const inpMono = inp + " font-mono";
-  const inpMonoErr = (f: string) => inpMono + (validationErrors[f] ? " border-rose-500 ring-1 ring-rose-500/20" : "");
-  const lbl = "block font-bold text-theme-muted mb-1 text-[11px] uppercase tracking-wide";
-  const sel = inp + " cursor-pointer";
-
-  const SectionPanel: React.FC<{
-    sectionKey: SectionKey;
-    title: string;
-    icon: React.ReactNode;
-    children: React.ReactNode;
-  }> = ({ sectionKey, title, icon, children }) => {
-    const isOpen = openSections.has(sectionKey);
-    return (
-      <div className="border border-theme-divider rounded-xl overflow-hidden bg-theme-surface-2">
-        <button
-          type="button"
-          onClick={() => toggleSection(sectionKey)}
-          className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-theme-surface-3 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-2.5">
-            <span className="text-[#0a6ed1]">{icon}</span>
-            <span className="font-bold text-theme-heading text-xs uppercase tracking-wide font-mono">{title}</span>
-          </div>
-          {isOpen ? <ChevronUp className="w-4 h-4 text-theme-muted" /> : <ChevronDown className="w-4 h-4 text-theme-muted" />}
-        </button>
-        <AnimatePresence initial={false}>
-          {isOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-              style={{ overflow: "hidden" }}
-            >
-              <div className="px-5 pb-5 pt-1 border-t border-theme-divider/50 space-y-4">
-                {children}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
+      setIsModalOpen(false);
+      setFormData(blankItemForm());
+      if (onRefreshProducts) await onRefreshProducts();
+      if (onNotification) onNotification("Item Created", `Created Item Master ${formData.name}`, "success");
+    } catch (err: any) {
+      if (onNotification) onNotification("Creation Failed", err.message || "Failed to create item", "error");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  /* Mode Switcher Views */
-  if (viewMode === "excel-grid") {
-    return (
-      <WorkspaceLayout
-        mode="studio"
-        toolbar={
-          <ItemMasterToolbar
-            activeMode={viewMode}
-            onModeChange={setViewMode}
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            productCount={filteredProducts.length}
-            onNewProduct={handleOpenModal}
-            onRefresh={onRefreshProducts}
-            onOpenBarcodeHub={() => setIsBarcodeDialogOpen(true)}
-            isReadOnly={isReadOnly}
-            onToggleFilterDrawer={() => setIsFilterDrawerOpen((prev) => !prev)}
-            isFilterDrawerOpen={isFilterDrawerOpen}
-            hasActiveFilter={activeFilter.type !== "ALL"}
-            activeFilterLabel={activeFilter.type !== "ALL" ? activeFilter.value : undefined}
-          />
-        }
-      >
-        <ExcelGridEntrySection products={filteredProducts} onRefreshProducts={onRefreshProducts} onNotification={onNotification} />
-      </WorkspaceLayout>
-    );
-  }
+  // Keyboard Shortcuts (F2 Search, F4 Barcode Hub)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F2") {
+        e.preventDefault();
+        setIsModalOpen(true);
+      } else if (e.key === "F4") {
+        e.preventDefault();
+        setIsBarcodeDialogOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
-    <WorkspaceLayout
-      mode="studio"
-      toolbar={
-        <ItemMasterToolbar
-          activeMode={viewMode}
-          onModeChange={setViewMode}
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          productCount={filteredProducts.length}
-          onNewProduct={handleOpenModal}
-          onRefresh={onRefreshProducts}
-          onOpenBarcodeHub={() => setIsBarcodeDialogOpen(true)}
-          isReadOnly={isReadOnly}
-          onToggleFilterDrawer={() => setIsFilterDrawerOpen((prev) => !prev)}
-          isFilterDrawerOpen={isFilterDrawerOpen}
-          hasActiveFilter={activeFilter.type !== "ALL"}
-          activeFilterLabel={activeFilter.type !== "ALL" ? activeFilter.value : undefined}
-        />
-      }
-    >
-      <div className="flex h-full w-full overflow-hidden bg-theme-base text-theme-body">
-        <ItemMasterContextSidebar
-          products={products}
-          activeFilter={activeFilter}
-          onFilterChange={setActiveFilter}
-          categories={categories}
-          brands={brands}
-          lowStockCount={lowStockCount}
-          isOpen={isFilterDrawerOpen}
-          onClose={() => setIsFilterDrawerOpen(false)}
-        />
-
-        <ItemMasterMasterList
-          products={filteredProducts}
-          selectedProductId={selectedProduct ? selectedProduct.id : null}
-          onSelectProduct={setSelectedProduct}
-          checkedProductIds={checkedProductIds}
-          onToggleCheckProduct={(id, e) => {
-            e.stopPropagation();
-            setCheckedProductIds((p) => (p.includes(id) ? p.filter((i) => i !== id) : [...p, id]));
-          }}
-          onToggleSelectAll={() => {
-            setCheckedProductIds(checkedProductIds.length === filteredProducts.length ? [] : filteredProducts.map((p) => p.id));
-          }}
-        />
-
-        <div className="flex-1 h-full overflow-hidden bg-theme-surface-1">
-          <ItemMasterFormInspector
-            product={selectedProduct}
-            onSaveProduct={async (u) => {
-              const itemService = SPK.services.resolve<IItemService>("ITEM");
-              await itemService.save(u);
-              onNotification("Product Updated", `Saved ${u.name}`, "success");
-              await onRefreshProducts();
-            }}
-            onDeleteProduct={async (id) => {
-              const itemService = SPK.services.resolve<IItemService>("ITEM");
-              await itemService.delete(id);
-              onNotification("Product Deleted", "Removed SKU", "success");
-              setSelectedProduct(null);
-              await onRefreshProducts();
-            }}
-            onOpenBarcodeDialog={() => setIsBarcodeDialogOpen(true)}
-            isReadOnly={isReadOnly}
-          />
+    <div className="w-full bg-slate-100 font-sans text-slate-800 p-2.5 sm:p-3 space-y-3">
+      {/* ================= SINGLE HORIZONTAL TOOLBAR (55px HERO COMPRESSION) ================= */}
+      <div className="bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
+        {/* Left Title & Low Stock Alert Badge */}
+        <div className="flex items-center space-x-2">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">INVENTORY /</span>
+          <h1 className="text-base font-extrabold text-slate-900 tracking-tight">Item Master Studio</h1>
+          <span className="px-2 py-0.2 text-[9px] font-extrabold uppercase rounded bg-indigo-100 text-indigo-700 border border-indigo-300">
+            {products.length} PRODUCTS
+          </span>
+          {inventoryTotals.lowStockCount > 0 && (
+            <span className="px-2 py-0.2 text-[9px] font-extrabold uppercase rounded bg-amber-100 text-amber-800 border border-amber-300 flex items-center space-x-1 animate-pulse">
+              <AlertCircle className="w-2.5 h-2.5 mr-0.5 text-amber-600" />
+              <span>{inventoryTotals.lowStockCount} LOW STOCK</span>
+            </span>
+          )}
+          <span className="flex items-center text-[10px] text-emerald-600 font-bold ml-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1 animate-pulse"></span>
+            Online
+          </span>
         </div>
 
-        <BarcodePrintDialog
-          isOpen={isBarcodeDialogOpen}
-          onClose={() => setIsBarcodeDialogOpen(false)}
-          product={selectedProduct}
-          onNotification={onNotification}
-        />
+        {/* Right Actions & SWMF Pop-Out Button */}
+        <div className="flex items-center space-x-2 text-xs">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search SKU / Barcode (F2)"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-7 pr-2.5 py-1 bg-slate-50 border border-slate-300 rounded-md text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500 w-44"
+            />
+          </div>
+
+          {!isReadOnly && (
+            <button
+              onClick={() => {
+                setFormData(blankItemForm());
+                setIsModalOpen(true);
+              }}
+              className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold shadow-xs cursor-pointer flex items-center"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              + Add Product
+            </button>
+          )}
+
+          <button
+            onClick={() => setIsBarcodeDialogOpen(true)}
+            className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 rounded-md font-bold text-slate-700 cursor-pointer shadow-2xs flex items-center"
+          >
+            <Barcode className="w-3.5 h-3.5 mr-1 text-indigo-600" />
+            Barcode Hub (F4)
+          </button>
+
+          <button
+            onClick={() => onRefreshProducts && onRefreshProducts()}
+            className="p-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md cursor-pointer"
+            title="Refresh Inventory Products"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-slate-600" />
+          </button>
+
+          <button
+            onClick={() => WindowManager.openTabStandalone("inventory", "SMRITI Inventory Master Studio")}
+            className="p-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md cursor-pointer"
+            title="Pop-out Standalone Window (SWMF)"
+          >
+            <ExternalLink className="w-3.5 h-3.5 text-indigo-600" />
+          </button>
+        </div>
       </div>
 
-      {/* ════════════════════════════════════════════════ */}
-      {/*        ADAPTIVE SKU ONBOARDING MODAL (v2.5)     */}
-      {/* ════════════════════════════════════════════════ */}
+      {/* ================= 2-COLUMN MASTER FORM (SUMMARY CARDS + PRODUCT FORM) ================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+        {/* ----- LEFT SIDE: PRODUCTS DATA GRID (7 COLUMNS) ----- */}
+        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+            <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
+              <Package className="w-3.5 h-3.5" />
+              <span>Master Inventory Registry ({filteredProducts.length})</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => setActiveFilter({ type: "ALL", value: "ALL" })}
+                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  activeFilter.type === "ALL" ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setActiveFilter({ type: "LOW_STOCK", value: "LOW_STOCK" })}
+                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  activeFilter.type === "LOW_STOCK" ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-700"
+                }`}
+              >
+                Low Stock
+              </button>
+            </div>
+          </div>
+
+          {/* SUPG Inventory Table */}
+          <div className="overflow-x-auto border border-slate-200 rounded-lg smriti-custom-scroll">
+            <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">
+                  <th className="py-1.5 px-2 w-8 text-center">#</th>
+                  <th className="py-1.5 px-2">SKU / Code *</th>
+                  <th className="py-1.5 px-2">Product Name *</th>
+                  <th className="py-1.5 px-2">Category</th>
+                  <th className="py-1.5 px-2 text-right">MRP (₹)</th>
+                  <th className="py-1.5 px-2 text-right font-extrabold">Price (₹)</th>
+                  <th className="py-1.5 px-2 text-right">Stock Qty</th>
+                  <th className="py-1.5 px-2 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-[11px]">
+                {filteredProducts.map((prod, idx) => {
+                  const qty = prod.stock_qty ?? prod.qty ?? 0;
+                  const minStock = prod.min_stock_level || 5;
+                  const isLow = qty < minStock;
+
+                  return (
+                    <tr
+                      key={prod.id}
+                      onClick={() => setSelectedProduct(prod)}
+                      className={`hover:bg-blue-50/40 transition-colors cursor-pointer ${
+                        selectedProduct?.id === prod.id ? "bg-blue-50/70 border-l-4 border-blue-600" : ""
+                      }`}
+                    >
+                      <td className="py-1 px-2 text-center font-bold text-slate-400">{idx + 1}</td>
+                      <td className="py-1 px-2 font-mono font-bold text-slate-800">{prod.code || prod.sku}</td>
+                      <td className="py-1 px-2 font-semibold text-slate-900">{prod.name}</td>
+                      <td className="py-1 px-2 text-slate-600">{prod.category || "General"}</td>
+                      <td className="py-1 px-2 text-right font-mono text-slate-500">₹ {prod.mrp || prod.price}</td>
+                      <td className="py-1 px-2 text-right font-mono font-bold text-blue-700">₹ {prod.price}</td>
+                      <td className="py-1 px-2 text-right font-mono font-bold text-slate-800">{qty} {prod.unit || "Pcs"}</td>
+                      <td className="py-1 px-2 text-center">
+                        {isLow ? (
+                          <span className="px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded font-mono text-[9px] font-bold">
+                            LOW STOCK
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.2 bg-emerald-50 text-emerald-700 rounded font-mono text-[9px] font-bold">
+                            IN STOCK
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ----- RIGHT SIDE: INVENTORY VALUATION & SELECTED PRODUCT DETAILS (5 COLUMNS) ----- */}
+        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+            <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
+              <Boxes className="w-3.5 h-3.5" />
+              <span>Valuation & Product Inspector</span>
+            </div>
+          </div>
+
+          {/* Live Valuation Summary Card */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2 text-xs">
+            <div className="flex items-center justify-between text-slate-600">
+              <span>Total Catalog Products</span>
+              <span className="font-mono font-bold text-slate-800">{inventoryTotals.totalProducts}</span>
+            </div>
+            <div className="flex items-center justify-between text-slate-600">
+              <span>Total Available Stock Qty</span>
+              <span className="font-mono font-bold text-slate-800">{inventoryTotals.totalStockQty} Pcs</span>
+            </div>
+            <div className="flex items-center justify-between pt-1 border-t border-slate-200">
+              <span className="font-bold text-slate-800">Total Inventory Valuation</span>
+              <span className="font-mono font-black text-emerald-600 text-sm">
+                ₹ {inventoryTotals.totalValuation.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+
+          {/* Selected Product Details Panel */}
+          {selectedProduct ? (
+            <div className="border border-slate-200 rounded-xl p-3 space-y-2 text-xs">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-1">
+                <span className="font-extrabold text-slate-900">{selectedProduct.name}</span>
+                <span className="font-mono font-bold text-blue-600">{selectedProduct.code || selectedProduct.sku}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div>
+                  <span className="text-slate-400 uppercase text-[9px] block">Category</span>
+                  <span className="font-semibold text-slate-800">{selectedProduct.category || "General"}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 uppercase text-[9px] block">Brand</span>
+                  <span className="font-semibold text-slate-800">{selectedProduct.brand || "Smriti Standard"}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 uppercase text-[9px] block">Buying Rate</span>
+                  <span className="font-mono font-bold text-slate-700">₹ {selectedProduct.purchasePrice || 60}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 uppercase text-[9px] block">Retail Selling Price</span>
+                  <span className="font-mono font-bold text-blue-700">₹ {selectedProduct.price}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 text-center text-slate-400 text-xs italic">Select a product row to inspect details.</div>
+          )}
+        </div>
+      </div>
+
+      {/* ================= NEW ITEM CREATION MODAL ================= */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 16 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 16 }}
-            transition={{ duration: 0.18 }}
-            className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full shadow-2xl flex flex-col overflow-hidden"
-            style={{ maxWidth: formMode === "quick" ? 640 : 880, maxHeight: "94vh" }}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-theme-divider bg-theme-surface-2">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-[#0a6ed1]/10 text-[#0a6ed1]">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
                   <Package className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-theme-heading font-display">
-                    {formMode === "quick" ? "Quick Add — Product SKU Onboarding" : "Advanced Add — Complete SKU Profile & Taxonomy"}
-                  </h3>
-                  <p className="text-[11px] text-theme-muted font-mono">
-                    {formMode === "quick" ? "Minimal essentials for ultra-fast barcode SKU creation (< 15 sec)." : "10-panel enterprise master data: Pricing, Location, Suppliers & Labels."}
-                  </p>
+                  <h3 className="font-extrabold text-slate-900 text-sm">Create New Inventory Item</h3>
+                  <p className="text-xs text-slate-500">Add product specifications to SMRITI Item Master.</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {isDirty && (
-                  <span className="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg text-[10px] font-bold font-mono flex items-center gap-1">
-                    <Save className="w-3 h-3" /> Unsaved Changes
-                  </span>
-                )}
-                <button onClick={handleCloseModal} className="p-1.5 text-theme-muted hover:text-theme-heading rounded-lg cursor-pointer">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Draft Recovery Banner */}
-            {hasDraft && (
-              <div className="px-6 py-2.5 bg-[#0a6ed1]/5 border-b border-[#0a6ed1]/20 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs text-[#0a6ed1]">
-                  <Info className="w-4 h-4 flex-shrink-0" />
-                  <span><strong>Draft recovered.</strong> Your previous unsaved SKU inputs have been restored.</span>
-                </div>
-                <button onClick={handleDiscardDraft} className="flex items-center gap-1 text-[11px] text-theme-muted hover:text-rose-400 font-mono cursor-pointer transition-colors">
-                  <RotateCcw className="w-3 h-3" /> Discard Draft
-                </button>
-              </div>
-            )}
-
-            {/* Mode Switcher Pills */}
-            <div className="px-6 pt-3 pb-2 flex items-center gap-2 border-b border-theme-divider/50 bg-theme-surface-2/40">
-              <button
-                type="button"
-                onClick={() => switchMode("quick")}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                  formMode === "quick"
-                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/40 shadow-xs"
-                    : "bg-theme-surface-2 text-theme-muted border-theme-divider hover:border-emerald-500/40"
-                }`}
-              >
-                <Zap className="w-3.5 h-3.5" /> Quick Add Mode (&lt;15s)
-              </button>
-              <button
-                type="button"
-                onClick={() => switchMode("advanced")}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                  formMode === "advanced"
-                    ? "bg-purple-500/10 text-purple-400 border-purple-500/40 shadow-xs"
-                    : "bg-theme-surface-2 text-theme-muted border-theme-divider hover:border-purple-500/40"
-                }`}
-              >
-                <Settings2 className="w-3.5 h-3.5" /> Advanced Add Mode (10 Panels)
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Form Body */}
-            <SmritiScrollArea className="flex-1 overflow-y-auto px-6 pb-2">
-              <form id="item-form" onSubmit={(e) => handleSubmit(e, false)} className="space-y-4 text-xs font-sans py-3">
+            <form onSubmit={handleCreateItem} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">SKU / Code *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.sku}
+                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Product Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800"
+                  />
+                </div>
+              </div>
 
-                {/* QUICK ADD MODE */}
-                {formMode === "quick" && (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-4">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-theme-heading uppercase tracking-wide font-mono flex items-center gap-2">
-                          <Barcode className="w-4 h-4 text-[#0a6ed1]" /> Essential Product &amp; Barcode Attributes
-                        </span>
-                        <span className="text-[10px] font-mono text-emerald-400 font-bold">Target: &lt; 15 seconds</span>
-                      </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Category</label>
+                  <input
+                    type="text"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Brand</label>
+                  <input
+                    type="text"
+                    value={formData.brand}
+                    onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">HSN Code</label>
+                  <input
+                    type="text"
+                    value={formData.hsn_code}
+                    onChange={(e) => setFormData({ ...formData, hsn_code: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800"
+                  />
+                </div>
+              </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className={lbl}>Barcode / Hardware EAN13 <span className="text-rose-400">*</span></label>
-                          <input type="text" value={formData.barcode} onChange={(e) => set("barcode", e.target.value)} className={inpMono} autoFocus />
-                        </div>
-                        <div>
-                          <label className={lbl}>SKU Code</label>
-                          <input type="text" value={formData.sku} onChange={(e) => set("sku", e.target.value)} className={inpMono} />
-                        </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">MRP (₹)</label>
+                  <input
+                    type="number"
+                    value={formData.mrp}
+                    onChange={(e) => setFormData({ ...formData, mrp: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Selling Price (₹) *</label>
+                  <input
+                    type="number"
+                    required
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold text-blue-700"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Initial Stock Qty</label>
+                  <input
+                    type="number"
+                    value={formData.stock_qty}
+                    onChange={(e) => setFormData({ ...formData, stock_qty: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800"
+                  />
+                </div>
+              </div>
 
-                        <div className="md:col-span-2">
-                          <label className={lbl}>Item Name / Description <span className="text-rose-400">*</span></label>
-                          <input type="text" required placeholder="e.g. Cotton Printed Silk Kurta" value={formData.name} onChange={(e) => set("name", e.target.value)} className={inpErr("name")} />
-                          {validationErrors.name && <p className="text-rose-400 text-[10px] mt-1 flex items-center gap-1"><AlertOctagon className="w-3 h-3" />{validationErrors.name}</p>}
-                        </div>
-
-                        <div>
-                          <label className={lbl}>Category <span className="text-rose-400">*</span></label>
-                          <input type="text" required placeholder="General" value={formData.category} onChange={(e) => set("category", e.target.value)} className={inp} />
-                        </div>
-
-                        <div>
-                          <label className={lbl}>Brand</label>
-                          <input type="text" placeholder="Smriti Standard" value={formData.brand} onChange={(e) => set("brand", e.target.value)} className={inp} />
-                        </div>
-
-                        <div>
-                          <label className={lbl}>HSN Code <span className="text-rose-400">*</span></label>
-                          <input type="text" required placeholder="8471" value={formData.hsn_code} onChange={(e) => set("hsn_code", e.target.value)} className={inpMonoErr("hsn_code")} />
-                          {validationErrors.hsn_code && <p className="text-rose-400 text-[10px] mt-1">{validationErrors.hsn_code}</p>}
-                        </div>
-
-                        <div>
-                          <label className={lbl}>GST Rate (%) <span className="text-rose-400">*</span></label>
-                          <select value={formData.gst_rate} onChange={(e) => set("gst_rate", e.target.value)} className={sel}>
-                            {["0", "5", "12", "18", "28"].map((r) => <option key={r} value={r}>{r}% GST</option>)}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className={lbl}>MRP Price (₹) <span className="text-rose-400">*</span></label>
-                          <input type="number" step="0.01" required value={formData.mrp} onChange={(e) => set("mrp", e.target.value)} className={inpMono} />
-                        </div>
-
-                        <div>
-                          <label className={lbl}>Sale Price (₹) <span className="text-rose-400">*</span></label>
-                          <input type="number" step="0.01" required value={formData.price} onChange={(e) => set("price", e.target.value)} className={inpMonoErr("price")} />
-                          {validationErrors.price && <p className="text-rose-400 text-[10px] mt-1">{validationErrors.price}</p>}
-                        </div>
-
-                        <div>
-                          <label className={lbl}>Purchase Cost (₹) <span className="text-rose-400">*</span></label>
-                          <input type="number" step="0.01" required value={formData.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} className={inpMono} />
-                        </div>
-
-                        <div>
-                          <label className={lbl}>Opening Stock Qty &amp; UOM</label>
-                          <div className="flex gap-2">
-                            <input type="number" value={formData.stock_qty} onChange={(e) => set("stock_qty", e.target.value)} className={inpMono + " flex-1"} />
-                            <select value={formData.uom} onChange={(e) => set("uom", e.target.value)} className={sel + " w-24"}>
-                              {["Pcs", "Kg", "Box", "Mtr", "Ltr", "Set", "Pack"].map((u) => <option key={u} value={u}>{u}</option>)}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => switchMode("advanced")}
-                      className="w-full py-2.5 border border-dashed border-purple-500/40 rounded-xl text-xs font-bold text-purple-400 hover:bg-purple-500/5 transition-colors cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      <Settings2 className="w-3.5 h-3.5" /> Switch to Advanced Add — Full Enterprise SKU Workspace →
-                    </button>
-                  </div>
-                )}
-
-                {/* ADVANCED ADD MODE */}
-                {formMode === "advanced" && (
-                  <div className="space-y-3">
-                    <SectionPanel sectionKey="identity" title="Basic Identity & Barcode" icon={<Package className="w-4 h-4" />}>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="md:col-span-2">
-                          <label className={lbl}>Item Full Name <span className="text-rose-400">*</span></label>
-                          <input type="text" required value={formData.name} onChange={(e) => set("name", e.target.value)} className={inpErr("name")} />
-                        </div>
-                        <div><label className={lbl}>SKU Code</label><input type="text" value={formData.sku} onChange={(e) => set("sku", e.target.value)} className={inpMono} /></div>
-                        <div><label className={lbl}>Barcode EAN13</label><input type="text" value={formData.barcode} onChange={(e) => set("barcode", e.target.value)} className={inpMono} /></div>
-                        <div><label className={lbl}>Category</label><input type="text" value={formData.category} onChange={(e) => set("category", e.target.value)} className={inp} /></div>
-                        <div><label className={lbl}>Brand</label><input type="text" value={formData.brand} onChange={(e) => set("brand", e.target.value)} className={inp} /></div>
-                      </div>
-                    </SectionPanel>
-
-                    <SectionPanel sectionKey="gst" title="GST, HSN & Tax Classification" icon={<ShieldCheck className="w-4 h-4" />}>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div><label className={lbl}>HSN / SAC Code</label><input type="text" value={formData.hsn_code} onChange={(e) => set("hsn_code", e.target.value)} className={inpMono} /></div>
-                        <div>
-                          <label className={lbl}>GST Rate (%)</label>
-                          <select value={formData.gst_rate} onChange={(e) => set("gst_rate", e.target.value)} className={sel}>
-                            {["0", "5", "12", "18", "28"].map((r) => <option key={r} value={r}>{r}% GST</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className={lbl}>Price Taxability</label>
-                          <select value={formData.is_tax_inclusive ? "true" : "false"} onChange={(e) => set("is_tax_inclusive", e.target.value === "true")} className={sel}>
-                            <option value="false">Exclusive of Tax</option>
-                            <option value="true">Inclusive of Tax</option>
-                          </select>
-                        </div>
-                      </div>
-                    </SectionPanel>
-
-                    <SectionPanel sectionKey="pricing" title="Multi-Tier Pricing & Margins" icon={<DollarSign className="w-4 h-4" />}>
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div><label className={lbl}>MRP Price (₹)</label><input type="number" step="0.01" value={formData.mrp} onChange={(e) => set("mrp", e.target.value)} className={inpMono} /></div>
-                        <div><label className={lbl}>Retail Sale Price (₹)</label><input type="number" step="0.01" value={formData.price} onChange={(e) => set("price", e.target.value)} className={inpMono} /></div>
-                        <div><label className={lbl}>Purchase Cost (₹)</label><input type="number" step="0.01" value={formData.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} className={inpMono} /></div>
-                        <div><label className={lbl}>Wholesale Price (₹)</label><input type="number" step="0.01" value={formData.wholesale_price} onChange={(e) => set("wholesale_price", e.target.value)} className={inpMono} /></div>
-                      </div>
-                    </SectionPanel>
-
-                    <SectionPanel sectionKey="inventory" title="Multi-Location Inventory" icon={<Truck className="w-4 h-4" />}>
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div><label className={lbl}>Opening Stock Qty</label><input type="number" value={formData.stock_qty} onChange={(e) => set("stock_qty", e.target.value)} className={inpMono} /></div>
-                        <div><label className={lbl}>Min Stock Level</label><input type="number" value={formData.min_stock_level} onChange={(e) => set("min_stock_level", e.target.value)} className={inpMono} /></div>
-                        <div><label className={lbl}>Default Warehouse</label><input type="text" value={formData.warehouse} onChange={(e) => set("warehouse", e.target.value)} className={inp} /></div>
-                        <div><label className={lbl}>Bin / Rack Location</label><input type="text" value={formData.bin_location} onChange={(e) => set("bin_location", e.target.value)} className={inpMono} /></div>
-                      </div>
-                    </SectionPanel>
-
-                    <button type="button" onClick={() => switchMode("quick")} className="w-full py-2 border border-dashed border-theme-divider rounded-xl text-xs font-bold text-theme-muted hover:text-[#0a6ed1] hover:border-[#0a6ed1]/40 transition-colors cursor-pointer flex items-center justify-center gap-2">
-                      ← Back to Quick Add Mode
-                    </button>
-                  </div>
-                )}
-              </form>
-            </SmritiScrollArea>
-
-            {/* Modal Footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-theme-divider bg-theme-surface-2">
-              <button type="button" onClick={handleCloseModal} className="px-4 py-2 text-xs font-bold text-theme-muted hover:text-theme-heading cursor-pointer">Cancel</button>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={(e) => handleSubmit(e as any, true)} disabled={isSubmitting} className="px-4 py-2 text-xs font-bold bg-theme-surface-3 hover:bg-theme-surface-4 text-theme-heading border border-theme-divider rounded-lg cursor-pointer disabled:opacity-50">
-                  <Plus className="w-3.5 h-3.5 inline mr-1" /> Save &amp; New
+              <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-xl font-bold">
+                  Cancel
                 </button>
-                <button type="submit" form="item-form" disabled={isSubmitting} className="px-5 py-2 text-xs font-bold bg-[#0a6ed1] hover:bg-[#085caf] text-white rounded-lg shadow-xs cursor-pointer disabled:opacity-60">
-                  <CheckCircle2 className="w-4 h-4 inline mr-1" /> {isSubmitting ? "Saving..." : "Save Product SKU"}
+                <button type="submit" disabled={isSubmitting} className="px-5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center shadow-md">
+                  <Check className="w-4 h-4 mr-1" />
+                  Save Item Master
                 </button>
               </div>
-            </div>
-          </motion.div>
+            </form>
+          </div>
         </div>
       )}
-    </WorkspaceLayout>
+
+      {/* ================= BARCODE PRINT DIALOG ================= */}
+      {isBarcodeDialogOpen && (
+        <BarcodePrintDialog
+          products={products}
+          onClose={() => setIsBarcodeDialogOpen(false)}
+          onNotification={onNotification}
+        />
+      )}
+    </div>
   );
 };
+
+export default ItemMasterTab;
