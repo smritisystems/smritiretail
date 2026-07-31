@@ -12,6 +12,7 @@ import { EntityRegistry, EntityMetadata } from "./upr/forms/EntityRegistry.js";
 import { FormRegistry, FormDefinition } from "./upr/forms/FormRegistry.js";
 import { FieldRegistry, FieldControlComponent } from "./upr/forms/FieldRegistry.js";
 import { ValidationRegistry, ValidatorDefinition, ValidationContext } from "./upr/forms/ValidationRegistry.js";
+import { LayoutRegistry, LayoutDefinition } from "./upr/forms/LayoutRegistry.js";
 
 /* ── Kernel Interfaces ── */
 
@@ -279,6 +280,15 @@ export class SMRITIPlatformKernel {
     validateField: (validatorId: string, context: ValidationContext) => ValidationRegistry.validateField(validatorId, context),
     registerValidator: (validator: ValidatorDefinition) => ValidationRegistry.registerValidator(validator),
     subscribe: (listener: () => void) => ValidationRegistry.subscribe(listener)
+  };
+
+  /* ── Universal Layout Registry Facade (SPK.layouts / UFR-005) ── */
+  public layouts = {
+    getLayout: (id: string) => LayoutRegistry.getLayout(id),
+    getLayouts: () => LayoutRegistry.getLayouts(),
+    resolveGridClass: (span?: number, layoutId?: string) => LayoutRegistry.resolveGridClass(span, layoutId),
+    registerLayout: (layout: LayoutDefinition) => LayoutRegistry.registerLayout(layout),
+    subscribe: (listener: () => void) => LayoutRegistry.subscribe(listener)
   };
 
   /* ── Extension SDK (SPK.sdk) ── */

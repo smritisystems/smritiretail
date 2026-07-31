@@ -118,7 +118,7 @@ export const UniversalFormRenderer: React.FC<UniversalFormRendererProps> = ({
 
             <div className="grid grid-cols-12 gap-3">
               {section.fields.map((field) => {
-                const spanClass = `col-span-12 md:col-span-${field.gridSpan || 12}`;
+                const spanClass = SPK.layouts.resolveGridClass(field.gridSpan || 12);
                 const fieldError = errors[field.id];
 
                 return (
