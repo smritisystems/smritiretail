@@ -110,6 +110,18 @@ Every completion claim must be backed by directly observable evidence. If eviden
    - All domain metadata, icons, emojis, ordering, permissions, feature flags, and module relationships MUST be declared through metadata in the Universal Platform Registry (`UPR` / `SPK.navigation`).
    - Renderer components MUST act strictly as generic consumers of UPR metadata facade (`SPK.navigation.getSidebar(activeDomain)`).
    - Plugins and Industry Packs (e.g. Manufacturing, Restaurant, Medical, Jewellery) MUST extend navigation by registering domain metadata with UPR without modifying React UI component code.
+7. **Navigation Standard v1.0 Status (FROZEN)**:
+   - Rules `WNG-001` through `WNG-005` are officially **FROZEN v1.0**.
+   - No structural or procedural changes to navigation are permitted without an approved Architecture Decision Record (`docs/adr/ADR-xxx.md`).
+8. **Universal Platform Registry (UPR) Capability Naming Matrix**:
+   - `WNG`: Workspace Navigation Governance (`SPK.navigation`)
+   - `UFR`: Universal Form Registry (`SPK.forms`)
+   - `USR`: Universal Security Registry (`SPK.security`)
+   - `URR`: Universal Report Registry (`SPK.reports`)
+   - `UPRT`: Universal Print Registry (`SPK.printing`)
+   - `UWR`: Universal Workflow Registry (`SPK.workflow`)
+   - `UDR`: Universal Dashboard Registry (`SPK.dashboard`)
+   - `UAR`: Universal AI Skill Registry (`SPK.ai`)
 
 ---
 
