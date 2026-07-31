@@ -90,6 +90,15 @@ Every completion claim must be backed by directly observable evidence. If eviden
 3. **Consistent UI Structure**:
    - Master entities MUST implement the **Object Page Pattern** (Fixed summary header + horizontal tabs).
    - Transaction domains MUST implement the **List Report Pattern** (Filter bar + Search + Actionable Data Table).
+4. **Single Persistent Sidebar & Filter Drawer Architecture (WNG-003 — MANDATORY)**:
+   - Primary navigation belongs exclusively to the main left sidebar. Workspaces MUST NEVER render a second persistent navigation sidebar.
+   - UI regions MUST adhere strictly to clear architectural roles:
+     - **Primary Navigation**: Left sidebar ONLY.
+     - **Workspace Navigation**: Top tabs.
+     - **Filtering & Quick Views**: Slide-out drawer, collapsible filter panel, or top filter bar.
+     - **Actions**: Top toolbar.
+     - **Content**: Main grid / list workspace.
+   - Domain filtering (such as Master Registry trees, Categories, Brands, Quick Views) MUST be implemented as a toggleable slide-out filter drawer or collapsible filter bar, granting 100% horizontal width to content when closed.
 
 ---
 

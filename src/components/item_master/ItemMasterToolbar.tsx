@@ -19,7 +19,7 @@ import {
   RefreshCw,
   Printer,
   Search,
-  SlidersHorizontal
+  Filter
 } from "lucide-react";
 
 export type ItemMasterViewMode = "registry" | "excel-grid" | "attributes" | "templates" | "bulk" | "analytics";
@@ -34,6 +34,10 @@ interface ItemMasterToolbarProps {
   onRefresh: () => void;
   onOpenBarcodeHub: () => void;
   isReadOnly?: boolean;
+  onToggleFilterDrawer?: () => void;
+  isFilterDrawerOpen?: boolean;
+  hasActiveFilter?: boolean;
+  activeFilterLabel?: string;
 }
 
 export const ItemMasterToolbar: React.FC<ItemMasterToolbarProps> = ({
@@ -45,7 +49,11 @@ export const ItemMasterToolbar: React.FC<ItemMasterToolbarProps> = ({
   onNewProduct,
   onRefresh,
   onOpenBarcodeHub,
-  isReadOnly = false
+  isReadOnly = false,
+  onToggleFilterDrawer,
+  isFilterDrawerOpen = false,
+  hasActiveFilter = false,
+  activeFilterLabel
 }) => {
   const views: { id: ItemMasterViewMode; label: string; icon: React.ElementType }[] = [
     { id: "registry", label: "Master Registry", icon: Package },
@@ -82,6 +90,29 @@ export const ItemMasterToolbar: React.FC<ItemMasterToolbarProps> = ({
 
       {/* 2. Quick Search & Operational Action Buttons */}
       <div className="flex items-center gap-2">
+        {/* Slide-out Filter Drawer Toggle Button */}
+        {onToggleFilterDrawer && (
+          <button
+            onClick={onToggleFilterDrawer}
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer ${
+              hasActiveFilter
+                ? "bg-amber-500/10 text-amber-400 border-amber-500/40 shadow-xs"
+                : isFilterDrawerOpen
+                ? "bg-[#0a6ed1]/10 text-[#0a6ed1] border-[#0a6ed1]/40"
+                : "bg-theme-surface-2 text-theme-muted border-theme-divider hover:text-theme-heading hover:bg-theme-surface-hover"
+            }`}
+            title="Toggle Filter Drawer"
+          >
+            <Filter className="w-3.5 h-3.5 text-[#0a6ed1]" />
+            <span>Filters</span>
+            {hasActiveFilter && (
+              <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-black text-[10px] font-extrabold">
+                {activeFilterLabel || "1"}
+              </span>
+            )}
+          </button>
+        )}
+
         {/* Quick Search */}
         <div className="relative w-48 md:w-64">
           <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />

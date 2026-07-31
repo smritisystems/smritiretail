@@ -105,6 +105,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   const [viewMode, setViewMode] = useState<ItemMasterViewMode>("registry");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [activeFilter, setActiveFilter] = useState<ContextFilterState>({ type: "ALL", value: "ALL" });
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(products[0] || null);
   const [checkedProductIds, setCheckedProductIds] = useState<string[]>([]);
   const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState<boolean>(false);
@@ -439,6 +440,10 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
             onRefresh={onRefreshProducts}
             onOpenBarcodeHub={() => setIsBarcodeDialogOpen(true)}
             isReadOnly={isReadOnly}
+            onToggleFilterDrawer={() => setIsFilterDrawerOpen((prev) => !prev)}
+            isFilterDrawerOpen={isFilterDrawerOpen}
+            hasActiveFilter={activeFilter.type !== "ALL"}
+            activeFilterLabel={activeFilter.type !== "ALL" ? activeFilter.value : undefined}
           />
         }
       >
@@ -461,6 +466,10 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           onRefresh={onRefreshProducts}
           onOpenBarcodeHub={() => setIsBarcodeDialogOpen(true)}
           isReadOnly={isReadOnly}
+          onToggleFilterDrawer={() => setIsFilterDrawerOpen((prev) => !prev)}
+          isFilterDrawerOpen={isFilterDrawerOpen}
+          hasActiveFilter={activeFilter.type !== "ALL"}
+          activeFilterLabel={activeFilter.type !== "ALL" ? activeFilter.value : undefined}
         />
       }
     >
@@ -472,6 +481,8 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           categories={categories}
           brands={brands}
           lowStockCount={lowStockCount}
+          isOpen={isFilterDrawerOpen}
+          onClose={() => setIsFilterDrawerOpen(false)}
         />
 
         <ItemMasterMasterList
