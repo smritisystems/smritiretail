@@ -144,10 +144,20 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
   const [filterItemCodeTo, setFilterItemCodeTo] = useState<string>("");
   const [filterBarcodeFrom, setFilterBarcodeFrom] = useState<string>("");
   const [filterBarcodeTo, setFilterBarcodeTo] = useState<string>("");
+  const [filterProductFrom, setFilterProductFrom] = useState<string>("");
+  const [filterProductTo, setFilterProductTo] = useState<string>("");
   const [filterBrandFrom, setFilterBrandFrom] = useState<string>("");
   const [filterBrandTo, setFilterBrandTo] = useState<string>("");
   const [filterCategoryFrom, setFilterCategoryFrom] = useState<string>("");
   const [filterCategoryTo, setFilterCategoryTo] = useState<string>("");
+  const [filterSubCategoryFrom, setFilterSubCategoryFrom] = useState<string>("");
+  const [filterSubCategoryTo, setFilterSubCategoryTo] = useState<string>("");
+  const [filterDepartmentFrom, setFilterDepartmentFrom] = useState<string>("");
+  const [filterDepartmentTo, setFilterDepartmentTo] = useState<string>("");
+  const [filterSectionFrom, setFilterSectionFrom] = useState<string>("");
+  const [filterSectionTo, setFilterSectionTo] = useState<string>("");
+  const [filterStyleFrom, setFilterStyleFrom] = useState<string>("");
+  const [filterStyleTo, setFilterStyleTo] = useState<string>("");
 
   // Convert live Product array to PrintItemRow array
   const dynamicItemMasterRows = useMemo<PrintItemRow[]>(() => {
@@ -182,6 +192,42 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
       setPrintItems(SOURCE_DATASETS[selectedSource]);
     }
   }, [selectedSource, dynamicItemMasterRows]);
+
+  // Datalist options derived from liveProducts & printItems
+  const itemCodeOptions = useMemo(() => {
+    const set = new Set<string>();
+    liveProducts.forEach((p) => { if (p.sku) set.add(p.sku); if (p.code) set.add(p.code); });
+    printItems.forEach((i) => { if (i.itemCode) set.add(i.itemCode); });
+    return Array.from(set);
+  }, [liveProducts, printItems]);
+
+  const barcodeOptions = useMemo(() => {
+    const set = new Set<string>();
+    liveProducts.forEach((p) => { if (p.barcode) set.add(p.barcode); });
+    printItems.forEach((i) => { if (i.barcode) set.add(i.barcode); });
+    return Array.from(set);
+  }, [liveProducts, printItems]);
+
+  const productOptions = useMemo(() => {
+    const set = new Set<string>();
+    liveProducts.forEach((p) => { if (p.name) set.add(p.name); });
+    printItems.forEach((i) => { if (i.itemName) set.add(i.itemName); });
+    return Array.from(set);
+  }, [liveProducts, printItems]);
+
+  const brandOptions = useMemo(() => {
+    const set = new Set<string>();
+    liveProducts.forEach((p) => { if (p.brand) set.add(p.brand); });
+    printItems.forEach((i) => { if (i.brand) set.add(i.brand); });
+    return Array.from(set);
+  }, [liveProducts, printItems]);
+
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    liveProducts.forEach((p) => { if (p.category) set.add(p.category); });
+    printItems.forEach((i) => { if (i.category) set.add(i.category); });
+    return Array.from(set);
+  }, [liveProducts, printItems]);
 
   // Preview Index
   const [activePreviewIndex, setActivePreviewIndex] = useState<number>(0);
@@ -271,15 +317,35 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
   // Filter items in real-time based on Range Filters
   const filteredPrintItems = useMemo(() => {
     return printItems.filter((item) => {
-      if (filterItemCodeFrom && item.itemCode.toLowerCase() < filterItemCodeFrom.toLowerCase()) return false;
-      if (filterItemCodeTo && item.itemCode.toLowerCase() > filterItemCodeTo.toLowerCase()) return false;
-      if (filterBarcodeFrom && item.barcode < filterBarcodeFrom) return false;
-      if (filterBarcodeTo && item.barcode > filterBarcodeTo) return false;
-      if (filterBrandFrom && (item.brand || "").toLowerCase() < filterBrandFrom.toLowerCase()) return false;
-      if (filterBrandTo && (item.brand || "").toLowerCase() > filterBrandTo.toLowerCase()) return false;
+      const ic = (item.itemCode || "").toLowerCase();
+      const bc = (item.barcode || "").toLowerCase();
+      const name = (item.itemName || "").toLowerCase();
+      const brand = (item.brand || "").toLowerCase();
+      const cat = (item.category || "").toLowerCase();
+
+      if (filterItemCodeFrom && ic < filterItemCodeFrom.toLowerCase()) return false;
+      if (filterItemCodeTo && ic > filterItemCodeTo.toLowerCase()) return false;
+      if (filterBarcodeFrom && bc < filterBarcodeFrom.toLowerCase()) return false;
+      if (filterBarcodeTo && bc > filterBarcodeTo.toLowerCase()) return false;
+      if (filterProductFrom && !name.includes(filterProductFrom.toLowerCase())) return false;
+      if (filterProductTo && !name.includes(filterProductTo.toLowerCase())) return false;
+      if (filterBrandFrom && brand < filterBrandFrom.toLowerCase()) return false;
+      if (filterBrandTo && brand > filterBrandTo.toLowerCase()) return false;
+      if (filterCategoryFrom && cat < filterCategoryFrom.toLowerCase()) return false;
+      if (filterCategoryTo && cat > filterCategoryTo.toLowerCase()) return false;
+      if (filterStyleFrom && !(item.batchSerial || "").toLowerCase().includes(filterStyleFrom.toLowerCase())) return false;
+      if (filterStyleTo && !(item.batchSerial || "").toLowerCase().includes(filterStyleTo.toLowerCase())) return false;
       return true;
     });
-  }, [printItems, filterItemCodeFrom, filterItemCodeTo, filterBarcodeFrom, filterBarcodeTo, filterBrandFrom, filterBrandTo]);
+  }, [
+    printItems,
+    filterItemCodeFrom, filterItemCodeTo,
+    filterBarcodeFrom, filterBarcodeTo,
+    filterProductFrom, filterProductTo,
+    filterBrandFrom, filterBrandTo,
+    filterCategoryFrom, filterCategoryTo,
+    filterStyleFrom, filterStyleTo
+  ]);
 
   // Total Summaries
   const totalItems = filteredPrintItems.length;
@@ -400,10 +466,20 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
     setFilterItemCodeTo("");
     setFilterBarcodeFrom("");
     setFilterBarcodeTo("");
+    setFilterProductFrom("");
+    setFilterProductTo("");
     setFilterBrandFrom("");
     setFilterBrandTo("");
     setFilterCategoryFrom("");
     setFilterCategoryTo("");
+    setFilterSubCategoryFrom("");
+    setFilterSubCategoryTo("");
+    setFilterDepartmentFrom("");
+    setFilterDepartmentTo("");
+    setFilterSectionFrom("");
+    setFilterSectionTo("");
+    setFilterStyleFrom("");
+    setFilterStyleTo("");
     showToast("Filters reset to default");
   };
 
@@ -762,23 +838,42 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
 
             {isRangeFiltersExpanded && (
               <div className="grid grid-cols-3 gap-3 text-xs mt-3 animate-in fade-in duration-100">
+                {/* HTML Datalists for Auto-Lookup suggestions */}
+                <datalist id="item-code-list">
+                  {itemCodeOptions.map((code) => (<option key={code} value={code} />))}
+                </datalist>
+                <datalist id="barcode-list">
+                  {barcodeOptions.map((bc) => (<option key={bc} value={bc} />))}
+                </datalist>
+                <datalist id="product-list">
+                  {productOptions.map((p) => (<option key={p} value={p} />))}
+                </datalist>
+                <datalist id="brand-list">
+                  {brandOptions.map((b) => (<option key={b} value={b} />))}
+                </datalist>
+                <datalist id="category-list">
+                  {categoryOptions.map((c) => (<option key={c} value={c} />))}
+                </datalist>
+
                 {/* Row 1 */}
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Item Code</label>
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
+                      list="item-code-list"
                       placeholder="From"
                       value={filterItemCodeFrom}
                       onChange={(e) => setFilterItemCodeFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono"
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="text"
+                      list="item-code-list"
                       placeholder="To"
                       value={filterItemCodeTo}
                       onChange={(e) => setFilterItemCodeTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono"
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
@@ -788,17 +883,19 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
+                      list="barcode-list"
                       placeholder="From"
                       value={filterBarcodeFrom}
                       onChange={(e) => setFilterBarcodeFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono"
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="text"
+                      list="barcode-list"
                       placeholder="To"
                       value={filterBarcodeTo}
                       onChange={(e) => setFilterBarcodeTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono"
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
@@ -806,8 +903,22 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Product</label>
                   <div className="flex items-center space-x-1">
-                    <input type="text" placeholder="From" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono" />
-                    <input type="text" placeholder="To" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono" />
+                    <input
+                      type="text"
+                      list="product-list"
+                      placeholder="From"
+                      value={filterProductFrom}
+                      onChange={(e) => setFilterProductFrom(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
+                    />
+                    <input
+                      type="text"
+                      list="product-list"
+                      placeholder="To"
+                      value={filterProductTo}
+                      onChange={(e) => setFilterProductTo(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
+                    />
                   </div>
                 </div>
 
@@ -817,17 +928,19 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
+                      list="brand-list"
                       placeholder="From"
                       value={filterBrandFrom}
                       onChange={(e) => setFilterBrandFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs"
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="text"
+                      list="brand-list"
                       placeholder="To"
                       value={filterBrandTo}
                       onChange={(e) => setFilterBrandTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs"
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
@@ -837,17 +950,19 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
+                      list="category-list"
                       placeholder="From"
                       value={filterCategoryFrom}
                       onChange={(e) => setFilterCategoryFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs"
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="text"
+                      list="category-list"
                       placeholder="To"
                       value={filterCategoryTo}
                       onChange={(e) => setFilterCategoryTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs"
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
@@ -855,8 +970,22 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Sub Category</label>
                   <div className="flex items-center space-x-1">
-                    <input type="text" placeholder="From" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
-                    <input type="text" placeholder="To" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
+                    <input
+                      type="text"
+                      list="category-list"
+                      placeholder="From"
+                      value={filterSubCategoryFrom}
+                      onChange={(e) => setFilterSubCategoryFrom(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                    />
+                    <input
+                      type="text"
+                      list="category-list"
+                      placeholder="To"
+                      value={filterSubCategoryTo}
+                      onChange={(e) => setFilterSubCategoryTo(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                    />
                   </div>
                 </div>
 
@@ -864,24 +993,60 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Department</label>
                   <div className="flex items-center space-x-1">
-                    <input type="text" placeholder="From" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
-                    <input type="text" placeholder="To" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
+                    <input
+                      type="text"
+                      placeholder="From"
+                      value={filterDepartmentFrom}
+                      onChange={(e) => setFilterDepartmentFrom(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                    />
+                    <input
+                      type="text"
+                      placeholder="To"
+                      value={filterDepartmentTo}
+                      onChange={(e) => setFilterDepartmentTo(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                    />
                   </div>
                 </div>
 
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Section</label>
                   <div className="flex items-center space-x-1">
-                    <input type="text" placeholder="From" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
-                    <input type="text" placeholder="To" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
+                    <input
+                      type="text"
+                      placeholder="From"
+                      value={filterSectionFrom}
+                      onChange={(e) => setFilterSectionFrom(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                    />
+                    <input
+                      type="text"
+                      placeholder="To"
+                      value={filterSectionTo}
+                      onChange={(e) => setFilterSectionTo(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                    />
                   </div>
                 </div>
 
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Style</label>
                   <div className="flex items-center space-x-1">
-                    <input type="text" placeholder="From" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
-                    <input type="text" placeholder="To" className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs" />
+                    <input
+                      type="text"
+                      placeholder="From"
+                      value={filterStyleFrom}
+                      onChange={(e) => setFilterStyleFrom(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                    />
+                    <input
+                      type="text"
+                      placeholder="To"
+                      value={filterStyleTo}
+                      onChange={(e) => setFilterStyleTo(e.target.value)}
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                    />
                   </div>
                 </div>
               </div>
