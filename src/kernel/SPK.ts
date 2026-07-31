@@ -19,6 +19,11 @@ import { LicenseRegistry, LicenseMetadata } from "./upr/security/LicenseRegistry
 import { PolicyRegistry, PolicyDefinition, SecurityEvaluationContext } from "./upr/security/PolicyRegistry.js";
 import { TenantRegistry, TenantDefinition } from "./upr/security/TenantRegistry.js";
 import { AuditRegistry, SecurityAuditEvent } from "./upr/security/AuditRegistry.js";
+import { PlatformContext, createPlatformContext } from "./context/PlatformContext.js";
+import { BrandingRegistry, BrandingDefinition } from "./upr/configuration/BrandingRegistry.js";
+import { RegionalRegistry, RegionalConfig } from "./upr/configuration/RegionalRegistry.js";
+import { PreferenceRegistry, PreferenceScope } from "./upr/configuration/PreferenceRegistry.js";
+import { EnvironmentRegistry, EnvironmentConfig } from "./upr/configuration/EnvironmentRegistry.js";
 
 /* ── Kernel Interfaces ── */
 
@@ -381,6 +386,30 @@ export class SMRITIPlatformKernel {
       const reason = `Access granted for permission '${permissionId}'.`;
       AuditRegistry.logEvent({ userId, roleId, action: "evaluateAccess", permissionId, isAllowed: true, reason });
       return { allowed: true, permissionId, roleId, userId, tenantId, featureId, reason };
+    }
+  };
+
+  /* ── Universal Configuration Registry Facade (SPK.configuration / UCR) ── */
+  public configuration = {
+    branding: {
+      getBranding: () => BrandingRegistry.getBranding(),
+      updateBranding: (overrides: Partial<BrandingDefinition>) => BrandingRegistry.updateBranding(overrides),
+      subscribe: (listener: () => void) => BrandingRegistry.subscribe(listener)
+    },
+    regional: {
+      getConfig: () => RegionalRegistry.getConfig(),
+      updateConfig: (overrides: Partial<RegionalConfig>) => RegionalRegistry.updateConfig(overrides),
+      formatCurrency: (amount: number) => RegionalRegistry.formatCurrency(amount),
+      subscribe: (listener: () => void) => RegionalRegistry.subscribe(listener)
+    },
+    preferences: {
+      getPreference: <T = any>(key: string, defaultValue?: T) => PreferenceRegistry.getPreference<T>(key, defaultValue),
+      setPreference: (key: string, value: any, scope?: PreferenceScope) => PreferenceRegistry.setPreference(key, value, scope),
+      subscribe: (listener: () => void) => PreferenceRegistry.subscribe(listener)
+    },
+    environment: {
+      getConfig: () => EnvironmentRegistry.getConfig(),
+      subscribe: (listener: () => void) => EnvironmentRegistry.subscribe(listener)
     }
   };
 
