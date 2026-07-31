@@ -18,6 +18,7 @@
 import crypto from "crypto";
 import { roles, auditLogs, stockLedger } from "../state/store.js";
 import { apiFetchV1 } from "./apiFetchV1";
+import { pool } from "../db/pool.js";
 
 
 // ==========================================
@@ -82,11 +83,11 @@ export function calculateItemGstRate(category: string, price: number, defaultRat
 
 export async function allocateVoucherNumber(docType: string, context?: { branch?: string; fy?: string; user?: string; date?: string; authHeader?: string }): Promise<string> {
   try {
-    const pool = (globalThis as any).pool;
-    if (!pool) {
+    const activePool = pool || (globalThis as any).pool;
+    if (!activePool) {
       return docType.substring(0, 3).toUpperCase() + "-" + Date.now();
     }
-    const dbRes = await pool.query(
+    const dbRes = await activePool.query(
       `SELECT id FROM document_series 
        WHERE document_type = $1 AND is_deleted = false AND is_active = true 
        LIMIT 1`,
