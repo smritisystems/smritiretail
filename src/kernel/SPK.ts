@@ -24,6 +24,7 @@ import { BrandingRegistry, BrandingDefinition } from "./upr/configuration/Brandi
 import { RegionalRegistry, RegionalConfig } from "./upr/configuration/RegionalRegistry.js";
 import { PreferenceRegistry, PreferenceScope } from "./upr/configuration/PreferenceRegistry.js";
 import { EnvironmentRegistry, EnvironmentConfig } from "./upr/configuration/EnvironmentRegistry.js";
+import { WorkflowRegistry, WorkflowDefinition, WorkflowState } from "./upr/workflow/WorkflowRegistry.js";
 
 /* ── Kernel Interfaces ── */
 
@@ -411,6 +412,21 @@ export class SMRITIPlatformKernel {
       getConfig: () => EnvironmentRegistry.getConfig(),
       subscribe: (listener: () => void) => EnvironmentRegistry.subscribe(listener)
     }
+  };
+
+  /* ── Universal Workflow Registry Facade (SPK.workflow / UWR) ── */
+  public workflow = {
+    getWorkflow: (id: string) => WorkflowRegistry.getWorkflow(id),
+    getWorkflows: () => WorkflowRegistry.getWorkflows(),
+    executeTransition: (
+      workflowId: string,
+      currentState: WorkflowState,
+      transitionId: string,
+      context: Readonly<PlatformContext>,
+      entityValues?: Record<string, any>
+    ) => WorkflowRegistry.executeTransition(workflowId, currentState, transitionId, context, entityValues),
+    registerWorkflow: (workflow: WorkflowDefinition) => WorkflowRegistry.registerWorkflow(workflow),
+    subscribe: (listener: () => void) => WorkflowRegistry.subscribe(listener)
   };
 
   /* ── Extension SDK (SPK.sdk) ── */
