@@ -27,6 +27,7 @@ import { EnvironmentRegistry, EnvironmentConfig } from "./upr/configuration/Envi
 import { WorkflowRegistry, WorkflowDefinition, WorkflowState } from "./upr/workflow/WorkflowRegistry.js";
 import { ReportRegistry, ReportDefinition, ReportCategory } from "./upr/reports/ReportRegistry.js";
 import { PrintRegistry, PrintTemplateDefinition } from "./upr/printing/PrintRegistry.js";
+import { DashboardRegistry, DashboardDefinition } from "./upr/dashboard/DashboardRegistry.js";
 
 /* ── Kernel Interfaces ── */
 
@@ -450,6 +451,16 @@ export class SMRITIPlatformKernel {
       PrintRegistry.renderDocument(templateId, data, context),
     registerTemplate: (template: PrintTemplateDefinition) => PrintRegistry.registerTemplate(template),
     subscribe: (listener: () => void) => PrintRegistry.subscribe(listener)
+  };
+
+  /* ── Universal Dashboard Registry Facade (SPK.dashboard / UDR) ── */
+  public dashboard = {
+    getDashboard: (id: string) => DashboardRegistry.getDashboard(id),
+    getDashboards: () => DashboardRegistry.getDashboards(),
+    renderWidget: (widgetId: string, dashboardId: string, context: Readonly<PlatformContext>) =>
+      DashboardRegistry.renderWidget(widgetId, dashboardId, context),
+    registerDashboard: (dashboard: DashboardDefinition) => DashboardRegistry.registerDashboard(dashboard),
+    subscribe: (listener: () => void) => DashboardRegistry.subscribe(listener)
   };
 
   /* ── Extension SDK (SPK.sdk) ── */
