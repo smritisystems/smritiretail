@@ -173,6 +173,22 @@ Every completion claim must be backed by directly observable evidence. If eviden
 7. **UCR Standard v1.0 Status (FROZEN)**:
    - Rules `UCR-001` through `UCR-006` are officially **FROZEN v1.0**.
 
+## 15. Universal Workflow Governance (UWR Standard v1.0 — FROZEN)
+1. **Metadata-Driven Workflows (UWR-001 — MANDATORY)**:
+   - All entity state machines, states, and transition flows MUST be declared in UPR metadata (`WorkflowRegistry` / `SPK.workflow`).
+2. **Single Transition Execution Entry Point (UWR-002 — MANDATORY)**:
+   - State transitions MUST execute exclusively through `SPK.workflow.executeTransition()`.
+3. **Delegated Security Authorization (UWR-003 — MANDATORY)**:
+   - Workflow transition role and permission checks MUST delegate exclusively to `SPK.security`.
+4. **Delegated Validation Engine (UWR-004 — MANDATORY)**:
+   - Pre-transition business rule validations MUST delegate exclusively to `SPK.validation`.
+5. **Immutable Context Enforcement (UWR-005 — MANDATORY)**:
+   - Workflow execution MUST consume immutable `PlatformContext`.
+6. **No Custom Workflow Engines (UWR-006 — MANDATORY)**:
+   - Retail business modules MUST NOT implement custom procedural workflow engines or state switch statements.
+7. **UWR Standard v1.0 Status (FROZEN)**:
+   - Rules `UWR-001` through `UWR-006` are officially **FROZEN v1.0**.
+
 ---
 
 
