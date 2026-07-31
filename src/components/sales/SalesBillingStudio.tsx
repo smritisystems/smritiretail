@@ -35,6 +35,7 @@ import { Product } from "../../types";
 import { SPK } from "../../kernel/SPK";
 import { IItemService } from "../../kernel/public/IItemService";
 import { ICustomerService } from "../../kernel/public/ICustomerService";
+import { ITaxResolutionEngine } from "../../kernel/public/ITaxResolutionEngine";
 
 export interface SalesBillingStudioProps {
   products?: Product[];
@@ -410,28 +411,35 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
   // STRE Tax Engine Integration (TG-001 / TG-002)
   const taxCalculation = useMemo(() => {
-    const custState = gstin && gstin.length >= 2 ? gstin.substring(0, 2) : "27";
-    const taxCtx: TaxContext = {
-      companyState: "27",
-      customerState: custState,
-      customerGstin: gstin,
-      customerGroupTaxProfile: taxProfile,
-      documentDate: new Date().toISOString().split("T")[0],
-      placeOfSupply: custState,
-      pricingPolicy: "EXCLUSIVE",
-      currency: "INR",
-      items: items.map((i) => ({
-        itemId: i.id,
-        itemCode: i.barcode,
-        itemName: i.name,
-        hsnCode: i.hsnCode,
-        quantity: i.qty,
-        unitPrice: i.rate * (1 - i.discountPct / 100),
-      })),
-    };
+    try {
+      const taxEngine = SPK.services.resolve<ITaxResolutionEngine>("TAX_ENGINE");
+      const companyState = "Maharashtra";
+      const placeOfSupply = gstin && gstin.length >= 2 ? "Maharashtra" : "Maharashtra";
+      const docDate = new Date().toISOString().slice(0, 10);
 
-    return STRE.calculate(taxCtx);
-  }, [items, gstin, taxProfile]);
+      const snapshot = taxEngine.createDocumentTaxSnapshot(
+        companyState,
+        placeOfSupply,
+        docDate,
+        items.map((i) => ({
+          itemId: i.id,
+          itemCode: i.barcode,
+          itemName: i.name,
+          hsnCode: i.hsnCode || "8471",
+          unitPrice: i.rate,
+          qty: i.qty,
+          discountPct: i.discountPct,
+          companyState,
+          placeOfSupply,
+          documentDate: docDate,
+          transactionType: isCorporateClient ? "B2B" : "B2C"
+        }))
+      );
+      return snapshot;
+    } catch {
+      return { totalTaxAmount: 0, totalCgstAmount: 0, totalSgstAmount: 0, totalIgstAmount: 0, totalTaxableValue: 0, supplyType: "INTRASTATE" as const, isInterstate: false };
+    }
+  }, [items, gstin, isCorporateClient]);
 
   // Calculation Summaries matching screenshot
   const itemsTotal = useMemo(() => {
