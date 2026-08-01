@@ -14,6 +14,7 @@
  */
 
 
+import logger from "../core/logging/logger.js";
 import { hashPassword } from "../lib/helpers.js";
 import { initialSalesInvoices, initialSalesReturns } from "../services/customerStore.js";
 import { Product, POSProfile, Shift, FieldInfo, Formula, PSVParty, Bill, Quotation, SalesOrder, SalesInvoice, SalesReturn, Customer, CustomerGroup, User } from "../types.js";
@@ -55,6 +56,8 @@ export let branches: any[] = [];
 export let customers: Customer[] = [];
 export let customerGroups: CustomerGroup[] = [];
 
+import logger from "../core/logging/logger.js";
+
 export const sessions: Record<string, {
   username: string;
   userId: string;
@@ -93,7 +96,7 @@ export function saveDb() {
       window.localStorage.setItem(LOCAL_DB_KEY, JSON.stringify(data));
     }
   } catch (e) {
-    console.error("Failed to write to local database:", e);
+    logger.error("Failed to write to local database:", e as unknown);
   }
 }
 
@@ -119,9 +122,9 @@ export function loadDb() {
         if (data.variantTemplates) variantTemplates = data.variantTemplates;
         if (data.categoryAttributeGroupMappings) categoryAttributeGroupMappings = data.categoryAttributeGroupMappings;
         if (data.roles) roles = data.roles;
-        console.log("[Local DB] Loaded data successfully from localStorage!");
+        logger.info("[Local DB] Loaded data successfully from localStorage!");
       } else {
-        console.log("[Local DB] Initializing with default seeded data...");
+        logger.info("[Local DB] Initializing with default seeded data...");
         saveDb();
       }
     }

@@ -23,6 +23,7 @@
  * * License    : Proprietary Commercial Software
  */
 
+import logger from "../../core/logging/logger.js";
 import { ContextAction } from "../ContextAction.ts";
 import { registry } from "../ContextRegistry.ts";
 
@@ -331,7 +332,7 @@ export const registerAllDefaultActions = (addNotification: (n: any) => void) => 
       category: "Developer",
       visible: context => context.role === "Store Manager" || context.role === "Admin",
       onClick: context => {
-        console.log("[ACAS Debug] Raw Context Object:", context);
+        logger.debug("[ACAS Debug] Raw Context Object:", context);
         alert(`SMRITI ACAS Developer Inspection:\n\n` + JSON.stringify(context, null, 2));
       }
     },

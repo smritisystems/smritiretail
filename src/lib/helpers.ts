@@ -16,6 +16,7 @@
  */
 
 import * as crypto from "crypto";
+import logger from "../core/logging/logger.js";
 import { roles, auditLogs, stockLedger } from "../state/store.js";
 import { apiFetchV1 } from "./apiFetchV1";
 import { pool } from "../db/pool.js";

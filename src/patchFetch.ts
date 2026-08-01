@@ -24,7 +24,7 @@
  */
 
 import { Buffer } from "buffer";
-
+import logger from "./core/logging/logger.js";
 
 if (typeof window !== "undefined") {
   (window as any).Buffer = (window as any).Buffer || Buffer;
@@ -46,6 +46,8 @@ Response.prototype.json = async function() {
     throw new Error(`Invalid JSON response: ${text.substring(0, 100)}`);
   }
 };
+
+import logger from "./core/logging/logger.js";
 
 const originalFetch = window.fetch;
 const patchedFetch = function(this: any, input: RequestInfo | URL, init?: RequestInit) {
@@ -77,7 +79,7 @@ try {
       enumerable: true
     });
   } catch (err) {
-    console.warn("Failed to patch window.fetch directly, using a custom global reference:", err);
+    logger.warn("Failed to patch window.fetch directly, using a custom global reference:", err as unknown);
   }
 }
 
