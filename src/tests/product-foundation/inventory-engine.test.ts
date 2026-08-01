@@ -44,7 +44,7 @@ describe('Inventory engine foundation', () => {
 
   it('warns when negative stock policy is WARN and movement goes below zero', () => {
     const settingsService = new InventorySettingsService({
-      defaultSettings: { costingMethod: 'fifo', negativeStockPolicy: 'WARN' },
+      defaultSettings: { costingMethod: 'fifo', negativeStockPolicy: 'WARN' as any },
     });
     const ledger = new StockLedgerService(settingsService);
     const entry = { itemId: 'sku-400', quantity: 2 };
@@ -200,10 +200,10 @@ describe('Inventory engine foundation', () => {
       taxRateId: 'gst-9',
     });
 
-    expect(saleResult.finalInventory.quantity).toBe(30);
-    expect(saleResult.finalInventory.costLayers).toHaveLength(1);
-    expect(saleResult.finalInventory.costLayers?.[0]).toEqual({ quantity: 30, unitCost: 60 });
-    expect(saleResult.finalInventory.inventoryValue).toBe(1800);
-    expect(saleResult.finalInventory.lastIssuedCost).toBe(6200);
+    expect((saleResult.finalInventory as any).quantity).toBe(30);
+    expect((saleResult.finalInventory as any).costLayers).toHaveLength(1);
+    expect((saleResult.finalInventory as any).costLayers?.[0]).toEqual({ quantity: 30, unitCost: 60 });
+    expect((saleResult.finalInventory as any).inventoryValue).toBe(1800);
+    expect((saleResult.finalInventory as any).lastIssuedCost).toBe(6200);
   });
 });

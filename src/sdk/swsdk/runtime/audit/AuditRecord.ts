@@ -1,6 +1,8 @@
+import type { PlatformMessageType } from "../kernel/PlatformMessage.js";
+
 export interface AuditRecord {
   id: string;
-  type: "KernelEvent" | "EventEnvelope" | "NotificationReceipt" | "ValidationResult" | "HealthStatus";
+  type: PlatformMessageType;
   source: string;
   payload: Record<string, unknown>;
   timestamp: string;

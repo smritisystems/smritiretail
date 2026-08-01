@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ApprovalService } from '../../application/approvalService';
+import { ApprovalService } from '../application/approvalService.js';
 
 describe('Approval workflow engine', () => {
   it('supports multi-level approval, task assignment, and step progression', () => {
@@ -28,7 +28,7 @@ describe('Approval workflow engine', () => {
     workflow = approval.approveStep(workflow, 'step-2');
     expect(workflow.status).toBe('approved');
     expect(workflow.currentStepId).toBeUndefined();
-    expect(workflow.steps.every((step) => step.status === 'approved')).toBe(true);
+    expect(workflow.steps.every((step: any) => step.status === 'approved')).toBe(true);
   });
 
   it('escalates steps on SLA breach and manual escalation', () => {

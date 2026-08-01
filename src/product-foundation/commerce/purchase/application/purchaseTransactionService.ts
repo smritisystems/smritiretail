@@ -297,6 +297,8 @@ export class PurchaseTransactionService {
     const result = pipeline.execute(transactionContext);
     const finalContext = result.context;
 
+    const outstanding = this.ledgerService.getOutstanding('supplier', request.supplierId);
+
     return {
       workflow: finalContext.workflow!,
       invoiceLines: finalContext.invoiceLines ?? [],
@@ -307,7 +309,7 @@ export class PurchaseTransactionService {
       documentContext: finalContext.documentContext!,
       inventoryEntry: finalContext.finalInventory ?? request.inventoryEntry,
       paymentResult: finalContext.paymentResult,
-      outstanding: finalContext.outstanding ?? 0,
+      outstanding: finalContext.outstanding ?? outstanding ?? 0,
       transactionContext: finalContext,
     };
   }

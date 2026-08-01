@@ -89,7 +89,7 @@ export class PricingEngine {
   }
 
   private calculateDiscounts(context: PricingContext, basePrice: number, rules: PriceRule[]): number {
-    const quantity = context.quantity;
+    const quantity = context.quantity ?? 1;
     let discountTotal = 0;
 
     const discountRules = rules.filter((rule) => ['flatDiscount', 'percentageDiscount', 'coupon', 'loyalty', 'promotion', 'buyXGetY'].includes(rule.type));

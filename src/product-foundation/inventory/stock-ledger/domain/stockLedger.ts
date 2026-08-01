@@ -56,16 +56,14 @@ export class StockLedgerEngine {
     let warnings: string[] = entry.warnings ? [...entry.warnings] : [];
 
     if (movement.type === 'in') {
-      if (movement.unitCost === undefined) {
-        throw new Error('Incoming stock requires unitCost for costing.');
-      }
+      const unitCost = movement.unitCost ?? 0;
 
       updatedOnHand = round(onHand + movement.quantity);
       updatedLayers = [
         ...updatedLayers,
         {
           quantity: movement.quantity,
-          unitCost: movement.unitCost,
+          unitCost,
           batchId: movement.batchId,
           expiryDate: movement.expiryDate,
           serialNumbers: movement.serialNumbers,

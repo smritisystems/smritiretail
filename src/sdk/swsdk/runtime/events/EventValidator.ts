@@ -11,7 +11,7 @@ export interface ValidationResult {
 }
 
 export class EventValidator {
-  public static validate<T = Record<string, unknown>>(envelope: EventEnvelope<T>): ValidationResult {
+  public static validate<T extends Record<string, unknown> = Record<string, unknown>>(envelope: EventEnvelope<T>): ValidationResult {
     const envelopeErrors: string[] = [];
     const schemaErrors: string[] = [];
     const registryErrors: string[] = [];

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { GstService } from '../application/gstService';
+import type { TaxContext } from '../domain/tax';
 
 describe('GST engine', () => {
   it('calculates exclusive CGST/SGST and total', () => {
     const service = new GstService();
     const rules = [{ id: 'gst-18', rate: 0.18 }];
-    const context = { itemId: 'sku-1', baseAmount: 1000, taxRateId: 'gst-18', taxMode: 'exclusive', supplyType: 'intra-state' };
+    const context: TaxContext = { itemId: 'sku-1', baseAmount: 1000, taxRateId: 'gst-18', taxMode: 'exclusive', supplyType: 'intra-state' };
 
     const breakdown = service.calculateBreakdown(context, rules);
 
@@ -20,7 +21,7 @@ describe('GST engine', () => {
   it('calculates inclusive CGST/SGST breakdown correctly', () => {
     const service = new GstService();
     const rules = [{ id: 'gst-18', rate: 0.18 }];
-    const context = { itemId: 'sku-1', baseAmount: 1180, taxRateId: 'gst-18', taxMode: 'inclusive', supplyType: 'intra-state' };
+    const context: TaxContext = { itemId: 'sku-1', baseAmount: 1180, taxRateId: 'gst-18', taxMode: 'inclusive', supplyType: 'intra-state' };
 
     const breakdown = service.calculateBreakdown(context, rules);
 
@@ -34,7 +35,7 @@ describe('GST engine', () => {
   it('calculates inter-state IGST for exclusive tax', () => {
     const service = new GstService();
     const rules = [{ id: 'gst-28', rate: 0.28 }];
-    const context = { itemId: 'sku-2', baseAmount: 500, taxRateId: 'gst-28', taxMode: 'exclusive', supplyType: 'inter-state' };
+    const context: TaxContext = { itemId: 'sku-2', baseAmount: 500, taxRateId: 'gst-28', taxMode: 'exclusive', supplyType: 'inter-state' };
 
     const breakdown = service.calculateBreakdown(context, rules);
 
@@ -48,7 +49,7 @@ describe('GST engine', () => {
   it('calculates cess and reverse charge correctly', () => {
     const service = new GstService();
     const rules = [{ id: 'gst-5-cess', rate: 0.05, cessRate: 0.02 }];
-    const context = {
+    const context: TaxContext = {
       itemId: 'sku-3',
       baseAmount: 1000,
       taxRateId: 'gst-5-cess',

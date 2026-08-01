@@ -11,13 +11,13 @@ import { FormFieldDefinition } from "./FormRegistry.js";
 
 type FieldControlProps = any;
 
-const {
+import {
   DefaultTextInputControl,
   DefaultNumberInputControl,
   DefaultSelectControl,
   DefaultCheckboxControl,
-  DefaultTextareaControl
-} = require("../../../components/fields/DefaultFieldControls");
+  DefaultTextareaControl,
+} from '../../../components/fields/DefaultFieldControls';
 export type FieldControlComponent = React.ComponentType<FieldControlProps>;
 
 export interface FieldManifest {

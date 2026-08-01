@@ -36,7 +36,7 @@ describe("event graph validation", () => {
     for (const manifest of manifests) {
       const lifecycle = manifest.events?.lifecycle ?? {};
       for (const [eventName, state] of Object.entries(lifecycle)) {
-        expect(validEventLifecycleStates.has(state)).toBe(true);
+        expect(validEventLifecycleStates.has(state as string)).toBe(true);
       }
 
       for (const eventName of manifest.events?.publishes || []) {

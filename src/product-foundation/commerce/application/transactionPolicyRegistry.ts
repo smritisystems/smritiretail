@@ -160,7 +160,7 @@ TransactionPolicyRegistry.registerPolicy({
 
 TransactionPolicyRegistry.registerPolicy({
   policyName: 'PurchaseInvoice',
-  stages: ['workflow', 'pricing', 'movement', 'tax', 'posting', 'document', 'ledger', 'payment'],
+  stages: ['workflow', 'pricing', 'reservation', 'movement', 'tax', 'posting', 'document', 'ledger', 'payment'],
   stageRequirements: {
     workflow: 'required',
     pricing: 'required',
@@ -176,7 +176,7 @@ TransactionPolicyRegistry.registerPolicy({
 
 TransactionPolicyRegistry.registerPolicy({
   policyName: 'SalesReturn',
-  stages: ['workflow', 'pricing', 'movement', 'tax', 'posting', 'print', 'finalize'],
+  stages: ['workflow', 'pricing', 'reservation', 'movement', 'tax', 'posting', 'ledger', 'document', 'print', 'finalize'],
   stageRequirements: {
     workflow: 'required',
     pricing: 'required',
@@ -191,7 +191,7 @@ TransactionPolicyRegistry.registerPolicy({
 
 TransactionPolicyRegistry.registerPolicy({
   policyName: 'PurchaseReturn',
-  stages: ['workflow', 'pricing', 'movement', 'tax', 'posting', 'print', 'finalize'],
+  stages: ['workflow', 'pricing', 'reservation', 'movement', 'tax', 'posting', 'ledger', 'document', 'print', 'finalize'],
   stageRequirements: {
     workflow: 'required',
     pricing: 'required',
@@ -206,7 +206,7 @@ TransactionPolicyRegistry.registerPolicy({
 
 TransactionPolicyRegistry.registerPolicy({
   policyName: 'StockTransfer',
-  stages: ['workflow', 'movement', 'posting', 'finalize'],
+  stages: ['workflow', 'pricing', 'reservation', 'movement', 'tax', 'posting', 'ledger', 'document', 'finalize'],
   stageRequirements: {
     workflow: 'required',
     movement: 'required',
@@ -218,11 +218,10 @@ TransactionPolicyRegistry.registerPolicy({
 
 TransactionPolicyRegistry.registerPolicy({
   policyName: 'PhysicalStock',
-  stages: ['workflow', 'posting', 'finalize'],
+  stages: ['workflow', 'pricing', 'reservation', 'movement', 'tax', 'posting', 'ledger'],
   stageRequirements: {
     workflow: 'required',
     posting: 'required',
-    finalize: 'optional',
   },
   description: 'Physical stock adjustment pipeline with posting stage.',
 });

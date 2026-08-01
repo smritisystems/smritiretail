@@ -184,6 +184,24 @@ export class SalesTransactionService {
           data: { taxBreakdown: { cgst, sgst, igst, totalTax } },
         };
       },
+      posting: (context: SalesTransactionContext) => {
+        const journalEntry = this.postingService.postSalesTransaction(
+          context.transactionId,
+          context.partyId,
+          `Sales ${context.transactionId} to ${context.partyId}`,
+          context.netAmount ?? 0,
+          context.taxBreakdown ?? { cgst: 0, sgst: 0, igst: 0, totalTax: 0 }
+        );
+
+        return {
+          stage: 'posting',
+          success: true,
+          startedAt: new Date().toISOString(),
+          completedAt: new Date().toISOString(),
+          durationMs: 0,
+          data: { journalEntry },
+        };
+      },
       document: (context: SalesTransactionContext) => {
         const documentResult = this.documentLifecycleService.createDocument(
           {
@@ -310,6 +328,8 @@ export class SalesTransactionService {
     const result = pipeline.execute(transactionContext);
     const finalContext = result.context;
 
+    const outstanding = this.ledgerService.getOutstanding('customer', request.customerId);
+
     return {
       workflow: finalContext.workflow!,
       invoiceLines: finalContext.invoiceLines ?? [],
@@ -321,7 +341,7 @@ export class SalesTransactionService {
       reservedInventory: finalContext.reservedInventory ?? { itemId: request.inventoryEntry.itemId, quantity: request.inventoryEntry.quantity },
       finalInventory: finalContext.finalInventory ?? { itemId: request.inventoryEntry.itemId, quantity: request.inventoryEntry.quantity },
       paymentResult: finalContext.paymentResult,
-      outstanding: finalContext.outstanding ?? 0,
+      outstanding: finalContext.outstanding ?? outstanding ?? 0,
       transactionContext: finalContext,
     };
   }

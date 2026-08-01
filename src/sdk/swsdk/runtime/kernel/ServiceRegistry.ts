@@ -55,14 +55,16 @@ export class ServiceRegistry {
   }
 
   public health(): Record<string, ServiceHealth> {
-    return Object.fromEntries(this.services.entries()).reduce<Record<string, ServiceHealth>>((accumulator, [id, service]) => {
+    return Array.from(this.services.entries()).reduce<Record<string, ServiceHealth>>((accumulator, entry) => {
+      const [id, service] = entry as [string, IPlatformService];
       accumulator[id] = service.health();
       return accumulator;
     }, {});
   }
 
   public metrics(): Record<string, ServiceMetrics> {
-    return Object.fromEntries(this.services.entries()).reduce<Record<string, ServiceMetrics>>((accumulator, [id, service]) => {
+    return Array.from(this.services.entries()).reduce<Record<string, ServiceMetrics>>((accumulator, entry) => {
+      const [id, service] = entry as [string, IPlatformService];
       accumulator[id] = service.metrics();
       return accumulator;
     }, {});

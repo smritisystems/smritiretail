@@ -252,7 +252,7 @@ describe("SWSDK platform event service", () => {
       tenantId: "tenant-a"
     });
 
-    delete (envelope as Partial<Record<string, unknown>>).correlationId;
+    delete (envelope as unknown as Partial<Record<string, unknown>>).correlationId;
     const validation = EventValidator.validate(envelope);
 
     expect(validation.valid).toBe(false);

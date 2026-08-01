@@ -60,6 +60,10 @@ export class NotificationRegistry {
     return this.bindings.get(`${eventType}:${templateId}`);
   }
 
+  public listBindings(): NotificationBinding[] {
+    return Array.from(this.bindings.values());
+  }
+
   public isChannelSupported(channel: string): boolean {
     return this.channels.has(channel);
   }

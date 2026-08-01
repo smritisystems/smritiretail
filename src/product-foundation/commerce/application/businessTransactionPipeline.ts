@@ -269,6 +269,15 @@ export class BusinessTransactionPipeline<C extends BusinessTransactionContext> {
     };
 
     DomainEventBus.publish(eventType, payload);
+    // Publish legacy alias without the 'Stage' token for backward compatibility
+    try {
+      const alias = eventType.replace('Stage', '');
+      if (alias !== eventType) {
+        DomainEventBus.publish(alias, payload);
+      }
+    } catch (err) {
+      // no-op if aliasing fails
+    }
   }
 }
 

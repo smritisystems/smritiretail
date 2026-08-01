@@ -62,6 +62,7 @@ export class StockTransferService {
           id: `trf-${context.transactionId}-in`,
           quantity: context.toEntry.quantity,
           type: 'in',
+          unitCost: 0,
         });
 
         return {

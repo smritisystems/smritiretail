@@ -10,6 +10,7 @@ import { LifecycleManager } from "../sdk/swsdk/runtime/kernel/LifecycleManager.j
 import { createKernelManifest } from "../sdk/swsdk/runtime/kernel/KernelManifest.js";
 import { KernelBootstrap } from "../sdk/swsdk/runtime/kernel/KernelBootstrap.js";
 import { createPlatformMessage, type PlatformMessage } from "../sdk/swsdk/runtime/kernel/PlatformMessage.js";
+import PlatformKernelValidator from "../kernel/PlatformKernelValidator.js";
 
 const createTestService = (id: string, dependencies: string[] = []): IPlatformService => ({
   id,

@@ -106,10 +106,13 @@ export class SalesReturnService {
         };
       },
       movement: (context) => {
+        const unitCost = context.invoiceLines && context.invoiceLines.length ? context.invoiceLines[0].unitPrice : 0;
+        const totalQuantity = context.items.reduce((sum, it) => sum + it.quantity, 0);
         const inventoryResult = this.inventoryService.applyMovement(context.inventoryEntry, {
           id: `sret-${context.transactionId}`,
-          quantity: context.inventoryEntry.quantity,
+          quantity: totalQuantity,
           type: 'in',
+          unitCost,
         });
 
         return {

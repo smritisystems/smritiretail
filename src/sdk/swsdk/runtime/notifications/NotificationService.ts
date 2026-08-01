@@ -12,6 +12,7 @@ import { createNotificationLifecycle, NotificationLifecycleStatus } from "./Noti
 import { createNotificationReceipt, type NotificationReceipt } from "./NotificationReceipt.js";
 import { DefaultDeliveryPolicy, type DeliveryPolicy } from "./DeliveryPolicy.js";
 import { NotificationRegistry, type NotificationTemplate } from "./NotificationRegistry.js";
+import type { NotificationHealth } from "./NotificationHealth.js";
 import { TemplateRenderer } from "./TemplateRenderer.js";
 
 export interface NotificationAdapter {
@@ -20,12 +21,13 @@ export interface NotificationAdapter {
 }
 
 export class NotificationService implements IPlatformService {
+  public id = "notification-service";
   private readonly renderer = new TemplateRenderer();
   private readonly seenIds = new Set<string>();
   private readonly receipts: NotificationReceipt[] = [];
   private readonly policies = new Map<string, DeliveryPolicy>();
   public context: ServiceContext;
-  private readonly health: NotificationHealth = {
+  private readonly healthState: NotificationHealth = {
     queued: 0,
     sent: 0,
     failed: 0,
@@ -66,29 +68,29 @@ export class NotificationService implements IPlatformService {
   }
 
   public stop(): void {
-    this.health.suppressed = 0;
+    this.healthState.suppressed = 0;
   }
 
   public dispose(): void {
-    this.health.suppressed = 0;
+    this.healthState.suppressed = 0;
   }
 
   public health(): ServiceHealth {
     return createServiceHealth({
-      status: this.health.failed > 0 ? HealthStatus.Degraded : HealthStatus.Healthy,
+      status: this.healthState.failed > 0 ? HealthStatus.Degraded : HealthStatus.Healthy,
       dependencies: ["event-service"],
       version: this.version(),
       metrics: {
-        queued: this.health.queued,
-        sent: this.health.sent,
-        failed: this.health.failed,
-        suppressed: this.health.suppressed
+        queued: this.healthState.queued,
+        sent: this.healthState.sent,
+        failed: this.healthState.failed,
+        suppressed: this.healthState.suppressed
       }
     });
   }
 
   public metrics(): ServiceMetrics {
-    return { ...this.metricsState, success: this.health.sent, failure: this.health.failed, queueDepth: this.health.queued };
+    return { ...this.metricsState, success: this.healthState.sent, failure: this.healthState.failed, queueDepth: this.healthState.queued };
   }
 
   public validate(): ValidationResult {
@@ -113,7 +115,7 @@ export class NotificationService implements IPlatformService {
   }
 
   public async handle(envelope: EventEnvelope): Promise<void> {
-    const bindings = Array.from(this.registry.bindings.values());
+    const bindings = this.registry.listBindings();
     const relevant = bindings.filter((binding) => binding.eventType === envelope.eventType);
 
     for (const binding of relevant) {
@@ -135,11 +137,11 @@ export class NotificationService implements IPlatformService {
       });
 
       if (this.seenIds.has(notificationEnvelope.id)) {
-        this.health.suppressed += 1;
+        this.healthState.suppressed += 1;
         continue;
       }
       this.seenIds.add(notificationEnvelope.id);
-      this.health.queued += 1;
+      this.healthState.queued += 1;
 
       const lifecycle = createNotificationLifecycle(NotificationLifecycleStatus.Rendering);
       const policy = this.policies.get(template.id) ?? DefaultDeliveryPolicy;
@@ -149,7 +151,7 @@ export class NotificationService implements IPlatformService {
       for (const adapter of this.adapters) {
         try {
           await adapter.send(template, binding.context, adaptedEnvelope);
-          this.health.sent += 1;
+          this.healthState.sent += 1;
           this.receipts.push(createNotificationReceipt({
             notificationId: notificationEnvelope.id,
             adapter: adapter.kind,
@@ -159,8 +161,8 @@ export class NotificationService implements IPlatformService {
             metadata: { lifecycle: lifecycle.status, policy: policy.kind }
           }));
         } catch {
-          this.health.failed += 1;
-          this.health.deadLetter += 1;
+          this.healthState.failed += 1;
+          this.healthState.deadLetter += 1;
           this.receipts.push(createNotificationReceipt({
             notificationId: notificationEnvelope.id,
             adapter: adapter.kind,
@@ -175,6 +177,6 @@ export class NotificationService implements IPlatformService {
   }
 
   public getHealth(): NotificationHealth {
-    return { ...this.health };
+    return { ...this.healthState };
   }
 }

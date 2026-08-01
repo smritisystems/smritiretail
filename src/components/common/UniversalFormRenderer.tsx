@@ -88,7 +88,7 @@ export const UniversalFormRenderer: React.FC<UniversalFormRendererProps> = ({
       <FieldControlComponent
         field={field}
         value={val}
-        onChange={(newVal) => handleFieldChange(field.id, newVal)}
+        onChange={(newVal: unknown) => handleFieldChange(field.id, newVal)}
         error={fieldError}
         isReadOnly={isReadOnly}
       />
