@@ -24,6 +24,7 @@
  */
 
 import * as dotenv from "dotenv";
+import logger from "../core/logging/logger.js";
 import { IProductRepository, ICustomerRepository, IShiftRepository, ISalesInvoiceRepository, IAuditRepository, ISyncRepository, IUserRepository, IPOSProfileRepository, IPurchaseRepository, IStateRepository } from "../core/interfaces/db.js";
 import { PostgresProductRepository, PostgresCustomerRepository, PostgresShiftRepository, PostgresSalesInvoiceRepository, PostgresAuditRepository, PostgresSyncRepository, PostgresUserRepository, PostgresPOSProfileRepository, PostgresPurchaseRepository, PostgresStateRepository } from "../db/postgres/PostgresRepositories.js";
 import { SqliteProductRepository, SqliteCustomerRepository, SqliteShiftRepository, SqliteSalesInvoiceRepository, SqliteAuditRepository, SqliteSyncRepository, SqliteUserRepository, SqlitePOSProfileRepository, SqlitePurchaseRepository, SqliteStateRepository } from "../db/sqlite/SqliteRepositories.js";
@@ -83,13 +84,13 @@ export function bootstrapDI(): DIContainer {
     return instances as DIContainer;
   }
 
-  console.log(`[SMRITI Bootstrap] Initializing Platform Abstraction Layer (PAL) with DATABASE_PROVIDER: ${dbProvider}`);
+  logger.info(`[SMRITI Bootstrap] Initializing Platform Abstraction Layer (PAL) with DATABASE_PROVIDER: ${dbProvider}`);
 
   /* Validate the platform kernel and document orchestration metadata before SPK startup */
   const startupValidation = PlatformKernelValidator.validate();
   if (!startupValidation.valid) {
-    console.error("[SPK Kernel Validation] startup halted due to kernel policy validation errors:", startupValidation.errors);
-    throw new Error("Platform kernel validation failed. See console for details.");
+    logger.error("[SPK Kernel Validation] startup halted due to kernel policy validation errors:", startupValidation.errors as unknown);
+    throw new Error("Platform kernel validation failed. See logs for details.");
   }
 
   /* Initialize SMRITI Platform Kernel (SPK) */

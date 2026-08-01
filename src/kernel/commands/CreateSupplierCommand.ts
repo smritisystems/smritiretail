@@ -26,7 +26,7 @@ export class CreateSupplierCommandHandler implements ICommandHandler<CreateSuppl
       throw new Error("[UVE Validation Error] Supplier contact mobile number is required.");
     }
 
-    console.log(`[SPK Command] Executing CreateSupplierCommand for tenant: ${context.tenantId}, operator: ${context.userName}`);
+    logger.debug(`[SPK Command] Executing CreateSupplierCommand for tenant: ${context.tenantId}, operator: ${context.userName}`);
 
     const supplierService = SPK.services.resolve<ISupplierService>("SUPPLIER");
     const saved = await supplierService.save(data);

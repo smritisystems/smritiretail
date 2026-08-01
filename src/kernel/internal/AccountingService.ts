@@ -55,7 +55,7 @@ export class AccountingService implements IAccountingService {
         return this.vouchersCache;
       }
     } catch (e) {
-      console.warn("[AccountingService] API unreachable. Serving cached vouchers.", e);
+      logger.warn("[AccountingService] API unreachable. Serving cached vouchers.", e as unknown);
     }
     return this.vouchersCache;
   }
@@ -100,7 +100,7 @@ export class AccountingService implements IAccountingService {
       SPK.events.emit("JournalPosted", normalized.id, normalized);
       return normalized;
     } catch (err) {
-      console.warn("[AccountingService] Backend voucher save warning, caching locally.", err);
+      logger.warn("[AccountingService] Backend voucher save warning, caching locally.", err as unknown);
       this.upsertLocalVoucher(record);
       SPK.events.emit("JournalPosted", record.id, record);
       return record;

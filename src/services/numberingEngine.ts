@@ -256,7 +256,7 @@ export class NumberingEngine {
       this.localSeries = data;
       return data;
     } catch (err) {
-      console.warn("REST Error, falling back to local storage:", err);
+      logger.warn("REST Error, falling back to local storage:", err as unknown);
       return this.localSeries;
     }
   }
@@ -288,7 +288,7 @@ export class NumberingEngine {
     try {
       return await apiFetchV1("/numbering/logs");
     } catch (err) {
-      console.error(err);
+      logger.error(err as unknown);
       return [];
     }
   }

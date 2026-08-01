@@ -219,7 +219,7 @@ export class BusinessTransactionPipeline<C extends BusinessTransactionContext> {
           stage.rollback(context);
           this.publishTechnicalEvent(context, stageName, 'rolledBack');
         } catch (err) {
-          console.error(`Rollback failed for stage ${stageName}:`, err);
+          logger.error(`Rollback failed for stage ${stageName}:`, err as unknown);
         }
       }
     }
@@ -234,14 +234,14 @@ export class BusinessTransactionPipeline<C extends BusinessTransactionContext> {
           stage.compensate(context);
           this.publishTechnicalEvent(context, stageName, 'compensated');
         } catch (err) {
-          console.error(`Compensation failed for stage ${stageName}:`, err);
+          logger.error(`Compensation failed for stage ${stageName}:`, err as unknown);
         }
       } else if (stage?.rollback) {
         try {
           stage.rollback(context);
           this.publishTechnicalEvent(context, stageName, 'rolledBack');
         } catch (err) {
-          console.error(`Fallback rollback failed for stage ${stageName}:`, err);
+          logger.error(`Fallback rollback failed for stage ${stageName}:`, err as unknown);
         }
       }
     }

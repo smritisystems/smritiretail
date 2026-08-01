@@ -7,6 +7,7 @@
  * Classification: Internal Platform Standard (SCP-001)
  */
 
+import logger from "../core/logging/logger.js";
 import { IComplianceModule } from "./IComplianceModule";
 
 export class ComplianceRegistry {
@@ -24,7 +25,7 @@ export class ComplianceRegistry {
 
   public registerModule(module: IComplianceModule): void {
     if (this.modules.has(module.id)) {
-      console.warn(`[ComplianceRegistry] Overwriting existing compliance module: ${module.id}`);
+      logger.warn(`[ComplianceRegistry] Overwriting existing compliance module: ${module.id}`);
     }
     this.modules.set(module.id, module);
   }

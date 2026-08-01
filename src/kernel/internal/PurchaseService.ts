@@ -51,7 +51,7 @@ export class PurchaseService implements IPurchaseService {
         return this.localCache;
       }
     } catch (e) {
-      console.warn("[PurchaseService] API unreachable. Serving cached purchase orders.", e);
+      logger.warn("[PurchaseService] API unreachable. Serving cached purchase orders.", e as unknown);
     }
     return this.localCache;
   }
@@ -117,7 +117,7 @@ export class PurchaseService implements IPurchaseService {
       SPK.events.emit(isNew ? "PurchaseOrderCreated" : "PurchaseOrderUpdated", normalized.id, normalized);
       return normalized;
     } catch (err) {
-      console.warn("[PurchaseService] Backend save warning, caching locally.", err);
+      logger.warn("[PurchaseService] Backend save warning, caching locally.", err as unknown);
       this.upsertLocalCache(record);
       SPK.events.emit(isNew ? "PurchaseOrderCreated" : "PurchaseOrderUpdated", record.id, record);
       return record;

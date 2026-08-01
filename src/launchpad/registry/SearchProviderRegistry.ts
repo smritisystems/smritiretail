@@ -7,6 +7,7 @@
  * Version      : 5.4.0
  */
 
+import logger from "../../core/logging/logger.js";
 import { LaunchpadSearchProvider, SearchResultItem } from "../types/launchpadTypes.ts";
 
 class SearchProviderRegistryImpl {
@@ -22,7 +23,7 @@ class SearchProviderRegistryImpl {
     const results: SearchResultItem[] = [];
     const promises = Array.from(this.providers.values()).map(p => 
       p.search(query).catch(err => {
-        console.warn(`Search provider ${p.id} failed:`, err);
+        logger.warn(`Search provider ${p.id} failed:`, err as unknown);
         return [];
       })
     );

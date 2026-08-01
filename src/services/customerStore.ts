@@ -24,6 +24,7 @@
  */
 
 import { apiFetchV1 } from "../lib/apiFetchV1";
+import logger from "../core/logging/logger.js";
 import { Customer, CustomerGroup, SalesInvoice, SalesReturn } from "../types";
 
 export const initialCustomerGroups: CustomerGroup[] = [
@@ -560,7 +561,7 @@ export function saveCustomers(customers: Customer[]) {
   try {
     window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
   } catch (e) {
-    console.error("Failed to dispatch smriti_customer_updated event:", e);
+    logger.error("Failed to dispatch smriti_customer_updated event:", e as unknown);
   }
   // Persist to server asynchronously
   customers.forEach(cust => persistCustomerChange(cust));
@@ -635,7 +636,7 @@ export async function persistCustomerChange(customer: Customer) {
       });
     }
   } catch (e) {
-    console.warn("[CRM Sync] Server offline. Saving customer change to local pending queue.");
+    logger.warn("[CRM Sync] Server offline. Saving customer change to local pending queue.", e as unknown);
     try {
       const pending = JSON.parse(localStorage.getItem("smriti_pending_customers") || "[]");
       if (!pending.some((c: any) => c.id === customer.id)) {
@@ -643,7 +644,7 @@ export async function persistCustomerChange(customer: Customer) {
         localStorage.setItem("smriti_pending_customers", JSON.stringify(pending));
       }
     } catch (err) {
-      console.error("[CRM Sync] Failed to update pending queue:", err);
+      logger.error("[CRM Sync] Failed to update pending queue:", err as unknown);
     }
   }
 }
@@ -689,7 +690,7 @@ export async function syncCustomersWithBackend() {
       window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
     }
   } catch (e) {
-    console.warn("[CRM Sync] Failed to sync customers from backend, using local cache:", e);
+    logger.warn("[CRM Sync] Failed to sync customers from backend, using local cache:", e as unknown);
   }
 
   try {
@@ -698,7 +699,7 @@ export async function syncCustomersWithBackend() {
       localStorage.setItem("smriti_customer_groups", JSON.stringify(serverGroups));
     }
   } catch (e) {
-    console.warn("[CRM Sync] Failed to sync customer groups from backend:", e);
+    logger.warn("[CRM Sync] Failed to sync customer groups from backend, using local cache:", e as unknown);
   }
 }
 

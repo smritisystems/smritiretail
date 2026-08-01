@@ -17,6 +17,8 @@
  * and built-in functions (=ROUND(val, 2), =SUM(a, b), =MIN(a, b), =MAX(a, b), =AVG(a, b)).
  */
 
+import logger from "../core/logging/logger.js";
+
 export interface FormulaContext {
   getValue: (cellRef: string) => number | string;
   getRowData?: (rowIndex: number) => Record<string, any>;
@@ -82,7 +84,7 @@ export function evaluateFormula(
 
     return evaluateExpression(expr, context);
   } catch (err) {
-    console.warn("Formula evaluation warning:", err);
+    logger.warn("Formula evaluation warning:", err as unknown);
     return 0;
   }
 }

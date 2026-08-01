@@ -9,6 +9,7 @@
 import { Customer } from "../../types.js";
 import { ICommand, ICommandHandler, ITenantContext, SPK } from "../SPK.js";
 import { ICustomerService } from "../public/ICustomerService.js";
+import logger from "../../core/logging/logger.js";
 
 export class CreateCustomerCommand implements ICommand {
   public readonly type = "CREATE_CUSTOMER";
@@ -27,7 +28,7 @@ export class CreateCustomerCommandHandler implements ICommandHandler<CreateCusto
       throw new Error("[UVE Validation Error] Mobile number is required.");
     }
 
-    console.log(`[SPK Command] Executing CreateCustomerCommand for tenant: ${context.tenantId}, operator: ${context.userName}`);
+    logger.debug(`[SPK Command] Executing CreateCustomerCommand for tenant: ${context.tenantId}, operator: ${context.userName}`);
 
     const customerService = SPK.services.resolve<ICustomerService>("CUSTOMER");
     const saved = await customerService.save(data);

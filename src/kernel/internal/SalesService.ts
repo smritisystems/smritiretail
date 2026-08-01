@@ -63,7 +63,7 @@ export class SalesService implements ISalesService {
         return this.localCache;
       }
     } catch (e) {
-      console.warn("[SalesService] API unreachable. Serving cached sales invoices.", e);
+      logger.warn("[SalesService] API unreachable. Serving cached sales invoices.", e as unknown);
     }
     return this.localCache;
   }
@@ -139,13 +139,12 @@ export class SalesService implements ISalesService {
         const accountingService = SPK.services.resolve<IAccountingService>("ACCOUNTING");
         accountingService.postSalesInvoiceJournal(normalized.invoiceNumber, normalized.customerName, normalized.netPayable, normalized.taxTotal);
       } catch (aErr) {
-        console.warn("[SalesService] Silent accounting journal posting skipped:", aErr);
-      }
+          logger.warn("[SalesService] Silent accounting journal posting skipped:", aErr as unknown);
 
       SPK.events.emit("InvoiceCreated", normalized.id, normalized);
       return normalized;
     } catch (err) {
-      console.warn("[SalesService] Backend save warning, caching locally.", err);
+      logger.warn("[SalesService] Backend save warning, caching locally.", err as unknown);
       this.upsertLocalCache(record);
       SPK.events.emit("InvoiceCreated", record.id, record);
       return record;

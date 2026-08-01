@@ -3,6 +3,7 @@
  * Autosave & Recovery Engine
  */
 
+import logger from "../../../core/logging/logger.js";
 import { SAWFEventBus } from "./EventBus.ts";
 
 export class AutosaveEngine {
@@ -16,7 +17,7 @@ export class AutosaveEngine {
         onSaveDraft();
         SAWFEventBus.publish("studio:autosave_triggered", { timestamp: Date.now() });
       } catch (e) {
-        console.error("[AutosaveEngine] Background draft autosave failed:", e);
+        logger.error("[AutosaveEngine] Background draft autosave failed:", e as unknown);
       }
     }, this.intervalMs);
   }

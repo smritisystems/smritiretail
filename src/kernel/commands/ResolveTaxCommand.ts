@@ -29,7 +29,7 @@ export class ResolveTaxCommandHandler implements ICommandHandler<ResolveTaxComma
   async execute(command: ResolveTaxCommand, context: ITenantContext): Promise<DocumentTaxSnapshot> {
     const { companyState, placeOfSupply, documentDate, lines } = command.payload;
 
-    console.log(`[STRE Engine] Executing ResolveTaxCommand for tenant: ${context.tenantId}, lines count: ${lines.length}`);
+    logger.debug(`[STRE Engine] Executing ResolveTaxCommand for tenant: ${context.tenantId}, lines count: ${lines.length}`);
 
     const taxEngine = SPK.services.resolve<ITaxResolutionEngine>("TAX_ENGINE");
     const snapshot = taxEngine.createDocumentTaxSnapshot(

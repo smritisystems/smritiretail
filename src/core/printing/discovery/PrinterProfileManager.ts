@@ -1,3 +1,4 @@
+import logger from "../../logging/logger.js";
 import { PrinterCapability } from "../models/PrintDocument.js";
 
 const PROFILE_KEY = "smriti_printer_profiles_v1";
@@ -9,7 +10,7 @@ export class PrinterProfileManager {
       const current = this.list().filter((item) => item.id !== profile.id);
       localStorage.setItem(PROFILE_KEY, JSON.stringify([profile, ...current]));
     } catch (error) {
-      console.warn("[PrinterProfileManager] Failed to cache printer profile:", error);
+      logger.warn("[PrinterProfileManager] Failed to cache printer profile:", error as unknown);
     }
   }
 

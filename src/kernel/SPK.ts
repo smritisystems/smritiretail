@@ -154,9 +154,9 @@ export class SMRITIPlatformKernel {
   /* ── Kernel Lifecycle Methods ── */
   public async start(): Promise<void> {
     if (this.isStarted) return;
-    console.log("[SPK Kernel v1.0] Starting SMRITI Platform Kernel (SPK)...");
+    logger.info("[SPK Kernel v1.0] Starting SMRITI Platform Kernel (SPK)...");
     this.isStarted = true;
-    console.log("[SPK Kernel v1.0] Ready & Running under SMAP Constitution v1.0.");
+    logger.info("[SPK Kernel v1.0] Ready & Running under SMAP Constitution v1.0.");
   }
 
   public shutdown(): void {
@@ -166,14 +166,14 @@ export class SMRITIPlatformKernel {
     this.eventSubscribers.clear();
     this.lookupProviders.clear();
     this.isStarted = false;
-    console.log("[SPK Kernel v1.0] Kernel session cleanly shut down.");
+    logger.info("[SPK Kernel v1.0] Kernel session cleanly shut down.");
   }
 
   /* ── Service Registry (SPK.services) ── */
   public services = {
     register: <T>(serviceId: string, instance: T): void => {
       this.servicesRegistry.set(serviceId.toUpperCase(), instance);
-      console.log(`[SPK Service Registry] Service registered: ${serviceId.toUpperCase()}`);
+      logger.debug(`[SPK Service Registry] Service registered: ${serviceId.toUpperCase()}`);
     },
     resolve: <T>(serviceId: string): T => {
       const found = this.servicesRegistry.get(serviceId.toUpperCase());
@@ -191,7 +191,7 @@ export class SMRITIPlatformKernel {
   public modules = {
     register: (manifest: IModuleMetadata): void => {
       this.modulesRegistry.set(manifest.id, manifest);
-      console.log(`[SPK Module Registry] Module registered: ${manifest.name} (v${manifest.version})`);
+      logger.debug(`[SPK Module Registry] Module registered: ${manifest.name} (v${manifest.version})`);
     },
     get: (id: string): IModuleMetadata | undefined => {
       return this.modulesRegistry.get(id);
@@ -211,7 +211,7 @@ export class SMRITIPlatformKernel {
       if (!handler) {
         throw new Error(`[SPK Command Error] No handler registered for command: '${command.type}'`);
       }
-      console.log(`[SPK CommandBus] Executing command: ${command.type}`);
+      logger.debug(`[SPK CommandBus] Executing command: ${command.type}`);
       return await handler.execute(command, this.context);
     }
   };
@@ -234,12 +234,12 @@ export class SMRITIPlatformKernel {
         payload,
         timestamp: new Date().toISOString()
       };
-      console.log(`[SPK EventBus] Emitting event: ${eventType} (${entityId})`);
+      logger.debug(`[SPK EventBus] Emitting event: ${eventType} (${entityId})`);
 
       const subscribers = this.eventSubscribers.get(eventType);
       if (subscribers) {
         subscribers.forEach((cb) => {
-          try { cb(event); } catch (e) { console.error(`[SPK Event Error] ${e}`); }
+          try { cb(event); } catch (e) { logger.error(`[SPK Event Error] ${e}`); }
         });
       }
 
@@ -256,7 +256,7 @@ export class SMRITIPlatformKernel {
   public ule = {
     registerProvider: (provider: ILookupProvider): void => {
       this.lookupProviders.set(provider.domain.toUpperCase(), provider);
-      console.log(`[SPK ULE] Lookup Provider registered for domain: ${provider.domain.toUpperCase()}`);
+      logger.debug(`[SPK ULE] Lookup Provider registered for domain: ${provider.domain.toUpperCase()}`);
     },
     getProvider: (domain: string): ILookupProvider | undefined => {
       return this.lookupProviders.get(domain.toUpperCase());

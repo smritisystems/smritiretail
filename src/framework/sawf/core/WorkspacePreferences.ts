@@ -3,6 +3,7 @@
  * Workspace Preferences Service
  */
 
+import logger from "../../../core/logging/logger.js";
 import { SAWFExperienceMode } from "../types/sawf.ts";
 
 export interface SAWFPreferences {
@@ -29,7 +30,7 @@ export class WorkspacePreferences {
         return JSON.parse(stored);
       }
     } catch (e) {
-      console.warn(`[SAWFWorkspacePreferences] Failed to load prefs for ${module}`, e);
+      logger.warn(`[SAWFWorkspacePreferences] Failed to load prefs for ${module}`, e as unknown);
     }
 
     return {
@@ -49,7 +50,7 @@ export class WorkspacePreferences {
       const updated = { ...existing, ...prefs };
       localStorage.setItem(key, JSON.stringify(updated));
     } catch (e) {
-      console.warn(`[SAWFWorkspacePreferences] Failed to save prefs for ${module}`, e);
+      logger.warn(`[SAWFWorkspacePreferences] Failed to save prefs for ${module}`, e as unknown);
     }
   }
 }

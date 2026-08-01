@@ -24,7 +24,7 @@ export class ItemService implements IItemService {
         return this.localCache;
       }
     } catch (e) {
-      console.warn("[ItemService] Offline or API unreachable. Returning cached items.", e);
+      logger.warn("[ItemService] Offline or API unreachable. Returning cached items.", e as unknown);
     }
     return this.localCache;
   }
@@ -114,7 +114,7 @@ export class ItemService implements IItemService {
       SPK.events.emit(isNew ? "ItemCreated" : "ItemUpdated", normalized.id, normalized);
       return normalized;
     } catch (err) {
-      console.warn("[ItemService] Backend save warning, caching locally in memory.", err);
+      logger.warn("[ItemService] Backend save warning, caching locally in memory.", err as unknown);
       this.upsertLocalCache(sku);
       SPK.events.emit(isNew ? "ItemCreated" : "ItemUpdated", sku.id, sku);
       return sku;
@@ -125,7 +125,7 @@ export class ItemService implements IItemService {
     try {
       await apiFetchV1(`/inventory/${id}`, { method: "DELETE" });
     } catch (e) {
-      console.warn("[ItemService] Offline delete warning, removing from local memory.", e);
+      logger.warn("[ItemService] Offline delete warning, removing from local memory.", e as unknown);
     }
     this.localCache = this.localCache.filter((p) => p.id !== id);
     SPK.events.emit("ItemDeleted", id, { id });

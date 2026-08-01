@@ -9,6 +9,7 @@
 import { Product } from "../../types.js";
 import { ICommand, ICommandHandler, ITenantContext, SPK } from "../SPK.js";
 import { IItemService } from "../public/IItemService.js";
+import logger from "../../core/logging/logger.js";
 
 export class CreateItemCommand implements ICommand {
   public readonly type = "CREATE_ITEM";
@@ -27,7 +28,7 @@ export class CreateItemCommandHandler implements ICommandHandler<CreateItemComma
       throw new Error("[UVE Validation Error] Selling price cannot exceed MRP.");
     }
 
-    console.log(`[SPK Command] Executing CreateItemCommand for tenant: ${context.tenantId}, operator: ${context.userName}`);
+    logger.debug(`[SPK Command] Executing CreateItemCommand for tenant: ${context.tenantId}, operator: ${context.userName}`);
     
     const itemService = SPK.services.resolve<IItemService>("ITEM");
     const saved = await itemService.save(data);

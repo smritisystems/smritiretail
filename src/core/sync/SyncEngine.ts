@@ -25,6 +25,7 @@
 
 import { ISyncRepository } from "../interfaces/db.js";
 import { SyncQueueItem } from "../domain/entities.js";
+import logger from "../logging/logger.js";
 
 export class SyncEngine {
   private syncRepo: ISyncRepository;
@@ -42,10 +43,10 @@ export class SyncEngine {
    */
   start(intervalMs = 30000) {
     if (this.syncInterval) return;
-    console.log(`[SMRITI SyncEngine] Starting background sync worker (Interval: ${intervalMs}ms)...`);
+    logger.info(`[SMRITI SyncEngine] Starting background sync worker (Interval: ${intervalMs}ms)...`);
     this.syncInterval = setInterval(() => this.processQueue(), intervalMs);
     // Trigger initial run asynchronously
-    this.processQueue().catch(err => console.error("[SMRITI SyncEngine] Error in sync run:", err));
+    this.processQueue().catch(err => logger.error("[SMRITI SyncEngine] Error in sync run:", err as unknown));
   }
 
   /**
@@ -55,7 +56,7 @@ export class SyncEngine {
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
-      console.log("[SMRITI SyncEngine] Sync worker stopped.");
+      logger.info("[SMRITI SyncEngine] Sync worker stopped.");
     }
   }
 
@@ -72,10 +73,10 @@ export class SyncEngine {
       payload: JSON.stringify(payload),
       deviceId: this.deviceId
     });
-    console.log(`[SMRITI SyncEngine] Enqueued sync change [${uuid}] for module: ${module}`);
+    logger.debug(`[SMRITI SyncEngine] Enqueued sync change [${uuid}] for module: ${module}`);
     
     // Attempt fast replication trigger in the background
-    this.processQueue().catch(err => console.error("[SMRITI SyncEngine] Async process queue error:", err));
+    this.processQueue().catch(err => logger.error("[SMRITI SyncEngine] Async process queue error:", err as unknown));
     
     return syncItem;
   }
@@ -94,15 +95,15 @@ export class SyncEngine {
         return;
       }
 
-      console.log(`[SMRITI SyncEngine] Processing ${pendingItems.length} pending items...`);
+      logger.info(`[SMRITI SyncEngine] Processing ${pendingItems.length} pending items...`);
 
       for (const item of pendingItems) {
         try {
           await this.syncItem(item);
           await this.syncRepo.updateStatus(item.id!, "synced");
-          console.log(`[SMRITI SyncEngine] Successfully synced uuid: ${item.uuid}`);
+          logger.debug(`[SMRITI SyncEngine] Successfully synced uuid: ${item.uuid}`);
         } catch (error) {
-          console.error(`[SMRITI SyncEngine] Failed to sync uuid: ${item.uuid}. Error:`, error);
+          logger.error(`[SMRITI SyncEngine] Failed to sync uuid: ${item.uuid}. Error:`, error as unknown);
           await this.syncRepo.incrementRetry(item.id!);
           if (item.retryCount >= 5) {
             await this.syncRepo.updateStatus(item.id!, "failed", new Date().toISOString());
@@ -110,7 +111,7 @@ export class SyncEngine {
         }
       }
     } catch (error) {
-      console.error("[SMRITI SyncEngine] Critical error processing sync queue:", error);
+      logger.error("[SMRITI SyncEngine] Critical error processing sync queue:", error as unknown);
     } finally {
       this.isSyncing = false;
     }

@@ -103,7 +103,7 @@ export class WindowManager {
     try {
       channel.postMessage(message);
     } catch (err) {
-      console.error("[SAWF Broadcast Error]:", err);
+      logger.error("[SAWF Broadcast Error]:", err as unknown);
     }
   }
 

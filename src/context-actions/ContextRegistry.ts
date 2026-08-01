@@ -33,6 +33,17 @@ class ContextRegistry {
 
   constructor() {
     // Load favorites & pinned from localStorage if offline-persistence is available
+import logger from "../core/logging/logger.js";
+import { ContextAction, ContextData } from "./ContextAction.ts";
+
+class ContextRegistry {
+  private actions: ContextAction[] = [];
+  private recentActionIds: string[] = [];
+  private favoriteActionIds: string[] = [];
+  private pinnedActionIds: string[] = [];
+
+  constructor() {
+    // Load favorites & pinned from localStorage if offline-persistence is available
     try {
       const favs = localStorage.getItem("smriti_acas_favorites");
       if (favs) this.favoriteActionIds = JSON.parse(favs);
@@ -41,7 +52,7 @@ class ContextRegistry {
       const recents = localStorage.getItem("smriti_acas_recents");
       if (recents) this.recentActionIds = JSON.parse(recents);
     } catch (e) {
-      console.warn("Could not load ACAS persistent preferences", e);
+      logger.warn("Could not load ACAS persistent preferences", e as unknown);
     }
   }
 

@@ -33,7 +33,7 @@ export class AuditService implements IAuditService {
         return this.localCache;
       }
     } catch (e) {
-      console.warn("[AuditService] API unreachable. Serving cached audit logs.", e);
+      logger.warn("[AuditService] API unreachable. Serving cached audit logs.", e as unknown);
     }
     return this.localCache;
   }
@@ -83,7 +83,7 @@ export class AuditService implements IAuditService {
       SPK.events.emit("AuditLogged", normalized.id, normalized);
       return normalized;
     } catch (err) {
-      console.warn("[AuditService] Backend audit save warning, caching locally.", err);
+      logger.warn("[AuditService] Backend audit save warning, caching locally.", err as unknown);
       this.upsertLocalCache(record);
       SPK.events.emit("AuditLogged", record.id, record);
       return record;

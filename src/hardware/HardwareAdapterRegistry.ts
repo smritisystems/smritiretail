@@ -11,6 +11,7 @@
  * Classification: Internal
  */
 
+import logger from "../core/logging/logger.js";
 import { TerminalEventBus } from "../components/terminal/TerminalEventBus";
 
 export interface HardwareStatus {
@@ -36,13 +37,13 @@ export class HardwareAdapterRegistry {
 
   // Scanner Adapter Trigger
   public static triggerScan(barcode: string): void {
-    console.log(`[HardwareAdapterRegistry] Barcode Scanned: ${barcode}`);
+    logger.info(`[HardwareAdapterRegistry] Barcode Scanned: ${barcode}`, { barcode });
     TerminalEventBus.emit("HARDWARE_BARCODE_SCANNED", { barcode, timestamp: Date.now() });
   }
 
   // Cash Drawer Pulse Trigger
   public static openCashDrawer(): boolean {
-    console.log("[HardwareAdapterRegistry] Cash Drawer Pulse Triggered (RJ11/COM)");
+    logger.info("[HardwareAdapterRegistry] Cash Drawer Pulse Triggered (RJ11/COM)");
     this.status.cashDrawer = "Open";
     TerminalEventBus.emit("HARDWARE_DRAWER_OPENED");
     setTimeout(() => {
@@ -54,7 +55,7 @@ export class HardwareAdapterRegistry {
 
   // Print ESC/POS Receipt Adapter
   public static printReceipt(rawContent: string): boolean {
-    console.log("[HardwareAdapterRegistry] ESC/POS Thermal Print Payload Sent");
+    logger.info("[HardwareAdapterRegistry] ESC/POS Thermal Print Payload Sent", { rawContentLength: rawContent.length });
     TerminalEventBus.emit("HARDWARE_PRINT_SENT", { rawContent, timestamp: Date.now() });
     return true;
   }
@@ -67,7 +68,7 @@ export class HardwareAdapterRegistry {
 
   // Customer Pole Display Update Adapter
   public static updatePoleDisplay(line1: string, line2: string): void {
-    console.log(`[HardwareAdapterRegistry] Pole Display Line 1: ${line1} | Line 2: ${line2}`);
+    logger.debug("[HardwareAdapterRegistry] Pole Display update", { line1, line2 });
     TerminalEventBus.emit("HARDWARE_POLE_DISPLAY_UPDATED", { line1, line2 });
   }
 }

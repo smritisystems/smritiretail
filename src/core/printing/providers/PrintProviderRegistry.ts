@@ -9,6 +9,7 @@
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  */
 
+import logger from "../../logging/logger.js";
 import { PrintJob, PrinterCapability, PrintResult } from "../models/PrintDocument.js";
 import { apiFetch } from "../../../lib/apiFetch.js";
 
@@ -60,7 +61,7 @@ export class QZProvider implements IPrintProvider {
             }
           }
         } catch (e) {
-          console.warn("[QZProvider] Discovery exception:", e);
+          logger.warn("[QZProvider] Discovery exception:", e as unknown);
         }
       }
     }

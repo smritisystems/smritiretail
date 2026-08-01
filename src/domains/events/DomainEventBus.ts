@@ -43,6 +43,8 @@ export interface OrderApprovedPayload {
 
 type EventListener<T = any> = (event: DomainEventEnvelope<T>) => void | Promise<void>;
 
+import logger from "../../core/logging/logger.js";
+
 export class DomainEventBusService {
   private listeners: Map<string, Set<EventListener>> = new Map();
 
@@ -79,7 +81,7 @@ export class DomainEventBusService {
         try {
           listener(event);
         } catch (err) {
-          console.error(`Error in domain event listener for '${eventType}':`, err);
+          logger.error(`Error in domain event listener for '${eventType}':`, err as unknown);
         }
       });
     }

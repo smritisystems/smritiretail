@@ -54,7 +54,7 @@ export class SupplierService implements ISupplierService {
         return this.localCache;
       }
     } catch (e) {
-      console.warn("[SupplierService] API unreachable. Serving cached suppliers.", e);
+      logger.warn("[SupplierService] API unreachable. Serving cached suppliers.", e as unknown);
     }
     return this.localCache;
   }
@@ -123,7 +123,7 @@ export class SupplierService implements ISupplierService {
       SPK.events.emit(isNew ? "SupplierCreated" : "SupplierUpdated", normalized.id, normalized);
       return normalized;
     } catch (err) {
-      console.warn("[SupplierService] Backend save warning, caching locally.", err);
+      logger.warn("[SupplierService] Backend save warning, caching locally.", err as unknown);
       this.upsertLocalCache(record);
       SPK.events.emit(isNew ? "SupplierCreated" : "SupplierUpdated", record.id, record);
       return record;
@@ -134,7 +134,7 @@ export class SupplierService implements ISupplierService {
     try {
       await apiFetchV1(`/suppliers/${id}`, { method: "DELETE" });
     } catch (e) {
-      console.warn("[SupplierService] Offline delete warning.", e);
+      logger.warn("[SupplierService] Offline delete warning.", e as unknown);
     }
     this.localCache = this.localCache.filter((s) => s.id !== id);
     SPK.events.emit("SupplierDeleted", id, { id });

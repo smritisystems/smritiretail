@@ -26,7 +26,7 @@ export class CreatePurchaseOrderCommandHandler implements ICommandHandler<Create
       throw new Error("[UVE Validation Error] Purchase Order must contain at least one line item.");
     }
 
-    console.log(`[SPK Command] Executing CreatePurchaseOrderCommand for tenant: ${context.tenantId}, operator: ${context.userName}`);
+    logger.debug(`[SPK Command] Executing CreatePurchaseOrderCommand for tenant: ${context.tenantId}, operator: ${context.userName}`);
 
     const purchaseService = SPK.services.resolve<IPurchaseService>("PURCHASE");
     const saved = await purchaseService.savePO(data);

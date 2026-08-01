@@ -28,6 +28,8 @@ const DEFAULT_CACHE: LaunchpadCacheData = {
   cachedKpis: {}
 };
 
+import logger from "../../core/logging/logger.js";
+
 class LaunchpadCacheImpl {
   private cache: LaunchpadCacheData = DEFAULT_CACHE;
 
@@ -41,7 +43,8 @@ class LaunchpadCacheImpl {
       if (raw) {
         this.cache = { ...DEFAULT_CACHE, ...JSON.parse(raw) };
       }
-    } catch {
+    } catch (e) {
+      logger.warn("Failed to restore launchpad cache from localStorage", e as unknown);
       this.cache = DEFAULT_CACHE;
     }
   }
@@ -55,7 +58,7 @@ class LaunchpadCacheImpl {
     try {
       localStorage.setItem(LAUNCHPAD_CACHE_KEY, JSON.stringify(this.cache));
     } catch (err) {
-      console.warn("Failed to write to launchpad cache:", err);
+      logger.warn("Failed to write to launchpad cache:", err as unknown);
     }
   }
 }

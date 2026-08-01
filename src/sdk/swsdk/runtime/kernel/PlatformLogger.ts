@@ -6,10 +6,12 @@ export interface PlatformLogger {
   error(message: string, metadata?: Record<string, unknown>): void;
 }
 
+import logger from "../../../core/logging/logger.js";
+
 export const ConsolePlatformLogger: PlatformLogger = {
-  trace: (message, metadata) => console.debug(message, metadata ?? {}),
-  debug: (message, metadata) => console.debug(message, metadata ?? {}),
-  info: (message, metadata) => console.info(message, metadata ?? {}),
-  warn: (message, metadata) => console.warn(message, metadata ?? {}),
-  error: (message, metadata) => console.error(message, metadata ?? {})
+  trace: (message, metadata) => logger.trace(message, metadata as Record<string, unknown> | undefined),
+  debug: (message, metadata) => logger.debug(message, metadata as Record<string, unknown> | undefined),
+  info: (message, metadata) => logger.info(message, metadata as Record<string, unknown> | undefined),
+  warn: (message, metadata) => logger.warn(message, metadata as Record<string, unknown> | undefined),
+  error: (message, metadata) => logger.error(message, metadata as Record<string, unknown> | undefined)
 };

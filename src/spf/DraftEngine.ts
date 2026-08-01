@@ -7,6 +7,7 @@
  * Version      : 1.0.0
  */
 
+import logger from "../core/logging/logger.js";
 import { PlatformEventBus } from "./PlatformEventBus.ts";
 
 export interface FormDraft {
@@ -47,7 +48,7 @@ export class DraftEngine {
       localStorage.setItem(`${this.STORAGE_PREFIX}${formId}`, JSON.stringify(draft));
       PlatformEventBus.emit("DraftSaved", draft);
     } catch (e) {
-      console.warn("[DraftEngine] Failed to save draft:", e);
+      logger.warn("[DraftEngine] Failed to save draft:", e as unknown);
     }
   }
 
@@ -69,7 +70,7 @@ export class DraftEngine {
     try {
       localStorage.removeItem(`${this.STORAGE_PREFIX}${formId}`);
     } catch (e) {
-      console.warn("[DraftEngine] Failed to clear draft:", e);
+      logger.warn("[DraftEngine] Failed to clear draft:", e as unknown);
     }
   }
 }

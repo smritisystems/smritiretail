@@ -36,6 +36,8 @@ export interface PrintingEventPayload {
 
 type EventCallback = (payload: PrintingEventPayload) => void;
 
+import logger from "../../logging/logger.js";
+
 export class PrintingEventBus {
   private static listeners: Map<PrintingEventType, Set<EventCallback>> = new Map();
 
@@ -57,7 +59,7 @@ export class PrintingEventBus {
         try {
           cb(payload);
         } catch (e) {
-          console.error("[PrintingEventBus] Listener error:", e);
+          logger.error("[PrintingEventBus] Listener error:", e as unknown);
         }
       });
     }

@@ -7,6 +7,7 @@
  * Classification: SMRITI Platform Services
  */
 
+import logger from "../../core/logging/logger.js";
 import { apiFetch } from "../../lib/apiFetch";
 
 export type PrintProviderType = "browser" | "pdf" | "prn" | "qz_tray" | "network";
@@ -48,7 +49,7 @@ export class SystemPrinterDiscovery {
         return { name, connection: "USB", driver: "Direct USB RAW" };
       } catch (err: any) {
         if (err?.name !== "NotFoundError") {
-          console.warn("[SystemPrinterDiscovery] USB permission request failed:", err);
+          logger.warn("[SystemPrinterDiscovery] USB permission request failed:", err as unknown);
         }
       }
     }
@@ -61,7 +62,7 @@ export class SystemPrinterDiscovery {
         return { name, connection: "USB", driver: "USB Serial / WebSerial" };
       } catch (err: any) {
         if (err?.name !== "NotFoundError") {
-          console.warn("[SystemPrinterDiscovery] USB serial permission request failed:", err);
+          logger.warn("[SystemPrinterDiscovery] USB serial permission request failed:", err as unknown);
         }
       }
     }
@@ -93,7 +94,7 @@ export class SystemPrinterDiscovery {
         }
       }
     } catch (err) {
-      console.warn("[SystemPrinterDiscovery] Windows spooler discovery unavailable:", err);
+      logger.warn("[SystemPrinterDiscovery] Windows spooler discovery unavailable:", err as unknown);
     }
 
     if (typeof window !== "undefined") {
@@ -127,7 +128,7 @@ export class SystemPrinterDiscovery {
             }
           }
         } catch (err) {
-          console.warn("[SystemPrinterDiscovery] QZ Tray spooler discovery:", err);
+          logger.warn("[SystemPrinterDiscovery] QZ Tray spooler discovery:", err as unknown);
         }
       }
 
@@ -147,7 +148,7 @@ export class SystemPrinterDiscovery {
             }
           }
         } catch (err) {
-          console.warn("[SystemPrinterDiscovery] WebUSB query warning:", err);
+          logger.warn("[SystemPrinterDiscovery] WebUSB query warning:", err as unknown);
         }
       }
 
@@ -167,7 +168,7 @@ export class SystemPrinterDiscovery {
             }
           }
         } catch (err) {
-          console.warn("[SystemPrinterDiscovery] WebSerial query warning:", err);
+          logger.warn("[SystemPrinterDiscovery] WebSerial query warning:", err as unknown);
         }
       }
 
@@ -184,7 +185,7 @@ export class SystemPrinterDiscovery {
           }
         }
       } catch (err) {
-        console.warn("[SystemPrinterDiscovery] LocalStorage printers read error:", err);
+        logger.warn("[SystemPrinterDiscovery] LocalStorage printers read error:", err as unknown);
       }
 
       // 5. Default Physical Windows Spooler Presets (If QZ Tray offline or zero auto-detected)
@@ -239,7 +240,7 @@ export class SystemPrinterDiscovery {
       const updated = [printer, ...current.filter((p) => p.name !== printer.name)];
       localStorage.setItem("smriti_saved_printers", JSON.stringify(updated));
     } catch (e) {
-      console.warn("[SystemPrinterDiscovery] Failed to save printer to localStorage:", e);
+      logger.warn("[SystemPrinterDiscovery] Failed to save printer to localStorage:", e as unknown);
     }
   }
 
@@ -254,7 +255,7 @@ export class SystemPrinterDiscovery {
       const updated = current.filter((p) => p.name !== printerName);
       localStorage.setItem("smriti_saved_printers", JSON.stringify(updated));
     } catch (e) {
-      console.warn("[SystemPrinterDiscovery] Failed to remove printer from localStorage:", e);
+      logger.warn("[SystemPrinterDiscovery] Failed to remove printer from localStorage:", e as unknown);
     }
   }
 }

@@ -30,6 +30,8 @@ export interface PlatformEventPayload {
 
 type EventListenerCallback = (event: PlatformEventPayload) => void;
 
+import logger from "../core/logging/logger.js";
+
 export class PlatformEventBus {
   private static listeners: Map<PlatformEventType, Set<EventListenerCallback>> = new Map();
 
@@ -58,7 +60,7 @@ export class PlatformEventBus {
         try {
           callback(eventPayload);
         } catch (e) {
-          console.error(`[SPF EventBus] Listener error for ${type}:`, e);
+          logger.error(`[SPF EventBus] Listener error for ${type}:`, e as unknown);
         }
       });
     }
