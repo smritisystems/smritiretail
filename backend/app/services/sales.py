@@ -762,6 +762,21 @@ class SalesService:
     async def update_sales_quotation(self, q_id: str, update_in: SalesQuotationUpdate) -> SalesQuotation:
         return await QuotationApplicationService(self.db, self.tenant_ctx).update_quotation(q_id, update_in)
 
+    async def submit_sales_quotation(self, q_id: str) -> SalesQuotation:
+        return await QuotationApplicationService(self.db, self.tenant_ctx).submit_quotation(q_id)
+
+    async def approve_sales_quotation(self, q_id: str) -> SalesQuotation:
+        return await QuotationApplicationService(self.db, self.tenant_ctx).approve_quotation(q_id)
+
+    async def reject_sales_quotation(self, q_id: str) -> SalesQuotation:
+        return await QuotationApplicationService(self.db, self.tenant_ctx).reject_quotation(q_id)
+
+    async def cancel_sales_quotation(self, q_id: str) -> SalesQuotation:
+        return await QuotationApplicationService(self.db, self.tenant_ctx).cancel_quotation(q_id)
+
+    async def convert_sales_quotation_to_order(self, q_id: str) -> SalesOrder:
+        return await QuotationApplicationService(self.db, self.tenant_ctx).convert_to_sales_order(q_id)
+
     # ── Quotation DELETE ────────────────────────────────────────────
 
     async def delete_sales_quotation(self, q_id: str) -> None:

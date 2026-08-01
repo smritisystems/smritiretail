@@ -441,3 +441,23 @@ async def convert_quotation_to_invoice(
     Sets quotation status to Converted and creates a new Draft invoice.
     """
     return await SalesService(db, tenant_ctx).convert_quotation_to_invoice(quotation_id)
+
+
+@router.post(
+    "/quotations/convert-to-order/{quotation_id}",
+    response_model=SalesOrderResponse,
+    status_code=201,
+    summary="Convert Quotation to Sales Order",
+    dependencies=[Depends(require_permission("SALES.CREATE"))],
+)
+async def convert_quotation_to_order(
+    quotation_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Convert a sales quotation into a sales order.
+    Quotation status must be Draft, Submitted, or Approved.
+    The quotation is marked Converted and the resulting order is returned.
+    """
+    return await SalesService(db, tenant_ctx).convert_sales_quotation_to_order(quotation_id)

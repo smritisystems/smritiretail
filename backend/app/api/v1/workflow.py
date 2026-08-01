@@ -172,7 +172,6 @@ async def workflow_action(
             return {"success": True, "invoice_id": inv.id, "status": inv.status}
 
     if doc_type == "SalesQuotation":
-        from sqlalchemy.orm import selectinload
         from app.models.sales import SalesQuotation
         if action == "approve":
             res = await db.execute(
@@ -187,12 +186,8 @@ async def workflow_action(
             q = res.scalars().first()
             if not q:
                 raise HTTPException(status_code=404, detail="Quotation not found")
-            if q.status not in ("Draft", "Submitted"):
-                raise HTTPException(status_code=400, detail=f"Cannot approve quotation with status '{q.status}'.")
-            prev_status   = q.status
-            q.status      = "Approved"
-            q.modified_at = datetime.now(timezone.utc)
-            db.add(q)
+            prev_status = q.status
+            q = await SalesService(db, tenant_ctx).approve_sales_quotation(doc_id)
             await _log_event(db, doc_type, doc_id, action,
                              from_status=prev_status, to_status="Approved",
                              user=current_user, tenant_ctx=tenant_ctx)
@@ -211,10 +206,8 @@ async def workflow_action(
             q = res.scalars().first()
             if not q:
                 raise HTTPException(status_code=404, detail="Quotation not found")
-            prev_status   = q.status
-            q.status      = "Cancelled"
-            q.modified_at = datetime.now(timezone.utc)
-            db.add(q)
+            prev_status = q.status
+            q = await SalesService(db, tenant_ctx).cancel_sales_quotation(doc_id)
             await _log_event(db, doc_type, doc_id, action,
                              from_status=prev_status, to_status="Cancelled",
                              user=current_user, tenant_ctx=tenant_ctx)
