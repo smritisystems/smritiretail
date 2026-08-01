@@ -47,8 +47,6 @@ Response.prototype.json = async function() {
   }
 };
 
-import logger from "./core/logging/logger.js";
-
 const originalFetch = window.fetch;
 const patchedFetch = function(this: any, input: RequestInfo | URL, init?: RequestInit) {
   const options = init || {};

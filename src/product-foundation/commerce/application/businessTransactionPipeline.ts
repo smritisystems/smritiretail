@@ -11,6 +11,7 @@ import {
   StageErrorPolicy,
   TransactionStagePolicy,
 } from '../contracts/businessTransaction';
+import logger from '../../../core/logging/logger.js';
 import {
   getPipelineStageDefinition,
   validateStageSequence,

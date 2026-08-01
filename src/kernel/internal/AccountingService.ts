@@ -6,6 +6,7 @@
  * License      : Proprietary Commercial Software
  */
 
+import logger from "../../core/logging/logger.js";
 import { AccountHead, IAccountingService, JournalVoucherRecord } from "../public/IAccountingService.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 import { SPK } from "../SPK.js";

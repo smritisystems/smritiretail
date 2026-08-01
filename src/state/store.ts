@@ -56,8 +56,6 @@ export let branches: any[] = [];
 export let customers: Customer[] = [];
 export let customerGroups: CustomerGroup[] = [];
 
-import logger from "../core/logging/logger.js";
-
 export const sessions: Record<string, {
   username: string;
   userId: string;

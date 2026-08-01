@@ -6,6 +6,7 @@
  * License      : Proprietary Commercial Software
  */
 
+import logger from "../../core/logging/logger.js";
 import { ISalesService, SalesInvoiceRecord } from "../public/ISalesService.js";
 import { IAccountingService } from "../public/IAccountingService.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
@@ -139,7 +140,8 @@ export class SalesService implements ISalesService {
         const accountingService = SPK.services.resolve<IAccountingService>("ACCOUNTING");
         accountingService.postSalesInvoiceJournal(normalized.invoiceNumber, normalized.customerName, normalized.netPayable, normalized.taxTotal);
       } catch (aErr) {
-          logger.warn("[SalesService] Silent accounting journal posting skipped:", aErr as unknown);
+        logger.warn("[SalesService] Silent accounting journal posting skipped:", aErr as unknown);
+      }
 
       SPK.events.emit("InvoiceCreated", normalized.id, normalized);
       return normalized;

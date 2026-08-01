@@ -23,16 +23,6 @@
  * * License    : Proprietary Commercial Software
  */
 
-import { ContextAction, ContextData } from "./ContextAction.ts";
-
-class ContextRegistry {
-  private actions: ContextAction[] = [];
-  private recentActionIds: string[] = [];
-  private favoriteActionIds: string[] = [];
-  private pinnedActionIds: string[] = [];
-
-  constructor() {
-    // Load favorites & pinned from localStorage if offline-persistence is available
 import logger from "../core/logging/logger.js";
 import { ContextAction, ContextData } from "./ContextAction.ts";
 

@@ -6,6 +6,7 @@
  * License      : Proprietary Commercial Software
  */
 
+import logger from "../core/logging/logger.js";
 import { WindowManager } from "../sdk/WindowManager.js";
 import { NavigationRegistry, DomainDefinition } from "./upr/navigation/NavigationRegistry.js";
 import { EntityRegistry, EntityMetadata } from "./upr/forms/EntityRegistry.js";

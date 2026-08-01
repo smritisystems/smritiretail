@@ -6,7 +6,7 @@ export interface PlatformLogger {
   error(message: string, metadata?: Record<string, unknown>): void;
 }
 
-import logger from "../../../core/logging/logger.js";
+import logger from "../../../../core/logging/logger.js";
 
 export const ConsolePlatformLogger: PlatformLogger = {
   trace: (message, metadata) => logger.trace(message, metadata as Record<string, unknown> | undefined),

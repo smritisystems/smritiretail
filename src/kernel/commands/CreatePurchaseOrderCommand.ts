@@ -6,6 +6,7 @@
  * License      : Proprietary Commercial Software
  */
 
+import logger from "../../core/logging/logger.js";
 import { ICommand, ICommandHandler, ITenantContext, SPK } from "../SPK.js";
 import { IPurchaseService, PurchaseOrderRecord } from "../public/IPurchaseService.js";
 

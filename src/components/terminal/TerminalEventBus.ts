@@ -11,7 +11,7 @@
  * Classification: Internal
  */
 
-import logger from "../core/logging/logger.js";
+import logger from "../../core/logging/logger.js";
 
 type EventCallback = (data?: any) => void;
 

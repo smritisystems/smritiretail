@@ -23,6 +23,8 @@
  * * License    : Proprietary Commercial Software
  */
 
+import logger from "../core/logging/logger.js";
+
 export type NumberingMode = "Auto" | "Manual" | "Hybrid";
 export type ResetRule = "Never" | "Daily" | "Monthly" | "Quarterly" | "Financial Year" | "Calendar Year" | "Branch";
 
@@ -288,7 +290,7 @@ export class NumberingEngine {
     try {
       return await apiFetchV1("/numbering/logs");
     } catch (err) {
-      logger.error(err as unknown);
+      logger.error(String(err));
       return [];
     }
   }
