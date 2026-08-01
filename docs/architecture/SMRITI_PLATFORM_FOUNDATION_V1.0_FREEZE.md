@@ -12,6 +12,86 @@ This document records the formal transition from platform experimentation to pla
 
 Governance is now complete as an operating framework. The platform baseline is stable, and future governance updates should occur only when implementation exposes an actual deficiency.
 
+## RC1 Architecture Freeze Declaration
+
+Status: RC1 Architecture Freeze is now active for product delivery.
+
+This freeze is based on verified release readiness:
+- Build validation: `npm run build` passed
+- Regression validation: `npm test` passed
+- Test coverage: 63/63 test files passed and 224/224 tests passed
+
+The frozen engineering contract is now:
+- Kernel APIs remain stable and backward compatible
+- Document Definition Registry remains the canonical extension point for business documents
+- Pipeline Factory and Business Transaction Pipeline remain the canonical execution model
+- Stage Registry, Policy Registry, Workflow, Ledger, Finance Engine, Inventory Engine, and Document Lifecycle remain the shared product foundation
+- New business features must be delivered through configuration and policy composition rather than new foundational abstractions
+
+## RC1 Delivery Model
+
+Future product work must follow this pattern:
+
+```text
+New Feature
+  ↓
+Document Definition
+  ↓
+Policy Definition
+  ↓
+Workflow / Print / Notification / Numbering Policies
+  ↓
+Pipeline
+  ↓
+Done
+```
+
+Examples:
+- Purchase Order → `PurchaseOrderDefinition` + transaction policy + workflow policy + print policy + notification policy
+- Delivery Challan → `DeliveryChallanDefinition` + pipeline
+- GRN → `GRNDefinition` + pipeline
+- Sales Return → `SalesReturnDefinition` + pipeline
+
+## RC1 Product Roadmap
+
+### Phase A — Business Documents (Highest Priority)
+- Sales Order
+- Purchase Order
+- Quotation
+- GRN
+- Delivery Challan
+- Credit Note
+- Debit Note
+
+### Phase B — Retail Operations
+- Physical Verification
+- Consignment Stock
+- Warehouse Operations
+- Batch and Serial Enhancements
+
+### Phase C — Finance
+- Cash Book
+- Bank Book
+- Receipt Voucher
+- Payment Voucher
+- Bank Reconciliation
+
+### Phase D — Reports and Dashboards
+- MIS
+- GST Reports
+- Financial Statements
+- Inventory Reports
+- Executive Dashboards
+
+## Governance Rules for the Freeze
+
+The following rules are now non-negotiable:
+- No new platform abstractions without ADR review and explicit approval
+- No breaking changes to frozen kernel contracts
+- New capabilities must be expressed as document definitions and policies where possible
+- Foundation services must remain reusable and policy-driven
+- Business logic should be extended through composition, not by adding fresh architectural layers
+
 ## Frozen Platform Baseline
 
 The following components are the canonical frozen platform foundation:
