@@ -5,6 +5,7 @@ SalesBusinessOrchestrator — document-agnostic orchestration for Sales capabili
 from __future__ import annotations
 from decimal import Decimal
 from datetime import datetime, timezone
+import logging
 import uuid
 from typing import Optional, Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +19,7 @@ from ..services.inventory import InventoryService
 from ..services.workflow import workflow_service
 from ..services.sales_context import SalesContext
 from ..services.event_bus import event_bus, Events
+from ..services.accounting import AccountingService, JournalVoucher, JournalEntry, Accounts
 from ..models.inventory import Product, StockMovement
 from ..models.crm import Customer
 from ..models.sales import (
@@ -30,6 +32,8 @@ from ..schemas.crm import CustomerCreate
 from ..schemas.sales import (
     SalesInvoiceCreate, SalesOrderCreate, SalesReturnCreate, SalesQuotationCreate
 )
+
+logger = logging.getLogger("smriti.sales")
 
 
 class SalesBusinessOrchestrator:
@@ -333,9 +337,11 @@ class SalesBusinessOrchestrator:
         db_payments = []
         for p_in in invoice_in.payments:
             pay_id = f"PMT-{uuid.uuid4().hex[:8].upper()}"
+            payment_no = f"PAY-{uuid.uuid4().hex[:8].upper()}"
             tx_no = getattr(p_in, "transaction_no", None) or getattr(p_in, "reference_no", None)
             db_pmt = SalesPayment(
                 id=pay_id,
+                payment_no=payment_no,
                 invoice_id=invoice_id,
                 customer_id=invoice_in.customer_id,
                 payment_mode=p_in.payment_mode,
@@ -350,9 +356,11 @@ class SalesBusinessOrchestrator:
 
         if not db_payments:
             pay_id = f"PMT-{uuid.uuid4().hex[:8].upper()}"
+            payment_no = f"PAY-{uuid.uuid4().hex[:8].upper()}"
             fallback_mode = getattr(invoice_in, 'payment_mode', None) or "CASH"
             db_pmt = SalesPayment(
                 id=pay_id,
+                payment_no=payment_no,
                 invoice_id=invoice_id,
                 customer_id=invoice_in.customer_id,
                 payment_mode=fallback_mode,
@@ -426,6 +434,62 @@ class SalesBusinessOrchestrator:
             await self.db.rollback()
             raise HTTPException(status_code=400, detail="Sales invoice with this invoice number already exists")
 
+        accounting_service = AccountingService(self.db, self.tenant_ctx)
+        subtotal = Decimal("0.00")
+        for item in invoice_items:
+            subtotal += (item.quantity * item.unit_price).quantize(Decimal("0.01"))
+
+        voucher = JournalVoucher(
+            ref_document_type="SalesInvoice",
+            ref_document_id=db_invoice.id,
+            ref_document_no=db_invoice.invoice_no,
+            narration=f"Sales invoice posted: {db_invoice.invoice_no}",
+            voucher_date=(db_invoice.invoice_date.isoformat() if getattr(db_invoice, "invoice_date", None) else datetime.now(timezone.utc).isoformat()),
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+            entries=[
+                JournalEntry(
+                    account_code=Accounts.ACCOUNTS_RECEIVABLE,
+                    account_name="Accounts Receivable",
+                    debit=calculated_grand_total.quantize(Decimal("0.01")),
+                    credit=Decimal("0.00"),
+                    narration=f"Receivable for sales invoice {db_invoice.invoice_no}",
+                ),
+                JournalEntry(
+                    account_code=Accounts.SALES_REVENUE,
+                    account_name="Sales Revenue",
+                    debit=Decimal("0.00"),
+                    credit=subtotal.quantize(Decimal("0.01")),
+                    narration=f"Sales revenue for invoice {db_invoice.invoice_no}",
+                ),
+                JournalEntry(
+                    account_code=Accounts.GST_OUTPUT_CGST,
+                    account_name="CGST Payable",
+                    debit=Decimal("0.00"),
+                    credit=calculated_cgst_total.quantize(Decimal("0.01")),
+                    narration=f"CGST output for invoice {db_invoice.invoice_no}",
+                ),
+                JournalEntry(
+                    account_code=Accounts.GST_OUTPUT_SGST,
+                    account_name="SGST Payable",
+                    debit=Decimal("0.00"),
+                    credit=calculated_sgst_total.quantize(Decimal("0.01")),
+                    narration=f"SGST output for invoice {db_invoice.invoice_no}",
+                ),
+                JournalEntry(
+                    account_code=Accounts.GST_OUTPUT_IGST,
+                    account_name="IGST Payable",
+                    debit=Decimal("0.00"),
+                    credit=calculated_igst_total.quantize(Decimal("0.01")),
+                    narration=f"IGST output for invoice {db_invoice.invoice_no}",
+                ),
+            ],
+        )
+        try:
+            await accounting_service.post_journal(voucher)
+        except Exception as exc:  # pragma: no cover - best effort accounting integration
+            logger.warning("[SALES] Failed to post accounting journal for invoice %s: %s", db_invoice.invoice_no, exc)
+
         stmt = select(SalesInvoice).options(selectinload(SalesInvoice.items)).filter(SalesInvoice.id == db_invoice.id)
         result = await self.db.execute(stmt)
         refreshed = result.scalars().first()
@@ -463,8 +527,13 @@ class SalesBusinessOrchestrator:
         items: List[SalesOrderItem] = []
 
         for item in so_in.items:
-            item_tax = (item.quantity * item.price * (item.gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
-            item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
+            pricing = await self.resolve_pricing(item.price, None, item.product_id)
+            effective_price = pricing["final_price"]
+            gst_info = await self.resolve_gst(item.product_id, item.gst_rate)
+            effective_gst_rate = gst_info["gst_rate"]
+
+            item_tax = (item.quantity * effective_price * (effective_gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
+            item_total = (item.quantity * effective_price + item_tax).quantize(Decimal("0.01"))
             cgst_amount = (item_tax / 2).quantize(Decimal("0.01"))
             sgst_amount = item_tax - cgst_amount
             igst_amount = Decimal("0.00")
@@ -480,9 +549,9 @@ class SalesBusinessOrchestrator:
                 code=item.code,
                 name=item.name,
                 quantity=item.quantity,
-                price=item.price,
+                price=effective_price,
                 hsn_code=item.hsn_code,
-                gst_rate=item.gst_rate,
+                gst_rate=effective_gst_rate,
                 tax_amount=item_tax,
                 total_amount=item_total,
                 cgst_amount=cgst_amount,
@@ -498,7 +567,7 @@ class SalesBusinessOrchestrator:
             order_no=so_in.order_no,
             date=so_in.date,
             customer_name=so_in.customer_name,
-            subtotal=sum((item.quantity * item.price).quantize(Decimal("0.01")) for item in so_in.items),
+            subtotal=sum((item.quantity * item.price).quantize(Decimal("0.01")) for item in items),
             tax_total=tax_total,
             cgst_total=cgst_total,
             sgst_total=sgst_total,

@@ -20,7 +20,7 @@ from app.models.inventory import Product
 from app.models.tenant import Company, Branch
 from app.schemas.crm import CustomerCreate, CustomerGroupCreate
 from app.schemas.inventory import ProductCreate
-from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate
+from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate, SalesInvoicePaymentCreate
 from app.services.crm import CrmService
 from app.services.inventory import InventoryService
 from app.services.sales import SalesService
@@ -198,3 +198,156 @@ async def test_sales_invoice_service(db_session):
         await sales_serv.create_sales_invoice(invoice_in_fail)
     assert exc.value.status_code == 400
     assert "Credit limit exceeded" in exc.value.detail
+
+
+async def test_sales_invoice_payment_number_is_generated(db_session):
+    suffix = uuid.uuid4().hex[:8]
+    company = Company(id=f"comp-pay-{suffix}", name="Payment Company", is_active=True)
+    branch = Branch(id=f"br-pay-{suffix}", company_id=company.id, name="Payment Branch", code=f"BR-{suffix}", is_active=True)
+    db_session.add_all([company, branch])
+    await db_session.commit()
+
+    tenant_ctx = TenantContext(company_id=company.id, branch_id=branch.id)
+    crm_serv = CrmService(db_session, tenant_ctx)
+    inv_serv = InventoryService(db_session, tenant_ctx)
+    sales_serv = SalesService(db_session, tenant_ctx)
+
+    await crm_serv.create_customer_group(
+        CustomerGroupCreate(
+            id=f"cg-pay-{suffix}",
+            name=f"Payment Group {suffix}",
+            credit_limit=Decimal("1000.00"),
+            auto_block_sales=True,
+        )
+    )
+    await crm_serv.create_customer(
+        CustomerCreate(
+            id=f"cust-pay-{suffix}",
+            customer_group_id=f"cg-pay-{suffix}",
+            name="Payment Customer",
+            outstanding=Decimal("0.00"),
+        )
+    )
+    await inv_serv.create_product(
+        ProductCreate(
+            id=f"prod-pay-{suffix}",
+            code=f"PAYCODE{suffix}",
+            name="Payment Product",
+            price=Decimal("100.00"),
+            category="General",
+            barcode=f"BAR{suffix}",
+            stock=10,
+        )
+    )
+
+    invoice_in = SalesInvoiceCreate(
+        id=f"inv-pay-{suffix}",
+        invoice_no=f"INV-PAY-{suffix}",
+        customer_id=f"cust-pay-{suffix}",
+        items=[
+            SalesInvoiceItemCreate(
+                product_id=f"prod-pay-{suffix}",
+                code=f"PAYCODE{suffix}",
+                name="Payment Product",
+                quantity=Decimal("1.00"),
+                price=Decimal("100.00"),
+                gst_rate=Decimal("18.00"),
+                total_amount=Decimal("118.00"),
+            )
+        ],
+        payments=[
+            SalesInvoicePaymentCreate(
+                payment_mode="CASH",
+                amount=Decimal("118.00"),
+                transaction_no=f"TX-{suffix}",
+            )
+        ],
+    )
+
+    invoice = await sales_serv.create_sales_invoice(invoice_in)
+    assert invoice.payments
+    assert invoice.payments[0].payment_no
+    assert invoice.payments[0].payment_no.startswith("PAY-")
+
+
+async def test_sales_invoice_posts_accounting_journal_in_advanced_mode(db_session, monkeypatch):
+    suffix = uuid.uuid4().hex[:8]
+    monkeypatch.setattr("app.core.config.settings.ACCOUNTING_MODE", "ADVANCED")
+    company = Company(id=f"comp-jv-{suffix}", name="Journal Company", is_active=True)
+    branch = Branch(id=f"br-jv-{suffix}", company_id=company.id, name="Journal Branch", code=f"BR-{suffix}", is_active=True)
+    db_session.add_all([company, branch])
+    await db_session.commit()
+
+    tenant_ctx = TenantContext(company_id=company.id, branch_id=branch.id)
+    crm_serv = CrmService(db_session, tenant_ctx)
+    inv_serv = InventoryService(db_session, tenant_ctx)
+    sales_serv = SalesService(db_session, tenant_ctx)
+
+    await crm_serv.create_customer_group(
+        CustomerGroupCreate(
+            id=f"cg-jv-{suffix}",
+            name=f"Journal Group {suffix}",
+            credit_limit=Decimal("1000.00"),
+            auto_block_sales=True,
+        )
+    )
+    await crm_serv.create_customer(
+        CustomerCreate(
+            id=f"cust-jv-{suffix}",
+            customer_group_id=f"cg-jv-{suffix}",
+            name="Journal Customer",
+            outstanding=Decimal("0.00"),
+        )
+    )
+    await inv_serv.create_product(
+        ProductCreate(
+            id=f"prod-jv-{suffix}",
+            code=f"JVCODE{suffix}",
+            name="Journal Product",
+            price=Decimal("100.00"),
+            category="General",
+            barcode=f"JVBAR{suffix}",
+            stock=10,
+        )
+    )
+
+    invoice_in = SalesInvoiceCreate(
+        id=f"inv-jv-{suffix}",
+        invoice_no=f"INV-JV-{suffix}",
+        customer_id=f"cust-jv-{suffix}",
+        items=[
+            SalesInvoiceItemCreate(
+                product_id=f"prod-jv-{suffix}",
+                code=f"JVCODE{suffix}",
+                name="Journal Product",
+                quantity=Decimal("1.00"),
+                price=Decimal("100.00"),
+                gst_rate=Decimal("18.00"),
+                total_amount=Decimal("118.00"),
+            )
+        ],
+        payments=[
+            SalesInvoicePaymentCreate(
+                payment_mode="CASH",
+                amount=Decimal("118.00"),
+                transaction_no=f"TX-{suffix}",
+            )
+        ],
+    )
+
+    from app.services import sales_orchestrator as sales_orch_module
+
+    with pytest.MonkeyPatch.context() as mp:
+        called = {}
+
+        async def fake_post_journal(self, voucher):
+            called["no"] = voucher.ref_document_no
+            called["entries"] = len(voucher.entries)
+            return "JV-TEST"
+
+        mp.setattr(sales_orch_module.AccountingService, "post_journal", fake_post_journal)
+        invoice = await sales_serv.create_sales_invoice(invoice_in)
+
+    assert invoice.invoice_no == invoice_in.invoice_no
+    assert called["no"] == invoice_in.invoice_no
+    assert called["entries"] >= 2
