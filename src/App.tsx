@@ -60,6 +60,7 @@ const PrintLabelsStudio = React.lazy(() => import("./components/printing/PrintLa
 const UniversalLabelPrintingStudio = React.lazy(() => import("./components/label_print/UniversalLabelPrintingStudio.tsx"));
 const ConsignmentStudioTab = React.lazy(() => import("./components/ConsignmentStudioTab.tsx"));
 const SCDMStudioTab = React.lazy(() => import("./components/SCDMStudioTab.tsx"));
+const EcommerceStudioTab = React.lazy(() => import("./components/ecommerce/EcommerceStudioTab.tsx"));
 
 const CrmStudioTab = React.lazy(() => import("./components/CrmStudioTab.tsx"));
 const LoyaltyStudioTab = React.lazy(() => import("./components/LoyaltyStudioTab.tsx"));
@@ -731,6 +732,11 @@ const AppContent: React.FC = () => {
       case "channel-distribution":
       case "scdm_channel_distribution":
         return <SCDMStudioTab />;
+      case "ecommerce":
+      case "ecommerce-studio":
+      case "commerce":
+      case "commerce-studio":
+        return <EcommerceStudioTab />;
 
       case "loyalty":
         return <LoyaltyStudioTab currentUser={currentUser} />;

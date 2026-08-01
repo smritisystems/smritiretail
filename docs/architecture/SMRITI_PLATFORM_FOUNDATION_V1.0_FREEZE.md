@@ -14,7 +14,7 @@ Governance is now complete as an operating framework. The platform baseline is s
 
 ## RC1 Architecture Freeze Declaration
 
-Status: RC1 Architecture Freeze is now active for product delivery.
+Status: RC1 Architecture Freeze is now active for product delivery and is officially closed.
 
 This freeze is based on verified release readiness:
 - Build validation: `npm run build` passed
@@ -51,6 +51,27 @@ Examples:
 - Delivery Challan → `DeliveryChallanDefinition` + pipeline
 - GRN → `GRNDefinition` + pipeline
 - Sales Return → `SalesReturnDefinition` + pipeline
+
+## RC1 Completion Statement
+
+RC1 is now complete. The platform foundation is frozen under the Architecture Constitution and RC2 Execution Contract. Effective immediately, engineering effort shifts from platform construction to disciplined delivery of complete business capabilities, beginning with the Sales Foundation milestone.
+
+Success in RC2 will be measured by production-ready business documents and end-to-end workflows, not by additional platform infrastructure.
+
+## RC2 Delivery Transition
+
+RC2 is now the active delivery phase.
+
+Primary objective:
+- Deliver customer-visible ERP functionality through complete business capability packs
+
+Execution sequence:
+1. Sales Foundation
+2. Purchase Foundation
+3. Inventory Foundation
+4. Finance Foundation
+5. CRM Foundation
+6. Unified Commerce
 
 ## RC1 Product Roadmap
 
