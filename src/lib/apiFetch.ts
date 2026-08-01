@@ -11,6 +11,7 @@
  * License      : Proprietary Commercial Software
  */
 
+import logger from "../core/logging/logger.js";
 import { apiFetchV1 } from "./apiFetchV1.js";
 export { apiFetchV1 } from "./apiFetchV1.js";
 
@@ -68,6 +69,6 @@ export async function recordAuditAction(actionType: string, tableName: string, r
       })
     );
   } catch (err) {
-    console.error("[Audit Logger] Failed to record audit action:", err);
+    logger.error("[Audit Logger] Failed to record audit action:", err as unknown);
   }
 }

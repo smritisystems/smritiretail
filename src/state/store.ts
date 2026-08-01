@@ -126,7 +126,7 @@ export function loadDb() {
       }
     }
   } catch (e) {
-    console.warn("Failed to load local database:", e);
+    logger.warn("Failed to load local database:", e as unknown);
   }
 }
 

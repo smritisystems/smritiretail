@@ -124,7 +124,7 @@ export async function allocateVoucherNumber(docType: string, context?: { branch?
     }
     return docType.substring(0, 3).toUpperCase() + "-" + Date.now();
   } catch (err) {
-    console.error("[SMRITI] Failed to allocate voucher number via python-core:", err);
+    logger.error("[SMRITI] Failed to allocate voucher number via python-core:", err as unknown);
     return docType.substring(0, 3).toUpperCase() + "-" + Date.now();
   }
 }
@@ -250,10 +250,10 @@ export async function recordStockMovement(productId: any, productCode: any, prod
     
     if (!res.ok) {
       const errText = await res.text();
-      console.error(`[SMRITI] FastAPI stock movement registration failed with status ${res.status}: ${errText}`);
+      logger.error(`[SMRITI] FastAPI stock movement registration failed with status ${res.status}: ${errText}`);
     }
   } catch (err) {
-    console.error("[SMRITI] Failed to dispatch stock movement to python-core:", err);
+    logger.error("[SMRITI] Failed to dispatch stock movement to python-core:", err as unknown);
   }
 }
 
