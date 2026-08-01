@@ -15,6 +15,7 @@ from typing import List, Optional
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from ..models.sales import SalesInvoice, SalesQuotation, SalesQuotationItem
 from .base import BaseRepository
 from ..api.deps import TenantContext
@@ -60,6 +61,17 @@ class SalesInvoiceRepository(BaseRepository[SalesInvoice]):
 class SalesQuotationRepository(BaseRepository[SalesQuotation]):
     def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
         super().__init__(SalesQuotation, db, tenant_ctx)
+
+    async def create(self, obj_in: SalesQuotation) -> SalesQuotation:
+        self.db.add(obj_in)
+        await self.db.commit()
+        # Refresh the object and ensure related items are eagerly loaded
+        result = await self.db.execute(
+            select(SalesQuotation)
+            .options(selectinload(SalesQuotation.items))
+            .where(SalesQuotation.id == obj_in.id)
+        )
+        return result.scalars().first()
 
     async def get_all(self, skip: int = 0, limit: int = 100) -> List[SalesQuotation]:
         from sqlalchemy.orm import selectinload
