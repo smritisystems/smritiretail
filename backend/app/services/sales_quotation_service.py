@@ -1,44 +1,39 @@
-from dataclasses import dataclass
 from typing import List, Optional
 
+from backend.app.modules.sales.quotation.domain import Quotation, QuotationItem, calculate_total, create_quotation
+from backend.app.modules.sales.quotation.repository import InMemoryQuotationRepository
 
-@dataclass
-class QuotationItem:
-    item_code: str
-    description: str
-    quantity: float
-    unit_price: float
-    discount_percent: float = 0.0
-    tax_percent: float = 0.0
+__all__ = [
+    "Quotation",
+    "QuotationItem",
+    "calculate_total",
+    "create_quotation",
+    "save_quotation",
+    "get_quotation",
+    "list_quotations",
+    "delete_quotation",
+    "clear_quotations",
+    "InMemoryQuotationRepository",
+]
 
-
-@dataclass
-class Quotation:
-    id: str
-    customer_code: str
-    quotation_date: str
-    valid_until: str
-    currency: str = "INR"
-    items: Optional[List[QuotationItem]] = None
-    status: str = "draft"
+_quotation_repository = InMemoryQuotationRepository()
 
 
-def calculate_total(quotation: Quotation) -> float:
-    total = 0.0
-    for item in quotation.items or []:
-        discounted = item.unit_price * (1 - item.discount_percent / 100)
-        taxed = discounted * (1 + item.tax_percent / 100)
-        total += taxed * item.quantity
-    return round(total, 2)
+def save_quotation(quotation: Quotation) -> Quotation:
+    return _quotation_repository.save(quotation)
 
 
-def create_quotation(customer_code: str, items: List[QuotationItem]) -> Quotation:
-    return Quotation(
-        id="SQ-001",
-        customer_code=customer_code,
-        quotation_date="2026-08-01",
-        valid_until="2026-08-31",
-        currency="INR",
-        items=items,
-        status="draft",
-    )
+def get_quotation(quotation_id: str) -> Optional[Quotation]:
+    return _quotation_repository.get(quotation_id)
+
+
+def list_quotations() -> List[Quotation]:
+    return _quotation_repository.list()
+
+
+def delete_quotation(quotation_id: str) -> bool:
+    return _quotation_repository.delete(quotation_id)
+
+
+def clear_quotations() -> None:
+    _quotation_repository.clear()

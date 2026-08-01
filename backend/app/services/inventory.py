@@ -334,6 +334,16 @@ class InventoryService:
         await self.db.refresh(db_product)
         return db_product
 
+    async def get_product(self, product_id: str) -> Product | None:
+        stmt = select(Product).filter(
+            Product.id == product_id,
+            Product.is_deleted == False,
+            Product.company_id == self.tenant_ctx.company_id,
+            Product.branch_id == self.tenant_ctx.branch_id
+        )
+        res = await self.db.execute(stmt)
+        return res.scalars().first()
+
     async def check_stock_availability(self, product_id: str, quantity: float) -> bool:
         stmt = select(Product).filter(
             Product.id == product_id,

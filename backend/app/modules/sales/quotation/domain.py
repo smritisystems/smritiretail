@@ -32,13 +32,21 @@ def calculate_total(quotation: Quotation) -> float:
     return round(total, 2)
 
 
-def create_quotation(customer_code: str, items: List[QuotationItem]) -> Quotation:
+def create_quotation(
+    customer_code: str,
+    items: Optional[List[QuotationItem]] = None,
+    quotation_id: Optional[str] = None,
+    quotation_date: Optional[str] = None,
+    valid_until: Optional[str] = None,
+    currency: str = "INR",
+    status: str = "draft",
+) -> Quotation:
     return Quotation(
-        id="SQ-001",
+        id=quotation_id or "SQ-001",
         customer_code=customer_code,
-        quotation_date="2026-08-01",
-        valid_until="2026-08-31",
-        currency="INR",
-        items=items,
-        status="draft",
+        quotation_date=quotation_date or "2026-08-01",
+        valid_until=valid_until or "2026-08-31",
+        currency=currency,
+        items=items or [],
+        status=status,
     )

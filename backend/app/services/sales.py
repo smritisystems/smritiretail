@@ -43,6 +43,7 @@ from ..schemas.sales import (
 from .crm import CrmService
 from .inventory import InventoryService
 from ..api.deps import TenantContext
+from app.modules.sales.quotation.application import QuotationApplicationService
 # ADR-007: Domain Event Bus
 from app.services.event_bus import event_bus, Events
 
@@ -345,116 +346,13 @@ class SalesService:
     # ──────────────────────────────────────────────────────────────
 
     async def create_sales_quotation(self, q_in: SalesQuotationCreate) -> SalesQuotation:
-        existing = await self.db.execute(
-            select(SalesQuotation).filter(
-                SalesQuotation.quotation_no == q_in.quotation_no,
-                SalesQuotation.is_deleted == False,
-                SalesQuotation.company_id == self.tenant_ctx.company_id,
-                SalesQuotation.branch_id == self.tenant_ctx.branch_id
-            )
-        )
-        if existing.scalars().first():
-            raise HTTPException(status_code=400, detail="Sales quotation with this quotation number already exists")
-
-        tax_total = Decimal("0.00")
-        grand_total = Decimal("0.00")
-        cgst_total = Decimal("0.00")
-        sgst_total = Decimal("0.00")
-        igst_total = Decimal("0.00")
-        q_items = []
-
-        for item in q_in.items:
-            item_tax = (item.quantity * item.price * (item.gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
-            item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
-
-            # Intrastate fallback splits for quotation
-            cgst_amount = (item_tax / 2).quantize(Decimal("0.01"))
-            sgst_amount = item_tax - cgst_amount
-            igst_amount = Decimal("0.00")
-
-            tax_total += item_tax
-            grand_total += item_total
-            cgst_total += cgst_amount
-            sgst_total += sgst_amount
-            igst_total += igst_amount
-
-            q_items.append(SalesQuotationItem(
-                product_id=item.product_id,
-                code=item.code,
-                name=item.name,
-                quantity=item.quantity,
-                price=item.price,
-                hsn_code=item.hsn_code,
-                gst_rate=item.gst_rate,
-                tax_amount=item_tax,
-                total_amount=item_total,
-                cgst_amount=cgst_amount,
-                sgst_amount=sgst_amount,
-                igst_amount=igst_amount,
-                tenant_id=self.tenant_ctx.tenant_id,
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id
-            ))
-
-        db_q = SalesQuotation(
-            id=q_in.id,
-            quotation_no=q_in.quotation_no,
-            date=q_in.date,
-            customer_name=q_in.customer_name,
-            tax_total=tax_total,
-            grand_total=grand_total,
-            cgst_total=cgst_total,
-            sgst_total=sgst_total,
-            igst_total=igst_total,
-            status=q_in.status,
-            sales_order_id=q_in.sales_order_id,
-            items=q_items,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id
-        )
-
-        self.db.add(db_q)
-        try:
-            await self.db.commit()
-        except IntegrityError:
-            await self.db.rollback()
-            raise HTTPException(status_code=400, detail="Sales quotation already exists")
-
-        # Re-fetch with eager items to avoid MissingGreenlet during response serialization
-        result = await self.db.execute(
-            select(SalesQuotation)
-            .options(selectinload(SalesQuotation.items))
-            .where(SalesQuotation.id == db_q.id)
-        )
-        return result.scalars().first()
+        return await QuotationApplicationService(self.db, self.tenant_ctx).create_quotation(q_in)
 
     async def list_sales_quotations(self) -> List[SalesQuotation]:
-        res = await self.db.execute(
-            select(SalesQuotation)
-            .options(selectinload(SalesQuotation.items))
-            .where(
-                SalesQuotation.company_id == self.tenant_ctx.company_id,
-                SalesQuotation.branch_id == self.tenant_ctx.branch_id,
-                SalesQuotation.is_deleted == False
-            )
-        )
-        return res.scalars().all()
+        return await QuotationApplicationService(self.db, self.tenant_ctx).list_quotations()
 
     async def get_sales_quotation(self, q_id: str) -> tuple[SalesQuotation, List[SalesQuotationItem]]:
-        res = await self.db.execute(
-            select(SalesQuotation)
-            .options(selectinload(SalesQuotation.items))
-            .where(
-                SalesQuotation.id == q_id,
-                SalesQuotation.company_id == self.tenant_ctx.company_id,
-                SalesQuotation.branch_id == self.tenant_ctx.branch_id,
-                SalesQuotation.is_deleted == False
-            )
-        )
-        q = res.scalars().first()
-        if not q:
-            raise HTTPException(status_code=404, detail="Sales quotation not found")
-        return q, q.items
+        return await QuotationApplicationService(self.db, self.tenant_ctx).get_quotation(q_id)
 
     # ──────────────────────────────────────────────────────────────
     # Sales Order
@@ -861,85 +759,13 @@ class SalesService:
 
     # ── Quotation UPDATE ────────────────────────────────────────────
 
-    async def update_sales_quotation(
-        self, q_id: str, update_in: SalesQuotationUpdate
-    ) -> SalesQuotation:
-        res = await self.db.execute(
-            select(SalesQuotation)
-            .options(selectinload(SalesQuotation.items))
-            .where(
-                SalesQuotation.id         == q_id,
-                SalesQuotation.company_id == self.tenant_ctx.company_id,
-                SalesQuotation.branch_id  == self.tenant_ctx.branch_id,
-                SalesQuotation.is_deleted == False,
-            )
-        )
-        q = res.scalars().first()
-        if not q:
-            raise HTTPException(status_code=404, detail="Sales quotation not found")
-
-        for attr in ("quotation_no", "date", "customer_name", "status", "sales_order_id"):
-            val = getattr(update_in, attr)
-            if val is not None:
-                setattr(q, attr, val)
-
-        if update_in.items is not None:
-            await self.db.execute(
-                delete(SalesQuotationItem).where(SalesQuotationItem.quotation_id == q.id)
-            )
-            tax_total   = Decimal("0.00")
-            grand_total = Decimal("0.00")
-            for item in update_in.items:
-                item_tax   = (item.quantity * item.price
-                               * (item.gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
-                item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
-                tax_total   += item_tax
-                grand_total += item_total
-                self.db.add(SalesQuotationItem(
-                    quotation_id=q.id,
-                    product_id=item.product_id, code=item.code, name=item.name,
-                    quantity=item.quantity, price=item.price,
-                    hsn_code=item.hsn_code, gst_rate=item.gst_rate,
-                    tax_amount=item_tax, total_amount=item_total,
-                    tenant_id=self.tenant_ctx.tenant_id,
-                    company_id=self.tenant_ctx.company_id,
-                    branch_id=self.tenant_ctx.branch_id,
-                ))
-            q.tax_total   = tax_total
-            q.grand_total = grand_total
-        else:
-            if update_in.tax_total   is not None: q.tax_total   = update_in.tax_total
-            if update_in.grand_total is not None: q.grand_total = update_in.grand_total
-
-        q.modified_at = datetime.now(timezone.utc)
-        self.db.add(q)
-        await self.db.commit()
-
-        result = await self.db.execute(
-            select(SalesQuotation)
-            .options(selectinload(SalesQuotation.items))
-            .where(SalesQuotation.id == q.id)
-        )
-        return result.scalars().first()
+    async def update_sales_quotation(self, q_id: str, update_in: SalesQuotationUpdate) -> SalesQuotation:
+        return await QuotationApplicationService(self.db, self.tenant_ctx).update_quotation(q_id, update_in)
 
     # ── Quotation DELETE ────────────────────────────────────────────
 
     async def delete_sales_quotation(self, q_id: str) -> None:
-        res = await self.db.execute(
-            select(SalesQuotation).where(
-                SalesQuotation.id         == q_id,
-                SalesQuotation.company_id == self.tenant_ctx.company_id,
-                SalesQuotation.branch_id  == self.tenant_ctx.branch_id,
-                SalesQuotation.is_deleted == False,
-            )
-        )
-        q = res.scalars().first()
-        if not q:
-            raise HTTPException(status_code=404, detail="Sales quotation not found")
-        q.is_deleted  = True
-        q.modified_at = datetime.now(timezone.utc)
-        self.db.add(q)
-        await self.db.commit()
+        await QuotationApplicationService(self.db, self.tenant_ctx).delete_quotation(q_id)
 
     # ── Order UPDATE ────────────────────────────────────────────────
 
