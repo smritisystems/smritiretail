@@ -11,6 +11,7 @@ The architecture docs provide guidance for enterprise-grade design, governance, 
 - `SMRITI_BUSINESS_OS_V2_SPECIFICATION.md` — SMRITI Business OS v2.0 Enterprise Architecture Baseline Specification (Frozen)
 - `RC2_EXECUTION_CONTRACT_v1.0.md` — RC2 delivery governance, capability sequencing, business document lifecycle, and exit criteria
 - `PLATFORM_ADAPTER_RULES.md` — platform adapter and PAL guidance
+- `../templates/business-document/README.md` — reusable template for future business-document implementation packages
 - `PLATFORM_MICROSERVICES_ROADMAP.md` — long-term microservices vision
 - `PRODUCT_IDENTITY_ENGINE.md` — core Product Identity Engine design
 - `PRODUCT_IDENTITY_ENGINE_API_SPEC.md` — API contract for identity and barcode services
