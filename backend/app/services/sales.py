@@ -40,8 +40,7 @@ from ..schemas.sales import (
     SalesReturnCreate,
     SalesReturnUpdate,
 )
-from .crm import CrmService
-from .inventory import InventoryService
+from .sales_orchestrator import SalesBusinessOrchestrator
 from ..api.deps import TenantContext
 from app.modules.sales.quotation.application import QuotationApplicationService
 # ADR-007: Domain Event Bus
@@ -56,244 +55,14 @@ class SalesService:
     def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
         self.db = db
         self.tenant_ctx = tenant_ctx
-        self.crm_service = CrmService(db, tenant_ctx)
-        self.inventory_service = InventoryService(db, tenant_ctx)
+        self.orchestrator = SalesBusinessOrchestrator(db, tenant_ctx)
 
     # ──────────────────────────────────────────────────────────────
     # Sales Invoice
     # ──────────────────────────────────────────────────────────────
 
     async def create_sales_invoice(self, invoice_in: SalesInvoiceCreate) -> SalesInvoice:
-        # Check duplicate invoice no
-        existing = await self.db.execute(
-            select(SalesInvoice).filter(
-                SalesInvoice.invoice_no == invoice_in.invoice_no,
-                SalesInvoice.is_deleted == False,
-                SalesInvoice.company_id == self.tenant_ctx.company_id,
-                SalesInvoice.branch_id == self.tenant_ctx.branch_id
-            )
-        )
-        if existing.scalars().first():
-            raise HTTPException(status_code=400, detail="Sales invoice with this invoice number already exists")
-
-        # 1. Resolve customer pricing group → price engine parameters
-        pricing_params = await self.crm_service.resolve_customer_pricing(invoice_in.customer_id)
-        pg_discount    = Decimal(str(pricing_params["discount_percent"]))
-        pg_adjustment  = Decimal(str(pricing_params["price_adjustment"]))
-        rounding_rule  = pricing_params["rounding_rule"]
-
-        # 2. Validate items and calculate totals
-        calculated_tax_total = Decimal("0.00")
-        calculated_grand_total = Decimal("0.00")
-        calculated_cgst_total = Decimal("0.00")
-        calculated_sgst_total = Decimal("0.00")
-        calculated_igst_total = Decimal("0.00")
-        invoice_items = []
-
-        invoice_id = invoice_in.id or f"SINV-{_uid()}"
-
-        for item in invoice_in.items:
-            # Check stock
-            available = await self.inventory_service.check_stock_availability(item.product_id, float(item.quantity))
-            if not available:
-                raise HTTPException(status_code=400, detail=f"Insufficient stock for product ID: {item.product_id}")
-
-            quantity = item.quantity
-            base_price = item.price
-            if pg_discount > Decimal("0"):
-                base_price = base_price * (1 - pg_discount / Decimal("100"))
-            if pg_adjustment != Decimal("0"):
-                base_price = base_price + pg_adjustment
-            # Rounding
-            if rounding_rule == "Nearest1":
-                price = base_price.quantize(Decimal("1"))
-            elif rounding_rule == "Nearest5":
-                price = (base_price / 5).quantize(Decimal("1")) * 5
-            elif rounding_rule == "Nearest10":
-                price = (base_price / 10).quantize(Decimal("1")) * 10
-            else:
-                price = base_price.quantize(Decimal("0.01"))
-            # Fetch product to resolve canonical backend GST rate
-            product_stmt = select(Product).filter(
-                Product.id == item.product_id,
-                Product.is_deleted == False,
-                Product.company_id == self.tenant_ctx.company_id,
-                Product.branch_id == self.tenant_ctx.branch_id
-            )
-            prod_res = await self.db.execute(product_stmt)
-            prod_obj = prod_res.scalars().first()
-
-            if prod_obj:
-                effective_rate = await self.inventory_service.resolve_effective_gst_percentage(prod_obj)
-                gst_rate = Decimal(str(effective_rate))
-            else:
-                gst_rate = item.gst_rate
-
-            # Tax amount = quantity * effective_price * (gst_rate / 100)
-            item_tax   = (quantity * price * (gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
-            item_total = (quantity * price + item_tax).quantize(Decimal("0.01"))
-
-            # Calculate CGST/SGST/IGST tax splits
-            if invoice_in.is_interstate:
-                cgst_amount = Decimal("0.00")
-                sgst_amount = Decimal("0.00")
-                igst_amount = item_tax
-            else:
-                cgst_amount = (item_tax / 2).quantize(Decimal("0.01"))
-                sgst_amount = item_tax - cgst_amount
-                igst_amount = Decimal("0.00")
-
-            calculated_tax_total   += item_tax
-            calculated_grand_total += item_total
-            calculated_cgst_total   += cgst_amount
-            calculated_sgst_total   += sgst_amount
-            calculated_igst_total   += igst_amount
-
-            db_item = SalesInvoiceItem(
-                product_id=item.product_id,
-                code=item.code,
-                name=item.name,
-                quantity=quantity,
-                price=price,
-                hsn_code=item.hsn_code,
-                gst_rate=gst_rate,
-                tax_amount=item_tax,
-                total_amount=item_total,
-                cgst_amount=cgst_amount,
-                sgst_amount=sgst_amount,
-                igst_amount=igst_amount,
-                tenant_id=self.tenant_ctx.tenant_id,
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id
-            )
-            invoice_items.append(db_item)
-
-        # 3. Check customer credit limit
-        await self.crm_service.check_credit_limit(invoice_in.customer_id, float(calculated_grand_total))
-
-        # 4. Save Invoice Payments & compute cached payment_mode
-        payment_modes = set()
-        db_payments = []
-        for p_in in invoice_in.payments:
-            pay_id = f"PMT-{_uid()}"
-            tx_no = getattr(p_in, "transaction_no", None) or getattr(p_in, "reference_no", None)
-            db_pmt = SalesInvoicePayment(
-                id=pay_id,
-                uuid=str(uuid.uuid4()),
-                payment_no=f"PAY-{_uid()[:8].upper()}",
-                invoice_id=invoice_id,
-                customer_id=invoice_in.customer_id,
-                payment_mode=p_in.payment_mode,
-                amount=p_in.amount,
-                reference_no=tx_no,
-                tenant_id=self.tenant_ctx.tenant_id,
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id
-            )
-            db_payments.append(db_pmt)
-            payment_modes.add(p_in.payment_mode)
-
-        if not db_payments:
-            pay_id = f"PMT-{_uid()}"
-            # Fallback: schema may not have a flat payment_mode field (normalised payments model)
-            _fallback_mode = getattr(invoice_in, 'payment_mode', None) or "CASH"
-            db_pmt = SalesInvoicePayment(
-                id=pay_id,
-                uuid=str(uuid.uuid4()),
-                payment_no=f"PAY-{_uid()[:8].upper()}",
-                invoice_id=invoice_id,
-                customer_id=invoice_in.customer_id,
-                payment_mode=_fallback_mode,
-                amount=calculated_grand_total,
-                reference_no=None,
-                tenant_id=self.tenant_ctx.tenant_id,
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id
-            )
-            db_payments.append(db_pmt)
-            cached_payment_mode = _fallback_mode
-        else:
-            cached_payment_mode = "MIXED" if len(payment_modes) > 1 else list(payment_modes)[0]
-
-        db_invoice = SalesInvoice(
-            id=invoice_id,
-            invoice_no=invoice_in.invoice_no,
-            invoice_date=invoice_in.date or datetime.now(timezone.utc),
-            customer_id=invoice_in.customer_id,
-            tax_total=calculated_tax_total,
-            grand_total=calculated_grand_total,
-            cgst_amount=calculated_cgst_total,
-            sgst_amount=calculated_sgst_total,
-            igst_amount=calculated_igst_total,
-            status=invoice_in.status,
-            items=invoice_items,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id
-        )
-
-        # Record stock movements (app-level product.stock modifications removed under Ledger trigger cutover)
-        for item in invoice_in.items:
-            product_stmt = select(Product).filter(
-                Product.id == item.product_id,
-                Product.is_deleted == False,
-                Product.company_id == self.tenant_ctx.company_id,
-                Product.branch_id == self.tenant_ctx.branch_id
-            )
-            product_res = await self.db.execute(product_stmt)
-            product = product_res.scalars().first()
-            if product and product.tracking_mode != "No-stock":
-                # Record StockMovement
-                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-                db_movement = StockMovement(
-                    id=movement_id,
-                    uuid=str(uuid.uuid4()),
-                    product_id=product.id,
-                    product_name=product.name,
-                    sku=product.sku or product.code,
-                    quantity=-item.quantity,  # Negative for OUT
-                    movement_type="OUT",
-                    reference_doc_type="Sales Invoice",
-                    reference_doc_id=db_invoice.id,
-                    warehouse="Default Warehouse",
-                    unit_cost=product.cost_price or product.price,
-                    remarks=f"Stock deducted for sales invoice: {db_invoice.invoice_no}",
-                    source_module="Sales",
-                    company_id=self.tenant_ctx.company_id,
-                    branch_id=self.tenant_ctx.branch_id
-                )
-                self.db.add(db_movement)
-
-        self.db.add(db_invoice)
-        for pmt in db_payments:
-            self.db.add(pmt)
-
-        try:
-            await self.db.commit()
-        except IntegrityError:
-            await self.db.rollback()
-            raise HTTPException(
-                status_code=400,
-                detail="Sales invoice with this invoice number already exists"
-            )
-        stmt = select(SalesInvoice).options(selectinload(SalesInvoice.items), selectinload(SalesInvoice.payments)).filter(SalesInvoice.id == db_invoice.id)
-        res = await self.db.execute(stmt)
-        refreshed = res.scalars().first()
-
-        # ── SCDM: Publish SALES_INVOICE_POSTED for channel dispatch hook ──────
-        # event_listeners.py handles SCDM dispatch creation.
-        # This call is non-blocking; any SCDM failure is caught by the listener.
-        await event_bus.publish(
-            Events.SALES_INVOICE_POSTED,
-            {
-                "invoice_id":   db_invoice.id,
-                "invoice_no":   db_invoice.invoice_no,
-                "customer_id":  db_invoice.customer_id,
-                "grand_total":  float(db_invoice.grand_total),
-                "invoice_date": db_invoice.invoice_date.isoformat() if db_invoice.invoice_date else None,
-            },
-            self.db,
-        )
-        return refreshed
+        return await self.orchestrator.create_sales_invoice(invoice_in)
 
     async def get_sales_invoice(self, invoice_id: str) -> tuple[SalesInvoice, List[SalesInvoiceItem]]:
         res = await self.db.execute(
@@ -346,7 +115,7 @@ class SalesService:
     # ──────────────────────────────────────────────────────────────
 
     async def create_sales_quotation(self, q_in: SalesQuotationCreate) -> SalesQuotation:
-        return await QuotationApplicationService(self.db, self.tenant_ctx).create_quotation(q_in)
+        return await self.orchestrator.create_sales_quotation(q_in)
 
     async def list_sales_quotations(self) -> List[SalesQuotation]:
         return await QuotationApplicationService(self.db, self.tenant_ctx).list_quotations()
@@ -359,88 +128,7 @@ class SalesService:
     # ──────────────────────────────────────────────────────────────
 
     async def create_sales_order(self, so_in: SalesOrderCreate) -> SalesOrder:
-        existing = await self.db.execute(
-            select(SalesOrder).filter(
-                SalesOrder.order_no == so_in.order_no,
-                SalesOrder.is_deleted == False,
-                SalesOrder.company_id == self.tenant_ctx.company_id,
-                SalesOrder.branch_id == self.tenant_ctx.branch_id
-            )
-        )
-        if existing.scalars().first():
-            raise HTTPException(status_code=400, detail="Sales order with this order number already exists")
-
-        tax_total = Decimal("0.00")
-        grand_total = Decimal("0.00")
-        cgst_total = Decimal("0.00")
-        sgst_total = Decimal("0.00")
-        igst_total = Decimal("0.00")
-        so_items = []
-
-        for item in so_in.items:
-            item_tax = (item.quantity * item.price * (item.gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
-            item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
-
-            # Intrastate fallback splits for order
-            cgst_amount = (item_tax / 2).quantize(Decimal("0.01"))
-            sgst_amount = item_tax - cgst_amount
-            igst_amount = Decimal("0.00")
-
-            tax_total += item_tax
-            grand_total += item_total
-            cgst_total += cgst_amount
-            sgst_total += sgst_amount
-            igst_total += igst_amount
-
-            so_items.append(SalesOrderItem(
-                product_id=item.product_id,
-                code=item.code,
-                name=item.name,
-                quantity=item.quantity,
-                price=item.price,
-                hsn_code=item.hsn_code,
-                gst_rate=item.gst_rate,
-                tax_amount=item_tax,
-                total_amount=item_total,
-                cgst_amount=cgst_amount,
-                sgst_amount=sgst_amount,
-                igst_amount=igst_amount,
-                tenant_id=self.tenant_ctx.tenant_id,
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id
-            ))
-
-        db_so = SalesOrder(
-            id=so_in.id,
-            order_no=so_in.order_no,
-            date=so_in.date,
-            customer_name=so_in.customer_name,
-            tax_total=tax_total,
-            grand_total=grand_total,
-            cgst_total=cgst_total,
-            sgst_total=sgst_total,
-            igst_total=igst_total,
-            status=so_in.status,
-            source_quotation_id=so_in.source_quotation_id,
-            items=so_items,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id
-        )
-
-        self.db.add(db_so)
-        try:
-            await self.db.commit()
-        except IntegrityError:
-            await self.db.rollback()
-            raise HTTPException(status_code=400, detail="Sales order already exists")
-
-        # Re-fetch with eager items to avoid MissingGreenlet during response serialization
-        result = await self.db.execute(
-            select(SalesOrder)
-            .options(selectinload(SalesOrder.items))
-            .where(SalesOrder.id == db_so.id)
-        )
-        return result.scalars().first()
+        return await self.orchestrator.create_sales_order(so_in)
 
     async def list_sales_orders(self) -> List[SalesOrder]:
         res = await self.db.execute(
@@ -475,145 +163,7 @@ class SalesService:
     # ──────────────────────────────────────────────────────────────
 
     async def create_sales_return(self, sr_in: SalesReturnCreate) -> SalesReturn:
-        # Check original invoice exists
-        inv_res = await self.db.execute(
-            select(SalesInvoice).filter(
-                SalesInvoice.id == sr_in.original_invoice_id,
-                SalesInvoice.company_id == self.tenant_ctx.company_id,
-                SalesInvoice.branch_id == self.tenant_ctx.branch_id,
-                SalesInvoice.is_deleted == False
-            )
-        )
-        if not inv_res.scalars().first():
-            raise HTTPException(status_code=404, detail="Original sales invoice not found")
-
-        existing = await self.db.execute(
-            select(SalesReturn).filter(
-                SalesReturn.return_no == sr_in.return_no,
-                SalesReturn.is_deleted == False,
-                SalesReturn.company_id == self.tenant_ctx.company_id,
-                SalesReturn.branch_id == self.tenant_ctx.branch_id
-            )
-        )
-        if existing.scalars().first():
-            raise HTTPException(status_code=400, detail="Sales return with this return number already exists")
-
-        tax_total = Decimal("0.00")
-        grand_total = Decimal("0.00")
-        cgst_total = Decimal("0.00")
-        sgst_total = Decimal("0.00")
-        igst_total = Decimal("0.00")
-        sr_items = []
-        product_stock_updates = []
-
-        for item in sr_in.items:
-            # Check product
-            res = await self.db.execute(
-                select(Product).where(
-                    Product.id == item.product_id,
-                    Product.company_id == self.tenant_ctx.company_id,
-                    Product.branch_id == self.tenant_ctx.branch_id,
-                    Product.is_deleted == False
-                )
-            )
-            product = res.scalars().first()
-            if not product:
-                raise HTTPException(status_code=404, detail=f"Product with ID {item.product_id} not found")
-
-            item_tax = (item.quantity * item.price * (item.gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
-            item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
-
-            # Calculate CGST/SGST/IGST tax splits
-            if sr_in.is_interstate:
-                cgst_amount = Decimal("0.00")
-                sgst_amount = Decimal("0.00")
-                igst_amount = item_tax
-            else:
-                cgst_amount = (item_tax / 2).quantize(Decimal("0.01"))
-                sgst_amount = item_tax - cgst_amount
-                igst_amount = Decimal("0.00")
-
-            tax_total += item_tax
-            grand_total += item_total
-            cgst_total += cgst_amount
-            sgst_total += sgst_amount
-            igst_total += igst_amount
-
-            sr_items.append(SalesReturnItem(
-                product_id=item.product_id,
-                code=item.code,
-                name=item.name,
-                quantity=item.quantity,
-                price=item.price,
-                gst_rate=item.gst_rate,
-                tax_amount=item_tax,
-                total_amount=item_total,
-                cgst_amount=cgst_amount,
-                sgst_amount=sgst_amount,
-                igst_amount=igst_amount,
-                tenant_id=self.tenant_ctx.tenant_id,
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id
-            ))
-            product_stock_updates.append((product, item.quantity))
-
-        db_sr = SalesReturn(
-            id=sr_in.id,
-            return_no=sr_in.return_no,
-            original_invoice_id=sr_in.original_invoice_id,
-            credit_note_number=sr_in.credit_note_number or f"CN-{sr_in.return_no}",
-            date=sr_in.date,
-            reason=sr_in.reason,
-            tax_total=tax_total,
-            grand_total=grand_total,
-            cgst_total=cgst_total,
-            sgst_total=sgst_total,
-            igst_total=igst_total,
-            is_interstate=sr_in.is_interstate,
-            status=sr_in.status,
-            items=sr_items,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id
-        )
-
-        # Apply stock increments (returned items add back to stock) and record stock movements
-        for product, qty in product_stock_updates:
-            if product.tracking_mode != "No-stock":
-                # Record StockMovement
-                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-                db_movement = StockMovement(
-                    id=movement_id,
-                    uuid=str(uuid.uuid4()),
-                    product_id=product.id,
-                    product_name=product.name,
-                    sku=product.sku or product.code,
-                    quantity=qty,  # Positive for IN
-                    movement_type="IN",
-                    reference_doc_type="Sales Return",
-                    reference_doc_id=db_sr.id,
-                    warehouse="Default Warehouse",
-                    unit_cost=product.cost_price or product.price,
-                    remarks=f"Stock incremented for sales return: {db_sr.return_no}",
-                    source_module="Sales",
-                    company_id=self.tenant_ctx.company_id,
-                    branch_id=self.tenant_ctx.branch_id
-                )
-                self.db.add(db_movement)
-
-        self.db.add(db_sr)
-        try:
-            await self.db.commit()
-        except IntegrityError:
-            await self.db.rollback()
-            raise HTTPException(status_code=400, detail="Sales return already exists")
-
-        # Re-fetch with eager items to avoid MissingGreenlet during response serialization
-        result = await self.db.execute(
-            select(SalesReturn)
-            .options(selectinload(SalesReturn.items))
-            .where(SalesReturn.id == db_sr.id)
-        )
-        return result.scalars().first()
+        return await self.orchestrator.create_sales_return(sr_in)
 
     async def list_sales_returns(self) -> List[SalesReturn]:
         res = await self.db.execute(
@@ -775,10 +325,10 @@ class SalesService:
         return await QuotationApplicationService(self.db, self.tenant_ctx).cancel_quotation(q_id)
 
     async def convert_sales_quotation_to_order(self, q_id: str) -> SalesOrder:
-        return await QuotationApplicationService(self.db, self.tenant_ctx).convert_to_sales_order(q_id)
+        return await self.orchestrator.convert_quotation_to_order(q_id)
 
     async def convert_quotation_to_invoice(self, q_id: str) -> SalesInvoice:
-        return await QuotationApplicationService(self.db, self.tenant_ctx).convert_quotation_to_invoice(q_id)
+        return await self.orchestrator.convert_quotation_to_invoice(q_id)
 
     # ── Quotation DELETE ────────────────────────────────────────────
 
