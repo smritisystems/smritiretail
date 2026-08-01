@@ -22,13 +22,21 @@ from app.models.scdm_settlement import (
 )
 
 
+def make_mock_db(execute_result=None):
+    db = MagicMock()
+    db.add = MagicMock()
+    db.add_all = MagicMock()
+    db.flush = AsyncMock()
+    db.execute = AsyncMock(return_value=execute_result or MagicMock())
+    return db
+
+
 @pytest.mark.asyncio
 async def test_list_claim_types_seeds_defaults():
     """If no claim types exist, list_claim_types seeds 5 default claim types."""
-    mock_db = AsyncMock()
     mock_res = MagicMock()
     mock_res.scalars().all.return_value = []
-    mock_db.execute.return_value = mock_res
+    mock_db = make_mock_db(mock_res)
 
     svc = SCDMService(db=mock_db, tenant_ctx=None)
     types = await svc.list_claim_types()
@@ -44,7 +52,7 @@ async def test_list_claim_types_seeds_defaults():
 @pytest.mark.asyncio
 async def test_submit_retailer_claim():
     """Filing a claim creates an SCDMClaim record in SUBMITTED status."""
-    mock_db = AsyncMock()
+    mock_db = make_mock_db()
     svc = SCDMService(db=mock_db, tenant_ctx=None)
 
     claim = await svc.submit_retailer_claim(
@@ -64,7 +72,7 @@ async def test_submit_retailer_claim():
 @pytest.mark.asyncio
 async def test_approve_claim():
     """Approving a claim transitions status to APPROVED and sets approved_amount."""
-    mock_db = AsyncMock()
+    mock_db = make_mock_db()
     svc = SCDMService(db=mock_db, tenant_ctx=None)
 
     mock_claim = SCDMClaim(
@@ -77,7 +85,7 @@ async def test_approve_claim():
     )
     mock_res = MagicMock()
     mock_res.scalars().first.return_value = mock_claim
-    mock_db.execute.return_value = mock_res
+    mock_db.execute = AsyncMock(return_value=mock_res)
 
     updated = await svc.approve_claim(
         claim_id="clm-1",
@@ -93,7 +101,7 @@ async def test_approve_claim():
 @pytest.mark.asyncio
 async def test_create_and_reconcile_settlement():
     """Creating a remittance settlement computes unreconciled variance accurately."""
-    mock_db = AsyncMock()
+    mock_db = make_mock_db()
     svc = SCDMService(db=mock_db, tenant_ctx=None)
 
     stl = await svc.create_settlement(
