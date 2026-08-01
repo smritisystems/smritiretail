@@ -133,6 +133,8 @@ class SalesQuotationItemCreate(SalesQuotationItemBase):
 class SalesQuotationItemResponse(SalesQuotationItemBase):
     id: int
     quotation_id: str
+    available_stock: Optional[Decimal] = Decimal("0.00")
+    reserved_stock: Optional[Decimal] = Decimal("0.00")
 
     model_config = ConfigDict(from_attributes=True)
 

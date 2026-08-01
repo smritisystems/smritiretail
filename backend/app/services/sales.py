@@ -777,6 +777,9 @@ class SalesService:
     async def convert_sales_quotation_to_order(self, q_id: str) -> SalesOrder:
         return await QuotationApplicationService(self.db, self.tenant_ctx).convert_to_sales_order(q_id)
 
+    async def convert_quotation_to_invoice(self, q_id: str) -> SalesInvoice:
+        return await QuotationApplicationService(self.db, self.tenant_ctx).convert_quotation_to_invoice(q_id)
+
     # ── Quotation DELETE ────────────────────────────────────────────
 
     async def delete_sales_quotation(self, q_id: str) -> None:
@@ -980,93 +983,3 @@ class SalesService:
 
     # ─────────────────────────── Phase 4B: Convert Quotation ────────────────────
 
-    async def convert_quotation_to_invoice(self, q_id: str) -> SalesInvoice:
-        """
-        Convert a sales quotation to a sales invoice.
-        - Quotation status must be Draft or Approved.
-        - Creates a new SalesInvoice from the quotation's lines.
-        - Marks the quotation status as 'Converted'.
-        """
-        q_res = await self.db.execute(
-            select(SalesQuotation)
-            .options(selectinload(SalesQuotation.items))
-            .where(
-                SalesQuotation.id         == q_id,
-                SalesQuotation.company_id == self.tenant_ctx.company_id,
-                SalesQuotation.branch_id  == self.tenant_ctx.branch_id,
-                SalesQuotation.is_deleted == False,
-            )
-        )
-        quotation = q_res.scalars().first()
-        if not quotation:
-            raise HTTPException(status_code=404, detail="Quotation not found")
-        if quotation.status not in ("Draft", "Approved", "Submitted"):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot convert a quotation with status '{quotation.status}'.",
-            )
-        if not quotation.items:
-            raise HTTPException(status_code=400, detail="Quotation has no line items to convert.")
-
-        # Build invoice from quotation
-        invoice_id = _uid()
-        cust_id = getattr(quotation, "customer_id", None)
-        if not cust_id:
-            c_res = await self.db.execute(
-                select(Customer.id).where(
-                    Customer.company_id == self.tenant_ctx.company_id,
-                    Customer.branch_id == self.tenant_ctx.branch_id,
-                    Customer.is_deleted == False
-                )
-            )
-            cust_id = c_res.scalars().first()
-        if not cust_id:
-            cust_id = f"cust-walkin-{self.tenant_ctx.branch_id}"
-            new_cust = Customer(
-                id=cust_id,
-                code=f"CUST-WALKIN-{self.tenant_ctx.branch_id[:6]}",
-                name=getattr(quotation, "customer_name", None) or "Walk-in Customer",
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id,
-                tenant_id=self.tenant_ctx.tenant_id
-            )
-            self.db.add(new_cust)
-            await self.db.flush()
-
-        invoice = SalesInvoice(
-            id           = invoice_id,
-            company_id   = self.tenant_ctx.company_id,
-            branch_id    = self.tenant_ctx.branch_id,
-            customer_id  = cust_id,
-            invoice_no   = f"INV-{invoice_id[:6].upper()}",
-            status       = "Draft",
-            tax_total    = Decimal("0.00"),
-            grand_total  = quotation.grand_total or Decimal("0.00"),
-        )
-        self.db.add(invoice)
-
-        for q_item in quotation.items:
-            line_price = Decimal(str(q_item.price))
-            line_qty   = Decimal(str(q_item.quantity))
-            line_total = line_price * line_qty
-            inv_item = SalesInvoiceItem(
-                invoice_id   = invoice.id,
-                product_id   = q_item.product_id,
-                code         = q_item.code,
-                name         = q_item.name,
-                quantity     = line_qty,
-                price        = line_price,
-                gst_rate     = q_item.gst_rate or Decimal("0"),
-                tax_amount   = Decimal("0.00"),
-                total_amount = line_total,
-            )
-            self.db.add(inv_item)
-
-        # Mark quotation converted
-        quotation.status      = "Converted"
-        quotation.modified_at = datetime.now(timezone.utc)
-        self.db.add(quotation)
-
-        await self.db.commit()
-        await self.db.refresh(invoice)
-        return invoice

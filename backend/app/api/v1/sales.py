@@ -426,6 +426,7 @@ async def cancel_sales_invoice(
 
 @router.post(
     "/quotations/convert/{quotation_id}",
+    response_model=SalesInvoiceResponse,
     status_code=201,
     summary="Convert Quotation to Invoice",
     dependencies=[Depends(require_permission("SALES.CREATE"))],

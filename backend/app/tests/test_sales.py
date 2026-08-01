@@ -1252,7 +1252,126 @@ async def test_convert_quotation_to_order(db_session):
         assert q_resp.json()["status"] == "Converted"
 
 
-async def test_sales_invoice_credit_limit_exceeded(db_session):
+async def test_quotation_conversion_to_invoice_preserves_totals_and_customer(db_session):
+    """POST /sales/quotations/convert/{id} creates a Draft invoice from a quotation."""
+    import uuid as _u
+    from app.models.sales import SalesQuotation, SalesQuotationItem
+    from decimal import Decimal
+    s = _u.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, f"cqi{s}")
+    cashier = await _make_cashier(db_session, f"cqi{s}", comp.id, br.id)
+    product = await _make_product(db_session, f"cqi{s}", comp.id, br.id)
+    q = SalesQuotation(
+        id=f"quot-cqi-{s}", quotation_no=f"QUOT-CQI-{s}",
+        customer_name="Walk-in Customer",
+        status="Draft", grand_total=Decimal("150.00"),
+        company_id=comp.id, branch_id=br.id,
+    )
+    q_item = SalesQuotationItem(
+        quotation_id=q.id,
+        product_id=product.id, code=product.code, name=product.name,
+        quantity=Decimal("1"), price=Decimal("100.00"),
+        gst_rate=Decimal("18.00"), tax_amount=Decimal("18.00"),
+        total_amount=Decimal("118.00"),
+        cgst_amount=Decimal("9.00"), sgst_amount=Decimal("9.00"),
+    )
+    q_item2 = SalesQuotationItem(
+        quotation_id=q.id,
+        product_id=product.id, code=product.code, name=product.name,
+        quantity=Decimal("1"), price=Decimal("40.00"),
+        gst_rate=Decimal("0.00"), tax_amount=Decimal("0.00"),
+        total_amount=Decimal("40.00"),
+    )
+    db_session.add(q)
+    db_session.add_all([q_item, q_item2])
+    await db_session.commit()
+    _set_tenant(comp.id, br.id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            f"/api/v1/sales/quotations/convert/{q.id}",
+            headers=_bearer(cashier, comp.id, br.id),
+        )
+    assert r.status_code == 201, r.text
+    data = r.json()
+    assert data["status"] == "Draft"
+    assert Decimal(data["grand_total"]) == Decimal("150.00")
+    assert Decimal(data["tax_total"]) == Decimal("10.00")
+    assert data["invoice_no"].startswith("INV-")
+    assert data["customer_id"] is not None
+
+
+async def test_quotation_inventory_visibility(db_session):
+    """Quotation line responses expose available and reserved stock values."""
+    suffix = uuid.uuid4().hex[:8]
+    company, branch = await _make_tenant(db_session, suffix)
+    user = await _make_cashier(db_session, suffix, company.id, branch.id)
+    product = await _make_product(db_session, suffix, company.id, branch.id, stock=50)
+    _set_tenant(company.id, branch.id)
+    headers = _bearer(user, company.id, branch.id)
+
+    payload = {
+        "id": f"qinv-{suffix}",
+        "quotation_no": f"QUOT-INV-{suffix}",
+        "customer_name": "Stock Test Customer",
+        "items": [
+            {
+                "product_id": product.id,
+                "code": product.code,
+                "name": product.name,
+                "quantity": "5.00",
+                "price": "100.00",
+                "gst_rate": "18.00",
+                "total_amount": "590.00",
+            }
+        ],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        await client.post("/api/v1/sales/quotations/", json=payload, headers=headers)
+        resp = await client.get(f"/api/v1/sales/quotations/{payload['id']}", headers=headers)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["items"][0]["available_stock"] == "50"
+    assert body["items"][0]["reserved_stock"] == "0"
+
+
+async def test_workflow_submit_and_reject_sales_quotation(db_session):
+    """POST /workflow/SalesQuotation/{id}/submit and reject transitions quotation status."""
+    import uuid as _u
+    from app.models.sales import SalesQuotation
+    from decimal import Decimal
+    s = _u.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, f"wfqs{s}")
+    manager = await _make_manager(db_session, f"wfqm{s}", comp.id, br.id)
+    q = SalesQuotation(
+        id=f"quot-wfqs-{s}", quotation_no=f"QUOT-WFQS-{s}",
+        customer_name="Walk-in Customer",
+        status="Draft", grand_total=Decimal("50.00"),
+        company_id=comp.id, branch_id=br.id,
+    )
+    db_session.add(q)
+    await db_session.commit()
+    _set_tenant(comp.id, br.id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        submit_resp = await c.post(
+            f"/api/v1/workflow/SalesQuotation/{q.id}/submit",
+            headers=_bearer(manager, comp.id, br.id),
+        )
+        assert submit_resp.status_code == 200, submit_resp.text
+        assert submit_resp.json()["status"] == "Submitted"
+
+        reject_resp = await c.post(
+            f"/api/v1/workflow/SalesQuotation/{q.id}/reject",
+            headers=_bearer(manager, comp.id, br.id),
+        )
+        assert reject_resp.status_code == 200, reject_resp.text
+        assert reject_resp.json()["status"] == "Rejected"
+
+
+async def test_workflow_cancel_sales_quotation(db_session):
     """Test creating a sales invoice for a customer who has exceeded their credit limit."""
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, f"cred-{s}")
