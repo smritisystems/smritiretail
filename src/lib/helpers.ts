@@ -15,7 +15,7 @@
  * License      : Proprietary Commercial Software
  */
 
-import crypto from "crypto";
+import * as crypto from "crypto";
 import { roles, auditLogs, stockLedger } from "../state/store.js";
 import { apiFetchV1 } from "./apiFetchV1";
 import { pool } from "../db/pool.js";

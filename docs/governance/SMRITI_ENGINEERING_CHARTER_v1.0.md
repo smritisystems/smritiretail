@@ -172,12 +172,13 @@ If a feature is only useful to a single studio, it belongs in that Studio or a p
 
 The recommended split is measurable and enforced per release:
 
-- Platform Foundation: ≤20% of engineering effort
-- Product Foundation + Studios: ≥80% of engineering effort
+- Platform Foundation: ≤10% of engineering effort
+- Product Foundation: ~30% of engineering effort
+- Studios: ~60% of engineering effort
 
 Platform work exceeding the budget requires a written architectural justification.
 
-Every sprint or release should classify work items into Platform, Product Foundation, or Studio, and effort distribution should be tracked. If Platform work exceeds 20% without an approved ADR, it should trigger an architectural review.
+Every sprint or release should classify work items into Platform, Product Foundation, or Studio, and effort distribution should be tracked. If Platform work exceeds 10% without an approved ADR, it should trigger an architectural review.
 
 ---
 
@@ -228,6 +229,119 @@ The platform lifecycle should be expressed as four explicit states, applied inde
 
 The next investment should be Product Foundation and Studio delivery rather than further Platform Foundation expansion.
 
+The next milestone is M2 — Product Foundation v1.0, supported by a Product Foundation Architecture Reference that clarifies placement of capabilities between Platform Foundation, Product Foundation, and Studios.
+
+### Milestone closure — M1
+
+Milestone M1 — Platform Foundation v1.0 is now closed.
+
+- Status: CLOSED
+- Platform Foundation: FROZEN
+- Governance: OPERATIONAL
+- Runtime: VALIDATED
+- Public Contracts: STABLE
+- Product Foundation: INITIATED
+
+### M2 charter
+
+The M2 objective is:
+
+> Build reusable retail business capabilities that accelerate all Studios while preserving Platform Foundation stability.
+
+### Program transition order
+
+The program transitions from architecture to product execution.
+
+```text
+Platform Foundation v1.0
+Status          : COMPLETE
+Architecture    : FROZEN
+Contracts        : STABLE
+Governance       : OPERATIONAL
+Implementation   : EVOLVABLE
+
+Product Foundation v1.0
+Status          : ACTIVE
+Purpose         : Shared business engines for retail products
+
+Retail Studios
+Status          : PRIMARY DELIVERY PROGRAM
+Purpose         : Customer-facing product execution
+```
+
+↓
+
+Product Foundation v1.0
+Status          : ACTIVE
+
+↓
+
+Retail Studios
+Status          : PRIMARY DELIVERY
+```
+
+### M2 backlog
+
+- Workflow Engine
+- Document Engine
+- Pricing Engine
+- GST Engine
+- Barcode and Label Engine
+- Promotion and Discount Engine
+- Printing Engine
+- Search Engine
+- Reporting Engine
+- Offline Synchronization Engine
+- Approval Engine
+- Business Rules Engine
+
+### Studio roadmap
+
+1. POS Studio
+2. Sales Studio
+3. Inventory Studio
+4. Purchase Studio
+5. Accounting Studio
+6. CRM Studio
+7. Reporting Studio
+
+### Shared Capability Reuse (SCR)
+
+The maturity of Product Foundation should be measured with a Shared Capability Reuse KPI.
+
+```text
+SCR = Shared engines used / Total engines available
+```
+
+Target:
+- M2 → 60%
+- M3 → 80%
+- GA → 95%
+
+### Reference-only governance posture
+
+The governance documents are now reference documents rather than active design documents, except for ADR-approved amendments, compatibility updates, security-related governance, and version changes.
+
+### Success criteria shift
+
+From M2 onward, success should be measured by product completeness rather than platform completeness.
+
+- Platform Foundation: stability and compatibility
+- Product Foundation: reuse across Studios
+- Studios: customer productivity and workflow completion
+
+### Product Foundation v1.0 milestone
+
+The first Product Foundation milestone should include the Workflow, Document, Pricing, GST, Barcode, Print, Reporting, Search, Offline Synchronization, and Business Rules engines.
+
+### Engineering dashboard
+
+The living engineering dashboard should summarize platform health, Product Foundation progress, and Studio delivery status each sprint.
+
+### CI evolution
+
+M2 should expand CI to include Platform tests, Product Foundation tests, Studio integration tests, and end-to-end retail workflow tests.
+
 ### Product Foundation priorities
 - Document Engine
 - Workflow Engine
@@ -240,6 +354,23 @@ The next investment should be Product Foundation and Studio delivery rather than
 - Search Engine
 - Offline Sync Engine
 - Reporting Engine
+
+### Product Foundation engine scope
+
+#### Document Engine
+Shared document lifecycle for draft, approved, posted, cancelled, and archived documents across Sales, Purchase, Inventory, and Accounting.
+
+#### Workflow Engine
+Shared approval and state transitions for purchase approval, discount approval, credit approval, and stock approval.
+
+#### Pricing Engine
+Single pricing implementation supporting price lists, customer pricing, quantity breaks, promotions, coupons, loyalty, and taxes.
+
+#### GST Engine
+Single GST implementation consumed by every Studio.
+
+#### Reporting Engine
+Single reporting abstraction where Studios provide datasets and the engine provides charts, dashboards, KPIs, exports, and scheduled reports.
 
 ### Studio roadmap
 

@@ -35,6 +35,10 @@ SMRITI Retail OS is an enterprise-grade AI-powered Retail ERP platform built as 
 
 ## Documentation
 
+### Platform Governance
+- Architecture ADRs: `docs/architecture/adr-0006.md`
+- Stage 3B evidence: `validation/stage-3b-registration-exit-evidence.md`
+
 Long-form documentation is maintained in the GitHub Wiki. Drafts and source pages are available in `docs/wiki/` and can be copied into the Wiki as needed.
 
 - Wiki Home: https://github.com/smritisystems/smritiretail/wiki

@@ -43,6 +43,10 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Updated shared SEEF form tabs with 44px touch targets, mobile scrollbar hiding, and width containment.
   - Removed the empty workspace-tab strip that rendered as a black bar when no workspace tabs were open.
 
+### Added
+- Added governance artifacts for Stage 3B registration runtime, including ADR-0006 and a stage-3B registration exit-evidence document.
+- Documented the Stage 3B scope boundary, lifecycle policy, compatibility policy, and deferred work.
+
 ### Modern Trade
 - Added the SCDM customer `billing_policy` field with `InvoiceOnDispatch` as the backward-compatible default.
 - Added additive migration `v1330_scdm_billing_policy` for configurable InvoiceOnDispatch, InvoiceOnSellOut, InvoiceWeekly, InvoiceMonthly, and Hybrid policies.

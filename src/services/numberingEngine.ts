@@ -68,7 +68,7 @@ export interface NumberingAuditLog {
   details: string;
 }
 
-import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { apiFetchV1 } from "../lib/apiFetchV1";
 
 export class NumberingEngine {
   private static localSeries: DocumentSeries[] = [
@@ -90,6 +90,101 @@ export class NumberingEngine {
       effectiveTo: "2027-03-31",
       tallyVoucherType: "Sales",
       dateLockEnabled: true,
+      companyCode: "SMRITI_IND"
+    },
+    {
+      id: "PUR-001",
+      name: "Standard Purchase Invoice",
+      documentType: "Purchase Invoice",
+      module: "Purchase",
+      branch: "All",
+      financialYear: "2026-2027",
+      prefix: "PUR/{FY}/{Branch}/",
+      suffix: "",
+      runningLength: 6,
+      currentNumber: 58,
+      resetRule: "Financial Year",
+      mode: "Auto",
+      isActive: true,
+      effectiveFrom: "2026-04-01",
+      effectiveTo: "2027-03-31",
+      tallyVoucherType: "Purchase",
+      companyCode: "SMRITI_IND"
+    },
+    {
+      id: "SRET-001",
+      name: "Sales Return Series",
+      documentType: "Sales Return",
+      module: "Sales",
+      branch: "All",
+      financialYear: "2026-2027",
+      prefix: "SRET/{FY}/{Branch}/",
+      suffix: "",
+      runningLength: 6,
+      currentNumber: 5,
+      resetRule: "Financial Year",
+      mode: "Auto",
+      isActive: true,
+      effectiveFrom: "2026-04-01",
+      effectiveTo: "2027-03-31",
+      tallyVoucherType: "Sales Return",
+      companyCode: "SMRITI_IND"
+    },
+    {
+      id: "PRET-001",
+      name: "Purchase Return Series",
+      documentType: "Purchase Return",
+      module: "Purchase",
+      branch: "All",
+      financialYear: "2026-2027",
+      prefix: "PRET/{FY}/{Branch}/",
+      suffix: "",
+      runningLength: 6,
+      currentNumber: 12,
+      resetRule: "Financial Year",
+      mode: "Auto",
+      isActive: true,
+      effectiveFrom: "2026-04-01",
+      effectiveTo: "2027-03-31",
+      tallyVoucherType: "Purchase Return",
+      companyCode: "SMRITI_IND"
+    },
+    {
+      id: "STF-001",
+      name: "Stock Transfer Series",
+      documentType: "Stock Transfer",
+      module: "Inventory",
+      branch: "All",
+      financialYear: "2026-2027",
+      prefix: "STF/{FY}/{Branch}/",
+      suffix: "",
+      runningLength: 6,
+      currentNumber: 3,
+      resetRule: "Financial Year",
+      mode: "Auto",
+      isActive: true,
+      effectiveFrom: "2026-04-01",
+      effectiveTo: "2027-03-31",
+      tallyVoucherType: "Stock Transfer",
+      companyCode: "SMRITI_IND"
+    },
+    {
+      id: "PHYS-001",
+      name: "Physical Stock Adjustment Series",
+      documentType: "Physical Stock",
+      module: "Inventory",
+      branch: "All",
+      financialYear: "2026-2027",
+      prefix: "PHYS/{FY}/{Branch}/",
+      suffix: "",
+      runningLength: 6,
+      currentNumber: 1,
+      resetRule: "Financial Year",
+      mode: "Auto",
+      isActive: true,
+      effectiveFrom: "2026-04-01",
+      effectiveTo: "2027-03-31",
+      tallyVoucherType: "Stock Adjustment",
       companyCode: "SMRITI_IND"
     },
     {

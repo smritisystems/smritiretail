@@ -1,0 +1,24 @@
+{
+  "id": "workflow.approval",
+  "owner": "Workflow Foundation",
+  "maturity": "CML-2",
+  "releaseRing": "Pilot",
+  "version": "0.8.0",
+  "studios": ["Purchase", "Sales"],
+  "dependencies": {
+    "runtime": [],
+    "business": [],
+    "optional": []
+  },
+  "dependsOn": [],
+  "consumedBy": ["commerce.pricing", "studio.purchase", "studio.sales"],
+  "provides": ["ApprovalProcess", "WorkflowValidation", "TaskEscalation"],
+  "events": {
+    "publishes": ["workflow.approved"],
+    "subscribes": [],
+    "lifecycle": {
+      "workflow.approved": "Publishable"
+    }
+  },
+  "publicApi": true
+}

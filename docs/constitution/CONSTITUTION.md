@@ -22,6 +22,9 @@ Technology stacks are execution details. Architecture must be organized around p
 ### Rule GR-001: Single Source of Truth (SSOT) Principle
 Every business rule, logic, calculation, configuration, UI component, API contract, and data definition shall have **EXACTLY ONE** authoritative implementation. Duplication is strictly prohibited. Reuse is mandatory.
 
+### Rule 23 — Repository Ownership Principle
+Every artifact shall have exactly one authoritative repository. Other repositories may reference it, but they must not duplicate or redefine it. This applies to constitutional governance, compatibility matrices, contracts, SDK code, runtime services, roadmap planning, and product-specific compatibility declarations.
+
 ### AI Agent Mandatory Code Reuse Directive
 Before writing ANY new code or creating files, all AI agents and engineers MUST execute the 5-step search chain:
 `Search Project` ──► `Find Existing Implementation` ──► `Reuse` ──► `Else Extend` ──► `Else Create & Document Justification`

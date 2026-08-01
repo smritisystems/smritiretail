@@ -35,3 +35,10 @@ To enforce zero duplication across all business logic, tax calculations, pricing
 
 ### Pillar 7: One Configuration Layer
 - System values (GST rates, store currency, API keys, database URIs) are defined exclusively in `backend/app/core/config.py`.
+
+## 8. Repository Ownership Governance (Rule 23)
+- Constitutional governance, platform compatibility matrices, and platform lifecycle artifacts belong to the architecture repository.
+- Contract schemas and compatibility contracts belong to the contracts repository.
+- SDK and runtime implementation belong to the SDK and platform kernel repositories.
+- Product compatibility declarations belong to the product repository that implements them.
+- Roadmap, milestones, backlog, and lifecycle planning belong to the roadmap repository.

@@ -28,9 +28,9 @@ These components evolve only through backward-compatible changes or ADR-approved
 
 ## Platform Change Budget
 
-From this point forward, the engineering program is divided into two tracks:
+From this point forward, the engineering program is divided into three tracks:
 
-### 1. Platform Program (approximately 20%)
+### 1. Platform Stewardship (approximately 10%)
 Allowed work:
 - Security fixes
 - Performance optimization
@@ -47,7 +47,18 @@ Requires ADR review:
 - Kernel contract changes
 - New platform services
 
-### 2. Product Program (approximately 80%)
+### 2. Product Foundation (approximately 30%)
+Priority order:
+1. Workflow Engine
+2. Pricing Engine
+3. GST Engine
+4. Barcode Engine
+5. Document Engine
+6. Reporting Engine
+7. Search Engine
+8. Printing Engine
+
+### 3. Studio Delivery (approximately 60%)
 Priority order:
 1. Inventory Studio
 2. Sales Studio
@@ -132,7 +143,7 @@ A practical implementation sequence is:
 
 ## Platform Health Dashboard
 
-The governance model is now mature enough to shift from creating new foundational documents to maintaining a lightweight health dashboard.
+The governance model is now mature enough to shift from creating new foundational documents to maintaining a lightweight health dashboard that supports stewardship instead of expansion.
 
 | Metric | Target |
 | :--- | :--- |
@@ -253,6 +264,10 @@ This creates very clear ownership:
 ## Freeze States
 
 The platform lifecycle should be expressed as four explicit states, applied independently to APIs, contracts, services, SDKs, and ADRs.
+
+## Definition of Done for Platform Foundation
+
+Platform Foundation is considered done when it remains intentionally small, backward-compatible, well-tested, and changes only in response to demonstrated multi-product needs.
 
 | State | Meaning |
 | :--- | :--- |
@@ -442,6 +457,8 @@ Product Status      : EXECUTION PHASE
 
 The remaining work should overwhelmingly be product engineering rather than platform engineering.
 
+The next milestone is M2 — Product Foundation v1.0. Product Foundation should become the active investment layer for reusable retail business capabilities, while the Platform Foundation remains intentionally small and stable.
+
 ### Product Foundation and Studio orientation
 
 The Platform Foundation should remain intentionally small. The next shared investment is business capability delivery through Product Foundation and Studios.
@@ -627,6 +644,20 @@ These support the ecosystem rather than redefining the platform.
 > The platform should remain intentionally small and stable.
 
 ## Final Declaration
+
+The Platform Foundation is now approved as v1.0 Architecture Frozen. The remaining risk is execution and product completeness, not technical architecture.
+
+From this point forward, the highest-value engineering work is the delivery of complete retail workflows that customers can use every day:
+
+1. Build reusable Product Foundation engines.
+2. Implement POS, Sales, and Inventory Studios on top of those engines.
+3. Validate the architecture through real retail scenarios such as sales, purchasing, inventory, accounting, returns, and reporting.
+4. Promote reusable business capabilities into Product Foundation only after they have demonstrated value across multiple Studios.
+
+The permanent architectural rule is:
+
+> Every new capability must first answer three questions before it enters the Platform Foundation: whether it will be reused by at least two Product Foundation engines, reused by at least two Studios, and whether it reduces long-term maintenance across the product suite. If the answer is no to all three, the capability should be implemented in the relevant Studio rather than the platform.
+
 
 ```text
 SMRITI Platform Foundation

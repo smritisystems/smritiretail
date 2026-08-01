@@ -34,6 +34,10 @@ The `decisions/` subfolder contains architecture decision records that document 
 - `decisions/ADR-003-GS1-Assignment-Policy.md`
 - `decisions/ADR-004-Event-Sourcing.md`
 - `decisions/ADR-005-Multi-Barcode-Support.md`
+- `adr-0006.md` — Retail OS implementation note for SPK Stage 3B registration integration
+- `SPK-COMPATIBILITY.md` — Retail OS compatibility declaration for the published SPK registration contract
+- For the authoritative ecosystem compatibility dashboard, see: `F:\SMRITI\smriti-architecture\compatibility\PLATFORM-COMPATIBILITY-MATRIX.md`
+- For milestone planning and release sequencing, see: `F:\SMRITRretailNXmgrt\smriti-roadmap\ROADMAP.md`
 
 ## Purpose
 

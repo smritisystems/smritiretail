@@ -23,8 +23,8 @@
  * * License    : Proprietary Commercial Software
  */
 
-import pg from "pg";
-import dotenv from "dotenv";
+import * as pg from "pg";
+import * as dotenv from "dotenv";
 
 dotenv.config();
 

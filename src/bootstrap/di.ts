@@ -23,7 +23,7 @@
  * * License    : Proprietary Commercial Software
  */
 
-import dotenv from "dotenv";
+import * as dotenv from "dotenv";
 import { IProductRepository, ICustomerRepository, IShiftRepository, ISalesInvoiceRepository, IAuditRepository, ISyncRepository, IUserRepository, IPOSProfileRepository, IPurchaseRepository, IStateRepository } from "../core/interfaces/db.js";
 import { PostgresProductRepository, PostgresCustomerRepository, PostgresShiftRepository, PostgresSalesInvoiceRepository, PostgresAuditRepository, PostgresSyncRepository, PostgresUserRepository, PostgresPOSProfileRepository, PostgresPurchaseRepository, PostgresStateRepository } from "../db/postgres/PostgresRepositories.js";
 import { SqliteProductRepository, SqliteCustomerRepository, SqliteShiftRepository, SqliteSalesInvoiceRepository, SqliteAuditRepository, SqliteSyncRepository, SqliteUserRepository, SqlitePOSProfileRepository, SqlitePurchaseRepository, SqliteStateRepository } from "../db/sqlite/SqliteRepositories.js";
@@ -32,6 +32,7 @@ import { MemoryProductRepository, MemoryCustomerRepository, MemoryShiftRepositor
 import { SyncEngine } from "../core/sync/SyncEngine.js";
 import { BillingService } from "../core/services/BillingService.js";
 import { SPK } from "../kernel/SPK.js";
+import { PlatformKernelValidator } from "../kernel/PlatformKernelValidator.js";
 import { ItemService } from "../kernel/internal/ItemService.js";
 import { CreateItemCommandHandler } from "../kernel/commands/CreateItemCommand.js";
 import { ItemLookupProvider } from "../kernel/ule/ItemLookupProvider.js";
@@ -83,6 +84,13 @@ export function bootstrapDI(): DIContainer {
   }
 
   console.log(`[SMRITI Bootstrap] Initializing Platform Abstraction Layer (PAL) with DATABASE_PROVIDER: ${dbProvider}`);
+
+  /* Validate the platform kernel and document orchestration metadata before SPK startup */
+  const startupValidation = PlatformKernelValidator.validate();
+  if (!startupValidation.valid) {
+    console.error("[SPK Kernel Validation] startup halted due to kernel policy validation errors:", startupValidation.errors);
+    throw new Error("Platform kernel validation failed. See console for details.");
+  }
 
   /* Initialize SMRITI Platform Kernel (SPK) */
   SPK.start();

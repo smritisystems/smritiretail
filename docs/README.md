@@ -33,6 +33,7 @@ This folder is the canonical documentation root for the product.
 - [walkthrough/README.md](walkthrough/README.md)
 - [developer_guide/DEVELOPER_GUIDE.md](developer_guide/DEVELOPER_GUIDE.md)
 - [user_guide/USER_GUIDE.md](user_guide/USER_GUIDE.md)
+- [../smriti-roadmap/ROADMAP.md](../smriti-roadmap/ROADMAP.md) — roadmap, milestones, backlog, and lifecycle planning
 
 ## Documentation maintenance policy
 

@@ -6,18 +6,18 @@
  * License      : Proprietary Commercial Software
  */
 
-import React from "react";
+import * as React from "react";
 import { FormFieldDefinition } from "./FormRegistry.js";
-import {
+
+type FieldControlProps = any;
+
+const {
   DefaultTextInputControl,
   DefaultNumberInputControl,
   DefaultSelectControl,
   DefaultCheckboxControl,
-  DefaultTextareaControl,
-  FieldControlProps
-} from "../../../components/fields/DefaultFieldControls.tsx";
-
-export type { FieldControlProps };
+  DefaultTextareaControl
+} = require("../../../components/fields/DefaultFieldControls");
 export type FieldControlComponent = React.ComponentType<FieldControlProps>;
 
 export interface FieldManifest {

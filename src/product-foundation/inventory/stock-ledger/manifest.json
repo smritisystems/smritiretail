@@ -1,0 +1,25 @@
+{
+  "id": "inventory.stock-ledger",
+  "owner": "Inventory Foundation",
+  "maturity": "CML-2",
+  "releaseRing": "Pilot",
+  "version": "0.9.0",
+  "studios": ["Inventory", "POS"],
+  "dependencies": {
+    "runtime": ["commerce.pricing"],
+    "business": [],
+    "optional": []
+  },
+  "dependsOn": ["commerce.pricing"],
+  "consumedBy": ["studio.inventory", "studio.pos"],
+  "provides": ["StockReservation", "MovementLedger", "InventoryAvailability"],
+  "events": {
+    "publishes": ["inventory.reserved"],
+    "subscribes": ["pricing.completed"],
+    "lifecycle": {
+      "pricing.completed": "Publishable",
+      "inventory.reserved": "Publishable"
+    }
+  },
+  "publicApi": true
+}

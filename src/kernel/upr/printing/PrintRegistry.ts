@@ -58,6 +58,60 @@ export class PrintRegistryService {
         permissionId: "inventory.item.read",
         isDefault: true,
         templateBody: `<div className="label-50x25"><p>{{sku}}</p><p>{{name}}</p><p>MRP: ₹{{mrpi}}</p></div>`
+      },
+      {
+        id: "print.sales.invoice.a4",
+        name: "Sales Invoice A4 Template",
+        description: "Standard sale invoice A4 print template",
+        entityId: "sales_invoice",
+        paperSize: "a4",
+        permissionId: "sales.invoice.print",
+        templateBody: `<div><h1>Sales Invoice</h1><p>Invoice No: {{invoiceNo}}</p><p>Customer: {{customerName}}</p><p>Total: {{totalAmount}}</p></div>`
+      },
+      {
+        id: "print.purchase.invoice.a4",
+        name: "Purchase Invoice A4 Template",
+        description: "Standard purchase invoice A4 print template",
+        entityId: "purchase_invoice",
+        paperSize: "a4",
+        permissionId: "purchase.invoice.print",
+        templateBody: `<div><h1>Purchase Invoice</h1><p>Invoice No: {{invoiceNo}}</p><p>Supplier: {{supplierName}}</p><p>Total: {{totalAmount}}</p></div>`
+      },
+      {
+        id: "print.sales.return.a4",
+        name: "Sales Return A4 Template",
+        description: "Sales return A4 print template",
+        entityId: "sales_return",
+        paperSize: "a4",
+        permissionId: "sales.return.print",
+        templateBody: `<div><h1>Sales Return</h1><p>Return No: {{returnNo}}</p><p>Customer: {{customerName}}</p><p>Total Refund: {{refundAmount}}</p></div>`
+      },
+      {
+        id: "print.purchase.return.a4",
+        name: "Purchase Return A4 Template",
+        description: "Purchase return A4 print template",
+        entityId: "purchase_return",
+        paperSize: "a4",
+        permissionId: "purchase.return.print",
+        templateBody: `<div><h1>Purchase Return</h1><p>Return No: {{returnNo}}</p><p>Supplier: {{supplierName}}</p><p>Total Refund: {{refundAmount}}</p></div>`
+      },
+      {
+        id: "print.stock.transfer.a4",
+        name: "Stock Transfer A4 Template",
+        description: "Stock transfer A4 print template",
+        entityId: "stock_transfer",
+        paperSize: "a4",
+        permissionId: "inventory.transfer.print",
+        templateBody: `<div><h1>Stock Transfer</h1><p>Transfer No: {{transferNo}}</p><p>From: {{fromLocation}}</p><p>To: {{toLocation}}</p></div>`
+      },
+      {
+        id: "print.physical.stock.a4",
+        name: "Physical Stock Adjustment A4 Template",
+        description: "Physical stock adjustment A4 print template",
+        entityId: "physical_stock",
+        paperSize: "a4",
+        permissionId: "inventory.stock.adjust.print",
+        templateBody: `<div><h1>Physical Stock Adjustment</h1><p>Adjustment No: {{adjustmentNo}}</p><p>Location: {{location}}</p><p>Note: {{notes}}</p></div>`
       }
     ];
 

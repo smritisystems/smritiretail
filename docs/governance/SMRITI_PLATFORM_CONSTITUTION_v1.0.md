@@ -28,6 +28,8 @@ The platform exists to accelerate product development, not to become a product i
 
 Governance is now complete as an operating framework. The constitutional baseline is frozen. From this point onward, governance artifacts should be modified only when implementation exposes a real deficiency, not because a new governance idea exists.
 
+The Platform Program is now considered complete. The governance posture shifts from authoring to stewardship. The organization now governs delivery through living engineering boards and operating disciplines rather than through additional constitutional expansion.
+
 ---
 
 ## 2. Constitutional Documents
@@ -143,6 +145,12 @@ Future architectural change shall be represented through one of only three artif
 - Release Note — compatibility changes
 
 New governance document types should not be introduced unless there is a compelling organizational need.
+
+The completed platform posture is now defined as:
+- Platform Foundation: complete and intentionally conservative
+- Product Foundation: the primary shared business capability layer
+- Studios: the primary customer value delivery layer
+- ARB: focused on stewardship, compatibility, and public contract evolution
 
 ### Layer 1 — Platform Foundation
 
@@ -565,6 +573,290 @@ Product Status      : EXECUTION PHASE
 ```
 
 The remaining work should overwhelmingly be product engineering rather than platform engineering.
+
+The next milestone is M2 — Product Foundation v1.0. This milestone focuses on reusable retail business capabilities rather than further Platform Foundation expansion.
+
+### ARB Milestone Closure — M1
+
+Milestone M1 — Platform Foundation v1.0 is now closed.
+
+- Status: CLOSED
+- Platform Foundation: FROZEN
+- Governance: OPERATIONAL
+- Runtime: VALIDATED
+- Public Contracts: STABLE
+- Product Foundation: INITIATED
+
+The addition of the Product Foundation architecture reference provides a concrete placement guide for future contributors without requiring Platform Foundation changes.
+
+### M2 Charter
+
+M2 is defined as:
+
+> Build reusable retail business capabilities that accelerate all Studios while preserving Platform Foundation stability.
+
+This shifts the engineering question from "What should the platform do?" to "What shared business capability do multiple Studios need?"
+
+### Program Transition Order
+
+The program now transitions from the architecture phase to the product phase.
+
+```text
+Platform Foundation v1.0
+Status          : COMPLETE
+Architecture    : FROZEN
+Contracts        : STABLE
+Governance       : OPERATIONAL
+Implementation   : EVOLVABLE
+
+↓
+
+Product Foundation v1.0
+Status          : ACTIVE
+
+↓
+
+Retail Studios
+Status          : PRIMARY DELIVERY
+```
+
+The repository objective changes from "How do we build the platform?" to "How do we build the best Retail Operating System?"
+
+### M1 Closure and Reference-Only Governance
+
+Milestone M1 — Platform Foundation v1.0 is now officially complete.
+
+- Status: CLOSED
+- Governance Framework: OPERATIONAL
+- Platform Contracts: FROZEN
+- Runtime Validation: PASSED
+- M2 — Product Foundation: ACTIVE
+
+From this point forward, the governance documents should be treated as reference documents rather than active design documents, except for ADR-approved amendments, compatibility updates, security-related governance, and version changes.
+
+### M2 backlog
+
+#### Priority 1 — Essential
+- Workflow Engine
+- Document Engine
+- Pricing Engine
+- GST Engine
+- Barcode and Label Engine
+
+#### Priority 2
+- Promotion and Discount Engine
+- Printing Engine
+- Search Engine
+- Reporting Engine
+
+#### Priority 3
+- Offline Synchronization Engine
+- Approval Engine
+- Business Rules Engine
+
+Each engine should have its own ADRs, independent tests, stable public interfaces, and Studio consumers.
+
+### Studio roadmap
+
+1. POS Studio
+2. Sales Studio
+3. Inventory Studio
+4. Purchase Studio
+5. Accounting Studio
+6. CRM Studio
+7. Reporting Studio
+
+### Repository organization
+
+Governance documents are now sufficient. Documentation should expand in the product areas rather than in governance.
+
+```text
+docs/
+├── architecture/
+├── governance/          ← mostly frozen
+├── product-foundation/  ← active
+│   ├── adr/
+│   ├── workflow/
+│   ├── pricing/
+│   ├── gst/
+│   ├── barcode/
+│   └── reporting/
+└── studios/             ← active
+    ├── sales/
+    ├── inventory/
+    ├── purchase/
+    ├── pos/
+    ├── accounting/
+    ├── crm/
+    └── reporting/
+```
+
+### Shared Capability Reuse (SCR)
+
+The maturity of Product Foundation should be measured through a Shared Capability Reuse KPI:
+
+```text
+SCR = Shared engines used / Total engines available
+```
+
+Target:
+- M2 → 60%
+- M3 → 80%
+- GA → 95%
+
+### GA readiness criteria
+
+General Availability requires:
+
+#### Platform
+- Stable contracts
+- Zero critical defects
+- Backward compatibility
+- Regression suite passing
+
+#### Product Foundation
+- Core engines complete
+- Shared APIs stable
+- Documentation complete
+
+#### Studios
+- POS production ready
+- Sales production ready
+- Inventory production ready
+- Purchase production ready
+
+### Long-term roadmap
+
+```text
+M1
+Platform Foundation
+        │
+        ▼
+M2
+Product Foundation
+        │
+        ▼
+M3
+Retail Studios
+        │
+        ▼
+M4
+Marketplace
+        │
+        ▼
+M5
+Industry Packs
+```
+
+### Living engineering dashboard
+
+Rather than producing more governance documents, the program should maintain a living engineering dashboard covering:
+- Platform Health: compatibility, API stability, PCI, test pass rate
+- Product Foundation: engine completion, shared capability reuse, documentation coverage
+- Studios: feature completion, workflow coverage, performance, customer KPIs
+
+### Success Criteria Shift
+
+From this point forward, the repository should be judged by product completeness rather than platform completeness.
+
+- Platform Foundation success: stability and compatibility
+- Product Foundation success: reuse across Studios
+- Studios success: customer productivity and workflow completion
+
+### Product Foundation v1.0 milestone
+
+The first Product Foundation milestone should include:
+1. Workflow Engine
+2. Document Engine
+3. Pricing Engine
+4. GST Engine
+5. Barcode Engine
+6. Print Engine
+7. Reporting Engine
+8. Search Engine
+9. Offline Synchronization Engine
+10. Business Rules Engine
+
+Every Studio should consume these engines rather than implementing its own versions.
+
+### First Studio objective
+
+The first major product objective should be a complete retail workflow spanning:
+
+```text
+Purchase Order
+      │
+      ▼
+Goods Receipt
+      │
+      ▼
+Inventory
+      │
+      ▼
+Sales
+      │
+      ▼
+POS
+      │
+      ▼
+Accounting
+      │
+      ▼
+Reporting
+```
+
+This exposes integration issues earlier than isolated feature work.
+
+### Engineering dashboard
+
+The living engineering dashboard should summarize:
+
+#### Platform
+- API compatibility
+- Regression status
+- Performance
+- Platform Churn Index
+- Security
+
+#### Product Foundation
+- Engine completion
+- Shared Capability Reuse (SCR)
+- Documentation coverage
+- Test coverage
+
+#### Studios
+- Feature completion
+- Workflow completion
+- User-facing KPIs
+- Performance
+- Bug backlog
+
+### Permanent engineering rule
+
+No new Platform Foundation capability should be introduced unless it has already proven its value through Product Foundation or Studio implementation and demonstrates clear reuse across multiple products.
+
+### CI evolution for M2
+
+The current regression suite validates the platform. M2 should expand CI to include:
+- Platform tests
+- Product Foundation tests
+- Studio integration tests
+- End-to-end retail workflow tests
+
+Example retail workflows:
+- Quote → Order → Invoice
+- PO → GRN → Stock → Sale
+- Stock Transfer → Ledger Update
+- Return → Refund → Inventory Adjustment
+
+### M2 success criteria
+
+M2 is successful when:
+- Product Foundation engines are reused by multiple Studios
+- Studios contain minimal duplicated business logic
+- Platform Foundation remains unchanged except for maintenance
+- Customer-facing workflows are complete and performant
+- Regression coverage includes complete retail scenarios
 
 ### Layer-specific ADR structure
 

@@ -13,6 +13,7 @@ import { PermissionManifest } from "../manifests/permissions.js";
 import { SearchManifest } from "../manifests/search.js";
 import { EventManifest } from "../manifests/events.js";
 import { ManifestValidator, ValidationResult } from "./ManifestValidator.js";
+import { RegistrationManifest, RegistrationRecord, validateRegistrationManifest } from "./RegistrationService.js";
 
 export interface WorkspaceBundle {
   manifest: WorkspaceManifest;
@@ -26,6 +27,7 @@ export interface WorkspaceBundle {
 export class WorkspaceRegistry {
   private static instance: WorkspaceRegistry;
   private registry: Map<string, WorkspaceBundle> = new Map();
+  private registrationRecords: Map<string, RegistrationRecord> = new Map();
 
   private constructor() {}
 
@@ -36,7 +38,7 @@ export class WorkspaceRegistry {
     return WorkspaceRegistry.instance;
   }
 
-  public registerWorkspace(bundle: WorkspaceBundle): ValidationResult {
+  public registerWorkspace(bundle: WorkspaceBundle, registration?: RegistrationManifest): ValidationResult {
     const validation = ManifestValidator.validate(
       bundle.manifest,
       bundle.actions,
@@ -52,8 +54,39 @@ export class WorkspaceRegistry {
       );
     }
 
+    const registrationValidation = validateRegistrationManifest(bundle.manifest.workspaceId, registration);
+    if (!registrationValidation.valid) {
+      this.registrationRecords.set(bundle.manifest.workspaceId, {
+        workspaceId: bundle.manifest.workspaceId,
+        status: "failed",
+        manifest: registration ?? {
+          workspaceId: bundle.manifest.workspaceId,
+          manifestVersion: "1.0",
+          registeredAt: new Date().toISOString(),
+          publisher: "unknown",
+          signature: { algorithm: "sha256", value: "", key: "" },
+          compatibility: { constitution: "1.x", spc: "1.x", sdk: "1.x", designSystem: "1.x" }
+        },
+        registeredAt: new Date().toISOString()
+      });
+      return registrationValidation;
+    }
+
     this.registry.set(bundle.manifest.workspaceId, bundle);
-    return validation;
+    this.registrationRecords.set(bundle.manifest.workspaceId, {
+      workspaceId: bundle.manifest.workspaceId,
+      status: "registered",
+      manifest: registration ?? {
+        workspaceId: bundle.manifest.workspaceId,
+        manifestVersion: "1.0",
+        registeredAt: new Date().toISOString(),
+        publisher: "unknown",
+        signature: { algorithm: "sha256", value: "", key: "" },
+        compatibility: { constitution: "1.x", spc: "1.x", sdk: "1.x", designSystem: "1.x" }
+      },
+      registeredAt: new Date().toISOString()
+    });
+    return registrationValidation;
   }
 
   public getWorkspace(workspaceId: string): WorkspaceBundle | undefined {
@@ -68,7 +101,16 @@ export class WorkspaceRegistry {
     return this.getAllWorkspaces().filter((b) => b.manifest.category === category);
   }
 
+  public getRegistrationRecord(workspaceId: string): RegistrationRecord | undefined {
+    return this.registrationRecords.get(workspaceId);
+  }
+
+  public getAllRegistrationRecords(): RegistrationRecord[] {
+    return Array.from(this.registrationRecords.values());
+  }
+
   public clear(): void {
     this.registry.clear();
+    this.registrationRecords.clear();
   }
 }

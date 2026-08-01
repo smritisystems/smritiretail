@@ -1,0 +1,2 @@
+export const PLATFORM_KERNEL_API_VERSION = "1.0.0";
+export const PLATFORM_KERNEL_ARCHITECTURE_VERSION = "1.0.0-dev";

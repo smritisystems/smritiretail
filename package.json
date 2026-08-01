@@ -23,6 +23,7 @@
     "lint": "tsc --noEmit",
     "validate:seds": "node scripts/validate_seds.js",
     "swsdk:create": "node scripts/swsdk/scaffold_workspace.js",
+    "generate:capability-catalog": "node src/product-foundation/scripts/generateCatalog.mjs",
     "test": "vitest run",
     "start:fastapi": "python -m uvicorn backend.app.main:app --port 8000 --reload"
   },

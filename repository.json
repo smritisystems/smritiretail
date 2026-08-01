@@ -1,0 +1,23 @@
+{
+  "repository_id": "smriti-retail-os",
+  "repository_name": "SMRITI Retail OS",
+  "repository_type": "product",
+  "version": "0.1.0-dev",
+  "status": "development",
+  "owner": "SMRITI Platform",
+  "architecture_stage": "Stage 4",
+  "product": {
+    "name": "SMRITI Retail OS",
+    "version": "0.1.0-dev"
+  },
+  "platform": {
+    "minimum_spk": "1.0.0-dev",
+    "tested_spk": "1.0.0-dev",
+    "spc": "1.0.0",
+    "sdk": "1.0.0",
+    "design_system": "1.0.0"
+  },
+  "compatibility": {
+    "status": "verified"
+  }
+}
