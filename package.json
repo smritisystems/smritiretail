@@ -16,8 +16,6 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/build_buffer_polyfill.js && vite build",
-
-
     "preview": "vite preview",
     "start": "npm run dev",
     "lint": "tsc --noEmit",
@@ -56,6 +54,7 @@
     "@vitejs/plugin-react": "^6.0.5",
     "@vitest/coverage-v8": "^4.1.10",
     "esbuild": "^0.28.1",
+    "rollup-plugin-visualizer": "^7.0.1",
     "supertest": "^7.2.2",
     "typescript": "^5.4.5",
     "vite": "^8.1.5",

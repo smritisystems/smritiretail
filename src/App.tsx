@@ -15,6 +15,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { apiFetch, apiFetchV1 } from "./lib/apiFetch.ts";
 import { FLAGS } from "./config/flags";
 import { motion, AnimatePresence } from "motion/react";
+import { syncCustomersWithBackend } from "./services/customerStore.ts";
 import {
   Product,
   POSProfile,
@@ -40,31 +41,31 @@ import { FormulaRegistryTab } from "./components/FormulaRegistryTab.tsx";
 import { PsvTab } from "./components/PsvTab.tsx";
 import { PosProfilesTab } from "./components/PosProfilesTab.tsx";
 import { SharedTerminalFramework } from "./components/terminal/SharedTerminalFramework.tsx";
-import { AdvancedBillingEngine } from "./components/AdvancedBillingEngine.tsx";
-import { SalesStudioTab } from "./components/SalesStudioTab.tsx";
-import { SalesBillingStudio } from "./components/sales/SalesBillingStudio.tsx";
+const AdvancedBillingEngine = React.lazy(() => import("./components/AdvancedBillingEngine.tsx"));
+const SalesStudioTab = React.lazy(() => import("./components/SalesStudioTab.tsx"));
+const SalesBillingStudio = React.lazy(() => import("./components/sales/SalesBillingStudio.tsx"));
 import { ItemMasterTab } from "./components/ItemMasterTab.tsx";
 import { WikiTab } from "./components/WikiTab.tsx";
-import { PurchaseStudioTab } from "./components/PurchaseStudioTab.tsx";
+const PurchaseStudioTab = React.lazy(() => import("./components/PurchaseStudioTab.tsx"));
 import { MasterManagementTab } from "./components/MasterManagementTab.tsx";
 import { AIConfigurationTab } from "./components/AIConfigurationTab.tsx";
-import { LaunchpadConfigTab } from "./launchpad/index.ts";
-import { CustomerMasterTab } from "./components/CustomerMasterTab.tsx";
-import { CustomerDashboardTab } from "./components/CustomerDashboardTab.tsx";
-import { WorkspaceLabTab } from "./components/WorkspaceLabTab.tsx";
-import { OperationalWorkspacesTab } from "./components/OperationalWorkspacesTab.tsx";
-import { TransactionWorkspacesTab } from "./components/TransactionWorkspacesTab.tsx";
-import { BiReportingAndPrintingTab } from "./components/BiReportingAndPrintingTab.tsx";
-import { PrintLabelsStudio } from "./components/printing/PrintLabelsStudio.tsx";
-import { UniversalLabelPrintingStudio } from "./components/label_print/UniversalLabelPrintingStudio.tsx";
-import { ConsignmentStudioTab } from "./components/ConsignmentStudioTab.tsx";
-import { SCDMStudioTab } from "./components/SCDMStudioTab.tsx";
+const LaunchpadConfigTab = React.lazy(() => import("./launchpad/index.ts"));
+const CustomerMasterTab = React.lazy(() => import("./components/CustomerMasterTab.tsx"));
+const CustomerDashboardTab = React.lazy(() => import("./components/CustomerDashboardTab.tsx"));
+const WorkspaceLabTab = React.lazy(() => import("./components/WorkspaceLabTab.tsx"));
+const OperationalWorkspacesTab = React.lazy(() => import("./components/OperationalWorkspacesTab.tsx"));
+const TransactionWorkspacesTab = React.lazy(() => import("./components/TransactionWorkspacesTab.tsx"));
+const BiReportingAndPrintingTab = React.lazy(() => import("./components/BiReportingAndPrintingTab.tsx"));
+const PrintLabelsStudio = React.lazy(() => import("./components/printing/PrintLabelsStudio.tsx"));
+const UniversalLabelPrintingStudio = React.lazy(() => import("./components/label_print/UniversalLabelPrintingStudio.tsx"));
+const ConsignmentStudioTab = React.lazy(() => import("./components/ConsignmentStudioTab.tsx"));
+const SCDMStudioTab = React.lazy(() => import("./components/SCDMStudioTab.tsx"));
 
-import { CrmStudioTab } from "./components/CrmStudioTab.tsx";
-import { LoyaltyStudioTab } from "./components/LoyaltyStudioTab.tsx";
-import { SupplierDashboardTab } from "./components/SupplierDashboardTab.tsx";
+const CrmStudioTab = React.lazy(() => import("./components/CrmStudioTab.tsx"));
+const LoyaltyStudioTab = React.lazy(() => import("./components/LoyaltyStudioTab.tsx"));
+const SupplierDashboardTab = React.lazy(() => import("./components/SupplierDashboardTab.tsx"));
 import { ScreenStudioTab } from "./components/ScreenStudioTab.tsx";
-import { ReportDesignerTab } from "./components/ReportDesignerTab.tsx";
+const ReportDesignerTab = React.lazy(() => import("./components/ReportDesignerTab.tsx"));
 import { ExplainModal } from "./components/ExplainModal.tsx";
 import { DrillDownProvider } from "./components/drilldown/drilldown_store.tsx";
 import { DrillDownBreadcrumbs } from "./components/drilldown/DrillDownBreadcrumbs.tsx";
@@ -94,6 +95,7 @@ import { DataExchangeTab } from "./components/DataExchangeTab.tsx";
 import { useLayoutModuleRegistration } from "./components/SmritiBaseModule.tsx";
 import { WorkspaceProvider, useWorkspace } from "./contexts/WorkspaceContext.tsx";
 import { FloatingWindowHost } from "./components/FloatingWindowHost.tsx";
+import { Suspense } from "react";
 import { ShortcutProvider } from "./contexts/ShortcutContext.tsx";
 import { ShortcutPalette } from "./components/ShortcutPalette.tsx";
 import { WorkspaceTaskbar } from "./components/WorkspaceTaskbar.tsx";
@@ -421,9 +423,7 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     if (!currentUser) return;
-    import("./services/customerStore.js").then((m) => {
-      m.syncCustomersWithBackend();
-    });
+    syncCustomersWithBackend();
   }, [currentUser]);
 
   useEffect(() => {
@@ -1079,26 +1079,34 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <PrintProvider>
-      <NotificationProvider>
-        <DrillDownProvider>
-          <LayoutEngineProvider>
-            <WorkspaceProvider>
-              <ShortcutProvider>
-                <ContextProvider>
-                  <AppContent />
-                  <ContextRenderer />
-                  <GlobalSearch />
-                  <DrillDownSidePanel />
-                  <ShortcutPalette />
-                  <WorkspaceTaskbar />
-                </ContextProvider>
-              </ShortcutProvider>
-            </WorkspaceProvider>
-          </LayoutEngineProvider>
-        </DrillDownProvider>
-      </NotificationProvider>
-    </PrintProvider>
+    <Suspense
+      fallback={
+        <div className="fixed inset-0 flex items-center justify-center bg-theme-surface text-theme-primary">
+          <div className="text-sm font-semibold">Loading SMRITI workspace...</div>
+        </div>
+      }
+    >
+      <PrintProvider>
+        <NotificationProvider>
+          <DrillDownProvider>
+            <LayoutEngineProvider>
+              <WorkspaceProvider>
+                <ShortcutProvider>
+                  <ContextProvider>
+                    <AppContent />
+                    <ContextRenderer />
+                    <GlobalSearch />
+                    <DrillDownSidePanel />
+                    <ShortcutPalette />
+                    <WorkspaceTaskbar />
+                  </ContextProvider>
+                </ShortcutProvider>
+              </WorkspaceProvider>
+            </LayoutEngineProvider>
+          </DrillDownProvider>
+        </NotificationProvider>
+      </PrintProvider>
+    </Suspense>
   );
 };
 
