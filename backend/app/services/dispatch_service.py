@@ -14,7 +14,7 @@ from sqlalchemy.future import select
 from fastapi import HTTPException
 
 from ..models.dispatch import StockDispatch, StockDispatchLine, DispatchApprovalEvent
-from ..models.inventory import Product
+from ..models.inventory import Product, StockMovement
 from ..schemas.dispatch import StockDispatchCreate
 from ..api.deps import TenantContext
 from ..services.sre.sre_service import SreService
@@ -88,8 +88,26 @@ class DispatchService:
                     detail=f"Insufficient stock for product {product.name}. Available: {product.stock}, Requested: {item.qty_sent}"
                 )
 
-            # Deduct stock
-            product.stock -= item.qty_sent
+            # RC2 Rule #1: Create StockMovement OUT; trigger updates product.stock
+            movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+            sm = StockMovement(
+                id=movement_id,
+                uuid=str(uuid.uuid4()),
+                product_id=product.id,
+                product_name=product.name,
+                sku=product.sku or product.code,
+                quantity=-item.qty_sent,
+                movement_type="OUT",
+                reference_doc_type="Stock Dispatch",
+                reference_doc_id=dispatch_id,
+                warehouse="Default Warehouse",
+                unit_cost=product.cost_price or product.price,
+                remarks=f"Stock dispatch finalized: {dispatch_no}",
+                source_module="Dispatch",
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+            )
+            self.db.add(sm)
             
             # Calculate values
             line_tax = (item.qty_sent * item.rate * item.gst_rate) / Decimal("100.00")
@@ -252,7 +270,26 @@ class DispatchService:
             )
             product = prod_res.scalars().first()
             if product:
-                product.stock += qty_returned
+                # RC2 Rule #1: Create StockMovement RETURN; trigger updates product.stock
+                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+                sm = StockMovement(
+                    id=movement_id,
+                    uuid=str(uuid.uuid4()),
+                    product_id=product.id,
+                    product_name=product.name,
+                    sku=product.sku or product.code,
+                    quantity=qty_returned,
+                    movement_type="RETURN",
+                    reference_doc_type="Stock Dispatch Return",
+                    reference_doc_id=dispatch_id,
+                    warehouse="Default Warehouse",
+                    unit_cost=product.cost_price or product.price,
+                    remarks=f"Stock returned from dispatch lot: {dispatch.dispatch_no}",
+                    source_module="Dispatch",
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                )
+                self.db.add(sm)
 
         # Log event
         audit = DispatchApprovalEvent(

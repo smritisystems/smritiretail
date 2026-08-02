@@ -20,7 +20,8 @@ from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.models.inventory import Product
+import uuid
+from app.models.inventory import Product, StockMovement
 from app.api.deps import TenantContext
 
 logger = logging.getLogger("smriti.ecommerce_sync")
@@ -65,7 +66,26 @@ class ECommerceSyncPipeline:
         p = res.scalars().first()
 
         if p and p.stock >= qty:
-            p.stock -= qty
+            # RC2 Rule #1: Create StockMovement OUT; trigger updates p.stock
+            movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+            sm = StockMovement(
+                id=movement_id,
+                uuid=str(uuid.uuid4()),
+                product_id=p.id,
+                product_name=p.name,
+                sku=p.sku or p.code,
+                quantity=-qty,
+                movement_type="OUT",
+                reference_doc_type="E-Commerce Order",
+                reference_doc_id=str(channel_order_id),
+                warehouse="Default Warehouse",
+                unit_cost=p.cost_price or p.price,
+                remarks=f"E-Commerce channel sale ({channel_name}): order {channel_order_id}",
+                source_module="E-Commerce",
+                company_id=getattr(self.tenant_ctx, "company_id", None) or p.company_id,
+                branch_id=getattr(self.tenant_ctx, "branch_id", None) or p.branch_id,
+            )
+            self.db.add(sm)
             await self.db.flush()
             logger.info("[E-Commerce Order] Allocated %d units of SKU '%s' for %s order %s.", qty, sku, channel_name, channel_order_id)
             status_str = "ALLOCATED"

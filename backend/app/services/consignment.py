@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -231,8 +231,8 @@ class ConsignmentService:
             if product.tracking_mode != "No-stock":
                 if product.stock < float(item.qty_sent):
                     raise HTTPException(status_code=400, detail=f"Insufficient stock for product {product.name}")
-                product.stock -= int(item.qty_sent)
-                self.db.add(product)
+                # RC2 Rule #1: products.stock is updated exclusively by
+                # trg_inventory_state_reconciliation via StockMovement OUT below.
 
             # Record StockMovement OUT
             movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
@@ -563,8 +563,8 @@ class ConsignmentService:
             )
             product = product_res.scalars().first()
             if product and product.tracking_mode != "No-stock":
-                product.stock += int(qty)
-                self.db.add(product)
+                # RC2 Rule #1: products.stock is updated exclusively by
+                # trg_inventory_state_reconciliation via StockMovement IN below.
 
             # Record StockMovement IN
             movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
