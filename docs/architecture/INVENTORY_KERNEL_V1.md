@@ -9,52 +9,68 @@
 
 ---
 
+## PART 1 — INVENTORY KERNEL CONSTITUTION (Timeless Invariants)
+
 > [!IMPORTANT]
-> **Platform Rule #0 — Pipeline Flow Invariant & 1:1 Ledger Equivalence**
+> **Kernel Rule #0 — Pipeline Flow Invariant & 1:1 Ledger Equivalence**
 > Nothing may bypass this pipeline:
-> `StockMovement` ──► `trg_inventory_state_reconciliation` ──► `products.stock` ──► `InventoryStateEngine` ──► `Availability / Reservation` ──► Consumers.
+> `StockMovement` ──► `Inventory State Reconciliation Pipeline` ──► `products.stock` ──► `InventoryStateEngine` ──► `Availability / Reservation` ──► Consumers.
 > Every physical stock change MUST produce exactly one `StockMovement` record (1:1 equivalence).
 > No physical stock mutation without a ledger entry; no duplicate ledger entries for one physical movement.
-> No Python service or Industry SDK may write to `products.stock` directly.
+> No service or Industry SDK may write to `products.stock` directly.
 
 > [!IMPORTANT]
-> **Platform Rule #1 — Immutable Stock Pipeline**
-> No engine may update `products.stock` directly except through the
-> Inventory State reconciliation pipeline (`trg_inventory_state_reconciliation`).
-> Any code path that updates `products.stock` directly is a critical architectural
-> violation. All changes to physical on-hand stock flow through the DB trigger.
+> **Kernel Rule #1 — Immutable Stock Reconciliation Pipeline**
+> No engine may update `products.stock` directly except through the authoritative
+> Inventory State Reconciliation Pipeline.
+> Any code path that updates `products.stock` directly is a critical architectural violation.
+> All physical on-hand mutations flow through the reconciliation engine abstraction.
 
 > [!IMPORTANT]
-> **Platform Rule #2 — Migration-Only Trigger Evolution**
-> The Inventory State reconciliation trigger (`trg_inventory_state_reconciliation`)
-> and its function (`inventory_state_reconciliation_trigger()`) may only be modified
-> via Alembic migrations.
-> `fix_stock_trigger.py` is an emergency recovery tool only, never a development workflow step.
-
-> [!IMPORTANT]
-> **Platform Rule #3 — Sealed Movement Registry**
-> MovementTypeRegistry is sealed after kernel initialization. No random string movement types
-> are permitted. Industry SDK extensions must register providers via `MovementTypeRegistry.register_provider()`
-> during container startup before registry sealing.
-
-> [!IMPORTANT]
-> **Platform Rule #4 — Single State Origin Invariant**
+> **Kernel Rule #2 — Single State Origin Invariant**
 > Every inventory state exposed through REST APIs, WebSockets, or UI components MUST originate exclusively
 > from `InventoryStateEngine` or its facade (`InventoryAvailabilityService` / `InventoryReservationService`).
 > No consumer module (POS, Sales, Purchase, WMS, Mobile, SDKs) may independently calculate stock availability.
 
 > [!IMPORTANT]
-> **Platform Rule #5 — Deterministic State Calculation**
-> Given identical `StockMovement` records + identical `reserved_stock` commitments + identical `MovementTypeRegistry`,
+> **Kernel Rule #3 — Deterministic State Calculation**
+> Given identical `StockMovement` records + identical commitments + identical `MovementTypeRegistry`,
 > `InventoryStateEngine` MUST always produce 100% identical state outputs.
-> No timestamps, cache evaluation order, API request sequencing, or UI state may introduce non-determinism into inventory state calculation.
+> No timestamps, cache evaluation order, API request sequencing, or UI state may introduce non-determinism into inventory calculation.
 
 > [!IMPORTANT]
-> **Platform Rule #6 — Read Model Separation Invariant**
+> **Kernel Rule #4 — Read Model Separation Invariant**
 > The Inventory State Engine and its calculation services MUST NEVER format, present, or aggregate state for specific UI components.
 > The Engine produces raw, canonical state objects exclusively (`{on_hand, reserved, allocated, available, in_transit, ...}`).
 > Consumers (Inventory 360, POS, Mobile, WMS, Reports) own their own presentation read models.
 > The kernel engine code NEVER changes to accommodate presentation or UI formatting requirements.
+
+> [!IMPORTANT]
+> **Kernel Rule #5 — Event Completeness & Auditability**
+> Every physical inventory event must produce exactly one canonical `StockMovement` record.
+> Every `StockMovement` must be replayable to reconstruct system state identically.
+> No hidden, unlogged, or unreferenced stock adjustments are permitted anywhere in the system.
+
+---
+
+## PART 2 — IMPLEMENTATION & GOVERNANCE POLICIES (Current Engine Binding)
+
+> [!NOTE]
+> **Engineering Policy #1 — Alembic-Only Trigger Migration Policy**
+> In the current PostgreSQL implementation, the Inventory State Reconciliation Pipeline is bound to
+> DB trigger `trg_inventory_state_reconciliation` and function `inventory_state_reconciliation_trigger()`.
+> Trigger DDL evolution is restricted exclusively to Alembic migrations.
+> `fix_stock_trigger.py` is an emergency recovery tool only, never a development workflow step.
+
+> [!NOTE]
+> **Engineering Policy #2 — Sealed Movement Registry Lifecycle**
+> `MovementTypeRegistry` is sealed after kernel initialization. No random string movement types
+> are permitted. Industry SDK extensions must register providers via `MovementTypeRegistry.register_provider()`
+> during container startup before registry sealing.
+
+> [!NOTE]
+> **Engineering Policy #3 — Static Analysis CI Guard Enforcement**
+> `test_architecture_rule1.py` executes in CI on every commit to enforce zero direct `.stock =` mutations across all backend services outside the allowed reconciliation pipeline.
 
 ---
 
@@ -68,7 +84,7 @@ The SMRITI Platform strictly separates inventory calculation into three isolated
 ┌────────────────────────────────────────────────────────────────────────┐
 │ Layer 1: Physical Ledger (Warehouse Reality)                           │
 │   • products.stock (On Hand)                                           │
-│   • Maintained exclusively by trg_inventory_state_reconciliation       │
+│   • Maintained exclusively by Inventory State Reconciliation Pipeline  │
 ├────────────────────────────────────────────────────────────────────────┤
 │ Layer 2: Business Commitments (Operational Allocations)               │
 │   • reserved_stock (SO soft reservations)                              │
@@ -109,7 +125,7 @@ The SMRITI Platform strictly separates inventory calculation into three isolated
 StockMovement Ledger (Immutable Audit Log)
         │
         ▼
-trg_inventory_state_reconciliation (DB Trigger)
+Inventory State Reconciliation Pipeline (Current DB Trigger: trg_inventory_state_reconciliation)
         │
         ▼
 products.stock (Layer 1: Physical On-Hand Ledger)
@@ -156,7 +172,7 @@ On Hand  =  Opening
          ±  Adjustments (ADJUSTMENT — signed quantity)
 ```
 
-> On Hand is maintained exclusively by `trg_inventory_state_reconciliation`.
+> On Hand is maintained exclusively by the Inventory State Reconciliation Pipeline (`trg_inventory_state_reconciliation`).
 > No Python service may write to `products.stock` directly.
 
 ### Commercial Available (Layer 3)
@@ -282,8 +298,8 @@ MovementTypeRegistry.register_provider(MedicalMovementProvider())
 
 | Phase | Subsystem Focus | Status | Key Deliverable |
 |---|---|---|---|
-| **Phase 1** | Inventory Kernel | ✅ **FROZEN** | Subsystem Exit Gate Passed — Rules 0–6 Sealed |
-| **Phase 2** | SI_001 Integration | 🔄 **NEXT PRIORITY** | Sales consumes Availability ──► Reservation ──► State Engine |
+| **Phase 1** | Inventory Kernel | ✅ **FROZEN** | Subsystem Exit Gate Passed — Kernel Rules 0–5 & Engineering Policies 1–3 Sealed |
+| **Phase 2** | SI_001 Integration | 🔄 **NEXT PRIORITY** | Sales consumes Availability ──► Reservation ──► State Engine ──► Movement ──► Invoice/Dispatch |
 | **Phase 3** | SDK Stabilization | 🔄 Next | Industry Pack extension contracts sealed |
 | **Phase 4** | Inventory 360 Workspace | ⏳ Future | Pure read-only UI consumer workspace |
 | **GA Prep** | Continuous Health Check & Recovery Verification | ⏳ Future | Automated background reconciliation & `stock_movements` rebuild verification test |
