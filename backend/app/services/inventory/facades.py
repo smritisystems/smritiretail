@@ -160,3 +160,91 @@ class InventoryCommandFacade:
                 self.db.add(db_movement)
                 movements.append(db_movement)
         return movements
+
+    async def receive_purchase(
+        self,
+        grn_id: str,
+        grn_no: str,
+        items: List[dict[str, Any]],
+        warehouse: str = "Default Warehouse",
+    ) -> List[StockMovement]:
+        """Issue PURCHASE movements for goods receipt note (GRN) posting."""
+        movements: List[StockMovement] = []
+        for item in items:
+            product_id = item["product_id"]
+            qty = Decimal(str(item["quantity"]))
+            stmt = select(Product).where(
+                Product.id == product_id,
+                Product.is_deleted.is_(False),
+                Product.company_id == self.tenant_ctx.company_id,
+                Product.branch_id == self.tenant_ctx.branch_id,
+            )
+            res = await self.db.execute(stmt)
+            product = res.scalars().first()
+            if product and getattr(product, "tracking_mode", "Standard") != "No-stock":
+                ts = int(datetime.now(timezone.utc).timestamp() * 1_000_000)
+                movement_id = f"SM-{ts}-{uuid.uuid4().hex[:6]}"
+                db_movement = StockMovement(
+                    id=movement_id,
+                    uuid=str(uuid.uuid4()),
+                    product_id=product.id,
+                    product_name=product.name,
+                    sku=product.sku or product.code,
+                    quantity=qty,
+                    movement_type="PURCHASE",
+                    reference_doc_type="Goods Receipt",
+                    reference_doc_id=grn_id,
+                    warehouse=warehouse,
+                    unit_cost=product.cost_price or product.price,
+                    remarks=f"Stock received for purchase GRN: {grn_no}",
+                    source_module="Purchase",
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                )
+                self.db.add(db_movement)
+                movements.append(db_movement)
+        return movements
+
+    async def return_purchase(
+        self,
+        return_id: str,
+        return_no: str,
+        items: List[dict[str, Any]],
+        warehouse: str = "Default Warehouse",
+    ) -> List[StockMovement]:
+        """Issue PURCHASE_RETURN movements for debit note / purchase return processing."""
+        movements: List[StockMovement] = []
+        for item in items:
+            product_id = item["product_id"]
+            qty = Decimal(str(item["quantity"]))
+            stmt = select(Product).where(
+                Product.id == product_id,
+                Product.is_deleted.is_(False),
+                Product.company_id == self.tenant_ctx.company_id,
+                Product.branch_id == self.tenant_ctx.branch_id,
+            )
+            res = await self.db.execute(stmt)
+            product = res.scalars().first()
+            if product and getattr(product, "tracking_mode", "Standard") != "No-stock":
+                ts = int(datetime.now(timezone.utc).timestamp() * 1_000_000)
+                movement_id = f"SM-{ts}-{uuid.uuid4().hex[:6]}"
+                db_movement = StockMovement(
+                    id=movement_id,
+                    uuid=str(uuid.uuid4()),
+                    product_id=product.id,
+                    product_name=product.name,
+                    sku=product.sku or product.code,
+                    quantity=-qty,
+                    movement_type="PURCHASE_RETURN",
+                    reference_doc_type="Purchase Return",
+                    reference_doc_id=return_id,
+                    warehouse=warehouse,
+                    unit_cost=product.cost_price or product.price,
+                    remarks=f"Stock returned for purchase debit note: {return_no}",
+                    source_module="Purchase",
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                )
+                self.db.add(db_movement)
+                movements.append(db_movement)
+        return movements

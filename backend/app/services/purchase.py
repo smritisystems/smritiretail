@@ -43,7 +43,8 @@ from ..models.purchase import (
     PurchaseReorderConfig, PurchaseJurisdictionConfig,
     VendorContract, VendorContractTier,
 )
-from ..models.inventory import Product, StockMovement
+from ..models.inventory import Product
+from app.services.inventory.facades import InventoryCommandFacade
 from ..api.deps import TenantContext
 from ..core.events.domain_events import publish_purchase_order_created, publish_grn_completed
 from ..schemas.purchase import (
@@ -490,34 +491,18 @@ class PurchaseService:
         self.db.add(receipt)
         self.db.add_all(item_rows)
 
-        # Apply stock increments, update supplier outstanding, and record stock movements
-        for product, qty in product_stock_updates:
-            # RC2 Rule #1: products.stock is updated exclusively by
-            # trg_inventory_state_reconciliation via the StockMovement
-            # INSERT below. Direct mutation removed.
+        # Apply stock increments, update supplier outstanding, and record stock movements via facade
+        command_facade = InventoryCommandFacade(self.db, self.tenant)
+        grn_items = [{"product_id": p.id, "quantity": q} for p, q in product_stock_updates]
+        await command_facade.receive_purchase(
+            grn_id=receipt.id,
+            grn_no=receipt.receipt_no,
+            items=grn_items,
+            warehouse="Default Warehouse",
+        )
+        for product, _ in product_stock_updates:
             product.modified_at = datetime.now(timezone.utc)
             self.db.add(product)
-
-            # Record StockMovement
-            movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-            db_movement = StockMovement(
-                id=movement_id,
-                uuid=str(uuid.uuid4()),
-                product_id=product.id,
-                product_name=product.name,
-                sku=product.sku or product.code,
-                quantity=qty,  # Positive for IN
-                movement_type="IN",
-                reference_doc_type="Purchase Receipt",
-                reference_doc_id=receipt.id,
-                warehouse="Default Warehouse",
-                unit_cost=product.cost_price,
-                remarks=f"Stock received for purchase receipt: {receipt.receipt_no}",
-                source_module="Purchase",
-                company_id=self.tenant.company_id,
-                branch_id=self.tenant.branch_id
-            )
-            self.db.add(db_movement)
 
         supplier = await self._get_supplier(req.supplier_id)
         current_out = Decimal(str(supplier.outstanding or 0.0))

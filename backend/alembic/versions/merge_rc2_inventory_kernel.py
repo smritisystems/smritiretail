@@ -118,12 +118,12 @@ def upgrade() -> None:
             movement_type    text;
             -- Physical ON-HAND movement types (RC2 Frozen Taxonomy)
             physical_inbound  text[] := ARRAY[
-                'PURCHASE', 'PURCHASE_RETURN', 'SALE_RETURN',
+                'PURCHASE', 'SALE_RETURN',
                 'TRANSFER_IN', 'PRODUCTION', 'OPENING',
                 'IN', 'RETURN'
             ];
             physical_outbound text[] := ARRAY[
-                'SALE', 'TRANSFER_OUT',
+                'SALE', 'PURCHASE_RETURN', 'TRANSFER_OUT',
                 'OUT', 'TRANSFER'
             ];
             physical_adjustment text[] := ARRAY['ADJUSTMENT'];
