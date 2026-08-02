@@ -29,8 +29,8 @@ from ..models.consignment import (
     ConsignmentSettlement, ConsignmentReturn, ConsignmentReturnItem
 )
 from ..models.crm import Customer
-from ..models.sales import SalesInvoice, SalesInvoiceItem
-from ..models.inventory import Product, StockMovement
+from ..models.inventory import Product
+from .inventory.facades import InventoryCommandFacade
 from ..schemas.consignment import (
     ConsignmentPartnerCreate, ConsignmentPartnerUpdate,
     ConsignmentTransferCreate, ConsignmentSaleReportCreate,
@@ -216,44 +216,16 @@ class ConsignmentService:
         if transfer.status != "Draft":
             raise HTTPException(status_code=400, detail="Only Draft transfers can be dispatched")
 
-        # 1. Verify and deduct stock, record StockMovements
-        for item in transfer.items:
-            product_res = await self.db.execute(
-                select(Product).filter(
-                    Product.id == item.product_id,
-                    Product.is_deleted == False,
-                    Product.company_id == self.tenant_ctx.company_id
-                )
-            )
-            product = product_res.scalars().first()
-            if not product:
-                raise HTTPException(status_code=400, detail=f"Product {item.name} not found")
-            if product.tracking_mode != "No-stock":
-                if product.stock < float(item.qty_sent):
-                    raise HTTPException(status_code=400, detail=f"Insufficient stock for product {product.name}")
-                # RC2 Rule #1: products.stock is updated exclusively by
-                # trg_inventory_state_reconciliation via StockMovement OUT below.
-
-            # Record StockMovement OUT
-            movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-            db_movement = StockMovement(
-                id=movement_id,
-                uuid=str(uuid.uuid4()),
-                product_id=item.product_id,
-                product_name=item.name,
-                sku=item.code,
-                quantity=-float(item.qty_sent),
-                movement_type="OUT",
-                reference_doc_type="Consignment Transfer",
-                reference_doc_id=transfer.id,
-                warehouse="Consignment Store",
-                unit_cost=product.cost_price or float(item.rate),
-                remarks=f"Consignment stock dispatched to partner {transfer.partner_id}",
-                source_module="Consignment",
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id
-            )
-            self.db.add(db_movement)
+        # 1. Deduct stock at warehouse via InventoryCommandFacade per CS001.1
+        command_facade = InventoryCommandFacade(self.db, self.tenant_ctx)
+        xfer_items = [{"product_id": item.product_id, "quantity": item.qty_sent} for item in transfer.items]
+        await command_facade.transfer_out(
+            transfer_id=transfer.id,
+            transfer_no=transfer.transfer_number,
+            items=xfer_items,
+            source_warehouse="Default Warehouse",
+            target_warehouse="Consignment Store",
+        )
 
         # 2. Generate the Tax Invoice (legal movement document)
         invoice_id = f"INV-{uuid.uuid4().hex[:8]}"
@@ -554,37 +526,6 @@ class ConsignmentService:
             t_item.qty_on_hand -= qty
             self.db.add(t_item)
 
-            # Restore warehouse stock
-            product_res = await self.db.execute(
-                select(Product).filter(
-                    Product.id == item.product_id,
-                    Product.is_deleted == False
-                )
-            )
-            product = product_res.scalars().first()
-            if product and product.tracking_mode != "No-stock":
-                # RC2 Rule #1: products.stock is updated exclusively by
-                # trg_inventory_state_reconciliation via StockMovement IN below.
-                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-                db_movement = StockMovement(
-                    id=movement_id,
-                    uuid=str(uuid.uuid4()),
-                    product_id=item.product_id,
-                    product_name=t_item.name,
-                    sku=t_item.code,
-                    quantity=float(qty), # positive for IN
-                    movement_type="IN",
-                    reference_doc_type="Consignment Return",
-                    reference_doc_id=return_id,
-                    warehouse="Default Warehouse",
-                    unit_cost=product.cost_price if product else float(rate),
-                    remarks=f"Unsold consignment stock returned by partner {return_in.partner_id}",
-                    source_module="Consignment",
-                    company_id=self.tenant_ctx.company_id,
-                    branch_id=self.tenant_ctx.branch_id
-                )
-                self.db.add(db_movement)
-
             line_total = (qty * rate).quantize(Decimal("0.01"))
             total_value += line_total
 
@@ -601,6 +542,17 @@ class ConsignmentService:
                 branch_id=self.tenant_ctx.branch_id
             )
             return_items.append(db_item)
+
+        # Restore warehouse stock via InventoryCommandFacade per CS001.3
+        command_facade = InventoryCommandFacade(self.db, self.tenant_ctx)
+        ret_items = [{"product_id": item.product_id, "quantity": item.qty_returned} for item in return_in.items]
+        await command_facade.transfer_in(
+            transfer_id=return_id,
+            transfer_no=return_no,
+            items=ret_items,
+            target_warehouse="Default Warehouse",
+            source_warehouse="Consignment Store",
+        )
 
         db_return = ConsignmentReturn(
             id=return_id,
