@@ -37,25 +37,54 @@
 > are permitted. Industry SDK extensions must register providers via `MovementTypeRegistry.register_provider()`
 > during container startup before registry sealing.
 
+> [!IMPORTANT]
+> **Platform Rule #4 — Single State Origin Invariant**
+> Every inventory state exposed through REST APIs, WebSockets, or UI components MUST originate exclusively
+> from `InventoryStateEngine` or its facade (`InventoryAvailabilityService` / `InventoryReservationService`).
+> No consumer module (POS, Sales, Purchase, WMS, Mobile, SDKs) may independently calculate stock availability.
+
+---
+
+## Architecture Layers
+
+The Inventory Kernel explicitly separates state into three isolated conceptual layers:
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│ Layer 1: Physical Ledger (Warehouse Reality)                           │
+│   • products.stock (On Hand)                                           │
+│   • Maintained exclusively by trg_inventory_state_reconciliation       │
+├────────────────────────────────────────────────────────────────────────┤
+│ Layer 2: Business Commitments (Operational Allocations)               │
+│   • reserved_stock (SO soft reservations)                              │
+│   • allocated (WMS hard allocations)                                   │
+│   • in_transit, consignment_out, blocked, quality_hold                 │
+├────────────────────────────────────────────────────────────────────────┤
+│ Layer 3: Commercial Availability (Available to Promise / Sell)        │
+│   • available = On Hand - Commitments (floored at zero)                │
+│   • Evaluated dynamically by InventoryAvailabilityService               │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## Engine Hierarchy
 
-```
+```text
 StockMovement
         ↓
 trg_inventory_state_reconciliation (DB Trigger)
         ↓
-products.stock (Physical On-Hand Ledger)
+products.stock (Layer 1: Physical On-Hand Ledger)
         ↓
-InventoryStateEngine (Canonical State Surface)
+InventoryStateEngine (Canonical State Surface — Layer 1 & 2)
         ↓
-InventoryAvailabilityService & InventoryReservationService
+InventoryAvailabilityService & InventoryReservationService (Layer 3: Commercial Availability)
         ↓
 Consumers (POS, Sales, Purchase, Transfer, WMS, Industry SDKs)
 ```
 
-```
+```text
 Movement Registry              (behavior metadata — movement_taxonomy.py)
         ▲
         └── MovementProvider (ABC)
@@ -69,9 +98,9 @@ Movement Registry              (behavior metadata — movement_taxonomy.py)
 
 ## State Equations (FROZEN)
 
-### Physical On Hand
+### Physical On Hand (Layer 1)
 
-```
+```text
 On Hand  =  Opening
          +  Receipts (PURCHASE, PURCHASE_RETURN, SALE_RETURN, IN, RETURN, PRODUCTION, TRANSFER_IN)
          -  Issues   (SALE, SALE_RETURN, OUT, TRANSFER_OUT, TRANSFER)
@@ -81,9 +110,9 @@ On Hand  =  Opening
 > On Hand is maintained exclusively by `trg_inventory_state_reconciliation`.
 > No Python service may write to `products.stock` directly.
 
-### Available
+### Commercial Available (Layer 3)
 
-```
+```text
 Available  =  On Hand
            -  Reserved
            -  In Transit
@@ -100,12 +129,12 @@ Available  =  On Hand
 
 ### Reservable
 
-```
+```text
 Reservable  =  Available
 ```
 
-> Reservations are **business state**, not inventory state.
-> Reserved stock is deducted from Available but does not change On Hand.
+> Reservations are **business commitments** (Layer 2), not physical inventory state.
+> Reserved stock is deducted from Commercial Available (Layer 3) but does not change Physical On Hand (Layer 1).
 
 ---
 
@@ -114,27 +143,27 @@ Reservable  =  Available
 All UI components and APIs must consume these canonical fields from the
 Inventory State Engine. UI must never independently recalculate these values.
 
-| Field                 | Type    | Description                                              |
-|-----------------------|---------|----------------------------------------------------------|
-| `on_hand`             | decimal | Physical quantity present in warehouse                   |
-| `reserved`            | decimal | Soft-reserved for open sales orders                      |
-| `allocated`           | decimal | Hard-allocated to pick/pack tasks                        |
-| `available`           | decimal | Quantity free to fulfill new orders (`on_hand - reserved`)|
-| `in_transit`          | decimal | Dispatched from source, not yet received at destination  |
-| `consignment_out`     | decimal | Stock placed on consignment with external parties        |
-| `consignment_in`      | decimal | Consignment stock received (not yet owned)               |
-| `marketplace_reserved`| decimal | Channel-locked stock on marketplace platforms            |
-| `blocked`             | decimal | Blocked / on administrative hold                         |
-| `damaged`             | decimal | Damaged stock pending write-off or repair                |
-| `repair`              | decimal | Stock under repair / refurbishment                       |
-| `quality_hold`        | decimal | Stock pending QC inspection                              |
-| `return_pending`      | decimal | Customer returns received, awaiting processing           |
+| Field                 | Layer | Type    | Description                                              |
+|-----------------------|:-----:|---------|----------------------------------------------------------|
+| `on_hand`             |   1   | decimal | Physical quantity present in warehouse                   |
+| `reserved`            |   2   | decimal | Soft-reserved for open sales orders                      |
+| `allocated`           |   2   | decimal | Hard-allocated to pick/pack tasks                        |
+| `available`           |   3   | decimal | Quantity free to fulfill new orders (`on_hand - reserved`)|
+| `in_transit`          |   2   | decimal | Dispatched from source, not yet received at destination  |
+| `consignment_out`     |   2   | decimal | Stock placed on consignment with external parties        |
+| `consignment_in`      |   2   | decimal | Consignment stock received (not yet owned)               |
+| `marketplace_reserved`|   2   | decimal | Channel-locked stock on marketplace platforms            |
+| `blocked`             |   2   | decimal | Blocked / on administrative hold                         |
+| `damaged`             |   2   | decimal | Damaged stock pending write-off or repair                |
+| `repair`              |   2   | decimal | Stock under repair / refurbishment                       |
+| `quality_hold`        |   2   | decimal | Stock pending QC inspection                              |
+| `return_pending`      |   2   | decimal | Customer returns received, awaiting processing           |
 
 ---
 
 ## Movement Taxonomy (FROZEN — RC2)
 
-### Physical Movements — affect `products.stock` (On Hand)
+### Physical Movements — affect `products.stock` (On Hand / Layer 1)
 
 | movement_type    | direction | affects_physical | affects_reservation | affects_transit | affects_inv_value | Notes                              |
 |------------------|:---------:|:----------------:|:-------------------:|:---------------:|:-----------------:|------------------------------------|
@@ -155,7 +184,7 @@ Inventory State Engine. UI must never independently recalculate these values.
 
 *ADJUSTMENT: direction=+1, but caller supplies signed quantity. Positive qty = stock gain; negative qty = stock loss.
 
-### Business & Operational State Movements
+### Business & Operational State Movements (Layer 2 & Layer 3)
 
 | movement_type    | direction | affects_physical | affects_reservation | affects_channel | affects_transit | affects_inv_value | Category / Scope               | Notes                          |
 |------------------|:---------:|:----------------:|:-------------------:|:---------------:|:---------------:|:-----------------:|--------------------------------|--------------------------------|
@@ -204,8 +233,8 @@ MovementTypeRegistry.register_provider(MedicalMovementProvider())
 
 | Phase | Subsystem Focus | Status | Key Deliverable |
 |---|---|---|---|
-| **Phase 1** | Inventory Kernel | ✅ **FROZEN** | Subsystem Exit Gate Passed — Rules 0-3 Sealed |
+| **Phase 1** | Inventory Kernel | ✅ **FROZEN** | Subsystem Exit Gate Passed — Rules 0–4 Sealed |
 | **Phase 2** | SI_001 Integration | 🔄 **NEXT PRIORITY** | Sales consumes Availability ──► Reservation ──► State Engine |
 | **Phase 3** | SDK Stabilization | 🔄 Next | Industry Pack extension contracts sealed |
 | **Phase 4** | Inventory 360 Workspace | ⏳ Future | Pure read-only UI consumer workspace |
-| **GA Prep** | Continuous Health Check Engine | ⏳ Future | Automated background reconciliation service (`stock == SUM(movements)`) |
+| **GA Prep** | Continuous Health Check & Recovery Verification | ⏳ Future | Automated background reconciliation & `stock_movements` rebuild verification test |
