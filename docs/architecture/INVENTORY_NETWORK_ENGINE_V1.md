@@ -9,7 +9,7 @@
 
 ## Executive Architectural Principle
 
-In SMRITI Retail OS, **stock outside your warehouse** (Retail Chains like Reliance/DMart/Croma, Distributors, Franchises, Institutions like Schools/Hospitals, Marketplaces like Amazon FC, Goods in Transit, and Production Lines) is NOT a collection of separate modules.
+In SMRITI Retail OS, **stock outside your warehouse** (Retail Chains like Reliance/DMart/Croma, Distributors, Franchises, Institutions, Marketplaces like Amazon FC, Goods in Transit, and Production Lines) is NOT a collection of separate modules.
 
 It is a **Unified Core Platform Capability of the Inventory Kernel**, orchestrated natively by four dedicated engines:
 1. **Inventory Location Engine (ILE)**: Answers *"Where is inventory?"* (Locations, Balances, Ownership, Capacity, Status, Zone, Bin, Hierarchy).
@@ -60,73 +60,68 @@ Instead of treating `Warehouse` as the sole inventory container, every inventory
 
 ---
 
-## 2. Explicit Ownership Layer (`OwnershipType`)
+## 2. Decoupling Financial Ownership from Physical Location
 
-To support multi-party commercial structures in Indian retail, every `InventoryLocation` balance tracks explicit financial ownership:
+Financial ownership (`OwnershipType`) is completely decoupled from physical location (`InventoryLocation`):
 
-| Ownership Type | Commercial Description | Accounting & Financial Treatment |
-|---|---|---|
-| `OWNED` | Company physical stock | Company balance sheet inventory asset. |
-| `CONSIGNMENT` | Goods held at partner site | Company inventory asset until reported sold. |
-| `BILL_AND_HOLD` | Sold but held at company WH | Customer-owned stock; revenue recognized. |
-| `THIRD_PARTY` | Third-party stock held for fulfillment | Non-company stock; off-balance sheet. |
-| `CUSTOMER` | Customer stock held for service | RMA/Service stock; off-balance sheet. |
-| `SUPPLIER` | Vendor drop-ship stock | Supplier-owned stock until GRN/dispatch. |
+```text
+Physical Location (Where inventory is)  ≠  Financial Ownership (Who owns inventory)
+```
 
----
+### Scenario 1: Outright GST Sale to Reliance Retail (Standard Outright Flow)
 
-## 3. Unified Location-to-Location Movement Model
+1. **Step 1 — Invoice & Dispatch 300 units to Reliance DC**:
+   - `FROM`: Mumbai Warehouse (1000 ──► 700 units)
+   - `TO`: Reliance DC (0 ──► 300 units)
+   - `MovementType`: `CHANNEL_DISPATCH`
+   - `OwnershipType`: `PARTNER_OWNED` (Invoice posted: Dr Reliance Debtor, Cr Sales, Cr GST).
+   - *Network Total*: 700 (WH) + 300 (Reliance) = 1000 units.
 
-Every physical stock movement executes as a directional transfer:
-
-$$\text{StockMovement}: \text{FROM\_LOCATION} \xrightarrow{\quad \text{MovementType} \quad} \text{TO\_LOCATION}$$
-
-### Movement Taxonomy
-
-| From Location | To Location | Movement Type | Business Flow Description |
-|---|---|---|---|
-| `WAREHOUSE` | `RETAIL_CHAIN` | `CHANNEL_DISPATCH` | Dispatch goods to Key Account / Partner. |
-| `RETAIL_CHAIN` | `CUSTOMER` | `CHANNEL_SALE` | Partner reports consumer sale. |
-| `CUSTOMER` | `RETAIL_CHAIN` | `CHANNEL_RETURN` | Consumer returns item to Partner. |
-| `RETAIL_CHAIN` | `WAREHOUSE` | `CHANNEL_STOCK_RETURN` | Partner returns unsold stock to Warehouse. |
-| `WAREHOUSE` | `TRANSIT` | `TRANSFER_OUT` | Outbound inter-location dispatch. |
-| `TRANSIT` | `WAREHOUSE` | `TRANSFER_IN` | Inbound inter-location receipt. |
-| `SUPPLIER` | `WAREHOUSE` | `PURCHASE_RECEIPT` | Inbound GRN from Vendor. |
+2. **Step 2 — Reliance reports Consumer Sale of 20 units**:
+   - `FROM`: Reliance DC (300 ──► 280 units)
+   - `TO`: Customer (0 ──► 20 units)
+   - `MovementType`: `CHANNEL_SALE`
+   - *Network Total*: 700 (WH) + 280 (Reliance) + 20 (Customer) = 980 units.
+   - *No double reduction*: Mumbai Warehouse stock remains untouched at 700 units.
 
 ---
 
-## 4. Multi-Location Network Aggregation Formula
+### Scenario 2: Consignment Agreement with Reliance (Consignment Flow)
 
-Stock is tracked natively per product across all network locations:
+1. **Step 1 — Dispatch 300 units on Consignment**:
+   - `FROM`: Mumbai Warehouse (1000 ──► 700 units)
+   - `TO`: Reliance DC (0 ──► 300 units)
+   - `MovementType`: `CONSIGNMENT_DISPATCH`
+   - `OwnershipType`: `COMPANY_OWNED` (Company retains balance sheet asset).
+   - *Network Total*: 700 (WH) + 300 (Consignment) = 1000 units.
 
-$$\text{NetworkStock}(\text{SKU}) = \sum_{i \in \text{Locations}} \text{LocationBalance}(\text{SKU}, i)$$
-
-### Network Balance Example (SKU A)
-
-| Location Name | Location Type | Ownership | On-Hand Qty |
-|---|---|---|---|
-| Mumbai Warehouse | `WAREHOUSE` | `OWNED` | 150 units |
-| Reliance Retail DC | `RETAIL_CHAIN` | `CONSIGNMENT` | 300 units |
-| DMart Kalwa | `RETAIL_CHAIN` | `CONSIGNMENT` | 120 units |
-| Amazon FBA FC | `MARKETPLACE` | `OWNED` | 40 units |
-| Truck MH-04-9876 | `TRANSIT` | `OWNED` | 30 units |
-| **TOTAL NETWORK STOCK** | **ALL LOCATIONS** | **MIXED** | **640 units** |
+2. **Step 2 — Reliance reports Consumer Sale of 20 units**:
+   - `FROM`: Reliance DC (300 ──► 280 units)
+   - `TO`: Customer (0 ──► 20 units)
+   - `MovementType`: `CONSIGNMENT_SALE`
+   - Revenue Recognized & Journal Voucher posted via `AccountingCommandFacade.post_sales_invoice_voucher()`.
 
 ---
 
-## 5. Ten Subsystems Replaced by Unified ILE & INE Architecture
+## 3. Unified Movement Pipeline Across Supply Network
 
-By elevating inventory location and network capabilities to Level 1 Core Inventory Kernel status, SMRITI eliminates 10 disconnected legacy modules:
+The movement engine is universal across all tiers:
 
-1. ✅ **Consignment Module**
-2. ✅ **Marketplace Stock Module**
-3. ✅ **Franchise Stock Module**
-4. ✅ **Distributor Stock Module**
-5. ✅ **Branch Stock Module**
-6. ✅ **Company Stores Module**
-7. ✅ **Institutional Stock Module**
-8. ✅ **Van Sales Module**
-9. ✅ **Mobile Sales Module**
-10. ✅ **Transit Stock Module**
+$$\text{Supplier} \xrightarrow{\quad \text{PURCHASE} \quad} \text{Factory} \xrightarrow{\quad \text{TRANSFER} \quad} \text{Warehouse} \xrightarrow{\quad \text{DISPATCH} \quad} \text{Reliance DC} \xrightarrow{\quad \text{SALE} \quad} \text{Customer}$$
 
-All 10 business scenarios execute seamlessly through the **Inventory Location Engine (ILE)**, **Inventory Network Engine (INE)**, **Inventory Visibility Engine (IVE)**, and **Inventory Allocation Engine (IAE)**.
+$$\text{StockMovement}(\text{FROM\_LOCATION}, \text{TO\_LOCATION}, \text{MovementType}, \text{OwnershipType})$$
+
+---
+
+## 4. Ten Subsystems Replaced by Unified Architecture
+
+1. ✅ Consignment Module
+2. ✅ Marketplace Stock Module
+3. ✅ Franchise Stock Module
+4. ✅ Distributor Stock Module
+5. ✅ Branch Stock Module
+6. ✅ Company Stores Module
+7. ✅ Institutional Stock Module
+8. ✅ Van Sales Module
+9. ✅ Mobile Sales Module
+10. ✅ Transit Stock Module
