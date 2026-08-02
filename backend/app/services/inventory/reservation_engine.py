@@ -59,9 +59,15 @@ class InventoryReservationService:
                 "status": "reserved",
             }
 
+        # Lock the product row first to prevent stale availability calculation
+        # under concurrent reservation attempts. Use the locked row as the
+        # availability source of truth so the current session does not reuse a
+        # stale identity-map copy of the product while the transaction is still
+        # in progress.
         product = await self.state_engine._get_product_for_update(product_id)
-        state = await self.state_engine.get_product_state(product_id)
-        available = self._to_decimal(state.get("available", 0))
+        current_reserved = self._to_decimal(getattr(product, "reserved_stock", 0))
+        current_on_hand = self._to_decimal(getattr(product, "stock", 0))
+        available = max(current_on_hand - current_reserved, Decimal("0"))
 
         if requested > available:
             raise HTTPException(
@@ -69,7 +75,6 @@ class InventoryReservationService:
                 detail=f"Insufficient available stock for reservation. Requested: {requested}, Available: {available}",
             )
 
-        current_reserved = self._to_decimal(getattr(product, "reserved_stock", 0))
         new_reserved = current_reserved + requested
         product.reserved_stock = new_reserved
         self.db.add(product)
@@ -98,7 +103,7 @@ class InventoryReservationService:
             "product_id": product_id,
             "reservation_type": reservation_type,
             "reservation_id": reservation_id,
-            "reserved_qty": float(new_reserved),
+            "reserved_qty": float(requested),
             "available_after": float(available_after),
             "on_hand": float(updated_state.get("on_hand", 0)),
             "status": "reserved",

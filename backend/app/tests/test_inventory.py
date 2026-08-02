@@ -18,7 +18,7 @@ import pytest
 from decimal import Decimal
 from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import event
+from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.api.deps import TenantContext, get_db, get_tenant_context

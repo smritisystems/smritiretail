@@ -37,6 +37,7 @@ class InventoryStateService:
         product = result.scalars().first()
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
+        await self.db.refresh(product)
         return product
 
     async def _get_product_for_update(self, product_id: str) -> Product:
@@ -54,6 +55,7 @@ class InventoryStateService:
         product = result.scalars().first()
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
+        await self.db.refresh(product)
         return product
 
     async def _get_movement_stream(self, product_id: str) -> list[StockMovement]:
