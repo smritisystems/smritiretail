@@ -37,6 +37,7 @@ async def _make_certified_product(db_session, tenant_ctx, stock=100):
         uuid=str(uuid.uuid4()),
         code=sku,
         sku=sku,
+        category="General",
         name="Certification Test Product",
         stock=Decimal(str(stock)),
         company_id=tenant_ctx.company_id,
