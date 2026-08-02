@@ -1,17 +1,24 @@
-"""
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Module       : Warehouse Management System (WMS) Multi-Bin REST API Gateway (Milestone 5 — Tasks G-1 to G-5)
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Version      : 18.2.0
-Created      : 2026-07-28
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+from __future__ import annotations
 
-Purpose:
-    REST API endpoints for Warehouse Multi-Bin Locations, Zones, and Bin Stock Assignments.
+"""
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 import uuid

@@ -312,3 +312,139 @@ class InventoryCommandFacade:
                 self.db.add(db_movement)
                 movements.append(db_movement)
         return movements
+
+    async def adjust_stock(
+        self,
+        audit_id: str,
+        audit_no: str,
+        items: List[dict[str, Any]],
+        warehouse: str = "Default Warehouse",
+    ) -> List[StockMovement]:
+        """Issue ADJUSTMENT movements for physical stock count reconciliation."""
+        movements: List[StockMovement] = []
+        for item in items:
+            product_id = item["product_id"]
+            variance_qty = Decimal(str(item["variance_quantity"]))
+            if variance_qty == Decimal("0"):
+                continue
+            stmt = select(Product).where(
+                Product.id == product_id,
+                Product.is_deleted.is_(False),
+                Product.company_id == self.tenant_ctx.company_id,
+                Product.branch_id == self.tenant_ctx.branch_id,
+            )
+            res = await self.db.execute(stmt)
+            product = res.scalars().first()
+            if product and getattr(product, "tracking_mode", "Standard") != "No-stock":
+                ts = int(datetime.now(timezone.utc).timestamp() * 1_000_000)
+                movement_id = f"SM-{ts}-{uuid.uuid4().hex[:6]}"
+                db_movement = StockMovement(
+                    id=movement_id,
+                    uuid=str(uuid.uuid4()),
+                    product_id=product.id,
+                    product_name=product.name,
+                    sku=product.sku or product.code,
+                    quantity=variance_qty,
+                    movement_type="ADJUSTMENT",
+                    reference_doc_type="Stock Count Audit",
+                    reference_doc_id=audit_id,
+                    warehouse=warehouse,
+                    unit_cost=product.cost_price or product.price,
+                    remarks=f"Physical stock adjustment audit: {audit_no}",
+                    source_module="Warehouse",
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                )
+                self.db.add(db_movement)
+                movements.append(db_movement)
+        return movements
+
+    async def transfer_out(
+        self,
+        transfer_id: str,
+        transfer_no: str,
+        items: List[dict[str, Any]],
+        source_warehouse: str = "Default Warehouse",
+        target_warehouse: str = "Transit Warehouse",
+    ) -> List[StockMovement]:
+        """Issue TRANSFER_OUT movements for inter-warehouse transfer shipment."""
+        movements: List[StockMovement] = []
+        for item in items:
+            product_id = item["product_id"]
+            qty = Decimal(str(item["quantity"]))
+            stmt = select(Product).where(
+                Product.id == product_id,
+                Product.is_deleted.is_(False),
+                Product.company_id == self.tenant_ctx.company_id,
+                Product.branch_id == self.tenant_ctx.branch_id,
+            )
+            res = await self.db.execute(stmt)
+            product = res.scalars().first()
+            if product and getattr(product, "tracking_mode", "Standard") != "No-stock":
+                ts = int(datetime.now(timezone.utc).timestamp() * 1_000_000)
+                movement_id = f"SM-{ts}-{uuid.uuid4().hex[:6]}"
+                db_movement = StockMovement(
+                    id=movement_id,
+                    uuid=str(uuid.uuid4()),
+                    product_id=product.id,
+                    product_name=product.name,
+                    sku=product.sku or product.code,
+                    quantity=-qty,
+                    movement_type="TRANSFER_OUT",
+                    reference_doc_type="Stock Transfer",
+                    reference_doc_id=transfer_id,
+                    warehouse=source_warehouse,
+                    unit_cost=product.cost_price or product.price,
+                    remarks=f"Stock transfer outbound to {target_warehouse}: {transfer_no}",
+                    source_module="Warehouse",
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                )
+                self.db.add(db_movement)
+                movements.append(db_movement)
+        return movements
+
+    async def transfer_in(
+        self,
+        transfer_id: str,
+        transfer_no: str,
+        items: List[dict[str, Any]],
+        target_warehouse: str = "Default Warehouse",
+        source_warehouse: str = "Transit Warehouse",
+    ) -> List[StockMovement]:
+        """Issue TRANSFER_IN movements for inter-warehouse transfer receipt."""
+        movements: List[StockMovement] = []
+        for item in items:
+            product_id = item["product_id"]
+            qty = Decimal(str(item["quantity"]))
+            stmt = select(Product).where(
+                Product.id == product_id,
+                Product.is_deleted.is_(False),
+                Product.company_id == self.tenant_ctx.company_id,
+                Product.branch_id == self.tenant_ctx.branch_id,
+            )
+            res = await self.db.execute(stmt)
+            product = res.scalars().first()
+            if product and getattr(product, "tracking_mode", "Standard") != "No-stock":
+                ts = int(datetime.now(timezone.utc).timestamp() * 1_000_000)
+                movement_id = f"SM-{ts}-{uuid.uuid4().hex[:6]}"
+                db_movement = StockMovement(
+                    id=movement_id,
+                    uuid=str(uuid.uuid4()),
+                    product_id=product.id,
+                    product_name=product.name,
+                    sku=product.sku or product.code,
+                    quantity=qty,
+                    movement_type="TRANSFER_IN",
+                    reference_doc_type="Stock Transfer",
+                    reference_doc_id=transfer_id,
+                    warehouse=target_warehouse,
+                    unit_cost=product.cost_price or product.price,
+                    remarks=f"Stock transfer inbound from {source_warehouse}: {transfer_no}",
+                    source_module="Warehouse",
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                )
+                self.db.add(db_movement)
+                movements.append(db_movement)
+        return movements

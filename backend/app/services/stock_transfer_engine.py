@@ -25,7 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import TenantContext
 from app.models.tenant import Branch
-from app.models.inventory import Product, StockTransfer, StockTransferItem, StockTransferShipment, StockMovement
+from app.models.inventory import Product, StockTransfer, StockTransferItem, StockTransferShipment
+from app.services.inventory.facades import InventoryCommandFacade
 
 
 class StockTransferEngine:
@@ -183,34 +184,21 @@ class StockTransferEngine:
         if not transfer:
             raise HTTPException(status_code=404, detail=f"Stock transfer order '{transfer_id}' not found.")
 
-        # Deduct stock at source branch
+        # Deduct stock at source branch via InventoryCommandFacade
+        command_facade = InventoryCommandFacade(self.db, self.tenant)
+        xfer_items = []
         for item in transfer.items:
-            p_stmt = select(Product).where(Product.id == item.product_id)
-            product = (await self.db.execute(p_stmt)).scalars().first()
-            if product:
-                # RC2 Rule #1: Create StockMovement TRANSFER_OUT; trigger updates product.stock
-                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-                sm = StockMovement(
-                    id=movement_id,
-                    uuid=str(uuid.uuid4()),
-                    product_id=product.id,
-                    product_name=product.name,
-                    sku=product.sku or product.code,
-                    quantity=-int(Decimal(str(item.requested_qty))),
-                    movement_type="TRANSFER_OUT",
-                    reference_doc_type="Stock Transfer Order",
-                    reference_doc_id=transfer_id,
-                    warehouse="Source Branch",
-                    unit_cost=product.cost_price or product.price,
-                    remarks=f"Stock transfer dispatch order: {transfer_id}",
-                    source_module="Transfer",
-                    company_id=self.tenant.company_id,
-                    branch_id=self.tenant.branch_id,
-                )
-                self.db.add(sm)
-
+            xfer_items.append({"product_id": item.product_id, "quantity": item.requested_qty})
             item.shipped_qty = item.requested_qty
             item.status = "Shipped"
+
+        await command_facade.transfer_out(
+            transfer_id=transfer_id,
+            transfer_no=transfer_id,
+            items=xfer_items,
+            source_warehouse="Source Branch",
+            target_warehouse="Destination Branch",
+        )
 
         # Create StockTransferShipment
         shipment_id = f"shp-{uuid.uuid4().hex[:12]}"
@@ -263,35 +251,22 @@ class StockTransferEngine:
 
         rcv_map = {r["product_id"]: Decimal(str(r.get("received_qty", 0))) for r in line_receipts if "product_id" in r} if line_receipts else {}
 
-        # Add stock at destination branch
+        # Add stock at destination branch via InventoryCommandFacade
+        command_facade = InventoryCommandFacade(self.db, self.tenant)
+        rcv_items = []
         for item in transfer.items:
             rcv_qty = rcv_map.get(item.product_id, Decimal(str(item.shipped_qty or item.requested_qty)))
             item.received_qty = rcv_qty
             item.status = "Received"
+            rcv_items.append({"product_id": item.product_id, "quantity": rcv_qty})
 
-            p_stmt = select(Product).where(Product.id == item.product_id)
-            product = (await self.db.execute(p_stmt)).scalars().first()
-            if product:
-                # RC2 Rule #1: Create StockMovement TRANSFER_IN; trigger updates product.stock
-                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-                sm = StockMovement(
-                    id=movement_id,
-                    uuid=str(uuid.uuid4()),
-                    product_id=product.id,
-                    product_name=product.name,
-                    sku=product.sku or product.code,
-                    quantity=int(rcv_qty),
-                    movement_type="TRANSFER_IN",
-                    reference_doc_type="Stock Transfer Order",
-                    reference_doc_id=transfer_id,
-                    warehouse="Destination Branch",
-                    unit_cost=product.cost_price or product.price,
-                    remarks=f"Stock transfer receipt order: {transfer_id}",
-                    source_module="Transfer",
-                    company_id=self.tenant.company_id,
-                    branch_id=self.tenant.branch_id,
-                )
-                self.db.add(sm)
+        await command_facade.transfer_in(
+            transfer_id=transfer_id,
+            transfer_no=transfer_id,
+            items=rcv_items,
+            target_warehouse="Destination Branch",
+            source_warehouse="Source Branch",
+        )
 
         transfer.status = "Received"
         self.db.add(transfer)

@@ -24,7 +24,8 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import TenantContext
-from app.models.inventory import Product, StockCount, StockCountItem, StockAdjustment, StockMovement
+from app.models.inventory import Product, StockCount, StockCountItem, StockAdjustment
+from app.services.inventory.facades import InventoryCommandFacade
 # ADR-007: Domain Event Bus — StockAdjusted publisher
 from app.core.events.domain_events import publish_stock_adjusted
 
@@ -183,7 +184,9 @@ class StockAuditEngine:
         if stock_count.status == "Completed":
             raise HTTPException(status_code=400, detail="Stock count session is already completed and reconciled.")
 
-        # Reconcile physical count via ADJUSTMENT StockMovement (RC2 Rule #1)
+        # Reconcile physical count via ADJUSTMENT StockMovement via InventoryCommandFacade
+        command_facade = InventoryCommandFacade(self.db, self.tenant)
+        audit_items = []
         for item in stock_count.items:
             if item.physical_count is not None:
                 p_stmt = select(Product).where(Product.id == item.product_id)
@@ -191,27 +194,15 @@ class StockAuditEngine:
                 if product:
                     phys_count = int(Decimal(str(item.physical_count)))
                     variance_qty = phys_count - (product.stock or 0)
-                    if variance_qty != 0:
-                        movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-                        sm = StockMovement(
-                            id=movement_id,
-                            uuid=str(uuid.uuid4()),
-                            product_id=product.id,
-                            product_name=product.name,
-                            sku=product.sku or product.code,
-                            quantity=variance_qty,
-                            movement_type="ADJUSTMENT",
-                            reference_doc_type="Stock Adjustment",
-                            reference_doc_id=count_id,
-                            warehouse="Default Warehouse",
-                            unit_cost=product.cost_price or product.price,
-                            remarks=f"Stock audit physical count variance reconciliation: count {count_id}",
-                            source_module="StockAudit",
-                            company_id=self.tenant.company_id,
-                            branch_id=self.tenant.branch_id,
-                        )
-                        self.db.add(sm)
+                    audit_items.append({"product_id": product.id, "variance_quantity": variance_qty})
             item.status = "Reconciled"
+
+        await command_facade.adjust_stock(
+            audit_id=count_id,
+            audit_no=count_id,
+            items=audit_items,
+            warehouse="Default Warehouse",
+        )
 
         # Create StockAdjustment voucher
         adj_id = f"adj-{uuid.uuid4().hex[:12]}"
