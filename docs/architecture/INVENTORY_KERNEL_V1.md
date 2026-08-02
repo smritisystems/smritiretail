@@ -1,4 +1,4 @@
-# SMRITI Retail OS — Inventory Kernel v1.0
+﻿# SMRITI Retail OS — Inventory Kernel v1.0
 ## Architecture Specification (FROZEN — RC2)
 
 **Status:** FROZEN  
@@ -8,6 +8,12 @@
 **Classification:** Internal
 
 ---
+
+> [!IMPORTANT]
+> **Platform Rule #0 — Pipeline Flow Invariant**
+> Nothing may bypass this pipeline:
+> `StockMovement` ──► `trg_inventory_state_reconciliation` ──► `products.stock` ──► `InventoryStateEngine` ──► `Availability / Reservation` ──► Consumers.
+> No Python service or Industry SDK may write to `products.stock` directly.
 
 > [!IMPORTANT]
 > **Platform Rule #1 — Immutable Stock Pipeline**
@@ -23,32 +29,38 @@
 > via Alembic migrations.
 > `fix_stock_trigger.py` is an emergency recovery tool only, never a development workflow step.
 
+> [!IMPORTANT]
+> **Platform Rule #3 — Sealed Movement Registry**
+> MovementTypeRegistry is sealed after kernel initialization. No random string movement types
+> are permitted. Industry SDK extensions must register providers via `MovementTypeRegistry.register_provider()`
+> during container startup before registry sealing.
+
 ---
 
 ## Engine Hierarchy
 
 ```
-Inventory State Engine         (canonical state surface — products.stock, reserved_stock)
-        ▲
-        │ consumes
-        ├── Trace Engine           (immutable movement log — stock_movements)
-        ├── Timeline Engine        (temporal state view — by date range)
-        ├── Availability Engine    (can_fulfill check — available qty)
-        └── Reservation Engine     (soft/hard reserve — reserved_stock column)
+StockMovement
+        ↓
+trg_inventory_state_reconciliation (DB Trigger)
+        ↓
+products.stock (Physical On-Hand Ledger)
+        ↓
+InventoryStateEngine (Canonical State Surface)
+        ↓
+InventoryAvailabilityService & InventoryReservationService
+        ↓
+Consumers (POS, Sales, Purchase, Transfer, WMS, Industry SDKs)
+```
 
+```
 Movement Registry              (behavior metadata — movement_taxonomy.py)
         ▲
         └── MovementProvider (ABC)
-                ├── CoreMovementProvider   (RC2 frozen standard taxonomy)
+                ├── CoreMovementProvider   (RC2 frozen standard taxonomy — 23 types)
                 ├── MedicalMovementProvider  (SDK — RC3+)
                 ├── JewelleryMovementProvider (SDK — RC3+)
                 └── FootwearMovementProvider  (SDK — RC3+)
-
-DB Trigger                     (trg_inventory_state_reconciliation)
-        ▲
-        └── inventory_state_reconciliation_trigger()
-                └── Reads stock_movements INSERT/UPDATE/DELETE
-                └── Writes products.stock ONLY
 ```
 
 ---
@@ -103,10 +115,10 @@ Inventory State Engine. UI must never independently recalculate these values.
 | Field                 | Type    | Description                                              |
 |-----------------------|---------|----------------------------------------------------------|
 | `on_hand`             | decimal | Physical quantity present in warehouse                   |
-| `available`           | decimal | On Hand minus all holds (see equation above)             |
-| `reserved`            | decimal | Soft-reserved against Sales Orders / quotations          |
-| `allocated`           | decimal | Hard-allocated to pick tasks / shipments                 |
-| `in_transit`          | decimal | Goods dispatched but not yet received at destination     |
+| `reserved`            | decimal | Soft-reserved for open sales orders                      |
+| `allocated`           | decimal | Hard-allocated to pick/pack tasks                        |
+| `available`           | decimal | Quantity free to fulfill new orders (`on_hand - reserved`)|
+| `in_transit`          | decimal | Dispatched from source, not yet received at destination  |
 | `consignment_out`     | decimal | Stock placed on consignment with external parties        |
 | `consignment_in`      | decimal | Consignment stock received (not yet owned)               |
 | `marketplace_reserved`| decimal | Channel-locked stock on marketplace platforms            |
@@ -148,128 +160,49 @@ Inventory State Engine. UI must never independently recalculate these values.
 | RESERVE          |    +1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Soft-reserve against SO        |
 | UNRESERVE        |    -1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Release soft-reservation       |
 | ALLOCATE         |    +1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Hard-allocate to pick task     |
-| DEALLOCATE       |    -1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Release hard allocation        |
-| PICK             |     0     |        ❌         |          ❌          |        ❌        |        ❌        |        ❌          | WMS pick confirmation (audit)  |
-| PACK             |     0     |        ❌         |          ❌          |        ❌        |        ❌        |        ❌          | WMS pack confirmation (audit)  |
-| SHIP             |     0     |        ❌         |          ❌          |        ❌        |        ✅        |        ❌          | Shipment dispatched            |
+| UNALLOCATE       |    -1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Release hard-allocation        |
+| PICK             |     0     |        ❌         |          ❌          |        ❌        |        ❌        |        ❌          | WMS pick event audit           |
+| PACK             |     0     |        ❌         |          ❌          |        ❌        |        ❌        |        ❌          | WMS pack event audit           |
+| SHIP             |     0     |        ❌         |          ❌          |        ❌        |        ✅        |        ❌          | In-transit dispatch event      |
 | DISPATCH         |     0     |        ❌         |          ❌          |        ❌        |        ✅        |        ❌          | Generic dispatch event         |
 | CHANNEL_DISPATCH |    -1     |        ❌         |          ❌          |        ✅        |        ❌        |        ❌          | Marketplace channel dispatch   |
 
 ---
 
-## Behavior Dispatch Pattern (FROZEN)
+## SDK Extensibility Contract (RC3+)
 
-The Inventory State Engine dispatches movement effects using declarative
-behavior flags. There are **no switch statements** in the State Engine.
-
-```python
-# In InventoryStateService (state_engine.py):
-behavior = MovementTypeRegistry.get(movement.movement_type)
-
-if behavior.affects_transit:
-    in_transit += abs(qty)
-
-if behavior.affects_physical_stock and is_consignment:
-    if behavior.direction == -1:
-        consignment_out += abs(qty)
-    elif behavior.direction == +1:
-        consignment_in += abs(qty)
-
-# ... etc.
-```
-
----
-
-## Regression Matrix
-
-Every CI run must validate this matrix. Business movements must never affect
-physical stock. Physical movements must never affect reservation state.
-
-| Movement         | Physical ✅/❌ | Reserved ✅/❌ | Available (change) |
-|------------------|:------------:|:------------:|:------------------:|
-| PURCHASE         |      ✅       |      ❌       | ↑ (stock increases) |
-| SALE             |      ✅       |      ❌       | ↓ (stock decreases) |
-| TRANSFER_OUT     |      ✅       |      ❌       | ↓ (leaves location) |
-| TRANSFER_IN      |      ✅       |      ❌       | ↑ (arrives at dest) |
-| RESERVE          |      ❌       |      ✅       | ↓ (reserved increases) |
-| UNRESERVE        |      ❌       |      ✅       | ↑ (reserved decreases) |
-| PICK             |      ❌       |      ❌       | — (audit only)      |
-| CHANNEL_DISPATCH |      ❌       |      ❌       | — (channel only)    |
-
----
-
-## SDK Extensibility via MovementProvider
-
-Industry packs extend the movement taxonomy without modifying the Inventory Kernel.
-New movement types must only be registered **before** the kernel is sealed (application startup).
+Industry packs extend movement behavior without modifying kernel code by registering a `MovementProvider`:
 
 ```python
-# Example: Medical SDK
+from app.domain.movement_taxonomy import MovementProvider, MovementBehavior, MovementCategory
+
 class MedicalMovementProvider(MovementProvider):
     def get_movement_behaviors(self) -> list[MovementBehavior]:
         return [
-            MovementBehavior("QUARANTINE",         PHYSICAL, direction=-1, affects_physical_stock=True,  affects_inventory_value=False, ...),
-            MovementBehavior("RELEASE_QUARANTINE",  PHYSICAL, direction=+1, affects_physical_stock=True,  affects_inventory_value=False, ...),
+            MovementBehavior(
+                movement_type="COLD_CHAIN_DISPATCH",
+                category=MovementCategory.PHYSICAL,
+                direction=-1,
+                affects_physical_stock=True,
+                affects_reservation=False,
+                affects_channel_stock=False,
+                affects_transit=True,
+                affects_inventory_value=True,
+                description="Temperature-monitored pharmaceutical dispatch.",
+            )
         ]
 
-# Example: Jewellery SDK
-class JewelleryMovementProvider(MovementProvider):
-    def get_movement_behaviors(self) -> list[MovementBehavior]:
-        return [
-            MovementBehavior("MELTING",   PHYSICAL, direction=-1, affects_physical_stock=True,  affects_inventory_value=True,  ...),
-            MovementBehavior("REFINING",  PHYSICAL, direction=+1, affects_physical_stock=True,  affects_inventory_value=True,  ...),
-        ]
-
-# SDK registration at startup (before kernel seal):
+# Container startup phase:
 MovementTypeRegistry.register_provider(MedicalMovementProvider())
-# After all providers registered, kernel seals automatically.
 ```
 
 ---
 
-## RC2 Freeze Boundary
+## Post-RC2 Roadmap & Governance
 
-### Included in RC2 Inventory Kernel v1.0
-
-- ✅ Inventory State Engine (`state_engine.py`)
-- ✅ Availability Engine (`availability_engine.py`)
-- ✅ Reservation Engine (`reservation_engine.py`)
-- ✅ Trace Engine (`trace_engine.py`)
-- ✅ Timeline Engine (`timeline_engine.py`)
-- ✅ Movement Registry & Behavior Taxonomy (`domain/movement_taxonomy.py`)
-- ✅ Inventory State Reconciliation Trigger (`trg_inventory_state_reconciliation`)
-- ✅ Single Alembic Migration HEAD (`merge_rc2_inventory_kernel`)
-
-### Deferred to RC3
-
-- ❌ Decision Engine
-- ❌ Inventory 360 Workspace
-- ❌ Forecasting Engine
-- ❌ AI / ML Optimization
-- ❌ Advanced Analytics
-- ❌ `inventory_kernel/` package migration (rename from `services/inventory/`)
-
----
-
-## Alembic Migration Graph (Post-RC2)
-
-```
-12b68ccebec7 (baseline)
-    └── ... (schema chain)
-            ├── 35d215f3c4b8 (inventory trigger fix)
-            │       ↘
-            │        merge_rc2_inventory_kernel  ← SINGLE HEAD
-            │       ↗
-            └── v1332_gst_rate_slabs (GST constraint)
-```
-
-Verification command:
-```bash
-alembic heads
-# Expected: exactly one line → merge_rc2_inventory_kernel (head)
-```
-
----
-
-*Document Owner: Chief Systems Architect, SmritiSys*  
-*This document is governed by the SMRITI Three-Tier Governance Hierarchy (FROZEN v1.0)*
+| Phase | Focus Area | Status | Key Deliverable |
+|---|---|---|---|
+| **Phase 1** | Inventory Kernel | ✅ **FROZEN** | Subsystem Exit Gate Passed — Rules 0-3 Sealed |
+| **Phase 2** | SI_001 Integration | 🔄 **NEXT** | Sales consumes Availability ──► Reservation ──► State Engine |
+| **Phase 3** | SDK Stabilization | 🔄 Next | Industry Pack extension contracts sealed |
+| **Phase 4** | Inventory 360 Workspace | ⏳ Future | Read-only UI consumer workspace |
