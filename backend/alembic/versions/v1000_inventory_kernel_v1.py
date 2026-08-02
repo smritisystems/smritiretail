@@ -191,6 +191,9 @@ def upgrade() -> None:
 
     op.execute("""
     DROP TRIGGER IF EXISTS trg_inventory_ledger_immutability ON inventory_ledger_entries;
+    """)
+
+    op.execute("""
     CREATE TRIGGER trg_inventory_ledger_immutability
         BEFORE UPDATE OR DELETE ON inventory_ledger_entries
         FOR EACH ROW EXECUTE FUNCTION fn_inventory_ledger_immutability_guard();
@@ -366,22 +369,16 @@ def upgrade() -> None:
     # ─────────────────────────────────────────────────────────────────────────
     # Seed standard Document Posting Profiles
     # ─────────────────────────────────────────────────────────────────────────
-    op.execute("""
-    INSERT INTO document_posting_profiles
-        (id, uuid, profile_code, document_type, from_location_role, to_location_role, movement_type, ownership_type, is_active, description)
-    VALUES
-        ('DPP-GRN',      gen_random_uuid()::text, 'GRN-INBOUND',       'PURCHASE_RECEIPT',  NULL,            'WAREHOUSE',  'PURCHASE',        'COMPANY', TRUE, 'Goods Receipt Note — inbound stock'),
-        ('DPP-SALE',     gen_random_uuid()::text, 'SALE-OUTBOUND',      'SALES_INVOICE',     'WAREHOUSE',     NULL,         'SALE',            'COMPANY', TRUE, 'Sales Invoice — outbound stock dispatch'),
-        ('DPP-POS',      gen_random_uuid()::text, 'POS-OUTBOUND',       'POS_RECEIPT',       'STORE',         NULL,         'POS_SALE',        'COMPANY', TRUE, 'POS checkout — quick-sale outbound'),
-        ('DPP-TR-OUT',   gen_random_uuid()::text, 'TRANSFER-OUTBOUND',  'TRANSFER_ORDER',    'SOURCE',        'TRANSIT',    'TRANSFER_OUT',    'COMPANY', TRUE, 'Transfer Order — outbound from source'),
-        ('DPP-TR-IN',    gen_random_uuid()::text, 'TRANSFER-INBOUND',   'TRANSFER_ORDER',    'TRANSIT',       'TARGET',     'TRANSFER_IN',     'COMPANY', TRUE, 'Transfer Order — inbound at target'),
-        ('DPP-ADJ',      gen_random_uuid()::text, 'ADJUSTMENT',         'STOCK_COUNT_AUDIT', NULL,            'WAREHOUSE',  'ADJUSTMENT',      'COMPANY', TRUE, 'Physical stock count variance adjustment'),
-        ('DPP-SALERET',  gen_random_uuid()::text, 'SALE-RETURN',        'SALES_RETURN',      NULL,            'WAREHOUSE',  'SALE_RETURN',     'COMPANY', TRUE, 'Sales Return — stock restoration'),
-        ('DPP-PURCHRET', gen_random_uuid()::text, 'PURCHASE-RETURN',    'PURCHASE_RETURN',   'WAREHOUSE',     NULL,         'PURCHASE_RETURN', 'COMPANY', TRUE, 'Purchase Debit Note — stock deduction'),
-        ('DPP-CONS-OUT', gen_random_uuid()::text, 'CONSIGNMENT-OUT',    'CONSIGNMENT_DISPATCH', 'WAREHOUSE',  'PARTNER',    'TRANSFER_OUT',    'COMPANY', TRUE, 'Consignment dispatch to partner'),
-        ('DPP-CONS-IN',  gen_random_uuid()::text, 'CONSIGNMENT-RETURN', 'CONSIGNMENT_RETURN', 'PARTNER',     'WAREHOUSE',  'TRANSFER_IN',     'COMPANY', TRUE, 'Unsold consignment return to warehouse')
-    ON CONFLICT (profile_code) DO NOTHING;
-    """)
+    op.execute("INSERT INTO document_posting_profiles (id, uuid, profile_code, document_type, from_location_role, to_location_role, movement_type, ownership_type, is_active, description) VALUES ('DPP-GRN', gen_random_uuid()::text, 'GRN-INBOUND', 'PURCHASE_RECEIPT', NULL, 'WAREHOUSE', 'PURCHASE', 'COMPANY', TRUE, 'Goods Receipt Note — inbound stock') ON CONFLICT (profile_code) DO NOTHING;")
+    op.execute("INSERT INTO document_posting_profiles (id, uuid, profile_code, document_type, from_location_role, to_location_role, movement_type, ownership_type, is_active, description) VALUES ('DPP-SALE', gen_random_uuid()::text, 'SALE-OUTBOUND', 'SALES_INVOICE', 'WAREHOUSE', NULL, 'SALE', 'COMPANY', TRUE, 'Sales Invoice — outbound stock dispatch') ON CONFLICT (profile_code) DO NOTHING;")
+    op.execute("INSERT INTO document_posting_profiles (id, uuid, profile_code, document_type, from_location_role, to_location_role, movement_type, ownership_type, is_active, description) VALUES ('DPP-POS', gen_random_uuid()::text, 'POS-OUTBOUND', 'POS_RECEIPT', 'STORE', NULL, 'POS_SALE', 'COMPANY', TRUE, 'POS checkout — quick-sale outbound') ON CONFLICT (profile_code) DO NOTHING;")
+    op.execute("INSERT INTO document_posting_profiles (id, uuid, profile_code, document_type, from_location_role, to_location_role, movement_type, ownership_type, is_active, description) VALUES ('DPP-TR-OUT', gen_random_uuid()::text, 'TRANSFER-OUTBOUND', 'TRANSFER_ORDER', 'SOURCE', 'TRANSIT', 'TRANSFER_OUT', 'COMPANY', TRUE, 'Transfer Order — outbound from source') ON CONFLICT (profile_code) DO NOTHING;")
+    op.execute("INSERT INTO document_posting_profiles (id, uuid, profile_code, document_type, from_location_role, to_location_role, movement_type, ownership_type, is_active, description) VALUES ('DPP-TR-IN', gen_random_uuid()::text, 'TRANSFER-INBOUND', 'TRANSFER_ORDER', 'TRANSIT', 'TARGET', 'TRANSFER_IN', 'COMPANY', TRUE, 'Transfer Order — inbound at target') ON CONFLICT (profile_code) DO NOTHING;")
+    op.execute("INSERT INTO document_posting_profiles (id, uuid, profile_code, document_type, from_location_role, to_location_role, movement_type, ownership_type, is_active, description) VALUES ('DPP-ADJ', gen_random_uuid()::text, 'ADJUSTMENT', 'STOCK_COUNT_AUDIT', NULL, 'WAREHOUSE', 'ADJUSTMENT', 'COMPANY', TRUE, 'Physical stock count variance adjustment') ON CONFLICT (profile_code) DO NOTHING;")
+    op.execute("INSERT INTO document_posting_profiles (id, uuid, profile_code, document_type, from_location_role, to_location_role, movement_type, ownership_type, is_active, description) VALUES ('DPP-SALERET', gen_random_uuid()::text, 'SALE-RETURN', 'SALES_RETURN', NULL, 'WAREHOUSE', 'SALE_RETURN', 'COMPANY', TRUE, 'Sales Return — stock restoration') ON CONFLICT (profile_code) DO NOTHING;")
+    op.execute("INSERT INTO document_posting_profiles (id, uuid, profile_code, document_type, from_location_role, to_location_role, movement_type, ownership_type, is_active, description) VALUES ('DPP-PURCHRET', gen_random_uuid()::text, 'PURCHASE-RETURN', 'PURCHASE_RETURN', 'WAREHOUSE', NULL, 'PURCHASE_RETURN', 'COMPANY', TRUE, 'Purchase Debit Note — stock deduction') ON CONFLICT (profile_code) DO NOTHING;")
+    op.execute("INSERT INTO document_posting_profiles (id, uuid, profile_code, document_type, from_location_role, to_location_role, movement_type, ownership_type, is_active, description) VALUES ('DPP-CONS-OUT', gen_random_uuid()::text, 'CONSIGNMENT-OUT', 'CONSIGNMENT_DISPATCH', 'WAREHOUSE', 'PARTNER', 'TRANSFER_OUT', 'COMPANY', TRUE, 'Consignment dispatch to partner') ON CONFLICT (profile_code) DO NOTHING;")
+    op.execute("INSERT INTO document_posting_profiles (id, uuid, profile_code, document_type, from_location_role, to_location_role, movement_type, ownership_type, is_active, description) VALUES ('DPP-CONS-IN', gen_random_uuid()::text, 'CONSIGNMENT-RETURN', 'CONSIGNMENT_RETURN', 'PARTNER', 'WAREHOUSE', 'TRANSFER_IN', 'COMPANY', TRUE, 'Unsold consignment return to warehouse') ON CONFLICT (profile_code) DO NOTHING;")
 
 
 def downgrade() -> None:
