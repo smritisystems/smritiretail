@@ -1,6 +1,6 @@
-# SMRITI Platform — Inventory Location Engine (ILE) & Inventory Network Engine (INE) v1.0
+# SMRITI Platform — Inventory Location Engine (ILE) & Inventory Topology Engine (ITE) v1.0
 
-**Status:** APPROVED ARCHITECTURE — Level 1 Inventory Kernel Core Capability v1.0.0  
+**Status:** PERMANENTLY FROZEN ARCHITECTURE — Level 1 Inventory Kernel Core Capability v1.0.0  
 **Effective Date:** 2026-08-03  
 **Organization:** SmritiSys / SMRITI Books  
 **Chief Systems Architect:** Jawahar Ramkripal Mallah  
@@ -12,12 +12,12 @@
 In SMRITI Retail OS, **stock outside your warehouse** (Retail Chains like Reliance/DMart/Croma, Distributors, Franchises, Institutions, Marketplaces like Amazon FC, Goods in Transit, and Production Lines) is NOT a collection of separate modules.
 
 It is a **Unified Core Platform Capability of the Inventory Kernel**, orchestrated natively by six specialized engines:
-1. **Inventory Location Engine (ILE)**: Answers *"Where is inventory?"* (Locations, Balances, Hierarchy, Capacity, Status, Zone, Bin).
-2. **Inventory Network Engine (INE)**: Answers *"How inventory moves."* (Location Network Graph, Transfers, Routing, Multi-location ATP).
-3. **Inventory Visibility Engine (IVE)**: Answers *"What is the current real-time state?"* (Universal single-pane-of-glass dashboards).
+1. **Inventory Location Engine (ILE)**: Answers *"Where is inventory?"* (Locations, Balances, Hierarchy, Capacity, Status, Bins).
+2. **Inventory Topology Engine (ITE)**: Answers *"How is the network connected?"* (Location Network Graph, Topology, Relationships, Distance, Routing).
+3. **Inventory Visibility Engine (IVE)**: Answers *"What is the current real-time state?"* (Universal single-pane-of-glass dashboards & KPIs).
 4. **Inventory Allocation Engine (IAE)**: Answers *"Where should orders be fulfilled from?"* (FEFO/FIFO, nearest location, split fulfillment).
 5. **Inventory Replenishment Engine (IRE)**: Answers *"How should stock be replenished?"* (Min/Max thresholds, Reorder Points, Suggested Transfers).
-6. **Inventory Policy Engine (IPE)**: Answers *"What movements and operations are permitted?"* (Location SKU eligibility, cold-chain, quarantine, permitted movement types).
+6. **Inventory Policy Engine (IPE)**: Answers *"What movements and operations are permitted?"* (Location capabilities, cold-chain, quarantine, permitted movement types).
 
 ```text
                                INVENTORY KERNEL v1.0
@@ -28,7 +28,7 @@ It is a **Unified Core Platform Capability of the Inventory Kernel**, orchestrat
   Stock Movement Engine          Reservation Engine              Availability Engine
         │                                │                                │
         ▼                                ▼                                ▼
-  ⭐ Inventory Location Engine (ILE) ⭐ Inventory Network Engine (INE) ⭐ Inventory Visibility Engine (IVE)
+  ⭐ Inventory Location Engine (ILE) ⭐ Inventory Topology Engine (ITE) ⭐ Inventory Visibility Engine (IVE)
         │                                │                                │
         ▼                                ▼                                ▼
   ⭐ Inventory Allocation Engine (IAE) ⭐ Inventory Replenishment (IRE) ⭐ Inventory Policy Engine (IPE)
@@ -41,36 +41,68 @@ It is a **Unified Core Platform Capability of the Inventory Kernel**, orchestrat
 
 ## 1. Core Entity: `InventoryLocation` & Node Hierarchy
 
-An `InventoryLocation` represents a finite, manageable node within the hierarchical inventory network tree (`ParentLocation`, `Children`, `TreePath`, `Depth`).
+An `InventoryLocation` represents a finite node within the hierarchical inventory network tree (`ParentLocation`, `Children`, `TreePath`, `Depth`).
 
 > **CRITICAL SCALABILITY GUARD**: Customers (`Party`) are NOT `InventoryLocation` nodes. A consumer sale is an **Exit from the Inventory Network** (`TO_LOCATION = NULL` / `INVENTORY_EXIT`), keeping the location tree finite and high-performing.
 
-### Hierarchical Location Tree Example
+---
+
+## 2. Declarative Location Capabilities (`LocationCapability`)
+
+Operation permissions are declared via capabilities rather than hardcoded location types:
 
 ```text
-Reliance Retail (Parent Partner Node)
-  ├── Mumbai Central DC (Child Location)
-  │     ├── Zone A (Child Zone)
-  │     │     └── Bin A12 (Child Bin)
-  │     └── Zone B (Child Zone)
-  └── Pune DC (Child Location)
+LocationCapabilities = [
+  CAN_SELL, CAN_RECEIVE, CAN_DISPATCH, CAN_MANUFACTURE, 
+  CAN_REPAIR, CAN_HOLD_CONSIGNMENT, CAN_FULFILL_MARKETPLACE, CAN_ACCEPT_RETURNS
+]
 ```
 
 ---
 
-## 2. Node Relationships & Automated Network Graph Topology
+## 3. Enterprise Inventory Territory (`InventoryTerritory`)
 
-Locations maintain explicit relationship topology (`Supplies`, `Replenishes`, `ProducesTo`), allowing the **Inventory Replenishment Engine (IRE)** and **Inventory Allocation Engine (IAE)** to walk the graph automatically:
+Locations belong to multi-tier territorial hierarchies for regional replenishment and planning:
 
-```text
-Factory  ──► [ProducesTo] ──► Mumbai Central WH  ──► [Supplies] ──► Reliance DC  ──► [Replenishes] ──► Store
+$$\text{Global} \longrightarrow \text{India} \longrightarrow \text{Western Region} \longrightarrow \text{Maharashtra} \longrightarrow \text{Mumbai} \longrightarrow \text{Reliance DC}$$
+
+---
+
+## 4. Location Operational KPIs & Metrics
+
+Every location node exposes standardized operational metrics via the **Inventory Visibility Engine (IVE)**:
+
+```json
+{
+  "location_id": "loc-rel-001",
+  "location_name": "Reliance Retail DC",
+  "kpis": {
+    "current_on_hand": 6135,
+    "available_qty": 5800,
+    "reserved_qty": 335,
+    "incoming_in_transit": 200,
+    "outgoing_in_transit": 0,
+    "days_of_cover": 24.5,
+    "inventory_value_inr": 4872000.00,
+    "inventory_accuracy_pct": 99.8,
+    "last_count_date": "2026-07-28",
+    "last_sale_date": "2026-08-02",
+    "last_receipt_date": "2026-08-01"
+  }
+}
 ```
 
 ---
 
-## 3. Renamed Financial Ownership (`InventoryOwnership`)
+## 5. Event-Driven Inventory Architecture (`InventoryEventBus`)
 
-Financial ownership (`InventoryOwnership`) is completely decoupled from physical location (`InventoryLocation`):
+Kernel state changes publish immutable business events for external subscribers (Accounting, Notifications, Analytics):
+
+$$\text{StockReceived} \quad \vert \quad \text{StockIssued} \quad \vert \quad \text{StockReserved} \quad \vert \quad \text{StockReleased} \quad \vert \quad \text{StockAdjusted} \quad \vert \quad \text{StockTransferred}$$
+
+---
+
+## 6. Renamed Financial Ownership (`InventoryOwnership`)
 
 | InventoryOwnership | Commercial Description | Accounting & Financial Treatment |
 |---|---|---|
@@ -84,18 +116,7 @@ Financial ownership (`InventoryOwnership`) is completely decoupled from physical
 
 ---
 
-## 4. Inventory Policy Engine (IPE) Rules
-
-The **Inventory Policy Engine (IPE)** evaluates movement permission constraints before any stock movement is executed:
-
-- **SKU Eligibility**: Can this location receive/sell SKU X?
-- **Movement Permissibility**: Is `CHANNEL_DISPATCH` permitted to location Y?
-- **Storage Constraints**: Does SKU X require cold-chain or hazard-certified locations?
-- **Quality & Quarantine**: Is SKU X under quality hold or quarantine at location Z?
-
----
-
-## 5. Universal Business Scenario Mapping Matrix
+## 7. Universal Business Scenario Mapping Matrix
 
 | Business Model | From Location | To Location | InventoryOwnership | Movement Flow |
 |---|---|---|---|---|
@@ -107,7 +128,7 @@ The **Inventory Policy Engine (IPE)** evaluates movement permission constraints 
 
 ---
 
-## 6. Ten Disconnected Subsystems Replaced by Unified Architecture
+## 8. Ten Disconnected Subsystems Replaced by Unified Architecture
 
 1. ✅ Consignment Module
 2. ✅ Marketplace Stock Module
