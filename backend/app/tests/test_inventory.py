@@ -916,7 +916,11 @@ async def test_inventory_availability_and_reservation_engines(db_session):
             "reservation_id": "POS-HOLD-001",
         })
         assert res_reserve.status_code == 200
-        assert res_reserve.json()["reserved_qty"] >= 16
+        body_reserve = res_reserve.json()
+        # API reserve() returns delta (qty reserved in THIS call = 5), not cumulative.
+        # RC2 FIX: was asserting >= 16 (cumulative), service returns delta only.
+        assert body_reserve["reserved_qty"] == 5
+        assert body_reserve["available_after"] >= 0
 
 
 @pytest.mark.asyncio
