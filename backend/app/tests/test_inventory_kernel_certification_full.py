@@ -61,7 +61,7 @@ async def _make_certified_product(db_session, tenant_ctx, stock=100):
         await cmd.move_inventory(
             transaction_id=f"tx-open-{uuid.uuid4().hex[:6]}",
             from_location_id=None,
-            to_location_id=None,
+            to_location_id="LOC-MAIN-WH",
             items=[{"product_id": pid, "quantity": stock}],
             movement_type="OPENING",
         )
@@ -93,7 +93,7 @@ async def test_ik001_facade_entry_gate(db_session):
 async def test_ik002_single_balance_mutator_gate(db_session):
     """IK002: Verifies ILGE is the sole creator of InventoryLedgerEntry records."""
     _, _, tenant_ctx = await _setup_certified_tenant(db_session)
-    product = await _make_certified_product(db_session, tenant_ctx, stock=50)
+    product = await _make_certified_product(db_session, tenant_ctx, stock=0)
     command_facade = InventoryCommandFacade(db_session, tenant_ctx)
 
     await command_facade.receive_purchase(
