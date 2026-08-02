@@ -11,7 +11,7 @@
 
 In SMRITI Retail OS, **inventory management** across owned warehouses, retail chains (Reliance, DMart, Croma), distributors, franchises, institutions, marketplaces (Amazon FC), goods in transit, and production lines is NOT a collection of separate modules.
 
-It is a **Unified Enterprise Platform Kernel**, structured into Core Engines, Service Engines, Public Platform APIs, and Platform Infrastructure Services:
+It is a **Unified Enterprise Platform Kernel**, structured into Core Orchestrators, Service Engines, Public Platform APIs, and Platform Infrastructure Services:
 
 ```text
                                INVENTORY KERNEL v1.0
@@ -45,7 +45,50 @@ It is a **Unified Enterprise Platform Kernel**, structured into Core Engines, Se
 
 ---
 
-## 1. Core Engine Suite (Foundational Orchestration)
+## 1. Five Immutable Architectural Rules
+
+### Rule 1: ITEX Single Entry Rule
+Only the **Inventory Transaction Engine (ITEX)** can orchestrate and create inventory movement directives. Consumer business modules (Sales, Purchase, POS, WMS, Marketplace) MUST NOT directly insert stock movements.
+
+### Rule 2: Single Balance Mutator Rule
+Only the **Inventory Movement Engine** changes physical stock balances. No other module, service, or script is permitted to update stock quantities directly.
+
+### Rule 3: Derived Availability Rule
+Available-to-Promise (ATP) stock is NEVER stored as a static column. It is ALWAYS dynamically derived:
+$$\text{Available} = \text{On Hand} - \text{Reserved} - \text{Blocked} - \text{Allocated}$$
+
+### Rule 4: Derived Network Aggregation Rule
+Network Stock is NEVER stored as a separate total field. It is ALWAYS dynamically calculated across all locations:
+$$\text{NetworkStock}(\text{SKU}) = \sum_{i \in \text{Locations}} \text{LocationBalance}(\text{SKU}, i)$$
+
+### Rule 5: Valuation & Costing Isolation Rule
+Inventory Engine owns quantity. Costing Engine owns cost. Valuation Engine combines both:
+$$\text{Inventory Value} = \text{Quantity} \times \text{Unit Cost}$$
+Valuation Engine MUST NEVER mutate stock quantities or stock ledger entries.
+
+---
+
+## 2. Engine Boundary Enforcement Matrix
+
+| Engine | Can Modify | Cannot Modify |
+|---|---|---|
+| **ITEX (Transaction Engine)** | Inventory documents & directives | Stock balances |
+| **IIE (Identity Engine)** | Identity resolution & validation | Quantities |
+| **Movement Engine** | Stock ledger entries | Costing & valuation |
+| **ICE (Costing Engine)** | Unit costs & cost layers | Quantities |
+| **Valuation Engine** | Financial ledger valuation entries | Stock ledger entries |
+| **IPE (Policy Engine)** | Movement permissions | Stock balances |
+| **ICOMP (Compliance Engine)** | Regulatory validation status | Movement history |
+
+---
+
+## 3. Complete Execution Lifecycle Pipeline
+
+$$\text{Transaction} \xrightarrow{\text{ITEX}} \text{IIE (Identity)} \xrightarrow{\text{Movement}} \text{ILE (Location)} \xrightarrow{\text{Availability}} \text{Allocation} \xrightarrow{\text{Costing}} \text{Valuation} \xrightarrow{\text{Accounting}}$$
+
+---
+
+## 4. Core Engine Suite (Foundational Orchestration)
 
 1. **Inventory Transaction Engine (ITEX)**: Single entry orchestrator receiving all commercial business transactions (GRN, Invoice, POS, Transfer, Count) and converting them into atomic movement directives.
 2. **Inventory Identity Engine (IIE)**: Centralized identity resolution answering *"What exactly is this inventory?"* (SKU, Batch, Serial Number, Lot, Size/Color Variant, UOM, Packaging, Barcode, RFID, Expiry, Manufacturing Date).
@@ -57,13 +100,7 @@ It is a **Unified Enterprise Platform Kernel**, structured into Core Engines, Se
 
 ---
 
-## 2. Complete Execution Lifecycle Pipeline
-
-$$\text{Transaction} \xrightarrow{\text{ITEX}} \text{IIE (Identity)} \xrightarrow{\text{Movement}} \text{ILE (Location)} \xrightarrow{\text{Availability}} \text{Allocation} \xrightarrow{\text{Costing}} \text{Valuation} \xrightarrow{\text{Accounting}}$$
-
----
-
-## 3. Service Engine Suite (Business Capabilities)
+## 5. Service Engine Suite (Business Capabilities)
 
 1. **Inventory Visibility Engine (IVE)**: Answers *"What is the current real-time state?"* (Universal single-pane-of-glass dashboards & KPIs).
 2. **Inventory Allocation Engine (IAE)**: Answers *"Where should orders be fulfilled from?"* (FEFO/FIFO, nearest location, split fulfillment).
@@ -74,7 +111,7 @@ $$\text{Transaction} \xrightarrow{\text{ITEX}} \text{IIE (Identity)} \xrightarro
 
 ---
 
-## 4. Public Platform Inventory Facades v1.0.0
+## 6. Public Platform Inventory Facades v1.0.0
 
 Consumer business modules interact exclusively through stable public platform facades:
 
@@ -95,7 +132,7 @@ Consumer business modules interact exclusively through stable public platform fa
 
 ---
 
-## 5. Event Bus Architecture: Business vs Technical Events
+## 7. Event Bus Architecture: Business vs Technical Events
 
 The **Inventory Event Bus (v1)** segregates domain events into external business events and internal technical events:
 
@@ -107,7 +144,7 @@ The **Inventory Event Bus (v1)** segregates domain events into external business
 
 ---
 
-## 6. Standard Business Inventory Documents v1
+## 8. Standard Business Inventory Documents v1
 
 $$\text{Business Transaction} \xrightarrow{\text{ITEX}} \text{Inventory Document} \xrightarrow{\text{IIE}} \text{Movement} \xrightarrow{\text{Event Bus}} \text{Balance Update}$$
 
@@ -124,27 +161,7 @@ $$\text{Business Transaction} \xrightarrow{\text{ITEX}} \text{Inventory Document
 
 ---
 
-## 7. Master Data vs Runtime State Isolation
-
-### Master Data (Static Configuration)
-- `InventoryLocation` (Master Node Definition)
-- `LocationRoles` (`[DISTRIBUTION, FULFILLMENT, SALES, REPLENISHMENT, SERVICE, RETURNS, PRODUCTION]`)
-- `InventoryTerritory` (Territorial Tree Nodes)
-- `LocationCapabilities` (Operational Permissions)
-- `TopologyRelationships` (Graph Connectors)
-- `BinHierarchy` (Rack / Bin Structural Layout)
-- `InventoryPolicies` & `ComplianceRules` (Operational & Regulatory Constraints)
-
-### Runtime State (Operational Transactions)
-- `InventoryTransaction` & `StockMovement` (Transaction & Movement Stream)
-- `Reservation` & `Allocation` (Commitments & Assignments)
-- `Replenishment` (Suggested Transfer Jobs)
-- `LocationKPIs` (Real-Time Performance Metrics)
-- `InventoryEvents` (Published Domain Event Bus)
-
----
-
-## 8. Financial Ownership (`InventoryOwnership`)
+## 9. Financial Ownership (`InventoryOwnership`)
 
 | InventoryOwnership | Commercial Description | Accounting & Financial Treatment |
 |---|---|---|
@@ -158,7 +175,7 @@ $$\text{Business Transaction} \xrightarrow{\text{ITEX}} \text{Inventory Document
 
 ---
 
-## 9. Ten Disconnected Subsystems Replaced by Unified Architecture
+## 10. Ten Disconnected Subsystems Replaced by Unified Architecture
 
 1. ✅ Consignment Module
 2. ✅ Marketplace Stock Module
