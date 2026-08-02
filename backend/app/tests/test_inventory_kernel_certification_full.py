@@ -127,7 +127,7 @@ async def test_ik003_derived_availability_gate(db_session):
         items=[{"product_id": product.id, "quantity": 100}],
         movement_type="PURCHASE",
     )
-    await db_session.flush()
+    await db_session.commit()
 
     await command_facade.reserve_stock(
         product_id=product.id,
