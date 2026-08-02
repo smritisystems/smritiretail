@@ -1,4 +1,4 @@
-# SMRITI Platform — Inventory Location Engine (ILE) & Inventory Topology Engine (ITE) v1.0
+# SMRITI Platform — Inventory Location Engine (ILE) & Inventory Network Engine (INE) v1.0
 
 **Status:** PERMANENTLY FROZEN ARCHITECTURE — Level 1 Inventory Kernel Core Capability v1.0.0  
 **Effective Date:** 2026-08-03  
@@ -11,14 +11,14 @@
 
 In SMRITI Retail OS, **stock outside your warehouse** (Retail Chains like Reliance/DMart/Croma, Distributors, Franchises, Institutions, Marketplaces like Amazon FC, Goods in Transit, and Production Lines) is NOT a collection of separate modules.
 
-It is a **Unified Core Platform Capability of the Inventory Kernel**, structured into three clean operational layers:
+It is a **Unified Core Platform Capability of the Inventory Kernel**, structured into Core Engines, Service Engines, Platform APIs, and Platform Services:
 
 ```text
                                INVENTORY KERNEL v1.0
 
 ================================== CORE ENGINES ==================================
   • Inventory Movement Engine                   • Inventory Location Engine (ILE)
-  • Inventory Topology Engine (ITE)             • Reservation Engine
+  • Inventory Network Engine (INE)              • Reservation Engine
   • Availability Engine
 ==================================================================================
                                          │
@@ -26,6 +26,11 @@ It is a **Unified Core Platform Capability of the Inventory Kernel**, structured
 ================================= SERVICE ENGINES ================================
   • Inventory Visibility Engine (IVE)           • Inventory Allocation Engine (IAE)
   • Inventory Replenishment Engine (IRE)        • Inventory Policy Engine (IPE)
+==================================================================================
+                                         │
+                                         ▼
+================================= PLATFORM APIS ==================================
+  • InventoryCommandFacade                      • InventoryQueryFacade
 ==================================================================================
                                          │
                                          ▼
@@ -37,13 +42,58 @@ It is a **Unified Core Platform Capability of the Inventory Kernel**, structured
 
 ---
 
-## 1. Master Data vs Runtime State Isolation
+## 1. Public Platform Inventory Facades (`InventoryQueryFacade` & `InventoryCommandFacade`)
 
-To support offline operation, high-speed caching, and clean domain boundaries, static configuration is strictly isolated from operational runtime state:
+Business modules interact exclusively through stable public platform facades:
+
+```text
+       CONSUMER DOMAINS (Sales, Purchase, POS, WMS, Marketplace, Consignment)
+                                         │
+                  ┌──────────────────────┴──────────────────────┐
+                  │                                             │
+                  ▼                                             ▼
+       InventoryQueryFacade                           InventoryCommandFacade
+  • getStock()                                    • moveInventory()
+  • getAvailable()                                • transferInventory()
+  • getNetworkStock()                             • reserveInventory()
+  • getLocationStock()                            • releaseReservation()
+  • getInventoryHistory()                         • adjustInventory()
+  • getInventoryKPIs()                            • replenishInventory()
+```
+
+---
+
+## 2. Standard Business Inventory Documents
+
+Operational workflows execute via standardized inventory business documents:
+
+$$\text{Inventory Document} \longrightarrow \text{Movement Engine} \longrightarrow \text{Inventory Event Bus} \longrightarrow \text{Balances Updated}$$
+
+| Document Type | Operational Purpose |
+|---|---|
+| `TransferOrder` | Authorization for inter-location stock transfer. |
+| `TransferReceipt` | Confirmation of physical stock receipt at target location. |
+| `Reservation` | Stock allocation/commitment against sales order or channel. |
+| `Allocation` | Order fulfillment location assignment. |
+| `StockCount` | Physical audit count sheet. |
+| `StockAdjustment` | Reconciled variance adjustment document. |
+| `ReplenishmentRequest` | Automated location reorder request. |
+| `ReplenishmentSuggestion` | Suggested transfer job from parent location. |
+
+---
+
+## 3. Core Engine Distinction: ILE vs INE
+
+- **Inventory Location Engine (ILE)**: Answers *"Where is inventory?"* (Locations, Balances, Node Hierarchy, Capacity, Status, Bins).
+- **Inventory Network Engine (INE)**: Answers *"How inventory moves."* (Network Graph, Routes, Distance, Supply Paths, Parent/Child Routing).
+
+---
+
+## 4. Master Data vs Runtime State Isolation
 
 ### Master Data (Static Configuration)
 - `InventoryLocation` (Master Node Definition)
-- `LocationRoles` (Additive Operational Roles)
+- `LocationRoles` (`[DISTRIBUTION, FULFILLMENT, SALES, REPLENISHMENT, SERVICE, RETURNS, PRODUCTION]`)
 - `InventoryTerritory` (Territorial Tree Nodes)
 - `LocationCapabilities` (Operational Permissions)
 - `TopologyRelationships` (Graph Connectors)
@@ -60,23 +110,7 @@ To support offline operation, high-speed caching, and clean domain boundaries, s
 
 ---
 
-## 2. Additive Location Roles (`LocationRoles`)
-
-A location has a structural `LocationType`, but maintains one or more additive `LocationRoles`:
-
-| Location Name | LocationType | Additive LocationRoles |
-|---|---|---|
-| Mumbai Central WH | `WAREHOUSE` | `[DISTRIBUTION, FULFILLMENT]` |
-| Reliance Retail DC | `RETAIL_CHAIN` | `[SALES, REPLENISHMENT]` |
-| Amazon FBA FC | `MARKETPLACE` | `[FULFILLMENT]` |
-| Service & Repair Hub | `REPAIR_CENTER` | `[SERVICE, RETURNS]` |
-| Nashik Garment Factory | `FACTORY` | `[PRODUCTION]` |
-
----
-
-## 3. Generic Inventory Event Bus (`InventoryEventBus`)
-
-The **Inventory Event Bus** publishes generic, inventory-centric business events consumed asynchronously by external kernels (Accounting, Notifications, Analytics, AI Forecasting):
+## 5. Generic Inventory Event Bus (`InventoryEventBus`)
 
 ```text
   InventoryReceived               InventoryIssued                 InventoryTransferred
@@ -87,7 +121,7 @@ The **Inventory Event Bus** publishes generic, inventory-centric business events
 
 ---
 
-## 4. Financial Ownership (`InventoryOwnership`)
+## 6. Financial Ownership (`InventoryOwnership`)
 
 | InventoryOwnership | Commercial Description | Accounting & Financial Treatment |
 |---|---|---|
@@ -101,7 +135,7 @@ The **Inventory Event Bus** publishes generic, inventory-centric business events
 
 ---
 
-## 5. Universal Business Scenario Mapping Matrix
+## 7. Universal Business Scenario Mapping Matrix
 
 | Business Model | From Location | To Location | InventoryOwnership | Movement Flow |
 |---|---|---|---|---|
@@ -113,7 +147,7 @@ The **Inventory Event Bus** publishes generic, inventory-centric business events
 
 ---
 
-## 6. Ten Disconnected Subsystems Replaced by Unified Architecture
+## 8. Ten Disconnected Subsystems Replaced by Unified Architecture
 
 1. ✅ Consignment Module
 2. ✅ Marketplace Stock Module
