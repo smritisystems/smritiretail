@@ -137,6 +137,58 @@ def test_rule7_consumer_dependency_boundary_guard():
     assert not violations, f"Rule #7 Consumer Dependency Boundary violations found: {violations}"
 
 
+def test_rule8_consumer_instantiation_boundary_guard():
+    """
+    Rule #8 CI Guard: Consumer modules MUST NOT instantiate kernel-internal types.
+
+    Consumer modules MAY use:
+        InventoryCommandFacade, InventoryQueryFacade,
+        InventoryReservationService, InventoryAvailabilityService
+
+    Consumer modules MUST NOT instantiate:
+        StockMovement(...)       — kernel-internal ledger entry
+        MovementBehavior(...)    — kernel-internal taxonomy definition
+        MovementTypeRegistry(...)— kernel-internal registry
+        InventoryStateService(...) / InventoryStateEngine(...)  — kernel-internal engine
+
+    This enforces dependency DIRECTION, not just import presence.
+    A consumer that imports-but-does-not-instantiate the facade is still
+    allowed (e.g., type annotations).  A consumer that instantiates a
+    kernel-internal type has broken the architectural boundary regardless of
+    whether it also imports the facade.
+    """
+    consumer_files = [
+        SALES_SERVICES_ROOT / "sales.py",
+        SALES_SERVICES_ROOT / "sales_orchestrator.py",
+    ]
+
+    # Patterns: match direct constructor calls (ClassName( at token boundary).
+    # Does not flag string literals, type annotations, or isinstance() checks.
+    forbidden_instantiation_patterns = [
+        (re.compile(r"(?<!\w)StockMovement\s*\("),       "StockMovement(...)"),
+        (re.compile(r"(?<!\w)MovementBehavior\s*\("),     "MovementBehavior(...)"),
+        (re.compile(r"(?<!\w)MovementTypeRegistry\s*\("), "MovementTypeRegistry(...)"),
+        (re.compile(r"(?<!\w)InventoryStateService\s*\("),"InventoryStateService(...)"),
+        (re.compile(r"(?<!\w)InventoryStateEngine\s*\("), "InventoryStateEngine(...)"),
+    ]
+
+    violations = []
+
+    for filepath in consumer_files:
+        if not filepath.exists():
+            continue
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            for i, line in enumerate(f, 1):
+                clean_line = line.strip()
+                if clean_line.startswith("#"):
+                    continue
+                for pattern, label in forbidden_instantiation_patterns:
+                    if pattern.search(clean_line):
+                        violations.append((filepath.name, i, f"Forbidden instantiation [{label}]: {clean_line}"))
+
+    assert not violations, f"Rule #8 Consumer Instantiation Boundary violations found: {violations}"
+
+
 @pytest.mark.asyncio
 async def test_si001_dispatch_gate_facade_usage(db_session):
     """SI_001.5 Dispatch Gate: Verify Dispatch/Sales consume InventoryQueryFacade for stock state."""
