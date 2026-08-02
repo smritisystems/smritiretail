@@ -22,10 +22,19 @@ from app.models.inventory_kernel import (
 from app.services.inventory.facades import InventoryCommandFacade, InventoryQueryFacade
 
 
+from app.models.tenant import Company, Branch
+
+
 async def _setup_certified_tenant(db_session):
     company_id = f"co-cert-{uuid.uuid4().hex[:8]}"
     branch_id = f"br-cert-{uuid.uuid4().hex[:8]}"
-    tenant_ctx = TenantContext(company_id=company_id, branch_id=branch_id)
+
+    company = Company(id=company_id, uuid=str(uuid.uuid4()), name="Cert Test Co", is_active=True)
+    branch = Branch(id=branch_id, uuid=str(uuid.uuid4()), company_id=company_id, name="Cert Store 1", code=f"CRT{uuid.uuid4().hex[:6].upper()}", is_active=True)
+    db_session.add_all([company, branch])
+    await db_session.flush()
+
+    tenant_ctx = TenantContext(tenant_id="test-tenant", company_id=company_id, branch_id=branch_id)
     return company_id, branch_id, tenant_ctx
 
 
