@@ -11,12 +11,13 @@
 
 In SMRITI Retail OS, **inventory management** across owned warehouses, retail chains (Reliance, DMart, Croma), distributors, franchises, institutions, marketplaces (Amazon FC), goods in transit, and production lines is NOT a collection of separate modules.
 
-It is a **Unified Enterprise Platform Kernel**, structured into Core Orchestrators, Service Engines, Public Platform APIs, and Platform Infrastructure Services:
+It is a **Unified Enterprise Platform Kernel**, structured into Core Orchestrators, Document & Workflow Engines, Service Engines, Public Platform APIs, and Infrastructure Services:
 
 ```text
                                INVENTORY KERNEL v1.0
 
 ================================== CORE ENGINES ==================================
+  • Inventory Document Engine (IDE)             • Inventory Workflow Engine (IWE)
   • Inventory Transaction Engine (ITEX)         • Inventory Identity Engine (IIE)
   • Inventory Movement Engine                   • Inventory Location Engine (ILE)
   • Inventory Network Engine (INE)              • Reservation Engine
@@ -27,7 +28,8 @@ It is a **Unified Enterprise Platform Kernel**, structured into Core Orchestrato
 ================================= SERVICE ENGINES ================================
   • Inventory Visibility Engine (IVE)           • Inventory Allocation Engine (IAE)
   • Inventory Replenishment Engine (IRE)        • Inventory Policy Engine (IPE)
-  • Inventory Costing Engine (ICE)              • Inventory Compliance Engine (ICOMP)
+  • Inventory Rules Engine (IRULE)              • Inventory Costing Engine (ICE)
+  • Inventory Compliance Engine (ICOMP)
 ==================================================================================
                                          │
                                          ▼
@@ -45,7 +47,41 @@ It is a **Unified Enterprise Platform Kernel**, structured into Core Orchestrato
 
 ---
 
-## 1. Five Immutable Architectural Rules
+## 1. Document Lifecycle & Workflow Orchestration Pipeline
+
+```text
+Business Module  ──►  Document Engine (IDE)  ──►  Workflow Engine (IWE)  ──►  ITEX  ──►  Movement Engine
+```
+
+- **Inventory Document Engine (IDE)**: Manages standard inventory document lifecycles (`TransferOrder`, `TransferReceipt`, `StockCount`, `StockAdjustment`, `Reservation`, `Allocation`, `ReplenishmentRequest`, `ReplenishmentSuggestion`, `GoodsIssue`, `GoodsReceipt`).
+- **Inventory Workflow Engine (IWE)**: Configurable document state transitions (`Draft ──► Pending ──► Approved ──► Picking ──► Packed ──► Dispatched ──► In Transit ──► Received ──► Completed`).
+- **Inventory Rules Engine (IRULE)**: Configurable business allocation & packaging rules (FEFO/FIFO allocation, minimum dispatch quantities, batch picking thresholds).
+
+---
+
+## 2. Refined Scope: Inventory Compliance vs Business Compliance
+
+- **Inventory Compliance Engine (ICOMP)**: Focuses strictly on **inventory-level physical compliance** (Batch, Serial, Expiry, Quarantine, Cold Chain, Hazard Storage).
+- **External Layers**: Tax and legal compliance (GST, e-way bills, e-invoicing, import/export duties) belong strictly to Accounting, Sales, and Legal platform layers.
+
+---
+
+## 3. Ten-Step Executable Implementation Sequence
+
+1. **Phase 1 Data Model**: Build `InventoryLocation`, `InventoryMovement`, `InventoryDocument`, `Reservation`, `Allocation`.
+2. **Public Platform APIs**: Implement `InventoryCommandFacade v1` and `InventoryQueryFacade v1`.
+3. **Core Transaction Engine**: Build `InventoryTransactionEngine (ITEX)`.
+4. **Physical Movement Engine**: Build `InventoryMovementEngine`.
+5. **Location & Network Engine**: Build `InventoryLocationEngine (ILE)` and `InventoryNetworkEngine (INE)`.
+6. **Reservation & Availability Engine**: Build `ReservationEngine` and `AvailabilityEngine`.
+7. **Event Infrastructure**: Deploy `InventoryEventBus (v1)`.
+8. **Costing & Valuation Engine**: Build `InventoryCostingEngine (ICE)` and `ValuationEngine`.
+9. **Visibility Dashboards**: Build `InventoryVisibilityEngine (IVE)` real-time dashboards.
+10. **Consumer Domain Migration**: Migrate Sales ──► Purchase ──► POS ──► Marketplace ──► Partner/Retail Chain workflows to facade APIs.
+
+---
+
+## 4. Five Immutable Architectural Rules
 
 ### Rule 1: ITEX Single Entry Rule
 Only the **Inventory Transaction Engine (ITEX)** can orchestrate and create inventory movement directives. Consumer business modules (Sales, Purchase, POS, WMS, Marketplace) MUST NOT directly insert stock movements.
@@ -64,83 +100,37 @@ $$\text{NetworkStock}(\text{SKU}) = \sum_{i \in \text{Locations}} \text{Location
 ### Rule 5: Valuation & Costing Isolation Rule
 Inventory Engine owns quantity. Costing Engine owns cost. Valuation Engine combines both:
 $$\text{Inventory Value} = \text{Quantity} \times \text{Unit Cost}$$
-Valuation Engine MUST NEVER mutate stock quantities or stock ledger entries.
 
 ---
 
-## 2. Implementation Certification Gates (IK001..IK008)
-
-To enforce architectural integrity during platform execution, every implementation phase MUST satisfy 8 automated certification gates:
+## 5. Implementation Certification Gates (IK001..IK008)
 
 | Gate ID | Certification Requirement | Technical Verification Standard |
 |---|---|---|
-| **IK001** | Facade Entry Gate | All inventory updates execute exclusively via `InventoryCommandFacade v1`. |
+| **IK001** | Facade Entry Gate | All inventory updates execute via `InventoryCommandFacade v1`. |
 | **IK002** | Single Balance Mutator Gate | Zero direct stock balance mutations outside `Movement Engine`. |
 | **IK003** | Derived Availability Gate | ATP availability is dynamically derived, never stored. |
-| **IK004** | Network Stock Aggregation Gate | Network stock is dynamically aggregated across locations, never stored. |
-| **IK005** | Event Publication Gate | Business & technical inventory events published correctly via `InventoryEventBus v1`. |
-| **IK006** | Replay Determinism Gate | Replay engine reproduces GL and stock balances with 100% mathematical accuracy. |
-| **IK007** | Costing & Valuation Isolation Gate | Costing and valuation engines remain isolated from physical quantities. |
-| **IK008** | Engine Boundary Gate | Engine boundary enforcement rules respected with zero boundary bleed. |
+| **IK004** | Network Stock Aggregation Gate | Network stock is dynamically aggregated across locations. |
+| **IK005** | Event Publication Gate | Business & technical events published via `InventoryEventBus v1`. |
+| **IK006** | Replay Determinism Gate | Replay engine reproduces balances with 100% mathematical accuracy. |
+| **IK007** | Costing & Valuation Isolation Gate | Costing and valuation remain isolated from physical quantities. |
+| **IK008** | Engine Boundary Gate | Engine boundary enforcement rules respected. |
 
 ---
 
-## 3. Six-Phase Implementation Roadmap
-
-```text
-Phase 1: Core Data Model  ──►  Phase 2: Public APIs v1  ──►  Phase 3: Core Engines
-                                                                    │
-                                                                    ▼
-Phase 6: Consumer Migration  ◄──  Phase 5: Infrastructure  ◄──  Phase 4: Service Engines
-```
-
-- **Phase 1 — Core Data Model**: `InventoryLocation`, `InventoryIdentity`, `InventoryMovement`, `InventoryDocument`, `Reservation`, `Allocation`, `InventoryOwnership`, `LocationRole`.
-- **Phase 2 — Public APIs v1**: `InventoryCommandFacade v1` & `InventoryQueryFacade v1`.
-- **Phase 3 — Core Engines**: `ITEX`, `IIE`, `Movement Engine`, `ILE`, `Reservation Engine`, `Availability Engine`.
-- **Phase 4 — Service Engines**: `IVE`, `IAE`, `IRE`, `IPE`, `ICE`, `ICOMP`.
-- **Phase 5 — Infrastructure**: `InventoryEventBus v1`, `Replay Engine`, `Audit Engine`, `Valuation Engine`.
-- **Phase 6 — Consumer Migration**: Migrate Sales, Purchase, POS, WMS, Marketplace, Manufacturing, and Partner/Retail Chain flows to facade APIs.
-
----
-
-## 4. Engine Boundary Enforcement Matrix
+## 6. Engine Boundary Enforcement Matrix
 
 | Engine | Can Modify | Cannot Modify |
 |---|---|---|
-| **ITEX (Transaction Engine)** | Inventory documents & directives | Stock balances |
+| **IDE (Document Engine)** | Inventory document lifecycle | Stock balances |
+| **IWE (Workflow Engine)** | Document status transitions | Stock balances |
+| **ITEX (Transaction Engine)** | Inventory movement directives | Stock balances |
 | **IIE (Identity Engine)** | Identity resolution & validation | Quantities |
 | **Movement Engine** | Stock ledger entries | Costing & valuation |
 | **ICE (Costing Engine)** | Unit costs & cost layers | Quantities |
 | **Valuation Engine** | Financial ledger valuation entries | Stock ledger entries |
-| **IPE (Policy Engine)** | Movement permissions | Stock balances |
-| **ICOMP (Compliance Engine)** | Regulatory validation status | Movement history |
-
----
-
-## 5. Complete Execution Lifecycle Pipeline
-
-$$\text{Transaction} \xrightarrow{\text{ITEX}} \text{IIE (Identity)} \xrightarrow{\text{Movement}} \text{ILE (Location)} \xrightarrow{\text{Availability}} \text{Allocation} \xrightarrow{\text{Costing}} \text{Valuation} \xrightarrow{\text{Accounting}}$$
-
----
-
-## 6. Public Platform Inventory Facades v1.0.0
-
-Consumer business modules interact exclusively through stable public platform facades:
-
-```text
-       CONSUMER DOMAINS (Sales, Purchase, POS, WMS, Marketplace, Consignment)
-                                         │
-                  ┌──────────────────────┴──────────────────────┐
-                  │                                             │
-                  ▼                                             ▼
-       InventoryQueryFacade v1                        InventoryCommandFacade v1
-  • getStock()                                    • moveInventory()
-  • getAvailable()                                • transferInventory()
-  • getNetworkStock()                             • reserveInventory()
-  • getLocationStock()                            • releaseReservation()
-  • getInventoryHistory()                         • adjustInventory()
-  • getInventoryKPIs()                            • replenishInventory()
-```
+| **IPE (Policy Engine)** | Operational permissions | Stock balances |
+| **ICOMP (Compliance Engine)** | Physical compliance status | Tax/GST ledgers |
 
 ---
 
