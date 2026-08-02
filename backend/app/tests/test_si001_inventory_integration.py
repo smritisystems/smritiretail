@@ -50,7 +50,7 @@ async def _make_product(db, tenant_ctx, stock=50, price=Decimal("999.00")):
     inv_service = InventoryService(db, tenant_ctx)
     p_in = ProductCreate(
         id=f"prod-sales-{uuid.uuid4().hex[:8]}",
-        code=f"SLSPROD{uuid.uuid4().hex[:4].upper()}",
+        code=f"SLSPROD{uuid.uuid4().hex[:8].upper()}",
         name="SI_001 Test Item",
         category="General",
         brand="Generic",
