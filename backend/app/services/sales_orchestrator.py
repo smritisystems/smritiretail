@@ -84,12 +84,14 @@ class SalesBusinessOrchestrator:
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
 
-        available_qty = Decimal(str(product.stock or 0))
-        reserved_qty = Decimal(str(getattr(product, "reserved_stock", 0) or 0))
+        from app.services.inventory_availability import InventoryAvailabilityService
+        avail_service = InventoryAvailabilityService(self.db, self.tenant_ctx)
+        avail_res = await avail_service.can_fulfill(product_id=product_id, qty=0)
+
         return {
             "product_id": product.id,
-            "available_qty": available_qty,
-            "reserved_qty": reserved_qty,
+            "available_qty": Decimal(str(avail_res["available_qty"])),
+            "reserved_qty": Decimal(str(avail_res["reserved_qty"])),
             "tracking_mode": getattr(product, "tracking_mode", "No-stock"),
             "gst_rate": Decimal(str(await self.inventory_service.resolve_effective_gst_percentage(product))),
             "price": Decimal(str(getattr(product, "price", "0.00")))
