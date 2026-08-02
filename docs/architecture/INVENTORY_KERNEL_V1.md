@@ -1,7 +1,7 @@
 ﻿# SMRITI Retail OS — Inventory Kernel v1.0
 ## Architecture Specification & Public Contract (FROZEN — RC2)
 
-**Status:** FROZEN  
+**Status:** FROZEN & SEALED  
 **Specification Version:** 1.0.0 (SemVer Frozen)  
 **SDK Version:** v1.0.0  
 **Date:** 2026-08-02  
@@ -52,6 +52,10 @@
 > Every `StockMovement` must be replayable to reconstruct system state identically.
 > No hidden, unlogged, or unreferenced stock adjustments are permitted anywhere in the system.
 
+> [!IMPORTANT]
+> **Kernel Rule #6 — Command Idempotency Invariant**
+> Executing any command through `InventoryCommandFacade` with the same `idempotency_key` or `reference_doc` MUST produce exactly identical state and ledger outcomes. Duplicate command invocations (from network retries, mobile sync, or message queues) MUST NOT generate duplicate stock movements or state changes.
+
 ---
 
 ## PART 2 — INVENTORY KERNEL PUBLIC CONTRACT (Frozen Surface v1.0.0)
@@ -63,11 +67,11 @@
 ```python
 class InventoryCommandFacade:
     """Read/Write Mutations & Commitment Management"""
-    async def reserve_stock(self, product_id: str, qty: Decimal, reference_doc: str) -> ReservationResultDTO: ...
-    async def release_reservation(self, product_id: str, qty: Decimal, reference_doc: str) -> ReservationResultDTO: ...
-    async def create_movement(self, movement_in: StockMovementCreateDTO) -> StockMovementDTO: ...
-    async def create_transfer(self, transfer_in: StockTransferCreateDTO) -> StockTransferDTO: ...
-    async def reconcile_audit(self, count_id: str) -> StockAuditReconciliationDTO: ...
+    async def reserve_stock(self, product_id: str, qty: Decimal, reference_doc: str, idempotency_key: Optional[str] = None) -> ReservationResultDTO: ...
+    async def release_reservation(self, product_id: str, qty: Decimal, reference_doc: str, idempotency_key: Optional[str] = None) -> ReservationResultDTO: ...
+    async def create_movement(self, movement_in: StockMovementCreateDTO, idempotency_key: Optional[str] = None) -> StockMovementDTO: ...
+    async def create_transfer(self, transfer_in: StockTransferCreateDTO, idempotency_key: Optional[str] = None) -> StockTransferDTO: ...
+    async def reconcile_audit(self, count_id: str, idempotency_key: Optional[str] = None) -> StockAuditReconciliationDTO: ...
 ```
 
 ### Query Facade Surface (Facts, Availability & Audit)
@@ -139,26 +143,26 @@ class ReservationResultDTO:
 ```python
 @dataclass(frozen=True)
 class StockMovementEvent:
-    movement_id: str
-    product_id: str
-    warehouse_id: str
-    movement_type: str        # Validated against MovementTypeRegistry
-    quantity: Decimal          # Signed delta (+ inbound / - outbound / signed adjustment)
-    unit_cost: Decimal
-    reference_doc_type: str    # e.g., 'Purchase Order', 'Sales Invoice', 'Stock Transfer'
-    reference_doc_id: str
-    source_module: str         # POS, Sales, Purchase, Transfer, StockAudit, WMS
-    tenant_id: str
-    company_id: str
-    branch_id: str
-    performed_by: Optional[str]
-    performed_at: datetime
-    metadata: Dict[str, Any]   # Optional extra attributes (batch, serial, bin)
+    event_type: str = "inventory.stock.moved" # Domain Event Identifier
+    event_version: str = "1.0.0"              # Event Schema Version
+    movement_id: str = ""
+    product_id: str = ""
+    warehouse_id: str = ""
+    movement_type: str = ""                   # Validated against MovementTypeRegistry
+    quantity: Decimal = Decimal("0")          # Signed delta (+ inbound / - outbound / signed adjustment)
+    unit_cost: Decimal = Decimal("0")
+    reference_doc_type: str = ""              # e.g., 'Purchase Order', 'Sales Invoice', 'Stock Transfer'
+    reference_doc_id: str = ""
+    source_module: str = ""                   # POS, Sales, Purchase, Transfer, StockAudit, WMS
+    tenant_id: str = ""
+    company_id: str = ""
+    branch_id: str = ""
+    performed_by: Optional[str] = None
+    performed_at: Optional[datetime] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
 ```
 
 ### 3.3 Frozen Error Taxonomy (`InventoryErrorCode` v1.0.0)
-
-> Every exception or failure returned across `InventoryCommandFacade` or `InventoryQueryFacade` MUST map exclusively to these standardized error codes.
 
 ```python
 class InventoryErrorCode(str, Enum):
@@ -173,18 +177,35 @@ class InventoryErrorCode(str, Enum):
     NEGATIVE_STOCK_DISALLOWED = "NEGATIVE_STOCK_DISALLOWED"
 ```
 
-### 3.4 Public Contract Stability & Compatibility Matrix
+### 3.4 Consumer Module Scoping Matrix
 
-| Interface / Contract | Stability | Introduced | SemVer Target |
-|----------------------|:---------:|:----------:|:-------------:|
-| `InventoryQueryFacade` | **Stable** | v1.0.0 | Guarantees backwards compatibility |
-| `InventoryCommandFacade` | **Stable** | v1.0.0 | Guarantees backwards compatibility |
-| `InventoryStateDTO` | **Stable** | v1.0.0 | Frozen schema — no field deletion/renaming |
-| `ProductAvailabilityDTO` | **Stable** | v1.0.0 | Frozen schema — no field deletion/renaming |
-| `ReservationResultDTO` | **Stable** | v1.0.0 | Frozen schema — no field deletion/renaming |
-| `StockMovementEvent` | **Stable** | v1.0.0 | Frozen canonical event contract |
-| `InventoryErrorCode` | **Stable** | v1.0.0 | Standardized exception taxonomy |
-| `MovementTypeRegistry.register_provider()` | **Stable** | v1.0.0 | Industry SDK extension entry point |
+| Consumer Domain | Allowed Operations | Prohibited Operations |
+|-----------------|--------------------|-----------------------|
+| **Sales (SI_001)** | Query availability, Reserve/Release stock, Create `SALE` movement | Direct stock mutations, direct DB updates |
+| **Purchase** | Create `PURCHASE` / `PURCHASE_RETURN` movements | Direct stock mutations, reserve/release stock |
+| **POS** | Query availability, Reserve stock, Create `SALE` movement | Direct stock mutations, bulk transfers |
+| **Warehouse (WMS)**| Allocate/Unallocate, Pick/Pack/Ship audit, Transfers, Adjustments | Direct stock mutations, altering sales reservations |
+| **Inventory 360** | Read-only state query, Timeline & Trace views | All state mutations & reservation commands |
+| **Reports** | Read-only queries | All mutations & reservation commands |
+| **Industry SDKs** | Register `MovementProvider` via startup lifecycle | Direct stock mutations, altering core taxonomy |
+
+### 3.5 Public Contract Stability, Deprecation & Compatibility Matrix
+
+```text
+Deprecation Policy:
+Stable Interfaces ──► Deprecated (Minimum 1 Minor Release Notice) ──► Removed (Next Major Version v2.0.0)
+```
+
+| Interface / Contract | Stability Status | Introduced | SemVer Target | Deprecation Target |
+|----------------------|:----------------:|:----------:|:-------------:|:------------------:|
+| `InventoryQueryFacade` | **Stable** | v1.0.0 | Guarantees backwards compatibility | None |
+| `InventoryCommandFacade` | **Stable** | v1.0.0 | Guarantees backwards compatibility | None |
+| `InventoryStateDTO` | **Stable** | v1.0.0 | Frozen schema — no field deletion/renaming | None |
+| `ProductAvailabilityDTO` | **Stable** | v1.0.0 | Frozen schema — no field deletion/renaming | None |
+| `ReservationResultDTO` | **Stable** | v1.0.0 | Frozen schema — no field deletion/renaming | None |
+| `StockMovementEvent` | **Stable** | v1.0.0 | Frozen event version `1.0.0` | None |
+| `InventoryErrorCode` | **Stable** | v1.0.0 | Standardized exception taxonomy | None |
+| `MovementTypeRegistry` | **Stable** | v1.0.0 | Extension API via `register_provider` | None |
 
 ---
 
@@ -204,7 +225,7 @@ class InventoryErrorCode(str, Enum):
 > during container startup before registry sealing.
 
 > [!NOTE]
-> **Engineering Policy #3 — Static Analysis CI Guard Enforcement**
+> **Engineering Policy #3 — Static Analysis Rule #1 CI Guard Enforcement**
 > `test_architecture_rule1.py` executes in CI on every commit to enforce zero direct `.stock =` mutations across all backend services outside the allowed reconciliation pipeline.
 
 > [!NOTE]
@@ -399,7 +420,7 @@ Inventory State Engine. UI must never independently recalculate these values.
 | RESERVE          |    +1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Reservation Engine             | Soft-reserve against SO        |
 | UNRESERVE        |    -1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Release soft-reservation       |
 | ALLOCATE         |    +1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | WMS Operational Event          | Hard-allocate to pick task     |
-| UNALLOCATE       |    -1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | WMS Operational Event          | Release hard-allocation        |
+| UNALLOCATE       |    -1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Release hard-allocation        |
 | PICK             |     0     |        ❌         |          ❌          |        ❌        |        ❌        |        ❌          | WMS Operational Event          | WMS pick event audit           |
 | PACK             |     0     |        ❌         |          ❌          |        ❌        |        ❌        |        ❌          | WMS Operational Event          | WMS pack event audit           |
 | SHIP             |     0     |        ❌         |          ❌          |        ❌        |        ✅        |        ❌          | WMS Operational Event          | In-transit dispatch event      |
@@ -441,7 +462,7 @@ MovementTypeRegistry.register_provider(MedicalMovementProvider())
 
 | Phase | Subsystem Focus | Status | Key Deliverable |
 |---|---|---|---|
-| **Phase 1** | Inventory Kernel v1.0.0 | ✅ **FROZEN & SEALED** | Subsystem Exit Gate Passed — Rules 0–5, Error Taxonomy & Engineering Policy 4 Sealed |
+| **Phase 1** | Inventory Kernel v1.0.0 | ✅ **FROZEN & SEALED** | Subsystem Exit Gate Passed — Rules 0–6, Event Versioning & Scoping Matrix Sealed |
 | **Phase 2** | SI_001 Integration | 🔄 **NEXT PRIORITY** | Sales consumes `InventoryQueryFacade` & `InventoryCommandFacade` |
 | **Phase 3** | SDK Stabilization | 🔄 Next | Industry Pack extension contracts sealed (v1.0.0) |
 | **Phase 4** | Inventory 360 Workspace | ⏳ Future | Pure read-only UI consumer workspace |
