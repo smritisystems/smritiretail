@@ -295,10 +295,13 @@ class InventoryCommandFacade:
         """
         transaction_id = f"TX-ADJ-{audit_no}"
         adjusted_items = []
+        last_var_qty = Decimal("0")
         for item in items:
-            var_qty = Decimal(str(item.get("variance_quantity", "0")))
+            raw_qty = item.get("variance_quantity") if "variance_quantity" in item else item.get("quantity", "0")
+            var_qty = Decimal(str(raw_qty))
             if var_qty == Decimal("0"):
                 continue
+            last_var_qty = var_qty
             adjusted_items.append({
                 "product_id": item["product_id"],
                 "quantity": abs(var_qty),
@@ -306,10 +309,13 @@ class InventoryCommandFacade:
                 "unit_cost": item.get("unit_cost", "0.00"),
             })
 
+        if not adjusted_items:
+            return []
+
         return await self.itex_engine.execute_transaction(
             transaction_id=transaction_id,
-            from_location_id=warehouse if var_qty < 0 else None,
-            to_location_id=warehouse if var_qty > 0 else None,
+            from_location_id=warehouse if last_var_qty < 0 else None,
+            to_location_id=warehouse if last_var_qty >= 0 else None,
             items=adjusted_items,
             movement_type="ADJUSTMENT",
             document_no=audit_no,
