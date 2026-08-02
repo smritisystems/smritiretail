@@ -93,7 +93,7 @@ class InventoryQueryFacade:
 
 ---
 
-## PART 3 — FROZEN DATA & EVENT CONTRACT SPECIFICATION (v1.0.0)
+## PART 3 — FROZEN DATA, EVENT & ERROR CONTRACT SPECIFICATION (v1.0.0)
 
 ### 3.1 DTO Contracts
 
@@ -130,11 +130,11 @@ class ReservationResultDTO:
     reserved_qty: Decimal
     remaining_available: Decimal
     reference_doc: str
+    error_code: Optional[str] = None
+    error_message: Optional[str] = None
 ```
 
 ### 3.2 Canonical StockMovementEvent Schema (v1.0.0)
-
-> This schema represents the immutable, canonical event payload emitted across the DB trigger pipeline, audit log, event bus, CDC stream, and replay engine.
 
 ```python
 @dataclass(frozen=True)
@@ -156,7 +156,24 @@ class StockMovementEvent:
     metadata: Dict[str, Any]   # Optional extra attributes (batch, serial, bin)
 ```
 
-### 3.3 Public Contract Stability & Compatibility Matrix
+### 3.3 Frozen Error Taxonomy (`InventoryErrorCode` v1.0.0)
+
+> Every exception or failure returned across `InventoryCommandFacade` or `InventoryQueryFacade` MUST map exclusively to these standardized error codes.
+
+```python
+class InventoryErrorCode(str, Enum):
+    INSUFFICIENT_STOCK = "INSUFFICIENT_STOCK"
+    RESERVATION_CONFLICT = "RESERVATION_CONFLICT"
+    SKU_NOT_FOUND = "SKU_NOT_FOUND"
+    WAREHOUSE_NOT_FOUND = "WAREHOUSE_NOT_FOUND"
+    INVALID_MOVEMENT_TYPE = "INVALID_MOVEMENT_TYPE"
+    QUALITY_HOLD = "QUALITY_HOLD"
+    BLOCKED_STOCK = "BLOCKED_STOCK"
+    UNBALANCED_TRANSFER = "UNBALANCED_TRANSFER"
+    NEGATIVE_STOCK_DISALLOWED = "NEGATIVE_STOCK_DISALLOWED"
+```
+
+### 3.4 Public Contract Stability & Compatibility Matrix
 
 | Interface / Contract | Stability | Introduced | SemVer Target |
 |----------------------|:---------:|:----------:|:-------------:|
@@ -166,6 +183,7 @@ class StockMovementEvent:
 | `ProductAvailabilityDTO` | **Stable** | v1.0.0 | Frozen schema — no field deletion/renaming |
 | `ReservationResultDTO` | **Stable** | v1.0.0 | Frozen schema — no field deletion/renaming |
 | `StockMovementEvent` | **Stable** | v1.0.0 | Frozen canonical event contract |
+| `InventoryErrorCode` | **Stable** | v1.0.0 | Standardized exception taxonomy |
 | `MovementTypeRegistry.register_provider()` | **Stable** | v1.0.0 | Industry SDK extension entry point |
 
 ---
@@ -188,6 +206,10 @@ class StockMovementEvent:
 > [!NOTE]
 > **Engineering Policy #3 — Static Analysis CI Guard Enforcement**
 > `test_architecture_rule1.py` executes in CI on every commit to enforce zero direct `.stock =` mutations across all backend services outside the allowed reconciliation pipeline.
+
+> [!NOTE]
+> **Engineering Policy #4 — Contract Breaking-Change CI Guard Policy**
+> Any modification to `InventoryQueryFacade`, `InventoryCommandFacade`, `InventoryStateDTO`, or `InventoryErrorCode` signatures in a non-major SemVer pull request will cause CI build failure.
 
 ---
 
@@ -419,7 +441,7 @@ MovementTypeRegistry.register_provider(MedicalMovementProvider())
 
 | Phase | Subsystem Focus | Status | Key Deliverable |
 |---|---|---|---|
-| **Phase 1** | Inventory Kernel v1.0.0 | ✅ **FROZEN** | Subsystem Exit Gate Passed — Rules 0–5, Event Schema & Stability Matrix Sealed |
+| **Phase 1** | Inventory Kernel v1.0.0 | ✅ **FROZEN & SEALED** | Subsystem Exit Gate Passed — Rules 0–5, Error Taxonomy & Engineering Policy 4 Sealed |
 | **Phase 2** | SI_001 Integration | 🔄 **NEXT PRIORITY** | Sales consumes `InventoryQueryFacade` & `InventoryCommandFacade` |
 | **Phase 3** | SDK Stabilization | 🔄 Next | Industry Pack extension contracts sealed (v1.0.0) |
 | **Phase 4** | Inventory 360 Workspace | ⏳ Future | Pure read-only UI consumer workspace |
