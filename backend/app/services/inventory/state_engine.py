@@ -22,6 +22,22 @@ Platform Rule (FROZEN — Inventory Kernel v1.0)
 ----------------------------------------------
 No engine may update `products.stock` directly except through the
 Inventory State reconciliation pipeline (trg_inventory_state_reconciliation).
+
+Kernel Invariant I-001 (FROZEN — ADR-001, ratified 2026-08-02)
+--------------------------------------------------------------
+SALE_RETURN is a physical stock movement only.
+  · MUST increase On Hand via the trigger.
+  · MUST NOT contribute to the return_pending deduction bucket.
+  · A completed return is a physical fact, not a pending commitment.
+
+Kernel Invariant I-002 (FROZEN — ADR-001, ratified 2026-08-02)
+--------------------------------------------------------------
+Completed business documents are never inferred from text.
+  · FORBIDDEN: _matches_keyword(movement.reference_doc_type, "RETURN")
+  · REQUIRED:  movement_type == "SALE_RETURN"  (or, in RC3: behavior.affects_return_pending)
+  · Keyword matching on reference_doc_type / remarks is a temporary bridge
+    for state buckets not yet covered by the movement taxonomy.
+    All such heuristics must be replaced by explicit taxonomy flags in RC3.
 """
 
 from decimal import Decimal
