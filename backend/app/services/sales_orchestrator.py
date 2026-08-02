@@ -20,7 +20,7 @@ from ..services.workflow import workflow_service
 from ..services.sales_context import SalesContext
 from ..services.event_bus import event_bus, Events
 from ..services.accounting import AccountingService, JournalVoucher, JournalEntry, Accounts
-from ..models.inventory import Product, StockMovement
+from ..models.inventory import Product
 from ..models.crm import Customer
 from ..models.sales import (
     SalesInvoice, SalesInvoiceItem, SalesOrder, SalesOrderItem,
@@ -394,35 +394,18 @@ class SalesBusinessOrchestrator:
         for pmt in db_payments:
             self.db.add(pmt)
 
-        for item in invoice_in.items:
-            product_stmt = select(Product).filter(
-                Product.id == item.product_id,
-                Product.is_deleted == False,
-                Product.company_id == self.tenant_ctx.company_id,
-                Product.branch_id == self.tenant_ctx.branch_id
-            )
-            product_res = await self.db.execute(product_stmt)
-            product = product_res.scalars().first()
-            if product and product.tracking_mode != "No-stock":
-                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-                db_movement = StockMovement(
-                    id=movement_id,
-                    uuid=str(uuid.uuid4()),
-                    product_id=product.id,
-                    product_name=product.name,
-                    sku=product.sku or product.code,
-                    quantity=-item.quantity,
-                    movement_type="OUT",
-                    reference_doc_type="Sales Invoice",
-                    reference_doc_id=db_invoice.id,
-                    warehouse="Default Warehouse",
-                    unit_cost=product.cost_price or product.price,
-                    remarks=f"Stock deducted for sales invoice: {db_invoice.invoice_no}",
-                    source_module="Sales",
-                    company_id=self.tenant_ctx.company_id,
-                    branch_id=self.tenant_ctx.branch_id
-                )
-                self.db.add(db_movement)
+        from app.services.inventory.facades import InventoryCommandFacade
+        command_facade = InventoryCommandFacade(self.db, self.tenant_ctx)
+        invoice_item_dicts = [
+            {"product_id": item.product_id, "quantity": item.quantity}
+            for item in invoice_in.items
+        ]
+        await command_facade.issue_sale(
+            invoice_id=db_invoice.id,
+            invoice_no=db_invoice.invoice_no,
+            items=invoice_item_dicts,
+            warehouse="Default Warehouse",
+        )
 
         try:
             await self.db.commit()
@@ -663,26 +646,18 @@ class SalesBusinessOrchestrator:
                 branch_id=self.tenant_ctx.branch_id,
             ))
 
-            if product.tracking_mode != "No-stock":
-                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-                db_movement = StockMovement(
-                    id=movement_id,
-                    uuid=str(uuid.uuid4()),
-                    product_id=product.id,
-                    product_name=product.name,
-                    sku=product.sku or product.code,
-                    quantity=item.quantity,
-                    movement_type="IN",
-                    reference_doc_type="Sales Return",
-                    reference_doc_id=sr_in.id,
-                    warehouse="Default Warehouse",
-                    unit_cost=product.cost_price or product.price,
-                    remarks=f"Stock incremented for sales return: {sr_in.return_no}",
-                    source_module="Sales",
-                    company_id=self.tenant_ctx.company_id,
-                    branch_id=self.tenant_ctx.branch_id
-                )
-                self.db.add(db_movement)
+        from app.services.inventory.facades import InventoryCommandFacade
+        command_facade = InventoryCommandFacade(self.db, self.tenant_ctx)
+        return_item_dicts = [
+            {"product_id": item.product_id, "quantity": item.quantity}
+            for item in sr_in.items
+        ]
+        await command_facade.return_sale(
+            return_id=sr_in.id,
+            return_no=sr_in.return_no,
+            items=return_item_dicts,
+            warehouse="Default Warehouse",
+        )
 
         db_return = SalesReturn(
             id=sr_in.id,

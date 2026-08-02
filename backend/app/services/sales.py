@@ -28,7 +28,6 @@ from ..models.sales import (
     SalesOrder, SalesOrderItem,
     SalesReturn, SalesReturnItem,
 )
-from ..models.inventory import Product, StockMovement
 from ..models.crm import Customer
 from ..schemas.sales import (
     SalesInvoiceCreate,

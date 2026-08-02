@@ -179,10 +179,11 @@ class InventoryStateService:
             if self._matches_keyword(movement.remarks, "blocked", "hold", "quality hold"):
                 blocked += abs(qty)
 
-            if (
-                self._matches_keyword(movement.remarks, "return pending", "return-pending")
-                or self._matches_keyword(movement.reference_doc_type, "RETURN")
-            ):
+            # Note: only remarks-based "return pending" is treated as a pending-state
+            # deduction.  The former reference_doc_type "RETURN" branch matched
+            # completed SALE_RETURN / PURCHASE_RETURN movements and incorrectly
+            # reduced available stock for committed inventory.
+            if self._matches_keyword(movement.remarks, "return pending", "return-pending"):
                 return_pending += abs(qty)
 
             if self._matches_keyword(movement.remarks, "quality hold", "qc hold"):

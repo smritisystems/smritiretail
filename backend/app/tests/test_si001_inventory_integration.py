@@ -5,8 +5,8 @@ SI_001 Sales Integration Architectural & Functional Verification Suite
 Validates that:
 1. Sales consumes InventoryAvailabilityService for can_fulfill queries.
 2. Sales consumes InventoryReservationService for reserve / release operations.
-3. SalesInvoice issue creates StockMovement(SALE) and relies on trigger reconciliation.
-4. SalesReturn creates StockMovement(SALE_RETURN) and relies on trigger reconciliation.
+3. SalesInvoice issue creates StockMovement(SALE) via InventoryCommandFacade.issue_sale() and relies on trigger reconciliation.
+4. SalesReturn creates StockMovement(SALE_RETURN) via InventoryCommandFacade.return_sale() and relies on trigger reconciliation.
 5. No direct product.stock assignments exist anywhere in sales services.
 """
 
@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 from decimal import Decimal
 from datetime import datetime, timezone
+
 from app.db.session import active_tenant_ctx
 from app.api.deps import TenantContext
 from app.models.tenant import Company, Branch
@@ -23,7 +24,8 @@ from app.services.inventory import InventoryService
 from app.schemas.inventory import ProductCreate
 from app.services.inventory_availability import InventoryAvailabilityService
 from app.services.inventory_reservation import InventoryReservationService
-from app.models.inventory import StockMovement
+from app.services.inventory.facades import InventoryCommandFacade, InventoryQueryFacade
+from app.models.inventory import Product, StockMovement
 
 
 SALES_SERVICES_ROOT = Path(__file__).parent.parent / "services"
@@ -79,7 +81,7 @@ async def _make_product(db, tenant_ctx, stock=50, price=Decimal("999.00")):
             branch_id=tenant_ctx.branch_id,
         )
         db.add(sm)
-        await db.flush()
+        await db.commit()
         await db.refresh(product)
     return product
 
@@ -105,6 +107,49 @@ def test_sales_services_zero_direct_stock_mutations():
                     violations.append((filepath.name, i, clean_line))
 
     assert not violations, f"Direct product.stock mutations found in Sales services: {violations}"
+
+
+def test_rule7_consumer_dependency_boundary_guard():
+    """Rule #7 CI Guard: Consumer services MUST NOT import StockMovement or calculate available stock manually."""
+    consumer_files = [
+        SALES_SERVICES_ROOT / "sales.py",
+        SALES_SERVICES_ROOT / "sales_orchestrator.py",
+    ]
+    import_pattern = re.compile(r"import\s+StockMovement\b|from\s+[\w\.]+\s+import\s+[\w\s,]*StockMovement\b")
+    instantiation_pattern = re.compile(r"\bStockMovement\(")
+    manual_atp_pattern = re.compile(r"\b(?:product|prod|p)\.stock\s*-\s*(?:product|prod|p)\.reserved_stock\b")
+
+    violations = []
+
+    for filepath in consumer_files:
+        if not filepath.exists():
+            continue
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            for i, line in enumerate(f, 1):
+                clean_line = line.strip()
+                if clean_line.startswith("#"):
+                    continue
+                if import_pattern.search(clean_line) or instantiation_pattern.search(clean_line):
+                    violations.append((filepath.name, i, f"Forbidden StockMovement reference: {clean_line}"))
+                if manual_atp_pattern.search(clean_line):
+                    violations.append((filepath.name, i, f"Forbidden manual ATP calculation: {clean_line}"))
+
+    assert not violations, f"Rule #7 Consumer Dependency Boundary violations found: {violations}"
+
+
+@pytest.mark.asyncio
+async def test_si001_dispatch_gate_facade_usage(db_session):
+    """SI_001.5 Dispatch Gate: Verify Dispatch/Sales consume InventoryQueryFacade for stock state."""
+    _, _, tenant_ctx = await _setup_sales_tenant(db_session)
+    product = await _make_product(db_session, tenant_ctx, stock=100)
+
+    query_facade = InventoryQueryFacade(db_session, tenant_ctx)
+    can_dispatch_result = await query_facade.can_fulfill(product.id, qty=25)
+    state = await query_facade.get_canonical_state(product.id)
+
+    assert can_dispatch_result["can_fulfill"] is True
+    assert state["on_hand"] == 100.0
+    assert state["available"] == 100.0
 
 
 @pytest.mark.asyncio
@@ -148,3 +193,64 @@ async def test_si001_reservation_and_release_gate(db_session):
     )
     assert res_result_idem["reserved_qty"] == 10.0
     assert res_result_idem["available_after"] == 20.0
+
+
+@pytest.mark.asyncio
+async def test_si001_invoice_issue_gate(db_session):
+    """SI_001.3 Invoice Issue Gate: Issue SALE via InventoryCommandFacade."""
+    _, _, tenant_ctx = await _setup_sales_tenant(db_session)
+    product = await _make_product(db_session, tenant_ctx, stock=100)
+
+    command_facade = InventoryCommandFacade(db_session, tenant_ctx)
+    query_facade = InventoryQueryFacade(db_session, tenant_ctx)
+
+    invoice_id = f"inv-{uuid.uuid4().hex[:8]}"
+    invoice_no = f"INV-{uuid.uuid4().hex[:6].upper()}"
+    items = [{"product_id": product.id, "quantity": 15}]
+
+    movements = await command_facade.issue_sale(
+        invoice_id=invoice_id,
+        invoice_no=invoice_no,
+        items=items,
+    )
+    await db_session.commit()
+    await db_session.refresh(product)
+
+    assert len(movements) == 1
+    assert movements[0].movement_type == "SALE"
+    assert movements[0].quantity == Decimal("-15")
+
+    # Verify trigger reconciled product.stock automatically
+    state = await query_facade.get_canonical_state(product.id)
+    assert float(state["on_hand"]) == 85.0
+    assert float(state["available"]) == 85.0
+
+
+@pytest.mark.asyncio
+async def test_si001_sales_return_gate(db_session):
+    """SI_001.4 Sales Return Gate: Issue SALE_RETURN via InventoryCommandFacade."""
+    _, _, tenant_ctx = await _setup_sales_tenant(db_session)
+    product = await _make_product(db_session, tenant_ctx, stock=85)
+
+    command_facade = InventoryCommandFacade(db_session, tenant_ctx)
+    query_facade = InventoryQueryFacade(db_session, tenant_ctx)
+
+    return_id = f"ret-{uuid.uuid4().hex[:8]}"
+    return_no = f"RET-{uuid.uuid4().hex[:6].upper()}"
+    items = [{"product_id": product.id, "quantity": 5}]
+
+    movements = await command_facade.return_sale(
+        return_id=return_id,
+        return_no=return_no,
+        items=items,
+    )
+    await db_session.commit()
+    await db_session.refresh(product)
+
+    assert len(movements) == 1
+    assert movements[0].movement_type == "SALE_RETURN"
+    assert movements[0].quantity == Decimal("5")
+
+    state = await query_facade.get_canonical_state(product.id)
+    assert float(state["on_hand"]) == 90.0
+    assert float(state["available"]) == 90.0
