@@ -15,7 +15,32 @@ No business domain module (Sales, Purchase, POS, WMS, Marketplace, Consignment, 
 
 ---
 
-## 1. The Eight Immutable Accounting Constitutional Principles
+## 1. The Three-Layer Accounting Kernel Architecture
+
+```text
+================================================================================
+LAYER 3: FINANCIAL DECISIONS & CONTROL (PLATFORM ENGINE)
+  • Fiscal Period Open/Locked Check         • Credit Limit Evaluation Gate
+  • Payment Allocation & Settlement Engine  • Posting Validation Rules
+================================================================================
+                                       │
+                                       ▼
+================================================================================
+LAYER 2: ACCOUNTING STATE (DERIVED FINANCIAL FACTS)
+  • General Ledger Account Balances         • Customer AR Outstanding Balances
+  • Supplier AP Outstanding Balances        • GST Tax Liability & Cost Centers
+================================================================================
+                                       │
+                                       ▼
+================================================================================
+LAYER 1: FINANCIAL LEDGER (IMMUTABLE JOURNAL STREAM)
+  • Journal Entries & Vouchers              • Reversal & Canceling Vouchers
+================================================================================
+```
+
+---
+
+## 2. The Eight Immutable Accounting Constitutional Principles
 
 ### Principle 1: Ledger First (Financial Source of Truth)
 The General Ledger is the single, authoritative financial source of truth for all monetary transactions in SMRITI Retail OS. Operational transactions (sales invoices, purchase receipts, payment collections) derive their financial validity exclusively from posted journal entries.
@@ -38,29 +63,29 @@ Financial account balances, Trial Balance reports, and General Ledger states MUS
 Committed/posted journal vouchers are strictly immutable. They MUST NOT be edited, overwritten, or deleted. Corrections, cancellations, and adjustments execute exclusively by issuing reversing vouchers (`REVERSAL_VOUCHER`).
 
 ### Principle 7: Public Accounting Facade Isolation
-Consumer modules interact with the Accounting Kernel exclusively through published Query and Command Facades (`AccountingQueryFacade`, `AccountingCommandFacade`, `VoucherPostingService`, `FinancialPeriodService`). Internal ledger schema details are completely decoupled from consumers.
+Consumer modules interact with the Accounting Kernel exclusively through 4 published platform interfaces:
+`AccountingQueryFacade`, `AccountingCommandFacade`, `AccountingPostingService`, `AccountingValidationService`. Internal ledger schema details are completely decoupled from consumers.
 
 ### Principle 8: Extension Through Financial Registries
 Custom Chart of Accounts structures, tax posting profiles, financial dimensions (cost centers, departments, branches), and currency conversion rules extend exclusively by registering metadata into platform accounting registries, never by altering core kernel posting logic.
 
 ---
 
-## 2. Public Accounting Facades
+## 3. Four Public Accounting Facades
 
 ```text
                                BUSINESS CONSUMER DOMAINS
                       (Sales, Purchase, POS, WMS, Marketplace)
                                           │
-                  ┌───────────────────────┴───────────────────────┐
-                  │                                               │
-                  ▼                                               ▼
-       AccountingQueryFacade                           AccountingCommandFacade
-  • get_account_balance()                         • post_sales_invoice_voucher()
-  • get_trial_balance()                           • post_purchase_grn_voucher()
-  • get_general_ledger()                          • post_pos_settlement_voucher()
-  • get_financial_statements()                    • post_journal_voucher()
-                  │                                               │
-                  └───────────────────────┬───────────────────────┘
+        ┌───────────────────┬─────────────┴─────────────┬───────────────────┐
+        │                   │                           │                   │
+        ▼                   ▼                           ▼                   ▼
+AccountingQueryFacade AccountingCommandFacade AccountingPostingService AccountingValidationService
+• get_account_balance • post_sales_invoice    • execute_posting_profile • validate_double_entry
+• get_trial_balance   • post_purchase_grn     • resolve_tax_accounts   • validate_fiscal_period
+• get_general_ledger  • post_pos_settlement   • apply_rounding         • validate_credit_limit
+        │                   │                           │                   │
+        └───────────────────┴─────────────┬─────────────┴───────────────────┘
                                           │
                                           ▼
                                ACCOUNTING KERNEL v1.0
@@ -69,13 +94,13 @@ Custom Chart of Accounts structures, tax posting profiles, financial dimensions 
 
 ---
 
-## 3. Accounting Kernel Certification Gates (AC001..AC008)
+## 4. Accounting Kernel Certification Gates (AC001..AC008)
 
-1. **AC001 Double Entry Gate**: Rejects any voucher where $\sum \text{Debits} \neq \sum \text{Credits}$.
-2. **AC002 Facade Posting Gate**: Verifies 100% of consumer postings execute via `AccountingCommandFacade`.
-3. **AC003 Zero Direct Mutation Guard**: Blocks direct SQL updates or ORM mutations to GL ledger tables.
-4. **AC004 Reversal Immutability Gate**: Enforces immutability of posted vouchers and validates reversal workflows.
-5. **AC005 Trial Balance Determinism Gate**: Replays journal stream and verifies Trial Balance equilibrium ($\text{Total Debits} = \text{Total Credits}$).
-6. **AC006 Fiscal Period Gate**: Prevents posting vouchers into closed or locked financial periods.
-7. **AC007 Multi-Currency Gate**: Validates exchange rate gain/loss postings for multi-currency transactions.
-8. **AC008 Audit Trail Gate**: Verifies immutable audit metadata (`created_by`, `timestamp`, `source_doc_id`) on all journal entries.
+1. **AC001 Double Entry Validation**: Rejects any voucher where $\sum \text{Debits} \neq \sum \text{Credits}$.
+2. **AC002 Journal Posting Facade**: Verifies 100% of consumer postings execute via `AccountingCommandFacade`.
+3. **AC003 No Direct Journal Writes**: AST/Linter boundary guards blocking raw GL table edits.
+4. **AC004 Replay Determinism**: Replays journal stream and verifies Trial Balance equilibrium ($\text{Total Debits} = \text{Total Credits}$).
+5. **AC005 Financial Period Control**: Prevents posting vouchers into closed or locked financial periods.
+6. **AC006 Reversal Instead of Edit**: Enforces immutability of posted vouchers and validates reversal workflows.
+7. **AC007 Financial Dimension Support**: Validates cost centers, departments, and branch dimensions.
+8. **AC008 Security & Audit Trail**: Verifies immutable audit metadata (`created_by`, `timestamp`, `source_doc_id`) on all journal entries.
