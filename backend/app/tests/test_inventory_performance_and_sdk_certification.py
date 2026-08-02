@@ -156,7 +156,7 @@ async def test_performance_slas(db_session):
 
 @pytest.mark.asyncio
 async def test_large_ledger_replay_performance(db_session):
-    """Certify ledger replay over 1,000 movement records completes in < 1.0 second."""
+    """Certify Deployment SLA: Ledger replay over 1,000 DB records completes in < 1.0 second."""
     _, _, tenant_ctx = await _setup_perf_tenant(db_session)
     product = await _create_product(db_session, tenant_ctx, stock=100)
 
@@ -188,13 +188,40 @@ async def test_large_ledger_replay_performance(db_session):
 
     query_facade = InventoryQueryFacade(db_session, tenant_ctx)
 
-    # Benchmark state engine calculation over 1,001 movement records
+    # Benchmark state engine calculation over 1,001 movement records (Deployment SLA: < 1000ms)
     t0 = time.perf_counter()
     state = await query_facade.get_canonical_state(product.id)
     t_replay_ms = (time.perf_counter() - t0) * 1000.0
 
     assert state["on_hand"] == 1100.0
-    assert t_replay_ms < 1000.0, f"SLA Violation: Ledger replay took {t_replay_ms:.2f}ms (SLA: <1000ms)"
+    assert t_replay_ms < 1000.0, f"Deployment SLA Violation: Ledger replay took {t_replay_ms:.2f}ms (SLA: <1000ms)"
+
+
+def test_platform_pure_calculation_sla():
+    """
+    Certify Tier-1 Platform SLA:
+    Pure in-memory calculation of 1,000 MovementBehavior evaluations
+    (excluding DB, ORM serialization, and network latency) MUST complete in < 5.0 ms.
+    """
+    from app.domain.movement_taxonomy import MovementTypeRegistry
+
+    # Build 1,000 movement objects in memory
+    raw_movements = [
+        {"movement_type": "SALE" if i % 2 == 0 else "PURCHASE", "quantity": Decimal("5")}
+        for i in range(1000)
+    ]
+
+    t0 = time.perf_counter()
+    on_hand = Decimal("1000")
+    for mv in raw_movements:
+        behavior = MovementTypeRegistry.get(mv["movement_type"])
+        qty = mv["quantity"]
+        if behavior.affects_physical_stock:
+            on_hand += qty if behavior.direction == 1 else -qty
+    t_pure_ms = (time.perf_counter() - t0) * 1000.0
+
+    assert on_hand == Decimal("1000")
+    assert t_pure_ms < 5.0, f"Platform SLA Violation: Pure calculation took {t_pure_ms:.2f}ms (Platform SLA: <5.0ms)"
 
 
 # ---------------------------------------------------------------------------
