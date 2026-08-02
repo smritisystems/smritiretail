@@ -11,98 +11,83 @@
 
 In SMRITI Retail OS, **stock outside your warehouse** (Retail Chains like Reliance/DMart/Croma, Distributors, Franchises, Institutions, Marketplaces like Amazon FC, Goods in Transit, and Production Lines) is NOT a collection of separate modules.
 
-It is a **Unified Core Platform Capability of the Inventory Kernel**, orchestrated natively by six specialized engines:
-1. **Inventory Location Engine (ILE)**: Answers *"Where is inventory?"* (Locations, Balances, Hierarchy, Capacity, Status, Bins).
-2. **Inventory Topology Engine (ITE)**: Answers *"How is the network connected?"* (Location Network Graph, Topology, Relationships, Distance, Routing).
-3. **Inventory Visibility Engine (IVE)**: Answers *"What is the current real-time state?"* (Universal single-pane-of-glass dashboards & KPIs).
-4. **Inventory Allocation Engine (IAE)**: Answers *"Where should orders be fulfilled from?"* (FEFO/FIFO, nearest location, split fulfillment).
-5. **Inventory Replenishment Engine (IRE)**: Answers *"How should stock be replenished?"* (Min/Max thresholds, Reorder Points, Suggested Transfers).
-6. **Inventory Policy Engine (IPE)**: Answers *"What movements and operations are permitted?"* (Location capabilities, cold-chain, quarantine, permitted movement types).
+It is a **Unified Core Platform Capability of the Inventory Kernel**, structured into three clean operational layers:
 
 ```text
                                INVENTORY KERNEL v1.0
+
+================================== CORE ENGINES ==================================
+  • Inventory Movement Engine                   • Inventory Location Engine (ILE)
+  • Inventory Topology Engine (ITE)             • Reservation Engine
+  • Availability Engine
+==================================================================================
                                          │
-        ┌────────────────────────────────┼────────────────────────────────┐
-        │                                │                                │
-        ▼                                ▼                                ▼
-  Stock Movement Engine          Reservation Engine              Availability Engine
-        │                                │                                │
-        ▼                                ▼                                ▼
-  ⭐ Inventory Location Engine (ILE) ⭐ Inventory Topology Engine (ITE) ⭐ Inventory Visibility Engine (IVE)
-        │                                │                                │
-        ▼                                ▼                                ▼
-  ⭐ Inventory Allocation Engine (IAE) ⭐ Inventory Replenishment (IRE) ⭐ Inventory Policy Engine (IPE)
-        │                                │                                │
-        ▼                                ▼                                ▼
-  Transfer Engine                Valuation Engine                 Replay & Audit Engine
+                                         ▼
+================================= SERVICE ENGINES ================================
+  • Inventory Visibility Engine (IVE)           • Inventory Allocation Engine (IAE)
+  • Inventory Replenishment Engine (IRE)        • Inventory Policy Engine (IPE)
+==================================================================================
+                                         │
+                                         ▼
+================================ PLATFORM SERVICES ===============================
+  • Replay Engine                               • Audit Engine
+  • Valuation Engine                            • Inventory Event Bus
+==================================================================================
 ```
 
 ---
 
-## 1. Core Entity: `InventoryLocation` & Node Hierarchy
+## 1. Master Data vs Runtime State Isolation
 
-An `InventoryLocation` represents a finite node within the hierarchical inventory network tree (`ParentLocation`, `Children`, `TreePath`, `Depth`).
+To support offline operation, high-speed caching, and clean domain boundaries, static configuration is strictly isolated from operational runtime state:
 
-> **CRITICAL SCALABILITY GUARD**: Customers (`Party`) are NOT `InventoryLocation` nodes. A consumer sale is an **Exit from the Inventory Network** (`TO_LOCATION = NULL` / `INVENTORY_EXIT`), keeping the location tree finite and high-performing.
+### Master Data (Static Configuration)
+- `InventoryLocation` (Master Node Definition)
+- `LocationRoles` (Additive Operational Roles)
+- `InventoryTerritory` (Territorial Tree Nodes)
+- `LocationCapabilities` (Operational Permissions)
+- `TopologyRelationships` (Graph Connectors)
+- `BinHierarchy` (Rack / Bin Structural Layout)
+- `InventoryPolicies` (Movement & Storage Constraints)
+
+### Runtime State (Operational Transactions)
+- `StockMovement` (Directional Movement Stream)
+- `Reservation` (ATP Stock Commitments)
+- `Allocation` (Order Fulfillment Assignments)
+- `Replenishment` (Suggested Transfer Jobs)
+- `LocationKPIs` (Real-Time Performance Metrics)
+- `InventoryEvents` (Published Domain Event Bus)
 
 ---
 
-## 2. Declarative Location Capabilities (`LocationCapability`)
+## 2. Additive Location Roles (`LocationRoles`)
 
-Operation permissions are declared via capabilities rather than hardcoded location types:
+A location has a structural `LocationType`, but maintains one or more additive `LocationRoles`:
+
+| Location Name | LocationType | Additive LocationRoles |
+|---|---|---|
+| Mumbai Central WH | `WAREHOUSE` | `[DISTRIBUTION, FULFILLMENT]` |
+| Reliance Retail DC | `RETAIL_CHAIN` | `[SALES, REPLENISHMENT]` |
+| Amazon FBA FC | `MARKETPLACE` | `[FULFILLMENT]` |
+| Service & Repair Hub | `REPAIR_CENTER` | `[SERVICE, RETURNS]` |
+| Nashik Garment Factory | `FACTORY` | `[PRODUCTION]` |
+
+---
+
+## 3. Generic Inventory Event Bus (`InventoryEventBus`)
+
+The **Inventory Event Bus** publishes generic, inventory-centric business events consumed asynchronously by external kernels (Accounting, Notifications, Analytics, AI Forecasting):
 
 ```text
-LocationCapabilities = [
-  CAN_SELL, CAN_RECEIVE, CAN_DISPATCH, CAN_MANUFACTURE, 
-  CAN_REPAIR, CAN_HOLD_CONSIGNMENT, CAN_FULFILL_MARKETPLACE, CAN_ACCEPT_RETURNS
-]
+  InventoryReceived               InventoryIssued                 InventoryTransferred
+  InventoryReserved               InventoryReleased               InventoryAdjusted
+  InventoryReturned               InventoryDamaged                InventoryExpired
+  InventoryCounted                InventoryAllocated              InventoryReplenishmentSuggested
 ```
 
 ---
 
-## 3. Enterprise Inventory Territory (`InventoryTerritory`)
-
-Locations belong to multi-tier territorial hierarchies for regional replenishment and planning:
-
-$$\text{Global} \longrightarrow \text{India} \longrightarrow \text{Western Region} \longrightarrow \text{Maharashtra} \longrightarrow \text{Mumbai} \longrightarrow \text{Reliance DC}$$
-
----
-
-## 4. Location Operational KPIs & Metrics
-
-Every location node exposes standardized operational metrics via the **Inventory Visibility Engine (IVE)**:
-
-```json
-{
-  "location_id": "loc-rel-001",
-  "location_name": "Reliance Retail DC",
-  "kpis": {
-    "current_on_hand": 6135,
-    "available_qty": 5800,
-    "reserved_qty": 335,
-    "incoming_in_transit": 200,
-    "outgoing_in_transit": 0,
-    "days_of_cover": 24.5,
-    "inventory_value_inr": 4872000.00,
-    "inventory_accuracy_pct": 99.8,
-    "last_count_date": "2026-07-28",
-    "last_sale_date": "2026-08-02",
-    "last_receipt_date": "2026-08-01"
-  }
-}
-```
-
----
-
-## 5. Event-Driven Inventory Architecture (`InventoryEventBus`)
-
-Kernel state changes publish immutable business events for external subscribers (Accounting, Notifications, Analytics):
-
-$$\text{StockReceived} \quad \vert \quad \text{StockIssued} \quad \vert \quad \text{StockReserved} \quad \vert \quad \text{StockReleased} \quad \vert \quad \text{StockAdjusted} \quad \vert \quad \text{StockTransferred}$$
-
----
-
-## 6. Renamed Financial Ownership (`InventoryOwnership`)
+## 4. Financial Ownership (`InventoryOwnership`)
 
 | InventoryOwnership | Commercial Description | Accounting & Financial Treatment |
 |---|---|---|
@@ -116,7 +101,7 @@ $$\text{StockReceived} \quad \vert \quad \text{StockIssued} \quad \vert \quad \t
 
 ---
 
-## 7. Universal Business Scenario Mapping Matrix
+## 5. Universal Business Scenario Mapping Matrix
 
 | Business Model | From Location | To Location | InventoryOwnership | Movement Flow |
 |---|---|---|---|---|
@@ -128,7 +113,7 @@ $$\text{StockReceived} \quad \vert \quad \text{StockIssued} \quad \vert \quad \t
 
 ---
 
-## 8. Ten Disconnected Subsystems Replaced by Unified Architecture
+## 6. Ten Disconnected Subsystems Replaced by Unified Architecture
 
 1. ✅ Consignment Module
 2. ✅ Marketplace Stock Module
