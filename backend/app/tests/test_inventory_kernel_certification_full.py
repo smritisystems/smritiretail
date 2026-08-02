@@ -54,6 +54,19 @@ async def _make_certified_product(db_session, tenant_ctx, stock=100):
         branch_id=tenant_ctx.branch_id,
     )
     db_session.add(p)
+    await db_session.flush()
+
+    if stock > 0:
+        cmd = InventoryCommandFacade(db_session, tenant_ctx)
+        await cmd.move_inventory(
+            transaction_id=f"tx-open-{uuid.uuid4().hex[:6]}",
+            from_location_id=None,
+            to_location_id=None,
+            items=[{"product_id": pid, "quantity": stock}],
+            movement_type="OPENING",
+        )
+        await db_session.flush()
+
     await db_session.commit()
     await db_session.refresh(p)
     return p
@@ -233,33 +246,35 @@ async def test_ik014_checkpoint_replay_gate(db_session):
     command_facade = InventoryCommandFacade(db_session, tenant_ctx)
     query_facade = InventoryQueryFacade(db_session, tenant_ctx)
 
-    entries = await command_facade.receive_purchase(
-        grn_id=f"grn-{uuid.uuid4().hex[:4]}",
-        grn_no=f"GRN-CKP-1",
+    entries = await command_facade.move_inventory(
+        transaction_id=f"tx-{uuid.uuid4().hex[:6]}",
+        from_location_id=None,
+        to_location_id="WH-CHECKPOINT-1",
         items=[{"product_id": product.id, "quantity": 50}],
-        warehouse="WH-CHECKPOINT",
+        movement_type="PURCHASE",
     )
     await db_session.commit()
 
     # Create certified checkpoint at 150 on-hand
     chk = await command_facade.create_checkpoint(
         product_id=product.id,
-        location_id="WH-CHECKPOINT",
+        location_id="WH-CHECKPOINT-1",
         certified_on_hand=Decimal("150.0000"),
         last_entry_id=entries[0].id,
     )
     await db_session.commit()
 
     # Post subsequent receipt (+30) after checkpoint
-    await command_facade.receive_purchase(
-        grn_id=f"grn-{uuid.uuid4().hex[:4]}",
-        grn_no=f"GRN-CKP-2",
+    await command_facade.move_inventory(
+        transaction_id=f"tx-{uuid.uuid4().hex[:6]}",
+        from_location_id=None,
+        to_location_id="WH-CHECKPOINT-1",
         items=[{"product_id": product.id, "quantity": 30}],
-        warehouse="WH-CHECKPOINT",
+        movement_type="PURCHASE",
     )
     await db_session.commit()
 
-    fast_bal = await query_facade.fast_replay_balance(product.id, "WH-CHECKPOINT")
+    fast_bal = await query_facade.fast_replay_balance(product.id, "WH-CHECKPOINT-1")
     assert fast_bal == 180.0 # 150 + 30 = 180
 
 
