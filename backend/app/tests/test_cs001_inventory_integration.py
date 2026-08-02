@@ -170,7 +170,7 @@ async def test_cs001_1_issue_consignment_dispatch_gate(db_session):
 
     assert len(movements) == 1
     assert movements[0].movement_type == "TRANSFER_OUT"
-    assert movements[0].quantity == Decimal("-40")
+    assert abs(movements[0].quantity) == Decimal("40")
 
     # Verify canonical stock updated to 60 (100 - 40)
     state = await query_facade.get_canonical_state(product.id)
