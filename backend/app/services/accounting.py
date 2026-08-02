@@ -165,6 +165,45 @@ class AccountingService:
         mode = getattr(settings, "ACCOUNTING_MODE", "DISABLED").upper()
         if mode == "DISABLED":
             logger.info("[Financial Event Bus] Accounting DISABLED. Bypassing GL posting for %s:%s", voucher.ref_document_type, voucher.ref_document_no)
+            if self.db:
+                v_id = f"JV-DORMANT-{uuid.uuid4().hex[:8]}"
+                v_no = f"JV-DORMANT-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+                model = JournalVoucherModel(
+                    id=v_id,
+                    uuid=str(uuid.uuid4()),
+                    tenant_id=self.tenant_ctx.tenant_id if self.tenant_ctx else "default",
+                    company_id=self.tenant_ctx.company_id if self.tenant_ctx else "comp-default",
+                    branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else "br-default",
+                    voucher_no=v_no,
+                    ref_document_type=voucher.ref_document_type,
+                    ref_document_id=voucher.ref_document_id,
+                    ref_document_no=voucher.ref_document_no,
+                    total_debit=voucher.total_debit,
+                    total_credit=voucher.total_credit,
+                    narration=voucher.narration,
+                    status="DORMANT",
+                )
+                self.db.add(model)
+                for entry in voucher.entries:
+                    line_id = f"JVE-{uuid.uuid4().hex[:10]}"
+                    line = JournalLedgerEntryModel(
+                        id=line_id,
+                        uuid=str(uuid.uuid4()),
+                        tenant_id=self.tenant_ctx.tenant_id if self.tenant_ctx else "default",
+                        company_id=self.tenant_ctx.company_id if self.tenant_ctx else "comp-default",
+                        branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else "br-default",
+                        voucher_id=v_id,
+                        account_code=entry.account_code,
+                        account_name=entry.account_name,
+                        debit=entry.debit,
+                        credit=entry.credit,
+                        narration=entry.narration or voucher.narration,
+                        cost_center=entry.cost_center,
+                        project=entry.project,
+                    )
+                    self.db.add(line)
+                await self.db.commit()
+                return v_id
             return f"JV-DORMANT-{uuid.uuid4().hex[:8]}"
 
         if not voucher.is_balanced:

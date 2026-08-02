@@ -50,6 +50,21 @@ class SalesInvoice(RowSecuredMixin, BaseEntity):
     items    = relationship("SalesInvoiceItem", back_populates="invoice", cascade="all, delete-orphan", lazy="selectin")
     payments = relationship("SalesPayment", back_populates="invoice", cascade="all, delete-orphan", lazy="selectin")
 
+    @property
+    def date(self):
+        if isinstance(self.invoice_date, datetime):
+            return self.invoice_date.date()
+        return self.invoice_date
+
+    @date.setter
+    def date(self, value):
+        if value is None:
+            self.invoice_date = None
+        elif isinstance(value, datetime):
+            self.invoice_date = value
+        else:
+            self.invoice_date = datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc)
+
 
 class SalesInvoiceItem(Base):
     """

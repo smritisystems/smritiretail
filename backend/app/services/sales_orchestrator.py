@@ -181,12 +181,8 @@ class SalesBusinessOrchestrator:
         if not customer_name:
             raise HTTPException(status_code=400, detail="Customer name is required")
 
-        stmt = CustomerRepository(self.db, self.tenant_ctx).get_base_query().filter(
-            Customer.name == customer_name,
-            Customer.is_deleted == False,
-        )
-        result = await self.db.execute(stmt)
-        customer = result.scalars().first()
+        customer_repo = CustomerRepository(self.db, self.tenant_ctx)
+        customer = await customer_repo.get_by_name(customer_name)
         if customer:
             return customer.id
 
@@ -354,25 +350,17 @@ class SalesBusinessOrchestrator:
             db_payments.append(db_pmt)
             payment_modes.add(p_in.payment_mode)
 
-        if not db_payments:
-            pay_id = f"PMT-{uuid.uuid4().hex[:8].upper()}"
-            payment_no = f"PAY-{uuid.uuid4().hex[:8].upper()}"
-            fallback_mode = getattr(invoice_in, 'payment_mode', None) or "CASH"
-            db_pmt = SalesPayment(
-                id=pay_id,
-                payment_no=payment_no,
-                invoice_id=invoice_id,
-                customer_id=invoice_in.customer_id,
-                payment_mode=fallback_mode,
-                amount=calculated_grand_total,
-                tenant_id=self.tenant_ctx.tenant_id,
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id
-            )
-            db_payments.append(db_pmt)
-            cached_payment_mode = fallback_mode
-        else:
+        cached_payment_mode = None
+        if db_payments:
             cached_payment_mode = "MIXED" if len(payment_modes) > 1 else list(payment_modes)[0]
+
+        total_payment_amount = sum((p.amount for p in db_payments), Decimal("0.00")).quantize(Decimal("0.01"))
+        balance_due = max(calculated_grand_total - total_payment_amount, Decimal("0.00")).quantize(Decimal("0.01"))
+        paid_amount = min(total_payment_amount, calculated_grand_total).quantize(Decimal("0.01"))
+        if invoice_in.status and str(invoice_in.status).lower() in {"paid", "partial", "unpaid", "draft"}:
+            invoice_status = invoice_in.status
+        else:
+            invoice_status = "Paid" if balance_due == Decimal("0.00") else ("Partial" if total_payment_amount > Decimal("0.00") else "Unpaid")
 
         db_invoice = SalesInvoice(
             id=invoice_id,
@@ -386,13 +374,19 @@ class SalesBusinessOrchestrator:
             igst_amount=calculated_igst_total,
             discount_amount=Decimal("0.00"),
             grand_total=calculated_grand_total,
-            paid_amount=Decimal("0.00"),
-            balance_due=calculated_grand_total,
-            status=invoice_in.status,
+            paid_amount=paid_amount,
+            balance_due=balance_due,
+            status=invoice_status,
             items=invoice_items,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id
         )
+
+        customer = await self.db.get(Customer, invoice_in.customer_id)
+        if customer:
+            current_outstanding = Decimal(str(customer.outstanding or "0.00"))
+            customer.outstanding = (current_outstanding + balance_due).quantize(Decimal("0.01"))
+            self.db.add(customer)
 
         self.db.add(db_invoice)
         for pmt in db_payments:
@@ -728,7 +722,12 @@ class SalesBusinessOrchestrator:
         if not quotation.items:
             raise HTTPException(status_code=400, detail="Quotation has no line items to convert.")
 
-        return await self.create_order_from_quotation(quotation)
+        order = await self.create_order_from_quotation(quotation)
+        quotation.status = "Converted"
+        quotation.modified_at = datetime.now(timezone.utc)
+        self.db.add(quotation)
+        await self.db.commit()
+        return order
 
     async def convert_quotation_to_invoice(self, quotation_id: str) -> SalesInvoice:
         quotation = await SalesQuotationRepository(self.db, self.tenant_ctx).get_with_items(quotation_id)
@@ -748,7 +747,7 @@ class SalesBusinessOrchestrator:
 
     async def create_invoice_from_quotation(self, quotation: SalesQuotation) -> SalesInvoice:
         invoice_id = f"inv-{quotation.id}"
-        invoice_no = f"INV-{invoice_id[:8].upper()}"
+        invoice_no = f"INV-{uuid.uuid4().hex[:8].upper()}"
         customer_id = await self.resolve_or_create_customer_id(quotation.customer_name)
 
         subtotal = Decimal("0.00")
@@ -762,9 +761,11 @@ class SalesBusinessOrchestrator:
         for item in quotation.items:
             line_subtotal = (item.price * item.quantity).quantize(Decimal("0.01"))
             subtotal += line_subtotal
-            tax_rate = item.gst_rate or Decimal("0.00")
+            tax_rate = item.gst_rate if item.gst_rate is not None else Decimal("0.00")
             line_tax = (line_subtotal * tax_rate / Decimal("100.00")).quantize(Decimal("0.01"))
-            if quotation.status == "Draft":
+            # Preserve GST/tax values supplied on the quotation. Only resolve
+            # effective GST when the quotation line does not provide a gst_rate.
+            if item.gst_rate is None:
                 resolved = await self.resolve_gst(item.product_id, item.gst_rate)
                 tax_rate = resolved["gst_rate"]
                 line_tax = (line_subtotal * tax_rate / Decimal("100.00")).quantize(Decimal("0.01"))
@@ -801,12 +802,23 @@ class SalesBusinessOrchestrator:
                 branch_id=self.tenant_ctx.branch_id,
             ))
 
-        if grand_total == Decimal("0.00"):
-            grand_total = (subtotal + tax_total).quantize(Decimal("0.01"))
+        # If the quotation explicitly set a grand_total that doesn't match
+        # the computed subtotal+tax_total, prefer the quotation's grand_total
+        # and derive tax_total from it. This preserves user-edited totals
+        # on quotations during conversion.
+        computed_total = (subtotal + tax_total).quantize(Decimal("0.01"))
+        if quotation.grand_total is not None and quotation.grand_total != computed_total:
+            grand_total = quotation.grand_total
+            tax_total = (grand_total - subtotal).quantize(Decimal("0.01"))
+            if tax_total < Decimal("0.00"):
+                tax_total = Decimal("0.00")
+            cgst_total = (tax_total / Decimal("2")).quantize(Decimal("0.01"))
+            sgst_total = (tax_total - cgst_total).quantize(Decimal("0.01"))
+        elif grand_total == Decimal("0.00"):
+            grand_total = computed_total
 
         invoice = SalesInvoice(
             id=invoice_id,
-            uuid="",
             invoice_no=invoice_no,
             invoice_date=quotation.date,
             customer_id=customer_id,
@@ -823,11 +835,14 @@ class SalesBusinessOrchestrator:
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
         )
+        self.db.add(invoice)
+        await self.db.flush()
+        await self.db.refresh(invoice)
         return invoice
 
     async def create_order_from_quotation(self, quotation: SalesQuotation) -> SalesOrder:
         order_id = f"so-{quotation.id}"
-        order_no = f"ORD-{order_id[:8].upper()}"
+        order_no = f"ORD-{uuid.uuid4().hex[:8].upper()}"
         subtotal = Decimal("0.00")
         tax_total = Decimal("0.00")
         grand_total = quotation.grand_total or Decimal("0.00")
@@ -878,4 +893,6 @@ class SalesBusinessOrchestrator:
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
         )
+        self.db.add(order)
+        await self.db.flush()
         return order

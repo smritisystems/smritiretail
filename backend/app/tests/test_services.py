@@ -15,8 +15,13 @@ import uuid
 from decimal import Decimal
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
+from app.core.config import settings
+from app.models.accounting import JournalVoucherModel
 from app.models.crm import Customer
 from app.models.inventory import Product
+from app.services.accounting import Accounts
 from app.models.tenant import Company, Branch
 from app.schemas.crm import CustomerCreate, CustomerGroupCreate
 from app.schemas.inventory import ProductCreate
@@ -268,6 +273,337 @@ async def test_sales_invoice_payment_number_is_generated(db_session):
     assert invoice.payments
     assert invoice.payments[0].payment_no
     assert invoice.payments[0].payment_no.startswith("PAY-")
+
+
+async def test_sales_invoice_updates_customer_outstanding_and_reverses_on_cancel(db_session):
+    suffix = uuid.uuid4().hex[:8]
+    company = Company(id=f"comp-out-{suffix}", name="AR Company", is_active=True)
+    branch = Branch(id=f"br-out-{suffix}", company_id=company.id, name="AR Branch", code=f"BR-{suffix}", is_active=True)
+    db_session.add_all([company, branch])
+    await db_session.commit()
+
+    tenant_ctx = TenantContext(company_id=company.id, branch_id=branch.id)
+    crm_serv = CrmService(db_session, tenant_ctx)
+    inv_serv = InventoryService(db_session, tenant_ctx)
+    sales_serv = SalesService(db_session, tenant_ctx)
+
+    await crm_serv.create_customer_group(
+        CustomerGroupCreate(
+            id=f"cg-out-{suffix}",
+            name=f"AR Group {suffix}",
+            credit_limit=Decimal("1000.00"),
+            auto_block_sales=True,
+        )
+    )
+    customer = await crm_serv.create_customer(
+        CustomerCreate(
+            id=f"cust-out-{suffix}",
+            customer_group_id=f"cg-out-{suffix}",
+            name="Outstanding Customer",
+            outstanding=Decimal("0.00"),
+        )
+    )
+    await inv_serv.create_product(
+        ProductCreate(
+            id=f"prod-out-{suffix}",
+            code=f"ARCODE{suffix}",
+            name="AR Product",
+            price=Decimal("100.00"),
+            category="General",
+            barcode=f"ARBAR{suffix}",
+            stock=10,
+        )
+    )
+
+    invoice_in = SalesInvoiceCreate(
+        id=f"inv-out-{suffix}",
+        invoice_no=f"INV-OUT-{suffix}",
+        customer_id=customer.id,
+        items=[
+            SalesInvoiceItemCreate(
+                product_id=f"prod-out-{suffix}",
+                code=f"ARCODE{suffix}",
+                name="AR Product",
+                quantity=Decimal("2.00"),
+                price=Decimal("100.00"),
+                gst_rate=Decimal("18.00"),
+                total_amount=Decimal("236.00"),
+            )
+        ],
+    )
+
+    invoice = await sales_serv.create_sales_invoice(invoice_in)
+    customer_after_create = await db_session.get(Customer, customer.id)
+    assert Decimal(str(customer_after_create.outstanding)) == Decimal("236.00")
+    assert invoice.balance_due == Decimal("236.00")
+
+    await sales_serv.cancel_sales_invoice(invoice.id)
+    customer_after_cancel = await db_session.get(Customer, customer.id)
+    assert Decimal(str(customer_after_cancel.outstanding)) == Decimal("0.00")
+
+    vouchers = (await db_session.execute(
+        __import__('sqlalchemy').select(JournalVoucherModel)
+        .where(JournalVoucherModel.ref_document_no == invoice.invoice_no)
+    )).scalars().all()
+    assert any(v.status == "REVERSED" for v in vouchers)
+
+
+async def test_sales_invoice_journal_is_balanced_on_create(db_session):
+    suffix = uuid.uuid4().hex[:8]
+    company = Company(id=f"comp-jvbal-{suffix}", name="Journal Company", is_active=True)
+    branch = Branch(id=f"br-jvbal-{suffix}", company_id=company.id, name="Journal Branch", code=f"BR-{suffix}", is_active=True)
+    db_session.add_all([company, branch])
+    await db_session.commit()
+
+    tenant_ctx = TenantContext(company_id=company.id, branch_id=branch.id)
+    crm_serv = CrmService(db_session, tenant_ctx)
+    inv_serv = InventoryService(db_session, tenant_ctx)
+    sales_serv = SalesService(db_session, tenant_ctx)
+
+    await crm_serv.create_customer_group(
+        CustomerGroupCreate(
+            id=f"cg-jvbal-{suffix}",
+            name=f"Journal Group {suffix}",
+            credit_limit=Decimal("1000.00"),
+            auto_block_sales=True,
+        )
+    )
+    await crm_serv.create_customer(
+        CustomerCreate(
+            id=f"cust-jvbal-{suffix}",
+            customer_group_id=f"cg-jvbal-{suffix}",
+            name="Balanced Customer",
+            outstanding=Decimal("0.00"),
+        )
+    )
+    await inv_serv.create_product(
+        ProductCreate(
+            id=f"prod-jvbal-{suffix}",
+            code=f"JVBL{suffix}",
+            name="Balanced Product",
+            price=Decimal("100.00"),
+            category="General",
+            barcode=f"JVBAR{suffix}",
+            stock=10,
+        )
+    )
+
+    invoice_in = SalesInvoiceCreate(
+        id=f"inv-jvbal-{suffix}",
+        invoice_no=f"INV-JVBAL-{suffix}",
+        customer_id=f"cust-jvbal-{suffix}",
+        items=[
+            SalesInvoiceItemCreate(
+                product_id=f"prod-jvbal-{suffix}",
+                code=f"JVBL{suffix}",
+                name="Balanced Product",
+                quantity=Decimal("2.00"),
+                price=Decimal("100.00"),
+                gst_rate=Decimal("18.00"),
+                total_amount=Decimal("236.00"),
+            )
+        ],
+    )
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr("app.core.config.settings.ACCOUNTING_MODE", "DISABLED")
+        invoice = await sales_serv.create_sales_invoice(invoice_in)
+
+    result = await db_session.execute(
+        select(JournalVoucherModel)
+        .options(selectinload(JournalVoucherModel.entries))
+        .where(JournalVoucherModel.ref_document_no == invoice.invoice_no)
+    )
+    vouchers = result.scalars().all()
+    assert len(vouchers) == 1
+
+    voucher = vouchers[0]
+    assert voucher.status == "DORMANT"
+    assert voucher.total_debit == voucher.total_credit
+    assert voucher.total_debit == Decimal("236.00")
+
+    entries = {entry.account_code: entry for entry in voucher.entries}
+    assert entries[Accounts.ACCOUNTS_RECEIVABLE].debit == Decimal("236.00")
+    assert entries[Accounts.ACCOUNTS_RECEIVABLE].credit == Decimal("0.00")
+    assert entries[Accounts.SALES_REVENUE].credit == Decimal("200.00")
+    assert entries[Accounts.GST_OUTPUT_CGST].credit == Decimal("18.00")
+    assert entries[Accounts.GST_OUTPUT_SGST].credit == Decimal("18.00")
+
+
+async def test_sales_invoice_reversal_journal_is_balanced_on_cancel(db_session):
+    suffix = uuid.uuid4().hex[:8]
+    company = Company(id=f"comp-rev-{suffix}", name="Reversal Company", is_active=True)
+    branch = Branch(id=f"br-rev-{suffix}", company_id=company.id, name="Reversal Branch", code=f"BR-{suffix}", is_active=True)
+    db_session.add_all([company, branch])
+    await db_session.commit()
+
+    tenant_ctx = TenantContext(company_id=company.id, branch_id=branch.id)
+    crm_serv = CrmService(db_session, tenant_ctx)
+    inv_serv = InventoryService(db_session, tenant_ctx)
+    sales_serv = SalesService(db_session, tenant_ctx)
+
+    await crm_serv.create_customer_group(
+        CustomerGroupCreate(
+            id=f"cg-rev-{suffix}",
+            name=f"Reversal Group {suffix}",
+            credit_limit=Decimal("1000.00"),
+            auto_block_sales=True,
+        )
+    )
+    customer = await crm_serv.create_customer(
+        CustomerCreate(
+            id=f"cust-rev-{suffix}",
+            customer_group_id=f"cg-rev-{suffix}",
+            name="Reversal Customer",
+            outstanding=Decimal("0.00"),
+        )
+    )
+    await inv_serv.create_product(
+        ProductCreate(
+            id=f"prod-rev-{suffix}",
+            code=f"REV{suffix}",
+            name="Reversal Product",
+            price=Decimal("100.00"),
+            category="General",
+            barcode=f"REVBAR{suffix}",
+            stock=10,
+        )
+    )
+
+    invoice_in = SalesInvoiceCreate(
+        id=f"inv-rev-{suffix}",
+        invoice_no=f"INV-REV-{suffix}",
+        customer_id=customer.id,
+        items=[
+            SalesInvoiceItemCreate(
+                product_id=f"prod-rev-{suffix}",
+                code=f"REV{suffix}",
+                name="Reversal Product",
+                quantity=Decimal("2.00"),
+                price=Decimal("100.00"),
+                gst_rate=Decimal("18.00"),
+                total_amount=Decimal("236.00"),
+            )
+        ],
+    )
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr("app.core.config.settings.ACCOUNTING_MODE", "DISABLED")
+        invoice = await sales_serv.create_sales_invoice(invoice_in)
+        await sales_serv.cancel_sales_invoice(invoice.id)
+
+    result = await db_session.execute(
+        select(JournalVoucherModel)
+        .options(selectinload(JournalVoucherModel.entries))
+        .where(JournalVoucherModel.ref_document_no == invoice.invoice_no)
+    )
+    vouchers = result.scalars().all()
+    assert len(vouchers) == 2
+
+    original = next(v for v in vouchers if v.status == "DORMANT")
+    reversal = next(v for v in vouchers if v.status == "REVERSED")
+
+    assert original.total_debit == original.total_credit
+    assert reversal.total_debit == reversal.total_credit
+    assert reversal.ref_document_id == invoice.id
+    assert reversal.ref_document_no == invoice.invoice_no
+    assert "Reversal of invoice" in reversal.narration
+
+    reversal_entries = {entry.account_code: entry for entry in reversal.entries}
+    assert reversal_entries[Accounts.ACCOUNTS_RECEIVABLE].credit == Decimal("236.00")
+    assert reversal_entries[Accounts.SALES_REVENUE].debit == Decimal("200.00")
+    assert reversal_entries[Accounts.GST_OUTPUT_CGST].debit == Decimal("18.00")
+    assert reversal_entries[Accounts.GST_OUTPUT_SGST].debit == Decimal("18.00")
+
+
+async def test_sales_invoice_journal_is_balanced_with_partial_payment(db_session):
+    suffix = uuid.uuid4().hex[:8]
+    company = Company(id=f"comp-partial-{suffix}", name="Partial Company", is_active=True)
+    branch = Branch(id=f"br-partial-{suffix}", company_id=company.id, name="Partial Branch", code=f"BR-{suffix}", is_active=True)
+    db_session.add_all([company, branch])
+    await db_session.commit()
+
+    tenant_ctx = TenantContext(company_id=company.id, branch_id=branch.id)
+    crm_serv = CrmService(db_session, tenant_ctx)
+    inv_serv = InventoryService(db_session, tenant_ctx)
+    sales_serv = SalesService(db_session, tenant_ctx)
+
+    await crm_serv.create_customer_group(
+        CustomerGroupCreate(
+            id=f"cg-partial-{suffix}",
+            name=f"Partial Group {suffix}",
+            credit_limit=Decimal("1000.00"),
+            auto_block_sales=True,
+        )
+    )
+    await crm_serv.create_customer(
+        CustomerCreate(
+            id=f"cust-partial-{suffix}",
+            customer_group_id=f"cg-partial-{suffix}",
+            name="Partial Customer",
+            outstanding=Decimal("0.00"),
+        )
+    )
+    await inv_serv.create_product(
+        ProductCreate(
+            id=f"prod-partial-{suffix}",
+            code=f"PART{suffix}",
+            name="Partial Product",
+            price=Decimal("100.00"),
+            category="General",
+            barcode=f"PARTBAR{suffix}",
+            stock=10,
+        )
+    )
+
+    invoice_in = SalesInvoiceCreate(
+        id=f"inv-partial-{suffix}",
+        invoice_no=f"INV-PARTIAL-{suffix}",
+        customer_id=f"cust-partial-{suffix}",
+        items=[
+            SalesInvoiceItemCreate(
+                product_id=f"prod-partial-{suffix}",
+                code=f"PART{suffix}",
+                name="Partial Product",
+                quantity=Decimal("2.00"),
+                price=Decimal("100.00"),
+                gst_rate=Decimal("18.00"),
+                total_amount=Decimal("236.00"),
+            )
+        ],
+        payments=[
+            SalesInvoicePaymentCreate(
+                payment_mode="CASH",
+                amount=Decimal("100.00"),
+                transaction_no=f"TX-{suffix}",
+            )
+        ],
+    )
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr("app.core.config.settings.ACCOUNTING_MODE", "DISABLED")
+        invoice = await sales_serv.create_sales_invoice(invoice_in)
+
+    assert invoice.balance_due == Decimal("136.00")
+    assert invoice.paid_amount == Decimal("100.00")
+
+    result = await db_session.execute(
+        select(JournalVoucherModel)
+        .options(selectinload(JournalVoucherModel.entries))
+        .where(JournalVoucherModel.ref_document_no == invoice.invoice_no)
+    )
+    vouchers = result.scalars().all()
+    assert len(vouchers) == 1
+
+    voucher = vouchers[0]
+    assert voucher.total_debit == voucher.total_credit
+    assert voucher.total_debit == Decimal("236.00")
+
+    entries = {entry.account_code: entry for entry in voucher.entries}
+    assert entries[Accounts.ACCOUNTS_RECEIVABLE].debit == Decimal("236.00")
+    assert entries[Accounts.SALES_REVENUE].credit == Decimal("200.00")
+    assert entries[Accounts.GST_OUTPUT_CGST].credit == Decimal("18.00")
+    assert entries[Accounts.GST_OUTPUT_SGST].credit == Decimal("18.00")
 
 
 async def test_sales_invoice_posts_accounting_journal_in_advanced_mode(db_session, monkeypatch):

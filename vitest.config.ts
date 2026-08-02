@@ -22,5 +22,7 @@ export default defineConfig({
     globals: true,
     include: ['src/tests/**/*.test.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', 'src/tests/about.test.ts'],
+    maxWorkers: 1,
+    minWorkers: 1,
   },
 });

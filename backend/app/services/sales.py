@@ -45,6 +45,8 @@ from ..api.deps import TenantContext
 from app.modules.sales.quotation.application import QuotationApplicationService
 # ADR-007: Domain Event Bus
 from app.services.event_bus import event_bus, Events
+from app.services.accounting import AccountingService, Accounts, JournalEntry, JournalVoucher
+from app.models.accounting import JournalVoucherModel
 
 
 def _uid() -> str:
@@ -287,6 +289,46 @@ class SalesService:
         invoice = res.scalars().first()
         if not invoice:
             raise HTTPException(status_code=404, detail="Sales invoice not found")
+
+        customer = await self.db.get(Customer, invoice.customer_id) if invoice.customer_id else None
+        if customer and invoice.balance_due > 0:
+            current_outstanding = Decimal(str(getattr(customer, "outstanding", 0) or "0.00"))
+            customer.outstanding = max(Decimal("0.00"), current_outstanding - Decimal(str(invoice.balance_due))).quantize(Decimal("0.01"))
+            self.db.add(customer)
+
+        reversal_amount = Decimal(str(invoice.grand_total or "0.00")).quantize(Decimal("0.01"))
+        reversal_subtotal = Decimal(str(invoice.subtotal or "0.00")).quantize(Decimal("0.01"))
+        reversal_cgst = Decimal(str(invoice.cgst_amount or "0.00")).quantize(Decimal("0.01"))
+        reversal_sgst = Decimal(str(invoice.sgst_amount or "0.00")).quantize(Decimal("0.01"))
+        reversal_igst = Decimal(str(invoice.igst_amount or "0.00")).quantize(Decimal("0.01"))
+
+        accounting_service = AccountingService(self.db, self.tenant_ctx)
+        reversal_voucher = JournalVoucher(
+            ref_document_type="SalesInvoice",
+            ref_document_id=invoice.id,
+            ref_document_no=invoice.invoice_no,
+            narration=f"Reversal of sales invoice {invoice.invoice_no}",
+            voucher_date=datetime.now(timezone.utc).isoformat(),
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+            entries=[
+                JournalEntry(account_code=Accounts.ACCOUNTS_RECEIVABLE, account_name="Accounts Receivable", debit=Decimal("0.00"), credit=reversal_amount, narration=f"Reverse receivable for cancelled invoice {invoice.invoice_no}"),
+                JournalEntry(account_code=Accounts.SALES_REVENUE, account_name="Sales Revenue", debit=reversal_subtotal, credit=Decimal("0.00"), narration=f"Reverse sales revenue for cancelled invoice {invoice.invoice_no}"),
+                JournalEntry(account_code=Accounts.GST_OUTPUT_CGST, account_name="CGST Payable", debit=reversal_cgst, credit=Decimal("0.00"), narration=f"Reverse CGST for cancelled invoice {invoice.invoice_no}"),
+                JournalEntry(account_code=Accounts.GST_OUTPUT_SGST, account_name="SGST Payable", debit=reversal_sgst, credit=Decimal("0.00"), narration=f"Reverse SGST for cancelled invoice {invoice.invoice_no}"),
+                JournalEntry(account_code=Accounts.GST_OUTPUT_IGST, account_name="IGST Payable", debit=reversal_igst, credit=Decimal("0.00"), narration=f"Reverse IGST for cancelled invoice {invoice.invoice_no}"),
+            ],
+        )
+        try:
+            reversal_voucher_id = await accounting_service.post_journal(reversal_voucher)
+            reversal_model = await self.db.get(JournalVoucherModel, reversal_voucher_id)
+            if reversal_model:
+                reversal_model.status = "REVERSED"
+                reversal_model.narration = f"Reversal of invoice {invoice.invoice_no}"
+                self.db.add(reversal_model)
+        except Exception as exc:
+            import logging
+            logging.getLogger("smriti.sales").warning("[CANCEL_VOUCHER] Failed to reverse journal for invoice %s: %s", invoice.invoice_no, exc)
 
         invoice.status      = "Cancelled"
         invoice.is_deleted  = True

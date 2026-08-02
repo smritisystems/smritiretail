@@ -37,11 +37,14 @@ class BaseRepository(Generic[ModelType]):
                 stmt = stmt.filter(self.model.branch_id == self.tenant_ctx.branch_id)
         return stmt
 
-    async def get(self, id: str) -> ModelType | None:
-        stmt = select(self.model).filter(self.model.id == id)
+    def get_base_query(self):
+        stmt = select(self.model)
         if hasattr(self.model, "is_deleted"):
             stmt = stmt.filter(self.model.is_deleted == False)
-        stmt = self._apply_tenant_filter(stmt)
+        return self._apply_tenant_filter(stmt)
+
+    async def get(self, id: str) -> ModelType | None:
+        stmt = self.get_base_query().filter(self.model.id == id)
         result = await self.db.execute(stmt)
         return result.scalars().first()
 

@@ -17,7 +17,7 @@ Classification: Internal
 from typing import List, Optional
 from datetime import datetime, date as datetime_date
 from decimal import Decimal
-from pydantic import BaseModel, ConfigDict, Field, AliasChoices
+from pydantic import BaseModel, ConfigDict, Field, AliasChoices, field_validator
 
 # ─────────────────────────── Sales Invoice ───────────────────────────
 
@@ -67,6 +67,13 @@ class SalesInvoiceBase(BaseModel):
     sales_person_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("sales_person_id", "salesPersonId"))
 
     tax_total: Decimal = Decimal("0.00")
+
+    @field_validator("date", mode="before")
+    @classmethod
+    def normalize_date(cls, value):
+        if isinstance(value, datetime):
+            return value.date()
+        return value
     grand_total: Decimal = Decimal("0.00")
     is_interstate: bool = Field(False, validation_alias=AliasChoices("is_interstate", "isInterstate"))
     eway_bill_no: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("eway_bill_no", "eWayBillNo"))
