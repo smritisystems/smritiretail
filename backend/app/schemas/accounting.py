@@ -223,18 +223,40 @@ class TdsEntryResponse(TdsEntryCreate):
 # Ageing Report Schemas
 # ---------------------------------------------------------------------------
 
-class AgeingBucketItem(BaseModel):
-    party_id: str
-    party_name: str
-    current: Decimal = Decimal("0.00")         # 0-30 days
-    days_31_60: Decimal = Decimal("0.00")       # 31-60 days
-    days_61_90: Decimal = Decimal("0.00")       # 61-90 days
-    over_90_days: Decimal = Decimal("0.00")     # >90 days
-    total_outstanding: Decimal = Decimal("0.00")
+class AgingInvoiceItem(BaseModel):
+    invoice_id: str
+    invoice_no: str
+    customer_id: str
+    customer_name: str
+    invoice_date: str
+    due_date: Optional[str] = None
+    outstanding: Decimal
+    age_days: int
+    aging_bucket: str
+    status: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ARAgeingBucketTotals(BaseModel):
+    current: Decimal = Decimal("0.00")
+    days_1_30: Decimal = Decimal("0.00")
+    days_31_60: Decimal = Decimal("0.00")
+    days_61_90: Decimal = Decimal("0.00")
+    over_90_days: Decimal = Decimal("0.00")
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AgeingReportResponse(BaseModel):
     report_type: str                            # AP_AGEING or AR_AGEING
     as_of_date: str
     total_outstanding: Decimal
-    items: List[AgeingBucketItem]
+    total_invoices: int
+    bucket_totals: ARAgeingBucketTotals
+    items: List[AgingInvoiceItem]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+ARAgeingReportResponse = AgeingReportResponse

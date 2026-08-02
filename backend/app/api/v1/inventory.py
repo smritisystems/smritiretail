@@ -31,6 +31,7 @@ from ...schemas.inventory import (
     StockMovementResponse,
 )
 from ...services.inventory import InventoryService
+from ...services.inventory_trace import InventoryTraceService
 from ...services.spif import SpifService
 
 router = APIRouter()

@@ -24,7 +24,7 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import TenantContext
-from app.models.sales import SalesOrder, SalesOrderItem, SalesInvoice, SalesInvoiceItem, SalesPayment
+from app.models.sales import SalesOrder, SalesOrderItem, SalesInvoice, SalesInvoiceItem, SalesPayment, CreditNote
 from app.models.crm import Customer
 from app.models.inventory import Product
 # ADR-007: Domain Event Bus — SaleCompleted + InvoiceCancelled publishers
@@ -269,21 +269,98 @@ class SalesInvoicingEngine:
 
         inv_stmt = select(SalesInvoice).where(
             SalesInvoice.customer_id == customer_id,
-            SalesInvoice.is_deleted == False
+            SalesInvoice.is_deleted == False,
+            SalesInvoice.company_id == self.tenant.company_id,
         )
+        if self.tenant.branch_id:
+            inv_stmt = inv_stmt.where(SalesInvoice.branch_id == self.tenant.branch_id)
         invoices = (await self.db.execute(inv_stmt)).scalars().all()
 
+        payment_stmt = select(SalesPayment).where(
+            SalesPayment.customer_id == customer_id,
+            SalesPayment.is_deleted == False,
+            SalesPayment.company_id == self.tenant.company_id,
+        )
+        if self.tenant.branch_id:
+            payment_stmt = payment_stmt.where(SalesPayment.branch_id == self.tenant.branch_id)
+        payments = (await self.db.execute(payment_stmt)).scalars().all()
+
+        credit_note_stmt = select(CreditNote).where(
+            CreditNote.customer_id == customer_id,
+            CreditNote.is_deleted == False,
+            CreditNote.company_id == self.tenant.company_id,
+        )
+        if self.tenant.branch_id:
+            credit_note_stmt = credit_note_stmt.where(CreditNote.branch_id == self.tenant.branch_id)
+        credit_notes = (await self.db.execute(credit_note_stmt)).scalars().all()
+
         total_billed = sum(Decimal(str(i.grand_total)) for i in invoices)
-        total_paid = sum(Decimal(str(i.paid_amount)) for i in invoices)
+        total_paid = sum(Decimal(str(p.amount)) for p in payments)
         total_due = sum(Decimal(str(i.balance_due)) for i in invoices)
+        total_credit_notes = sum(Decimal(str(c.grand_total)) for c in credit_notes)
+
+        ledger_events = []
+        for invoice in invoices:
+            ledger_events.append(
+                {
+                    "date": invoice.invoice_date,
+                    "document_type": "Invoice",
+                    "document_no": invoice.invoice_no,
+                    "debit": Decimal(str(invoice.grand_total)),
+                    "credit": Decimal("0.00"),
+                    "reference": invoice.invoice_no,
+                }
+            )
+        for payment in payments:
+            ledger_events.append(
+                {
+                    "date": payment.payment_date,
+                    "document_type": "Payment",
+                    "document_no": payment.payment_no,
+                    "debit": Decimal("0.00"),
+                    "credit": Decimal(str(payment.amount)),
+                    "reference": payment.reference_no or payment.payment_no,
+                }
+            )
+        for credit_note in credit_notes:
+            ledger_events.append(
+                {
+                    "date": credit_note.issue_date,
+                    "document_type": "Credit Note",
+                    "document_no": credit_note.credit_note_no,
+                    "debit": Decimal("0.00"),
+                    "credit": Decimal(str(credit_note.grand_total)),
+                    "reference": credit_note.invoice_id,
+                }
+            )
+
+        ledger_events.sort(key=lambda x: x["date"] or datetime.now(timezone.utc))
+        running_balance = Decimal("0.00")
+        ledger = []
+        for event in ledger_events:
+            running_balance += event["debit"] - event["credit"]
+            ledger.append(
+                {
+                    "date": event["date"],
+                    "document_type": event["document_type"],
+                    "document_no": event["document_no"],
+                    "debit": event["debit"],
+                    "credit": event["credit"],
+                    "running_balance": running_balance,
+                    "reference": event["reference"],
+                }
+            )
 
         return {
             "customer_id": customer.id,
             "customer_name": customer.name,
             "customer_code": customer.code,
+            "opening_balance": Decimal("0.00"),
             "total_invoices": len(invoices),
-            "total_billed": float(total_billed),
-            "total_paid": float(total_paid),
-            "total_due": float(total_due),
-            "current_outstanding": float(getattr(customer, "outstanding", 0) or 0)
+            "total_billed": total_billed,
+            "total_paid": total_paid,
+            "total_due": total_due,
+            "total_credit_notes": total_credit_notes,
+            "current_outstanding": Decimal(str(getattr(customer, "outstanding", "0.00") or "0.00")),
+            "ledger": ledger,
         }

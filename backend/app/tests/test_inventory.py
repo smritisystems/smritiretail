@@ -14,6 +14,7 @@ Classification: Internal
 
 import uuid
 import pytest
+from decimal import Decimal
 from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
 
@@ -21,10 +22,11 @@ from app.api.deps import TenantContext, get_db, get_tenant_context
 from app.core.security import create_access_token, hash_password
 from app.main import app
 from app.models.auth import User, UserRole
-from app.models.inventory import Product
+from app.models.inventory import Product, StockMovement
 from app.models.tenant import Branch, Company
 from app.services.inventory import InventoryService
-from app.schemas.inventory import ProductCreate
+from app.services.inventory_trace import InventoryTraceService
+from app.schemas.inventory import ProductCreate, StockMovementResponse
 from app.tests.conftest import clear_db
 
 
@@ -254,4 +256,136 @@ async def test_create_product_barcode_cross_table_collision(db_session):
     assert exc_info.value.status_code == 400
     assert "already exists" in exc_info.value.detail or "Secondary barcode" in exc_info.value.detail
 
+
+@pytest.mark.asyncio
+async def test_inventory_trace_service_and_api_routes(db_session):
+    comp, br = await _make_tenant(db_session, "trace1")
+    tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
+
+    product = Product(
+        id="prod-trace-1",
+        code="PROD-TRACE-1",
+        name="Trace Product 1",
+        price=100.0,
+        stock=20,
+        category="General",
+        barcode="TRC-0001",
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    db_session.add(product)
+    await db_session.commit()
+
+    movement = StockMovement(
+        id="sm-trace-1",
+        uuid="trace-uuid-1",
+        product_id=product.id,
+        product_name=product.name,
+        sku="TRC-SKU-001",
+        quantity=10,
+        movement_type="IN",
+        reference_doc_type="GRN",
+        reference_doc_id="GRN-001",
+        warehouse="Main Warehouse",
+        batch="BATCH-001",
+        serial="SERIAL-001",
+        unit_cost=Decimal("95.00"),
+        remarks="Initial receipt",
+        user="tester",
+        device="unit-test",
+        branch=br.id,
+        source_module="purchase",
+        approval="Approved",
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    db_session.add(movement)
+    await db_session.commit()
+
+    trace_service = InventoryTraceService(db_session, tenant_ctx)
+    product_trace = await trace_service.get_product_trace(product.id)
+    assert len(product_trace) == 1
+    assert product_trace[0].sku == "TRC-SKU-001"
+
+    reference_trace = await trace_service.get_reference_trace("GRN-001")
+    assert len(reference_trace) == 1
+    assert reference_trace[0].reference_doc_type == "GRN"
+
+    sku_trace = await trace_service.get_sku_trace("TRC-SKU-001")
+    assert len(sku_trace) == 1
+    assert sku_trace[0].product_id == product.id
+
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get(f"/api/v1/inventory/trace/product/{product.id}")
+        assert res.status_code == 200
+        assert res.json()[0]["sku"] == "TRC-SKU-001"
+
+        res_ref = await ac.get("/api/v1/inventory/trace/reference/GRN-001")
+        assert res_ref.status_code == 200
+        assert res_ref.json()[0]["reference_doc_type"] == "GRN"
+
+        res_sku = await ac.get("/api/v1/inventory/trace/sku", params={"sku": "TRC-SKU-001"})
+        assert res_sku.status_code == 200
+        assert res_sku.json()[0]["product_id"] == product.id
+
+
+@pytest.mark.asyncio
+async def test_inventory_trace_router_mount(db_session):
+    comp, br = await _make_tenant(db_session, "trace2")
+    tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
+
+    product = Product(
+        id="prod-trace-2",
+        code="PROD-TRACE-2",
+        name="Trace Product 2",
+        price=99.0,
+        stock=12,
+        category="General",
+        barcode="TRC-0002",
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    db_session.add(product)
+    await db_session.commit()
+
+    movement = StockMovement(
+        id="sm-trace-2",
+        uuid="trace-uuid-2",
+        product_id=product.id,
+        product_name=product.name,
+        sku="TRC-SKU-002",
+        quantity=12,
+        movement_type="IN",
+        reference_doc_type="PO",
+        reference_doc_id="PO-200",
+        warehouse="Main Warehouse",
+        batch="BATCH-002",
+        serial="SERIAL-002",
+        unit_cost=Decimal("100.00"),
+        remarks="Dedicated router check",
+        user="tester",
+        device="unit-test",
+        branch=br.id,
+        source_module="purchase",
+        approval="Approved",
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    db_session.add(movement)
+    await db_session.commit()
+
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        product_res = await ac.get(f"/api/v1/inventory-trace/product/{product.id}")
+        assert product_res.status_code == 200
+        assert product_res.json()[0]["sku"] == "TRC-SKU-002"
+
+        sku_res = await ac.get("/api/v1/inventory-trace/sku", params={"sku": "TRC-SKU-002"})
+        assert sku_res.status_code == 200
+        assert sku_res.json()[0]["product_id"] == product.id
+
+        ref_res = await ac.get("/api/v1/inventory-trace/reference/PO-200")
+        assert ref_res.status_code == 200
+        assert ref_res.json()[0]["reference_doc_type"] == "PO"
 

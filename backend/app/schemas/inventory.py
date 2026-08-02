@@ -170,9 +170,24 @@ class ProductBarcodeResponse(ProductBarcodeBase):
 
 class StockMovementBase(BaseModel):
     product_id: str
+    product_name: Optional[str] = None
+    sku: Optional[str] = None
     quantity: float
     movement_type: str = "IN"
+    reference_doc_type: Optional[str] = None
+    reference_doc_id: Optional[str] = None
     reference_id: Optional[str] = None
+    warehouse: Optional[str] = None
+    bin: Optional[str] = None
+    batch: Optional[str] = None
+    serial: Optional[str] = None
+    unit_cost: Optional[Decimal] = None
+    remarks: Optional[str] = None
+    user: Optional[str] = None
+    device: Optional[str] = None
+    branch: Optional[str] = None
+    source_module: Optional[str] = None
+    approval: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -183,5 +198,7 @@ class StockMovementCreate(StockMovementBase):
 class StockMovementResponse(StockMovementBase):
     id: str
     created_at: Optional[datetime] = None
+    company_id: Optional[str] = None
+    branch_id: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 

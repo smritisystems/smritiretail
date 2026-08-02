@@ -27,6 +27,8 @@ from ..models.accounting import (
     ChartOfAccounts, JournalVoucherModel, JournalLedgerEntryModel,
     BankAccount, CostCenter, TdsEntry, GstReturnLock,
 )
+from ..models.crm import Customer
+from ..models.sales import SalesInvoice
 
 from ..repositories.accounting import AccountingRepository
 from ..api.deps import TenantContext
@@ -376,18 +378,86 @@ class AccountingService:
             "report_type": "AP_AGEING",
             "as_of_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             "total_outstanding": float(tot_outstanding),
+            "total_invoices": 0,
+            "bucket_totals": {
+                "current": Decimal("0.00"),
+                "days_1_30": Decimal("0.00"),
+                "days_31_60": Decimal("0.00"),
+                "days_61_90": Decimal("0.00"),
+                "over_90_days": Decimal("0.00"),
+            },
             "items": []
         }
 
     async def get_ar_ageing_report(self) -> dict:
         """Accounts Receivable Ageing Analysis (0-30, 31-60, 61-90, >90 days)."""
-        entries = await self.repo.get_ledger_entries_for_account(Accounts.ACCOUNTS_RECEIVABLE)
-        tot_outstanding = sum(e.debit - e.credit for e in entries)
+        stmt = select(SalesInvoice, Customer).join(
+            Customer, SalesInvoice.customer_id == Customer.id
+        ).where(
+            SalesInvoice.balance_due > Decimal("0.00"),
+            SalesInvoice.is_deleted == False,
+        )
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            stmt = stmt.where(SalesInvoice.company_id == self.tenant_ctx.company_id)
+        if self.tenant_ctx and self.tenant_ctx.branch_id:
+            stmt = stmt.where(SalesInvoice.branch_id == self.tenant_ctx.branch_id)
+
+        rows = (await self.db.execute(stmt)).all()
+
+        today = datetime.now(timezone.utc).date()
+        bucket_totals = {
+            "current": Decimal("0.00"),
+            "days_1_30": Decimal("0.00"),
+            "days_31_60": Decimal("0.00"),
+            "days_61_90": Decimal("0.00"),
+            "over_90_days": Decimal("0.00"),
+        }
+        items = []
+
+        for invoice, customer in rows:
+            invoice_date = invoice.invoice_date
+            if hasattr(invoice_date, "date"):
+                invoice_date_value = invoice_date.date()
+            elif isinstance(invoice_date, datetime):
+                invoice_date_value = invoice_date
+            else:
+                invoice_date_value = today
+            age_days = (today - invoice_date_value).days if invoice_date_value else 0
+            if age_days == 0:
+                bucket_name = "current"
+            elif age_days <= 30:
+                bucket_name = "days_1_30"
+            elif age_days <= 60:
+                bucket_name = "days_31_60"
+            elif age_days <= 90:
+                bucket_name = "days_61_90"
+            else:
+                bucket_name = "over_90_days"
+
+            balance_due = Decimal(str(invoice.balance_due))
+            bucket_totals[bucket_name] += balance_due
+            items.append({
+                "invoice_id": invoice.id,
+                "invoice_no": invoice.invoice_no,
+                "customer_id": customer.id,
+                "customer_name": customer.name,
+                "invoice_date": invoice_date.isoformat() if invoice_date else None,
+                "due_date": invoice.due_date.isoformat() if getattr(invoice, "due_date", None) else None,
+                "outstanding": balance_due,
+                "age_days": age_days,
+                "aging_bucket": bucket_name,
+                "status": invoice.status,
+            })
+
+        total_outstanding = sum(item["outstanding"] for item in items)
+
         return {
             "report_type": "AR_AGEING",
-            "as_of_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-            "total_outstanding": float(tot_outstanding),
-            "items": []
+            "as_of_date": today.isoformat(),
+            "total_outstanding": float(total_outstanding),
+            "total_invoices": len(items),
+            "bucket_totals": bucket_totals,
+            "items": items,
         }
 
     async def get_trial_balance(self, as_of_date: Optional[str] = None) -> dict:

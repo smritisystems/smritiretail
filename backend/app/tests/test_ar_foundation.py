@@ -122,10 +122,18 @@ async def test_customer_ledger_entries_follow_invoice_payment_and_cancel(db_sess
     assert Decimal(str(statement["current_outstanding"])) == Decimal("68.00")
 
     aging = await receivables.get_ageing(customer.id)
-    assert Decimal(str(aging["buckets"]["0_30"]["amount"])) == Decimal("68.00")
+    assert Decimal(str(aging["bucket_totals"]["current"])) == Decimal("68.00")
 
     reconciliation = await receivables.reconcile_invoice(invoice.id)
     assert reconciliation["reconciled"] is True
+    assert reconciliation["reconciliation_status"] == "PASSED"
+
+    customer_aging = await receivables.get_ageing(customer.id)
+    assert customer_aging["bucket_totals"]["current"] == 68.0 or Decimal(str(customer_aging["bucket_totals"]["current"])) == Decimal("68.00")
+    assert len(customer_aging["items"]) == 1
+    ledger = statement["ledger"]
+    assert any(row["document_type"] == "Invoice" for row in ledger)
+    assert any(row["document_type"] == "Payment" for row in ledger)
 
     await sales_serv.cancel_sales_invoice(invoice.id)
     customer_after_cancel = await db_session.get(Customer, customer.id)

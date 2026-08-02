@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, date, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -69,6 +69,14 @@ class ReceivablesService:
             invoice_stmt = invoice_stmt.where(SalesInvoice.company_id == self.tenant_ctx.company_id)
         invoices = (await self.db.execute(invoice_stmt)).scalars().all()
 
+        payment_stmt = select(SalesPayment).where(
+            SalesPayment.customer_id == customer_id,
+            SalesPayment.is_deleted == False,
+        )
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            payment_stmt = payment_stmt.where(SalesPayment.company_id == self.tenant_ctx.company_id)
+        payments = (await self.db.execute(payment_stmt)).scalars().all()
+
         credit_note_stmt = select(CreditNote).where(
             CreditNote.customer_id == customer_id,
             CreditNote.is_deleted == False,
@@ -78,25 +86,87 @@ class ReceivablesService:
         credit_notes = (await self.db.execute(credit_note_stmt)).scalars().all()
 
         total_billed = sum(Decimal(str(i.grand_total)) for i in invoices)
-        total_paid = sum(Decimal(str(i.paid_amount)) for i in invoices)
+        total_paid = sum(Decimal(str(p.amount)) for p in payments)
         total_due = sum(Decimal(str(i.balance_due)) for i in invoices)
         total_credit_notes = sum(Decimal(str(c.grand_total)) for c in credit_notes)
+        net_outstanding = max(Decimal("0.00"), total_due - total_credit_notes)
+
+        def _normalize_date(value):
+            if value is None:
+                return datetime.now(timezone.utc)
+            if isinstance(value, datetime):
+                return value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)
+            if isinstance(value, date):
+                return datetime(value.year, value.month, value.day, tzinfo=timezone.utc)
+            return datetime.now(timezone.utc)
+
+        ledger_events = []
+        for invoice in invoices:
+            ledger_events.append(
+                {
+                    "date": invoice.invoice_date,
+                    "document_type": "Invoice",
+                    "document_no": invoice.invoice_no,
+                    "debit": Decimal(str(invoice.grand_total)),
+                    "credit": Decimal("0.00"),
+                    "reference": invoice.invoice_no,
+                }
+            )
+        for payment in payments:
+            ledger_events.append(
+                {
+                    "date": payment.payment_date,
+                    "document_type": "Payment",
+                    "document_no": payment.payment_no,
+                    "debit": Decimal("0.00"),
+                    "credit": Decimal(str(payment.amount)),
+                    "reference": payment.reference_no or payment.payment_no,
+                }
+            )
+        for credit_note in credit_notes:
+            ledger_events.append(
+                {
+                    "date": credit_note.issue_date,
+                    "document_type": "Credit Note",
+                    "document_no": credit_note.credit_note_no,
+                    "debit": Decimal("0.00"),
+                    "credit": Decimal(str(credit_note.grand_total)),
+                    "reference": credit_note.invoice_id,
+                }
+            )
+
+        ledger_events.sort(key=lambda x: _normalize_date(x["date"]))
+        running_balance = Decimal("0.00")
+        ledger = []
+        for event in ledger_events:
+            running_balance += event["debit"] - event["credit"]
+            ledger.append(
+                {
+                    "date": event["date"],
+                    "document_type": event["document_type"],
+                    "document_no": event["document_no"],
+                    "debit": event["debit"],
+                    "credit": event["credit"],
+                    "running_balance": running_balance,
+                    "reference": event["reference"],
+                }
+            )
 
         customer_outstanding = Decimal(str(getattr(customer, "outstanding", "0.00") or "0.00"))
-        net_outstanding = max(Decimal("0.00"), total_due - total_credit_notes)
 
         return {
             "customer_id": customer.id,
             "customer_name": customer.name,
             "customer_code": customer.code,
+            "opening_balance": Decimal("0.00"),
             "total_invoices": len(invoices),
-            "total_credit_notes": len(credit_notes),
-            "total_billed": float(total_billed),
-            "total_paid": float(total_paid),
-            "total_due": float(total_due),
-            "total_credit_notes_amount": float(total_credit_notes),
-            "current_outstanding": float(customer_outstanding),
-            "net_outstanding": float(net_outstanding),
+            "total_billed": total_billed,
+            "total_paid": total_paid,
+            "total_due": total_due,
+            "total_credit_notes": total_credit_notes,
+            "net_outstanding": net_outstanding,
+            "current_outstanding": customer_outstanding,
+            "ledger": ledger,
         }
 
     async def calculate_outstanding(self, customer_id: str) -> Decimal:
@@ -195,7 +265,7 @@ class ReceivablesService:
 
     async def get_outstanding(self, customer_id: str) -> Decimal:
         statement = await self.get_customer_statement(customer_id)
-        return Decimal(str(statement["total_due"])).quantize(Decimal("0.01"))
+        return Decimal(str(statement["net_outstanding"])).quantize(Decimal("0.01"))
 
     async def get_ageing(self, customer_id: str) -> Dict[str, Any]:
         invoice_stmt = select(SalesInvoice).where(
@@ -205,37 +275,64 @@ class ReceivablesService:
         )
         if self.tenant_ctx and self.tenant_ctx.company_id:
             invoice_stmt = invoice_stmt.where(SalesInvoice.company_id == self.tenant_ctx.company_id)
+        if self.tenant_ctx and self.tenant_ctx.branch_id:
+            invoice_stmt = invoice_stmt.where(SalesInvoice.branch_id == self.tenant_ctx.branch_id)
         invoices = (await self.db.execute(invoice_stmt)).scalars().all()
 
-        buckets = {"0_30": [], "31_60": [], "61_90": [], "90_plus": []}
+        buckets = {"current": [], "days_1_30": [], "days_31_60": [], "days_61_90": [], "over_90_days": []}
         today = datetime.now(timezone.utc).date()
+        items = []
+
         for invoice in invoices:
             invoice_date = invoice.invoice_date
             if hasattr(invoice_date, "date"):
-                invoice_date = invoice_date.date()
-            elif not isinstance(invoice_date, datetime):
-                invoice_date = None
-            age_days = (today - invoice_date).days if invoice_date else 0
-            if age_days <= 30:
-                buckets["0_30"].append(invoice)
-            elif age_days <= 60:
-                buckets["31_60"].append(invoice)
-            elif age_days <= 90:
-                buckets["61_90"].append(invoice)
+                invoice_date_value = invoice_date.date()
+            elif isinstance(invoice_date, datetime):
+                invoice_date_value = invoice_date
             else:
-                buckets["90_plus"].append(invoice)
+                invoice_date_value = today
+            age_days = (today - invoice_date_value).days if invoice_date_value else 0
+            if age_days == 0:
+                bucket_name = "current"
+            elif age_days <= 30:
+                bucket_name = "days_1_30"
+            elif age_days <= 60:
+                bucket_name = "days_31_60"
+            elif age_days <= 90:
+                bucket_name = "days_61_90"
+            else:
+                bucket_name = "over_90_days"
+            buckets[bucket_name].append(invoice)
+            items.append(
+                {
+                    "invoice_id": invoice.id,
+                    "invoice_no": invoice.invoice_no,
+                    "customer_id": invoice.customer_id,
+                    "customer_name": getattr(invoice.customer, "name", "") if getattr(invoice, "customer", None) else "",
+                    "invoice_date": invoice_date.isoformat() if invoice_date else None,
+                    "due_date": invoice.due_date.isoformat() if getattr(invoice, "due_date", None) else None,
+                    "outstanding": Decimal(str(invoice.balance_due)),
+                    "age_days": age_days,
+                    "aging_bucket": bucket_name,
+                    "status": invoice.status,
+                }
+            )
+
+        bucket_totals = {
+            "current": sum(Decimal(str(i.balance_due)) for i in buckets["current"]),
+            "days_1_30": sum(Decimal(str(i.balance_due)) for i in buckets["days_1_30"]),
+            "days_31_60": sum(Decimal(str(i.balance_due)) for i in buckets["days_31_60"]),
+            "days_61_90": sum(Decimal(str(i.balance_due)) for i in buckets["days_61_90"]),
+            "over_90_days": sum(Decimal(str(i.balance_due)) for i in buckets["over_90_days"]),
+        }
 
         return {
             "customer_id": customer_id,
             "as_of_date": today.isoformat(),
-            "buckets": {
-                name: {
-                    "count": len(items),
-                    "amount": float(sum(Decimal(str(item.balance_due)) for item in items)),
-                }
-                for name, items in buckets.items()
-            },
-            "total_open": float(sum(Decimal(str(i.balance_due)) for i in invoices)),
+            "total_invoices": len(invoices),
+            "total_outstanding": float(sum(Decimal(str(invoice.balance_due)) for invoice in invoices)),
+            "bucket_totals": bucket_totals,
+            "items": items,
         }
 
     async def reconcile_invoice(self, invoice_id: str) -> Dict[str, Any]:
@@ -265,6 +362,10 @@ class ReceivablesService:
         balance_delta = invoice_total - Decimal(str(invoice.balance_due)).quantize(Decimal("0.01"))
         payment_total = Decimal(str(invoice.paid_amount)).quantize(Decimal("0.01"))
 
+        is_balanced = journal_debit == journal_credit
+        invoice_match = journal_debit == invoice_total and journal_credit == invoice_total
+        settlement_match = payment_total + Decimal(str(invoice.balance_due)).quantize(Decimal("0.01")) == invoice_total
+        reconciled = is_balanced and invoice_match and settlement_match
         return {
             "invoice_id": invoice_id,
             "invoice_no": invoice.invoice_no,
@@ -273,5 +374,6 @@ class ReceivablesService:
             "journal_credit": float(journal_credit),
             "payment_total": float(payment_total),
             "outstanding_delta": float(balance_delta),
-            "reconciled": journal_debit == journal_credit == invoice_total,
+            "reconciled": reconciled,
+            "reconciliation_status": "PASSED" if reconciled else "FAILED",
         }

@@ -144,6 +144,22 @@ class StockMovementRepository(BaseRepository[StockMovement]):
                 StockMovement.reference_doc_id == reference_doc_id,
                 StockMovement.company_id == self.tenant_ctx.company_id,
             )
+            .order_by(StockMovement.created_at.desc())
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_by_sku(self, sku: str, limit: int = 100) -> list[StockMovement]:
+        """Return movement history for a specific SKU, newest first."""
+        stmt = (
+            select(StockMovement)
+            .filter(
+                StockMovement.sku == sku,
+                StockMovement.company_id == self.tenant_ctx.company_id,
+                StockMovement.branch_id == self.tenant_ctx.branch_id,
+            )
+            .order_by(StockMovement.created_at.desc())
+            .limit(limit)
         )
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
