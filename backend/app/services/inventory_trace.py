@@ -1,18 +1,12 @@
-"""
-Project      : SMRITI Retail OS
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 1.0.0
-Created      : 2026-08-02
-Modified     : 2026-08-02
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
-Classification: Internal Architecture Standard
+"""Backward-compatible inventory trace service.
 
-InventoryTraceService — Canonical product and reference movement trace queries
+This preserves the historically used public contract for the legacy modules and
+API routes while the canonical engine package remains the source of truth.
 """
+
+from __future__ import annotations
+
+from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,8 +32,9 @@ class InventoryTraceService:
             raise HTTPException(status_code=404, detail="Product not found")
         return await self.stock_movement_repo.get_by_product(product_id, limit=limit)
 
-    async def get_reference_trace(self, reference_doc_id: str):
-        return await self.stock_movement_repo.get_by_reference(reference_doc_id)
+    async def get_reference_trace(self, reference_doc_id: str, limit: int = 100):
+        movements = await self.stock_movement_repo.get_by_reference(reference_doc_id)
+        return movements[:limit]
 
     async def get_sku_trace(self, sku: str, limit: int = 100):
         return await self.stock_movement_repo.get_by_sku(sku, limit=limit)
@@ -52,3 +47,6 @@ class InventoryTraceService:
 
     async def search(self, q: str, limit: int = 50):
         return await self.universal_search_service.search(q, limit=limit)
+
+
+__all__ = ["InventoryTraceService"]

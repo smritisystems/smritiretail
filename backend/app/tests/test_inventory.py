@@ -597,90 +597,58 @@ async def test_inventory_state_engine_and_route(db_session):
 
 
 @pytest.mark.asyncio
-async def test_inventory_360_workspace_service_and_route(db_session):
-    comp, br = await _make_tenant(db_session, "workspace1")
+async def test_inventory_availability_and_reservation_engines(db_session):
+    comp, br = await _make_tenant(db_session, "avail1")
     tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
 
     product = Product(
-        id="prod-workspace-1",
-        code="PROD-WORKSPACE-1",
-        name="Workspace Product 1",
-        price=200.0,
-        stock=30,
+        id="prod-avail-1",
+        code="PROD-AVAIL-1",
+        name="Availability Product 1",
+        price=220.0,
+        stock=48,
         reserved_stock=6,
         category="General",
-        barcode="WS-0001",
+        barcode="AVAIL-0001",
         company_id=comp.id,
         branch_id=br.id,
     )
     db_session.add(product)
     await db_session.commit()
 
-    movements = [
-        StockMovement(
-            id="sm-workspace-1-in",
-            uuid="workspace-uuid-1-in",
-            product_id=product.id,
-            product_name=product.name,
-            sku="WS-SKU-001",
-            quantity=15,
-            movement_type="IN",
-            reference_doc_type="GRN",
-            reference_doc_id="GRN-WS-001",
-            warehouse="Main Warehouse",
-            batch="BATCH-WS-001",
-            serial="SERIAL-WS-001",
-            unit_cost=Decimal("180.00"),
-            remarks="Goods receipt",
-            user="tester",
-            device="unit-test",
-            branch=br.id,
-            source_module="purchase",
-            approval="Approved",
-            company_id=comp.id,
-            branch_id=br.id,
-        ),
-        StockMovement(
-            id="sm-workspace-1-out",
-            uuid="workspace-uuid-1-out",
-            product_id=product.id,
-            product_name=product.name,
-            sku="WS-SKU-001",
-            quantity=5,
-            movement_type="OUT",
-            reference_doc_type="SALE",
-            reference_doc_id="INV-WS-001",
-            warehouse="Main Warehouse",
-            batch="BATCH-WS-001",
-            serial="SERIAL-WS-002",
-            unit_cost=Decimal("190.00"),
-            remarks="Sales dispatch",
-            user="tester",
-            device="unit-test",
-            branch=br.id,
-            source_module="sales",
-            approval="Approved",
-            company_id=comp.id,
-            branch_id=br.id,
-        ),
-    ]
-    db_session.add_all(movements)
-    await db_session.commit()
+    from app.services.inventory_availability import InventoryAvailabilityService
+    from app.services.inventory_reservation import InventoryReservationService
 
-    from app.services.inventory_360 import Inventory360Service
+    availability = InventoryAvailabilityService(db_session, tenant_ctx)
+    decision = await availability.can_fulfill(product.id, warehouse_id="wh-main", qty=18, context={"channel": "sales"})
+    assert decision["can_fulfill"] is True
+    assert decision["available_qty"] == 42
+    assert decision["reserved_qty"] == 6
+    assert decision["on_hand"] == 48
 
-    svc = Inventory360Service(db_session, tenant_ctx)
-    workspace = await svc.get_product_workspace(product.id)
-    assert workspace["product_id"] == product.id
-    assert workspace["state"]["on_hand"] == 30
-    assert workspace["timeline"][0]["product_id"] == product.id
+    reservation = InventoryReservationService(db_session, tenant_ctx)
+    hold = await reservation.reserve(product.id, qty=10, reservation_type="SO", reservation_id="SO-AVAIL-001")
+    assert hold["reserved_qty"] == 16
+    assert hold["available_after"] == 32
+
+    decision_after = await availability.can_fulfill(product.id, warehouse_id="wh-main", qty=35, context={"channel": "sales"})
+    assert decision_after["can_fulfill"] is False
+    assert decision_after["reason"]
 
     _set_tenant(db_session, comp.id, br.id)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res = await ac.get(f"/api/v1/inventory-360/product/{product.id}")
+        res = await ac.get(f"/api/v1/inventory-availability/check", params={"product_id": product.id, "qty": 18})
         assert res.status_code == 200
         body = res.json()
-        assert body["product_id"] == product.id
-        assert body["state"]["on_hand"] == 30
-        assert len(body["timeline"]) >= 2
+        assert body["can_fulfill"] is True
+        assert body["on_hand"] == 48
+
+        res_reserve = await ac.post("/api/v1/inventory-reservation/reserve", json={
+            "product_id": product.id,
+            "qty": 5,
+            "reservation_type": "POS",
+            "reservation_id": "POS-HOLD-001",
+        })
+        assert res_reserve.status_code == 200
+        assert res_reserve.json()["reserved_qty"] >= 16
 
