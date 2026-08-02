@@ -197,6 +197,26 @@ During RC2:
 - Database redesign unless required for integrity
 - Major UI redesign unless validated by usability testing
 
+### UX Freeze for RC2
+During RC2 the user interface must remain stable for business workflow delivery.
+
+#### Allowed UX changes
+- Bug fixes and small usability improvements only
+- Accessibility improvements
+- Performance optimizations for existing screens
+- Light Mode as default with Dark Mode user-selectable
+- Introduction of shared design tokens or shell foundations only when they do not alter existing layouts or workflows
+- Removal of obvious excessive padding, shadows, and nested card styling when screens are already touched for business work
+
+#### Not Allowed UX changes
+- Global UI redesigns
+- New desktop or mobile shells that change current workflows
+- Major layout refactors
+- Component refactoring that impacts screen behavior or structure
+- Parallel UX modernization work during RC2
+
+This preserves the RC2 delivery focus on complete business capabilities while reserving full UX modernization for RC3.
+
 ---
 
 ## 10. Architecture Freeze Exception

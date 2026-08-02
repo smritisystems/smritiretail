@@ -1,12 +1,12 @@
 [
   {
-    "timestamp": "Thu 07/30/2026",
-    "dhi": 79,
+    "timestamp": "Sun 08/02/2026",
+    "dhi": 88,
     "developmentScore": 86,
-    "qualityScore": 28,
-    "releaseScore": 67,
+    "qualityScore": 20,
+    "releaseScore": 89,
     "securityScore": 85,
-    "testCoverage": 28,
+    "testCoverage": 85,
     "documentation": 100
   }
 ]

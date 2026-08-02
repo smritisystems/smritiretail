@@ -11,15 +11,47 @@ if TYPE_CHECKING:
 
 from app.models.accounting import JournalLedgerEntryModel, JournalVoucherModel
 from app.models.crm import Customer
-from app.models.sales import SalesInvoice, SalesPayment
+from app.models.sales import CreditNote, SalesInvoice, SalesPayment
 
 
 class ReceivablesService:
-    """Derived AR engine over invoice, payment, and journal data."""
+    """Derived AR engine over invoice, payment, credit note, and journal data."""
 
     def __init__(self, db, tenant_ctx: Optional["TenantContext"] = None):
         self.db = db
         self.tenant_ctx = tenant_ctx
+        self._sales_engine = None
+        self._sales_service = None
+
+    def _invoice_stmt(self):
+        stmt = select(SalesInvoice).where(SalesInvoice.is_deleted == False)
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            stmt = stmt.where(SalesInvoice.company_id == self.tenant_ctx.company_id)
+        if self.tenant_ctx and self.tenant_ctx.branch_id:
+            stmt = stmt.where(SalesInvoice.branch_id == self.tenant_ctx.branch_id)
+        return stmt
+
+    def _credit_note_stmt(self):
+        stmt = select(CreditNote).where(CreditNote.is_deleted == False)
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            stmt = stmt.where(CreditNote.company_id == self.tenant_ctx.company_id)
+        if self.tenant_ctx and self.tenant_ctx.branch_id:
+            stmt = stmt.where(CreditNote.branch_id == self.tenant_ctx.branch_id)
+        return stmt
+
+    async def _get_sales_engine(self):
+        from app.sales.engine.invoicing_engine import SalesInvoicingEngine
+
+        if not self._sales_engine:
+            self._sales_engine = SalesInvoicingEngine(self.db, self.tenant_ctx)
+        return self._sales_engine
+
+    async def _get_sales_service(self):
+        from app.services.sales import SalesService
+
+        if not self._sales_service:
+            self._sales_service = SalesService(self.db, self.tenant_ctx)
+        return self._sales_service
 
     async def get_customer_statement(self, customer_id: str) -> Dict[str, Any]:
         customer_stmt = select(Customer).where(Customer.id == customer_id, Customer.is_deleted == False)
@@ -37,20 +69,129 @@ class ReceivablesService:
             invoice_stmt = invoice_stmt.where(SalesInvoice.company_id == self.tenant_ctx.company_id)
         invoices = (await self.db.execute(invoice_stmt)).scalars().all()
 
+        credit_note_stmt = select(CreditNote).where(
+            CreditNote.customer_id == customer_id,
+            CreditNote.is_deleted == False,
+        )
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            credit_note_stmt = credit_note_stmt.where(CreditNote.company_id == self.tenant_ctx.company_id)
+        credit_notes = (await self.db.execute(credit_note_stmt)).scalars().all()
+
         total_billed = sum(Decimal(str(i.grand_total)) for i in invoices)
         total_paid = sum(Decimal(str(i.paid_amount)) for i in invoices)
         total_due = sum(Decimal(str(i.balance_due)) for i in invoices)
+        total_credit_notes = sum(Decimal(str(c.grand_total)) for c in credit_notes)
+
+        customer_outstanding = Decimal(str(getattr(customer, "outstanding", "0.00") or "0.00"))
+        net_outstanding = max(Decimal("0.00"), total_due - total_credit_notes)
 
         return {
             "customer_id": customer.id,
             "customer_name": customer.name,
             "customer_code": customer.code,
             "total_invoices": len(invoices),
+            "total_credit_notes": len(credit_notes),
             "total_billed": float(total_billed),
             "total_paid": float(total_paid),
             "total_due": float(total_due),
-            "current_outstanding": float(total_due),
+            "total_credit_notes_amount": float(total_credit_notes),
+            "current_outstanding": float(customer_outstanding),
+            "net_outstanding": float(net_outstanding),
         }
+
+    async def calculate_outstanding(self, customer_id: str) -> Decimal:
+        statement = await self.get_customer_statement(customer_id)
+        return Decimal(str(statement["net_outstanding"])).quantize(Decimal("0.01"))
+
+    async def get_open_invoices(self, customer_id: str) -> List[SalesInvoice]:
+        stmt = select(SalesInvoice).where(
+            SalesInvoice.customer_id == customer_id,
+            SalesInvoice.balance_due > Decimal("0.00"),
+            SalesInvoice.is_deleted == False,
+        )
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            stmt = stmt.where(SalesInvoice.company_id == self.tenant_ctx.company_id)
+        if self.tenant_ctx and self.tenant_ctx.branch_id:
+            stmt = stmt.where(SalesInvoice.branch_id == self.tenant_ctx.branch_id)
+        return (await self.db.execute(stmt)).scalars().all()
+
+    async def apply_invoice(self, invoice_id: str) -> Dict[str, Any]:
+        invoice = await self._load_invoice(invoice_id)
+        reconciliation = await self.reconcile_invoice(invoice_id)
+        return {
+            "invoice": invoice,
+            "reconciliation": reconciliation,
+        }
+
+    async def apply_payment(
+        self,
+        invoice_id: str,
+        amount: Decimal,
+        payment_mode: str,
+        reference_no: Optional[str] = None,
+        notes: Optional[str] = None,
+    ) -> SalesPayment:
+        engine = await self._get_sales_engine()
+        return await engine.record_payment(
+            invoice_id=invoice_id,
+            amount=amount,
+            payment_mode=payment_mode,
+            reference_no=reference_no,
+            notes=notes,
+        )
+
+    async def apply_credit_note(self, credit_note_id: str) -> Dict[str, Any]:
+        stmt = self._credit_note_stmt().where(CreditNote.id == credit_note_id)
+        credit_note = (await self.db.execute(stmt)).scalars().first()
+        if not credit_note:
+            raise ValueError(f"Credit note '{credit_note_id}' not found")
+
+        customer_stmt = select(Customer).where(Customer.id == credit_note.customer_id, Customer.is_deleted == False)
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            customer_stmt = customer_stmt.where(Customer.company_id == self.tenant_ctx.company_id)
+        customer = (await self.db.execute(customer_stmt)).scalars().first()
+
+        current_outstanding = Decimal(str(getattr(customer, "outstanding", "0.00") or "0.00")) if customer else Decimal("0.00")
+        adjusted_outstanding = max(Decimal("0.00"), current_outstanding - Decimal(str(credit_note.grand_total)))
+
+        return {
+            "credit_note_id": credit_note.id,
+            "credit_note_no": credit_note.credit_note_no,
+            "invoice_id": credit_note.invoice_id,
+            "customer_id": credit_note.customer_id,
+            "credit_amount": float(Decimal(str(credit_note.grand_total)).quantize(Decimal("0.01"))),
+            "current_outstanding": float(current_outstanding),
+            "adjusted_outstanding": float(adjusted_outstanding),
+        }
+
+    async def reverse_invoice(self, invoice_id: str) -> SalesInvoice:
+        sales_service = await self._get_sales_service()
+        return await sales_service.cancel_sales_invoice(invoice_id)
+
+    async def calculate_aging(self, customer_id: str) -> Dict[str, Any]:
+        return await self.get_ageing(customer_id)
+
+    async def reconcile_customer(self, customer_id: str) -> Dict[str, Any]:
+        statement = await self.get_customer_statement(customer_id)
+        invoices = await self.get_open_invoices(customer_id)
+
+        invoice_reconciliations = []
+        for invoice in invoices:
+            inv_recon = await self.reconcile_invoice(invoice.id)
+            invoice_reconciliations.append(inv_recon)
+
+        return {
+            "customer_id": customer_id,
+            "statement": statement,
+            "open_invoice_reconciliations": invoice_reconciliations,
+        }
+
+    async def _load_invoice(self, invoice_id: str) -> SalesInvoice:
+        stmt = self._invoice_stmt().where(SalesInvoice.id == invoice_id)
+        invoice = (await self.db.execute(stmt)).scalars().first()
+        if not invoice:
+            raise ValueError(f"Invoice '{invoice_id}' not found")
+        return invoice
 
     async def get_outstanding(self, customer_id: str) -> Decimal:
         statement = await self.get_customer_statement(customer_id)
