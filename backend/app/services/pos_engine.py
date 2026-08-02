@@ -25,7 +25,7 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import TenantContext
-from app.models.inventory import Product
+from app.models.inventory import Product, StockMovement
 from app.models.pos import PosSession, PosTransaction, PosTransactionItem, PosOfflineSyncQueue
 # ADR-007: Domain Event Bus — SaleCompleted + StockAdjusted publishers
 from app.core.events.domain_events import publish_sale_completed, publish_stock_adjusted
@@ -146,9 +146,26 @@ class PosEngine:
             line_tot = (qty * unit_price).quantize(Decimal("0.01"))
             subtotal += line_tot
 
-            # Deduct stock directly
-            prod.stock -= qty
-            self.db.add(prod)
+            # RC2 Rule #1: Create StockMovement record; trg_inventory_state_reconciliation updates prod.stock.
+            movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+            sm = StockMovement(
+                id=movement_id,
+                uuid=str(uuid.uuid4()),
+                product_id=prod.id,
+                product_name=prod.name,
+                sku=prod.sku or prod.code,
+                quantity=-qty,
+                movement_type="OUT",
+                reference_doc_type="POS Transaction",
+                reference_doc_id=tx_id,
+                warehouse="Default Warehouse",
+                unit_cost=prod.cost_price or prod.price,
+                remarks=f"POS counter sale tx: {tx_id}",
+                source_module="POS",
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+            )
+            self.db.add(sm)
 
             tx_item = PosTransactionItem(
                 id=f"pos-item-{uuid.uuid4().hex[:12]}",

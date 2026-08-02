@@ -406,8 +406,9 @@ class POSService:
                         detail=f"Insufficient stock for '{item.name}'. "
                                f"Available: {product.stock}, requested: {int(qty)}.",
                     )
-                product.stock -= int(qty)
-                self.db.add(product)
+                # RC2 Rule #1: products.stock is updated exclusively by
+                # trg_inventory_state_reconciliation via the StockMovement
+                # INSERT below. Direct mutation removed.
                 movement_id = (
                     f"SM-{int(datetime.now(timezone.utc).timestamp())}-"
                     f"{uuid.uuid4().hex[:6]}"
