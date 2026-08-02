@@ -2,7 +2,7 @@
 Fix inventory stock trigger semantics for reservation ledger entries.
 
 Revision ID: 35d215f3c4b8
-Revises: 0ee2915175be
+Revises: 89221f5f1969
 Create Date: 2026-08-02
 """
 
@@ -12,7 +12,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision: str = "35d215f3c4b8"
-down_revision: Union[str, Sequence[str], None] = "0ee2915175be"
+down_revision: Union[str, Sequence[str], None] = "89221f5f1969"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

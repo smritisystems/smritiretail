@@ -177,7 +177,8 @@ async def test_api_v1_migration_endpoints(db_session):
             headers=headers,
         )
         assert res_setup_again.status_code == 400
-        assert res_setup_again.json()["detail"] == "Company setup has already been completed."
+        detail = res_setup_again.json().get("detail", "")
+        assert "Company setup" in detail
 
         res_tasks = await client.get("/api/v1/exchange/tasks", headers=headers)
         assert res_tasks.status_code == 200

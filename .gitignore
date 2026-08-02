@@ -73,3 +73,6 @@ scratch/
 tmp_*.txt
 *.err
 *.stackdump
+
+# Ignore junction to external SMRITI folder
+smriti/

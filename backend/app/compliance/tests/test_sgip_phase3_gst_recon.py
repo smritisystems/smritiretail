@@ -52,15 +52,15 @@ async def test_gst_reconciliation_service_logic(db_session):
     svc = GSTReconciliationService()
 
     purchase_invoices = [
-        {"supplier_gstin": "27SUPPLIER1111Z1", "invoice_number": "INV-100", "taxable_value": 1000.00, "tax_amount": 180.00},
-        {"supplier_gstin": "27SUPPLIER2222Z2", "invoice_number": "INV-200", "taxable_value": 2000.00, "tax_amount": 360.00},
-        {"supplier_gstin": "27SUPPLIER3333Z3", "invoice_number": "INV-300", "taxable_value": 5000.00, "tax_amount": 900.00},
+        {"supplier_gstin": "27SUPPLIER111Z1", "invoice_number": "INV-100", "taxable_value": 1000.00, "tax_amount": 180.00},
+        {"supplier_gstin": "27SUPPLIER222Z2", "invoice_number": "INV-200", "taxable_value": 2000.00, "tax_amount": 360.00},
+        {"supplier_gstin": "27SUPPLIER333Z3", "invoice_number": "INV-300", "taxable_value": 5000.00, "tax_amount": 900.00},
     ]
 
     gstr2b_invoices = [
-        {"supplier_gstin": "27SUPPLIER1111Z1", "invoice_number": "INV-100", "taxable_value": 1000.00, "tax_amount": 180.00},  # MATCHED
-        {"supplier_gstin": "27SUPPLIER2222Z2", "invoice_number": "INV-200", "taxable_value": 2000.00, "tax_amount": 300.00},  # MISMATCHED_AMOUNT
-        {"supplier_gstin": "27SUPPLIER4444Z4", "invoice_number": "INV-400", "taxable_value": 1500.00, "tax_amount": 270.00},  # MISSING_IN_PURCHASE
+        {"supplier_gstin": "27SUPPLIER111Z1", "invoice_number": "INV-100", "taxable_value": 1000.00, "tax_amount": 180.00},  # MATCHED
+        {"supplier_gstin": "27SUPPLIER222Z2", "invoice_number": "INV-200", "taxable_value": 2000.00, "tax_amount": 300.00},  # MISMATCHED_AMOUNT
+        {"supplier_gstin": "27SUPPLIER444Z4", "invoice_number": "INV-400", "taxable_value": 1500.00, "tax_amount": 270.00},  # MISSING_IN_PURCHASE
     ]
 
     recs = await svc.reconcile_gstr2b(
@@ -89,11 +89,11 @@ async def test_gst_reconcile_rest_api_endpoint(db_session):
             json={
                 "gstin": "27AAAAA0000A1Z5",
                 "financial_period": "072026",
-                "purchase_invoices": [
-                    {"supplier_gstin": "27SUPPLIER1111Z1", "invoice_number": "INV-500", "taxable_value": 500.00, "tax_amount": 90.00}
+                    "purchase_invoices": [
+                    {"supplier_gstin": "27SUPPLIER111Z1", "invoice_number": "INV-500", "taxable_value": 500.00, "tax_amount": 90.00}
                 ],
                 "gstr2b_invoices": [
-                    {"supplier_gstin": "27SUPPLIER1111Z1", "invoice_number": "INV-500", "taxable_value": 500.00, "tax_amount": 90.00}
+                    {"supplier_gstin": "27SUPPLIER111Z1", "invoice_number": "INV-500", "taxable_value": 500.00, "tax_amount": 90.00}
                 ],
             }
         )
