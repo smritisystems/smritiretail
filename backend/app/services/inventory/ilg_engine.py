@@ -46,7 +46,6 @@ class InventoryLedgerEngine:
             return
         stmt = select(InventoryLocationNode.id).where(
             InventoryLocationNode.id == loc_id,
-            InventoryLocationNode.company_id == self.tenant_ctx.company_id,
         )
         res = await self.db.execute(stmt)
         if not res.scalar():
