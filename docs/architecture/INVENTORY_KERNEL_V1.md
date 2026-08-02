@@ -1,8 +1,9 @@
 ﻿# SMRITI Retail OS — Inventory Kernel v1.0
-## Architecture Specification (FROZEN — RC2)
+## Architecture Specification & Public Contract (FROZEN — RC2)
 
 **Status:** FROZEN  
-**Version:** 1.0  
+**Specification Version:** 1.0.0 (SemVer Frozen)  
+**SDK Version:** v1.0.0  
 **Date:** 2026-08-02  
 **Owner:** Chief Systems Architect — Jawahar Ramkripal Mallah  
 **Classification:** Internal Architecture Standard
@@ -53,7 +54,42 @@
 
 ---
 
-## PART 2 — IMPLEMENTATION & GOVERNANCE POLICIES (Current Engine Binding)
+## PART 2 — INVENTORY KERNEL PUBLIC CONTRACT (Frozen Interface v1.0.0)
+
+> Every module inside SMRITI — including Sales (SI_001), Purchase, POS, WMS, Marketplace, Mobile, Reports, and Industry SDKs — MUST interact with inventory exclusively through these frozen public kernel interfaces. Bypassing these public contracts or invoking internal engine helpers directly is strictly prohibited.
+
+```python
+# ─────────────────────────────────────────────────────────────────────────────
+# SMRITI Inventory Kernel v1.0.0 Public Interface Surface
+# ─────────────────────────────────────────────────────────────────────────────
+
+class InventoryStateEngineFacade:
+    """Canonical State Query Interface"""
+    async def get_canonical_state(self, product_id: str) -> InventoryStateDTO: ...
+    async def get_warehouse_breakdown(self, product_id: str) -> List[WarehouseStockDTO]: ...
+
+class InventoryAvailabilityServiceFacade:
+    """Commercial Availability & ATP Query Interface"""
+    async def get_availability(self, product_id: str) -> ProductAvailabilityDTO: ...
+    async def can_fulfill(self, product_id: str, requested_qty: Decimal) -> FulfillmentCheckDTO: ...
+
+class InventoryReservationServiceFacade:
+    """Commitment & Allocation Management Interface"""
+    async def reserve_stock(self, product_id: str, qty: Decimal, reference_doc: str) -> ReservationResultDTO: ...
+    async def release_reservation(self, product_id: str, qty: Decimal, reference_doc: str) -> ReservationResultDTO: ...
+
+class InventoryTraceServiceFacade:
+    """Audit Trail & Ledger Movement Query Interface"""
+    async def get_stock_movements(self, product_id: str, limit: int = 100) -> List[StockMovementDTO]: ...
+
+class InventoryTimelineServiceFacade:
+    """Temporal Historical State Interface"""
+    async def get_stock_at_timestamp(self, product_id: str, as_of: datetime) -> InventoryStateDTO: ...
+```
+
+---
+
+## PART 3 — IMPLEMENTATION & GOVERNANCE POLICIES (Current Engine Binding)
 
 > [!NOTE]
 > **Engineering Policy #1 — Alembic-Only Trigger Migration Policy**
@@ -119,7 +155,7 @@ The SMRITI Platform strictly separates inventory calculation into three isolated
 ## Complete Kernel Engine Topology
 
 ```text
-               SMRITI Inventory Kernel
+               SMRITI Inventory Kernel v1.0.0
 ────────────────────────────────────────────────────────
 
 StockMovement Ledger (Immutable Audit Log)
@@ -265,7 +301,7 @@ Inventory State Engine. UI must never independently recalculate these values.
 
 ---
 
-## SDK Extensibility Contract (RC3+)
+## SDK Extensibility Contract (SemVer Frozen — v1.0.0)
 
 Industry packs extend movement behavior without modifying kernel code by registering a `MovementProvider`:
 
@@ -298,8 +334,8 @@ MovementTypeRegistry.register_provider(MedicalMovementProvider())
 
 | Phase | Subsystem Focus | Status | Key Deliverable |
 |---|---|---|---|
-| **Phase 1** | Inventory Kernel | ✅ **FROZEN** | Subsystem Exit Gate Passed — Kernel Rules 0–5 & Engineering Policies 1–3 Sealed |
+| **Phase 1** | Inventory Kernel v1.0.0 | ✅ **FROZEN** | Subsystem Exit Gate Passed — Rules 0–5 & Public Contract Sealed |
 | **Phase 2** | SI_001 Integration | 🔄 **NEXT PRIORITY** | Sales consumes Availability ──► Reservation ──► State Engine ──► Movement ──► Invoice/Dispatch |
-| **Phase 3** | SDK Stabilization | 🔄 Next | Industry Pack extension contracts sealed |
+| **Phase 3** | SDK Stabilization | 🔄 Next | Industry Pack extension contracts sealed (v1.0.0) |
 | **Phase 4** | Inventory 360 Workspace | ⏳ Future | Pure read-only UI consumer workspace |
 | **GA Prep** | Continuous Health Check & Recovery Verification | ⏳ Future | Automated background reconciliation & `stock_movements` rebuild verification test |
