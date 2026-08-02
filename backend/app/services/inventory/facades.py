@@ -85,7 +85,17 @@ class InventoryQueryFacade:
         if location_id:
             stmt = stmt.where(ReservationLedgerEntry.location_id == location_id)
         res = await self.db.execute(stmt)
-        reserved = Decimal(str(res.scalar() or 0))
+        reserved_ledger = Decimal(str(res.scalar() or 0))
+        if reserved_ledger == Decimal("0.0000"):
+            stmt_p = select(func.coalesce(Product.reserved_stock, Decimal("0.0000"))).where(
+                Product.id == product_id,
+                Product.company_id == self.tenant_ctx.company_id,
+            )
+            res_p = await self.db.execute(stmt_p)
+            reserved = Decimal(str(res_p.scalar() or 0))
+        else:
+            reserved = reserved_ledger
+
         locked = await self.lock_engine.get_active_locked_quantity(product_id, location_id)
         available = max(Decimal("0.0000"), on_hand - reserved - locked)
         return float(available)
