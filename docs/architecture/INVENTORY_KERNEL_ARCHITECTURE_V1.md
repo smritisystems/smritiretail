@@ -68,7 +68,42 @@ Valuation Engine MUST NEVER mutate stock quantities or stock ledger entries.
 
 ---
 
-## 2. Engine Boundary Enforcement Matrix
+## 2. Implementation Certification Gates (IK001..IK008)
+
+To enforce architectural integrity during platform execution, every implementation phase MUST satisfy 8 automated certification gates:
+
+| Gate ID | Certification Requirement | Technical Verification Standard |
+|---|---|---|
+| **IK001** | Facade Entry Gate | All inventory updates execute exclusively via `InventoryCommandFacade v1`. |
+| **IK002** | Single Balance Mutator Gate | Zero direct stock balance mutations outside `Movement Engine`. |
+| **IK003** | Derived Availability Gate | ATP availability is dynamically derived, never stored. |
+| **IK004** | Network Stock Aggregation Gate | Network stock is dynamically aggregated across locations, never stored. |
+| **IK005** | Event Publication Gate | Business & technical inventory events published correctly via `InventoryEventBus v1`. |
+| **IK006** | Replay Determinism Gate | Replay engine reproduces GL and stock balances with 100% mathematical accuracy. |
+| **IK007** | Costing & Valuation Isolation Gate | Costing and valuation engines remain isolated from physical quantities. |
+| **IK008** | Engine Boundary Gate | Engine boundary enforcement rules respected with zero boundary bleed. |
+
+---
+
+## 3. Six-Phase Implementation Roadmap
+
+```text
+Phase 1: Core Data Model  ──►  Phase 2: Public APIs v1  ──►  Phase 3: Core Engines
+                                                                    │
+                                                                    ▼
+Phase 6: Consumer Migration  ◄──  Phase 5: Infrastructure  ◄──  Phase 4: Service Engines
+```
+
+- **Phase 1 — Core Data Model**: `InventoryLocation`, `InventoryIdentity`, `InventoryMovement`, `InventoryDocument`, `Reservation`, `Allocation`, `InventoryOwnership`, `LocationRole`.
+- **Phase 2 — Public APIs v1**: `InventoryCommandFacade v1` & `InventoryQueryFacade v1`.
+- **Phase 3 — Core Engines**: `ITEX`, `IIE`, `Movement Engine`, `ILE`, `Reservation Engine`, `Availability Engine`.
+- **Phase 4 — Service Engines**: `IVE`, `IAE`, `IRE`, `IPE`, `ICE`, `ICOMP`.
+- **Phase 5 — Infrastructure**: `InventoryEventBus v1`, `Replay Engine`, `Audit Engine`, `Valuation Engine`.
+- **Phase 6 — Consumer Migration**: Migrate Sales, Purchase, POS, WMS, Marketplace, Manufacturing, and Partner/Retail Chain flows to facade APIs.
+
+---
+
+## 4. Engine Boundary Enforcement Matrix
 
 | Engine | Can Modify | Cannot Modify |
 |---|---|---|
@@ -82,32 +117,9 @@ Valuation Engine MUST NEVER mutate stock quantities or stock ledger entries.
 
 ---
 
-## 3. Complete Execution Lifecycle Pipeline
+## 5. Complete Execution Lifecycle Pipeline
 
 $$\text{Transaction} \xrightarrow{\text{ITEX}} \text{IIE (Identity)} \xrightarrow{\text{Movement}} \text{ILE (Location)} \xrightarrow{\text{Availability}} \text{Allocation} \xrightarrow{\text{Costing}} \text{Valuation} \xrightarrow{\text{Accounting}}$$
-
----
-
-## 4. Core Engine Suite (Foundational Orchestration)
-
-1. **Inventory Transaction Engine (ITEX)**: Single entry orchestrator receiving all commercial business transactions (GRN, Invoice, POS, Transfer, Count) and converting them into atomic movement directives.
-2. **Inventory Identity Engine (IIE)**: Centralized identity resolution answering *"What exactly is this inventory?"* (SKU, Batch, Serial Number, Lot, Size/Color Variant, UOM, Packaging, Barcode, RFID, Expiry, Manufacturing Date).
-3. **Inventory Movement Engine**: Executes atomic location-to-location stock movements.
-4. **Inventory Location Engine (ILE)**: Answers *"Where is inventory?"* (Locations, Balances, Node Hierarchy, Capacity, Status, Bins).
-5. **Inventory Network Engine (INE)**: Answers *"How inventory moves."* (Network Graph, Routes, Distance, Supply Paths, Parent/Child Routing).
-6. **Reservation Engine**: Manages ATP reservations and channel commitments.
-7. **Availability Engine**: Calculates real-time Available-to-Promise (ATP) stock.
-
----
-
-## 5. Service Engine Suite (Business Capabilities)
-
-1. **Inventory Visibility Engine (IVE)**: Answers *"What is the current real-time state?"* (Universal single-pane-of-glass dashboards & KPIs).
-2. **Inventory Allocation Engine (IAE)**: Answers *"Where should orders be fulfilled from?"* (FEFO/FIFO, nearest location, split fulfillment).
-3. **Inventory Replenishment Engine (IRE)**: Answers *"How should stock be replenished?"* (Min/Max thresholds, Reorder Points, Suggested Transfers).
-4. **Inventory Policy Engine (IPE)**: Answers *"What operational movements are permitted?"* (Location capabilities, movement rules).
-5. **Inventory Costing Engine (ICE)**: Calculates item valuation using FIFO, Moving Average, Weighted Average, Standard Cost, Specific Identification, and Replacement Cost.
-6. **Inventory Compliance Engine (ICOMP)**: Evaluates legal & regulatory constraints (Expiry, Batch/Serial tracking, Cold Chain, Drug License verification, Hazard storage, Import/Export, GST compliance).
 
 ---
 
@@ -134,8 +146,6 @@ Consumer business modules interact exclusively through stable public platform fa
 
 ## 7. Event Bus Architecture: Business vs Technical Events
 
-The **Inventory Event Bus (v1)** segregates domain events into external business events and internal technical events:
-
 ### Business Events (Consumed by Accounting, CRM, Analytics, Notifications)
 `GoodsReceived` | `GoodsIssued` | `GoodsTransferred` | `GoodsSold` | `GoodsReturned` | `GoodsDamaged` | `GoodsExpired`
 
@@ -144,24 +154,7 @@ The **Inventory Event Bus (v1)** segregates domain events into external business
 
 ---
 
-## 8. Standard Business Inventory Documents v1
-
-$$\text{Business Transaction} \xrightarrow{\text{ITEX}} \text{Inventory Document} \xrightarrow{\text{IIE}} \text{Movement} \xrightarrow{\text{Event Bus}} \text{Balance Update}$$
-
-| Document Type | Operational Purpose |
-|---|---|
-| `TransferOrder` | Authorization for inter-location stock transfer. |
-| `TransferReceipt` | Confirmation of physical stock receipt at target location. |
-| `Reservation` | Stock allocation/commitment against sales order or channel. |
-| `Allocation` | Order fulfillment location assignment. |
-| `StockCount` | Physical audit count sheet. |
-| `StockAdjustment` | Reconciled variance adjustment document. |
-| `ReplenishmentRequest` | Automated location reorder request. |
-| `ReplenishmentSuggestion` | Suggested transfer job from parent location. |
-
----
-
-## 9. Financial Ownership (`InventoryOwnership`)
+## 8. Financial Ownership (`InventoryOwnership`)
 
 | InventoryOwnership | Commercial Description | Accounting & Financial Treatment |
 |---|---|---|
@@ -175,7 +168,7 @@ $$\text{Business Transaction} \xrightarrow{\text{ITEX}} \text{Inventory Document
 
 ---
 
-## 10. Ten Disconnected Subsystems Replaced by Unified Architecture
+## 9. Ten Disconnected Subsystems Replaced by Unified Architecture
 
 1. ✅ Consignment Module
 2. ✅ Marketplace Stock Module
