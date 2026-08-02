@@ -10,9 +10,11 @@
 ---
 
 > [!IMPORTANT]
-> **Platform Rule #0 — Pipeline Flow Invariant**
+> **Platform Rule #0 — Pipeline Flow Invariant & 1:1 Ledger Equivalence**
 > Nothing may bypass this pipeline:
 > `StockMovement` ──► `trg_inventory_state_reconciliation` ──► `products.stock` ──► `InventoryStateEngine` ──► `Availability / Reservation` ──► Consumers.
+> Every physical stock change MUST produce exactly one `StockMovement` record (1:1 equivalence).
+> No physical stock mutation without a ledger entry; no duplicate ledger entries for one physical movement.
 > No Python service or Industry SDK may write to `products.stock` directly.
 
 > [!IMPORTANT]
@@ -153,19 +155,19 @@ Inventory State Engine. UI must never independently recalculate these values.
 
 *ADJUSTMENT: direction=+1, but caller supplies signed quantity. Positive qty = stock gain; negative qty = stock loss.
 
-### Business Movements — do NOT affect `products.stock`
+### Business & Operational State Movements
 
-| movement_type    | direction | affects_physical | affects_reservation | affects_channel | affects_transit | affects_inv_value | Notes                          |
-|------------------|:---------:|:----------------:|:-------------------:|:---------------:|:---------------:|:-----------------:|--------------------------------|
-| RESERVE          |    +1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Soft-reserve against SO        |
-| UNRESERVE        |    -1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Release soft-reservation       |
-| ALLOCATE         |    +1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Hard-allocate to pick task     |
-| UNALLOCATE       |    -1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Release hard-allocation        |
-| PICK             |     0     |        ❌         |          ❌          |        ❌        |        ❌        |        ❌          | WMS pick event audit           |
-| PACK             |     0     |        ❌         |          ❌          |        ❌        |        ❌        |        ❌          | WMS pack event audit           |
-| SHIP             |     0     |        ❌         |          ❌          |        ❌        |        ✅        |        ❌          | In-transit dispatch event      |
-| DISPATCH         |     0     |        ❌         |          ❌          |        ❌        |        ✅        |        ❌          | Generic dispatch event         |
-| CHANNEL_DISPATCH |    -1     |        ❌         |          ❌          |        ✅        |        ❌        |        ❌          | Marketplace channel dispatch   |
+| movement_type    | direction | affects_physical | affects_reservation | affects_channel | affects_transit | affects_inv_value | Category / Scope               | Notes                          |
+|------------------|:---------:|:----------------:|:-------------------:|:---------------:|:---------------:|:-----------------:|--------------------------------|--------------------------------|
+| RESERVE          |    +1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Reservation Engine             | Soft-reserve against SO        |
+| UNRESERVE        |    -1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Reservation Engine             | Release soft-reservation       |
+| ALLOCATE         |    +1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | WMS Operational Event          | Hard-allocate to pick task     |
+| UNALLOCATE       |    -1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | WMS Operational Event          | Release hard-allocation        |
+| PICK             |     0     |        ❌         |          ❌          |        ❌        |        ❌        |        ❌          | WMS Operational Event          | WMS pick event audit           |
+| PACK             |     0     |        ❌         |          ❌          |        ❌        |        ❌        |        ❌          | WMS Operational Event          | WMS pack event audit           |
+| SHIP             |     0     |        ❌         |          ❌          |        ❌        |        ✅        |        ❌          | WMS Operational Event          | In-transit dispatch event      |
+| DISPATCH         |     0     |        ❌         |          ❌          |        ❌        |        ✅        |        ❌          | WMS Operational Event          | Generic dispatch event         |
+| CHANNEL_DISPATCH |    -1     |        ❌         |          ❌          |        ✅        |        ❌        |        ❌          | Channel Visibility Event       | Channel allocation lock (no physical stock mutation) |
 
 ---
 
@@ -200,9 +202,10 @@ MovementTypeRegistry.register_provider(MedicalMovementProvider())
 
 ## Post-RC2 Roadmap & Governance
 
-| Phase | Focus Area | Status | Key Deliverable |
+| Phase | Subsystem Focus | Status | Key Deliverable |
 |---|---|---|---|
 | **Phase 1** | Inventory Kernel | ✅ **FROZEN** | Subsystem Exit Gate Passed — Rules 0-3 Sealed |
-| **Phase 2** | SI_001 Integration | 🔄 **NEXT** | Sales consumes Availability ──► Reservation ──► State Engine |
+| **Phase 2** | SI_001 Integration | 🔄 **NEXT PRIORITY** | Sales consumes Availability ──► Reservation ──► State Engine |
 | **Phase 3** | SDK Stabilization | 🔄 Next | Industry Pack extension contracts sealed |
-| **Phase 4** | Inventory 360 Workspace | ⏳ Future | Read-only UI consumer workspace |
+| **Phase 4** | Inventory 360 Workspace | ⏳ Future | Pure read-only UI consumer workspace |
+| **GA Prep** | Continuous Health Check Engine | ⏳ Future | Automated background reconciliation service (`stock == SUM(movements)`) |
