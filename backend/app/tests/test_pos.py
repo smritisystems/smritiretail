@@ -25,7 +25,7 @@ from sqlalchemy.future import select
 from app.db.session import active_tenant_ctx
 from app.api.deps import TenantContext
 from app.models.tenant import Company, Branch
-from app.models.inventory import Product
+from app.models.inventory import Product, StockMovement
 from app.models.pos import PosSession, PosTransaction
 from app.services.inventory import InventoryService
 from app.schemas.inventory import ProductCreate
