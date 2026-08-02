@@ -66,7 +66,7 @@ async def _make_certified_product(db_session, tenant_ctx, stock=100):
             transaction_id=f"tx-open-{uuid.uuid4().hex[:6]}",
             from_location_id=None,
             to_location_id="LOC-MAIN-WH",
-            items=[{"product_id": pid, "quantity": stock}],
+            items=[{"product_id": pid, "sku": sku, "quantity": stock}],
             movement_type="OPENING",
         )
         await db_session.flush()
