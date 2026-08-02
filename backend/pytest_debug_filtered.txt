@@ -1,0 +1,72 @@
+================================== FAILURES ===================================
+                except HTTPException as exc:
+        failures = [r for r in results if isinstance(r, HTTPException)]
+        assert len(failures) == 1
+            except AttributeError as err:
+                raise orm_exc.UnmappedInstanceError(instance) from err
+            raise orm_exc.DetachedInstanceError(
+                raise sa_exc.InvalidRequestError(
+                        "object.  This condition may raise an error in a future "
+                raise sa_exc.ArgumentError(
+                # however, the error is in place across the board so that behavior
+                raise sa_exc.InvalidRequestError(
+        except AttributeError as err:
+            raise exc.ObjectNotExecutableError(statement) from err
+        except (exc.PendingRollbackError, exc.ResourceClosedError):
+        except BaseException as e:
+            self._handle_dbapi_exception(
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+        except BaseException as e:
+>           self._handle_dbapi_exception(
+e = MissingGreenlet("greenlet_spawn has not been called; can't call await_only() here. Was IO attempted in an unexpected place?")
+    def _handle_dbapi_exception(
+        e: BaseException,
+        is_exit_exception = util.is_exit_exception(e)
+                isinstance(e, self.dialect.loaded_dbapi.Error)
+            ) or (is_exit_exception and not self.closed)
+        invalidate_pool_on_disconnect = not is_exit_exception
+        if self._reentrant_error:
+            raise exc.DBAPIError.instance(
+                self.dialect.loaded_dbapi.Error,
+            ).with_traceback(exc_info[2]) from e
+        self._reentrant_error = True
+            # non-DBAPI error - if we already got a context,
+            should_wrap = isinstance(e, self.dialect.loaded_dbapi.Error) or (
+                and not is_exit_exception
+                sqlalchemy_exception = exc.DBAPIError.instance(
+                    cast(Exception, e),
+                    self.dialect.loaded_dbapi.Error,
+                sqlalchemy_exception = None
+                "skip_user_error_events", False
+                ctx = ExceptionContextImpl(
+                    sqlalchemy_exception,
+                for fn in self.dialect.dispatch.handle_error:
+                        # handler returns an exception;
+                            ctx.chained_exception = newraise = per_fn
+                    except Exception as _raised:
+                        # handler raises an exception - stop processing
+                    if sqlalchemy_exception:
+                        sqlalchemy_exception.connection_invalidated = (
+                context.handle_dbapi_exception(e)
+                raise newraise.with_traceback(exc_info[2]) from e
+                assert sqlalchemy_exception is not None
+                raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+>               raise exc_info[1].with_traceback(exc_info[2])
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+        The sync method must be inside a :func:`greenlet_spawn` context.
+        # this is called in the context greenlet while running fn
+        if not getattr(current, "__sqlalchemy_greenlet_provider__", False):
+>           raise exc.MissingGreenlet(
+                "greenlet_spawn has not been called; can't call await_only() "
+E           sqlalchemy.exc.MissingGreenlet: greenlet_spawn has not been called; can't call await_only() here. Was IO attempted in an unexpected place? (Background on this error at: https://sqlalche.me/e/20/xd2s)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py:123: MissingGreenlet
+  F:\SMRITRretailNXmgrt\backend\app\schemas\accounting.py:78: PydanticDeprecatedSince20: `min_items` is deprecated and will be removed, use `min_length` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+  F:\SMRITRretailNXmgrt\backend\app\api\v1\nic_gst.py:27: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+  F:\SMRITRretailNXmgrt\backend\app\api\v1\nic_gst.py:28: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+  F:\SMRITRretailNXmgrt\backend\app\api\v1\nic_gst.py:29: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+  F:\SMRITRretailNXmgrt\backend\app\api\v1\nic_gst.py:30: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+  C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path F:\SMRITRretailNXmgrt\backend\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'F:\\SMRITRretailNXmgrt\\backend\\.pytest_cache\\v\\cache'
+  C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path F:\SMRITRretailNXmgrt\backend\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'F:\\SMRITRretailNXmgrt\\backend\\.pytest_cache\\v\\cache'
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -25,6 +25,19 @@ async def get_inventory_state_for_product(
 
 
 @router.get(
+    "/product/{product_id}/warehouses",
+    summary="Get per-warehouse inventory breakdown for a product",
+)
+async def get_inventory_warehouse_breakdown(
+    product_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    svc = InventoryStateService(db, tenant_ctx)
+    return await svc.get_warehouse_breakdown(product_id)
+
+
+@router.get(
     "/availability/{product_id}",
     summary="Check whether a requested quantity can be fulfilled",
 )

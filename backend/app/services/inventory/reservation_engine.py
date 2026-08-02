@@ -34,7 +34,7 @@ class InventoryReservationService:
         if requested <= 0:
             raise HTTPException(status_code=400, detail="Reservation quantity must be greater than zero")
 
-        product = await self.state_engine._get_product(product_id)
+        product = await self.state_engine._get_product_for_update(product_id)
         state = await self.state_engine.get_product_state(product_id)
         available = self._to_decimal(state.get("available", 0))
 

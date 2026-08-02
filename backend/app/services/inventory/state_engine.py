@@ -39,6 +39,23 @@ class InventoryStateService:
             raise HTTPException(status_code=404, detail="Product not found")
         return product
 
+    async def _get_product_for_update(self, product_id: str) -> Product:
+        stmt = (
+            select(Product)
+            .where(
+                Product.id == product_id,
+                Product.is_deleted.is_(False),
+                Product.company_id == self.tenant_ctx.company_id,
+                Product.branch_id == self.tenant_ctx.branch_id,
+            )
+            .with_for_update()
+        )
+        result = await self.db.execute(stmt)
+        product = result.scalars().first()
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        return product
+
     async def _get_movement_stream(self, product_id: str) -> list[StockMovement]:
         stmt = (
             select(StockMovement)
@@ -112,7 +129,16 @@ class InventoryStateService:
                 quality_hold += abs(qty)
 
         available = max(
-            on_hand - reserved - in_transit - marketplace_reserved - blocked - quality_hold - damaged - repair - return_pending,
+            on_hand
+            - reserved
+            - in_transit
+            - marketplace_reserved
+            - blocked
+            - quality_hold
+            - damaged
+            - repair
+            - return_pending
+            - consignment_out,
             Decimal("0"),
         )
 
@@ -132,9 +158,28 @@ class InventoryStateService:
             "blocked": float(blocked),
             "return_pending": float(return_pending),
             "quality_hold": float(quality_hold),
-            "warehouse": "Main Warehouse",
+            "warehouse": "All Warehouses",
             "updated_at": product.modified_at.isoformat() if getattr(product, "modified_at", None) else None,
         }
+
+    async def get_warehouse_breakdown(self, product_id: str) -> dict[str, float]:
+        movements = await self._get_movement_stream(product_id)
+        breakdown: dict[str, Decimal] = {}
+
+        for movement in movements:
+            warehouse = movement.warehouse or "Unknown Warehouse"
+            qty = self._to_decimal(movement.quantity)
+            if movement.movement_type and movement.movement_type.upper() == "IN":
+                delta = qty
+            elif movement.movement_type and movement.movement_type.upper() == "OUT":
+                delta = -abs(qty)
+            else:
+                # Non-IN/OUT entries do not affect warehouse on-hand balances directly
+                continue
+
+            breakdown[warehouse] = breakdown.get(warehouse, Decimal("0")) + delta
+
+        return {warehouse: float(quantity) for warehouse, quantity in breakdown.items()}
 
     async def can_fulfill(self, product_id: str, requested_qty: float) -> dict[str, Any]:
         state = await self.get_product_state(product_id)

@@ -12,11 +12,13 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import asyncio
 import uuid
 import pytest
 from decimal import Decimal
 from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.api.deps import TenantContext, get_db, get_tenant_context
 from app.core.security import create_access_token, hash_password
@@ -484,6 +486,245 @@ async def test_inventory_movement_timeline_and_universal_search(db_session):
 
 
 @pytest.mark.asyncio
+async def test_inventory_state_engine_multi_warehouse_transfer_total_is_stable(db_session):
+    comp, br = await _make_tenant(db_session, "mw1")
+    tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
+
+    product = Product(
+        id="prod-mw-1",
+        code="PROD-MW-1",
+        name="Multi Warehouse Product 1",
+        price=200.0,
+        stock=150,
+        category="General",
+        barcode="MW-0001",
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    db_session.add(product)
+    await db_session.commit()
+
+    movements = [
+        StockMovement(
+            id="sm-mw-1-a-in",
+            uuid="mw-uuid-1-a-in",
+            product_id=product.id,
+            product_name=product.name,
+            sku="MW-SKU-001",
+            quantity=100,
+            movement_type="IN",
+            reference_doc_type="GRN",
+            reference_doc_id="GRN-MW-A-001",
+            warehouse="Warehouse A",
+            batch="BATCH-MW-A-001",
+            serial="SERIAL-MW-A-001",
+            unit_cost=Decimal("120.00"),
+            remarks="Initial stock in warehouse A",
+            user="tester",
+            device="unit-test",
+            branch=br.id,
+            source_module="purchase",
+            approval="Approved",
+            company_id=comp.id,
+            branch_id=br.id,
+        ),
+        StockMovement(
+            id="sm-mw-1-b-in",
+            uuid="mw-uuid-1-b-in",
+            product_id=product.id,
+            product_name=product.name,
+            sku="MW-SKU-001",
+            quantity=50,
+            movement_type="IN",
+            reference_doc_type="GRN",
+            reference_doc_id="GRN-MW-B-001",
+            warehouse="Warehouse B",
+            batch="BATCH-MW-B-001",
+            serial="SERIAL-MW-B-001",
+            unit_cost=Decimal("120.00"),
+            remarks="Initial stock in warehouse B",
+            user="tester",
+            device="unit-test",
+            branch=br.id,
+            source_module="purchase",
+            approval="Approved",
+            company_id=comp.id,
+            branch_id=br.id,
+        ),
+        StockMovement(
+            id="sm-mw-1-a-out",
+            uuid="mw-uuid-1-a-out",
+            product_id=product.id,
+            product_name=product.name,
+            sku="MW-SKU-001",
+            quantity=20,
+            movement_type="OUT",
+            reference_doc_type="TRANSFER",
+            reference_doc_id="TR-MW-001",
+            warehouse="Warehouse A",
+            batch="BATCH-MW-A-001",
+            serial="SERIAL-MW-A-002",
+            unit_cost=Decimal("120.00"),
+            remarks="Transfer to warehouse B",
+            user="tester",
+            device="unit-test",
+            branch=br.id,
+            source_module="transfer",
+            approval="Approved",
+            company_id=comp.id,
+            branch_id=br.id,
+        ),
+        StockMovement(
+            id="sm-mw-1-b-in-transfer",
+            uuid="mw-uuid-1-b-in-transfer",
+            product_id=product.id,
+            product_name=product.name,
+            sku="MW-SKU-001",
+            quantity=20,
+            movement_type="IN",
+            reference_doc_type="TRANSFER",
+            reference_doc_id="TR-MW-001",
+            warehouse="Warehouse B",
+            batch="BATCH-MW-B-001",
+            serial="SERIAL-MW-B-002",
+            unit_cost=Decimal("120.00"),
+            remarks="Receipt from warehouse A",
+            user="tester",
+            device="unit-test",
+            branch=br.id,
+            source_module="transfer",
+            approval="Approved",
+            company_id=comp.id,
+            branch_id=br.id,
+        ),
+    ]
+    db_session.add_all(movements)
+    await db_session.commit()
+
+    from app.services.inventory_state import InventoryStateService
+
+    svc = InventoryStateService(db_session, tenant_ctx)
+    state = await svc.get_product_state(product.id)
+    assert state["on_hand"] == 150
+    assert state["available"] >= 0
+
+    warehouse_state = await svc.get_warehouse_breakdown(product.id)
+    assert warehouse_state["Warehouse A"] == 80
+    assert warehouse_state["Warehouse B"] == 70
+    assert sum(warehouse_state.values()) == 150
+
+
+@pytest.mark.asyncio
+async def test_inventory_state_engine_consignment_ownership_and_physical_location(db_session):
+    comp, br = await _make_tenant(db_session, "cons1")
+    tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
+
+    product = Product(
+        id="prod-cons-1",
+        code="PROD-CONS-1",
+        name="Consignment Product 1",
+        price=250.0,
+        stock=100,
+        category="General",
+        barcode="CONS-0001",
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    db_session.add(product)
+    await db_session.commit()
+
+    movements = [
+        StockMovement(
+            id="sm-cons-1-owned-in",
+            uuid="cons-uuid-1-owned-in",
+            product_id=product.id,
+            product_name=product.name,
+            sku="CONS-SKU-001",
+            quantity=100,
+            movement_type="IN",
+            reference_doc_type="GRN",
+            reference_doc_id="GRN-CONS-001",
+            warehouse="Warehouse A",
+            batch="BATCH-CONS-001",
+            serial="SERIAL-CONS-001",
+            unit_cost=Decimal("100.00"),
+            remarks="Owned stock receipt",
+            user="tester",
+            device="unit-test",
+            branch=br.id,
+            source_module="purchase",
+            approval="Approved",
+            company_id=comp.id,
+            branch_id=br.id,
+        ),
+        StockMovement(
+            id="sm-cons-1-out",
+            uuid="cons-uuid-1-out",
+            product_id=product.id,
+            product_name=product.name,
+            sku="CONS-SKU-001",
+            quantity=30,
+            movement_type="OUT",
+            reference_doc_type="CONSIGNMENT",
+            reference_doc_id="CONS-OUT-001",
+            warehouse="Warehouse A",
+            batch="BATCH-CONS-001",
+            serial="SERIAL-CONS-002",
+            unit_cost=Decimal("100.00"),
+            remarks="Consignment dispatch",
+            user="tester",
+            device="unit-test",
+            branch=br.id,
+            source_module="consignment",
+            approval="Approved",
+            company_id=comp.id,
+            branch_id=br.id,
+        ),
+        StockMovement(
+            id="sm-cons-1-in",
+            uuid="cons-uuid-1-in",
+            product_id=product.id,
+            product_name=product.name,
+            sku="CONS-SKU-001",
+            quantity=20,
+            movement_type="IN",
+            reference_doc_type="CONSIGNMENT",
+            reference_doc_id="CONS-IN-001",
+            warehouse="Warehouse B",
+            batch="BATCH-CONS-002",
+            serial="SERIAL-CONS-003",
+            unit_cost=Decimal("100.00"),
+            remarks="Consignment receipt",
+            user="tester",
+            device="unit-test",
+            branch=br.id,
+            source_module="consignment",
+            approval="Approved",
+            company_id=comp.id,
+            branch_id=br.id,
+        ),
+    ]
+    db_session.add_all(movements)
+    await db_session.commit()
+
+    from app.services.inventory_state import InventoryStateService
+
+    svc = InventoryStateService(db_session, tenant_ctx)
+    state = await svc.get_product_state(product.id)
+
+    assert state["product_id"] == product.id
+    assert state["on_hand"] == 100
+    assert state["consignment_out"] == 30
+    assert state["consignment_in"] == 20
+    assert state["available"] == 70
+
+    warehouse_state = await svc.get_warehouse_breakdown(product.id)
+    assert warehouse_state["Warehouse A"] == 70
+    assert warehouse_state["Warehouse B"] == 20
+    assert sum(warehouse_state.values()) == 90
+
+
+@pytest.mark.asyncio
 async def test_inventory_state_engine_and_route(db_session):
     comp, br = await _make_tenant(db_session, "state1")
     tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
@@ -652,3 +893,123 @@ async def test_inventory_availability_and_reservation_engines(db_session):
         assert res_reserve.status_code == 200
         assert res_reserve.json()["reserved_qty"] >= 16
 
+
+@pytest.mark.asyncio
+async def test_inventory_reservation_rejects_negative_stock_without_changing_state(db_session):
+    comp, br = await _make_tenant(db_session, "neg1")
+    tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
+
+    product = Product(
+        id="prod-neg-1",
+        code="PROD-NEG-1",
+        name="Negative Stock Product",
+        price=120.0,
+        stock=10,
+        category="General",
+        barcode="NEG-0001",
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    db_session.add(product)
+    await db_session.commit()
+
+    from app.services.inventory_availability import InventoryAvailabilityService
+    from app.services.inventory_reservation import InventoryReservationService
+    from app.services.inventory_trace import InventoryTraceService
+
+    availability = InventoryAvailabilityService(db_session, tenant_ctx)
+    decision = await availability.can_fulfill(product.id, warehouse_id="wh-main", qty=11, context={"channel": "sales"})
+    assert decision["can_fulfill"] is False
+    assert decision["available_qty"] == 10
+
+    trace_service = InventoryTraceService(db_session, tenant_ctx)
+    initial_trace = await trace_service.get_product_trace(product.id)
+
+    reservation = InventoryReservationService(db_session, tenant_ctx)
+    with pytest.raises(HTTPException) as exc_info:
+        await reservation.reserve(product.id, qty=11, reservation_type="SO", reservation_id="SO-NEG-001")
+
+    assert exc_info.value.status_code == 400
+    assert "Insufficient available stock" in exc_info.value.detail
+
+    refreshed_product = await db_session.get(Product, product.id)
+    assert float(getattr(refreshed_product, "reserved_stock", 0)) == 0.0
+    assert float(refreshed_product.stock) == 10
+
+    final_trace = await trace_service.get_product_trace(product.id)
+    assert final_trace == initial_trace
+
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post("/api/v1/inventory-reservation/reserve", json={
+            "product_id": product.id,
+            "qty": 11,
+            "reservation_type": "SO",
+            "reservation_id": "SO-NEG-API-001",
+        })
+        assert res.status_code == 400
+        assert "Insufficient available stock" in res.json()["detail"]
+
+    refreshed_product_after_api = await db_session.get(Product, product.id)
+    assert float(getattr(refreshed_product_after_api, "reserved_stock", 0)) == 0.0
+    assert float(refreshed_product_after_api.stock) == 10
+
+
+@pytest.mark.asyncio
+async def test_inventory_concurrent_reservations_against_final_available_quantity(db_session, db_engine):
+    from app.services.inventory_availability import InventoryAvailabilityService
+    from app.services.inventory_reservation import InventoryReservationService
+
+    comp, br = await _make_tenant(db_session, "con1")
+    tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
+
+    product = Product(
+        id="prod-con-1",
+        code="PROD-CON-1",
+        name="Concurrent Reservation Product",
+        price=130.0,
+        stock=10,
+        category="General",
+        barcode="CON-0001",
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    db_session.add(product)
+    await db_session.commit()
+
+    # Create two independent sessions from the shared test engine to simulate concurrent reservations
+    async_session = async_sessionmaker(
+        bind=db_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+
+    async with async_session() as session_a, async_session() as session_b:
+        service_a = InventoryReservationService(session_a, tenant_ctx)
+        service_b = InventoryReservationService(session_b, tenant_ctx)
+
+        async def try_reserve(service, reservation_id):
+            try:
+                return await service.reserve(product.id, qty=10, reservation_type="SO", reservation_id=reservation_id)
+            except HTTPException as exc:
+                return exc
+
+        results = await asyncio.gather(
+            try_reserve(service_a, "SO-CON-001"),
+            try_reserve(service_b, "SO-CON-002"),
+        )
+
+    successes = [r for r in results if isinstance(r, dict) and r.get("status") == "reserved"]
+    failures = [r for r in results if isinstance(r, HTTPException)]
+
+    assert len(successes) == 1
+    assert len(failures) == 1
+
+    product_id = product.id
+    db_session.expire_all()
+    updated_product = await db_session.get(Product, product_id)
+    assert float(getattr(updated_product, "reserved_stock", 0)) == 10.0
+    assert float(updated_product.stock) == 10
+
+    available_after = await InventoryAvailabilityService(db_session, tenant_ctx).can_fulfill(product_id, warehouse_id="wh-main", qty=1)
+    assert available_after["can_fulfill"] is False
