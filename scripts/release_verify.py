@@ -1,3 +1,25 @@
+from __future__ import annotations
+"""
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+"""
+
 #!/usr/bin/env python3
 """
 Release verification script
@@ -19,7 +41,6 @@ What it does:
 Designed to be re-run for every release candidate or GA release.
 """
 
-from __future__ import annotations
 
 import argparse
 import hashlib

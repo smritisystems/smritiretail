@@ -40,19 +40,19 @@ export const IdentityTransferWizard: React.FC<IdentityTransferWizardProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden font-sans text-slate-100 animate-in fade-in zoom-in-95 duration-150">
+      <div className="w-full max-w-lg bg-theme-surface-2 border border-theme-divider rounded-2xl shadow-2xl overflow-hidden font-sans text-theme-heading animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-950/50">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-theme-divider bg-theme-surface-3">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30">
               <ArrowLeftRight size={16} />
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Transfer Staff — {identityName}</h3>
-              <p className="text-[11px] text-slate-400 font-mono">Multi-Level Organizational Relocation</p>
+              <p className="text-[11px] text-theme-muted font-mono">Multi-Level Organizational Relocation</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <button onClick={onClose} className="p-1 rounded-lg text-theme-muted hover:text-white hover:bg-theme-surface-hover">
             <X size={16} />
           </button>
         </div>
@@ -60,71 +60,71 @@ export const IdentityTransferWizard: React.FC<IdentityTransferWizardProps> = ({
         {/* Wizard Form Content */}
         <div className="p-6 space-y-4 text-xs font-mono">
           <div>
-            <label className="text-slate-400 text-[10px] uppercase font-bold block mb-1">Target Company</label>
+            <label className="text-theme-muted text-[10px] uppercase font-bold block mb-1">Target Company</label>
             <input
               type="text"
               value={company}
               onChange={(e) => setCompany(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 outline-none focus:border-blue-500"
+              className="w-full bg-theme-surface-3 border border-theme-divider rounded-xl px-3 py-2 text-theme-heading outline-none focus:border-blue-500"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-slate-400 text-[10px] uppercase font-bold block mb-1">Target Region</label>
+              <label className="text-theme-muted text-[10px] uppercase font-bold block mb-1">Target Region</label>
               <input
                 type="text"
                 value={region}
                 onChange={(e) => setRegion(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 outline-none focus:border-blue-500"
+                className="w-full bg-theme-surface-3 border border-theme-divider rounded-xl px-3 py-2 text-theme-heading outline-none focus:border-blue-500"
               />
             </div>
             <div>
-              <label className="text-slate-400 text-[10px] uppercase font-bold block mb-1">Work Location / Branch</label>
+              <label className="text-theme-muted text-[10px] uppercase font-bold block mb-1">Work Location / Branch</label>
               <input
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 outline-none focus:border-blue-500"
+                className="w-full bg-theme-surface-3 border border-theme-divider rounded-xl px-3 py-2 text-theme-heading outline-none focus:border-blue-500"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-slate-400 text-[10px] uppercase font-bold block mb-1">Department</label>
+              <label className="text-theme-muted text-[10px] uppercase font-bold block mb-1">Department</label>
               <input
                 type="text"
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 outline-none focus:border-blue-500"
+                className="w-full bg-theme-surface-3 border border-theme-divider rounded-xl px-3 py-2 text-theme-heading outline-none focus:border-blue-500"
               />
             </div>
             <div>
-              <label className="text-slate-400 text-[10px] uppercase font-bold block mb-1">Position / Role</label>
+              <label className="text-theme-muted text-[10px] uppercase font-bold block mb-1">Position / Role</label>
               <input
                 type="text"
                 value={position}
                 onChange={(e) => setPosition(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 outline-none focus:border-blue-500"
+                className="w-full bg-theme-surface-3 border border-theme-divider rounded-xl px-3 py-2 text-theme-heading outline-none focus:border-blue-500"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-slate-400 text-[10px] uppercase font-bold block mb-1">Effective Transfer Date</label>
+            <label className="text-theme-muted text-[10px] uppercase font-bold block mb-1">Effective Transfer Date</label>
             <input
               type="date"
               value={effectiveDate}
               onChange={(e) => setEffectiveDate(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 outline-none focus:border-blue-500"
+              className="w-full bg-theme-surface-3 border border-theme-divider rounded-xl px-3 py-2 text-theme-heading outline-none focus:border-blue-500"
             />
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-slate-800 bg-slate-950/40 flex justify-end gap-2 text-xs">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300">
+        <div className="px-6 py-3 border-t border-theme-divider bg-theme-surface-3 flex justify-end gap-2 text-xs">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body">
             Cancel
           </button>
           <button

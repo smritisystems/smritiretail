@@ -1,7 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Module       : Sales Domain Event Subscriptions (ADR-007 & GR-003)
-Author       : Jawahar Ramkripal Mallah
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 from app.core.events.domain_events import event_bus, DomainEvent
 import logging

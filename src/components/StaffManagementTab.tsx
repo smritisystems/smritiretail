@@ -434,8 +434,8 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
       </div>
 
       {/* SUPOE v2.0 Provisioning Health Telemetry Dashboard */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-        <div className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">SUPOE v2.0 Provisioning Health & Governance Telemetry</div>
+      <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-4">
+        <div className="text-xs font-bold text-theme-body uppercase tracking-wider mb-3">SUPOE v2.0 Provisioning Health & Governance Telemetry</div>
         <ProvisioningDashboard />
       </div>
 

@@ -435,7 +435,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
       {/*             CAPTURE LEAD MODAL                   */}
       {/* ════════════════════════════════════════════════ */}
       {isLeadModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-theme-surface-3 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4 font-sans text-xs">
             <div className="flex items-center justify-between border-b border-theme-divider pb-3">
               <h3 className="text-sm font-bold text-theme-heading font-display">Capture New CRM Prospect Lead</h3>

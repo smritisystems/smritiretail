@@ -1,3 +1,24 @@
+<!--
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+-->
+
 # METADATA ARCHITECTURE EVIDENCE LEDGER
 
 - v1.1 → v1.2: Evidence tags and Appendix A reconciliation retrofitted after Phase 2 precondition check halted on missing tags. See git history / prior version for original draft.

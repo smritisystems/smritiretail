@@ -296,13 +296,13 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
   }, []);
 
   return (
-    <div className="w-full bg-slate-100 font-sans text-slate-800 p-2.5 sm:p-3 space-y-3">
+    <div className="w-full bg-theme-surface-2 font-sans text-theme-heading p-2.5 sm:p-3 space-y-3">
       {/* ================= SINGLE HORIZONTAL TOOLBAR (55px HERO COMPRESSION) ================= */}
-      <div className="bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
+      <div className="bg-white border border-theme-divider rounded-xl px-4 py-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
         {/* Left Title & Overdue Risk Badge */}
         <div className="flex items-center space-x-2">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">CRM /</span>
-          <h1 className="text-base font-extrabold text-slate-900 tracking-tight">Customer & Loyalty Studio</h1>
+          <span className="text-[11px] font-bold text-theme-muted uppercase tracking-wider">CRM /</span>
+          <h1 className="text-base font-extrabold text-theme-heading tracking-tight">Customer & Loyalty Studio</h1>
           <span className="px-2 py-0.2 text-[9px] font-extrabold uppercase rounded bg-indigo-100 text-indigo-700 border border-indigo-300">
             {totals.totalCount} CUSTOMERS
           </span>
@@ -321,13 +321,13 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
         {/* Right Actions & SWMF Pop-Out Button */}
         <div className="flex items-center space-x-2 text-xs">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" />
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-theme-muted" />
             <input
               type="text"
               placeholder="Search Customer / Mobile (F2)"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-7 pr-2.5 py-1 bg-slate-50 border border-slate-300 rounded-md text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500 w-48"
+              className="pl-7 pr-2.5 py-1 bg-theme-surface-2 border border-theme-divider rounded-md text-xs font-semibold text-theme-body focus:outline-none focus:border-blue-500 w-48"
             />
           </div>
 
@@ -352,7 +352,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
 
             {/* Dropdown Options */}
             {showAddMenu && (
-              <div className="absolute right-0 top-full mt-1 w-60 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-1 text-xs space-y-0.5">
+              <div className="absolute right-0 top-full mt-1 w-60 bg-white border border-theme-divider rounded-xl shadow-xl z-30 p-1 text-xs space-y-0.5">
                 <button
                   onClick={() => {
                     setShowTempCustomerModal(true);
@@ -368,7 +368,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
                     setShowNewCustomerModal(true);
                     setShowAddMenu(false);
                   }}
-                  className="w-full text-left px-2.5 py-1.5 hover:bg-slate-100 rounded-lg flex items-center text-slate-700 font-semibold border-t border-slate-100"
+                  className="w-full text-left px-2.5 py-1.5 hover:bg-theme-surface-2 rounded-lg flex items-center text-theme-body font-semibold border-t border-theme-divider"
                 >
                   <UserCheck className="w-3.5 h-3.5 mr-2 text-blue-600" />+ Full Permanent Master
                 </button>
@@ -378,7 +378,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
 
           <button
             onClick={() => WindowManager.openTabStandalone("crm", "SMRITI Customer CRM Studio")}
-            className="p-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md cursor-pointer"
+            className="p-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-muted rounded-md cursor-pointer"
             title="Pop-out Standalone Window (SWMF)"
           >
             <ExternalLink className="w-3.5 h-3.5 text-indigo-600" />
@@ -387,13 +387,13 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
       </div>
 
       {/* ================= QUICK FILTER PILLS & STAGING APPROVAL BAR ================= */}
-      <div className="bg-white border border-slate-200 rounded-xl p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs">
+      <div className="bg-white border border-theme-divider rounded-xl p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex items-center space-x-1.5">
-          <span className="text-[10px] font-bold text-slate-400 uppercase mr-1">Customer Group Filters:</span>
+          <span className="text-[10px] font-bold text-theme-muted uppercase mr-1">Customer Group Filters:</span>
           <button
             onClick={() => setFilterMode("ALL")}
             className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer ${
-              filterMode === "ALL" ? "bg-blue-600 text-white shadow-2xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              filterMode === "ALL" ? "bg-blue-600 text-white shadow-2xs" : "bg-theme-surface-2 text-theme-body hover:bg-theme-surface-2"
             }`}
           >
             All ({totals.totalCount})
@@ -401,7 +401,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
           <button
             onClick={() => setFilterMode("CORPORATE")}
             className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer ${
-              filterMode === "CORPORATE" ? "bg-blue-600 text-white shadow-2xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              filterMode === "CORPORATE" ? "bg-blue-600 text-white shadow-2xs" : "bg-theme-surface-2 text-theme-body hover:bg-theme-surface-2"
             }`}
           >
             Corporate B2B ({totals.corporateCount})
@@ -409,7 +409,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
           <button
             onClick={() => setFilterMode("RETAIL")}
             className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer ${
-              filterMode === "RETAIL" ? "bg-blue-600 text-white shadow-2xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              filterMode === "RETAIL" ? "bg-blue-600 text-white shadow-2xs" : "bg-theme-surface-2 text-theme-body hover:bg-theme-surface-2"
             }`}
           >
             Retail B2C ({totals.retailCount})
@@ -439,8 +439,8 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
       {/* ================= 2-COLUMN MASTER FORM (7/5 SPLIT) ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* ----- LEFT SIDE: CUSTOMER DATA GRID (7 COLUMNS) ----- */}
-        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+        <div className="lg:col-span-7 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <Users className="w-3.5 h-3.5" />
               <span>Customer Master Directory ({filteredCustomers.length})</span>
@@ -448,10 +448,10 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
           </div>
 
           {/* SUPG Customer Data Table */}
-          <div className="overflow-x-auto border border-slate-200 rounded-lg smriti-custom-scroll">
+          <div className="overflow-x-auto border border-theme-divider rounded-lg smriti-custom-scroll">
             <table className="w-full text-left text-xs border-collapse min-w-[700px]">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">
+                <tr className="bg-theme-surface-2 border-b border-theme-divider text-[10px] font-extrabold text-theme-muted uppercase tracking-wider">
                   <th className="py-1.5 px-2 w-8 text-center">#</th>
                   <th className="py-1.5 px-2">Customer ID *</th>
                   <th className="py-1.5 px-2">Name & Mobile *</th>
@@ -461,7 +461,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
                   <th className="py-1.5 px-2 text-center">Master Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-[11px]">
+              <tbody className="divide-y divide-theme-divider font-medium text-[11px]">
                 {filteredCustomers.map((cust, idx) => {
                   const isSelected = selectedCustomerId === cust.id;
                   const isOverdue = (cust.outstanding || 0) > 0;
@@ -477,18 +477,18 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
                         isSelected ? "bg-blue-50/70 border-l-4 border-blue-600" : ""
                       }`}
                     >
-                      <td className="py-1 px-2 text-center font-bold text-slate-400">{idx + 1}</td>
-                      <td className="py-1 px-2 font-mono font-bold text-slate-800">{cust.id}</td>
+                      <td className="py-1 px-2 text-center font-bold text-theme-muted">{idx + 1}</td>
+                      <td className="py-1 px-2 font-mono font-bold text-theme-heading">{cust.id}</td>
                       <td className="py-1 px-2">
-                        <div className="font-semibold text-slate-900">{cust.name}</div>
-                        <div className="text-[10px] font-mono text-slate-500">{cust.mobile}</div>
+                        <div className="font-semibold text-theme-heading">{cust.name}</div>
+                        <div className="text-[10px] font-mono text-theme-muted">{cust.mobile}</div>
                       </td>
                       <td className="py-1 px-2">
-                        <span className="px-1.5 py-0.2 bg-slate-100 text-slate-700 rounded font-bold text-[10px]">
+                        <span className="px-1.5 py-0.2 bg-theme-surface-2 text-theme-body rounded font-bold text-[10px]">
                           {cust.customerGroupId || "Retail"}
                         </span>
                       </td>
-                      <td className="py-1 px-2 text-right font-mono text-slate-600">
+                      <td className="py-1 px-2 text-right font-mono text-theme-muted">
                         ₹ {(cust.creditLimit || 0).toLocaleString("en-IN")}
                       </td>
                       <td className="py-1 px-2 text-right font-mono font-bold">
@@ -523,8 +523,8 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
         </div>
 
         {/* ----- RIGHT SIDE: CUSTOMER 360 & CREDIT SUMMARY (5 COLUMNS) ----- */}
-        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+        <div className="lg:col-span-5 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-3">
+          <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <UserCheck className="w-3.5 h-3.5" />
               <span>Customer 360° Inspector</span>
@@ -532,19 +532,19 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
           </div>
 
           {/* Credit & Balance Summary Card */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2 text-xs">
-            <div className="flex items-center justify-between text-slate-600">
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 space-y-2 text-xs">
+            <div className="flex items-center justify-between text-theme-muted">
               <span>Total CRM Customers</span>
-              <span className="font-mono font-bold text-slate-800">{totals.totalCount}</span>
+              <span className="font-mono font-bold text-theme-heading">{totals.totalCount}</span>
             </div>
-            <div className="flex items-center justify-between text-slate-600">
+            <div className="flex items-center justify-between text-theme-muted">
               <span>Total Sanctioned Credit Limit</span>
-              <span className="font-mono font-bold text-slate-800">
+              <span className="font-mono font-bold text-theme-heading">
                 ₹ {totals.totalCreditLimit.toLocaleString("en-IN")}
               </span>
             </div>
-            <div className="flex items-center justify-between pt-1 border-t border-slate-200">
-              <span className="font-bold text-slate-800">Total Outstanding Receivables</span>
+            <div className="flex items-center justify-between pt-1 border-t border-theme-divider">
+              <span className="font-bold text-theme-heading">Total Outstanding Receivables</span>
               <span className="font-mono font-black text-rose-600 text-sm">
                 ₹ {totals.totalOutstanding.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </span>
@@ -553,11 +553,11 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
 
           {/* Selected Customer Inspector */}
           {activeCustomer ? (
-            <div className="border border-slate-200 rounded-xl p-3 space-y-2 text-xs">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-1">
+            <div className="border border-theme-divider rounded-xl p-3 space-y-2 text-xs">
+              <div className="flex items-center justify-between border-b border-theme-divider pb-1">
                 <div>
-                  <h4 className="font-extrabold text-slate-900 text-sm">{activeCustomer.name}</h4>
-                  <span className="text-[10px] text-slate-400 font-mono">{activeCustomer.id} | {activeCustomer.category?.toUpperCase()}</span>
+                  <h4 className="font-extrabold text-theme-heading text-sm">{activeCustomer.name}</h4>
+                  <span className="text-[10px] text-theme-muted font-mono">{activeCustomer.id} | {activeCustomer.category?.toUpperCase()}</span>
                 </div>
                 <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded font-bold text-[10px] border border-indigo-200">
                   {activeCustomer.loyaltyTier || "Gold"} Tier
@@ -566,45 +566,45 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
 
               <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <div>
-                  <span className="text-slate-400 uppercase text-[9px] block">Mobile</span>
-                  <span className="font-mono font-bold text-slate-800">{activeCustomer.mobile}</span>
+                  <span className="text-theme-muted uppercase text-[9px] block">Mobile</span>
+                  <span className="font-mono font-bold text-theme-heading">{activeCustomer.mobile}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 uppercase text-[9px] block">Email</span>
-                  <span className="font-semibold text-slate-700 truncate block">{activeCustomer.email || "N/A"}</span>
+                  <span className="text-theme-muted uppercase text-[9px] block">Email</span>
+                  <span className="font-semibold text-theme-body truncate block">{activeCustomer.email || "N/A"}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 uppercase text-[9px] block">Credit Limit</span>
-                  <span className="font-mono font-bold text-slate-700">₹ {(activeCustomer.creditLimit || 0).toLocaleString("en-IN")}</span>
+                  <span className="text-theme-muted uppercase text-[9px] block">Credit Limit</span>
+                  <span className="font-mono font-bold text-theme-body">₹ {(activeCustomer.creditLimit || 0).toLocaleString("en-IN")}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 uppercase text-[9px] block">Outstanding Balance</span>
+                  <span className="text-theme-muted uppercase text-[9px] block">Outstanding Balance</span>
                   <span className="font-mono font-bold text-rose-600">₹ {(activeCustomer.outstanding || 0).toLocaleString("en-IN")}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 uppercase text-[9px] block">GSTIN</span>
-                  <span className="font-mono font-semibold text-slate-700">{activeCustomer.gstNumber || "Unregistered"}</span>
+                  <span className="text-theme-muted uppercase text-[9px] block">GSTIN</span>
+                  <span className="font-mono font-semibold text-theme-body">{activeCustomer.gstNumber || "Unregistered"}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 uppercase text-[9px] block">Loyalty Points</span>
+                  <span className="text-theme-muted uppercase text-[9px] block">Loyalty Points</span>
                   <span className="font-mono font-bold text-emerald-600">{activeCustomer.loyaltyPoints || 0} Pts</span>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="p-4 text-center text-slate-400 text-xs italic">Select a customer row to inspect profile.</div>
+            <div className="p-4 text-center text-theme-muted text-xs italic">Select a customer row to inspect profile.</div>
           )}
         </div>
       </div>
 
       {/* ================= BOTTOM COLLAPSIBLE VISUAL CUSTOMER GALLERY ================= */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+      <div className="bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+        <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
           <div className="flex items-center space-x-2 text-indigo-600 font-bold text-xs uppercase tracking-wide">
             <ImageIcon className="w-4 h-4" />
             <span>Customer Visual Directory Gallery ({customerList.length})</span>
           </div>
-          <span className="text-[10px] text-slate-400 font-mono">Bi-directional Interactive Card Highlighting</span>
+          <span className="text-[10px] text-theme-muted font-mono">Bi-directional Interactive Card Highlighting</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
@@ -620,15 +620,15 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
                 className={`p-2 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
                   isSelected
                     ? "bg-indigo-50 border-indigo-500 ring-2 ring-indigo-400/40 shadow-sm"
-                    : "bg-slate-50 border-slate-200 hover:border-slate-300"
+                    : "bg-theme-surface-2 border-theme-divider hover:border-theme-divider"
                 }`}
               >
                 <div className="space-y-1">
-                  <div className="h-20 w-full bg-slate-200 rounded-lg overflow-hidden relative flex items-center justify-center">
+                  <div className="h-20 w-full bg-theme-surface-2 rounded-lg overflow-hidden relative flex items-center justify-center">
                     {cust.photoUrl ? (
                       <img src={cust.photoUrl} alt={cust.name} className="h-full w-full object-cover" />
                     ) : (
-                      <Users className="w-8 h-8 text-slate-400" />
+                      <Users className="w-8 h-8 text-theme-muted" />
                     )}
                     {cust.isTemporary && (
                       <span className="absolute top-1 left-1 bg-amber-600 text-white font-mono font-bold text-[8px] px-1 rounded shadow-xs">
@@ -636,15 +636,15 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
                       </span>
                     )}
                   </div>
-                  <div className="font-bold text-slate-900 text-xs truncate">{cust.name}</div>
-                  <div className="text-[10px] text-slate-500 font-mono flex items-center justify-between">
+                  <div className="font-bold text-theme-heading text-xs truncate">{cust.name}</div>
+                  <div className="text-[10px] text-theme-muted font-mono flex items-center justify-between">
                     <span>{cust.id}</span>
                     <span className="font-bold text-indigo-600">{cust.loyaltyTier || "Gold"}</span>
                   </div>
                 </div>
 
-                <div className="pt-1.5 mt-1 border-t border-slate-200/60 flex items-center justify-between text-[10px]">
-                  <span className="font-bold text-slate-600 font-mono">{cust.billingCity || "Mumbai"}</span>
+                <div className="pt-1.5 mt-1 border-t border-theme-divider/60 flex items-center justify-between text-[10px]">
+                  <span className="font-bold text-theme-muted font-mono">{cust.billingCity || "Mumbai"}</span>
                   <span className={`font-bold font-mono ${(cust.outstanding || 0) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
                     ₹ {(cust.outstanding || 0).toLocaleString("en-IN")}
                   </span>
@@ -657,63 +657,63 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
 
       {/* ================= ON-THE-FLY TEMPORARY CUSTOMER MODAL ================= */}
       {showTempCustomerModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-theme-divider">
+            <div className="flex items-center justify-between border-b border-theme-divider pb-3">
               <div className="flex items-center space-x-2">
                 <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-slate-900 text-sm">Create Temporary Customer (POS Billing)</h3>
-                  <p className="text-xs text-slate-500">Quick-add customer for fast checkout. Tagged PENDING APPROVAL.</p>
+                  <h3 className="font-extrabold text-theme-heading text-sm">Create Temporary Customer (POS Billing)</h3>
+                  <p className="text-xs text-theme-muted">Quick-add customer for fast checkout. Tagged PENDING APPROVAL.</p>
                 </div>
               </div>
-              <button onClick={() => setShowTempCustomerModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowTempCustomerModal(false)} className="text-theme-muted hover:text-theme-muted">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Customer Name *</label>
+                <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Customer Name *</label>
                 <input
                   type="text"
                   required
                   value={newCustForm.name}
                   onChange={(e) => setNewCustForm({ ...newCustForm, name: e.target.value })}
                   placeholder="e.g. Ramesh Patel"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-semibold text-theme-heading"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Mobile Number *</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Mobile Number *</label>
                   <input
                     type="text"
                     required
                     value={newCustForm.mobile}
                     onChange={(e) => setNewCustForm({ ...newCustForm, mobile: e.target.value })}
                     placeholder="9876543210"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-800"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-mono font-bold text-theme-heading"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">GSTIN (Optional)</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">GSTIN (Optional)</label>
                   <input
                     type="text"
                     value={newCustForm.gstNumber}
                     onChange={(e) => setNewCustForm({ ...newCustForm, gstNumber: e.target.value })}
                     placeholder="27AAACA1234F1Z5"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono uppercase text-slate-800"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-mono uppercase text-theme-heading"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
-              <button onClick={() => setShowTempCustomerModal(false)} className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-xl font-bold">
+            <div className="flex justify-end space-x-2 pt-2 border-t border-theme-divider">
+              <button onClick={() => setShowTempCustomerModal(false)} className="px-4 py-1.5 bg-theme-surface-2 text-theme-body rounded-xl font-bold">
                 Cancel
               </button>
               <button onClick={handleCreateTempCustomer} className="px-5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold flex items-center shadow-md">

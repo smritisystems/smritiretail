@@ -1,70 +1,25 @@
-"""
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Version      : 3.29.0
-Created      : 2026-08-02
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
-Classification: Internal
-
-Inventory Kernel — Movement Taxonomy & Behavior Registry
-=========================================================
-
-STATUS: FROZEN — Inventory Kernel v1.0 (RC2)
-
-This module defines the canonical movement type taxonomy for the SMRITI
-Inventory State Engine. Movement behaviors are declared as metadata rather
-than encoded as imperative switch statements.
-
-Architecture
-------------
-
-    MovementProvider (ABC)
-            │
-            ▼
-    CoreMovementProvider         ← Standard RC2 movement types
-    MedicalMovementProvider      ← SDK: registers QUARANTINE, RELEASE_QUARANTINE
-    JewelleryMovementProvider    ← SDK: registers MELTING, REFINING
-    FootwearMovementProvider     ← SDK: registers PAIR_SPLIT, PAIR_JOIN
-            │
-            ▼
-    MovementTypeRegistry         ← Read-only after initialization
-            │
-            ▼
-    InventoryStateService        ← Consumes registry; zero switch statements
-
-
-State Engine Dispatch Pattern (RC2 canonical)
----------------------------------------------
-
-    behavior = _REGISTRY.get(movement.movement_type)
-
-    if behavior.affects_physical_stock:
-        update_on_hand(delta)
-
-    if behavior.affects_reservation:
-        update_reserved(delta)
-
-    if behavior.affects_channel_stock:
-        update_channel(delta)
-
-    if behavior.affects_transit:
-        update_transit(delta)
-
-    if behavior.affects_inventory_value:
-        update_valuation(movement)
-
-
-Platform Rule (FROZEN — Inventory Kernel v1.0)
-----------------------------------------------
-No engine may update `products.stock` directly except through the
-Inventory State reconciliation pipeline (trg_inventory_state_reconciliation).
-"""
-
 from __future__ import annotations
+"""
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+"""
+
 
 import abc
 from dataclasses import dataclass, field

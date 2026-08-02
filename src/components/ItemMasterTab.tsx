@@ -230,7 +230,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
         return <BulkImportSection onRefreshProducts={onRefreshProducts} onNotification={onNotification} />;
       case "analytics":
         return (
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs text-xs text-slate-600">
+          <div className="bg-white border border-theme-divider rounded-xl p-5 shadow-xs text-xs text-theme-muted">
             <div className="flex items-center gap-2 text-blue-700 font-bold uppercase tracking-wide">
               <Boxes className="w-4 h-4" />
               <span>SKU Analytics</span>
@@ -242,8 +242,8 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
       default:
         return (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-            <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+            <div className="lg:col-span-7 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+              <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
                 <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
                   <Package className="w-3.5 h-3.5" />
                   <span>Master Inventory Registry ({filteredProducts.length})</span>
@@ -252,7 +252,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   <button
                     onClick={() => setActiveFilter({ type: "ALL", value: "ALL" })}
                     className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      activeFilter.type === "ALL" ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"
+                      activeFilter.type === "ALL" ? "bg-blue-600 text-white" : "bg-theme-surface-2 text-theme-body"
                     }`}
                   >
                     All
@@ -260,7 +260,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   <button
                     onClick={() => setActiveFilter({ type: "LOW_STOCK", value: "LOW_STOCK" })}
                     className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      activeFilter.type === "LOW_STOCK" ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-700"
+                      activeFilter.type === "LOW_STOCK" ? "bg-amber-600 text-white" : "bg-theme-surface-2 text-theme-body"
                     }`}
                   >
                     Low Stock
@@ -268,10 +268,10 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                 </div>
               </div>
 
-              <div className="overflow-x-auto border border-slate-200 rounded-lg smriti-custom-scroll">
+              <div className="overflow-x-auto border border-theme-divider rounded-lg smriti-custom-scroll">
                 <table className="w-full text-left text-xs border-collapse min-w-[700px]">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">
+                    <tr className="bg-theme-surface-2 border-b border-theme-divider text-[10px] font-extrabold text-theme-muted uppercase tracking-wider">
                       <th className="py-1.5 px-2 w-8 text-center">#</th>
                       <th className="py-1.5 px-2">SKU / Code *</th>
                       <th className="py-1.5 px-2">Product Name *</th>
@@ -282,7 +282,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                       <th className="py-1.5 px-2 text-center">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium text-[11px]">
+                  <tbody className="divide-y divide-theme-divider font-medium text-[11px]">
                     {filteredProducts.map((prod, idx) => {
                       const qty = prod.stock_qty ?? prod.qty ?? 0;
                       const minStock = prod.min_stock_level || 5;
@@ -296,13 +296,13 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                             selectedProduct?.id === prod.id ? "bg-blue-50/70 border-l-4 border-blue-600" : ""
                           }`}
                         >
-                          <td className="py-1 px-2 text-center font-bold text-slate-400">{idx + 1}</td>
-                          <td className="py-1 px-2 font-mono font-bold text-slate-800">{prod.code || prod.sku}</td>
-                          <td className="py-1 px-2 font-semibold text-slate-900">{prod.name}</td>
-                          <td className="py-1 px-2 text-slate-600">{prod.category || "General"}</td>
-                          <td className="py-1 px-2 text-right font-mono text-slate-500">₹ {prod.mrp || prod.price}</td>
+                          <td className="py-1 px-2 text-center font-bold text-theme-muted">{idx + 1}</td>
+                          <td className="py-1 px-2 font-mono font-bold text-theme-heading">{prod.code || prod.sku}</td>
+                          <td className="py-1 px-2 font-semibold text-theme-heading">{prod.name}</td>
+                          <td className="py-1 px-2 text-theme-muted">{prod.category || "General"}</td>
+                          <td className="py-1 px-2 text-right font-mono text-theme-muted">₹ {prod.mrp || prod.price}</td>
                           <td className="py-1 px-2 text-right font-mono font-bold text-blue-700">₹ {prod.price}</td>
-                          <td className="py-1 px-2 text-right font-mono font-bold text-slate-800">{qty} {prod.unit || "Pcs"}</td>
+                          <td className="py-1 px-2 text-right font-mono font-bold text-theme-heading">{qty} {prod.unit || "Pcs"}</td>
                           <td className="py-1 px-2 text-center">
                             {isLow ? (
                               <span className="px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded font-mono text-[9px] font-bold">
@@ -322,25 +322,25 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
               </div>
             </div>
 
-            <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+            <div className="lg:col-span-5 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
                 <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
                   <Boxes className="w-3.5 h-3.5" />
                   <span>Valuation & Product Inspector</span>
                 </div>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2 text-xs">
-                <div className="flex items-center justify-between text-slate-600">
+              <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 space-y-2 text-xs">
+                <div className="flex items-center justify-between text-theme-muted">
                   <span>Total Catalog Products</span>
-                  <span className="font-mono font-bold text-slate-800">{inventoryTotals.totalProducts}</span>
+                  <span className="font-mono font-bold text-theme-heading">{inventoryTotals.totalProducts}</span>
                 </div>
-                <div className="flex items-center justify-between text-slate-600">
+                <div className="flex items-center justify-between text-theme-muted">
                   <span>Total Available Stock Qty</span>
-                  <span className="font-mono font-bold text-slate-800">{inventoryTotals.totalStockQty} Pcs</span>
+                  <span className="font-mono font-bold text-theme-heading">{inventoryTotals.totalStockQty} Pcs</span>
                 </div>
-                <div className="flex items-center justify-between pt-1 border-t border-slate-200">
-                  <span className="font-bold text-slate-800">Total Inventory Valuation</span>
+                <div className="flex items-center justify-between pt-1 border-t border-theme-divider">
+                  <span className="font-bold text-theme-heading">Total Inventory Valuation</span>
                   <span className="font-mono font-black text-emerald-600 text-sm">
                     ₹ {inventoryTotals.totalValuation.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </span>
@@ -348,32 +348,32 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
               </div>
 
               {selectedProduct ? (
-                <div className="border border-slate-200 rounded-xl p-3 space-y-2 text-xs">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-1">
-                    <span className="font-extrabold text-slate-900">{selectedProduct.name}</span>
+                <div className="border border-theme-divider rounded-xl p-3 space-y-2 text-xs">
+                  <div className="flex items-center justify-between border-b border-theme-divider pb-1">
+                    <span className="font-extrabold text-theme-heading">{selectedProduct.name}</span>
                     <span className="font-mono font-bold text-blue-600">{selectedProduct.code || selectedProduct.sku}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-[11px]">
                     <div>
-                      <span className="text-slate-400 uppercase text-[9px] block">Category</span>
-                      <span className="font-semibold text-slate-800">{selectedProduct.category || "General"}</span>
+                      <span className="text-theme-muted uppercase text-[9px] block">Category</span>
+                      <span className="font-semibold text-theme-heading">{selectedProduct.category || "General"}</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 uppercase text-[9px] block">Brand</span>
-                      <span className="font-semibold text-slate-800">{selectedProduct.brand || "Smriti Standard"}</span>
+                      <span className="text-theme-muted uppercase text-[9px] block">Brand</span>
+                      <span className="font-semibold text-theme-heading">{selectedProduct.brand || "Smriti Standard"}</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 uppercase text-[9px] block">Buying Rate</span>
-                      <span className="font-mono font-bold text-slate-700">₹ {selectedProduct.purchasePrice || 60}</span>
+                      <span className="text-theme-muted uppercase text-[9px] block">Buying Rate</span>
+                      <span className="font-mono font-bold text-theme-body">₹ {selectedProduct.purchasePrice || 60}</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 uppercase text-[9px] block">Retail Selling Price</span>
+                      <span className="text-theme-muted uppercase text-[9px] block">Retail Selling Price</span>
                       <span className="font-mono font-bold text-blue-700">₹ {selectedProduct.price}</span>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="p-4 text-center text-slate-400 text-xs italic">Select a product row to inspect details.</div>
+                <div className="p-4 text-center text-theme-muted text-xs italic">Select a product row to inspect details.</div>
               )}
             </div>
           </div>
@@ -382,12 +382,12 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   };
 
   return (
-    <div className="w-full bg-slate-100 font-sans text-slate-800 p-2.5 sm:p-3 space-y-3">
-      <div className="bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-xs">
+    <div className="w-full bg-theme-surface-2 font-sans text-theme-heading p-2.5 sm:p-3 space-y-3">
+      <div className="bg-white border border-theme-divider rounded-xl px-4 py-2 shadow-xs">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center space-x-2">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">INVENTORY /</span>
-            <h1 className="text-base font-extrabold text-slate-900 tracking-tight">Item Master Studio</h1>
+            <span className="text-[11px] font-bold text-theme-muted uppercase tracking-wider">INVENTORY /</span>
+            <h1 className="text-base font-extrabold text-theme-heading tracking-tight">Item Master Studio</h1>
             <span className="px-2 py-0.2 text-[9px] font-extrabold uppercase rounded bg-indigo-100 text-indigo-700 border border-indigo-300">
               {products.length} PRODUCTS
             </span>
@@ -405,14 +405,14 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsBarcodeDialogOpen(true)}
-              className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 rounded-md font-bold text-slate-700 cursor-pointer shadow-2xs flex items-center"
+              className="px-2.5 py-1 bg-white hover:bg-theme-surface-2 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center"
             >
               <Barcode className="w-3.5 h-3.5 mr-1 text-indigo-600" />
               Barcode Hub (F4)
             </button>
             <button
               onClick={() => WindowManager.openTabStandalone("inventory", "SMRITI Inventory Master Studio")}
-              className="p-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md cursor-pointer"
+              className="p-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-muted rounded-md cursor-pointer"
               title="Pop-out Standalone Window (SWMF)"
             >
               <ExternalLink className="w-3.5 h-3.5 text-indigo-600" />
@@ -463,19 +463,19 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
 
       {/* ================= NEW ITEM CREATION MODAL ================= */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl border border-theme-divider">
+            <div className="flex items-center justify-between border-b border-theme-divider pb-3">
               <div className="flex items-center space-x-2">
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
                   <Package className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-slate-900 text-sm">Create New Inventory Item</h3>
-                  <p className="text-xs text-slate-500">Add product specifications to SMRITI Item Master.</p>
+                  <h3 className="font-extrabold text-theme-heading text-sm">Create New Inventory Item</h3>
+                  <p className="text-xs text-theme-muted">Add product specifications to SMRITI Item Master.</p>
                 </div>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setIsModalOpen(false)} className="text-theme-muted hover:text-theme-muted">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -483,90 +483,90 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
             <form onSubmit={handleCreateItem} className="space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">SKU / Code *</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">SKU / Code *</label>
                   <input
                     type="text"
                     required
                     value={formData.sku}
                     onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-800"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-mono font-bold text-theme-heading"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Product Name *</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Product Name *</label>
                   <input
                     type="text"
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-semibold text-theme-heading"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Category</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Category</label>
                   <input
                     type="text"
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-heading"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Brand</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Brand</label>
                   <input
                     type="text"
                     value={formData.brand}
                     onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-heading"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">HSN Code</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">HSN Code</label>
                   <input
                     type="text"
                     value={formData.hsn_code}
                     onChange={(e) => setFormData({ ...formData, hsn_code: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-mono text-theme-heading"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">MRP (₹)</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">MRP (₹)</label>
                   <input
                     type="number"
                     value={formData.mrp}
                     onChange={(e) => setFormData({ ...formData, mrp: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-mono text-theme-heading"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Selling Price (₹) *</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Selling Price (₹) *</label>
                   <input
                     type="number"
                     required
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold text-blue-700"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-mono font-bold text-blue-700"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Initial Stock Qty</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Initial Stock Qty</label>
                   <input
                     type="number"
                     value={formData.stock_qty}
                     onChange={(e) => setFormData({ ...formData, stock_qty: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-mono text-theme-heading"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-xl font-bold">
+              <div className="flex justify-end space-x-2 pt-2 border-t border-theme-divider">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-1.5 bg-theme-surface-2 text-theme-body rounded-xl font-bold">
                   Cancel
                 </button>
                 <button type="submit" disabled={isSubmitting} className="px-5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center shadow-md">

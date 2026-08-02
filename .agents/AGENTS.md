@@ -1534,8 +1534,90 @@ No file shall be modified until its dependency graph, impact analysis, compatibi
 ## The Guiding Governance Principle
 > **"No code change is complete until its architectural impact has been analyzed, all dependent artifacts have been synchronized, all validation gates have passed, and the platform remains internally consistent."**
 
+
 ## Rule KGF-001 – Persistent Knowledge Graph & Semantic Dependency Engine
 The SMRITI Platform Kernel (SPK) shall maintain a persistent project Knowledge Graph (`KGF`) indexing all Files, Classes, Interfaces, APIs, Domain Events, Database Schemas, Routes, Tests, and Documentation. All ICME dependency scans and impact analyses shall consume `KGF` for semantic dependency resolution and sub-second incremental change evaluation.
+
+---
+
+# 20. Repository-wide Author Signature Standardization & Governance
+
+**Status:** MANDATORY LEVEL-1 CONSTITUTION (2026-08-03)
+
+## Author Signature Policy (ASG-001)
+
+All files maintained in the SMRITI Retail OS repository MUST automatically include the official canonical Author Signature.
+
+### 1. Canonical Author Signature (Full — Public Docs, Architectures, Constitutions, ADRs, Public SDKs, AUTHORS.md)
+
+```markdown
+# AUTHORS
+
+## Author, Creator & Chief Systems Architect
+
+**Jawahar Ramkripal Mallah**
+
+### Founder
+- SmritiSys
+- AITDL Networks
+
+### Creator
+- SMRITI Retail OS
+
+### Responsibilities
+- Product Vision
+- Product Strategy
+- Platform Architecture
+- Enterprise Architecture
+- UX Architecture
+- Inventory Kernel Architecture
+- Platform Constitution
+- Engineering Standards & Governance
+
+### Websites
+- smritisys.com
+- smritibooks.com
+- aitdl.com
+
+### Contact
+- jawahar.mallah@gmail.com
+
+---
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+```
+
+### 2. Short Source Header (Internal Implementation Files: Python, TS/JS/TSX, SQL, Markdown, Shell, YAML)
+
+```text
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+```
+
+### 3. Execution Rules
+- **Rule 1 (Preserve & Standardize)**: Update existing headers to canonical format; never duplicate signatures.
+- **Rule 2 (Comment Syntax)**: Wrap using native comment syntax (`"""` for Python, `/* ... */` for JS/TS, `--` for SQL, `<!-- ... -->` for MD, `#` for Shell/YAML).
+- **Rule 3 (Exclusions)**: Exclude `node_modules`, `vendor`, `third_party`, `dist`, `build`, `coverage`, `.next`, `.venv`, `.git`, `.pytest_cache`, `__pycache__`, framework auto-generated migrations (`alembic/versions`), binary files, and lock files.
+- **Rule 4 (No Code Logic Mutations)**: Never modify program logic, algorithms, imports, or exports during signature standardization.
+- **Rule 5 (New File Generation)**: Every newly created internal source file or architecture document MUST automatically receive the canonical author signature.
+- **Rule 6 (Python Future Import)**: In Python files containing `from __future__ import ...`, the `from __future__` statement MUST remain at line 1, placed immediately BEFORE the author signature docstring.
 
 
 

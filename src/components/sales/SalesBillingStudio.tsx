@@ -411,13 +411,13 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
   }, [items, roundedNetPayable]);
 
   return (
-    <div className="w-full bg-slate-100 font-sans text-slate-800 p-2.5 sm:p-3 space-y-3">
+    <div className="w-full bg-theme-surface-2 font-sans text-theme-heading p-2.5 sm:p-3 space-y-3">
       {/* ================= SINGLE HORIZONTAL TOOLBAR (55px HERO COMPRESSION) ================= */}
-      <div className="bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
+      <div className="bg-white border border-theme-divider rounded-xl px-4 py-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
         {/* Left Title & Branch Badge */}
         <div className="flex items-center space-x-2">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">SALES /</span>
-          <h1 className="text-base font-extrabold text-slate-900 tracking-tight">Sales Billing Studio</h1>
+          <span className="text-[11px] font-bold text-theme-muted uppercase tracking-wider">SALES /</span>
+          <h1 className="text-base font-extrabold text-theme-heading tracking-tight">Sales Billing Studio</h1>
           <span className="px-2 py-0.2 text-[9px] font-extrabold uppercase rounded bg-emerald-100 text-emerald-700 border border-emerald-300">
             DRAFT
           </span>
@@ -434,18 +434,18 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
         {/* Right Actions & SWMF Pop-Out Button */}
         <div className="flex items-center space-x-2 text-xs">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" />
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-theme-muted" />
             <input
               type="text"
               placeholder="Search Items (F2)"
               onClick={() => setIsScannerModalOpen(true)}
-              className="pl-7 pr-2.5 py-1 bg-slate-50 border border-slate-300 rounded-md text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500 w-40"
+              className="pl-7 pr-2.5 py-1 bg-theme-surface-2 border border-theme-divider rounded-md text-xs font-semibold text-theme-body focus:outline-none focus:border-blue-500 w-40"
             />
           </div>
 
           <button
             onClick={handleHoldBill}
-            className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 rounded-md font-bold text-slate-700 cursor-pointer shadow-2xs flex items-center"
+            className="px-2.5 py-1 bg-white hover:bg-theme-surface-2 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center"
           >
             <PauseCircle className="w-3.5 h-3.5 mr-1 text-amber-600" />
             Hold (F6)
@@ -453,7 +453,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
           <button
             onClick={() => setIsRecallModalOpen(true)}
-            className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 rounded-md font-bold text-slate-700 cursor-pointer shadow-2xs flex items-center relative"
+            className="px-2.5 py-1 bg-white hover:bg-theme-surface-2 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center relative"
           >
             <PlayCircle className="w-3.5 h-3.5 mr-1 text-indigo-600" />
             Recall (F7)
@@ -466,7 +466,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
           <button
             onClick={() => setIsDiscountModalOpen(true)}
-            className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 rounded-md font-bold text-slate-700 cursor-pointer shadow-2xs flex items-center"
+            className="px-2.5 py-1 bg-white hover:bg-theme-surface-2 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center"
           >
             <Percent className="w-3.5 h-3.5 mr-1 text-emerald-600" />
             Discount (F8)
@@ -482,14 +482,14 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
           <button
             onClick={() => WindowManager.openTabStandalone("sales", "SMRITI Sales Billing Studio")}
-            className="p-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md cursor-pointer"
+            className="p-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-muted rounded-md cursor-pointer"
             title="Pop-out Standalone Window (SWMF)"
           >
             <ExternalLink className="w-3.5 h-3.5 text-indigo-600" />
           </button>
 
-          <div className="pl-2 border-l border-slate-200 text-right">
-            <span className="text-[10px] text-slate-400 font-bold block uppercase">Invoice No.</span>
+          <div className="pl-2 border-l border-theme-divider text-right">
+            <span className="text-[10px] text-theme-muted font-bold block uppercase">Invoice No.</span>
             <span className="font-mono font-extrabold text-blue-600 text-xs">{invoiceNo}</span>
           </div>
         </div>
@@ -498,8 +498,8 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
       {/* ================= 2-COLUMN MASTER FORM (CUSTOMER INFO + INVOICE DETAILS) ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* ----- CUSTOMER INFORMATION (7 COLUMNS) ----- */}
-        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+        <div className="lg:col-span-7 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <User className="w-3.5 h-3.5" />
               <span>Customer Details</span>
@@ -512,7 +512,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                   setMobileNumber("9876543210");
                 }}
                 className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                  isWalkIn ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"
+                  isWalkIn ? "bg-blue-600 text-white" : "bg-theme-surface-2 text-theme-body"
                 }`}
               >
                 Walk-in
@@ -520,7 +520,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
               <button
                 onClick={() => setIsWalkIn(false)}
                 className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                  !isWalkIn ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"
+                  !isWalkIn ? "bg-blue-600 text-white" : "bg-theme-surface-2 text-theme-body"
                 }`}
               >
                 Registered
@@ -530,38 +530,38 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Customer Name *</label>
+              <label className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Customer Name *</label>
               <input
                 type="text"
                 value={selectedCustomerName}
                 onChange={(e) => setSelectedCustomerName(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-semibold text-slate-800"
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs font-semibold text-theme-heading"
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Mobile Number</label>
+              <label className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Mobile Number</label>
               <input
                 type="text"
                 value={mobileNumber}
                 onChange={(e) => setMobileNumber(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold text-slate-800"
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs font-mono font-bold text-theme-heading"
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">GSTIN / TAX ID</label>
+              <label className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">GSTIN / TAX ID</label>
               <input
                 type="text"
                 value={gstin}
                 onChange={(e) => setGstin(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-mono text-slate-800"
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs font-mono text-theme-heading"
               />
             </div>
           </div>
         </div>
 
         {/* ----- INVOICE DETAILS (5 COLUMNS) ----- */}
-        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+        <div className="lg:col-span-5 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <FileText className="w-3.5 h-3.5" />
               <span>Billing Parameters</span>
@@ -570,33 +570,33 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>
-              <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Invoice Date</span>
-              <span className="font-bold text-slate-800 text-xs">{docDate}</span>
+              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Invoice Date</span>
+              <span className="font-bold text-theme-heading text-xs">{docDate}</span>
             </div>
             <div>
-              <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Salesman ID</span>
+              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Salesman ID</span>
               <input
                 type="text"
                 value={salesman}
                 onChange={(e) => setSalesman(e.target.value)}
-                className="bg-slate-50 border border-slate-300 rounded px-2 py-0.5 text-xs text-slate-800 font-semibold w-full"
+                className="bg-theme-surface-2 border border-theme-divider rounded px-2 py-0.5 text-xs text-theme-heading font-semibold w-full"
               />
             </div>
             <div>
-              <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Tax Governance</span>
+              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Tax Governance</span>
               <span className="font-semibold text-emerald-600 text-xs font-mono">TG-001 (Intrastate)</span>
             </div>
             <div>
-              <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Price List</span>
-              <span className="font-semibold text-slate-800 text-xs">Retail MRP</span>
+              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Price List</span>
+              <span className="font-semibold text-theme-heading text-xs">Retail MRP</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* ================= LINE ITEMS DATA TABLE CARD (SUPG COMPACT) ================= */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
+      <div className="bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-theme-divider pb-1.5">
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <ShoppingCart className="w-4 h-4" />
@@ -615,7 +615,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
             </button>
             <button
               onClick={() => setIsScannerModalOpen(true)}
-              className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-lg font-semibold flex items-center cursor-pointer text-[11px]"
+              className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-body rounded-lg font-semibold flex items-center cursor-pointer text-[11px]"
             >
               <Scan className="w-3.5 h-3.5 mr-1 text-indigo-600" />
               Scan Barcode
@@ -631,10 +631,10 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
         </div>
 
         {/* SUPG Dense Data Table */}
-        <div className="overflow-x-auto border border-slate-200 rounded-lg smriti-custom-scroll">
+        <div className="overflow-x-auto border border-theme-divider rounded-lg smriti-custom-scroll">
           <table className="w-full text-left text-xs border-collapse min-w-[850px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">
+              <tr className="bg-theme-surface-2 border-b border-theme-divider text-[10px] font-extrabold text-theme-muted uppercase tracking-wider">
                 <th className="py-1.5 px-2 w-8 text-center">#</th>
                 <th className="py-1.5 px-2">Barcode / SKU *</th>
                 <th className="py-1.5 px-2">Item Description *</th>
@@ -647,7 +647,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                 <th className="py-1.5 px-2 text-center w-8">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 font-medium text-[11px]">
+            <tbody className="divide-y divide-theme-divider font-medium text-[11px]">
               {items.map((item, idx) => {
                 const lineGross = item.qty * item.rate;
                 const lineDisc = (lineGross * item.discountPct) / 100;
@@ -655,11 +655,11 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
                 return (
                   <tr key={item.id} className="hover:bg-blue-50/40 transition-colors">
-                    <td className="py-1 px-2 text-center font-bold text-slate-400">{idx + 1}</td>
-                    <td className="py-1 px-2 font-mono font-bold text-slate-800">{item.barcode}</td>
-                    <td className="py-1 px-2 font-semibold text-slate-900">{item.name}</td>
-                    <td className="py-1 px-2 text-slate-500 font-mono">{item.hsnCode}</td>
-                    <td className="py-1 px-2 text-slate-600">{item.uom}</td>
+                    <td className="py-1 px-2 text-center font-bold text-theme-muted">{idx + 1}</td>
+                    <td className="py-1 px-2 font-mono font-bold text-theme-heading">{item.barcode}</td>
+                    <td className="py-1 px-2 font-semibold text-theme-heading">{item.name}</td>
+                    <td className="py-1 px-2 text-theme-muted font-mono">{item.hsnCode}</td>
+                    <td className="py-1 px-2 text-theme-muted">{item.uom}</td>
 
                     <td className="py-1 px-2 text-right">
                       <input
@@ -667,11 +667,11 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                         min="1"
                         value={item.qty}
                         onChange={(e) => updateQty(item.id, parseInt(e.target.value) || 1)}
-                        className="w-14 bg-white border border-slate-300 rounded px-1 py-0.5 text-right font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                        className="w-14 bg-white border border-theme-divider rounded px-1 py-0.5 text-right font-mono font-bold text-theme-heading focus:outline-none focus:border-blue-500"
                       />
                     </td>
 
-                    <td className="py-1 px-2 text-right font-mono font-semibold text-slate-800">
+                    <td className="py-1 px-2 text-right font-mono font-semibold text-theme-heading">
                       ₹ {item.rate.toFixed(2)}
                     </td>
 
@@ -687,18 +687,18 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                             prev.map((i) => (i.id === item.id ? { ...i, discountPct: val } : i))
                           );
                         }}
-                        className="w-12 bg-white border border-slate-300 rounded px-1 py-0.5 text-right font-mono text-slate-800 focus:outline-none focus:border-blue-500"
+                        className="w-12 bg-white border border-theme-divider rounded px-1 py-0.5 text-right font-mono text-theme-heading focus:outline-none focus:border-blue-500"
                       />
                     </td>
 
-                    <td className="py-1 px-2 text-right font-mono font-bold text-slate-900">
+                    <td className="py-1 px-2 text-right font-mono font-bold text-theme-heading">
                       ₹ {lineNet.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
 
                     <td className="py-1 px-2 text-center">
                       <button
                         onClick={() => removeItem(item.id)}
-                        className="p-0.5 text-slate-400 hover:text-red-500 rounded cursor-pointer"
+                        className="p-0.5 text-theme-muted hover:text-red-500 rounded cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -714,40 +714,40 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
       {/* ================= BOTTOM SPLIT SECTION (TAX BREAKDOWN + RIGHT DOCKED SUMMARY CARD) ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* ----- LEFT SIDE: TAX BREAKDOWN & NOTES (7 COLUMNS) ----- */}
-        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 text-xs font-bold text-slate-700 uppercase">
+        <div className="lg:col-span-7 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex items-center justify-between border-b border-theme-divider pb-1.5 text-xs font-bold text-theme-body uppercase">
             <span>STRE GST TAX BREAKDOWN</span>
             <span className="text-[10px] text-emerald-600 font-mono">TG-001 Intrastate</span>
           </div>
 
-          <div className="overflow-x-auto border border-slate-200 rounded-lg">
+          <div className="overflow-x-auto border border-theme-divider rounded-lg">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase">
+                <tr className="bg-theme-surface-2 border-b border-theme-divider text-[10px] font-bold text-theme-muted uppercase">
                   <th className="py-1.5 px-2.5">Tax Component</th>
                   <th className="py-1.5 px-2.5 text-right">Taxable Amount (INR)</th>
                   <th className="py-1.5 px-2.5 text-right">Tax Amount (INR)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-[11px]">
+              <tbody className="divide-y divide-theme-divider font-medium text-[11px]">
                 <tr>
-                  <td className="py-1.5 px-2.5 font-bold text-slate-700">CGST (Central Tax)</td>
+                  <td className="py-1.5 px-2.5 font-bold text-theme-body">CGST (Central Tax)</td>
                   <td className="py-1.5 px-2.5 text-right font-mono">₹ {taxableValue.toFixed(2)}</td>
-                  <td className="py-1.5 px-2.5 text-right font-mono font-bold text-slate-800">
+                  <td className="py-1.5 px-2.5 text-right font-mono font-bold text-theme-heading">
                     ₹ {taxCalculation.totalCgstAmount.toFixed(2)}
                   </td>
                 </tr>
                 <tr>
-                  <td className="py-1.5 px-2.5 font-bold text-slate-700">SGST (State Tax)</td>
+                  <td className="py-1.5 px-2.5 font-bold text-theme-body">SGST (State Tax)</td>
                   <td className="py-1.5 px-2.5 text-right font-mono">₹ {taxableValue.toFixed(2)}</td>
-                  <td className="py-1.5 px-2.5 text-right font-mono font-bold text-slate-800">
+                  <td className="py-1.5 px-2.5 text-right font-mono font-bold text-theme-heading">
                     ₹ {taxCalculation.totalSgstAmount.toFixed(2)}
                   </td>
                 </tr>
                 <tr>
-                  <td className="py-1.5 px-2.5 font-bold text-slate-700">IGST (Integrated Tax)</td>
+                  <td className="py-1.5 px-2.5 font-bold text-theme-body">IGST (Integrated Tax)</td>
                   <td className="py-1.5 px-2.5 text-right font-mono">₹ 0.00</td>
-                  <td className="py-1.5 px-2.5 text-right font-mono font-bold text-slate-800">
+                  <td className="py-1.5 px-2.5 text-right font-mono font-bold text-theme-heading">
                     ₹ {taxCalculation.totalIgstAmount.toFixed(2)}
                   </td>
                 </tr>
@@ -757,8 +757,8 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
         </div>
 
         {/* ----- RIGHT DOCKED SUMMARY CARD (5 COLUMNS) ----- */}
-        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+        <div className="lg:col-span-5 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <Receipt className="w-3.5 h-3.5" />
               <span>BILL SUMMARY</span>
@@ -766,41 +766,41 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
           </div>
 
           <div className="space-y-1.5 text-xs">
-            <div className="flex items-center justify-between text-slate-600">
+            <div className="flex items-center justify-between text-theme-muted">
               <span>Items Total</span>
-              <span className="font-mono font-bold text-slate-800">₹ {itemsTotal.toFixed(2)}</span>
+              <span className="font-mono font-bold text-theme-heading">₹ {itemsTotal.toFixed(2)}</span>
             </div>
 
-            <div className="flex items-center justify-between text-slate-600">
+            <div className="flex items-center justify-between text-theme-muted">
               <span>Item Discounts</span>
-              <span className="font-mono font-bold text-slate-800">₹ {itemDiscountTotal.toFixed(2)}</span>
+              <span className="font-mono font-bold text-theme-heading">₹ {itemDiscountTotal.toFixed(2)}</span>
             </div>
 
-            <div className="flex items-center justify-between text-slate-600">
+            <div className="flex items-center justify-between text-theme-muted">
               <span>Bill Level Discount</span>
-              <span className="font-mono font-bold text-slate-800">₹ {totalBillDiscount.toFixed(2)}</span>
+              <span className="font-mono font-bold text-theme-heading">₹ {totalBillDiscount.toFixed(2)}</span>
             </div>
 
-            <div className="flex items-center justify-between text-slate-600">
+            <div className="flex items-center justify-between text-theme-muted">
               <span>Total GST Taxes</span>
-              <span className="font-mono font-bold text-slate-800">₹ {autoGstAmount.toFixed(2)}</span>
+              <span className="font-mono font-bold text-theme-heading">₹ {autoGstAmount.toFixed(2)}</span>
             </div>
 
-            <div className="flex items-center justify-between text-slate-600">
+            <div className="flex items-center justify-between text-theme-muted">
               <span>Round Off</span>
-              <span className="font-mono font-bold text-slate-800">{roundOff.toFixed(2)}</span>
+              <span className="font-mono font-bold text-theme-heading">{roundOff.toFixed(2)}</span>
             </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-              <span className="text-xs font-extrabold text-slate-900">Net Payable</span>
+            <div className="flex items-center justify-between pt-2 border-t border-theme-divider">
+              <span className="text-xs font-extrabold text-theme-heading">Net Payable</span>
               <span className="text-lg font-black text-emerald-600 font-mono tracking-tight">
                 ₹ {roundedNetPayable.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </span>
             </div>
 
-            <div className="pt-1.5 border-t border-slate-100 text-[10px]">
-              <span className="font-bold text-slate-500 block uppercase">Amount in Words</span>
-              <span className="font-semibold text-slate-800 italic">{amountInWords}</span>
+            <div className="pt-1.5 border-t border-theme-divider text-[10px]">
+              <span className="font-bold text-theme-muted block uppercase">Amount in Words</span>
+              <span className="font-semibold text-theme-heading italic">{amountInWords}</span>
             </div>
           </div>
         </div>
@@ -808,14 +808,14 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
       {/* ================= ITEM SEARCH / SCANNER MODAL (F2) ================= */}
       {isScannerModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-xl w-full p-4 space-y-3 shadow-xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <h3 className="font-extrabold text-slate-900 text-xs flex items-center space-x-2">
+        <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-xl w-full p-4 space-y-3 shadow-xl border border-theme-divider">
+            <div className="flex items-center justify-between border-b border-theme-divider pb-2">
+              <h3 className="font-extrabold text-theme-heading text-xs flex items-center space-x-2">
                 <Scan className="w-3.5 h-3.5 text-blue-600" />
                 <span>Scan Barcode / Search Item (F2)</span>
               </h3>
-              <button onClick={() => setIsScannerModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setIsScannerModalOpen(false)} className="text-theme-muted hover:text-theme-muted">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -825,15 +825,15 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                 <div
                   key={prod.id}
                   onClick={() => handleAddItem(prod)}
-                  className="p-2 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded flex items-center justify-between cursor-pointer transition-colors"
+                  className="p-2 bg-theme-surface-2 hover:bg-blue-50 border border-theme-divider rounded flex items-center justify-between cursor-pointer transition-colors"
                 >
                   <div>
-                    <div className="font-bold text-slate-900 text-xs">{prod.name}</div>
-                    <div className="text-[10px] text-slate-500 font-mono">SKU: {prod.code || prod.sku} | HSN: {prod.hsnCode || "6109"}</div>
+                    <div className="font-bold text-theme-heading text-xs">{prod.name}</div>
+                    <div className="text-[10px] text-theme-muted font-mono">SKU: {prod.code || prod.sku} | HSN: {prod.hsnCode || "6109"}</div>
                   </div>
                   <div className="text-right">
                     <div className="font-extrabold text-blue-600 text-xs">₹ {prod.price}</div>
-                    <div className="text-[10px] text-slate-400">Stock: {prod.stock || 50}</div>
+                    <div className="text-[10px] text-theme-muted">Stock: {prod.stock || 50}</div>
                   </div>
                 </div>
               ))}
@@ -844,31 +844,31 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
       {/* ================= RECALL HELD BILLS MODAL (F7) ================= */}
       {isRecallModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full p-4 space-y-3 shadow-xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <h3 className="font-extrabold text-slate-900 text-xs flex items-center space-x-2">
+        <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-lg w-full p-4 space-y-3 shadow-xl border border-theme-divider">
+            <div className="flex items-center justify-between border-b border-theme-divider pb-2">
+              <h3 className="font-extrabold text-theme-heading text-xs flex items-center space-x-2">
                 <PlayCircle className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Recall Held Bills (F7)</span>
               </h3>
-              <button onClick={() => setIsRecallModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setIsRecallModalOpen(false)} className="text-theme-muted hover:text-theme-muted">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="space-y-2 max-h-60 overflow-y-auto smriti-custom-scroll">
               {heldBills.length === 0 ? (
-                <div className="p-4 text-center text-slate-400 text-xs italic">No held bills found.</div>
+                <div className="p-4 text-center text-theme-muted text-xs italic">No held bills found.</div>
               ) : (
                 heldBills.map((bill) => (
                   <div
                     key={bill.id}
                     onClick={() => handleRecallBill(bill)}
-                    className="p-2.5 bg-slate-50 hover:bg-indigo-50 border border-slate-200 rounded-lg flex items-center justify-between cursor-pointer"
+                    className="p-2.5 bg-theme-surface-2 hover:bg-indigo-50 border border-theme-divider rounded-lg flex items-center justify-between cursor-pointer"
                   >
                     <div>
-                      <div className="font-bold text-slate-800 text-xs">{bill.customerName}</div>
-                      <div className="text-[10px] text-slate-500 font-mono">Time: {bill.time} | Items: {bill.items.length}</div>
+                      <div className="font-bold text-theme-heading text-xs">{bill.customerName}</div>
+                      <div className="text-[10px] text-theme-muted font-mono">Time: {bill.time} | Items: {bill.items.length}</div>
                     </div>
                     <div className="font-extrabold text-indigo-600 text-xs">₹ {bill.total}</div>
                   </div>
@@ -881,37 +881,37 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
       {/* ================= BILL PAYMENT MODAL (F4 / F10) ================= */}
       {isPaymentModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-theme-divider">
+            <div className="flex items-center justify-between border-b border-theme-divider pb-3">
               <div className="flex items-center space-x-2">
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
                   <CreditCard className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-slate-900 text-sm">Post Invoice & Collect Payment</h3>
-                  <p className="text-xs text-slate-500">Invoice #{invoiceNo}</p>
+                  <h3 className="font-extrabold text-theme-heading text-sm">Post Invoice & Collect Payment</h3>
+                  <p className="text-xs text-theme-muted">Invoice #{invoiceNo}</p>
                 </div>
               </div>
-              <button onClick={() => setIsPaymentModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setIsPaymentModalOpen(false)} className="text-theme-muted hover:text-theme-muted">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center space-y-1">
-              <span className="text-xs font-bold text-slate-500 uppercase">Net Payable Grand Total</span>
+            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 text-center space-y-1">
+              <span className="text-xs font-bold text-theme-muted uppercase">Net Payable Grand Total</span>
               <div className="text-2xl font-black text-emerald-600 font-mono">
                 ₹ {roundedNetPayable.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </div>
             </div>
 
             <div className="space-y-2 text-xs">
-              <label className="font-bold text-slate-700 block">Select Payment Mode:</label>
+              <label className="font-bold text-theme-body block">Select Payment Mode:</label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setPaymentMode("CASH")}
                   className={`p-2.5 border rounded-xl font-bold flex items-center justify-center cursor-pointer ${
-                    paymentMode === "CASH" ? "bg-blue-600 text-white border-blue-600" : "bg-slate-50 text-slate-700 border-slate-200"
+                    paymentMode === "CASH" ? "bg-blue-600 text-white border-blue-600" : "bg-theme-surface-2 text-theme-body border-theme-divider"
                   }`}
                 >
                   CASH
@@ -919,7 +919,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                 <button
                   onClick={() => setPaymentMode("CARD")}
                   className={`p-2.5 border rounded-xl font-bold flex items-center justify-center cursor-pointer ${
-                    paymentMode === "CARD" ? "bg-blue-600 text-white border-blue-600" : "bg-slate-50 text-slate-700 border-slate-200"
+                    paymentMode === "CARD" ? "bg-blue-600 text-white border-blue-600" : "bg-theme-surface-2 text-theme-body border-theme-divider"
                   }`}
                 >
                   CARD / POS
@@ -927,7 +927,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                 <button
                   onClick={() => setPaymentMode("UPI")}
                   className={`p-2.5 border rounded-xl font-bold flex items-center justify-center cursor-pointer ${
-                    paymentMode === "UPI" ? "bg-blue-600 text-white border-blue-600" : "bg-slate-50 text-slate-700 border-slate-200"
+                    paymentMode === "UPI" ? "bg-blue-600 text-white border-blue-600" : "bg-theme-surface-2 text-theme-body border-theme-divider"
                   }`}
                 >
                   UPI / QR
@@ -935,7 +935,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                 <button
                   onClick={() => setPaymentMode("CREDIT")}
                   className={`p-2.5 border rounded-xl font-bold flex items-center justify-center cursor-pointer ${
-                    paymentMode === "CREDIT" ? "bg-blue-600 text-white border-blue-600" : "bg-slate-50 text-slate-700 border-slate-200"
+                    paymentMode === "CREDIT" ? "bg-blue-600 text-white border-blue-600" : "bg-theme-surface-2 text-theme-body border-theme-divider"
                   }`}
                 >
                   CREDIT LEDGER
@@ -943,8 +943,8 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
               </div>
             </div>
 
-            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
-              <button onClick={() => setIsPaymentModalOpen(false)} className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-xl font-bold">
+            <div className="flex justify-end space-x-2 pt-2 border-t border-theme-divider">
+              <button onClick={() => setIsPaymentModalOpen(false)} className="px-4 py-1.5 bg-theme-surface-2 text-theme-body rounded-xl font-bold">
                 Cancel
               </button>
               <button onClick={handleConfirmPostInvoice} className="px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center shadow-md">

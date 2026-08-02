@@ -1,4 +1,25 @@
 """
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+"""
+
+"""
 test_inventory_performance_and_sdk_certification.py
 Inventory Kernel RC2 — Performance SLAs & SDK Compatibility Certification Suite
 

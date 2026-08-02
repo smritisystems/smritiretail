@@ -1,3 +1,24 @@
+<!--
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+-->
+
 # Architecture Decision Record (ADR-020)
 # SMRITI_ENTERPRISE_WORKSPACE_STANDARD_v1.0 (COMMON WORKSPACE UX FRAMEWORK)
 

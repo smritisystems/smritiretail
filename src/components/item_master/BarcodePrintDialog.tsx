@@ -110,23 +110,23 @@ export const BarcodePrintDialog: React.FC<BarcodePrintDialogProps> = ({
     >
       <div className="space-y-5 select-none">
         {/* Label Thermal Preview Card */}
-        <div className="p-4 bg-white border-2 border-dashed border-[#0a6ed1] rounded-xl flex flex-col items-center justify-center space-y-1 shadow-md text-slate-900 font-sans">
+        <div className="p-4 bg-white border-2 border-dashed border-[#0a6ed1] rounded-xl flex flex-col items-center justify-center space-y-1 shadow-md text-theme-heading font-sans">
           {showStoreName && (
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-700">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-theme-body">
               SMRITI RETAIL OS STORE
             </span>
           )}
           <h4 className="text-xs font-bold text-center line-clamp-1">{product.name}</h4>
 
           {/* Simulated Barcode Stripes */}
-          <div className="w-48 h-10 bg-slate-900 flex items-center justify-center my-1 rounded-xs">
+          <div className="w-48 h-10 bg-theme-surface-2 flex items-center justify-center my-1 rounded-xs">
             <Barcode className="w-36 h-8 text-white stroke-[1.5]" />
           </div>
 
-          <div className="flex items-center justify-between w-48 text-[10px] font-mono text-slate-800">
+          <div className="flex items-center justify-between w-48 text-[10px] font-mono text-theme-heading">
             <span>{product.barcode || product.sku || "8901234567890"}</span>
             {showPrice && (
-              <span className="font-extrabold text-slate-950">₹{(product.mrp || product.price || 0).toFixed(2)}</span>
+              <span className="font-extrabold text-theme-heading">₹{(product.mrp || product.price || 0).toFixed(2)}</span>
             )}
           </div>
         </div>

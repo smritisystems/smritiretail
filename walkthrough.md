@@ -1,3 +1,24 @@
+<!--
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+-->
+
 # Walkthrough - SMRITI Retail OS v4.0.0 Interface & Model Demonstration
 
 Visual demonstration and implementation summary of **SMRITI Retail OS v4.0.0**, highlighting the 20-Domain Enterprise Architecture and Phase 1 Platform Extension Models (Domains 17, 18, 20).

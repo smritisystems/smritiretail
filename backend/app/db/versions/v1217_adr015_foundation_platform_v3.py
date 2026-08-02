@@ -1,30 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-ADR-015: Foundation Platform v3.0 — Sprint 1 Database Migration
-Revision ID : v1217_adr015_foundation_platform_v3
-Revises     : v1216_new_table_apparelvariantgrid_apparel_matrix_grid
-Create Date : 2026-07-28
+Founder:
+SmritiSys
+AITDL Networks
 
-Migrations (13 logical groups):
-  M-001 organizations
-  M-002 Extend companies (additive per AOP-004)
-  M-003 Extend branches  (additive per AOP-004)
-  M-004 smriti_entity_registry
-  M-005 smriti_addresses
-  M-006 smriti_contacts
-  M-007 smriti_banks (master + seed)
-  M-008 smriti_bank_accounts
-  M-009 smriti_comm_channels
-  M-010 smriti_settings
-  M-011 smriti_themes + smriti_theme_variants
-  M-012 smriti_branding + smriti_report_templates + smriti_social_profiles
-  M-013 company_tax_profiles + company_financial_years + smriti_audit_log
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 from alembic import op

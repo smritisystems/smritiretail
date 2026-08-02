@@ -770,23 +770,23 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
   );
 
   return (
-    <div className="w-full bg-slate-100 font-sans text-slate-800 p-2.5 sm:p-3 space-y-3">
+    <div className="w-full bg-theme-surface-2 font-sans text-theme-heading p-2.5 sm:p-3 space-y-3">
       {/* ================= SINGLE HORIZONTAL TOOLBAR ================= */}
-      <div className="bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
+      <div className="bg-white border border-theme-divider rounded-xl px-4 py-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
         {/* Left Title & Industry Badge */}
         <div className="flex items-center space-x-2">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">PURCHASE /</span>
+          <span className="text-[11px] font-bold text-theme-muted uppercase tracking-wider">PURCHASE /</span>
           <select
             value={docType}
             onChange={(e) => setDocType(e.target.value as PurchaseDocumentType)}
-            className="bg-transparent font-bold text-slate-700 text-xs focus:outline-none cursor-pointer"
+            className="bg-transparent font-bold text-theme-body text-xs focus:outline-none cursor-pointer"
           >
             <option value="PO">Purchase Order</option>
             <option value="PINV">Purchase Invoice</option>
             <option value="GRN">Goods Receipt Note</option>
             <option value="RETURN">Purchase Return</option>
           </select>
-          <h1 className="text-base font-extrabold text-slate-900 tracking-tight ml-1">{docTitle}</h1>
+          <h1 className="text-base font-extrabold text-theme-heading tracking-tight ml-1">{docTitle}</h1>
           <span className="px-2 py-0.2 text-[9px] font-extrabold uppercase rounded bg-emerald-100 text-emerald-700 border border-emerald-300">
             {status}
           </span>
@@ -799,12 +799,12 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
         {/* Right Actions & Studio Config Button */}
         <div className="flex items-center space-x-2 text-xs">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" />
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-theme-muted" />
             <input
               type="text"
               placeholder="Search (F2)"
               onClick={() => setShowItemPickerModal(true)}
-              className="pl-7 pr-2.5 py-1 bg-slate-50 border border-slate-300 rounded-md text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500 w-36"
+              className="pl-7 pr-2.5 py-1 bg-theme-surface-2 border border-theme-divider rounded-md text-xs font-semibold text-theme-body focus:outline-none focus:border-blue-500 w-36"
             />
           </div>
           <button
@@ -812,7 +812,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               setStatus("DRAFT");
               if (onNotification) onNotification("Draft Saved", `${docTitle} draft saved`, "success");
             }}
-            className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 rounded-md font-bold text-slate-700 cursor-pointer shadow-2xs"
+            className="px-2.5 py-1 bg-white hover:bg-theme-surface-2 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs"
           >
             Save Draft (F9)
           </button>
@@ -827,20 +827,20 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
           </button>
           <button
             onClick={handlePrint}
-            className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-md font-bold flex items-center cursor-pointer"
+            className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-body rounded-md font-bold flex items-center cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5 mr-1" />
             Print
           </button>
           <button
             onClick={() => setShowConfigModal(true)}
-            className="p-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-600 rounded-md cursor-pointer"
+            className="p-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-muted rounded-md cursor-pointer"
             title="Procurement Studio Configuration"
           >
             <Sliders className="w-3.5 h-3.5 text-indigo-600" />
           </button>
-          <div className="pl-2 border-l border-slate-200 text-right">
-            <span className="text-[10px] text-slate-400 font-bold block uppercase">PO No.</span>
+          <div className="pl-2 border-l border-theme-divider text-right">
+            <span className="text-[10px] text-theme-muted font-bold block uppercase">PO No.</span>
             <span className="font-mono font-extrabold text-blue-600 text-xs">{poNumber}</span>
           </div>
         </div>
@@ -849,8 +849,8 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
       {/* ================= 2-COLUMN MASTER FORM (SUPPLIER INFO + DOCUMENT DETAILS) ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* ----- SUPPLIER INFORMATION (7 COLUMNS) ----- */}
-        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+        <div className="lg:col-span-7 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <Building2 className="w-3.5 h-3.5" />
               <span>Supplier Information</span>
@@ -863,11 +863,11 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Supplier *</label>
+              <label className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Supplier *</label>
               <select
                 value={supplierId}
                 onChange={(e) => setSupplierId(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-semibold text-slate-800"
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs font-semibold text-theme-heading"
               >
                 {suppliers.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
@@ -876,24 +876,24 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Supplier Code</label>
-              <input type="text" readOnly value={activeSupplier.code} className="w-full bg-slate-100 border border-slate-200 rounded px-2 py-1 text-xs font-mono font-bold text-slate-700" />
+              <label className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Supplier Code</label>
+              <input type="text" readOnly value={activeSupplier.code} className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs font-mono font-bold text-theme-body" />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">GSTIN</label>
-              <input type="text" defaultValue={activeSupplier.gstin} className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-mono text-slate-800" />
+              <label className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">GSTIN</label>
+              <input type="text" defaultValue={activeSupplier.gstin} className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs font-mono text-theme-heading" />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Contact Person</label>
-              <input type="text" defaultValue={activeSupplier.contactPerson} className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs text-slate-800" />
+              <label className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Contact Person</label>
+              <input type="text" defaultValue={activeSupplier.contactPerson} className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-heading" />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Expected Delivery</label>
-              <input type="date" value={expectedDelivery} onChange={(e) => setExpectedDelivery(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs text-slate-800" />
+              <label className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Expected Delivery</label>
+              <input type="date" value={expectedDelivery} onChange={(e) => setExpectedDelivery(e.target.value)} className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-heading" />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Warehouse *</label>
-              <select value={warehouse} onChange={(e) => setWarehouse(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs text-slate-800">
+              <label className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Warehouse *</label>
+              <select value={warehouse} onChange={(e) => setWarehouse(e.target.value)} className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs text-theme-heading">
                 <option value="Main Warehouse">Main Warehouse</option>
                 <option value="Central Store">Central Store</option>
               </select>
@@ -902,8 +902,8 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
         </div>
 
         {/* ----- DOCUMENT DETAILS (5 COLUMNS) ----- */}
-        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+        <div className="lg:col-span-5 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <FileText className="w-3.5 h-3.5" />
               <span>Document Details</span>
@@ -912,37 +912,37 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>
-              <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Financial Year</span>
-              <span className="font-bold text-slate-800 text-xs">{financialYear}</span>
+              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Financial Year</span>
+              <span className="font-bold text-theme-heading text-xs">{financialYear}</span>
             </div>
             <div>
-              <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Payment Terms</span>
+              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Payment Terms</span>
               <div className="flex items-center space-x-1">
-                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-800 rounded font-bold text-[10px]">30 Days</span>
-                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px]">60 Days</span>
+                <span className="px-1.5 py-0.5 bg-theme-surface-2 text-theme-heading rounded font-bold text-[10px]">30 Days</span>
+                <span className="px-1.5 py-0.5 bg-theme-surface-2 text-theme-muted rounded text-[10px]">60 Days</span>
               </div>
             </div>
             <div>
-              <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Currency</span>
-              <span className="font-semibold text-slate-800 text-xs">{currency}</span>
+              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Currency</span>
+              <span className="font-semibold text-theme-heading text-xs">{currency}</span>
             </div>
             <div>
-              <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Buying Price List</span>
-              <span className="font-semibold text-slate-800 text-xs">{priceList}</span>
+              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Buying Price List</span>
+              <span className="font-semibold text-theme-heading text-xs">{priceList}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* ================= QUICK FILTER PILLS & TEMPORARY PRODUCT APPROVAL BAR ================= */}
-      <div className="bg-white border border-slate-200 rounded-xl p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs">
+      <div className="bg-white border border-theme-divider rounded-xl p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs">
         {/* Filter Counters */}
         <div className="flex items-center space-x-1.5">
-          <span className="text-[10px] font-bold text-slate-400 uppercase mr-1">Product Filters:</span>
+          <span className="text-[10px] font-bold text-theme-muted uppercase mr-1">Product Filters:</span>
           <button
             onClick={() => setItemFilterMode("ALL")}
             className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer ${
-              itemFilterMode === "ALL" ? "bg-blue-600 text-white shadow-2xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              itemFilterMode === "ALL" ? "bg-blue-600 text-white shadow-2xs" : "bg-theme-surface-2 text-theme-body hover:bg-theme-surface-2"
             }`}
           >
             All ({tempCounts.total})
@@ -950,7 +950,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
           <button
             onClick={() => setItemFilterMode("EXISTING")}
             className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer ${
-              itemFilterMode === "EXISTING" ? "bg-blue-600 text-white shadow-2xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              itemFilterMode === "EXISTING" ? "bg-blue-600 text-white shadow-2xs" : "bg-theme-surface-2 text-theme-body hover:bg-theme-surface-2"
             }`}
           >
             Existing ({tempCounts.existing})
@@ -988,8 +988,8 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
       </div>
 
       {/* ================= ITEMS DATA TABLE CARD ================= */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
+      <div className="bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-theme-divider pb-1.5">
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <ShoppingCart className="w-4 h-4" />
@@ -997,12 +997,12 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
             </div>
 
             {/* Pivot View Selector */}
-            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 text-[11px] font-bold border border-slate-200">
-              <span className="text-slate-400 px-1.5 uppercase text-[9px]">View:</span>
+            <div className="flex items-center bg-theme-surface-2 rounded-lg p-0.5 text-[11px] font-bold border border-theme-divider">
+              <span className="text-theme-muted px-1.5 uppercase text-[9px]">View:</span>
               <select
                 value={pivotViewMode}
                 onChange={(e) => setPivotViewMode(e.target.value as PivotViewMode)}
-                className="bg-transparent font-extrabold text-slate-700 focus:outline-none cursor-pointer"
+                className="bg-transparent font-extrabold text-theme-body focus:outline-none cursor-pointer"
               >
                 <option value="STANDARD">Standard Grid</option>
                 <option value="SIZE">Pivot by Size</option>
@@ -1037,8 +1037,8 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
               {/* Multi-Mode Dropdown Menu */}
               {showAddItemsMenu && (
-                <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-1 text-xs space-y-0.5">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase px-2 py-1 tracking-wider border-b border-slate-100">
+                <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-theme-divider rounded-xl shadow-xl z-30 p-1 text-xs space-y-0.5">
+                  <div className="text-[10px] font-bold text-theme-muted uppercase px-2 py-1 tracking-wider border-b border-theme-divider">
                     Selection Entry Mode
                   </div>
                   <button
@@ -1050,32 +1050,32 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   </button>
                   <button
                     onClick={() => handleAddItem(undefined, "NEW_ARTICLE")}
-                    className="w-full text-left px-2.5 py-1.5 hover:bg-amber-50 rounded-lg flex items-center justify-between text-amber-800 font-bold border-t border-slate-100"
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-amber-50 rounded-lg flex items-center justify-between text-amber-800 font-bold border-t border-theme-divider"
                   >
                     <span className="flex items-center"><Sparkles className="w-3.5 h-3.5 mr-2 text-amber-600" />+ Create On-the-Fly Article (F8)</span>
                     <span className="text-[9px] bg-amber-100 text-amber-800 px-1 rounded font-mono">TEMP</span>
                   </button>
                   <button
                     onClick={() => handleAddItem(undefined, "ARTICLE")}
-                    className="w-full text-left px-2.5 py-1.5 hover:bg-slate-100 rounded-lg flex items-center text-slate-700 font-semibold"
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-theme-surface-2 rounded-lg flex items-center text-theme-body font-semibold"
                   >
-                    <Tag className="w-3.5 h-3.5 mr-2 text-slate-500" />By Existing Article
+                    <Tag className="w-3.5 h-3.5 mr-2 text-theme-muted" />By Existing Article
                   </button>
                   <button
                     onClick={() => handleAddItem(undefined, "BARCODE")}
-                    className="w-full text-left px-2.5 py-1.5 hover:bg-slate-100 rounded-lg flex items-center text-slate-700 font-semibold"
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-theme-surface-2 rounded-lg flex items-center text-theme-body font-semibold"
                   >
-                    <Scan className="w-3.5 h-3.5 mr-2 text-slate-500" />By Barcode / SKU
+                    <Scan className="w-3.5 h-3.5 mr-2 text-theme-muted" />By Barcode / SKU
                   </button>
                   <button
                     onClick={() => handleAddItem(undefined, "STYLE")}
-                    className="w-full text-left px-2.5 py-1.5 hover:bg-slate-100 rounded-lg flex items-center text-slate-700 font-semibold"
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-theme-surface-2 rounded-lg flex items-center text-theme-body font-semibold"
                   >
-                    <Package className="w-3.5 h-3.5 mr-2 text-slate-500" />By Style / Model
+                    <Package className="w-3.5 h-3.5 mr-2 text-theme-muted" />By Style / Model
                   </button>
                   <button
                     onClick={() => handleAddItem(undefined, "EXCEL")}
-                    className="w-full text-left px-2.5 py-1.5 hover:bg-slate-100 rounded-lg flex items-center text-slate-700 font-semibold border-t border-slate-100"
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-theme-surface-2 rounded-lg flex items-center text-theme-body font-semibold border-t border-theme-divider"
                   >
                     <Upload className="w-3.5 h-3.5 mr-2 text-emerald-600" />Bulk Excel Import
                   </button>
@@ -1085,7 +1085,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
             <button
               onClick={() => setShowItemPickerModal(true)}
-              className="px-2 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-lg font-semibold flex items-center cursor-pointer text-[11px]"
+              className="px-2 py-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-body rounded-lg font-semibold flex items-center cursor-pointer text-[11px]"
             >
               <Scan className="w-3 h-3 mr-1 text-indigo-600" />
               Scan Barcode
@@ -1097,19 +1097,19 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               <Trash2 className="w-3 h-3 mr-1" />
               Delete Row
             </button>
-            <button className="px-2 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-lg font-semibold flex items-center cursor-pointer text-[11px]">
-              <Upload className="w-3 h-3 mr-1 text-slate-500" />
+            <button className="px-2 py-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-body rounded-lg font-semibold flex items-center cursor-pointer text-[11px]">
+              <Upload className="w-3 h-3 mr-1 text-theme-muted" />
               Import
             </button>
-            <button className="px-2 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-lg font-semibold flex items-center cursor-pointer text-[11px]">
-              <Download className="w-3 h-3 mr-1 text-slate-500" />
+            <button className="px-2 py-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-body rounded-lg font-semibold flex items-center cursor-pointer text-[11px]">
+              <Download className="w-3 h-3 mr-1 text-theme-muted" />
               Export
             </button>
           </div>
         </div>
 
         {/* Data Table / Pivot by Size View */}
-        <div className="overflow-x-auto border border-slate-200 rounded-lg smriti-custom-scroll">
+        <div className="overflow-x-auto border border-theme-divider rounded-lg smriti-custom-scroll">
           {pivotViewMode === "MATRIX" ? (
             <table className="w-full text-left text-xs border-collapse min-w-[720px]">
               <thead>
@@ -1120,14 +1120,14 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   <th className="py-2 px-2 text-right">Value</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 bg-white font-medium text-[11px]">
+              <tbody className="divide-y divide-theme-divider bg-white font-medium text-[11px]">
                 {Array.from(new Set(filteredItems.map((item) => item.color || "Unspecified"))).map((color) => {
                   const colorItems = filteredItems.filter((item) => (item.color || "Unspecified") === color);
                   const totalQty = colorItems.reduce((sum, item) => sum + item.qty, 0);
                   const totalValue = colorItems.reduce((sum, item) => sum + item.qty * item.rate, 0);
                   return (
                     <tr key={color} className="hover:bg-indigo-50/50">
-                      <td className="py-2 px-2.5 font-bold text-slate-800">{color}</td>
+                      <td className="py-2 px-2.5 font-bold text-theme-heading">{color}</td>
                       {matrixColumns.map((size) => (
                         <td key={size} className="py-2 px-2 text-right font-mono text-indigo-800">
                           {colorItems.filter((item) => item.size === size).reduce((sum, item) => sum + item.qty, 0)}
@@ -1158,7 +1158,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   <th className="py-2 px-2.5 text-right font-black">Total Amount</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 font-medium text-[11px] bg-white">
+              <tbody className="divide-y divide-theme-divider font-medium text-[11px] bg-white">
                 {filteredItems.map((item, idx) => {
                   const sizeQtyS = item.size === "S" ? item.qty : Math.floor(item.qty * 0.2);
                   const sizeQtyM = item.size === "M" ? item.qty : Math.floor(item.qty * 0.3);
@@ -1170,11 +1170,11 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
                   return (
                     <tr key={item.id} className="hover:bg-indigo-50/50 transition-colors">
-                      <td className="py-2 px-2.5 text-center font-bold text-slate-400">{idx + 1}</td>
+                      <td className="py-2 px-2.5 text-center font-bold text-theme-muted">{idx + 1}</td>
                       <td className="py-2 px-2.5 font-mono font-bold text-indigo-700">{item.itemCode}</td>
-                      <td className="py-2 px-2.5 font-semibold text-slate-800">{item.itemName}</td>
+                      <td className="py-2 px-2.5 font-semibold text-theme-heading">{item.itemName}</td>
                       <td className="py-2 px-2.5">
-                        <span className="px-2 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-700">
+                        <span className="px-2 py-0.5 bg-theme-surface-2 border border-theme-divider rounded font-mono font-bold text-theme-body">
                           {item.color || "Black"}
                         </span>
                       </td>
@@ -1216,7 +1216,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                       <td className="py-2 px-2 text-right font-mono font-black text-indigo-950 bg-indigo-100/50">
                         {totalMatrixQty}
                       </td>
-                      <td className="py-2 px-2.5 text-right font-mono font-semibold text-slate-800">
+                      <td className="py-2 px-2.5 text-right font-mono font-semibold text-theme-heading">
                         {item.rate.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-2 px-2.5 text-right font-mono font-black text-emerald-700">
@@ -1230,9 +1230,9 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
           ) : (
             <table className="w-full text-left text-xs border-collapse min-w-[950px]">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">
+                <tr className="bg-theme-surface-2 border-b border-theme-divider text-[10px] font-extrabold text-theme-muted uppercase tracking-wider">
                   <th className="py-1.5 px-2 w-8 text-center">
-                    <input type="checkbox" onChange={handleSelectAll} className="rounded border-slate-300" />
+                    <input type="checkbox" onChange={handleSelectAll} className="rounded border-theme-divider" />
                   </th>
                   <th className="py-1.5 px-2 w-8 text-center">#</th>
                   <th className="py-1.5 px-2">Article / SKU *</th>
@@ -1247,7 +1247,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   <th className="py-1.5 px-2 text-center w-8">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-[11px]">
+              <tbody className="divide-y divide-theme-divider font-medium text-[11px]">
                 {filteredItems.map((item, idx) => {
                   const gross = item.qty * item.rate;
                   const disc = (gross * (item.discountPercent || 0)) / 100;
@@ -1267,27 +1267,27 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                           type="checkbox"
                           checked={!!selectedItemIds[item.id]}
                           onChange={() => handleSelectItem(item.id)}
-                          className="rounded border-slate-300"
+                          className="rounded border-theme-divider"
                         />
                       </td>
-                      <td className="py-1 px-2 text-center font-bold text-slate-400">{idx + 1}</td>
-                      <td className="py-1 px-2 font-mono font-bold text-slate-800">
+                      <td className="py-1 px-2 text-center font-bold text-theme-muted">{idx + 1}</td>
+                      <td className="py-1 px-2 font-mono font-bold text-theme-heading">
                         <div className="flex items-center space-x-1">
                           <span>{item.itemCode}</span>
-                          <Search className="w-3 h-3 text-slate-400 cursor-pointer" onClick={() => setShowItemPickerModal(true)} />
+                          <Search className="w-3 h-3 text-theme-muted cursor-pointer" onClick={() => setShowItemPickerModal(true)} />
                         </div>
                       </td>
-                      <td className="py-1 px-2 font-semibold text-slate-900">{item.itemName}</td>
+                      <td className="py-1 px-2 font-semibold text-theme-heading">{item.itemName}</td>
 
                       {/* Color / Size Badge */}
                       <td className="py-1 px-2">
                         {item.color || item.size ? (
                           <div className="flex items-center space-x-1 text-[10px]">
-                            <span className="px-1.5 py-0.2 bg-slate-100 text-slate-700 rounded font-mono font-bold">{item.color || "BLK"}</span>
+                            <span className="px-1.5 py-0.2 bg-theme-surface-2 text-theme-body rounded font-mono font-bold">{item.color || "BLK"}</span>
                             <span className="px-1.5 py-0.2 bg-indigo-50 text-indigo-700 rounded font-mono font-bold border border-indigo-200">{item.size || "M"}</span>
                           </div>
                         ) : (
-                          <span className="text-slate-400 italic">Standard</span>
+                          <span className="text-theme-muted italic">Standard</span>
                         )}
                       </td>
 
@@ -1308,7 +1308,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                         <select
                           value={item.warehouse}
                           onChange={(e) => handleUpdateItem(item.id, "warehouse", e.target.value)}
-                          className="bg-slate-50 border border-slate-300 rounded px-1 py-0.5 text-[11px] text-slate-700"
+                          className="bg-theme-surface-2 border border-theme-divider rounded px-1 py-0.5 text-[11px] text-theme-body"
                         >
                           <option value="Main Warehouse">Main Warehouse</option>
                           <option value="Central Store">Central Store</option>
@@ -1320,7 +1320,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                           type="number"
                           value={item.qty}
                           onChange={(e) => handleUpdateItem(item.id, "qty", parseFloat(e.target.value) || 0)}
-                          className="w-16 bg-white border border-slate-300 rounded px-1 py-0.5 text-right font-mono font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                          className="w-16 bg-white border border-theme-divider rounded px-1 py-0.5 text-right font-mono font-bold text-theme-heading focus:outline-none focus:border-blue-500"
                         />
                       </td>
 
@@ -1329,7 +1329,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                           type="number"
                           value={item.rate}
                           onChange={(e) => handleUpdateItem(item.id, "rate", parseFloat(e.target.value) || 0)}
-                          className="w-16 bg-white border border-slate-300 rounded px-1 py-0.5 text-right font-mono font-semibold text-slate-800 focus:outline-none focus:border-blue-500"
+                          className="w-16 bg-white border border-theme-divider rounded px-1 py-0.5 text-right font-mono font-semibold text-theme-heading focus:outline-none focus:border-blue-500"
                         />
                       </td>
 
@@ -1338,18 +1338,18 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                           type="number"
                           value={item.discountPercent}
                           onChange={(e) => handleUpdateItem(item.id, "discountPercent", parseFloat(e.target.value) || 0)}
-                          className="w-12 bg-white border border-slate-300 rounded px-1 py-0.5 text-right font-mono text-slate-800 focus:outline-none focus:border-blue-500"
+                          className="w-12 bg-white border border-theme-divider rounded px-1 py-0.5 text-right font-mono text-theme-heading focus:outline-none focus:border-blue-500"
                         />
                       </td>
 
-                      <td className="py-1 px-2 text-right font-mono font-bold text-slate-900">
+                      <td className="py-1 px-2 text-right font-mono font-bold text-theme-heading">
                         {lineTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </td>
 
                       <td className="py-1 px-2 text-center">
                         <button
                           onClick={() => handleDeleteItem(item.id)}
-                          className="p-0.5 text-slate-400 hover:text-red-500 rounded cursor-pointer"
+                          className="p-0.5 text-theme-muted hover:text-red-500 rounded cursor-pointer"
                         >
                           <MoreHorizontal className="w-3.5 h-3.5" />
                         </button>
@@ -1363,34 +1363,34 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
         </div>
 
         {/* Footer Summary Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold bg-slate-50 px-3 py-1.5 border border-slate-200 rounded-lg">
-          <div className="flex items-center space-x-2 text-slate-600">
-            <button className="p-0.5 border border-slate-300 rounded bg-white"><ChevronLeft className="w-3.5 h-3.5" /></button>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold bg-theme-surface-2 px-3 py-1.5 border border-theme-divider rounded-lg">
+          <div className="flex items-center space-x-2 text-theme-muted">
+            <button className="p-0.5 border border-theme-divider rounded bg-white"><ChevronLeft className="w-3.5 h-3.5" /></button>
             <button className="px-2 py-0.2 bg-blue-600 text-white rounded font-bold text-[11px]">1</button>
-            <button className="px-2 py-0.2 bg-white border border-slate-300 rounded text-[11px]">2</button>
-            <button className="p-0.5 border border-slate-300 rounded bg-white"><ChevronRight className="w-3.5 h-3.5" /></button>
-            <span className="text-slate-400 text-[11px] ml-2">Rows per page</span>
-            <select className="bg-white border border-slate-300 rounded px-1 py-0.2 text-slate-700 text-[11px]">
+            <button className="px-2 py-0.2 bg-white border border-theme-divider rounded text-[11px]">2</button>
+            <button className="p-0.5 border border-theme-divider rounded bg-white"><ChevronRight className="w-3.5 h-3.5" /></button>
+            <span className="text-theme-muted text-[11px] ml-2">Rows per page</span>
+            <select className="bg-white border border-theme-divider rounded px-1 py-0.2 text-theme-body text-[11px]">
               <option value="20">20</option>
               <option value="50">50</option>
             </select>
           </div>
 
-          <div className="flex items-center space-x-5 text-slate-700 text-[11px]">
+          <div className="flex items-center space-x-5 text-theme-body text-[11px]">
             <div>
-              <span className="text-slate-400 uppercase text-[9px] block">Total Qty</span>
-              <span className="font-mono text-xs text-slate-900">{totals.totalQty.toFixed(3)}</span>
+              <span className="text-theme-muted uppercase text-[9px] block">Total Qty</span>
+              <span className="font-mono text-xs text-theme-heading">{totals.totalQty.toFixed(3)}</span>
             </div>
             <div>
-              <span className="text-slate-400 uppercase text-[9px] block">Total Discount</span>
-              <span className="font-mono text-xs text-slate-900">{totals.totalDiscount.toFixed(2)}</span>
+              <span className="text-theme-muted uppercase text-[9px] block">Total Discount</span>
+              <span className="font-mono text-xs text-theme-heading">{totals.totalDiscount.toFixed(2)}</span>
             </div>
             <div>
-              <span className="text-slate-400 uppercase text-[9px] block">Taxes (INR)</span>
-              <span className="font-mono text-xs text-slate-900">{totals.totalTaxes.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              <span className="text-theme-muted uppercase text-[9px] block">Taxes (INR)</span>
+              <span className="font-mono text-xs text-theme-heading">{totals.totalTaxes.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
             </div>
-            <div className="pl-3 border-l border-slate-200">
-              <span className="text-slate-400 uppercase text-[9px] block">Grand Total (INR)</span>
+            <div className="pl-3 border-l border-theme-divider">
+              <span className="text-theme-muted uppercase text-[9px] block">Grand Total (INR)</span>
               <span className="font-mono text-sm font-black text-emerald-600">{totals.netPayable.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
@@ -1399,13 +1399,13 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
       {/* ================= BOTTOM COLLAPSIBLE VISUAL PRODUCT GALLERY ================= */}
       {studioConfig.showProductGallery && (
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+        <div className="bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-2 text-indigo-600 font-bold text-xs uppercase tracking-wide">
               <ImageIcon className="w-4 h-4" />
               <span>Article & Visual Product Gallery ({items.length})</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">Bi-directional Interactive Highlighting Active</span>
+            <span className="text-[10px] text-theme-muted font-mono">Bi-directional Interactive Highlighting Active</span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
@@ -1418,15 +1418,15 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   className={`p-2 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
                     isSelected
                       ? "bg-amber-50 border-amber-500 ring-2 ring-amber-400/40 shadow-sm"
-                      : "bg-slate-50 border-slate-200 hover:border-slate-300"
+                      : "bg-theme-surface-2 border-theme-divider hover:border-theme-divider"
                   }`}
                 >
                   <div className="space-y-1">
-                    <div className="h-24 w-full bg-slate-200 rounded-lg overflow-hidden relative flex items-center justify-center">
+                    <div className="h-24 w-full bg-theme-surface-2 rounded-lg overflow-hidden relative flex items-center justify-center">
                       {item.imageUrl ? (
                         <img src={item.imageUrl} alt={item.itemName} className="h-full w-full object-cover" />
                       ) : (
-                        <Package className="w-8 h-8 text-slate-400" />
+                        <Package className="w-8 h-8 text-theme-muted" />
                       )}
                       {item.isTemporary && (
                         <span className="absolute top-1 left-1 bg-amber-600 text-white font-mono font-bold text-[8px] px-1 rounded shadow-xs">
@@ -1434,15 +1434,15 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                         </span>
                       )}
                     </div>
-                    <div className="font-bold text-slate-900 text-xs truncate">{item.itemName}</div>
-                    <div className="text-[10px] text-slate-500 font-mono flex items-center justify-between">
+                    <div className="font-bold text-theme-heading text-xs truncate">{item.itemName}</div>
+                    <div className="text-[10px] text-theme-muted font-mono flex items-center justify-between">
                       <span>{item.articleCode || item.itemCode}</span>
                       <span className="font-bold text-indigo-600">{item.size || "M"}</span>
                     </div>
                   </div>
 
-                  <div className="pt-1.5 mt-1 border-t border-slate-200/60 flex items-center justify-between text-[10px]">
-                    <span className="font-bold text-slate-600 font-mono">{item.qty} Pcs</span>
+                  <div className="pt-1.5 mt-1 border-t border-theme-divider/60 flex items-center justify-between text-[10px]">
+                    <span className="font-bold text-theme-muted font-mono">{item.qty} Pcs</span>
                     <span className="font-bold text-emerald-600 font-mono">₹ {item.rate}</span>
                   </div>
                 </div>
@@ -1455,12 +1455,12 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
       {/* ================= BOTTOM SPLIT SECTION (TAXES BREAKDOWN + RIGHT DOCKED SUMMARY CARD) ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* ----- LEFT SIDE: TABS (7 COLUMNS) ----- */}
-        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
-          <div className="flex flex-wrap items-center space-x-3 border-b border-slate-200 pb-1.5 text-xs font-bold">
+        <div className="lg:col-span-7 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex flex-wrap items-center space-x-3 border-b border-theme-divider pb-1.5 text-xs font-bold">
             <button
               onClick={() => setActiveBottomTab("taxes")}
               className={`pb-1 uppercase tracking-wide cursor-pointer ${
-                activeBottomTab === "taxes" ? "border-b-2 border-blue-600 text-blue-600" : "text-slate-500 hover:text-slate-800"
+                activeBottomTab === "taxes" ? "border-b-2 border-blue-600 text-blue-600" : "text-theme-muted hover:text-theme-heading"
               }`}
             >
               TAXES
@@ -1468,7 +1468,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
             <button
               onClick={() => setActiveBottomTab("shipping")}
               className={`pb-1 uppercase tracking-wide cursor-pointer ${
-                activeBottomTab === "shipping" ? "border-b-2 border-blue-600 text-blue-600" : "text-slate-500 hover:text-slate-800"
+                activeBottomTab === "shipping" ? "border-b-2 border-blue-600 text-blue-600" : "text-theme-muted hover:text-theme-heading"
               }`}
             >
               SHIPPING & OTHER CHARGES
@@ -1476,7 +1476,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
             <button
               onClick={() => setActiveBottomTab("terms")}
               className={`pb-1 uppercase tracking-wide cursor-pointer ${
-                activeBottomTab === "terms" ? "border-b-2 border-blue-600 text-blue-600" : "text-slate-500 hover:text-slate-800"
+                activeBottomTab === "terms" ? "border-b-2 border-blue-600 text-blue-600" : "text-theme-muted hover:text-theme-heading"
               }`}
             >
               TERMS & CONDITIONS
@@ -1484,7 +1484,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
             <button
               onClick={() => setActiveBottomTab("notes")}
               className={`pb-1 uppercase tracking-wide cursor-pointer ${
-                activeBottomTab === "notes" ? "border-b-2 border-blue-600 text-blue-600" : "text-slate-500 hover:text-slate-800"
+                activeBottomTab === "notes" ? "border-b-2 border-blue-600 text-blue-600" : "text-theme-muted hover:text-theme-heading"
               }`}
             >
               NOTES
@@ -1493,34 +1493,34 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
           <div className="text-xs">
             {activeBottomTab === "taxes" && (
-              <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <div className="overflow-x-auto border border-theme-divider rounded-lg">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase">
+                    <tr className="bg-theme-surface-2 border-b border-theme-divider text-[10px] font-bold text-theme-muted uppercase">
                       <th className="py-1.5 px-2.5">Tax Type</th>
                       <th className="py-1.5 px-2.5 text-right">Tax Rate %</th>
                       <th className="py-1.5 px-2.5 text-right">Taxable Amount (INR)</th>
                       <th className="py-1.5 px-2.5 text-right">Tax Amount (INR)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium text-[11px]">
+                  <tbody className="divide-y divide-theme-divider font-medium text-[11px]">
                     <tr>
-                      <td className="py-1.5 px-2.5 font-bold text-slate-700">CGST</td>
+                      <td className="py-1.5 px-2.5 font-bold text-theme-body">CGST</td>
                       <td className="py-1.5 px-2.5 text-right">6.00</td>
                       <td className="py-1.5 px-2.5 text-right font-mono">29,750.00</td>
-                      <td className="py-1.5 px-2.5 text-right font-mono font-bold text-slate-800">{totals.cgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                      <td className="py-1.5 px-2.5 text-right font-mono font-bold text-theme-heading">{totals.cgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                     </tr>
                     <tr>
-                      <td className="py-1.5 px-2.5 font-bold text-slate-700">SGST</td>
+                      <td className="py-1.5 px-2.5 font-bold text-theme-body">SGST</td>
                       <td className="py-1.5 px-2.5 text-right">6.00</td>
                       <td className="py-1.5 px-2.5 text-right font-mono">29,750.00</td>
-                      <td className="py-1.5 px-2.5 text-right font-mono font-bold text-slate-800">{totals.sgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                      <td className="py-1.5 px-2.5 text-right font-mono font-bold text-theme-heading">{totals.sgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                     </tr>
                     <tr>
-                      <td className="py-1.5 px-2.5 font-bold text-slate-700">IGST</td>
+                      <td className="py-1.5 px-2.5 font-bold text-theme-body">IGST</td>
                       <td className="py-1.5 px-2.5 text-right">18.00</td>
                       <td className="py-1.5 px-2.5 text-right font-mono">24,500.00</td>
-                      <td className="py-1.5 px-2.5 text-right font-mono font-bold text-slate-800">{totals.igstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                      <td className="py-1.5 px-2.5 text-right font-mono font-bold text-theme-heading">{totals.igstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1532,12 +1532,12 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                 value={notesText}
                 onChange={(e) => setNotesText(e.target.value)}
                 placeholder="Enter purchase terms, conditions, or supplier instructions..."
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-medium focus:outline-none focus:border-blue-500 h-20"
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg p-2 text-xs font-medium focus:outline-none focus:border-blue-500 h-20"
               />
             )}
 
             {(activeBottomTab === "shipping" || activeBottomTab === "terms") && (
-              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-xs">
+              <div className="p-2.5 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-muted text-xs">
                 Standard ERP sourcing terms apply. Goods to be delivered to Main Warehouse within expected date.
               </div>
             )}
@@ -1545,8 +1545,8 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
         </div>
 
         {/* ----- RIGHT DOCKED SUMMARY CARD (5 COLUMNS) ----- */}
-        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+        <div className="lg:col-span-5 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+          <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <Receipt className="w-3.5 h-3.5" />
               <span>SUMMARY</span>
@@ -1554,47 +1554,47 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
           </div>
 
           <div className="space-y-1.5 text-xs">
-            <div className="flex items-center justify-between text-slate-600">
+            <div className="flex items-center justify-between text-theme-muted">
               <span>Total Item Amount</span>
-              <span className="font-mono font-bold text-slate-800">
+              <span className="font-mono font-bold text-theme-heading">
                 {totals.totalItemAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-slate-600">
+            <div className="flex items-center justify-between text-theme-muted">
               <span>Total Discount</span>
-              <span className="font-mono font-bold text-slate-800">
+              <span className="font-mono font-bold text-theme-heading">
                 {totals.totalDiscount.toFixed(2)}
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-slate-600">
+            <div className="flex items-center justify-between text-theme-muted">
               <span>Total Taxes</span>
-              <span className="font-mono font-bold text-slate-800">
+              <span className="font-mono font-bold text-theme-heading">
                 {totals.totalTaxes.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-slate-600">
+            <div className="flex items-center justify-between text-theme-muted">
               <span>Other Charges</span>
-              <span className="font-mono font-bold text-slate-800">0.00</span>
+              <span className="font-mono font-bold text-theme-heading">0.00</span>
             </div>
 
-            <div className="flex items-center justify-between text-slate-600">
+            <div className="flex items-center justify-between text-theme-muted">
               <span>Round Off</span>
-              <span className="font-mono font-bold text-slate-800">{totals.roundOff.toFixed(2)}</span>
+              <span className="font-mono font-bold text-theme-heading">{totals.roundOff.toFixed(2)}</span>
             </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-              <span className="text-xs font-extrabold text-slate-900">Net Payable</span>
+            <div className="flex items-center justify-between pt-2 border-t border-theme-divider">
+              <span className="text-xs font-extrabold text-theme-heading">Net Payable</span>
               <span className="text-lg font-black text-emerald-600 font-mono tracking-tight">
                 {totals.netPayable.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </span>
             </div>
 
-            <div className="pt-1.5 border-t border-slate-100 text-[10px]">
-              <span className="font-bold text-slate-500 block uppercase">Amount in Words</span>
-              <span className="font-semibold text-slate-800 italic">{amountInWords}</span>
+            <div className="pt-1.5 border-t border-theme-divider text-[10px]">
+              <span className="font-bold text-theme-muted block uppercase">Amount in Words</span>
+              <span className="font-semibold text-theme-heading italic">{amountInWords}</span>
             </div>
           </div>
         </div>
@@ -1602,19 +1602,19 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
       {/* ================= ON-THE-FLY NEW ARTICLE CREATION MODAL ================= */}
       {showNewArticleModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl border border-theme-divider">
+            <div className="flex items-center justify-between border-b border-theme-divider pb-3">
               <div className="flex items-center space-x-2">
                 <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-slate-900 text-sm">Create On-the-Fly Article (Temporary)</h3>
-                  <p className="text-xs text-slate-500">Add a new article specification directly to PO without pre-existing Item Master.</p>
+                  <h3 className="font-extrabold text-theme-heading text-sm">Create On-the-Fly Article (Temporary)</h3>
+                  <p className="text-xs text-theme-muted">Add a new article specification directly to PO without pre-existing Item Master.</p>
                 </div>
               </div>
-              <button onClick={() => setShowNewArticleModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowNewArticleModal(false)} className="text-theme-muted hover:text-theme-muted">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1622,79 +1622,79 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
             <div className="space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Article Code *</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Article Code *</label>
                   <input
                     type="text"
                     value={newArticleForm.articleCode}
                     onChange={(e) => setNewArticleForm({ ...newArticleForm, articleCode: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-800"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-mono font-bold text-theme-heading"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Article Name *</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Article Name *</label>
                   <input
                     type="text"
                     value={newArticleForm.articleName}
                     onChange={(e) => setNewArticleForm({ ...newArticleForm, articleName: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-semibold text-theme-heading"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Style / Fit</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Style / Fit</label>
                   <input
                     type="text"
                     value={newArticleForm.style}
                     onChange={(e) => setNewArticleForm({ ...newArticleForm, style: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-heading"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Color</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Color</label>
                   <input
                     type="text"
                     value={newArticleForm.color}
                     onChange={(e) => setNewArticleForm({ ...newArticleForm, color: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-heading"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Size</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Size</label>
                   <input
                     type="text"
                     value={newArticleForm.size}
                     onChange={(e) => setNewArticleForm({ ...newArticleForm, size: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-800"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-mono font-bold text-theme-heading"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Buying Rate (₹) *</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Buying Rate (₹) *</label>
                   <input
                     type="number"
                     value={newArticleForm.buyingRate}
                     onChange={(e) => setNewArticleForm({ ...newArticleForm, buyingRate: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold text-blue-700"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-mono font-bold text-blue-700"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">GST Rate %</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">GST Rate %</label>
                   <input
                     type="number"
                     value={newArticleForm.gstRate}
                     onChange={(e) => setNewArticleForm({ ...newArticleForm, gstRate: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-mono text-theme-heading"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
-              <button onClick={() => setShowNewArticleModal(false)} className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-xl font-bold">
+            <div className="flex justify-end space-x-2 pt-2 border-t border-theme-divider">
+              <button onClick={() => setShowNewArticleModal(false)} className="px-4 py-1.5 bg-theme-surface-2 text-theme-body rounded-xl font-bold">
                 Cancel
               </button>
               <button onClick={handleCreateTemporaryArticle} className="px-5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold flex items-center shadow-md">
@@ -1708,78 +1708,78 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
       {/* ================= FASHION / FOOTWEAR VARIANT MATRIX ENTRY MODAL ================= */}
       {showVariantMatrixModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto p-4 sm:p-5 space-y-4 shadow-2xl border border-slate-200">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto p-4 sm:p-5 space-y-4 shadow-2xl border border-theme-divider">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-theme-divider pb-3">
               <div className="flex items-center space-x-2 min-w-0">
                 <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
                   <Grid className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-slate-900 text-sm flex items-center space-x-2">
+                  <h3 className="font-extrabold text-theme-heading text-sm flex items-center space-x-2">
                     <span className="leading-tight">Fashion & Apparel Variant Matrix Entry</span>
                     <span className="px-2 py-0.2 bg-indigo-100 text-indigo-800 text-[9px] font-mono rounded-full font-bold">SPK.entities</span>
                   </h3>
-                  <p className="text-xs text-slate-500">Enter quantities across Color × Size matrix to generate purchase order lines instantly.</p>
+                  <p className="text-xs text-theme-muted">Enter quantities across Color × Size matrix to generate purchase order lines instantly.</p>
                 </div>
               </div>
-              <button onClick={() => setShowVariantMatrixModal(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer">
+              <button onClick={() => setShowVariantMatrixModal(false)} className="p-1 text-theme-muted hover:text-theme-muted rounded-lg cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 text-xs">
+            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 text-xs">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Business domain</span>
+                <span className="text-[10px] font-bold text-theme-muted uppercase block">Business domain</span>
                 <select
                   value={businessDomain}
                   onChange={(e) => handleBusinessDomainChange(e.target.value as BusinessDomain)}
-                  className="font-semibold text-slate-800 bg-white border border-slate-300 rounded px-2 py-1 w-full text-xs"
+                  className="font-semibold text-theme-heading bg-white border border-theme-divider rounded px-2 py-1 w-full text-xs"
                 >
                   {Object.keys(BUSINESS_DOMAIN_PROFILES).map((domain) => <option key={domain} value={domain}>{domain}</option>)}
                 </select>
-                <p className="mt-1 text-[10px] text-slate-500">{activeDomainProfile.dimensions.join(" • ")}</p>
+                <p className="mt-1 text-[10px] text-theme-muted">{activeDomainProfile.dimensions.join(" • ")}</p>
               </div>
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Article Code</span>
+                <span className="text-[10px] font-bold text-theme-muted uppercase block">Article Code</span>
                 <input
                   type="text"
                   value={selectedArticle.articleCode}
                   onChange={(e) => setSelectedArticle({ ...selectedArticle, articleCode: e.target.value })}
-                  className="font-mono font-bold text-slate-800 bg-white border border-slate-300 rounded px-2 py-1 w-full text-xs"
+                  className="font-mono font-bold text-theme-heading bg-white border border-theme-divider rounded px-2 py-1 w-full text-xs"
                 />
               </div>
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Article Description</span>
+                <span className="text-[10px] font-bold text-theme-muted uppercase block">Article Description</span>
                 <input
                   type="text"
                   value={selectedArticle.articleName}
                   onChange={(e) => setSelectedArticle({ ...selectedArticle, articleName: e.target.value })}
-                  className="font-semibold text-slate-800 bg-white border border-slate-300 rounded px-2 py-1 w-full text-xs"
+                  className="font-semibold text-theme-heading bg-white border border-theme-divider rounded px-2 py-1 w-full text-xs"
                 />
               </div>
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Style / Fit</span>
-                <span className="font-semibold text-slate-700 block mt-1">{selectedArticle.style}</span>
+                <span className="text-[10px] font-bold text-theme-muted uppercase block">Style / Fit</span>
+                <span className="font-semibold text-theme-body block mt-1">{selectedArticle.style}</span>
               </div>
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Base Buying Rate (₹)</span>
+                <span className="text-[10px] font-bold text-theme-muted uppercase block">Base Buying Rate (₹)</span>
                 <input
                   type="number"
                   value={selectedArticle.baseRate}
                   onChange={(e) => setSelectedArticle({ ...selectedArticle, baseRate: parseFloat(e.target.value) || 0 })}
-                  className="font-mono font-bold text-blue-700 bg-white border border-slate-300 rounded px-2 py-1 w-full text-xs"
+                  className="font-mono font-bold text-blue-700 bg-white border border-theme-divider rounded px-2 py-1 w-full text-xs"
                 />
               </div>
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Category</span>
+                <span className="text-[10px] font-bold text-theme-muted uppercase block">Category</span>
                 <select
                   value={selectedArticle.category}
                   onChange={(e) => {
                     setSelectedArticle({ ...selectedArticle, category: e.target.value });
                     setSelectedCategoryStatus("ITEM_MASTER");
                   }}
-                  className="font-semibold text-slate-800 bg-white border border-slate-300 rounded px-2 py-1 w-full text-xs"
+                  className="font-semibold text-theme-heading bg-white border border-theme-divider rounded px-2 py-1 w-full text-xs"
                 >
                   {availableMatrixCategories.map((category) => <option key={category} value={category}>{category}</option>)}
                 </select>
@@ -1790,7 +1790,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                     onChange={(e) => setNewMatrixCategory(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") handleCreateMissingMatrixCategory(); }}
                     placeholder="Only if missing"
-                    className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-[10px] text-slate-800"
+                    className="min-w-0 flex-1 rounded border border-theme-divider bg-white px-2 py-1 text-[10px] text-theme-heading"
                   />
                   <button
                     type="button"
@@ -1801,7 +1801,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                     Add pending
                   </button>
                 </div>
-                <p className="mt-1 text-[10px] text-slate-500">
+                <p className="mt-1 text-[10px] text-theme-muted">
                   {selectedCategoryStatus === "PENDING_APPROVAL" ? "Pending Item Master approval" : "From Item Master"}
                 </p>
               </div>
@@ -1809,15 +1809,15 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
               <div className="sm:col-span-2">
-                <span className="text-[10px] font-bold uppercase text-slate-500">Size category</span>
-                <div className="mt-1 grid grid-cols-3 gap-1 rounded-lg bg-white p-1 border border-slate-200">
+                <span className="text-[10px] font-bold uppercase text-theme-muted">Size category</span>
+                <div className="mt-1 grid grid-cols-3 gap-1 rounded-lg bg-white p-1 border border-theme-divider">
                   {(["apparel", "footwear", "hybrid"] as const).map((mode) => (
                     <button
                       key={mode}
                       type="button"
                       onClick={() => setMatrixSizeMode(mode)}
                       className={`min-h-9 rounded-md px-2 py-1.5 text-[10px] font-bold uppercase transition-colors ${
-                        matrixSizeMode === mode ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-indigo-50"
+                        matrixSizeMode === mode ? "bg-indigo-600 text-white" : "text-theme-muted hover:bg-indigo-50"
                       }`}
                     >
                       {mode}
@@ -1825,7 +1825,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   ))}
                 </div>
               </div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">
+              <label className="text-[10px] font-bold text-theme-muted uppercase">
                 Add color
                 <input
                   type="text"
@@ -1833,7 +1833,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   onChange={(e) => setNewMatrixColor(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") handleAddMatrixColor(); }}
                   placeholder="e.g. Maroon"
-                  className="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-2 text-xs font-semibold normal-case text-slate-800 outline-none focus:border-indigo-500"
+                  className="mt-1 w-full rounded border border-theme-divider bg-white px-2 py-2 text-xs font-semibold normal-case text-theme-heading outline-none focus:border-indigo-500"
                 />
                 <button
                   type="button"
@@ -1845,7 +1845,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   Add color
                 </button>
               </label>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">
+              <label className="text-[10px] font-bold text-theme-muted uppercase">
                 Add size
                 <input
                   type="text"
@@ -1854,12 +1854,12 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   onChange={(e) => setNewMatrixSize(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") handleAddMatrixSize(); }}
                   placeholder="Footwear: 26, 27, 28"
-                  className="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-2 text-xs font-semibold normal-case text-slate-800 outline-none focus:border-indigo-500"
+                  className="mt-1 w-full rounded border border-theme-divider bg-white px-2 py-2 text-xs font-semibold normal-case text-theme-heading outline-none focus:border-indigo-500"
                 />
                 <select
                   value={newMatrixSizeCategory}
                   onChange={(e) => setNewMatrixSizeCategory(e.target.value as "apparel" | "footwear")}
-                  className="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-2 text-xs font-semibold normal-case text-slate-800 outline-none focus:border-indigo-500"
+                  className="mt-1 w-full rounded border border-theme-divider bg-white px-2 py-2 text-xs font-semibold normal-case text-theme-heading outline-none focus:border-indigo-500"
                   aria-label="New size category"
                 >
                   <option value="footwear">Footwear size</option>
@@ -1877,25 +1877,25 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               </label>
             </div>
 
-            <div className="overflow-x-auto border border-slate-200 rounded-xl smriti-custom-scroll">
+            <div className="overflow-x-auto border border-theme-divider rounded-xl smriti-custom-scroll">
               <table className="w-full text-center text-xs border-collapse">
                 <thead>
-                  <tr className="bg-slate-100 border-b border-slate-200 text-[11px] font-extrabold text-slate-700 uppercase">
-                    <th className="py-2.5 px-3 text-left bg-slate-200 w-28">Color \ Size</th>
+                  <tr className="bg-theme-surface-2 border-b border-theme-divider text-[11px] font-extrabold text-theme-body uppercase">
+                    <th className="py-2.5 px-3 text-left bg-theme-surface-2 w-28">Color \ Size</th>
                     {activeMatrixSizes.map((sz) => (
                       <th key={sz} className="py-2.5 px-3 w-16 text-center font-mono">{sz}</th>
                     ))}
-                    <th className="py-2.5 px-3 text-right bg-slate-200 w-20 font-bold">Total Qty</th>
+                    <th className="py-2.5 px-3 text-right bg-theme-surface-2 w-20 font-bold">Total Qty</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
+                <tbody className="divide-y divide-theme-divider font-medium">
                   {availableColors.map((color) => {
                     let colorRowTotal = 0;
                     return (
-                      <tr key={color} className="hover:bg-slate-50">
-                        <td className="py-2 px-3 text-left font-bold text-slate-800 bg-slate-50 flex items-center space-x-1.5">
+                      <tr key={color} className="hover:bg-theme-surface-2">
+                        <td className="py-2 px-3 text-left font-bold text-theme-heading bg-theme-surface-2 flex items-center space-x-1.5">
                           <span
-                            className="w-3 h-3 rounded-full border border-slate-300 shrink-0"
+                            className="w-3 h-3 rounded-full border border-theme-divider shrink-0"
                             style={{
                               backgroundColor:
                                 color === "Black" ? "#000" : color === "Blue" ? "#2563EB" : color === "Red" ? "#DC2626" : color === "Navy" ? "#1E3A8A" : "#FFF",
@@ -1916,13 +1916,13 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                                 placeholder="0"
                                 onChange={(e) => handleMatrixQtyChange(color, size, parseInt(e.target.value) || 0)}
                                 className={`w-14 text-center border rounded py-1 text-xs font-mono font-bold focus:outline-none focus:border-blue-500 ${
-                                  qty > 0 ? "bg-blue-50 border-blue-400 text-blue-800" : "bg-white border-slate-200 text-slate-400"
+                                  qty > 0 ? "bg-blue-50 border-blue-400 text-blue-800" : "bg-white border-theme-divider text-theme-muted"
                                 }`}
                               />
                             </td>
                           );
                         })}
-                        <td className="py-2 px-3 text-right font-mono font-extrabold text-slate-800 bg-slate-50">
+                        <td className="py-2 px-3 text-right font-mono font-extrabold text-theme-heading bg-theme-surface-2">
                           {colorRowTotal}
                         </td>
                       </tr>
@@ -1932,12 +1932,12 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               </table>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-slate-100">
-              <div className="text-xs text-slate-600 font-semibold">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-theme-divider">
+              <div className="text-xs text-theme-muted font-semibold">
                 Total Matrix Items: <span className="font-mono font-bold text-blue-700">{Object.values(matrixQtyMap).reduce((a, b) => a + (b || 0), 0)} Pcs</span>
               </div>
               <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2">
-                <button onClick={() => setShowVariantMatrixModal(false)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold cursor-pointer">
+                <button onClick={() => setShowVariantMatrixModal(false)} className="px-4 py-2 bg-theme-surface-2 text-theme-body rounded-xl text-xs font-bold cursor-pointer">
                   Cancel
                 </button>
                 <button onClick={handleGenerateMatrixLines} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center justify-center shadow-md">
@@ -1952,78 +1952,78 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
       {/* ================= PROCUREMENT STUDIO CONFIGURATION MODAL ================= */}
       {showConfigModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl border border-theme-divider">
+            <div className="flex items-center justify-between border-b border-theme-divider pb-3">
               <div className="flex items-center space-x-2">
                 <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
                   <Sliders className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-slate-900 text-sm">Procurement Studio Metadata Configuration</h3>
-                  <p className="text-xs text-slate-500">Configure operational rules, approval queues, gallery views, and SUPP print profiles.</p>
+                  <h3 className="font-extrabold text-theme-heading text-sm">Procurement Studio Metadata Configuration</h3>
+                  <p className="text-xs text-theme-muted">Configure operational rules, approval queues, gallery views, and SUPP print profiles.</p>
                 </div>
               </div>
-              <button onClick={() => setShowConfigModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowConfigModal(false)} className="text-theme-muted hover:text-theme-muted">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="flex items-center justify-between p-2.5 bg-theme-surface-2 rounded-xl border border-theme-divider">
                 <div>
-                  <div className="font-bold text-slate-800">On-the-Fly Article Creation</div>
-                  <div className="text-[11px] text-slate-500">Allow buyers to add temporary articles without pre-existing Item Master</div>
+                  <div className="font-bold text-theme-heading">On-the-Fly Article Creation</div>
+                  <div className="text-[11px] text-theme-muted">Allow buyers to add temporary articles without pre-existing Item Master</div>
                 </div>
                 <input
                   type="checkbox"
                   checked={studioConfig.allowOntheFlyArticle}
                   onChange={(e) => setStudioConfig({ ...studioConfig, allowOntheFlyArticle: e.target.checked })}
-                  className="rounded border-slate-300 w-4 h-4"
+                  className="rounded border-theme-divider w-4 h-4"
                 />
               </div>
 
-              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="flex items-center justify-between p-2.5 bg-theme-surface-2 rounded-xl border border-theme-divider">
                 <div>
-                  <div className="font-bold text-slate-800">Require Master Approval Queue</div>
-                  <div className="text-[11px] text-slate-500">Require manager review before promoting temporary items into Item Master</div>
+                  <div className="font-bold text-theme-heading">Require Master Approval Queue</div>
+                  <div className="text-[11px] text-theme-muted">Require manager review before promoting temporary items into Item Master</div>
                 </div>
                 <input
                   type="checkbox"
                   checked={studioConfig.requireMasterApproval}
                   onChange={(e) => setStudioConfig({ ...studioConfig, requireMasterApproval: e.target.checked })}
-                  className="rounded border-slate-300 w-4 h-4"
+                  className="rounded border-theme-divider w-4 h-4"
                 />
               </div>
 
-              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="flex items-center justify-between p-2.5 bg-theme-surface-2 rounded-xl border border-theme-divider">
                 <div>
-                  <div className="font-bold text-slate-800">Show Visual Product Gallery</div>
-                  <div className="text-[11px] text-slate-500">Display bottom interactive article & product gallery</div>
+                  <div className="font-bold text-theme-heading">Show Visual Product Gallery</div>
+                  <div className="text-[11px] text-theme-muted">Display bottom interactive article & product gallery</div>
                 </div>
                 <input
                   type="checkbox"
                   checked={studioConfig.showProductGallery}
                   onChange={(e) => setStudioConfig({ ...studioConfig, showProductGallery: e.target.checked })}
-                  className="rounded border-slate-300 w-4 h-4"
+                  className="rounded border-theme-divider w-4 h-4"
                 />
               </div>
 
-              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="flex items-center justify-between p-2.5 bg-theme-surface-2 rounded-xl border border-theme-divider">
                 <div>
-                  <div className="font-bold text-slate-800">SUPP Print Product Images</div>
-                  <div className="text-[11px] text-slate-500">Include article images in thermal & A4 printouts</div>
+                  <div className="font-bold text-theme-heading">SUPP Print Product Images</div>
+                  <div className="text-[11px] text-theme-muted">Include article images in thermal & A4 printouts</div>
                 </div>
                 <input
                   type="checkbox"
                   checked={studioConfig.printImagesInPO}
                   onChange={(e) => setStudioConfig({ ...studioConfig, printImagesInPO: e.target.checked })}
-                  className="rounded border-slate-300 w-4 h-4"
+                  className="rounded border-theme-divider w-4 h-4"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-slate-100">
+            <div className="flex justify-end pt-2 border-t border-theme-divider">
               <button
                 onClick={() => {
                   setShowConfigModal(false);
@@ -2040,14 +2040,14 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
       {/* ================= ITEM PICKER MODAL (F2) ================= */}
       {showItemPickerModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-xl w-full p-4 space-y-3 shadow-xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <h3 className="font-extrabold text-slate-900 text-xs flex items-center space-x-2">
+        <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-xl w-full p-4 space-y-3 shadow-xl border border-theme-divider">
+            <div className="flex items-center justify-between border-b border-theme-divider pb-2">
+              <h3 className="font-extrabold text-theme-heading text-xs flex items-center space-x-2">
                 <ShoppingCart className="w-3.5 h-3.5 text-blue-600" />
                 <span>Select Purchase Item (F2)</span>
               </h3>
-              <button onClick={() => setShowItemPickerModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowItemPickerModal(false)} className="text-theme-muted hover:text-theme-muted">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -2057,15 +2057,15 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                 <div
                   key={prod.id}
                   onClick={() => handleAddItem(prod)}
-                  className="p-2 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded flex items-center justify-between cursor-pointer transition-colors"
+                  className="p-2 bg-theme-surface-2 hover:bg-blue-50 border border-theme-divider rounded flex items-center justify-between cursor-pointer transition-colors"
                 >
                   <div>
-                    <div className="font-bold text-slate-900 text-xs">{prod.name}</div>
-                    <div className="text-[10px] text-slate-500 font-mono">Code: {prod.code || prod.sku} | HSN: {prod.hsnCode || "6109"}</div>
+                    <div className="font-bold text-theme-heading text-xs">{prod.name}</div>
+                    <div className="text-[10px] text-theme-muted font-mono">Code: {prod.code || prod.sku} | HSN: {prod.hsnCode || "6109"}</div>
                   </div>
                   <div className="text-right">
                     <div className="font-extrabold text-blue-600 text-xs">₹ {prod.price}</div>
-                    <div className="text-[10px] text-slate-400">Stock: {prod.stock}</div>
+                    <div className="text-[10px] text-theme-muted">Stock: {prod.stock}</div>
                   </div>
                 </div>
               ))}

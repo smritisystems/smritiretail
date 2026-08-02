@@ -1,3 +1,24 @@
+<!--
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+-->
+
 MASTER COMMAND: MC-METADATA-ARCHITECTURE-DECISION_v1.1_precondition_patch
 PHASE: 2 of 2 (Architecture Decision + Evidence Standard)
 

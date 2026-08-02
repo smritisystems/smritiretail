@@ -53,7 +53,7 @@ export const WorkspaceTabsBar: React.FC = () => {
   if (openWorkspaces.length === 0) return null;
 
   return (
-    <div className="flex items-center bg-slate-950 border-b border-slate-800/80 px-2 pt-1.5 gap-1 overflow-x-auto select-none font-sans text-xs">
+    <div className="flex items-center bg-theme-surface-3 border-b border-theme-divider px-2 pt-1.5 gap-1 overflow-x-auto select-none font-sans text-xs">
       {openWorkspaces.map((ws) => {
         const isActive = ws.workspaceId === activeId;
         const isPinned = ws.cachePolicy === "Pinned";
@@ -64,8 +64,8 @@ export const WorkspaceTabsBar: React.FC = () => {
             onClick={() => handleSelectTab(ws)}
             className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-t-xl border transition-all cursor-pointer ${
               isActive
-                ? "bg-slate-900 border-slate-700/80 border-b-slate-900 text-white font-semibold shadow-md"
-                : "bg-slate-900/40 border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/70"
+                ? "bg-theme-surface-2 border-theme-divider border-b-slate-900 text-white font-semibold shadow-md"
+                : "bg-theme-surface-2 border-transparent text-theme-muted hover:text-theme-heading hover:bg-theme-surface-2"
             }`}
           >
             {/* Status Dot */}
@@ -75,7 +75,7 @@ export const WorkspaceTabsBar: React.FC = () => {
               }`}
             />
 
-            <Layout size={12} className={isActive ? "text-blue-400" : "text-slate-500"} />
+            <Layout size={12} className={isActive ? "text-blue-400" : "text-theme-muted"} />
             <span className="truncate max-w-[130px]">{ws.title}</span>
 
             {isPinned ? (
@@ -83,7 +83,7 @@ export const WorkspaceTabsBar: React.FC = () => {
             ) : (
               <button
                 onClick={(e) => handleCloseTab(e, ws)}
-                className="opacity-0 group-hover:opacity-100 hover:bg-slate-800 p-0.5 rounded transition-all text-slate-400 hover:text-rose-400"
+                className="opacity-0 group-hover:opacity-100 hover:bg-theme-surface-hover p-0.5 rounded transition-all text-theme-muted hover:text-rose-400"
               >
                 <X size={11} />
               </button>
@@ -95,7 +95,7 @@ export const WorkspaceTabsBar: React.FC = () => {
       {/* New Workspace (+) Button */}
       <button
         onClick={() => SUNEFKernel.open({ type: "Item" })}
-        className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-slate-900 transition-all cursor-pointer ml-1"
+        className="p-1.5 rounded-lg text-theme-muted hover:text-theme-heading hover:bg-theme-surface-2 transition-all cursor-pointer ml-1"
         title="Open New Workspace"
       >
         <Plus size={13} />

@@ -74,7 +74,7 @@ export const Identity360Workspace: React.FC<Identity360WorkspaceProps> = ({
   ];
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 font-sans text-slate-100 overflow-hidden">
+    <div className="flex flex-col h-full bg-theme-surface-3 font-sans text-theme-heading overflow-hidden">
       {/* 1. Universal Action Bar */}
       <UniversalActionBar
         workspaceTitle={`Identity 360 — ${identity.fullName}`}
@@ -99,7 +99,7 @@ export const Identity360Workspace: React.FC<Identity360WorkspaceProps> = ({
       />
 
       {/* 2. Header Object Summary Card */}
-      <div className="bg-slate-900/80 border-b border-slate-800 p-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-theme-surface-2 border-b border-theme-divider p-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
             {identity.fullName.charAt(0)}
@@ -111,7 +111,7 @@ export const Identity360Workspace: React.FC<Identity360WorkspaceProps> = ({
                 {identity.status}
               </span>
             </div>
-            <div className="text-xs text-slate-400 font-mono mt-0.5 flex items-center gap-3">
+            <div className="text-xs text-theme-muted font-mono mt-0.5 flex items-center gap-3">
               <span>User ID: {identity.id}</span>
               <span>•</span>
               <span>Username: {identity.username}</span>
@@ -140,7 +140,7 @@ export const Identity360Workspace: React.FC<Identity360WorkspaceProps> = ({
       </div>
 
       {/* 3. Horizontal 11-Tab Navigation */}
-      <div className="flex items-center bg-slate-900 border-b border-slate-800 px-4 gap-1 overflow-x-auto select-none">
+      <div className="flex items-center bg-theme-surface-2 border-b border-theme-divider px-4 gap-1 overflow-x-auto select-none">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -148,7 +148,7 @@ export const Identity360Workspace: React.FC<Identity360WorkspaceProps> = ({
             className={`flex items-center gap-1.5 px-3 py-2 border-b-2 text-xs font-medium transition-all cursor-pointer ${
               activeTab === tab.id
                 ? "border-blue-500 text-blue-400 bg-blue-500/10 font-bold"
-                : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+                : "border-transparent text-theme-muted hover:text-theme-heading hover:bg-theme-surface-2"
             }`}
           >
             {tab.icon}
@@ -158,41 +158,41 @@ export const Identity360Workspace: React.FC<Identity360WorkspaceProps> = ({
       </div>
 
       {/* 4. Tab Body Content Pane */}
-      <div className="flex-1 overflow-y-auto p-6 text-xs text-slate-300">
+      <div className="flex-1 overflow-y-auto p-6 text-xs text-theme-body">
         {activeTab === "overview" && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-              <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-2">Personal & Contact Info</h3>
+            <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-5 space-y-4">
+              <h3 className="text-sm font-bold text-white border-b border-theme-divider pb-2">Personal & Contact Info</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <div className="text-slate-500 text-[10px] uppercase font-mono">Full Name</div>
-                  <div className="font-semibold text-slate-200 mt-0.5">{identity.fullName}</div>
+                  <div className="text-theme-muted text-[10px] uppercase font-mono">Full Name</div>
+                  <div className="font-semibold text-theme-heading mt-0.5">{identity.fullName}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-[10px] uppercase font-mono">Primary Email</div>
-                  <div className="font-semibold text-slate-200 mt-0.5">{identity.email || "N/A"}</div>
+                  <div className="text-theme-muted text-[10px] uppercase font-mono">Primary Email</div>
+                  <div className="font-semibold text-theme-heading mt-0.5">{identity.email || "N/A"}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-[10px] uppercase font-mono">Mobile Number</div>
-                  <div className="font-semibold text-slate-200 mt-0.5">{identity.mobile || "N/A"}</div>
+                  <div className="text-theme-muted text-[10px] uppercase font-mono">Mobile Number</div>
+                  <div className="font-semibold text-theme-heading mt-0.5">{identity.mobile || "N/A"}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-[10px] uppercase font-mono">Account Status</div>
+                  <div className="text-theme-muted text-[10px] uppercase font-mono">Account Status</div>
                   <div className="font-semibold text-emerald-400 mt-0.5">{identity.status}</div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-              <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-2">Primary Work Location</h3>
+            <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-5 space-y-4">
+              <h3 className="text-sm font-bold text-white border-b border-theme-divider pb-2">Primary Work Location</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <div className="text-slate-500 text-[10px] uppercase font-mono">Company</div>
-                  <div className="font-semibold text-slate-200 mt-0.5">{identity.companyName}</div>
+                  <div className="text-theme-muted text-[10px] uppercase font-mono">Company</div>
+                  <div className="font-semibold text-theme-heading mt-0.5">{identity.companyName}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-[10px] uppercase font-mono">Primary Branch</div>
-                  <div className="font-semibold text-slate-200 mt-0.5">{identity.branchName}</div>
+                  <div className="text-theme-muted text-[10px] uppercase font-mono">Primary Branch</div>
+                  <div className="font-semibold text-theme-heading mt-0.5">{identity.branchName}</div>
                 </div>
               </div>
             </div>
@@ -200,11 +200,11 @@ export const Identity360Workspace: React.FC<Identity360WorkspaceProps> = ({
         )}
 
         {activeTab === "assignments" && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-5 space-y-4">
             <h3 className="text-sm font-bold text-white">Work Location Assignment Matrix</h3>
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-800 text-[10px] font-mono text-slate-400 uppercase">
+                <tr className="border-b border-theme-divider text-[10px] font-mono text-theme-muted uppercase">
                   <th className="py-2 px-3">Company</th>
                   <th className="py-2 px-3">Work Location</th>
                   <th className="py-2 px-3">Position</th>
@@ -215,7 +215,7 @@ export const Identity360Workspace: React.FC<Identity360WorkspaceProps> = ({
               </thead>
               <tbody>
                 {identity.assignments.map((asg) => (
-                  <tr key={asg.id} className="border-b border-slate-800/50 hover:bg-slate-800/40 font-mono text-xs">
+                  <tr key={asg.id} className="border-b border-theme-divider hover:bg-theme-surface-2 font-mono text-xs">
                     <td className="py-2.5 px-3 font-semibold text-white">{asg.companyName}</td>
                     <td className="py-2.5 px-3">{asg.locationName}</td>
                     <td className="py-2.5 px-3">{asg.position}</td>
@@ -227,7 +227,7 @@ export const Identity360Workspace: React.FC<Identity360WorkspaceProps> = ({
                           ✓ Primary
                         </span>
                       ) : (
-                        <span className="text-slate-600">—</span>
+                        <span className="text-theme-muted">—</span>
                       )}
                     </td>
                   </tr>
@@ -238,21 +238,21 @@ export const Identity360Workspace: React.FC<Identity360WorkspaceProps> = ({
         )}
 
         {activeTab === "timeline" && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-5 space-y-4">
             <h3 className="text-sm font-bold text-white">Identity Business Lifecycle Timeline</h3>
             <div className="space-y-3 font-mono">
               <div className="flex items-start gap-3">
                 <div className="w-2.5 h-2.5 rounded-full bg-blue-500 mt-1" />
                 <div>
-                  <div className="font-bold text-slate-200">Account Created & Seeding Verified</div>
-                  <div className="text-[10px] text-slate-500">2026-07-30 08:00 AM • Admin Setup Wizard</div>
+                  <div className="font-bold text-theme-heading">Account Created & Seeding Verified</div>
+                  <div className="text-[10px] text-theme-muted">2026-07-30 08:00 AM • Admin Setup Wizard</div>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 mt-1" />
                 <div>
-                  <div className="font-bold text-slate-200">Primary Branch Assigned: Nagpur HQ</div>
-                  <div className="text-[10px] text-slate-500">2026-07-30 08:05 AM • Automatic RBAC Mapper</div>
+                  <div className="font-bold text-theme-heading">Primary Branch Assigned: Nagpur HQ</div>
+                  <div className="text-[10px] text-theme-muted">2026-07-30 08:05 AM • Automatic RBAC Mapper</div>
                 </div>
               </div>
             </div>
@@ -260,16 +260,16 @@ export const Identity360Workspace: React.FC<Identity360WorkspaceProps> = ({
         )}
 
         {activeTab === "relationships" && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-5 space-y-4">
             <h3 className="text-sm font-bold text-white">Identity Relationships & Escalations</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono">
               {identity.relationships.map((rel) => (
-                <div key={rel.id} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex justify-between">
+                <div key={rel.id} className="p-3 rounded-xl bg-theme-surface-3 border border-theme-divider flex justify-between">
                   <div>
                     <div className="text-[10px] text-blue-400 font-bold uppercase">{rel.role}</div>
-                    <div className="font-semibold text-slate-100">{rel.personName}</div>
+                    <div className="font-semibold text-theme-heading">{rel.personName}</div>
                   </div>
-                  <div className="text-[10px] text-slate-400">{rel.contactMobile}</div>
+                  <div className="text-[10px] text-theme-muted">{rel.contactMobile}</div>
                 </div>
               ))}
             </div>
@@ -278,7 +278,7 @@ export const Identity360Workspace: React.FC<Identity360WorkspaceProps> = ({
 
         {/* Fallback for other tabs */}
         {!["overview", "assignments", "timeline", "relationships"].includes(activeTab) && (
-          <div className="p-12 text-center text-slate-500 font-mono">
+          <div className="p-12 text-center text-theme-muted font-mono">
             Tab [{activeTab.toUpperCase()}] is active. Enterprise Object Page capability ready for telemetry data.
           </div>
         )}

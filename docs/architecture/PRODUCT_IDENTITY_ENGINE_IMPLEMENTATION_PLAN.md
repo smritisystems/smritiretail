@@ -1,12 +1,22 @@
 <!--
-  Project      : SMRITI Retail OS
-  Repository   : SMRITIRetailNX
-  Organization : AITDL NETWORKS
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-  Version    : 1.0.0
-  Created    : 2026-07-18
-  Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
-  License      : Proprietary Commercial Software
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 -->
 
 # Product Identity Engine Implementation Plan

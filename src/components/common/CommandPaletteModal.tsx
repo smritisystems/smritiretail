@@ -90,7 +90,7 @@ export const CommandPaletteModal: React.FC<{ isOpen: boolean; onClose: () => voi
       id: "cmd-refresh",
       title: "Execute Smart Refresh (Preserve Drafts)",
       category: "Action",
-      icon: <FileText size={14} className="text-slate-300" />,
+      icon: <FileText size={14} className="text-theme-body" />,
       shortcut: "Ctrl+R",
       action: () => {
         SUNEFKernel.smartRefresh();
@@ -121,9 +121,9 @@ export const CommandPaletteModal: React.FC<{ isOpen: boolean; onClose: () => voi
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 p-4">
-      <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden font-sans text-slate-100 animate-in fade-in zoom-in-95 duration-150">
+      <div className="w-full max-w-xl bg-theme-surface-2 border border-theme-divider rounded-2xl shadow-2xl overflow-hidden font-sans text-theme-heading animate-in fade-in zoom-in-95 duration-150">
         {/* Search Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-800 bg-slate-950/50">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-theme-divider bg-theme-surface-3">
           <Command size={18} className="text-blue-400" />
           <input
             type="text"
@@ -133,7 +133,7 @@ export const CommandPaletteModal: React.FC<{ isOpen: boolean; onClose: () => voi
             onChange={(e) => setQuery(e.target.value)}
             className="flex-1 bg-transparent border-none outline-none text-sm text-white placeholder-slate-500 font-medium"
           />
-          <kbd className="px-2 py-0.5 text-[10px] font-mono bg-slate-800 text-slate-400 rounded border border-slate-700">
+          <kbd className="px-2 py-0.5 text-[10px] font-mono bg-theme-surface-2 text-theme-muted rounded border border-theme-divider">
             ESC
           </kbd>
         </div>
@@ -141,7 +141,7 @@ export const CommandPaletteModal: React.FC<{ isOpen: boolean; onClose: () => voi
         {/* Command List */}
         <div className="max-h-80 overflow-y-auto p-2 space-y-1">
           {filteredCommands.length === 0 ? (
-            <div className="p-8 text-center text-slate-500 text-xs font-mono">
+            <div className="p-8 text-center text-theme-muted text-xs font-mono">
               No matching commands or workspaces found for "{query}".
             </div>
           ) : (
@@ -149,26 +149,26 @@ export const CommandPaletteModal: React.FC<{ isOpen: boolean; onClose: () => voi
               <button
                 key={cmd.id}
                 onClick={cmd.action}
-                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-slate-800/80 transition-all flex items-center justify-between group cursor-pointer border border-transparent hover:border-slate-700/50"
+                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-theme-surface-2 transition-all flex items-center justify-between group cursor-pointer border border-transparent hover:border-theme-divider"
               >
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-slate-800 group-hover:bg-slate-700 transition-colors">
+                  <div className="p-2 rounded-lg bg-theme-surface-2 group-hover:bg-theme-surface-hover transition-colors">
                     {cmd.icon}
                   </div>
                   <div>
-                    <div className="text-xs font-semibold text-slate-200 group-hover:text-white transition-colors">
+                    <div className="text-xs font-semibold text-theme-heading group-hover:text-white transition-colors">
                       {cmd.title}
                     </div>
-                    <div className="text-[10px] font-mono text-slate-400 capitalize">{cmd.category}</div>
+                    <div className="text-[10px] font-mono text-theme-muted capitalize">{cmd.category}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {cmd.shortcut && (
-                    <kbd className="px-1.5 py-0.5 text-[9px] font-mono bg-slate-800 text-slate-400 rounded border border-slate-700">
+                    <kbd className="px-1.5 py-0.5 text-[9px] font-mono bg-theme-surface-2 text-theme-muted rounded border border-theme-divider">
                       {cmd.shortcut}
                     </kbd>
                   )}
-                  <ArrowRight size={14} className="text-slate-600 group-hover:text-blue-400 transition-colors" />
+                  <ArrowRight size={14} className="text-theme-muted group-hover:text-blue-400 transition-colors" />
                 </div>
               </button>
             ))
@@ -176,7 +176,7 @@ export const CommandPaletteModal: React.FC<{ isOpen: boolean; onClose: () => voi
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 border-t border-slate-800/80 bg-slate-950/30 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+        <div className="px-4 py-2 border-t border-theme-divider bg-theme-surface-3 flex items-center justify-between text-[11px] text-theme-muted font-mono">
           <span>SMRITI Command Palette v3.5</span>
           <span>Press ↑↓ to navigate, ENTER to select</span>
         </div>

@@ -1,23 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Module       : Purchase Repository (ADR-006 — Repository Pattern)
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Version      : 1.0.0
-Created      : 2026-07-28
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-ADR Reference : ADR-006 (Repository Pattern)
-DBP Reference : SMRITI_DATABASE_BLUEPRINT_v1.0.md §2.6 — Purchase
-DBP-002       : suppliers is owned by Purchase. Other modules consume via this repo.
+Founder:
+SmritiSys
+AITDL Networks
 
-Purpose:
-    Canonical data access layer for Purchase module.
-    Supplier ownership is enforced here (DBP-002).
-    CRM and other modules MUST NOT access supplier tables directly.
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 from typing import Optional

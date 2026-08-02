@@ -1,3 +1,22 @@
+# Author & Creator:
+# Jawahar Ramkripal Mallah
+#
+# Founder:
+# SmritiSys
+# AITDL Networks
+#
+# Role:
+# Chief Systems Architect
+#
+# Web:
+# smritisys.com | smritibooks.com | aitdl.com
+#
+# Email:
+# jawahar.mallah@gmail.com
+#
+# Copyright © 2026 SmritiSys.
+# All Rights Reserved.
+
 @echo off
 REM SMRITI Adaptive Workspace Framework (SAWF v1.1) Framework Guard CI Script
 echo =======================================================

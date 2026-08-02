@@ -1,24 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Module       : SCDM — SMRITI Channel Distribution Management Service
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Version      : 1.0.0
-Created      : 2026-07-30
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-Canonical Owner (GR-011): All channel distribution business logic lives here.
-Do NOT re-implement channel dispatch, stock movement, or projection logic
-in any other module. Extend this service instead.
+Founder:
+SmritiSys
+AITDL Networks
 
-Architecture:
-  - Source of Truth = ChannelStockMovement (immutable, append-only)
-  - Projection = v_scdm_stock_projection (DB view — computed from movements)
-  - ZERO write path to warehouse stock (StockMovement) or accounting tables
-  - Multi-company / multi-branch scoped via tenant_ctx
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 import uuid

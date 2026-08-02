@@ -1,12 +1,22 @@
 <!--
-  Project      : SMRITI Retail OS
-  Organization : SmritiSys
-  Author       : Jawahar Ramkripal Mallah
-  Designation  : Chief Systems Architect & Creator
-  Version      : 7.1.0
-  Created      : 2026-07-28
-  Copyright    : © SMRITIBooks.com. All Rights Reserved.
-  License      : Proprietary Commercial Software
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 -->
 
 # ADR-015: SMRITI Foundation Platform v3.0 — Sprint 1 Walkthrough

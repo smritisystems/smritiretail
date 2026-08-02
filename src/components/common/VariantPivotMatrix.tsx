@@ -36,19 +36,19 @@ export const VariantPivotMatrix: React.FC<VariantPivotMatrixProps> = ({ items, c
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [items, view]);
 
-  if (!items.length) return <div className="p-4 text-center text-xs text-slate-400">No variant lines available.</div>;
+  if (!items.length) return <div className="p-4 text-center text-xs text-theme-muted">No variant lines available.</div>;
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 p-2">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Variant view</span>
+    <div className="overflow-x-auto rounded-lg border border-theme-divider bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-theme-divider bg-theme-surface-2 p-2">
+        <span className="text-[10px] font-bold uppercase tracking-wide text-theme-muted">Variant view</span>
         <div className="flex gap-1">
           {(["matrix", "size", "color"] as const).map((mode) => (
             <button
               key={mode}
               type="button"
               onClick={() => setView(mode)}
-              className={`rounded px-2 py-1 text-[10px] font-bold uppercase ${view === mode ? "bg-indigo-600 text-white" : "bg-white text-slate-600 border border-slate-200"}`}
+              className={`rounded px-2 py-1 text-[10px] font-bold uppercase ${view === mode ? "bg-indigo-600 text-white" : "bg-white text-theme-muted border border-theme-divider"}`}
             >
               {mode === "matrix" ? "Color x Size" : `By ${mode}`}
             </button>
@@ -62,9 +62,9 @@ export const VariantPivotMatrix: React.FC<VariantPivotMatrixProps> = ({ items, c
             {sizes.map((size) => <th key={size} className="p-2 text-right">{size}</th>)}
             <th className="p-2 text-right">Total</th>
           </tr></thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-theme-divider">
             {colors.map((color) => <tr key={color}>
-              <td className="p-2 font-bold text-slate-700">{color}</td>
+              <td className="p-2 font-bold text-theme-body">{color}</td>
               {sizes.map((size) => <td key={size} className="p-2 text-right font-mono">{items.filter((item) => (item.color || "Unspecified") === color && item.size === size).reduce((sum, item) => sum + item.quantity, 0)}</td>)}
               <td className="p-2 text-right font-bold">{items.filter((item) => (item.color || "Unspecified") === color).reduce((sum, item) => sum + item.quantity, 0)}</td>
             </tr>)}
@@ -72,8 +72,8 @@ export const VariantPivotMatrix: React.FC<VariantPivotMatrixProps> = ({ items, c
         </table>
       ) : (
         <table className={`w-full text-xs ${compact ? "min-w-[300px]" : "min-w-[420px]"}`}>
-          <thead><tr className="bg-slate-100 text-left text-[10px] font-bold uppercase text-slate-600"><th className="p-2">{view}</th><th className="p-2 text-right">Quantity</th><th className="p-2 text-right">Value</th></tr></thead>
-          <tbody className="divide-y divide-slate-100">{grouped.map(([label, totals]) => <tr key={label}><td className="p-2 font-semibold">{label}</td><td className="p-2 text-right font-mono">{totals.quantity}</td><td className="p-2 text-right font-mono">{totals.value.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td></tr>)}</tbody>
+          <thead><tr className="bg-theme-surface-2 text-left text-[10px] font-bold uppercase text-theme-muted"><th className="p-2">{view}</th><th className="p-2 text-right">Quantity</th><th className="p-2 text-right">Value</th></tr></thead>
+          <tbody className="divide-y divide-theme-divider">{grouped.map(([label, totals]) => <tr key={label}><td className="p-2 font-semibold">{label}</td><td className="p-2 text-right font-mono">{totals.quantity}</td><td className="p-2 text-right font-mono">{totals.value.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td></tr>)}</tbody>
         </table>
       )}
     </div>

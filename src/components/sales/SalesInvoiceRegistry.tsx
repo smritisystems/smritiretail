@@ -52,7 +52,7 @@ export const SalesInvoiceRegistry: React.FC<SalesInvoiceRegistryProps> = ({
             sortable: true,
             render: (si: any) => (
               <span className="font-mono font-bold text-white flex items-center space-x-2">
-                <FileCheck size={14} className="text-slate-400 shrink-0" />
+                <FileCheck size={14} className="text-theme-muted shrink-0" />
                 <span>{si.invoiceNo}</span>
               </span>
             ),
@@ -61,19 +61,19 @@ export const SalesInvoiceRegistry: React.FC<SalesInvoiceRegistryProps> = ({
             key: "_customerName",
             label: "Customer Name",
             sortable: true,
-            render: (si: any) => <span className="font-semibold text-slate-200">{si._customerName}</span>,
+            render: (si: any) => <span className="font-semibold text-theme-heading">{si._customerName}</span>,
           },
           {
             key: "date",
             label: "Invoice Date",
             sortable: true,
-            render: (si: any) => <span className="text-slate-400 font-mono">{formatDateTime(si.date)}</span>,
+            render: (si: any) => <span className="text-theme-muted font-mono">{formatDateTime(si.date)}</span>,
           },
           {
             key: "_itemCount",
             label: "Items Qty",
             align: "right",
-            render: (si: any) => <span className="font-mono text-slate-400">{si._itemCount} units</span>,
+            render: (si: any) => <span className="font-mono text-theme-muted">{si._itemCount} units</span>,
           },
           {
             key: "taxTotal",
@@ -96,7 +96,7 @@ export const SalesInvoiceRegistry: React.FC<SalesInvoiceRegistryProps> = ({
               <span
                 className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider ${
                   si.status === "Draft"
-                    ? "bg-slate-800 text-slate-400 border border-slate-700"
+                    ? "bg-theme-surface-2 text-theme-muted border border-theme-divider"
                     : si.status === "Submitted"
                     ? "bg-amber-950/80 text-amber-400 border border-amber-800"
                     : si.status === "Approved"
@@ -119,7 +119,7 @@ export const SalesInvoiceRegistry: React.FC<SalesInvoiceRegistryProps> = ({
                     e.stopPropagation();
                     onSelectInvoice(si);
                   }}
-                  className="p-1 rounded hover:bg-slate-800 text-sky-400 transition"
+                  className="p-1 rounded hover:bg-theme-surface-hover text-sky-400 transition"
                   title="View Detail Drawer"
                 >
                   <Eye size={14} />
@@ -134,7 +134,7 @@ export const SalesInvoiceRegistry: React.FC<SalesInvoiceRegistryProps> = ({
                       role: currentUser?.role || "Store Manager",
                     });
                   }}
-                  className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition"
+                  className="p-1 rounded hover:bg-theme-surface-hover text-theme-muted hover:text-white transition"
                   title="Context Menu"
                 >
                   <MoreVertical size={14} />

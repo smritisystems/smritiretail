@@ -1,3 +1,24 @@
+"""
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+"""
+
 from app.core.barcode.token_registry import build_token_dict, get_registry_for_api
 from app.core.barcode.prn_generator import generate_prn_script
 from app.services.barcode_engine import BarcodeEngineService

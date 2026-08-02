@@ -1,10 +1,31 @@
+from __future__ import annotations
+"""
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+"""
+
 """Backward-compatible inventory trace service.
 
 This preserves the historically used public contract for the legacy modules and
 API routes while the canonical engine package remains the source of truth.
 """
 
-from __future__ import annotations
 
 from typing import Any
 

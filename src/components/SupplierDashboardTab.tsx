@@ -854,7 +854,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                             v.status==="Approved"?"bg-emerald-500/10 text-emerald-400 border-emerald-500/30":
                             v.status==="Pending Approval"?"bg-amber-500/10 text-amber-400 border-amber-500/30":
                             v.status==="Blocked"?"bg-rose-500/10 text-rose-400 border-rose-500/30":
-                            "bg-slate-500/10 text-slate-400 border-slate-500/30"}`}>{v.status}</span>
+                            "bg-theme-surface-3/10 text-theme-muted border-theme-divider/30"}`}>{v.status}</span>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase ${
@@ -1006,7 +1006,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
       </SmritiScrollArea>
 
       {isPaymentOpen && selectedSupplier && (
-        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-theme-surface-3 backdrop-blur-sm flex items-center justify-center p-4">
           <motion.div initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="w-full max-w-md bg-theme-surface-1 border border-theme-divider rounded-2xl shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-theme-divider"><div><p className="text-[10px] uppercase tracking-wider text-emerald-400 font-mono font-bold">Quick payment</p><h3 className="text-base font-bold text-theme-heading mt-1">{selectedSupplier.name}</h3></div><button onClick={() => setIsPaymentOpen(false)} className="p-1.5 text-theme-muted hover:text-theme-heading cursor-pointer"><X className="w-5 h-5" /></button></div>
             <div className="p-5 space-y-4">
@@ -1024,7 +1024,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
       {/*         ADAPTIVE ONBOARDING MODAL               */}
       {/* ════════════════════════════════════════════════ */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-theme-surface-3 backdrop-blur-sm flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1143,7 +1143,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                               onClick={() => set("is_gst_registered", opt.v)}
                               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
                                 formData.is_gst_registered === opt.v
-                                  ? opt.v ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/40" : "bg-slate-500/10 text-slate-400 border-slate-500/30"
+                                  ? opt.v ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/40" : "bg-theme-surface-3/10 text-theme-muted border-theme-divider/30"
                                   : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:border-theme-muted"}`}>
                               {opt.l}
                             </button>
@@ -1348,7 +1348,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                           <span className={lbl + " mb-0"}>GST Registered?</span>
                           {[{v:true,l:"Yes — Registered"},{v:false,l:"No / Composition / Unregistered"}].map(opt=>(
                             <button key={opt.l} type="button" onClick={() => set("is_gst_registered", opt.v)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${formData.is_gst_registered===opt.v?(opt.v?"bg-emerald-500/10 text-emerald-400 border-emerald-500/40":"bg-slate-500/10 text-slate-400 border-slate-500/30"):"bg-theme-surface-1 text-theme-muted border-theme-divider"}`}>
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${formData.is_gst_registered===opt.v?(opt.v?"bg-emerald-500/10 text-emerald-400 border-emerald-500/40":"bg-theme-surface-3/10 text-theme-muted border-theme-divider/30"):"bg-theme-surface-1 text-theme-muted border-theme-divider"}`}>
                               {opt.l}
                             </button>
                           ))}
@@ -1803,7 +1803,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
       {/*          16-TAB ENTERPRISE STUDIO               */}
       {/* ════════════════════════════════════════════════ */}
       {selectedSupplier && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-theme-surface-3 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl max-w-5xl w-full h-[88vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
 
             {/* Studio Header */}
@@ -2199,7 +2199,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     {!isReadOnly&&(
                       <div className="flex gap-2 flex-wrap pt-2 border-t border-theme-divider">
                         {(["Approved","Pending Approval","Blocked","Blacklisted"] as const).map(s=>(
-                          <button key={s} onClick={()=>updateStatus(s)} className={`px-3 py-1.5 text-xs font-bold rounded-lg border cursor-pointer transition-colors ${s==="Approved"?"bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20":s==="Blocked"?"bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20":s==="Blacklisted"?"bg-slate-500/10 text-slate-400 border-slate-500/30":"bg-amber-500/10 text-amber-400 border-amber-500/30"}`}>{s}</button>
+                          <button key={s} onClick={()=>updateStatus(s)} className={`px-3 py-1.5 text-xs font-bold rounded-lg border cursor-pointer transition-colors ${s==="Approved"?"bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20":s==="Blocked"?"bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20":s==="Blacklisted"?"bg-theme-surface-3/10 text-theme-muted border-theme-divider/30":"bg-amber-500/10 text-amber-400 border-amber-500/30"}`}>{s}</button>
                         ))}
                       </div>
                     )}

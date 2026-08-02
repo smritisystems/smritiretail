@@ -738,17 +738,17 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 font-sans flex flex-col justify-between relative">
+    <div className="min-h-screen bg-theme-surface-2 text-theme-heading font-sans flex flex-col justify-between relative">
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed top-14 right-5 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-2xl z-50 text-xs font-bold flex items-center space-x-2 animate-in fade-in duration-150">
+        <div className="fixed top-14 right-5 bg-theme-surface-2 text-white px-4 py-2.5 rounded-xl shadow-2xl z-50 text-xs font-bold flex items-center space-x-2 animate-in fade-in duration-150">
           <span className="material-symbols-outlined text-emerald-400 text-sm">check_circle</span>
           <span>{toast}</span>
         </div>
       )}
 
       {/* Header Bar */}
-      <header className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-xs z-20">
+      <header className="bg-white border-b border-theme-divider px-4 py-2.5 flex items-center justify-between shadow-xs z-20">
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
@@ -756,23 +756,23 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
             </div>
             <div className="leading-tight">
               <span className="font-extrabold text-blue-900 tracking-tight text-sm">SMRITI</span>
-              <span className="text-[10px] block text-slate-500 font-medium -mt-0.5">RETAIL OS</span>
+              <span className="text-[10px] block text-theme-muted font-medium -mt-0.5">RETAIL OS</span>
             </div>
           </div>
-          <div className="h-5 w-[1px] bg-slate-300 mx-1"></div>
+          <div className="h-5 w-[1px] bg-theme-divider mx-1"></div>
           <div>
-            <h1 className="text-base font-bold text-slate-800">Print Labels Studio</h1>
-            <span className="text-[10px] text-slate-500 font-medium block -mt-0.5">Barcode / Label Printing</span>
+            <h1 className="text-base font-bold text-theme-heading">Print Labels Studio</h1>
+            <span className="text-[10px] text-theme-muted font-medium block -mt-0.5">Barcode / Label Printing</span>
           </div>
 
           {/* Dedicated Studio View Switcher */}
-          <div className="flex items-center space-x-1 ml-4 bg-slate-100 p-1 border border-slate-200 rounded-xl">
+          <div className="flex items-center space-x-1 ml-4 bg-theme-surface-2 p-1 border border-theme-divider rounded-xl">
             <button
               onClick={() => setActiveMainTab("batch_print")}
               className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeMainTab === "batch_print"
                   ? "bg-blue-600 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
+                  : "text-theme-muted hover:text-theme-heading"
               }`}
             >
               Batch Printing
@@ -782,7 +782,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
               className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center space-x-1 ${
                 activeMainTab === "prn_studio"
                   ? "bg-blue-600 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
+                  : "text-theme-muted hover:text-theme-heading"
               }`}
             >
               <span>PRN / ZPL Authoring Studio</span>
@@ -794,7 +794,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
             <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
             Online
           </span>
-          <span className="text-xs text-slate-400 font-medium">Auto Save 02:45 PM</span>
+          <span className="text-xs text-theme-muted font-medium">Auto Save 02:45 PM</span>
         </div>
 
         <div className="flex items-center space-x-3">
@@ -815,7 +815,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
           {/* Toggle All Filters Button */}
           <button
             onClick={toggleAllFilters}
-            className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+            className="px-3 py-1 bg-theme-surface-2 hover:bg-theme-surface-2 text-theme-body border border-theme-divider rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
           >
             <span className="material-symbols-outlined text-sm mr-1">
               {isSourceExpanded && isContextFiltersExpanded && isRangeFiltersExpanded ? "unfold_less" : "unfold_more"}
@@ -827,30 +827,30 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
             <input
               type="text"
               placeholder="Search (F2)"
-              className="w-48 bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500 pl-8"
+              className="w-48 bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500 pl-8"
             />
-            <span className="material-symbols-outlined absolute left-2.5 top-2 text-slate-400 text-sm">search</span>
+            <span className="material-symbols-outlined absolute left-2.5 top-2 text-theme-muted text-sm">search</span>
           </div>
           <button
             onClick={() => showToast("Notifications Pane Opened")}
-            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 cursor-pointer"
+            className="p-1.5 hover:bg-theme-surface-2 rounded-lg text-theme-muted cursor-pointer"
           >
             <span className="material-symbols-outlined text-lg">notifications</span>
           </button>
           <button
             onClick={() => WindowManager.openTabStandalone("print-labels", "Print Labels Studio")}
-            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 cursor-pointer"
+            className="p-1.5 hover:bg-theme-surface-2 rounded-lg text-theme-muted cursor-pointer"
             title="Popout Window (Print Labels Studio)"
           >
             <span className="material-symbols-outlined text-lg">open_in_new</span>
           </button>
-          <button onClick={() => window.print()} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 cursor-pointer">
+          <button onClick={() => window.print()} className="p-1.5 hover:bg-theme-surface-2 rounded-lg text-theme-muted cursor-pointer">
             <span className="material-symbols-outlined text-lg">print</span>
           </button>
           {/* QZ Tray Status Badge */}
           <div
             onClick={() => showToast(isQzConnected ? "QZ Tray 2.2.4 Connected via WebSocket (Port 8182)" : "QZ Tray Standby - Standard Browser/PDF Print Active")}
-            className="flex items-center space-x-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold cursor-pointer hover:bg-slate-100 transition"
+            className="flex items-center space-x-1.5 px-2.5 py-1 bg-theme-surface-2 border border-theme-divider rounded-lg text-[11px] font-bold cursor-pointer hover:bg-theme-surface-2 transition"
             title="QZ Tray Thermal Hardware Print Service"
           >
             <span className={`w-2 h-2 rounded-full ${isQzConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`}></span>
@@ -859,16 +859,16 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
             </span>
           </div>
 
-          <div className="flex items-center space-x-1 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700">
-            <span className="material-symbols-outlined text-sm text-slate-500">store</span>
+          <div className="flex items-center space-x-1 px-2.5 py-1 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs font-medium text-theme-body">
+            <span className="material-symbols-outlined text-sm text-theme-muted">store</span>
             <span>Branch 01</span>
           </div>
           <div className="flex items-center space-x-2 cursor-pointer">
             <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-800 font-bold text-xs flex items-center justify-center border border-blue-200">
               AS
             </div>
-            <span className="text-xs font-medium text-slate-700">Cashier</span>
-            <span className="material-symbols-outlined text-xs text-slate-400">expand_more</span>
+            <span className="text-xs font-medium text-theme-body">Cashier</span>
+            <span className="material-symbols-outlined text-xs text-theme-muted">expand_more</span>
           </div>
         </div>
       </header>
@@ -882,7 +882,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
         {/* Left Column (8 cols): Sources, Filters & Items Table */}
         <div className="col-span-8 space-y-4">
           {/* Section 1: Select Source (Hidable) */}
-          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <section className="bg-white border border-theme-divider rounded-xl p-4 shadow-xs">
             <div
               className="flex items-center justify-between cursor-pointer select-none"
               onClick={() => setIsSourceExpanded(!isSourceExpanded)}
@@ -893,12 +893,12 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                 </span>
                 Select Source
                 {!isSourceExpanded && (
-                  <span className="ml-3 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                  <span className="ml-3 text-[11px] font-semibold text-theme-muted bg-theme-surface-2 px-2.5 py-0.5 rounded-full">
                     Source: <span className="text-blue-700 uppercase font-mono">{selectedSource.replace("_", " ")}</span> (Click to Expand)
                   </span>
                 )}
               </h2>
-              <button className="text-slate-400 hover:text-slate-600 cursor-pointer">
+              <button className="text-theme-muted hover:text-theme-muted cursor-pointer">
                 <span className="material-symbols-outlined text-lg">
                   {isSourceExpanded ? "expand_less" : "expand_more"}
                 </span>
@@ -929,7 +929,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                     className={`px-3 py-2 rounded-xl border text-xs font-bold flex flex-col items-center justify-center min-w-[70px] cursor-pointer transition ${
                       selectedSource === src.id
                         ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                        : "bg-theme-surface-2 text-theme-body border-theme-divider hover:bg-theme-surface-2"
                     }`}
                   >
                     <span className="material-symbols-outlined text-base mb-1">{src.icon}</span>
@@ -941,7 +941,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
           </section>
 
           {/* Section 2: Transaction / Context Filters (Hidable) */}
-          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <section className="bg-white border border-theme-divider rounded-xl p-4 shadow-xs">
             <div
               className="flex items-center justify-between cursor-pointer select-none"
               onClick={() => setIsContextFiltersExpanded(!isContextFiltersExpanded)}
@@ -952,12 +952,12 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                 </span>
                 Transaction / Context Filters
                 {!isContextFiltersExpanded && (
-                  <span className="ml-3 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                  <span className="ml-3 text-[11px] font-semibold text-theme-muted bg-theme-surface-2 px-2.5 py-0.5 rounded-full">
                     Supplier: {selectedSupplier} | WH: {selectedWarehouse}
                   </span>
                 )}
               </h2>
-              <button className="text-slate-400 hover:text-slate-600 cursor-pointer">
+              <button className="text-theme-muted hover:text-theme-muted cursor-pointer">
                 <span className="material-symbols-outlined text-lg">
                   {isContextFiltersExpanded ? "expand_less" : "expand_more"}
                 </span>
@@ -967,49 +967,49 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
             {isContextFiltersExpanded && (
               <div className="grid grid-cols-7 gap-2.5 text-xs mt-3 animate-in fade-in duration-100">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Doc No. From</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Doc No. From</label>
                   <input
                     type="text"
                     value={docFrom}
                     onChange={(e) => setDocFrom(e.target.value)}
                     placeholder="From Document..."
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Doc No. To</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Doc No. To</label>
                   <input
                     type="text"
                     value={docTo}
                     onChange={(e) => setDocTo(e.target.value)}
                     placeholder="To Document..."
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Date From</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Date From</label>
                   <input
                     type="date"
                     value={dateFrom}
                     onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Date To</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Date To</label>
                   <input
                     type="date"
                     value={dateTo}
                     onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Supplier</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Supplier</label>
                   <select
                     value={selectedSupplier}
                     onChange={(e) => setSelectedSupplier(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-slate-700 font-medium"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-theme-body font-medium"
                   >
                     <option value="All Suppliers">All Suppliers</option>
                     {supplierList.map((sup) => (
@@ -1020,11 +1020,11 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Warehouse</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Warehouse</label>
                   <select
                     value={selectedWarehouse}
                     onChange={(e) => setSelectedWarehouse(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-theme-body"
                   >
                     <option>All Warehouses</option>
                     <option>Central WH - Mumbai</option>
@@ -1032,11 +1032,11 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Salesman</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Salesman</label>
                   <select
                     value={selectedSalesman}
                     onChange={(e) => setSelectedSalesman(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-slate-700"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-theme-body"
                   >
                     <option>All Salesmans</option>
                     <option>Rahul Sharma</option>
@@ -1048,7 +1048,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
           </section>
 
           {/* Section 3: Range / Boundary Filters (Hidable) */}
-          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <section className="bg-white border border-theme-divider rounded-xl p-4 shadow-xs">
             <div
               className="flex items-center justify-between cursor-pointer select-none"
               onClick={() => setIsRangeFiltersExpanded(!isRangeFiltersExpanded)}
@@ -1059,7 +1059,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                 </span>
                 Range / Boundary Filters (From → To)
                 {!isRangeFiltersExpanded && (
-                  <span className="ml-3 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                  <span className="ml-3 text-[11px] font-semibold text-theme-muted bg-theme-surface-2 px-2.5 py-0.5 rounded-full">
                     Item Code / Barcode / Brand / Category Boundaries Active
                   </span>
                 )}
@@ -1071,13 +1071,13 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       e.stopPropagation();
                       resetFilters();
                     }}
-                    className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+                    className="px-3 py-1 bg-theme-surface-2 hover:bg-theme-surface-2 text-theme-body border border-theme-divider rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
                   >
                     <span className="material-symbols-outlined text-xs mr-1">restart_alt</span>
                     Reset Filters
                   </button>
                 )}
-                <button className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <button className="text-theme-muted hover:text-theme-muted cursor-pointer">
                   <span className="material-symbols-outlined text-lg">
                     {isRangeFiltersExpanded ? "expand_less" : "expand_more"}
                   </span>
@@ -1118,7 +1118,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
 
                 {/* Row 1 */}
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Item Code</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Item Code</label>
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
@@ -1126,7 +1126,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="From"
                       value={filterItemCodeFrom}
                       onChange={(e) => setFilterItemCodeFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="text"
@@ -1134,13 +1134,13 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="To"
                       value={filterItemCodeTo}
                       onChange={(e) => setFilterItemCodeTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Barcode</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Barcode</label>
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
@@ -1148,7 +1148,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="From"
                       value={filterBarcodeFrom}
                       onChange={(e) => setFilterBarcodeFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="text"
@@ -1156,13 +1156,13 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="To"
                       value={filterBarcodeTo}
                       onChange={(e) => setFilterBarcodeTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Product</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Product</label>
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
@@ -1170,7 +1170,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="From"
                       value={filterProductFrom}
                       onChange={(e) => setFilterProductFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="text"
@@ -1178,14 +1178,14 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="To"
                       value={filterProductTo}
                       onChange={(e) => setFilterProductTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs font-mono focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
 
                 {/* Row 2 */}
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Brand</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Brand</label>
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
@@ -1193,7 +1193,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="From"
                       value={filterBrandFrom}
                       onChange={(e) => setFilterBrandFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="text"
@@ -1201,13 +1201,13 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="To"
                       value={filterBrandTo}
                       onChange={(e) => setFilterBrandTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Category</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Category</label>
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
@@ -1215,7 +1215,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="From"
                       value={filterCategoryFrom}
                       onChange={(e) => setFilterCategoryFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="text"
@@ -1223,13 +1223,13 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="To"
                       value={filterCategoryTo}
                       onChange={(e) => setFilterCategoryTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Sub Category</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Sub Category</label>
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
@@ -1237,7 +1237,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="From"
                       value={filterSubCategoryFrom}
                       onChange={(e) => setFilterSubCategoryFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="text"
@@ -1245,54 +1245,54 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="To"
                       value={filterSubCategoryTo}
                       onChange={(e) => setFilterSubCategoryTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
 
                 {/* Row 3 */}
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Department</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Department</label>
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
                       placeholder="From"
                       value={filterDepartmentFrom}
                       onChange={(e) => setFilterDepartmentFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="text"
                       placeholder="To"
                       value={filterDepartmentTo}
                       onChange={(e) => setFilterDepartmentTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Section</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Section</label>
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
                       placeholder="From"
                       value={filterSectionFrom}
                       onChange={(e) => setFilterSectionFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="text"
                       placeholder="To"
                       value={filterSectionTo}
                       onChange={(e) => setFilterSectionTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Style</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Style</label>
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
@@ -1300,7 +1300,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="From"
                       value={filterStyleFrom}
                       onChange={(e) => setFilterStyleFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="text"
@@ -1308,13 +1308,13 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="To"
                       value={filterStyleTo}
                       onChange={(e) => setFilterStyleTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Model</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Model</label>
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
@@ -1322,7 +1322,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="From"
                       value={filterModelFrom}
                       onChange={(e) => setFilterModelFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="text"
@@ -1330,13 +1330,13 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="To"
                       value={filterModelTo}
                       onChange={(e) => setFilterModelTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Article</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Article</label>
                   <div className="flex items-center space-x-1">
                     <input
                       type="text"
@@ -1344,7 +1344,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="From"
                       value={filterArticleFrom}
                       onChange={(e) => setFilterArticleFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="text"
@@ -1352,13 +1352,13 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="To"
                       value={filterArticleTo}
                       onChange={(e) => setFilterArticleTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Stock Available</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Stock Available</label>
                   <div className="flex items-center space-x-1">
                     <input
                       type="number"
@@ -1366,7 +1366,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="Min"
                       value={filterStockFrom}
                       onChange={(e) => setFilterStockFrom(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                     <input
                       type="number"
@@ -1374,7 +1374,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       placeholder="Max"
                       value={filterStockTo}
                       onChange={(e) => setFilterStockTo(e.target.value)}
-                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
+                      className="w-1/2 bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1 text-xs focus:border-blue-500 focus:bg-white"
                     />
                   </div>
                 </div>
@@ -1383,7 +1383,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
           </section>
 
           {/* Section 4: Items to Print Grid */}
-          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex-1">
+          <section className="bg-white border border-theme-divider rounded-xl p-4 shadow-xs flex-1">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center">
                 <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold mr-2">
@@ -1422,7 +1422,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                 </button>
                 <button
                   onClick={clearAllRows}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+                  className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-2 text-theme-body border border-theme-divider rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
                 >
                   <span className="material-symbols-outlined text-xs mr-1">clear_all</span>
                   Clear All
@@ -1431,9 +1431,9 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto border border-slate-200 rounded-lg min-h-[300px]">
+            <div className="overflow-x-auto border border-theme-divider rounded-lg min-h-[300px]">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[10px] font-bold tracking-wider">
+                <thead className="bg-theme-surface-2 border-b border-theme-divider text-theme-muted uppercase text-[10px] font-bold tracking-wider">
                   <tr>
                     <th className="py-2.5 px-3 w-8">
                       <input
@@ -1458,7 +1458,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                     <th className="py-2.5 px-3 text-center w-20">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
+                <tbody className="divide-y divide-theme-divider font-medium">
                   {filteredPrintItems.map((row, idx) => (
                     <tr
                       key={row.id}
@@ -1475,25 +1475,25 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                           className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
                         />
                       </td>
-                      <td className="py-2.5 px-3 text-slate-400 font-mono">{idx + 1}</td>
-                      <td className="py-2.5 px-3 font-mono font-bold text-slate-700">{row.barcode}</td>
-                      <td className="py-2.5 px-3 font-mono text-slate-600">{row.itemCode}</td>
-                      <td className="py-2.5 px-3 font-semibold text-slate-800">{row.itemName}</td>
-                      <td className="py-2.5 px-3 text-center text-slate-600">{row.uom}</td>
-                      <td className="py-2.5 px-3 text-center font-mono text-slate-500">{row.batchSerial}</td>
+                      <td className="py-2.5 px-3 text-theme-muted font-mono">{idx + 1}</td>
+                      <td className="py-2.5 px-3 font-mono font-bold text-theme-body">{row.barcode}</td>
+                      <td className="py-2.5 px-3 font-mono text-theme-muted">{row.itemCode}</td>
+                      <td className="py-2.5 px-3 font-semibold text-theme-heading">{row.itemName}</td>
+                      <td className="py-2.5 px-3 text-center text-theme-muted">{row.uom}</td>
+                      <td className="py-2.5 px-3 text-center font-mono text-theme-muted">{row.batchSerial}</td>
                       <td className="py-2.5 px-3 text-center font-mono">{typeof row.stock === "number" ? row.stock : "-"}</td>
-                      <td className="py-2.5 px-3 text-center text-slate-600">{row.styleCode || row.modelNo || row.articleNo || "-"}</td>
+                      <td className="py-2.5 px-3 text-center text-theme-muted">{row.styleCode || row.modelNo || row.articleNo || "-"}</td>
                       <td className="py-2.5 px-3 text-center font-mono">{row.qty}</td>
                       <td className="py-2.5 px-3 text-center">
                         <input
                           type="number"
                           value={row.printQty}
                           onChange={(e) => updatePrintQty(row.id, parseInt(e.target.value) || 1)}
-                          className="w-14 bg-white border border-slate-300 rounded text-center py-1 text-xs font-bold font-mono text-slate-800 focus:outline-none focus:border-blue-500"
+                          className="w-14 bg-white border border-theme-divider rounded text-center py-1 text-xs font-bold font-mono text-theme-heading focus:outline-none focus:border-blue-500"
                         />
                       </td>
-                      <td className="py-2.5 px-3 text-center text-slate-600">{row.labelTemplate}</td>
-                      <td className="py-2.5 px-3 text-center font-mono text-slate-600">{row.sizeMm}</td>
+                      <td className="py-2.5 px-3 text-center text-theme-muted">{row.labelTemplate}</td>
+                      <td className="py-2.5 px-3 text-center font-mono text-theme-muted">{row.sizeMm}</td>
                       <td className="py-2.5 px-3 text-center">
                         <div className="flex items-center justify-center space-x-1">
                           <button
@@ -1501,7 +1501,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                               e.stopPropagation();
                               setEditingRow(row);
                             }}
-                            className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition cursor-pointer"
+                            className="p-1 text-theme-muted hover:text-blue-600 hover:bg-blue-50 rounded transition cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-base">edit</span>
                           </button>
@@ -1510,7 +1510,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                               e.stopPropagation();
                               removeRow(row.id);
                             }}
-                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
+                            className="p-1 text-theme-muted hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-base">delete</span>
                           </button>
@@ -1522,7 +1522,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
               </table>
             </div>
 
-            <div className="mt-3 flex items-center justify-between text-xs font-bold text-slate-700 border-t border-slate-100 pt-2">
+            <div className="mt-3 flex items-center justify-between text-xs font-bold text-theme-body border-t border-theme-divider pt-2">
               <span>Total Items: {totalItems}</span>
               <span className="text-blue-700 font-mono font-extrabold text-sm">
                 Total Print Qty: {totalPrintQty}
@@ -1534,7 +1534,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
         {/* Right Column (4 cols): Label Preview & Print Settings (Hidable) */}
         <div className="col-span-4 space-y-4">
           {/* Section 5: Label Preview Card (Hidable) */}
-          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <section className="bg-white border border-theme-divider rounded-xl p-4 shadow-xs">
             <div
               className="flex items-center justify-between cursor-pointer select-none mb-3"
               onClick={() => setIsPreviewExpanded(!isPreviewExpanded)}
@@ -1545,7 +1545,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                 </span>
                 Label Preview
               </h2>
-              <button className="text-slate-400 hover:text-slate-600 cursor-pointer">
+              <button className="text-theme-muted hover:text-theme-muted cursor-pointer">
                 <span className="material-symbols-outlined text-lg">
                   {isPreviewExpanded ? "expand_less" : "expand_more"}
                 </span>
@@ -1558,7 +1558,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                   <select
                     value={labelSize}
                     onChange={(e) => setLabelSize(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-700"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-theme-body"
                   >
                     <option value="100 x 50.7 mm">Tattly Threads Dual Barcode Tag (ZPL 100 x 50.7 mm)</option>
                     <option value="50 x 25 mm">Default Label (50 x 25 mm)</option>
@@ -1568,11 +1568,11 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                 </div>
 
                 {/* Visual SVG Barcode Label Box */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col items-center justify-center shadow-inner relative min-h-[220px]">
+                <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-5 flex flex-col items-center justify-center shadow-inner relative min-h-[220px]">
                   {activeItem ? (
-                    <div className="bg-white border border-slate-300 rounded-xl p-4 shadow-md w-full max-w-[260px] text-center space-y-2">
-                      <h3 className="font-extrabold text-sm text-slate-900 leading-tight">{activeItem.itemName}</h3>
-                      <div className="text-[10px] text-slate-500 font-mono">
+                    <div className="bg-white border border-theme-divider rounded-xl p-4 shadow-md w-full max-w-[260px] text-center space-y-2">
+                      <h3 className="font-extrabold text-sm text-theme-heading leading-tight">{activeItem.itemName}</h3>
+                      <div className="text-[10px] text-theme-muted font-mono">
                         Item Code : {activeItem.itemCode} | {showHsn && `HSN : ${activeItem.hsn}`}
                       </div>
 
@@ -1581,7 +1581,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       )}
 
                       {showBatchSerial && activeItem.batchSerial !== "-" && (
-                        <div className="text-[9px] font-mono text-slate-600">Batch/Serial: {activeItem.batchSerial}</div>
+                        <div className="text-[9px] font-mono text-theme-muted">Batch/Serial: {activeItem.batchSerial}</div>
                       )}
 
                       {typeof activeItem.stock === "number" && (
@@ -1589,7 +1589,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       )}
 
                       {(activeItem.styleCode || activeItem.modelNo || activeItem.articleNo) && (
-                        <div className="text-[9px] text-slate-500">{activeItem.styleCode || activeItem.articleNo || activeItem.modelNo}</div>
+                        <div className="text-[9px] text-theme-muted">{activeItem.styleCode || activeItem.articleNo || activeItem.modelNo}</div>
                       )}
 
                       {/* SVG Barcode Representation */}
@@ -1601,25 +1601,25 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                             <rect key={i} x={x} y="5" width={i % 3 === 0 ? "3" : "1.5"} height="35" fill="black" />
                           ))}
                         </svg>
-                        <span className="font-mono text-xs font-bold text-slate-900 tracking-widest block -mt-1">
+                        <span className="font-mono text-xs font-bold text-theme-heading tracking-widest block -mt-1">
                           {activeItem.barcode}
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-800 border-t border-slate-100 pt-1.5">
+                      <div className="flex items-center justify-between text-xs font-bold text-theme-heading border-t border-theme-divider pt-1.5">
                         {showPrice && <span>MRP : ₹ {activeItem.mrp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>}
-                        {showTax && <span className="text-[10px] text-slate-500 font-normal">{activeItem.taxRate || "18% IGST"}</span>}
+                        {showTax && <span className="text-[10px] text-theme-muted font-normal">{activeItem.taxRate || "18% IGST"}</span>}
                       </div>
                     </div>
                   ) : (
-                    <div className="text-slate-400 text-xs font-mono">No items available for preview</div>
+                    <div className="text-theme-muted text-xs font-mono">No items available for preview</div>
                   )}
 
                   {/* Pagination controls */}
                   <div className="flex items-center space-x-3 mt-4 text-xs font-bold text-blue-900">
                     <button
                       onClick={() => setActivePreviewIndex((prev) => Math.max(0, prev - 1))}
-                      className="p-1 hover:bg-slate-200 rounded text-slate-600 cursor-pointer"
+                      className="p-1 hover:bg-theme-surface-2 rounded text-theme-muted cursor-pointer"
                     >
                       &lt;
                     </button>
@@ -1628,7 +1628,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                     </span>
                     <button
                       onClick={() => setActivePreviewIndex((prev) => Math.min(filteredPrintItems.length - 1, prev + 1))}
-                      className="p-1 hover:bg-slate-200 rounded text-slate-600 cursor-pointer"
+                      className="p-1 hover:bg-theme-surface-2 rounded text-theme-muted cursor-pointer"
                     >
                       &gt;
                     </button>
@@ -1639,7 +1639,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
           </section>
 
           {/* Section 6: Print Settings (Hidable) */}
-          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
+          <section className="bg-white border border-theme-divider rounded-xl p-4 shadow-xs space-y-3">
             <div
               className="flex items-center justify-between cursor-pointer select-none"
               onClick={() => setIsSettingsExpanded(!isSettingsExpanded)}
@@ -1650,7 +1650,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                 </span>
                 Print Settings
               </h2>
-              <button className="text-slate-400 hover:text-slate-600 cursor-pointer">
+              <button className="text-theme-muted hover:text-theme-muted cursor-pointer">
                 <span className="material-symbols-outlined text-lg">
                   {isSettingsExpanded ? "expand_less" : "expand_more"}
                 </span>
@@ -1661,7 +1661,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
               <div className="space-y-3 animate-in fade-in duration-100">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block">Installed Hardware Printer</label>
+                    <label className="text-[10px] font-bold text-theme-muted uppercase block">Installed Hardware Printer</label>
                     <span className="text-[9px] font-mono font-bold text-blue-900">
                       {isUsbConnection
                         ? usbPrinters.length > 0
@@ -1677,7 +1677,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       <select
                         value={printer}
                         onChange={(e) => setPrinter(e.target.value)}
-                        className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-800"
+                        className="flex-1 bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-theme-heading"
                       >
                         {(isUsbConnection ? usbPrinters : detectedPrinters).map((p) => (
                           <option key={p.name} value={p.name}>
@@ -1691,7 +1691,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                         value={printer}
                         onChange={(e) => setPrinter(e.target.value)}
                         placeholder={isUsbConnection ? "No USB printers detected. Connect USB device and rescan." : "Enter Real System Printer Name (e.g. IMPACT by Honeywell IH-2 (300 dpi) - DPL)"}
-                        className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-slate-800"
+                        className="flex-1 bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold text-theme-heading"
                       />
                     )}
                     {!isUsbConnection && (
@@ -1730,7 +1730,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                     <button
                       onClick={() => setIsPrinterConfigModalOpen(true)}
                       title="Hardware Setup"
-                      className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg cursor-pointer"
+                      className="p-2 bg-theme-surface-2 hover:bg-theme-surface-2 text-theme-body border border-theme-divider rounded-lg cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-sm">settings</span>
                     </button>
@@ -1739,11 +1739,11 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Label Size</label>
+                    <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Label Size</label>
                     <select
                       value={labelSize}
                       onChange={(e) => setLabelSize(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-700"
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-body"
                     >
                       <option>50 x 25 mm</option>
                       <option>38 x 25 mm</option>
@@ -1752,11 +1752,11 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">No. of Labels per Row</label>
+                    <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">No. of Labels per Row</label>
                     <select
                       value={labelsPerRow}
                       onChange={(e) => setLabelsPerRow(parseInt(e.target.value))}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-700"
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-body"
                     >
                       <option value={1}>1</option>
                       <option value={2}>2</option>
@@ -1767,11 +1767,11 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">No. of Copies</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">No. of Copies</label>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => setCopies((prev) => Math.max(1, prev - 1))}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-300 rounded-lg text-xs cursor-pointer"
+                      className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-2 text-theme-body font-bold border border-theme-divider rounded-lg text-xs cursor-pointer"
                     >
                       -
                     </button>
@@ -1779,11 +1779,11 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       type="number"
                       value={copies}
                       onChange={(e) => setCopies(parseInt(e.target.value) || 1)}
-                      className="w-16 bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-center font-mono font-bold text-xs"
+                      className="w-16 bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-1.5 text-center font-mono font-bold text-xs"
                     />
                     <button
                       onClick={() => setCopies((prev) => prev + 1)}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-300 rounded-lg text-xs cursor-pointer"
+                      className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-2 text-theme-body font-bold border border-theme-divider rounded-lg text-xs cursor-pointer"
                     >
                       +
                     </button>
@@ -1791,7 +1791,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                 </div>
 
                 {/* Checkboxes */}
-                <div className="space-y-1.5 pt-2 border-t border-slate-100 text-xs">
+                <div className="space-y-1.5 pt-2 border-t border-theme-divider text-xs">
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1799,7 +1799,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       onChange={(e) => setShowPrice(e.target.checked)}
                       className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
                     />
-                    <span className="font-medium text-slate-700">Show Price</span>
+                    <span className="font-medium text-theme-body">Show Price</span>
                   </label>
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input
@@ -1808,7 +1808,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       onChange={(e) => setShowHsn(e.target.checked)}
                       className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
                     />
-                    <span className="font-medium text-slate-700">Show HSN</span>
+                    <span className="font-medium text-theme-body">Show HSN</span>
                   </label>
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input
@@ -1817,7 +1817,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       onChange={(e) => setShowTax(e.target.checked)}
                       className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
                     />
-                    <span className="font-medium text-slate-700">Show Tax</span>
+                    <span className="font-medium text-theme-body">Show Tax</span>
                   </label>
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input
@@ -1826,7 +1826,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       onChange={(e) => setShowBatchSerial(e.target.checked)}
                       className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
                     />
-                    <span className="font-medium text-slate-700">Show Batch / Serial</span>
+                    <span className="font-medium text-theme-body">Show Batch / Serial</span>
                   </label>
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input
@@ -1835,12 +1835,12 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       onChange={(e) => setShowBrand(e.target.checked)}
                       className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
                     />
-                    <span className="font-medium text-slate-700">Show Brand</span>
+                    <span className="font-medium text-theme-body">Show Brand</span>
                   </label>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[10px] text-slate-600">
-                  <div className="font-semibold text-slate-700 uppercase tracking-wide mb-2">Item Master Field Mapping</div>
+                <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 text-[10px] text-theme-muted">
+                  <div className="font-semibold text-theme-body uppercase tracking-wide mb-2">Item Master Field Mapping</div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {(
                       [
@@ -1858,7 +1858,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                       ] as const
                     ).map((mapping) => (
                       <div key={mapping.key}>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">{mapping.label}</label>
+                        <label className="block text-[10px] font-bold text-theme-muted uppercase mb-1">{mapping.label}</label>
                         <select
                           value={itemMasterFieldMap[mapping.key]}
                           onChange={(e) =>
@@ -1867,7 +1867,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                               [mapping.key]: e.target.value as ItemMasterFieldKey,
                             }))
                           }
-                          className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-blue-500"
+                          className="w-full bg-white border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500"
                         >
                           {ITEM_MASTER_FIELD_OPTIONS.map((opt) => (
                             <option key={opt.key} value={opt.key}>
@@ -1880,24 +1880,24 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-theme-divider">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Print Direction</label>
+                    <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Print Direction</label>
                     <select
                       value={printDirection}
                       onChange={(e) => setPrintDirection(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700"
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-body"
                     >
                       <option>Left to Right</option>
                       <option>Top to Bottom</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Print Quality</label>
+                    <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Print Quality</label>
                     <select
                       value={printQuality}
                       onChange={(e) => setPrintQuality(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700"
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1.5 text-xs text-theme-body"
                     >
                       <option>High (300 DPI)</option>
                       <option>Standard (203 DPI)</option>
@@ -1911,11 +1911,11 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
       </main>
 
       {/* Bottom Fixed Toolbar */}
-      <footer className="bg-white border-t border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-lg z-20">
+      <footer className="bg-white border-t border-theme-divider px-4 py-2.5 flex items-center justify-between shadow-lg z-20">
         <div className="flex items-center space-x-3">
           <button
             onClick={() => setIsFullPreviewModalOpen(true)}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+            className="px-4 py-2 bg-theme-surface-2 hover:bg-theme-surface-2 text-theme-body border border-theme-divider rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
           >
             <span className="material-symbols-outlined text-sm mr-1.5">visibility</span>
             Preview (F5)
@@ -1929,21 +1929,21 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
           </button>
           <button
             onClick={printToFile}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+            className="px-4 py-2 bg-theme-surface-2 hover:bg-theme-surface-2 text-theme-body border border-theme-divider rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
           >
             <span className="material-symbols-outlined text-sm mr-1.5">picture_as_pdf</span>
             Print & Save PDF
           </button>
           <button
             onClick={downloadPrintFile}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+            className="px-4 py-2 bg-theme-surface-2 hover:bg-theme-surface-2 text-theme-body border border-theme-divider rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
           >
             <span className="material-symbols-outlined text-sm mr-1.5">download</span>
             Save .PRN File
           </button>
           <button
             onClick={() => showToast("Label Template Saved")}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
+            className="px-4 py-2 bg-theme-surface-2 hover:bg-theme-surface-2 text-theme-body border border-theme-divider rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
           >
             <span className="material-symbols-outlined text-sm mr-1.5">save</span>
             Save Template
@@ -1963,8 +1963,8 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
 
       {/* MODAL 1: Full Sheet Label Print Preview (F5) */}
       {isFullPreviewModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in duration-150">
+        <div className="fixed inset-0 bg-theme-surface-3 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-theme-divider rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in duration-150">
             <div className="bg-blue-900 text-white px-6 py-4 flex items-center justify-between">
               <div>
                 <h3 className="font-extrabold text-sm uppercase tracking-wide">Full Sheet Barcode Label Preview (F5)</h3>
@@ -1977,9 +1977,9 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
               </button>
             </div>
 
-            <div className="p-6 flex-1 overflow-y-auto bg-slate-200">
+            <div className="p-6 flex-1 overflow-y-auto bg-theme-surface-2">
               <div
-                className={`grid gap-3 bg-white p-6 rounded-xl shadow-lg border border-slate-300 mx-auto ${
+                className={`grid gap-3 bg-white p-6 rounded-xl shadow-lg border border-theme-divider mx-auto ${
                   labelsPerRow === 1
                     ? "grid-cols-1 max-w-xs"
                     : labelsPerRow === 2
@@ -1991,9 +1991,9 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
               >
                 {filteredPrintItems.flatMap((item) =>
                   Array.from({ length: Math.min(item.printQty, 6) }).map((_, i) => (
-                    <div key={`${item.id}-${i}`} className="border border-slate-300 rounded-lg p-2.5 text-center bg-white shadow-xs space-y-1">
-                      <h4 className="font-extrabold text-xs text-slate-900 truncate">{item.itemName}</h4>
-                      <div className="text-[9px] text-slate-500 font-mono">Code: {item.itemCode}</div>
+                    <div key={`${item.id}-${i}`} className="border border-theme-divider rounded-lg p-2.5 text-center bg-white shadow-xs space-y-1">
+                      <h4 className="font-extrabold text-xs text-theme-heading truncate">{item.itemName}</h4>
+                      <div className="text-[9px] text-theme-muted font-mono">Code: {item.itemCode}</div>
                       <div className="py-0.5">
                         <svg className="w-full h-8" viewBox="0 0 200 40">
                           <rect width="200" height="40" fill="white" />
@@ -2001,19 +2001,19 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                             <rect key={idx} x={x} y="4" width={idx % 3 === 0 ? "2.5" : "1.2"} height="30" fill="black" />
                           ))}
                         </svg>
-                        <span className="font-mono text-[10px] font-bold text-slate-800 tracking-wider block -mt-1">{item.barcode}</span>
+                        <span className="font-mono text-[10px] font-bold text-theme-heading tracking-wider block -mt-1">{item.barcode}</span>
                       </div>
-                      {showPrice && <div className="text-[10px] font-extrabold text-slate-900">MRP: ₹{item.mrp.toFixed(2)}</div>}
+                      {showPrice && <div className="text-[10px] font-extrabold text-theme-heading">MRP: ₹{item.mrp.toFixed(2)}</div>}
                     </div>
                   ))
                 )}
               </div>
             </div>
 
-            <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-600">Showing first batch preview of total {totalPrintQty} labels</span>
+            <div className="p-4 bg-white border-t border-theme-divider flex items-center justify-between">
+              <span className="text-xs font-bold text-theme-muted">Showing first batch preview of total {totalPrintQty} labels</span>
               <div className="flex space-x-3">
-                <button onClick={() => setIsFullPreviewModalOpen(false)} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg text-xs">
+                <button onClick={() => setIsFullPreviewModalOpen(false)} className="px-4 py-2 bg-theme-surface-2 text-theme-body font-bold rounded-lg text-xs">
                   Close
                 </button>
                 <button
@@ -2033,22 +2033,22 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
 
       {/* MODAL 2: Excel Import Modal */}
       {isExcelModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in duration-150">
-            <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+        <div className="fixed inset-0 bg-theme-surface-3 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-theme-divider rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in duration-150">
+            <div className="bg-theme-surface-2 text-white px-5 py-3.5 flex items-center justify-between">
               <h3 className="font-bold text-sm flex items-center">
                 <span className="material-symbols-outlined text-base mr-2 text-emerald-400">upload_file</span>
                 Import Labels Dataset (Excel / CSV)
               </h3>
-              <button onClick={() => setIsExcelModalOpen(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setIsExcelModalOpen(false)} className="text-theme-muted hover:text-white">
                 <span className="material-symbols-outlined text-base">close</span>
               </button>
             </div>
             <div className="p-6 text-center space-y-4 text-xs">
-              <div className="w-full h-32 border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-xl flex flex-col items-center justify-center text-slate-500 cursor-pointer bg-slate-50 transition">
+              <div className="w-full h-32 border-2 border-dashed border-theme-divider hover:border-emerald-500 rounded-xl flex flex-col items-center justify-center text-theme-muted cursor-pointer bg-theme-surface-2 transition">
                 <span className="material-symbols-outlined text-3xl text-emerald-600 mb-1">file_upload</span>
-                <span className="font-bold text-slate-700">Click or Drag & Drop Excel / CSV file</span>
-                <span className="text-[10px] text-slate-400 mt-0.5">Supports .XLSX, .XLS, .CSV</span>
+                <span className="font-bold text-theme-body">Click or Drag & Drop Excel / CSV file</span>
+                <span className="text-[10px] text-theme-muted mt-0.5">Supports .XLSX, .XLS, .CSV</span>
               </div>
               <button
                 onClick={() => {
@@ -2067,24 +2067,24 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
 
       {/* MODAL 3: Printer Configuration & TCP/IP Settings Modal */}
       {isPrinterConfigModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in duration-150">
-            <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+        <div className="fixed inset-0 bg-theme-surface-3 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-theme-divider rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in duration-150">
+            <div className="bg-theme-surface-2 text-white px-5 py-3.5 flex items-center justify-between">
               <h3 className="font-bold text-sm flex items-center">
                 <span className="material-symbols-outlined text-base mr-2 text-blue-400">lan</span>
                 Printer Hardware & TCP/IP Configuration
               </h3>
-              <button onClick={() => setIsPrinterConfigModalOpen(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setIsPrinterConfigModalOpen(false)} className="text-theme-muted hover:text-white">
                 <span className="material-symbols-outlined text-base">close</span>
               </button>
             </div>
             <div className="p-5 space-y-4 text-xs">
               <div>
-                <label className="font-bold text-slate-600 block mb-1">Printer Model</label>
+                <label className="font-bold text-theme-muted block mb-1">Printer Model</label>
                 <select
                   value={printer}
                   onChange={(e) => setPrinter(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs font-bold text-theme-heading"
                 >
                   <option>Zebra ZD420 (ZPL II)</option>
                   <option>TSC TE200 (TSPL / TSPL2)</option>
@@ -2094,11 +2094,11 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
               </div>
 
               <div>
-                <label className="font-bold text-slate-600 block mb-1">Connection Interface</label>
+                <label className="font-bold text-theme-muted block mb-1">Connection Interface</label>
                 <select
                   value={connectionType}
                   onChange={(e) => setConnectionType(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs font-bold text-theme-heading"
                 >
                   <option value="NETWORK_TCP">Network Direct TCP/IP (Ethernet / Wi-Fi Port 9100)</option>
                   <option value="QZ_TRAY">QZ Tray Direct Hardware (Silent Local Print)</option>
@@ -2121,22 +2121,22 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
 
                   <div className="grid grid-cols-3 gap-2">
                     <div className="col-span-2">
-                      <label className="text-[10px] font-bold text-slate-500 block mb-1">Printer IP Address</label>
+                      <label className="text-[10px] font-bold text-theme-muted block mb-1">Printer IP Address</label>
                       <input
                         type="text"
                         value={printerIp}
                         onChange={(e) => setPrinterIp(e.target.value)}
                         placeholder="e.g. 192.168.1.100"
-                        className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-xs font-bold"
+                        className="w-full bg-white border border-theme-divider rounded-lg px-2.5 py-1.5 font-mono text-xs font-bold"
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-slate-500 block mb-1">Port</label>
+                      <label className="text-[10px] font-bold text-theme-muted block mb-1">Port</label>
                       <input
                         type="number"
                         value={printerPort}
                         onChange={(e) => setPrinterPort(parseInt(e.target.value) || 9100)}
-                        className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 font-mono text-xs font-bold"
+                        className="w-full bg-white border border-theme-divider rounded-lg px-2 py-1.5 font-mono text-xs font-bold"
                       />
                     </div>
                   </div>
@@ -2158,7 +2158,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
               )}
 
               <div>
-                <label className="font-bold text-slate-600 block mb-1">Darkness / Heat Density</label>
+                <label className="font-bold text-theme-muted block mb-1">Darkness / Heat Density</label>
                 <input type="range" min="1" max="15" defaultValue="10" className="w-full cursor-pointer" />
               </div>
 
@@ -2178,72 +2178,72 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
 
       {/* MODAL 4: Edit Item Row Modal */}
       {editingRow && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in duration-150">
-            <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+        <div className="fixed inset-0 bg-theme-surface-3 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-theme-divider rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in duration-150">
+            <div className="bg-theme-surface-2 text-white px-5 py-3.5 flex items-center justify-between">
               <h3 className="font-bold text-sm flex items-center">
                 <span className="material-symbols-outlined text-base mr-2 text-blue-400">edit</span>
                 Edit Item Label
               </h3>
-              <button onClick={() => setEditingRow(null)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setEditingRow(null)} className="text-theme-muted hover:text-white">
                 <span className="material-symbols-outlined text-base">close</span>
               </button>
             </div>
             <form onSubmit={handleSaveEditRow} className="p-5 space-y-3.5 text-xs">
               <div>
-                <label className="font-bold text-slate-600 block mb-1">Item Name</label>
+                <label className="font-bold text-theme-muted block mb-1">Item Name</label>
                 <input
                   type="text"
                   value={editingRow.itemName}
                   onChange={(e) => setEditingRow({ ...editingRow, itemName: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs font-bold"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-600 block mb-1">Barcode</label>
+                  <label className="font-bold text-theme-muted block mb-1">Barcode</label>
                   <input
                     type="text"
                     value={editingRow.barcode}
                     onChange={(e) => setEditingRow({ ...editingRow, barcode: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs font-mono font-bold"
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-600 block mb-1">Item Code</label>
+                  <label className="font-bold text-theme-muted block mb-1">Item Code</label>
                   <input
                     type="text"
                     value={editingRow.itemCode}
                     onChange={(e) => setEditingRow({ ...editingRow, itemCode: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs font-mono"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-600 block mb-1">MRP (₹)</label>
+                  <label className="font-bold text-theme-muted block mb-1">MRP (₹)</label>
                   <input
                     type="number"
                     value={editingRow.mrp}
                     onChange={(e) => setEditingRow({ ...editingRow, mrp: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs font-mono font-bold"
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-600 block mb-1">Print Quantity</label>
+                  <label className="font-bold text-theme-muted block mb-1">Print Quantity</label>
                   <input
                     type="number"
                     value={editingRow.printQty}
                     onChange={(e) => setEditingRow({ ...editingRow, printQty: parseInt(e.target.value) || 1 })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs font-mono font-bold"
                   />
                 </div>
               </div>
-              <div className="pt-2 flex justify-end space-x-2 border-t border-slate-100">
+              <div className="pt-2 flex justify-end space-x-2 border-t border-theme-divider">
                 <button
                   type="button"
                   onClick={() => setEditingRow(null)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg text-xs"
+                  className="px-4 py-2 bg-theme-surface-2 text-theme-body font-bold rounded-lg text-xs"
                 >
                   Cancel
                 </button>

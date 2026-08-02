@@ -1,18 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Module       : Public API Gateway & Rate Limiter (AOP-002 & AOP-005 Constitution)
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Version      : 1.0.0
-Created      : 2026-07-28
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-Constitution Reference:
-    AOP-002: Four-Tier Enterprise Architecture (Platform API Gateway Routing /api/public/v1/*)
-    AOP-005: Security & API Authorization Isolation Principle (Public Gateway OAuth2/API Key + IP Rate Limiting)
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 from typing import List, Optional, Dict, Any

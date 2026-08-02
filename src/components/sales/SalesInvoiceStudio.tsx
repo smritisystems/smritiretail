@@ -145,13 +145,13 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
         return (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
             <div>
-              <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
+              <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block mb-1">
                 Customer Name *
               </label>
               <select
                 value={customerId}
                 onChange={(e) => setCustomerId(e.target.value)}
-                className="w-full bg-[#1E293B] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold"
+                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold"
               >
                 <option value="">-- Choose Registered Customer --</option>
                 {customers.map((c) => (
@@ -163,7 +163,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
             </div>
 
             <div>
-              <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
+              <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block mb-1">
                 Mobile Number
               </label>
               <input
@@ -171,41 +171,41 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
                 readOnly
                 value={selectedCustomer?.mobile || ""}
                 placeholder="Auto-filled from profile"
-                className="w-full bg-[#1A2333] border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 font-mono"
+                className="w-full bg-[#1A2333] border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body font-mono"
               />
             </div>
 
             <div>
-              <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
+              <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block mb-1">
                 GSTIN Tax Identification
               </label>
               <input
                 type="text"
                 readOnly
                 value={selectedCustomer?.gstNumber || "URP (Unregistered)"}
-                className="w-full bg-[#1A2333] border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 font-mono"
+                className="w-full bg-[#1A2333] border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body font-mono"
               />
             </div>
 
             <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
               <div>
-                <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
+                <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block mb-1">
                   Billing Address
                 </label>
                 <input
                   type="text"
                   defaultValue="24 Commercial Street, Retail Zone, Mumbai, Maharashtra 400001"
-                  className="w-full bg-[#1E293B] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
                 />
               </div>
               <div>
-                <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
+                <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block mb-1">
                   Shipping Address
                 </label>
                 <input
                   type="text"
                   defaultValue="Same as Billing Address"
-                  className="w-full bg-[#1E293B] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
                 />
               </div>
             </div>
@@ -216,35 +216,35 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
         return (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
             <div>
-              <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
+              <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block mb-1">
                 Invoice Date
               </label>
               <input
                 type="date"
                 value={invoiceDate}
                 onChange={(e) => setInvoiceDate(e.target.value)}
-                className="w-full bg-[#1E293B] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
+                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
               />
             </div>
             <div>
-              <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
+              <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block mb-1">
                 Due Date
               </label>
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full bg-[#1E293B] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
+                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
               />
             </div>
             <div>
-              <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
+              <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block mb-1">
                 Price List
               </label>
               <select
                 value={priceList}
                 onChange={(e) => setPriceList(e.target.value)}
-                className="w-full bg-[#1E293B] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none"
+                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none"
               >
                 <option>Standard Retail List</option>
                 <option>Wholesale Partner Tier</option>
@@ -252,14 +252,14 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
+              <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block mb-1">
                 Salesperson
               </label>
               <input
                 type="text"
                 value={salesperson}
                 onChange={(e) => setSalesperson(e.target.value)}
-                className="w-full bg-[#1E293B] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none"
+                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none"
               />
             </div>
           </div>
@@ -268,19 +268,19 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
       case "tax":
         return (
           <div className="space-y-3 text-xs">
-            <div className="flex items-center space-x-3 bg-[#121824] p-3 rounded-xl border border-slate-800">
+            <div className="flex items-center space-x-3 bg-[#121824] p-3 rounded-xl border border-theme-divider">
               <input
                 type="checkbox"
                 id="isInterstate"
                 checked={isInterstate}
                 onChange={(e) => setIsInterstate(e.target.checked)}
-                className="rounded border-slate-700 bg-[#1E293B] accent-indigo-600 h-4 w-4"
+                className="rounded border-theme-divider bg-[#1E293B] accent-indigo-600 h-4 w-4"
               />
               <label htmlFor="isInterstate" className="text-xs font-semibold text-white select-none cursor-pointer">
                 Interstate IGST Supply (Out-of-State Customer Transaction)
               </label>
             </div>
-            <div className="text-[11px] text-slate-400 leading-relaxed">
+            <div className="text-[11px] text-theme-muted leading-relaxed">
               SMRITI Tax Engine automatically computes {isInterstate ? "IGST" : "CGST + SGST"} tax breakdown based on supply rules.
             </div>
           </div>
@@ -290,7 +290,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
         return (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
-              <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
+              <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block mb-1">
                 Transporter Name
               </label>
               <input
@@ -298,11 +298,11 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
                 value={transporterName}
                 onChange={(e) => setTransporterName(e.target.value)}
                 placeholder="e.g. VRL Logistics"
-                className="w-full bg-[#1E293B] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
               />
             </div>
             <div>
-              <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
+              <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block mb-1">
                 LR / Transport Receipt No
               </label>
               <input
@@ -310,7 +310,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
                 value={lrNumber}
                 onChange={(e) => setLrNumber(e.target.value)}
                 placeholder="e.g. LR-990812"
-                className="w-full bg-[#1E293B] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
               />
             </div>
           </div>
@@ -320,7 +320,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
         return (
           <div className="space-y-3 text-xs">
             <div>
-              <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
+              <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block mb-1">
                 E-Way Bill Number (NIC Portal)
               </label>
               <input
@@ -328,7 +328,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
                 value={eWayBillNo}
                 onChange={(e) => setEWayBillNo(e.target.value)}
                 placeholder="12-digit E-Way Bill Number"
-                className="w-full bg-[#1E293B] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none"
+                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none"
               />
             </div>
           </div>
@@ -336,7 +336,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
 
       default:
         return (
-          <div className="p-3 text-xs text-slate-400 italic">
+          <div className="p-3 text-xs text-theme-muted italic">
             Configurable enterprise metadata panel.
           </div>
         );

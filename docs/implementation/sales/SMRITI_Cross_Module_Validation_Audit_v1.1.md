@@ -1,3 +1,24 @@
+<!--
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+-->
+
 Document      : SMRITI Cross-Module Validation & Integration Audit — Standing Directive
 Version       : 1.1 — read-only audit process, evidence ledger seeded from live repository,
                 Section 10 adds import-linter/dependency-cruiser as continuous enforcement

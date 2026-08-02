@@ -1,23 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Module       : Inventory Repository (ADR-006 — Repository Pattern)
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Version      : 1.0.0
-Created      : 2026-07-28
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-ADR Reference : ADR-006 (Repository Pattern)
-GR Reference  : GR-001 (SSOT), GR-014 (Code-First Review)
-DBP Reference : SMRITI_DATABASE_BLUEPRINT_v1.0.md §2.5 — Inventory
+Founder:
+SmritiSys
+AITDL Networks
 
-Purpose:
-    Canonical data access layer for Inventory module.
-    All Inventory service methods MUST use these repositories.
-    Direct session.execute(select(Product)...) in service layer is prohibited.
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 from typing import Optional

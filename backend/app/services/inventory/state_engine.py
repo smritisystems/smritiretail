@@ -1,43 +1,23 @@
 from __future__ import annotations
-
 """
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Author       : Jawahar Ramkripal Mallah
-Version      : 3.29.0
-Modified     : 2026-08-02 — RC2 Movement Registry integration
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
-Classification: Internal
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-Inventory State Engine — RC2 Movement Registry Integration
-----------------------------------------------------------
-This module is part of the Inventory Kernel v1.0 (FROZEN at RC2).
+Founder:
+SmritiSys
+AITDL Networks
 
-RC2 Change: All movement_type dispatch now resolves through
-MovementTypeRegistry.get() rather than hard-coded string comparisons.
-The calculation algorithm and state equations are unchanged.
+Role:
+Chief Systems Architect
 
-Platform Rule (FROZEN — Inventory Kernel v1.0)
-----------------------------------------------
-No engine may update `products.stock` directly except through the
-Inventory State reconciliation pipeline (trg_inventory_state_reconciliation).
+Web:
+smritisys.com | smritibooks.com | aitdl.com
 
-Kernel Invariant I-001 (FROZEN — ADR-001, ratified 2026-08-02)
---------------------------------------------------------------
-SALE_RETURN is a physical stock movement only.
-  · MUST increase On Hand via the trigger.
-  · MUST NOT contribute to the return_pending deduction bucket.
-  · A completed return is a physical fact, not a pending commitment.
+Email:
+jawahar.mallah@gmail.com
 
-Kernel Invariant I-002 (FROZEN — ADR-001, ratified 2026-08-02)
---------------------------------------------------------------
-Completed business documents are never inferred from text.
-  · FORBIDDEN: _matches_keyword(movement.reference_doc_type, "RETURN")
-  · REQUIRED:  movement_type == "SALE_RETURN"  (or, in RC3: behavior.affects_return_pending)
-  · Keyword matching on reference_doc_type / remarks is a temporary bridge
-    for state buckets not yet covered by the movement taxonomy.
-    All such heuristics must be replaced by explicit taxonomy flags in RC3.
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 from decimal import Decimal

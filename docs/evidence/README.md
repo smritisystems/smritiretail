@@ -1,3 +1,24 @@
+<!--
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+-->
+
 # SAWF v1.1 Production Evidence & Verification Package
 
 This directory contains the verified empirical evidence, CLI output logs, and UI verification documentation for **SMRITI Adaptive Workspace Framework (SAWF v1.1)** across all 3 initial reference implementations (**Sales Invoice**, **Purchase Invoice**, and **Sales Order**).
