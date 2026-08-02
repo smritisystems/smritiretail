@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMRITI Retail OS — Product & Feature Overview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0b0f19 0%, #111827 100%);
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-border: rgba(255, 255, 255, 0.12);
+            --accent-indigo: #6366f1;
+            --accent-cyan: #06b6d4;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .progress-bar { height: 4px; background: rgba(255, 255, 255, 0.1); width: 100%; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-indigo), var(--accent-cyan)); width: 20%; transition: width 0.3s ease; }
+
+        .slide-viewport { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+        .slide { display: none; width: 100%; max-width: 1100px; animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .slide.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        .slide-badge { display: inline-block; padding: 0.35rem 1rem; background: rgba(99, 102, 241, 0.15); border: 1px solid var(--accent-indigo); border-radius: 50px; font-size: 0.8rem; font-weight: 700; color: #a5b4fc; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 1rem; }
+        h2 { font-family: 'Outfit', sans-serif; font-size: 2.6rem; font-weight: 800; background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 1.5rem; }
+
+        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
+        .feature-card { background: var(--card-bg); backdrop-filter: blur(12px); border: 1px solid var(--card-border); border-radius: 16px; padding: 1.5rem; transition: transform 0.2s ease; }
+        .feature-card:hover { transform: translateY(-4px); border-color: var(--accent-indigo); }
+        .feature-icon { font-size: 2.2rem; margin-bottom: 0.8rem; }
+        .feature-title { font-family: 'Outfit', sans-serif; font-size: 1.3rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
+        .feature-desc { font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; }
+
+        .controls { height: 70px; background: rgba(15, 23, 42, 0.9); border-top: 1px solid var(--card-border); display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; }
+        .nav-btn { background: var(--card-bg); border: 1px solid var(--card-border); color: #fff; padding: 0.6rem 1.4rem; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+        .nav-btn:hover { background: var(--accent-indigo); border-color: var(--accent-indigo); }
+        .slide-counter { font-size: 0.9rem; color: var(--text-muted); font-weight: 600; }
+        .home-link { color: var(--accent-cyan); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+
+    <div class="slide-viewport">
+
+        <!-- Slide 1 -->
+        <section class="slide active">
+            <span class="slide-badge">Slide 1 of 5 • Core Product Suite</span>
+            <h2>Unified Enterprise Retail OS</h2>
+            <p style="color: var(--text-muted); font-size: 1.1rem; line-height: 1.7; margin-bottom: 1.5rem;">SMRITI Retail OS is an enterprise-grade AI-powered Retail ERP platform built as a modular monolith. It unifies all store operational touchpoints under a single system-of-record.</p>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🛒</div>
+                    <div class="feature-title">High-Speed POS</div>
+                    <div class="feature-desc">Zero-click keyboard billing, barcode scanner integration, split-tender payments, and bill parking.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📦</div>
+                    <div class="feature-title">2D Variant Matrix</div>
+                    <div class="feature-desc">Native Garment Size/Color/Style variant management and customizable barcode sticker printing.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📑</div>
+                    <div class="feature-title">GST & E-Way Bill</div>
+                    <div class="feature-desc">Automated HSN code tax slabs, CGST/SGST/IGST splits, and compliant IRP JSON export.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 2 -->
+        <section class="slide">
+            <span class="slide-badge">Slide 2 of 5 • Point of Sale</span>
+            <h2>High-Speed Zero-Click Checkout</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-title">⚡ Keyboard Shortcut Navigation</div>
+                    <div class="feature-desc">Full function key bindings (<strong style="color:var(--accent-cyan)">F2</strong> Pay, <strong style="color:var(--accent-cyan)">F3</strong> Hold, <strong style="color:var(--accent-cyan)">F4</strong> Void, <strong style="color:var(--accent-cyan)">F8</strong> Customer) eliminate mouse usage.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">💳 Split-Payment Tender</div>
+                    <div class="feature-desc">Accept Cash, UPI Dynamic QR, Credit Card, and Customer Udhaar Ledger in a single transaction.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">🎟️ Bill Parking & Hold</div>
+                    <div class="feature-desc">Instantly park active customer bills during checkout to keep store queues moving smoothly.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 3 -->
+        <section class="slide">
+            <span class="slide-badge">Slide 3 of 5 • Barcode Matrix</span>
+            <h2>2D Variant & Thermal Print Studio</h2>
+            <div style="background: var(--card-bg); padding: 2rem; border-radius: 16px; border: 1px solid var(--card-border);">
+                <h3 style="color: var(--accent-indigo); margin-bottom: 1rem;">Garment & Apparel Size/Color Matrix</h3>
+                <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 1.5rem;">Manage thousands of apparel and footwear variants effortlessly without cluttering your product catalog with redundant SKUs.</p>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: center;">
+                    <div style="background: rgba(255,255,255,0.04); padding: 1rem; border-radius: 10px;">
+                        <strong style="color:#fff;">Size Matrix</strong><br><span style="font-size:0.85rem; color:var(--text-muted);">S, M, L, XL, XXL, 38, 40, 42</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.04); padding: 1rem; border-radius: 10px;">
+                        <strong style="color:#fff;">Color Matrix</strong><br><span style="font-size:0.85rem; color:var(--text-muted);">Red, Navy, Black, Beige, Olive</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.04); padding: 1rem; border-radius: 10px;">
+                        <strong style="color:#fff;">Thermal Barcodes</strong><br><span style="font-size:0.85rem; color:var(--text-muted);">Zebra (ZPL) & TSC (TSPL) Studio</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 4 -->
+        <section class="slide">
+            <span class="slide-badge">Slide 4 of 5 • Statutory Compliance</span>
+            <h2>GSTIN E-Invoicing & MCA Audit Log</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-title">🏛️ MCA Audit Trail (Section 144)</div>
+                    <div class="feature-desc">Immutable event ledger records every voucher edit or alteration to ensure compliance with Ministry of Corporate Affairs audit rules.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">📊 Dynamic GST Tax Engine</div>
+                    <div class="feature-desc">Automatic HSN code mapping resolves CGST/SGST vs IGST based on customer GSTIN state prefix.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 5 -->
+        <section class="slide">
+            <span class="slide-badge">Slide 5 of 5 • Offline-First Architecture</span>
+            <h2>100% Offline Edge Continuity</h2>
+            <div style="background: var(--card-bg); padding: 2rem; border-radius: 16px; border: 1px solid var(--card-border); text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">🌐 ──► 🔌 ──► ⚡</div>
+                <h3 style="color: #fff; margin-bottom: 1rem;">Zero Downtime Guaranteed</h3>
+                <p style="color: var(--text-muted); max-width: 700px; margin: 0 auto; line-height: 1.6;">When internet connection drops in Tier-2/3 cities, cash registers continue billing locally without interruption. All sales, stock changes, and customer balances automatically sync back to the cloud when connectivity returns.</p>
+            </div>
+        </section>
+
+    </div>
+
+    <footer class="controls">
+        <a href="index.html" class="home-link">⬅ Exit to Portal</a>
+        <div class="slide-counter" id="counter">Slide 1 / 5</div>
+        <div>
+            <button class="nav-btn" onclick="changeSlide(-1)">Previous</button>
+            <button class="nav-btn" onclick="changeSlide(1)">Next</button>
+        </div>
+    </footer>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const progress = document.getElementById('progress');
+        const counter = document.getElementById('counter');
+
+        function updateSlide() {
+            slides.forEach((s, idx) => s.classList.toggle('active', idx === currentSlide));
+            progress.style.width = ((currentSlide + 1) / slides.length * 100) + '%';
+            counter.innerText = `Slide ${currentSlide + 1} / ${slides.length}`;
+        }
+
+        function changeSlide(dir) {
+            currentSlide = (currentSlide + dir + slides.length) % slides.length;
+            updateSlide();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') changeSlide(1);
+            if (e.key === 'ArrowLeft') changeSlide(-1);
+        });
+    </script>
+</body>
+</html>

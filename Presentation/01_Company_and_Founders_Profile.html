@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMRITI Retail OS — Company & Founders Profile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0b0f19 0%, #111827 100%);
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-border: rgba(255, 255, 255, 0.12);
+            --accent-indigo: #6366f1;
+            --accent-cyan: #06b6d4;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Progress Bar */
+        .progress-bar {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            width: 100%;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-indigo), var(--accent-cyan));
+            width: 20%;
+            transition: width 0.3s ease;
+        }
+
+        /* Slide Container */
+        .slide-viewport {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .slide {
+            display: none;
+            width: 100%;
+            max-width: 1100px;
+            animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .slide.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .slide-badge {
+            display: inline-block;
+            padding: 0.35rem 1rem;
+            background: rgba(99, 102, 241, 0.15);
+            border: 1px solid var(--accent-indigo);
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #a5b4fc;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.6rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Components */
+        .founder-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 1.5rem;
+        }
+
+        .founder-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 2rem;
+            position: relative;
+        }
+
+        .founder-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 4px; height: 100%;
+            background: var(--accent-indigo);
+            border-radius: 16px 0 0 16px;
+        }
+
+        .founder-card.ceo::before {
+            background: var(--accent-cyan);
+        }
+
+        .founder-name {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.3rem;
+        }
+
+        .founder-role {
+            font-size: 0.95rem;
+            color: var(--accent-cyan);
+            font-weight: 600;
+            margin-bottom: 1.2rem;
+        }
+
+        .info-row {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin-bottom: 0.6rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .info-row strong { color: #f1f5f9; }
+
+        .web-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            margin-top: 1.5rem;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.2rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            color: #e2e8f0;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .pill:hover {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: var(--accent-indigo);
+            color: #fff;
+        }
+
+        /* Nav controls */
+        .controls {
+            height: 70px;
+            background: rgba(15, 23, 42, 0.9);
+            border-top: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+        }
+
+        .nav-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            color: #fff;
+            padding: 0.6rem 1.4rem;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .nav-btn:hover {
+            background: var(--accent-indigo);
+            border-color: var(--accent-indigo);
+        }
+
+        .slide-counter {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .home-link {
+            color: var(--accent-cyan);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+
+    <div class="slide-viewport">
+
+        <!-- Slide 1 -->
+        <section class="slide active">
+            <span class="slide-badge">Slide 1 of 5 • Executive Overview</span>
+            <h2>Corporate Identity & Ecosystem</h2>
+            <p style="color: var(--text-muted); font-size: 1.1rem; line-height: 1.7; margin-bottom: 2rem;">
+                <strong>AITDL Networks & SmritiSys Group</strong> is a technology conglomerate engineering next-generation enterprise retail software, statutory auditing engines, and cloud-native commerce infrastructures.
+            </p>
+            <div class="web-pills">
+                <a href="https://smritisys.com" target="_blank" class="pill">🌐 smritisys.com</a>
+                <a href="https://smritibooks.com" target="_blank" class="pill">🌐 smritibooks.com</a>
+                <a href="https://erpnbook.com" target="_blank" class="pill">🌐 erpnbook.com</a>
+                <a href="https://aitdl.com" target="_blank" class="pill">🌐 aitdl.com</a>
+            </div>
+        </section>
+
+        <!-- Slide 2 -->
+        <section class="slide">
+            <span class="slide-badge">Slide 2 of 5 • Executive Leadership</span>
+            <h2>Founders Profile</h2>
+            <div class="founder-grid">
+                <article class="founder-card">
+                    <div class="founder-name">Pushpa Devi Jawahar Mallah</div>
+                    <div class="founder-role">Founder & Chairperson</div>
+                    <div class="info-row">📱 <strong>Phone:</strong> +91 9324117007</div>
+                    <div class="info-row">✉️ <strong>Email:</strong> founder@aitdl.com</div>
+                    <div class="info-row">🎯 <strong>Focus:</strong> Corporate Governance, Legal Alliances & Financial Operations</div>
+                </article>
+                <article class="founder-card ceo">
+                    <div class="founder-name">Jawahar Ramkripal Mallah</div>
+                    <div class="founder-role">Founder, CEO & Chief Systems Architect</div>
+                    <div class="info-row">✉️ <strong>Email:</strong> founder@aitdl.com | support@smritisys.com</div>
+                    <div class="info-row">🎯 <strong>Focus:</strong> Product Vision, Platform Architecture & Universal Platform Registries</div>
+                </article>
+            </div>
+        </section>
+
+        <!-- Slide 3 -->
+        <section class="slide">
+            <span class="slide-badge">Slide 3 of 5 • Core Philosophy</span>
+            <h2>Principles: "Less Software is Better Software"</h2>
+            <div style="display: grid; gap: 1rem; margin-top: 1.5rem;">
+                <div class="founder-card" style="padding: 1.2rem 1.8rem;">
+                    <strong style="color: var(--accent-indigo); font-size: 1.1rem;">1. Eliminate Operational Friction</strong>
+                    <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.3rem;">Retail systems must prioritize barcode scanners and keyboard shortcuts over dense data entry tables and mouse clicks.</p>
+                </div>
+                <div class="founder-card" style="padding: 1.2rem 1.8rem;">
+                    <strong style="color: var(--accent-cyan); font-size: 1.1rem;">2. Immutable Financial Integrity</strong>
+                    <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.3rem;">Zero unverified ledger edits. Built-in compliance with MCA Section 144 audit log rules and GST statutory checks.</p>
+                </div>
+                <div class="founder-card" style="padding: 1.2rem 1.8rem;">
+                    <strong style="color: var(--accent-emerald); font-size: 1.1rem;">3. 100% Offline Resilience</strong>
+                    <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.3rem;">Sub-urban and Tier-2/3 retail locations must continue billing continuously during internet or network outages.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 4 -->
+        <section class="slide">
+            <span class="slide-badge">Slide 4 of 5 • Product Evolution</span>
+            <h2>Platform Milestones & Roadmap</h2>
+            <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem;">
+                <div style="background: rgba(255,255,255,0.04); padding: 1rem 1.5rem; border-radius: 12px; border-left: 4px solid var(--accent-emerald);">
+                    <strong>Phase 1: Core Accounting & GST Engine</strong> — Robust multi-company, HSN tax slabs, and ledger posting framework.
+                </div>
+                <div style="background: rgba(255,255,255,0.04); padding: 1rem 1.5rem; border-radius: 12px; border-left: 4px solid var(--accent-indigo);">
+                    <strong>Phase 2: Universal Platform Registry (UPR)</strong> — Standardized UI/UX governance across Navigation, Forms, Security, Reports, Print, and Workflows.
+                </div>
+                <div style="background: rgba(255,255,255,0.04); padding: 1rem 1.5rem; border-radius: 12px; border-left: 4px solid var(--accent-cyan);">
+                    <strong>Phase 3: High-Speed POS & Barcode Matrix</strong> — Zero-click keyboard billing, 2D size/color variant tracking, thermal barcode printing, and UPI QR payments.
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 5 -->
+        <section class="slide">
+            <span class="slide-badge">Slide 5 of 5 • Contact & Alliances</span>
+            <h2>Corporate Contact & Alliances</h2>
+            <p style="color: var(--text-muted); margin-bottom: 2rem; font-size: 1.1rem;">Connect with our executive leadership team to explore corporate partnerships and software distribution.</p>
+            <div class="founder-card">
+                <div class="info-row" style="font-size: 1.05rem;">📞 <strong>Chairperson Hotline:</strong> +91 9324117007</div>
+                <div class="info-row" style="font-size: 1.05rem;">✉️ <strong>Corporate Email:</strong> founder@aitdl.com</div>
+                <div class="info-row" style="font-size: 1.05rem;">🛠️ <strong>Support Email:</strong> support@smritisys.com</div>
+                <div class="info-row" style="font-size: 1.05rem;">🌐 <strong>Official Portal:</strong> <a href="https://smritisys.com" style="color: var(--accent-cyan);">smritisys.com</a></div>
+            </div>
+        </section>
+
+    </div>
+
+    <footer class="controls">
+        <a href="index.html" class="home-link">⬅ Exit to Portal</a>
+        <div class="slide-counter" id="counter">Slide 1 / 5</div>
+        <div>
+            <button class="nav-btn" onclick="changeSlide(-1)">Previous</button>
+            <button class="nav-btn" onclick="changeSlide(1)">Next</button>
+        </div>
+    </footer>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const progress = document.getElementById('progress');
+        const counter = document.getElementById('counter');
+
+        function updateSlide() {
+            slides.forEach((s, idx) => s.classList.toggle('active', idx === currentSlide));
+            progress.style.width = ((currentSlide + 1) / slides.length * 100) + '%';
+            counter.innerText = `Slide ${currentSlide + 1} / ${slides.length}`;
+        }
+
+        function changeSlide(dir) {
+            currentSlide = (currentSlide + dir + slides.length) % slides.length;
+            updateSlide();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') changeSlide(1);
+            if (e.key === 'ArrowLeft') changeSlide(-1);
+        });
+    </script>
+</body>
+</html>
