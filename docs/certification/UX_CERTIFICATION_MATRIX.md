@@ -6,47 +6,55 @@
 
 ---
 
-## 1. UX Certification Gates (UX001..UX008)
+## 1. Two-Level UX Certification Model
 
-For any business domain module to achieve **UX Kernel Certification**, it MUST satisfy 8 automated certification standards:
+The SMRITI UX Kernel Certification separates platform infrastructure readiness from individual consumer domain adoption:
 
-| Standard ID | Standard Name | Technical Certification Requirement | Gate Status |
-|---|---|---|---|
-| **UX001** | Workspace Shell | Uses single persistent `WorkspaceLayout` shell; zero duplicate sidebars. | ✅ **PASSED** |
-| **UX002** | Navigation Registry | Declares domain metadata in UPR via `SPK.navigation`; 5-level SUNEF hierarchy. | ✅ **PASSED** |
-| **UX003** | Universal Forms | Renders edit forms via `UniversalFormRenderer` using `FormRegistry` metadata. | ✅ **PASSED** |
-| **UX004** | Universal Grid Engine | Implements List Report Pattern with top filter drawer & data table engine. | ✅ **PASSED** |
-| **UX005** | Mobile Experience Profiles | Supports Desktop, Tablet, and Mobile phone profiles without shrink hacks. | ✅ **PASSED** |
-| **UX006** | Accessibility & Keyboard | 100% accessible via keyboard shortcuts, focus rings, and ARIA roles. | ✅ **PASSED** |
-| **UX007** | SEDS Token Compliance | Passes `python scripts/validate_seds.py` with 0 prohibited CSS token violations. | ✅ **PASSED** |
-| **UX008** | Security & Permissions | menú, tab, and action button visibility delegated to `SPK.security.evaluateAccess()`. | ✅ **PASSED** |
+```text
+Level A: Platform Kernel Certification (Reusable UI Infrastructure Readiness)
+  ↓
+Level B: Domain UX Certification (Domain-Specific Evidence Verification)
+```
 
 ---
 
-## 2. Consumer Domain UX Adoption Matrix
+## 2. Level A — Platform Kernel Certification
 
-| Business Domain | UX001 (Shell) | UX002 (Nav) | UX003 (Forms) | UX004 (Grids) | UX005 (Mobile Profile) | UX006 (A11y) | UX007 (SEDS) | UX008 (USR) | UX Certification Status |
+Certifies the readiness of the core reusable frontend platform components:
+
+| Platform Component | Constitutional Standard | Technical Capability | Level A Platform Status |
+|---|---|---|---|
+| **Workspace Kernel** | Rule UX001 | Single persistent `WorkspaceLayout` shell | ✅ **PLATFORM CERTIFIED** |
+| **Navigation Kernel** | Rule UX002 | SUNEF 5-level declarative hierarchy (`SPK.navigation`) | ✅ **PLATFORM CERTIFIED** |
+| **Universal Form Renderer** | Rule UX003 | Metadata-driven form engine (`SPK.forms`) | ✅ **PLATFORM CERTIFIED** |
+| **Universal Grid Engine** | Rule UX004 | List Report Pattern & filter drawer | ✅ **PLATFORM CERTIFIED** |
+| **Mobile Experience Layer** | Rule UX005 | 3 Profiles (Desktop, Tablet, Mobile) | ✅ **PLATFORM CERTIFIED** |
+| **Accessibility Engine** | Rule UX006 | Keyboard focus, ARIA roles, shortcuts | ✅ **PLATFORM CERTIFIED** |
+| **SEDS Theme Engine** | Rule UX007 | Slate token compliance (0 linter errors) | ✅ **PLATFORM CERTIFIED** |
+| **Security UI Layer** | Rule UX008 | Visibility via `SPK.security.evaluateAccess()` | ✅ **PLATFORM CERTIFIED** |
+
+---
+
+## 3. Level B — Domain UX Certification
+
+Each business domain earns UX certification independently based on direct domain UI test evidence:
+
+| Business Domain | UX001 (Shell) | UX002 (Nav) | UX003 (Forms) | UX004 (Grids) | UX005 (Profiles) | UX006 (A11y) | UX007 (SEDS) | UX008 (USR) | Level B Status |
 |---|---|---|---|---|---|---|---|---|---|
 | **Sales (SI_001)** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟢 **UX CERTIFIED** |
 | **Purchase (PI_001)** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟢 **UX CERTIFIED** |
 | **POS (POS001)** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟢 **UX CERTIFIED** |
 | **Warehouse (WMS001)** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟢 **UX CERTIFIED** |
-| **Marketplace (MP001)** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟢 **UX CERTIFIED** |
-| **Consignment (CS001)** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟢 **UX CERTIFIED** |
+| **Marketplace (MP001)** | ✅ | ✅ | ⏳ | ⏳ | ✅ | ✅ | ✅ | ✅ | 🟡 **IN ADOPTION** |
+| **Consignment (CS001)** | ✅ | ✅ | ⏳ | ⏳ | ✅ | ✅ | ✅ | ✅ | 🟡 **IN ADOPTION** |
+| **Manufacturing** | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | ⚪ **PLANNED** |
 
 ---
 
-## 3. Experience Profile Architecture
+## 4. Experience Profile Architecture
 
-```text
-                               SMRITI UX KERNEL v1.0
-                                         │
-        ┌────────────────────────────────┼────────────────────────────────┐
-        │                                │                                │
-        ▼                                ▼                                ▼
-  Desktop Profile                 Tablet Profile                  Mobile Profile
- (Enterprise Office)           (Store & Warehouse)            (Sales, POS, Field)
-  • Fixed Header & Sidebar      • Collapsible Sidebar          • Bottom Navigation Bar
-  • Multi-Tab Workspace         • Touch-Optimized Cards        • Mobile Card Grid Mode
-  • Extended Action Toolbars    • Slide-Out Filter Drawer      • Quick Scanner Overlay
-```
+| Profile | Primary Target Users | UX Characteristics |
+|---|---|---|
+| **Desktop Profile** | Back office, accountants, administrators | Dense grids, multi-pane workspaces, keyboard-first workflows |
+| **Tablet Profile** | Store managers, warehouse supervisors | Touch-first layouts, split view, larger controls, quick actions |
+| **Mobile Profile** | Sales staff, POS counter, delivery, field inventory | Bottom navigation, scanner-first interactions, card-based UI, one-handed operation |
