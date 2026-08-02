@@ -1,19 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Repository   : SMRITIRetailNX
-Organization : AITDL NETWORKS
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-Founders
+Founder:
+SmritiSys
+AITDL Networks
 
-* Pushpa Devi Jawahar Mallah — Founder & Chairperson
-* Jawahar Ramkripal Mallah  — Founder, CEO & Chief Software Architect
-* Websites: aitdl.com | erpnbook.com | smritibooks.com
+Role:
+Chief Systems Architect
 
-* Version    : 3.17.1 (Phase 1 — POS Checkout)
-* Created    : 2026-07-11
-* Modified   : 2026-07-15 (Phase 1 — POS Checkout migration)
-* Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
-* License    : Proprietary Commercial Software
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 import uuid
@@ -25,8 +28,8 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 
 from ..models.pos import CashRegister, Shift
-from ..models.sales import SalesInvoice, SalesInvoiceItem
-from ..models.inventory import Product, StockMovement
+from ..models.inventory import Product
+from app.services.inventory.facades import InventoryCommandFacade
 from ..api.deps import TenantContext
 from ..repositories.pos import CashRegisterRepository, ShiftRepository
 from ..schemas.pos import (
@@ -350,6 +353,16 @@ class POSService:
             )
 
         # 2. Idempotency check (pre-insert)
+        invoice_id  = uuid.uuid4().hex[:8]
+        command_facade = InventoryCommandFacade(self.db, self.tenant)
+        pos_items = [{"product_id": item.product_id, "quantity": item.quantity} for item in req.items]
+        await command_facade.issue_pos_sale(
+            receipt_id=invoice_id,
+            receipt_no=req.invoice_no,
+            items=pos_items,
+            warehouse="Default Warehouse",
+        )
+
         existing_res = await self.db.execute(
             select(SalesInvoice).where(
                 SalesInvoice.invoice_no == req.invoice_no,
@@ -363,9 +376,7 @@ class POSService:
         # 3. Compute totals and build item records
         tax_total   = Decimal("0.00")
         grand_total = Decimal("0.00")
-        invoice_id  = uuid.uuid4().hex[:8]
         db_items:   list[SalesInvoiceItem] = []
-        movements:  list[StockMovement]    = []
 
         for item in req.items:
             qty   = item.quantity
@@ -389,47 +400,7 @@ class POSService:
                 total_amount=item_total,
             ))
 
-            # Stock deduction
-            prod_res = await self.db.execute(
-                select(Product).where(
-                    Product.id         == item.product_id,
-                    Product.company_id == self.tenant.company_id,
-                    Product.branch_id  == self.tenant.branch_id,
-                    Product.is_deleted == False,
-                )
-            )
-            product = prod_res.scalars().first()
-            if product and product.tracking_mode != "No-stock":
-                if product.stock < int(qty):
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Insufficient stock for '{item.name}'. "
-                               f"Available: {product.stock}, requested: {int(qty)}.",
-                    )
-                # RC2 Rule #1: products.stock is updated exclusively by
-                # trg_inventory_state_reconciliation via the StockMovement
-                # INSERT below. Direct mutation removed.
-                movement_id = (
-                    f"SM-{int(datetime.now(timezone.utc).timestamp())}-"
-                    f"{uuid.uuid4().hex[:6]}"
-                )
-                movements.append(StockMovement(
-                    id=movement_id,
-                    uuid=str(uuid.uuid4()),
-                    product_id=product.id,
-                    product_name=product.name,
-                    sku=product.sku or product.code,
-                    quantity=-qty,
-                    movement_type="OUT",
-                    reference_doc_type="POS Invoice",
-                    reference_doc_id=invoice_id,
-                    warehouse="Default Warehouse",
-                    unit_cost=product.cost_price or product.price,
-                    remarks=f"POS sale: {req.invoice_no}",
-                    source_module="POS",
-                    company_id=self.tenant.company_id,
-                    branch_id=self.tenant.branch_id,
-                ))
+
 
         # 4. Apply bill-level discount
         if req.bill_discount_val and req.bill_discount_val > 0:

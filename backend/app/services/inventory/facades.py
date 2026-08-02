@@ -1,4 +1,24 @@
 from __future__ import annotations
+"""
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+"""
 
 """
 SMRITI Inventory Kernel Facades v1.0.0 (FROZEN)
@@ -242,6 +262,50 @@ class InventoryCommandFacade:
                     unit_cost=product.cost_price or product.price,
                     remarks=f"Stock returned for purchase debit note: {return_no}",
                     source_module="Purchase",
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                )
+                self.db.add(db_movement)
+                movements.append(db_movement)
+        return movements
+
+    async def issue_pos_sale(
+        self,
+        receipt_id: str,
+        receipt_no: str,
+        items: List[dict[str, Any]],
+        warehouse: str = "Default Warehouse",
+    ) -> List[StockMovement]:
+        """Issue SALE movements for POS quick checkout posting."""
+        movements: List[StockMovement] = []
+        for item in items:
+            product_id = item["product_id"]
+            qty = Decimal(str(item["quantity"]))
+            stmt = select(Product).where(
+                Product.id == product_id,
+                Product.is_deleted.is_(False),
+                Product.company_id == self.tenant_ctx.company_id,
+                Product.branch_id == self.tenant_ctx.branch_id,
+            )
+            res = await self.db.execute(stmt)
+            product = res.scalars().first()
+            if product and getattr(product, "tracking_mode", "Standard") != "No-stock":
+                ts = int(datetime.now(timezone.utc).timestamp() * 1_000_000)
+                movement_id = f"SM-{ts}-{uuid.uuid4().hex[:6]}"
+                db_movement = StockMovement(
+                    id=movement_id,
+                    uuid=str(uuid.uuid4()),
+                    product_id=product.id,
+                    product_name=product.name,
+                    sku=product.sku or product.code,
+                    quantity=-qty,
+                    movement_type="SALE",
+                    reference_doc_type="POS Receipt",
+                    reference_doc_id=receipt_id,
+                    warehouse=warehouse,
+                    unit_cost=product.cost_price or product.price,
+                    remarks=f"Stock issued for POS checkout: {receipt_no}",
+                    source_module="POS",
                     company_id=self.tenant_ctx.company_id,
                     branch_id=self.tenant_ctx.branch_id,
                 )
