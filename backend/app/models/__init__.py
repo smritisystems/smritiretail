@@ -18,6 +18,15 @@ from .crm import (
     Lead, Opportunity, Campaign, SupportTicket, TicketComment, CustomerActivity,
 )
 from .inventory import Product, StockMovement
+from .inventory_kernel import (
+    InventoryLocationNode,
+    InventoryIdentityRecord,
+    InventoryLedgerEntry,
+    ReservationLedgerEntry,
+    CostLayerLedgerEntry,
+    InventorySnapshotRecord,
+    DocumentPostingProfileRecord,
+)
 from .wms import WarehouseZone, WarehouseBin, StockBinAssignment
 from .loyalty import CustomerLoyaltyModel, GiftCardModel, LoyaltyTransactionModel
 
