@@ -27,7 +27,7 @@ class InventoryLocationNode(RowSecuredMixin, BaseEntity):
     """
     __tablename__ = "inventory_location_nodes"
 
-    code            = Column(String(50), nullable=False, unique=True, index=True)
+    code            = Column(String(50), nullable=False, index=True)
     name            = Column(String(200), nullable=False)
     location_type   = Column(String(50), nullable=False, index=True)  # WAREHOUSE, STORE, RETAIL_CHAIN, DISTRIBUTOR, FRANCHISE, MARKETPLACE, SUPPLIER, FACTORY, TRANSIT, REPAIR_CENTER
     ownership_type  = Column(String(50), nullable=False, default="COMPANY", index=True)  # COMPANY, PARTNER, CONSIGNMENT, MARKETPLACE, SUPPLIER, CUSTOMER, THIRD_PARTY

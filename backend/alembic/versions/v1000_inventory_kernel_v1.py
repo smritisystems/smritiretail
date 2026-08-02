@@ -44,7 +44,7 @@ def upgrade() -> None:
         company_id      VARCHAR(50)  REFERENCES companies(id) ON DELETE RESTRICT,
         branch_id       VARCHAR(50)  REFERENCES branches(id)  ON DELETE RESTRICT,
 
-        code            VARCHAR(50)  NOT NULL UNIQUE,
+        code            VARCHAR(50)  NOT NULL,
         name            VARCHAR(200) NOT NULL,
         location_type   VARCHAR(50)  NOT NULL,
         ownership_type  VARCHAR(50)  NOT NULL DEFAULT 'COMPANY',
