@@ -168,27 +168,34 @@ class InventoryService:
         if product.tracking_mode == "No-stock":
             return
 
-        # RC2 Rule #1: products.stock is updated exclusively by
-        # trg_inventory_state_reconciliation via the StockMovement
-        # INSERT below. Direct mutation removed.
+        # Rule 1 & Rule 2: Route all movements through InventoryCommandFacade → ITEX → ILG.
+        # Direct StockMovement writes are prohibited outside the Inventory Ledger Engine.
+        from app.services.inventory.facades import InventoryCommandFacade
+        command_facade = InventoryCommandFacade(self.db, self.tenant_ctx)
 
-        # Create StockMovement record
-        movement = StockMovement(
-            product_id=product.id,
-            product_name=product.name,
-            sku=_build_sku(product),
-            quantity=quantity,
+        sku = _build_sku(product)
+        item_dict = {
+            "product_id": product.id,
+            "quantity": abs(quantity),
+            "sku": sku,
+            "product_name": product.name,
+            "unit_cost": float(unit_cost or product.cost_price or product.price or 0),
+            "reference_doc_type": reference_doc_type,
+            "source_module": source_module,
+        }
+
+        # Determine direction: positive quantity = inbound (TO location), negative = outbound (FROM location)
+        from_loc = reference_doc_id if quantity < 0 else None
+        to_loc   = reference_doc_id if quantity >= 0 else None
+
+        await command_facade.move_inventory(
+            transaction_id=f"TX-{movement_type}-{reference_doc_id}",
+            from_location_id=from_loc,
+            to_location_id=to_loc,
+            items=[item_dict],
             movement_type=movement_type,
-            reference_doc_type=reference_doc_type,
-            reference_doc_id=reference_doc_id,
-            unit_cost=unit_cost,
             remarks=remarks,
-            branch=self.tenant_ctx.branch_id,
-            source_module=source_module,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id,
         )
-        self.db.add(movement)
 
     async def create_product(self, product_in: ProductCreate) -> Product:
 
