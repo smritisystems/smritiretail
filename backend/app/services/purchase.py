@@ -492,7 +492,9 @@ class PurchaseService:
 
         # Apply stock increments, update supplier outstanding, and record stock movements
         for product, qty in product_stock_updates:
-            product.stock += int(qty)
+            # RC2 Rule #1: products.stock is updated exclusively by
+            # trg_inventory_state_reconciliation via the StockMovement
+            # INSERT below. Direct mutation removed.
             product.modified_at = datetime.now(timezone.utc)
             self.db.add(product)
 
