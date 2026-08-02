@@ -93,11 +93,11 @@ class InventoryCheckpointEngine:
         base_balance = Decimal("0.0000")
         if checkpoint:
             base_balance = Decimal(str(checkpoint.certified_on_hand))
-            # Sum ledger entries strictly AFTER checkpoint.last_entry_id
+            # Sum ledger entries strictly AFTER checkpoint.checkpoint_timestamp
             stmt = select(InventoryLedgerEntry).where(
                 InventoryLedgerEntry.product_id == product_id,
                 InventoryLedgerEntry.company_id == self.tenant_ctx.company_id,
-                InventoryLedgerEntry.id > checkpoint.last_entry_id,
+                InventoryLedgerEntry.created_at > checkpoint.checkpoint_timestamp,
             )
         else:
             stmt = select(InventoryLedgerEntry).where(

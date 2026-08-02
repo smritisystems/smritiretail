@@ -120,12 +120,15 @@ async def test_ik003_derived_availability_gate(db_session):
     command_facade = InventoryCommandFacade(db_session, tenant_ctx)
     query_facade = InventoryQueryFacade(db_session, tenant_ctx)
 
-    await command_facade.receive_purchase(
-        grn_id=f"grn-{uuid.uuid4().hex[:6]}",
-        grn_no=f"GRN-CERT-{uuid.uuid4().hex[:4]}",
+    await command_facade.move_inventory(
+        transaction_id=f"tx-rec-{uuid.uuid4().hex[:6]}",
+        from_location_id=None,
+        to_location_id="LOC-MAIN-WH",
         items=[{"product_id": product.id, "quantity": 100}],
+        movement_type="PURCHASE",
     )
     await db_session.flush()
+
     await command_facade.reserve_stock(
         product_id=product.id,
         qty=20,
