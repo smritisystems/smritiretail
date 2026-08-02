@@ -120,18 +120,9 @@ async def test_ik002_single_balance_mutator_gate(db_session):
 async def test_ik003_derived_availability_gate(db_session):
     """IK003: Verifies ATP = On Hand - Reserved - Locked."""
     _, _, tenant_ctx = await _setup_certified_tenant(db_session)
-    product = await _make_certified_product(db_session, tenant_ctx, stock=0)
+    product = await _make_certified_product(db_session, tenant_ctx, stock=100)
     command_facade = InventoryCommandFacade(db_session, tenant_ctx)
     query_facade = InventoryQueryFacade(db_session, tenant_ctx)
-
-    await command_facade.move_inventory(
-        transaction_id=f"tx-rec-{uuid.uuid4().hex[:6]}",
-        from_location_id=None,
-        to_location_id="LOC-MAIN-WH",
-        items=[{"product_id": product.id, "quantity": 100}],
-        movement_type="PURCHASE",
-    )
-    await db_session.commit()
 
     await command_facade.reserve_stock(
         product_id=product.id,
