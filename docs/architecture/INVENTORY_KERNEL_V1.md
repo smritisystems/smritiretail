@@ -93,7 +93,9 @@ class InventoryQueryFacade:
 
 ---
 
-## PART 3 — FROZEN DATA CONTRACT SPECIFICATION (DTOs v1.0.0)
+## PART 3 — FROZEN DATA & EVENT CONTRACT SPECIFICATION (v1.0.0)
+
+### 3.1 DTO Contracts
 
 ```python
 @dataclass(frozen=True)
@@ -129,6 +131,42 @@ class ReservationResultDTO:
     remaining_available: Decimal
     reference_doc: str
 ```
+
+### 3.2 Canonical StockMovementEvent Schema (v1.0.0)
+
+> This schema represents the immutable, canonical event payload emitted across the DB trigger pipeline, audit log, event bus, CDC stream, and replay engine.
+
+```python
+@dataclass(frozen=True)
+class StockMovementEvent:
+    movement_id: str
+    product_id: str
+    warehouse_id: str
+    movement_type: str        # Validated against MovementTypeRegistry
+    quantity: Decimal          # Signed delta (+ inbound / - outbound / signed adjustment)
+    unit_cost: Decimal
+    reference_doc_type: str    # e.g., 'Purchase Order', 'Sales Invoice', 'Stock Transfer'
+    reference_doc_id: str
+    source_module: str         # POS, Sales, Purchase, Transfer, StockAudit, WMS
+    tenant_id: str
+    company_id: str
+    branch_id: str
+    performed_by: Optional[str]
+    performed_at: datetime
+    metadata: Dict[str, Any]   # Optional extra attributes (batch, serial, bin)
+```
+
+### 3.3 Public Contract Stability & Compatibility Matrix
+
+| Interface / Contract | Stability | Introduced | SemVer Target |
+|----------------------|:---------:|:----------:|:-------------:|
+| `InventoryQueryFacade` | **Stable** | v1.0.0 | Guarantees backwards compatibility |
+| `InventoryCommandFacade` | **Stable** | v1.0.0 | Guarantees backwards compatibility |
+| `InventoryStateDTO` | **Stable** | v1.0.0 | Frozen schema — no field deletion/renaming |
+| `ProductAvailabilityDTO` | **Stable** | v1.0.0 | Frozen schema — no field deletion/renaming |
+| `ReservationResultDTO` | **Stable** | v1.0.0 | Frozen schema — no field deletion/renaming |
+| `StockMovementEvent` | **Stable** | v1.0.0 | Frozen canonical event contract |
+| `MovementTypeRegistry.register_provider()` | **Stable** | v1.0.0 | Industry SDK extension entry point |
 
 ---
 
@@ -381,8 +419,8 @@ MovementTypeRegistry.register_provider(MedicalMovementProvider())
 
 | Phase | Subsystem Focus | Status | Key Deliverable |
 |---|---|---|---|
-| **Phase 1** | Inventory Kernel v1.0.0 | ✅ **FROZEN** | Subsystem Exit Gate Passed — Rules 0–5, CQRS Facades & DTO Spec Sealed |
-| **Phase 2** | SI_001 Integration | 🔄 **NEXT PRIORITY** | Sales consumes Availability ──► Reservation ──► State Engine ──► Movement ──► Invoice/Dispatch |
+| **Phase 1** | Inventory Kernel v1.0.0 | ✅ **FROZEN** | Subsystem Exit Gate Passed — Rules 0–5, Event Schema & Stability Matrix Sealed |
+| **Phase 2** | SI_001 Integration | 🔄 **NEXT PRIORITY** | Sales consumes `InventoryQueryFacade` & `InventoryCommandFacade` |
 | **Phase 3** | SDK Stabilization | 🔄 Next | Industry Pack extension contracts sealed (v1.0.0) |
 | **Phase 4** | Inventory 360 Workspace | ⏳ Future | Pure read-only UI consumer workspace |
 | **GA Prep** | Continuous Health Check & Recovery Verification | ⏳ Future | Automated background reconciliation & `stock_movements` rebuild verification test |
