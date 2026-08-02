@@ -37,6 +37,7 @@ async def _make_certified_product(db_session, tenant_ctx, stock=100):
         uuid=str(uuid.uuid4()),
         code=sku,
         sku=sku,
+        barcode=f"BC-{uuid.uuid4().hex[:6].upper()}",
         category="General",
         name="Certification Test Product",
         stock=Decimal(str(stock)),
