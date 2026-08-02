@@ -43,11 +43,19 @@
 > from `InventoryStateEngine` or its facade (`InventoryAvailabilityService` / `InventoryReservationService`).
 > No consumer module (POS, Sales, Purchase, WMS, Mobile, SDKs) may independently calculate stock availability.
 
+> [!IMPORTANT]
+> **Platform Rule #5 — Deterministic State Calculation**
+> Given identical `StockMovement` records + identical `reserved_stock` commitments + identical `MovementTypeRegistry`,
+> `InventoryStateEngine` MUST always produce 100% identical state outputs.
+> No timestamps, cache evaluation order, API request sequencing, or UI state may introduce non-determinism into inventory state calculation.
+
 ---
 
-## Architecture Layers
+## Architecture Layers & Functional Separation
 
-The Inventory Kernel explicitly separates state into three isolated conceptual layers:
+The SMRITI Platform strictly separates inventory calculation into three isolated data layers and three functional engine tiers:
+
+### Data Layers
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -66,6 +74,23 @@ The Inventory Kernel explicitly separates state into three isolated conceptual l
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
+### Functional Engine Tiers
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│ Tier 1: Inventory State Engine (Facts & State Calculation)            │
+│   • Pure state evaluation (On Hand, Reserved, In Transit, etc.)        │
+│   • Never makes business decisions or routing choices                  │
+├────────────────────────────────────────────────────────────────────────┤
+│ Tier 2: Inventory Availability Service (ATP & Commitment Rules)       │
+│   • Applies reservation rules and evaluates Commercial Availability    │
+├────────────────────────────────────────────────────────────────────────┤
+│ Tier 3: Inventory Decision Engine (RC3 Fulfillment & Routing)         │
+│   • Business questions: warehouse fulfillment routing, split shipments,│
+│     marketplace priority, FIFO vs FEFO batching, SKU substitution       │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## Engine Hierarchy
@@ -77,9 +102,11 @@ trg_inventory_state_reconciliation (DB Trigger)
         ↓
 products.stock (Layer 1: Physical On-Hand Ledger)
         ↓
-InventoryStateEngine (Canonical State Surface — Layer 1 & 2)
+InventoryStateEngine (Tier 1: Fact Calculation Surface)
         ↓
-InventoryAvailabilityService & InventoryReservationService (Layer 3: Commercial Availability)
+InventoryAvailabilityService & InventoryReservationService (Tier 2: Commercial Availability & Commitments)
+        ↓
+InventoryDecisionEngine (Tier 3: RC3 Order Routing & Fulfillment — Optional Facade)
         ↓
 Consumers (POS, Sales, Purchase, Transfer, WMS, Industry SDKs)
 ```
@@ -233,7 +260,7 @@ MovementTypeRegistry.register_provider(MedicalMovementProvider())
 
 | Phase | Subsystem Focus | Status | Key Deliverable |
 |---|---|---|---|
-| **Phase 1** | Inventory Kernel | ✅ **FROZEN** | Subsystem Exit Gate Passed — Rules 0–4 Sealed |
+| **Phase 1** | Inventory Kernel | ✅ **FROZEN** | Subsystem Exit Gate Passed — Rules 0–5 Sealed |
 | **Phase 2** | SI_001 Integration | 🔄 **NEXT PRIORITY** | Sales consumes Availability ──► Reservation ──► State Engine |
 | **Phase 3** | SDK Stabilization | 🔄 Next | Industry Pack extension contracts sealed |
 | **Phase 4** | Inventory 360 Workspace | ⏳ Future | Pure read-only UI consumer workspace |
