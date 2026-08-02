@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import TenantContext
 from app.models.tenant import Branch
-from app.models.inventory import Product, StockTransfer, StockTransferItem, StockTransferShipment
+from app.models.inventory import Product, StockTransfer, StockTransferItem, StockTransferShipment, StockMovement
 
 
 class StockTransferEngine:
@@ -188,8 +188,26 @@ class StockTransferEngine:
             p_stmt = select(Product).where(Product.id == item.product_id)
             product = (await self.db.execute(p_stmt)).scalars().first()
             if product:
-                product.stock = product.stock - int(Decimal(str(item.requested_qty)))
-                self.db.add(product)
+                # RC2 Rule #1: Create StockMovement TRANSFER_OUT; trigger updates product.stock
+                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+                sm = StockMovement(
+                    id=movement_id,
+                    uuid=str(uuid.uuid4()),
+                    product_id=product.id,
+                    product_name=product.name,
+                    sku=product.sku or product.code,
+                    quantity=-int(Decimal(str(item.requested_qty))),
+                    movement_type="TRANSFER_OUT",
+                    reference_doc_type="Stock Transfer Order",
+                    reference_doc_id=transfer_id,
+                    warehouse="Source Branch",
+                    unit_cost=product.cost_price or product.price,
+                    remarks=f"Stock transfer dispatch order: {transfer_id}",
+                    source_module="Transfer",
+                    company_id=self.tenant.company_id,
+                    branch_id=self.tenant.branch_id,
+                )
+                self.db.add(sm)
 
             item.shipped_qty = item.requested_qty
             item.status = "Shipped"
@@ -254,8 +272,26 @@ class StockTransferEngine:
             p_stmt = select(Product).where(Product.id == item.product_id)
             product = (await self.db.execute(p_stmt)).scalars().first()
             if product:
-                product.stock = product.stock + int(rcv_qty)
-                self.db.add(product)
+                # RC2 Rule #1: Create StockMovement TRANSFER_IN; trigger updates product.stock
+                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+                sm = StockMovement(
+                    id=movement_id,
+                    uuid=str(uuid.uuid4()),
+                    product_id=product.id,
+                    product_name=product.name,
+                    sku=product.sku or product.code,
+                    quantity=int(rcv_qty),
+                    movement_type="TRANSFER_IN",
+                    reference_doc_type="Stock Transfer Order",
+                    reference_doc_id=transfer_id,
+                    warehouse="Destination Branch",
+                    unit_cost=product.cost_price or product.price,
+                    remarks=f"Stock transfer receipt order: {transfer_id}",
+                    source_module="Transfer",
+                    company_id=self.tenant.company_id,
+                    branch_id=self.tenant.branch_id,
+                )
+                self.db.add(sm)
 
         transfer.status = "Received"
         self.db.add(transfer)

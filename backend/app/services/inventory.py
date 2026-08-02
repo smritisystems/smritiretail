@@ -168,15 +168,9 @@ class InventoryService:
         if product.tracking_mode == "No-stock":
             return
 
-        # Update product stock
-        if movement_type == "IN":
-            product.stock += int(quantity)
-        elif movement_type == "OUT":
-            product.stock -= int(quantity)
-        elif movement_type == "ADJUSTMENT":
-            product.stock += int(quantity) # Quantity can be negative for adjustments
-        
-        self.db.add(product)
+        # RC2 Rule #1: products.stock is updated exclusively by
+        # trg_inventory_state_reconciliation via the StockMovement
+        # INSERT below. Direct mutation removed.
 
         # Create StockMovement record
         movement = StockMovement(
