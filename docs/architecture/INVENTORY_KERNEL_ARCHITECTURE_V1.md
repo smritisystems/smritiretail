@@ -41,56 +41,75 @@ It is a **Unified Enterprise Platform Kernel**, structured into Core Orchestrato
 ================================ PLATFORM SERVICES ===============================
   • Replay Engine                               • Audit Engine
   • Valuation Engine                            • Inventory Event Bus (v1)
+  • Inventory Ledger & Snapshots                • Cost Layer Ledger
 ==================================================================================
   • (v2 Future Capability: Inventory Forecast Engine - IFE)
 ```
 
 ---
 
-## 1. Document Lifecycle & Workflow Orchestration Pipeline
+## 1. Immutable Ledgers, Snapshots & Posting Profiles
+
+### A. Immutable `InventoryLedger`
+The Movement Engine does not mutate balance tables directly. All movements append to an **immutable transactional `InventoryLedger`**. Current balances are derived projections from ledger entries.
+
+### B. Periodic `InventorySnapshot`
+For high-performance queries and fast replay, periodic snapshots (`DailySnapshot`, `MonthlySnapshot`) store balance states, allowing instant calculations without reading full ledger history.
+
+### C. Explicit `CostLayerLedger`
+Costing methods (FIFO, Moving Average, Specific Identification) write cost layers to a dedicated **`CostLayerLedger`**, keeping inventory valuation deterministic and auditable.
+
+### D. Declarative `DocumentPostingProfiles`
+
+| Document Type | Generated Ledger Movement Profile |
+|---|---|
+| `Purchase Receipt` | `Supplier Location ──► Warehouse Location` |
+| `Sales Invoice` | `Warehouse Location ──► Inventory Exit (TO = NULL)` |
+| `Inter-Branch Transfer` | `Warehouse A ──► Warehouse B` |
+| `Reliance Dispatch` | `Warehouse Location ──► Reliance DC Location` |
+| `Reliance Sale Report` | `Reliance DC Location ──► Inventory Exit (TO = NULL)` |
+
+---
+
+## 2. Dynamic Inventory Projections (`getProjectedStock`)
+
+The `InventoryQueryFacade v1` provides real-time projected stock for planning and replenishment:
+
+$$\text{ProjectedStock} = \text{On Hand} - \text{Reserved} + \text{Incoming PO} + \text{Transfer In} - \text{Transfer Out}$$
+
+---
+
+## 3. Internal Service Namespace Architecture (Modular Monolith Layout)
+
+To avoid over-segmentation and microservice complexity, the 20 kernel components are organized as clean internal namespaces within a single service container:
 
 ```text
-Business Module  ──►  Document Engine (IDE)  ──►  Workflow Engine (IWE)  ──►  ITEX  ──►  Movement Engine
+backend/app/services/inventory/
+  ├── document/         # IDE (Document Lifecycle)
+  ├── workflow/         # IWE (Workflow State Machine)
+  ├── transaction/      # ITEX (Transaction Directives)
+  ├── identity/         # IIE (Identity Resolution)
+  ├── movement/         # Movement Engine & InventoryLedger
+  ├── location/         # ILE (Locations) & INE (Network Topology)
+  ├── availability/     # Reservation & Availability Engines
+  ├── costing/          # ICE (Costing) & CostLayerLedger
+  ├── policy/           # IPE (Policies), ICOMP (Compliance), IRULE (Rules)
+  ├── visibility/       # IVE (Dashboards & KPIs)
+  └── facades/          # InventoryCommandFacade & InventoryQueryFacade
 ```
-
-- **Inventory Document Engine (IDE)**: Manages standard inventory document lifecycles (`TransferOrder`, `TransferReceipt`, `StockCount`, `StockAdjustment`, `Reservation`, `Allocation`, `ReplenishmentRequest`, `ReplenishmentSuggestion`, `GoodsIssue`, `GoodsReceipt`).
-- **Inventory Workflow Engine (IWE)**: Configurable document state transitions (`Draft ──► Pending ──► Approved ──► Picking ──► Packed ──► Dispatched ──► In Transit ──► Received ──► Completed`).
-- **Inventory Rules Engine (IRULE)**: Configurable business allocation & packaging rules (FEFO/FIFO allocation, minimum dispatch quantities, batch picking thresholds).
-
----
-
-## 2. Refined Scope: Inventory Compliance vs Business Compliance
-
-- **Inventory Compliance Engine (ICOMP)**: Focuses strictly on **inventory-level physical compliance** (Batch, Serial, Expiry, Quarantine, Cold Chain, Hazard Storage).
-- **External Layers**: Tax and legal compliance (GST, e-way bills, e-invoicing, import/export duties) belong strictly to Accounting, Sales, and Legal platform layers.
-
----
-
-## 3. Ten-Step Executable Implementation Sequence
-
-1. **Phase 1 Data Model**: Build `InventoryLocation`, `InventoryMovement`, `InventoryDocument`, `Reservation`, `Allocation`.
-2. **Public Platform APIs**: Implement `InventoryCommandFacade v1` and `InventoryQueryFacade v1`.
-3. **Core Transaction Engine**: Build `InventoryTransactionEngine (ITEX)`.
-4. **Physical Movement Engine**: Build `InventoryMovementEngine`.
-5. **Location & Network Engine**: Build `InventoryLocationEngine (ILE)` and `InventoryNetworkEngine (INE)`.
-6. **Reservation & Availability Engine**: Build `ReservationEngine` and `AvailabilityEngine`.
-7. **Event Infrastructure**: Deploy `InventoryEventBus (v1)`.
-8. **Costing & Valuation Engine**: Build `InventoryCostingEngine (ICE)` and `ValuationEngine`.
-9. **Visibility Dashboards**: Build `InventoryVisibilityEngine (IVE)` real-time dashboards.
-10. **Consumer Domain Migration**: Migrate Sales ──► Purchase ──► POS ──► Marketplace ──► Partner/Retail Chain workflows to facade APIs.
 
 ---
 
 ## 4. Five Immutable Architectural Rules
 
 ### Rule 1: ITEX Single Entry Rule
-Only the **Inventory Transaction Engine (ITEX)** can orchestrate and create inventory movement directives. Consumer business modules (Sales, Purchase, POS, WMS, Marketplace) MUST NOT directly insert stock movements.
+Only the **Inventory Transaction Engine (ITEX)** can orchestrate and create inventory movement directives. Consumer business modules MUST NOT directly insert stock movements.
 
 ### Rule 2: Single Balance Mutator Rule
-Only the **Inventory Movement Engine** changes physical stock balances. No other module, service, or script is permitted to update stock quantities directly.
+Only the **Inventory Movement Engine** changes physical stock balances via `InventoryLedger`. No other module is permitted to update stock quantities.
 
 ### Rule 3: Derived Availability Rule
-Available-to-Promise (ATP) stock is NEVER stored as a static column. It is ALWAYS dynamically derived:
+Available-to-Promise (ATP) stock is ALWAYS dynamically derived:
 $$\text{Available} = \text{On Hand} - \text{Reserved} - \text{Blocked} - \text{Allocated}$$
 
 ### Rule 4: Derived Network Aggregation Rule
@@ -98,7 +117,7 @@ Network Stock is NEVER stored as a separate total field. It is ALWAYS dynamicall
 $$\text{NetworkStock}(\text{SKU}) = \sum_{i \in \text{Locations}} \text{LocationBalance}(\text{SKU}, i)$$
 
 ### Rule 5: Valuation & Costing Isolation Rule
-Inventory Engine owns quantity. Costing Engine owns cost. Valuation Engine combines both:
+Inventory Engine owns quantity. Costing Engine owns cost layers. Valuation Engine combines both:
 $$\text{Inventory Value} = \text{Quantity} \times \text{Unit Cost}$$
 
 ---
