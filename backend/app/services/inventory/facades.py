@@ -36,7 +36,10 @@ from .state_engine import InventoryStateService
 from .availability_engine import InventoryAvailabilityService
 from .reservation_engine import InventoryReservationService
 from .trace_engine import InventoryTraceService
-from .timeline_engine import InventoryTimelineService
+from .locks.lock_engine import InventoryLockEngine
+from .idempotency.idempotency_service import PlatformIdempotencyService
+from .timeline.timeline_service import TimelineEngine
+from .checkpoint.checkpoint_engine import InventoryCheckpointEngine
 
 
 class InventoryQueryFacade:
@@ -50,7 +53,9 @@ class InventoryQueryFacade:
         self.state_service = InventoryStateService(db, tenant_ctx)
         self.availability_service = InventoryAvailabilityService(db, tenant_ctx)
         self.trace_service = InventoryTraceService(db, tenant_ctx)
-        self.timeline_service = InventoryTimelineService(db, tenant_ctx)
+        self.timeline_engine = TimelineEngine(db, tenant_ctx)
+        self.lock_engine = InventoryLockEngine(db, tenant_ctx)
+        self.checkpoint_engine = InventoryCheckpointEngine(db, tenant_ctx)
 
     async def get_canonical_state(self, product_id: str) -> Dict[str, Any]:
         return await self.state_service.get_product_state(product_id)
@@ -81,8 +86,44 @@ class InventoryQueryFacade:
             stmt = stmt.where(ReservationLedgerEntry.location_id == location_id)
         res = await self.db.execute(stmt)
         reserved = Decimal(str(res.scalar() or 0))
-        available = max(Decimal("0.0000"), on_hand - reserved)
+        locked = await self.lock_engine.get_active_locked_quantity(product_id, location_id)
+        available = max(Decimal("0.0000"), on_hand - reserved - locked)
         return float(available)
+
+    async def get_timeline(
+        self,
+        product_id: Optional[str] = None,
+        sku: Optional[str] = None,
+        batch_no: Optional[str] = None,
+        serial_no: Optional[str] = None,
+        location_id: Optional[str] = None,
+        document_no: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        return await self.timeline_engine.get_timeline(
+            product_id=product_id,
+            sku=sku,
+            batch_no=batch_no,
+            serial_no=serial_no,
+            location_id=location_id,
+            document_no=document_no,
+            limit=limit,
+        )
+
+    async def get_latest_checkpoint(
+        self,
+        product_id: str,
+        location_id: str,
+    ) -> Optional[Any]:
+        return await self.checkpoint_engine.get_latest_checkpoint(product_id, location_id)
+
+    async def fast_replay_balance(
+        self,
+        product_id: str,
+        location_id: Optional[str] = None,
+    ) -> float:
+        bal = await self.checkpoint_engine.fast_replay_balance(product_id, location_id)
+        return float(bal)
 
     async def get_network_stock(self, product_id: str) -> Dict[str, Any]:
         """
@@ -135,6 +176,9 @@ class InventoryCommandFacade:
         self.tenant_ctx = tenant_ctx
         self.itex_engine = InventoryTransactionEngine(db, tenant_ctx)
         self.reservation_service = InventoryReservationService(db, tenant_ctx)
+        self.lock_engine = InventoryLockEngine(db, tenant_ctx)
+        self.idempotency_service = PlatformIdempotencyService(db, tenant_ctx)
+        self.checkpoint_engine = InventoryCheckpointEngine(db, tenant_ctx)
 
     async def move_inventory(
         self,
@@ -171,6 +215,56 @@ class InventoryCommandFacade:
             qty=qty,
             reservation_type=reference_doc,
             reservation_id=idempotency_key,
+        )
+
+    async def acquire_lock(
+        self,
+        lock_type: str,
+        lock_scope: str,
+        target_id: str,
+        reason: str,
+        location_id: Optional[str] = None,
+        product_id: Optional[str] = None,
+        locked_qty: Decimal = Decimal("0.0000"),
+        effective_until: Optional[datetime] = None,
+    ):
+        return await self.lock_engine.acquire_lock(
+            lock_type=lock_type,
+            lock_scope=lock_scope,
+            target_id=target_id,
+            reason=reason,
+            location_id=location_id,
+            product_id=product_id,
+            locked_qty=locked_qty,
+            effective_until=effective_until,
+        )
+
+    async def release_lock(
+        self,
+        lock_id_or_code: str,
+        released_by: str,
+        release_reason: str,
+    ):
+        return await self.lock_engine.release_lock(
+            lock_id_or_code=lock_id_or_code,
+            released_by=released_by,
+            release_reason=release_reason,
+        )
+
+    async def create_checkpoint(
+        self,
+        product_id: str,
+        location_id: str,
+        certified_on_hand: Decimal,
+        last_entry_id: str,
+        unit_cost: Decimal = Decimal("0.00"),
+    ):
+        return await self.checkpoint_engine.create_checkpoint(
+            product_id=product_id,
+            location_id=location_id,
+            certified_on_hand=certified_on_hand,
+            last_entry_id=last_entry_id,
+            unit_cost=unit_cost,
         )
 
     async def issue_sale(

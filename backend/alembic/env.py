@@ -38,6 +38,9 @@ from app.models.inventory_kernel import (
     CostLayerLedgerEntry,
     InventorySnapshotRecord,
     DocumentPostingProfileRecord,
+    InventoryLockRecord,
+    PlatformIdempotencyRecord,
+    InventoryCheckpointRecord,
 )
 from app.models.sales import (
     SalesInvoice, SalesInvoiceItem,
@@ -166,6 +169,9 @@ def include_object(object, name, type_, reflected, compare_to):
             "cost_layer_ledger_entries",
             "inventory_snapshot_records",
             "document_posting_profiles",
+            "inventory_lock_records",
+            "platform_idempotency_records",
+            "inventory_checkpoint_records",
         ]
     return True
 

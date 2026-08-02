@@ -203,3 +203,63 @@ class DocumentPostingProfileRecord(RowSecuredMixin, BaseEntity):
     ownership_type      = Column(String(50), nullable=False, default="COMPANY")
     is_active           = Column(Boolean, nullable=False, default=True)
     description         = Column(Text, nullable=True)
+
+
+class InventoryLockRecord(RowSecuredMixin, BaseEntity):
+    """
+    InventoryLockRecord — Operational stock lock registry (Audit, Recall, Quarantine, Legal Hold).
+    Excluded from Available-to-Promise (ATP).
+    """
+    __tablename__ = "inventory_lock_records"
+
+    lock_code           = Column(String(100), nullable=False, unique=True, index=True)
+    lock_type           = Column(String(50), nullable=False, index=True) # CYCLE_COUNT, STOCK_AUDIT, QUALITY_HOLD, BATCH_RECALL, LEGAL_HOLD, QUARANTINE, PHYSICAL_DAMAGE, SYSTEM_MAINTENANCE
+    lock_scope          = Column(String(50), nullable=False, index=True) # LOCATION, BIN, SKU, BATCH, SERIAL
+    target_id           = Column(String(100), nullable=False, index=True) # Location ID, Bin ID, SKU, Batch No, or Serial No
+    location_id         = Column(String(50), ForeignKey("inventory_location_nodes.id", ondelete="RESTRICT"), nullable=True, index=True)
+    product_id          = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=True, index=True)
+    locked_qty          = Column(Numeric(12, 4), nullable=False, default=Decimal("0.0000"))
+    reason              = Column(Text, nullable=False)
+    status              = Column(String(30), nullable=False, default="ACTIVE", index=True) # ACTIVE, RELEASED, EXPIRED
+    effective_from      = Column(DateTime(timezone=True), nullable=False, index=True)
+    effective_until     = Column(DateTime(timezone=True), nullable=True)
+    released_by         = Column(String(50), nullable=True)
+    released_at         = Column(DateTime(timezone=True), nullable=True)
+    release_reason      = Column(Text, nullable=True)
+
+
+class PlatformIdempotencyRecord(RowSecuredMixin, BaseEntity):
+    """
+    PlatformIdempotencyRecord — Shared Platform Idempotency & Replay Protection Service.
+    Guarantees deduplication across POS offline sync, Marketplace retries, and API gateways.
+    """
+    __tablename__ = "platform_idempotency_records"
+
+    idempotency_key     = Column(String(128), nullable=False, unique=True, index=True)
+    request_hash        = Column(String(64), nullable=False, index=True)
+    source_system       = Column(String(50), nullable=False, index=True) # POS, MARKETPLACE_SHOPIFY, MARKETPLACE_AMAZON, EDI, API_GATEWAY
+    correlation_id      = Column(String(100), nullable=True, index=True)
+    external_reference  = Column(String(100), nullable=True, index=True)
+    response_payload    = Column(JSONB, nullable=True)
+    status              = Column(String(30), nullable=False, default="COMPLETED", index=True) # PROCESSING, COMPLETED, FAILED
+    expires_at          = Column(DateTime(timezone=True), nullable=True, index=True)
+
+
+class InventoryCheckpointRecord(RowSecuredMixin, BaseEntity):
+    """
+    InventoryCheckpointRecord — Certified Recovery Point Checkpoint Engine.
+    Enables high-performance fast-replay starting from the latest certified checkpoint.
+    """
+    __tablename__ = "inventory_checkpoint_records"
+
+    checkpoint_code     = Column(String(100), nullable=False, unique=True, index=True)
+    checkpoint_timestamp= Column(DateTime(timezone=True), nullable=False, index=True)
+    last_entry_id       = Column(String(50), ForeignKey("inventory_ledger_entries.id", ondelete="RESTRICT"), nullable=False, index=True)
+    location_id         = Column(String(50), ForeignKey("inventory_location_nodes.id", ondelete="RESTRICT"), nullable=False, index=True)
+    product_id          = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    sku                 = Column(String(100), nullable=False)
+    certified_on_hand   = Column(Numeric(12, 4), nullable=False)
+    certified_unit_cost = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
+    checksum            = Column(String(64), nullable=False)
+    is_certified        = Column(Boolean, nullable=False, default=True)
+
