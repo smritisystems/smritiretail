@@ -55,7 +55,7 @@ async def db_engine():
                     'IN', 'RETURN'
                 ];
                 physical_outbound text[] := ARRAY[
-                    'SALE', 'PURCHASE_RETURN', 'TRANSFER_OUT',
+                    'SALE', 'POS_SALE', 'PURCHASE_RETURN', 'TRANSFER_OUT',
                     'OUT', 'TRANSFER'
                 ];
                 physical_adjustment text[] := ARRAY['ADJUSTMENT'];
