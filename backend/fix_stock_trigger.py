@@ -1,3 +1,36 @@
+"""
+⛔  EMERGENCY RECOVERY TOOL — NOT PART OF STANDARD DEVELOPMENT WORKFLOW  ⛔
+===========================================================================
+
+DEPRECATION STATUS: FROZEN — Inventory Kernel v1.0 (RC2)
+
+This script patches the Inventory State reconciliation trigger directly
+against a live PostgreSQL database connection.
+
+CANONICAL WORKFLOW (mandatory for all environments)
+----------------------------------------------------
+  Alembic Migration  →  Database Trigger  →  Regression Tests
+
+  Always use Alembic migrations to evolve DB triggers:
+      alembic upgrade head
+
+WHEN THIS SCRIPT IS PERMITTED
+------------------------------
+  - Emergency production recovery ONLY when a migration cannot be run
+    (e.g., container failure, migration state corruption).
+  - Must be followed immediately by a proper Alembic migration that
+    codifies the same change.
+
+WHAT THIS SCRIPT MUST NEVER BE USED FOR
+-----------------------------------------
+  - Normal development iteration
+  - Testing trigger changes
+  - CI/CD pipeline steps
+  - Customer upgrade procedures
+
+See INVENTORY_KERNEL_V1.md — Platform Rule #2.
+"""
+
 import asyncio
 import asyncpg
 
