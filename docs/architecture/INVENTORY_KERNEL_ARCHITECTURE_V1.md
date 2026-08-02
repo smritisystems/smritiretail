@@ -11,15 +11,16 @@
 
 In SMRITI Retail OS, **inventory management** across owned warehouses, retail chains (Reliance, DMart, Croma), distributors, franchises, institutions, marketplaces (Amazon FC), goods in transit, and production lines is NOT a collection of separate modules.
 
-It is a **Unified Enterprise Platform Kernel**, structured into Core Orchestrators, Service Engines, Public Platform APIs, and Platform Infrastructure Services:
+It is a **Unified Enterprise Platform Kernel**, structured into Core Engines, Service Engines, Public Platform APIs, and Platform Infrastructure Services:
 
 ```text
                                INVENTORY KERNEL v1.0
 
 ================================== CORE ENGINES ==================================
-  • Inventory Transaction Engine (ITEX)         • Inventory Movement Engine
-  • Inventory Location Engine (ILE)             • Inventory Network Engine (INE)
-  • Reservation Engine                          • Availability Engine
+  • Inventory Transaction Engine (ITEX)         • Inventory Identity Engine (IIE)
+  • Inventory Movement Engine                   • Inventory Location Engine (ILE)
+  • Inventory Network Engine (INE)              • Reservation Engine
+  • Availability Engine
 ==================================================================================
                                          │
                                          ▼
@@ -30,14 +31,14 @@ It is a **Unified Enterprise Platform Kernel**, structured into Core Orchestrato
 ==================================================================================
                                          │
                                          ▼
-================================= PLATFORM APIS ==================================
-  • InventoryCommandFacade                      • InventoryQueryFacade
+================================= PUBLIC APIS v1 =================================
+  • InventoryCommandFacade v1                   • InventoryQueryFacade v1
 ==================================================================================
                                          │
                                          ▼
 ================================ PLATFORM SERVICES ===============================
   • Replay Engine                               • Audit Engine
-  • Valuation Engine                            • Inventory Event Bus
+  • Valuation Engine                            • Inventory Event Bus (v1)
 ==================================================================================
   • (v2 Future Capability: Inventory Forecast Engine - IFE)
 ```
@@ -47,15 +48,22 @@ It is a **Unified Enterprise Platform Kernel**, structured into Core Orchestrato
 ## 1. Core Engine Suite (Foundational Orchestration)
 
 1. **Inventory Transaction Engine (ITEX)**: Single entry orchestrator receiving all commercial business transactions (GRN, Invoice, POS, Transfer, Count) and converting them into atomic movement directives.
-2. **Inventory Movement Engine**: Executes atomic location-to-location stock movements.
-3. **Inventory Location Engine (ILE)**: Answers *"Where is inventory?"* (Locations, Balances, Node Hierarchy, Capacity, Status, Bins).
-4. **Inventory Network Engine (INE)**: Answers *"How inventory moves."* (Network Graph, Routes, Distance, Supply Paths, Parent/Child Routing).
-5. **Reservation Engine**: Manages ATP reservations and channel commitments.
-6. **Availability Engine**: Calculates real-time Available-to-Promise (ATP) stock.
+2. **Inventory Identity Engine (IIE)**: Centralized identity resolution answering *"What exactly is this inventory?"* (SKU, Batch, Serial Number, Lot, Size/Color Variant, UOM, Packaging, Barcode, RFID, Expiry, Manufacturing Date).
+3. **Inventory Movement Engine**: Executes atomic location-to-location stock movements.
+4. **Inventory Location Engine (ILE)**: Answers *"Where is inventory?"* (Locations, Balances, Node Hierarchy, Capacity, Status, Bins).
+5. **Inventory Network Engine (INE)**: Answers *"How inventory moves."* (Network Graph, Routes, Distance, Supply Paths, Parent/Child Routing).
+6. **Reservation Engine**: Manages ATP reservations and channel commitments.
+7. **Availability Engine**: Calculates real-time Available-to-Promise (ATP) stock.
 
 ---
 
-## 2. Service Engine Suite (Business Capabilities)
+## 2. Complete Execution Lifecycle Pipeline
+
+$$\text{Transaction} \xrightarrow{\text{ITEX}} \text{IIE (Identity)} \xrightarrow{\text{Movement}} \text{ILE (Location)} \xrightarrow{\text{Availability}} \text{Allocation} \xrightarrow{\text{Costing}} \text{Valuation} \xrightarrow{\text{Accounting}}$$
+
+---
+
+## 3. Service Engine Suite (Business Capabilities)
 
 1. **Inventory Visibility Engine (IVE)**: Answers *"What is the current real-time state?"* (Universal single-pane-of-glass dashboards & KPIs).
 2. **Inventory Allocation Engine (IAE)**: Answers *"Where should orders be fulfilled from?"* (FEFO/FIFO, nearest location, split fulfillment).
@@ -66,7 +74,7 @@ It is a **Unified Enterprise Platform Kernel**, structured into Core Orchestrato
 
 ---
 
-## 3. Public Platform Inventory Facades (`InventoryQueryFacade` & `InventoryCommandFacade`)
+## 4. Public Platform Inventory Facades v1.0.0
 
 Consumer business modules interact exclusively through stable public platform facades:
 
@@ -76,7 +84,7 @@ Consumer business modules interact exclusively through stable public platform fa
                   ┌──────────────────────┴──────────────────────┐
                   │                                             │
                   ▼                                             ▼
-       InventoryQueryFacade                           InventoryCommandFacade
+       InventoryQueryFacade v1                        InventoryCommandFacade v1
   • getStock()                                    • moveInventory()
   • getAvailable()                                • transferInventory()
   • getNetworkStock()                             • reserveInventory()
@@ -87,9 +95,21 @@ Consumer business modules interact exclusively through stable public platform fa
 
 ---
 
-## 4. Standard Business Inventory Documents
+## 5. Event Bus Architecture: Business vs Technical Events
 
-$$\text{Business Transaction} \xrightarrow{\text{ITEX}} \text{Inventory Document} \xrightarrow{\text{Movement}} \text{Event Bus} \xrightarrow{\text{Balance Update}}$$
+The **Inventory Event Bus (v1)** segregates domain events into external business events and internal technical events:
+
+### Business Events (Consumed by Accounting, CRM, Analytics, Notifications)
+`GoodsReceived` | `GoodsIssued` | `GoodsTransferred` | `GoodsSold` | `GoodsReturned` | `GoodsDamaged` | `GoodsExpired`
+
+### Internal Technical Events (Consumed within Inventory Kernel)
+`InventoryReserved` | `InventoryReleased` | `AllocationCreated` | `CountCompleted` | `CostCalculated` | `ValuationUpdated`
+
+---
+
+## 6. Standard Business Inventory Documents v1
+
+$$\text{Business Transaction} \xrightarrow{\text{ITEX}} \text{Inventory Document} \xrightarrow{\text{IIE}} \text{Movement} \xrightarrow{\text{Event Bus}} \text{Balance Update}$$
 
 | Document Type | Operational Purpose |
 |---|---|
@@ -104,7 +124,7 @@ $$\text{Business Transaction} \xrightarrow{\text{ITEX}} \text{Inventory Document
 
 ---
 
-## 5. Master Data vs Runtime State Isolation
+## 7. Master Data vs Runtime State Isolation
 
 ### Master Data (Static Configuration)
 - `InventoryLocation` (Master Node Definition)
@@ -124,18 +144,7 @@ $$\text{Business Transaction} \xrightarrow{\text{ITEX}} \text{Inventory Document
 
 ---
 
-## 6. Generic Inventory Event Bus (`InventoryEventBus`)
-
-```text
-  InventoryReceived               InventoryIssued                 InventoryTransferred
-  InventoryReserved               InventoryReleased               InventoryAdjusted
-  InventoryReturned               InventoryDamaged                InventoryExpired
-  InventoryCounted                InventoryAllocated              InventoryReplenishmentSuggested
-```
-
----
-
-## 7. Financial Ownership (`InventoryOwnership`)
+## 8. Financial Ownership (`InventoryOwnership`)
 
 | InventoryOwnership | Commercial Description | Accounting & Financial Treatment |
 |---|---|---|
@@ -149,7 +158,7 @@ $$\text{Business Transaction} \xrightarrow{\text{ITEX}} \text{Inventory Document
 
 ---
 
-## 8. Ten Disconnected Subsystems Replaced by Unified Architecture
+## 9. Ten Disconnected Subsystems Replaced by Unified Architecture
 
 1. ✅ Consignment Module
 2. ✅ Marketplace Stock Module
