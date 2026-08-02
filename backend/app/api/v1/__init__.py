@@ -29,6 +29,7 @@ from . import (
     docs,
     exchange,
     inventory,
+    inventory_state,
     inventory_trace,
     master_lookup,
     masters,

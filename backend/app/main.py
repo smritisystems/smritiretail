@@ -51,6 +51,7 @@ from .api.v1 import (
     exchange,
     health_flags,
     inventory,
+    inventory_state,
     inventory_trace,
     master_lookup,
     masters,
@@ -234,6 +235,8 @@ app.include_router(inventory.router, prefix=settings.API_V1_STR + "/inventory", 
 app.include_router(inventory.router, prefix=settings.API_V1_STR + "/products",       tags=["Products"])   # Dual-mounted route alias (Phase 2)
 app.include_router(inventory_trace.router, prefix=settings.API_V1_STR + "/inventory/trace", tags=["Inventory Trace"])  # Backward-compatible route
 app.include_router(inventory_trace.router, prefix=settings.API_V1_STR + "/inventory-trace", tags=["Inventory Trace"])  # Canonical trace route
+app.include_router(inventory_trace.router, prefix=settings.API_V1_STR + "/inventory-timeline", tags=["Inventory Timeline"])  # Timeline alias route
+app.include_router(inventory_state.router, prefix=settings.API_V1_STR + "/inventory-state", tags=["Inventory State Engine"])  # Canonical inventory state engine
 app.include_router(crm.router,       prefix=settings.API_V1_STR,                    tags=["CRM"])
 app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Canonical route (Phase 4A)
 app.include_router(sales_fulfillment.router, prefix=settings.API_V1_STR,                 tags=["Sales Orders & Outbound Fulfillment"])

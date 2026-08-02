@@ -64,3 +64,59 @@ async def get_sku_inventory_trace(
 ):
     svc = InventoryTraceService(db, tenant_ctx)
     return await svc.get_sku_trace(sku, limit=limit)
+
+
+@router.get(
+    "/timeline/{product_id}",
+    summary="Get a chronological inventory timeline for a product",
+)
+async def get_product_inventory_timeline(
+    product_id: str,
+    limit: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    svc = InventoryTraceService(db, tenant_ctx)
+    return await svc.get_product_timeline(product_id, limit=limit)
+
+
+@router.get(
+    "/timeline/sku",
+    summary="Get a chronological inventory timeline for a SKU",
+)
+async def get_sku_inventory_timeline(
+    sku: str = Query(..., min_length=1),
+    limit: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    svc = InventoryTraceService(db, tenant_ctx)
+    return await svc.get_sku_timeline(sku, limit=limit)
+
+
+@router.get(
+    "/search",
+    summary="Universal inventory search across SKU, batch, serial, invoice, GRN, PO, and related references",
+)
+async def search_inventory_universal(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    svc = InventoryTraceService(db, tenant_ctx)
+    return await svc.search(q, limit=limit)
+
+
+@router.get(
+    "/product/{product_id}/timeline",
+    summary="Alias timeline endpoint for inventory timeline route compatibility",
+)
+async def get_product_inventory_timeline_alias(
+    product_id: str,
+    limit: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    svc = InventoryTraceService(db, tenant_ctx)
+    return await svc.get_product_timeline(product_id, limit=limit)

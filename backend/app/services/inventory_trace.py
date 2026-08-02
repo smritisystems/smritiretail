@@ -19,6 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..api.deps import TenantContext
 from ..repositories.inventory import ProductRepository, StockMovementRepository
+from .inventory_timeline import InventoryTimelineService
+from .inventory_universal_search import InventoryUniversalSearchService
 
 
 class InventoryTraceService:
@@ -27,6 +29,8 @@ class InventoryTraceService:
         self.tenant_ctx = tenant_ctx
         self.product_repo = ProductRepository(db, tenant_ctx)
         self.stock_movement_repo = StockMovementRepository(db, tenant_ctx)
+        self.timeline_service = InventoryTimelineService(db, tenant_ctx)
+        self.universal_search_service = InventoryUniversalSearchService(db, tenant_ctx)
 
     async def get_product_trace(self, product_id: str, limit: int = 100):
         product = await self.product_repo.get(product_id)
@@ -39,3 +43,12 @@ class InventoryTraceService:
 
     async def get_sku_trace(self, sku: str, limit: int = 100):
         return await self.stock_movement_repo.get_by_sku(sku, limit=limit)
+
+    async def get_product_timeline(self, product_id: str, limit: int = 100):
+        return await self.timeline_service.get_product_timeline(product_id, limit=limit)
+
+    async def get_sku_timeline(self, sku: str, limit: int = 100):
+        return await self.timeline_service.get_sku_timeline(sku, limit=limit)
+
+    async def search(self, q: str, limit: int = 50):
+        return await self.universal_search_service.search(q, limit=limit)

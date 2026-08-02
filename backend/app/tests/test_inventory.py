@@ -389,3 +389,298 @@ async def test_inventory_trace_router_mount(db_session):
         assert ref_res.status_code == 200
         assert ref_res.json()[0]["reference_doc_type"] == "PO"
 
+
+@pytest.mark.asyncio
+async def test_inventory_movement_timeline_and_universal_search(db_session):
+    comp, br = await _make_tenant(db_session, "trace3")
+    tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
+
+    product = Product(
+        id="prod-trace-3",
+        code="PROD-TRACE-3",
+        name="Trace Product 3",
+        price=120.0,
+        stock=25,
+        category="General",
+        barcode="TRC-0003",
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    db_session.add(product)
+    await db_session.commit()
+
+    movements = [
+        StockMovement(
+            id="sm-trace-3-in",
+            uuid="trace-uuid-3-in",
+            product_id=product.id,
+            product_name=product.name,
+            sku="TRC-SKU-003",
+            quantity=10,
+            movement_type="IN",
+            reference_doc_type="GRN",
+            reference_doc_id="GRN-003",
+            warehouse="Main Warehouse",
+            batch="BATCH-003",
+            serial="SERIAL-003",
+            unit_cost=Decimal("110.00"),
+            remarks="Initial receipt",
+            user="tester",
+            device="unit-test",
+            branch=br.id,
+            source_module="purchase",
+            approval="Approved",
+            company_id=comp.id,
+            branch_id=br.id,
+        ),
+        StockMovement(
+            id="sm-trace-3-out",
+            uuid="trace-uuid-3-out",
+            product_id=product.id,
+            product_name=product.name,
+            sku="TRC-SKU-003",
+            quantity=3,
+            movement_type="OUT",
+            reference_doc_type="SALE",
+            reference_doc_id="INV-1003",
+            warehouse="Main Warehouse",
+            batch="BATCH-003",
+            serial="SERIAL-004",
+            unit_cost=Decimal("120.00"),
+            remarks="Sold to customer",
+            user="tester",
+            device="unit-test",
+            branch=br.id,
+            source_module="sales",
+            approval="Approved",
+            company_id=comp.id,
+            branch_id=br.id,
+        ),
+    ]
+    db_session.add_all(movements)
+    await db_session.commit()
+
+    from app.services.inventory_timeline import InventoryTimelineService
+
+    svc = InventoryTimelineService(db_session, tenant_ctx)
+    timeline = await svc.get_product_timeline(product.id)
+    assert len(timeline) == 2
+    assert timeline[0]["movement_type"] in {"IN", "OUT"}
+    assert timeline[0]["event_label"]
+
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        product_timeline = await ac.get(f"/api/v1/inventory-timeline/product/{product.id}")
+        assert product_timeline.status_code == 200
+        assert len(product_timeline.json()) >= 2
+
+        search = await ac.get("/api/v1/inventory-trace/search", params={"q": "INV-1003"})
+        assert search.status_code == 200
+        assert any(item["reference_doc_id"] == "INV-1003" for item in search.json())
+
+        search_sku = await ac.get("/api/v1/inventory-trace/search", params={"q": "TRC-SKU-003"})
+        assert search_sku.status_code == 200
+        assert any(item["sku"] == "TRC-SKU-003" for item in search_sku.json())
+
+
+@pytest.mark.asyncio
+async def test_inventory_state_engine_and_route(db_session):
+    comp, br = await _make_tenant(db_session, "state1")
+    tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
+
+    product = Product(
+        id="prod-state-1",
+        code="PROD-STATE-1",
+        name="State Product 1",
+        price=180.0,
+        stock=22,
+        reserved_stock=4,
+        category="General",
+        barcode="STATE-0001",
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    db_session.add(product)
+    await db_session.commit()
+
+    movements = [
+        StockMovement(
+            id="sm-state-1-in",
+            uuid="state-uuid-1-in",
+            product_id=product.id,
+            product_name=product.name,
+            sku="STATE-SKU-001",
+            quantity=12,
+            movement_type="IN",
+            reference_doc_type="GRN",
+            reference_doc_id="GRN-STATE-001",
+            warehouse="Main Warehouse",
+            batch="BATCH-STATE-001",
+            serial="SERIAL-STATE-001",
+            unit_cost=Decimal("150.00"),
+            remarks="Goods receipt",
+            user="tester",
+            device="unit-test",
+            branch=br.id,
+            source_module="purchase",
+            approval="Approved",
+            company_id=comp.id,
+            branch_id=br.id,
+        ),
+        StockMovement(
+            id="sm-state-1-out",
+            uuid="state-uuid-1-out",
+            product_id=product.id,
+            product_name=product.name,
+            sku="STATE-SKU-001",
+            quantity=5,
+            movement_type="OUT",
+            reference_doc_type="SALE",
+            reference_doc_id="INV-STATE-001",
+            warehouse="Main Warehouse",
+            batch="BATCH-STATE-001",
+            serial="SERIAL-STATE-002",
+            unit_cost=Decimal("170.00"),
+            remarks="Sales dispatch",
+            user="tester",
+            device="unit-test",
+            branch=br.id,
+            source_module="sales",
+            approval="Approved",
+            company_id=comp.id,
+            branch_id=br.id,
+        ),
+        StockMovement(
+            id="sm-state-1-transfer",
+            uuid="state-uuid-1-transfer",
+            product_id=product.id,
+            product_name=product.name,
+            sku="STATE-SKU-001",
+            quantity=3,
+            movement_type="TRANSFER",
+            reference_doc_type="TRANSFER",
+            reference_doc_id="TR-STATE-001",
+            warehouse="Transit Warehouse",
+            batch="BATCH-STATE-001",
+            serial="SERIAL-STATE-003",
+            unit_cost=Decimal("165.00"),
+            remarks="Transfer to store 2",
+            user="tester",
+            device="unit-test",
+            branch=br.id,
+            source_module="transfer",
+            approval="Approved",
+            company_id=comp.id,
+            branch_id=br.id,
+        ),
+    ]
+    db_session.add_all(movements)
+    await db_session.commit()
+
+    from app.services.inventory_state import InventoryStateService
+
+    svc = InventoryStateService(db_session, tenant_ctx)
+    state = await svc.get_product_state(product.id)
+    assert state["on_hand"] == 22
+    assert state["reserved"] == 4
+    assert state["available"] >= 0
+    assert state["in_transit"] >= 3
+
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get(f"/api/v1/inventory-state/product/{product.id}")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["on_hand"] == 22
+        assert body["reserved"] == 4
+        assert body["product_id"] == product.id
+
+
+@pytest.mark.asyncio
+async def test_inventory_360_workspace_service_and_route(db_session):
+    comp, br = await _make_tenant(db_session, "workspace1")
+    tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
+
+    product = Product(
+        id="prod-workspace-1",
+        code="PROD-WORKSPACE-1",
+        name="Workspace Product 1",
+        price=200.0,
+        stock=30,
+        reserved_stock=6,
+        category="General",
+        barcode="WS-0001",
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    db_session.add(product)
+    await db_session.commit()
+
+    movements = [
+        StockMovement(
+            id="sm-workspace-1-in",
+            uuid="workspace-uuid-1-in",
+            product_id=product.id,
+            product_name=product.name,
+            sku="WS-SKU-001",
+            quantity=15,
+            movement_type="IN",
+            reference_doc_type="GRN",
+            reference_doc_id="GRN-WS-001",
+            warehouse="Main Warehouse",
+            batch="BATCH-WS-001",
+            serial="SERIAL-WS-001",
+            unit_cost=Decimal("180.00"),
+            remarks="Goods receipt",
+            user="tester",
+            device="unit-test",
+            branch=br.id,
+            source_module="purchase",
+            approval="Approved",
+            company_id=comp.id,
+            branch_id=br.id,
+        ),
+        StockMovement(
+            id="sm-workspace-1-out",
+            uuid="workspace-uuid-1-out",
+            product_id=product.id,
+            product_name=product.name,
+            sku="WS-SKU-001",
+            quantity=5,
+            movement_type="OUT",
+            reference_doc_type="SALE",
+            reference_doc_id="INV-WS-001",
+            warehouse="Main Warehouse",
+            batch="BATCH-WS-001",
+            serial="SERIAL-WS-002",
+            unit_cost=Decimal("190.00"),
+            remarks="Sales dispatch",
+            user="tester",
+            device="unit-test",
+            branch=br.id,
+            source_module="sales",
+            approval="Approved",
+            company_id=comp.id,
+            branch_id=br.id,
+        ),
+    ]
+    db_session.add_all(movements)
+    await db_session.commit()
+
+    from app.services.inventory_360 import Inventory360Service
+
+    svc = Inventory360Service(db_session, tenant_ctx)
+    workspace = await svc.get_product_workspace(product.id)
+    assert workspace["product_id"] == product.id
+    assert workspace["state"]["on_hand"] == 30
+    assert workspace["timeline"][0]["product_id"] == product.id
+
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get(f"/api/v1/inventory-360/product/{product.id}")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["product_id"] == product.id
+        assert body["state"]["on_hand"] == 30
+        assert len(body["timeline"]) >= 2
+
