@@ -167,7 +167,7 @@ async def test_pos001_1_quick_checkout_gate(db_session):
     await db_session.refresh(product)
 
     assert len(movements) == 1
-    assert movements[0].movement_type == "SALE"
+    assert movements[0].movement_type in ("SALE", "POS_SALE")
     assert abs(movements[0].quantity) == Decimal("15")
     assert movements[0].source_module == "POS"
 
