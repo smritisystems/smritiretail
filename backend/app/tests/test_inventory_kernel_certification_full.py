@@ -25,6 +25,9 @@ from app.services.inventory.facades import InventoryCommandFacade, InventoryQuer
 from app.models.tenant import Company, Branch
 
 
+from app.db.session import active_tenant_ctx
+
+
 async def _setup_certified_tenant(db_session):
     company_id = f"co-cert-{uuid.uuid4().hex[:8]}"
     branch_id = f"br-cert-{uuid.uuid4().hex[:8]}"
@@ -35,6 +38,7 @@ async def _setup_certified_tenant(db_session):
     await db_session.flush()
 
     tenant_ctx = TenantContext(tenant_id="test-tenant", company_id=company_id, branch_id=branch_id)
+    active_tenant_ctx.set(tenant_ctx)
     return company_id, branch_id, tenant_ctx
 
 
