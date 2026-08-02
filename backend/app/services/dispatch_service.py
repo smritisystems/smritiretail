@@ -8,7 +8,7 @@
 import uuid
 from typing import Dict, Any, List, Optional
 from decimal import Decimal
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException
