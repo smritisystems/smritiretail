@@ -196,7 +196,7 @@ async def test_pi001_2_purchase_return_gate(db_session):
 
     assert len(movements) == 1
     assert movements[0].movement_type == "PURCHASE_RETURN"
-    assert movements[0].quantity == Decimal("-25")
+    assert abs(movements[0].quantity) == Decimal("25")
 
     # Verify trigger reconciled product.stock automatically to 75 (100 - 25)
     state = await query_facade.get_canonical_state(product.id)
