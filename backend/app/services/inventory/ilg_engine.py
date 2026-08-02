@@ -41,6 +41,27 @@ class InventoryLedgerEngine:
         self.db = db
         self.tenant_ctx = tenant_ctx
 
+    async def _ensure_location_node(self, loc_id: Optional[str]) -> None:
+        if not loc_id:
+            return
+        stmt = select(InventoryLocationNode.id).where(
+            InventoryLocationNode.id == loc_id,
+            InventoryLocationNode.company_id == self.tenant_ctx.company_id,
+        )
+        res = await self.db.execute(stmt)
+        if not res.scalar():
+            node = InventoryLocationNode(
+                id=loc_id,
+                uuid=str(uuid.uuid4()),
+                code=loc_id[:50],
+                name=loc_id[:200],
+                location_type="WAREHOUSE",
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+            )
+            self.db.add(node)
+            await self.db.flush()
+
     async def post_ledger_entry(
         self,
         transaction_id: str,
@@ -65,6 +86,9 @@ class InventoryLedgerEngine:
         """
         ts = int(datetime.now(timezone.utc).timestamp() * 1000)
         entry_no = f"ILG-{ts}-{uuid.uuid4().hex[:6].upper()}"
+
+        await self._ensure_location_node(from_location_id)
+        await self._ensure_location_node(to_location_id)
 
         entry = InventoryLedgerEntry(
             id=f"ILE-{uuid.uuid4().hex[:12]}",
