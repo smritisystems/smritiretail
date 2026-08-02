@@ -119,4 +119,5 @@ class InventoryTransactionEngine:
             )
             self.db.add(legacy_movement)
 
+        await self.db.flush()
         return ledger_entries
