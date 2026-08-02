@@ -565,27 +565,25 @@ class ConsignmentService:
             if product and product.tracking_mode != "No-stock":
                 # RC2 Rule #1: products.stock is updated exclusively by
                 # trg_inventory_state_reconciliation via StockMovement IN below.
-
-            # Record StockMovement IN
-            movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-            db_movement = StockMovement(
-                id=movement_id,
-                uuid=str(uuid.uuid4()),
-                product_id=item.product_id,
-                product_name=t_item.name,
-                sku=t_item.code,
-                quantity=float(qty), # positive for IN
-                movement_type="IN",
-                reference_doc_type="Consignment Return",
-                reference_doc_id=return_id,
-                warehouse="Default Warehouse",
-                unit_cost=product.cost_price if product else float(rate),
-                remarks=f"Unsold consignment stock returned by partner {return_in.partner_id}",
-                source_module="Consignment",
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id
-            )
-            self.db.add(db_movement)
+                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+                db_movement = StockMovement(
+                    id=movement_id,
+                    uuid=str(uuid.uuid4()),
+                    product_id=item.product_id,
+                    product_name=t_item.name,
+                    sku=t_item.code,
+                    quantity=float(qty), # positive for IN
+                    movement_type="IN",
+                    reference_doc_type="Consignment Return",
+                    reference_doc_id=return_id,
+                    warehouse="Default Warehouse",
+                    unit_cost=product.cost_price if product else float(rate),
+                    remarks=f"Unsold consignment stock returned by partner {return_in.partner_id}",
+                    source_module="Consignment",
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id
+                )
+                self.db.add(db_movement)
 
             line_total = (qty * rate).quantize(Decimal("0.01"))
             total_value += line_total
