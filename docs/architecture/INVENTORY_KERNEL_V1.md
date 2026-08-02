@@ -54,42 +54,85 @@
 
 ---
 
-## PART 2 — INVENTORY KERNEL PUBLIC CONTRACT (Frozen Interface v1.0.0)
+## PART 2 — INVENTORY KERNEL PUBLIC CONTRACT (Frozen Surface v1.0.0)
 
-> Every module inside SMRITI — including Sales (SI_001), Purchase, POS, WMS, Marketplace, Mobile, Reports, and Industry SDKs — MUST interact with inventory exclusively through these frozen public kernel interfaces. Bypassing these public contracts or invoking internal engine helpers directly is strictly prohibited.
+> Every module inside SMRITI — including Sales (SI_001), Purchase, POS, WMS, Marketplace, Mobile, Reports, and Industry SDKs — MUST interact with inventory exclusively through these frozen public facade interfaces. Bypassing these public contracts or invoking internal engine helpers directly is strictly prohibited.
+
+### Command Facade Surface (State Mutations & Commitments)
 
 ```python
-# ─────────────────────────────────────────────────────────────────────────────
-# SMRITI Inventory Kernel v1.0.0 Public Interface Surface
-# ─────────────────────────────────────────────────────────────────────────────
-
-class InventoryStateEngineFacade:
-    """Canonical State Query Interface"""
-    async def get_canonical_state(self, product_id: str) -> InventoryStateDTO: ...
-    async def get_warehouse_breakdown(self, product_id: str) -> List[WarehouseStockDTO]: ...
-
-class InventoryAvailabilityServiceFacade:
-    """Commercial Availability & ATP Query Interface"""
-    async def get_availability(self, product_id: str) -> ProductAvailabilityDTO: ...
-    async def can_fulfill(self, product_id: str, requested_qty: Decimal) -> FulfillmentCheckDTO: ...
-
-class InventoryReservationServiceFacade:
-    """Commitment & Allocation Management Interface"""
+class InventoryCommandFacade:
+    """Read/Write Mutations & Commitment Management"""
     async def reserve_stock(self, product_id: str, qty: Decimal, reference_doc: str) -> ReservationResultDTO: ...
     async def release_reservation(self, product_id: str, qty: Decimal, reference_doc: str) -> ReservationResultDTO: ...
+    async def create_movement(self, movement_in: StockMovementCreateDTO) -> StockMovementDTO: ...
+    async def create_transfer(self, transfer_in: StockTransferCreateDTO) -> StockTransferDTO: ...
+    async def reconcile_audit(self, count_id: str) -> StockAuditReconciliationDTO: ...
+```
 
-class InventoryTraceServiceFacade:
-    """Audit Trail & Ledger Movement Query Interface"""
+### Query Facade Surface (Facts, Availability & Audit)
+
+```python
+class InventoryQueryFacade:
+    """Read-Only Facts, Commercial Availability & Audit Ledger Queries"""
+    async def get_canonical_state(self, product_id: str) -> InventoryStateDTO: ...
+    async def get_warehouse_breakdown(self, product_id: str) -> List[WarehouseStockDTO]: ...
+    async def get_availability(self, product_id: str) -> ProductAvailabilityDTO: ...
+    async def can_fulfill(self, product_id: str, requested_qty: Decimal) -> FulfillmentCheckDTO: ...
     async def get_stock_movements(self, product_id: str, limit: int = 100) -> List[StockMovementDTO]: ...
-
-class InventoryTimelineServiceFacade:
-    """Temporal Historical State Interface"""
     async def get_stock_at_timestamp(self, product_id: str, as_of: datetime) -> InventoryStateDTO: ...
+```
+
+### Internal Classes Prohibited from External Consumption
+
+> [!CAUTION]
+> **Strict Encapsulation Warning:**
+> The following internal classes are **PRIVATE IMPLEMENTATION DETAILS** and MUST NEVER be imported or called outside `app.services.inventory`:
+> `InventoryStateEngine`, `MovementTypeRegistry`, `CoreMovementProvider`, `StateCalculator`, `WarehouseAggregator`.
+> Only `InventoryCommandFacade` and `InventoryQueryFacade` constitute the public API.
+
+---
+
+## PART 3 — FROZEN DATA CONTRACT SPECIFICATION (DTOs v1.0.0)
+
+```python
+@dataclass(frozen=True)
+class InventoryStateDTO:
+    product_id: str
+    on_hand: Decimal
+    reserved: Decimal
+    allocated: Decimal
+    available: Decimal
+    in_transit: Decimal
+    consignment_out: Decimal
+    consignment_in: Decimal
+    marketplace_reserved: Decimal
+    blocked: Decimal
+    damaged: Decimal
+    repair: Decimal
+    quality_hold: Decimal
+    return_pending: Decimal
+    as_of: datetime
+
+@dataclass(frozen=True)
+class ProductAvailabilityDTO:
+    product_id: str
+    available_qty: Decimal
+    is_orderable: bool
+    tracking_mode: str
+
+@dataclass(frozen=True)
+class ReservationResultDTO:
+    success: bool
+    product_id: str
+    reserved_qty: Decimal
+    remaining_available: Decimal
+    reference_doc: str
 ```
 
 ---
 
-## PART 3 — IMPLEMENTATION & GOVERNANCE POLICIES (Current Engine Binding)
+## PART 4 — IMPLEMENTATION & GOVERNANCE POLICIES (Current Engine Binding)
 
 > [!NOTE]
 > **Engineering Policy #1 — Alembic-Only Trigger Migration Policy**
@@ -143,8 +186,10 @@ The SMRITI Platform strictly separates inventory calculation into three isolated
 ├────────────────────────────────────────────────────────────────────────┤
 │ Tier 2: Inventory Availability & Reservation Services (ATP & Rules)   │
 │   • Applies reservation rules and evaluates Commercial Availability    │
-├────────────────────────────────────────────────────────────────────────┤
-│ Tier 3: Inventory Decision Engine (RC3 Fulfillment & Routing)         │
+└────────────────────────────────────────────────────────────────────────┘
+════════════════════════════ RC3 BOUNDARY ════════════════════════════════
+┌────────────────────────────────────────────────────────────────────────┐
+│ Tier 3: Inventory Decision Engine (RC3 Fulfillment & Order Routing)   │
 │   • Business questions: warehouse fulfillment routing, split shipments,│
 │     marketplace priority, FIFO vs FEFO batching, SKU substitution       │
 └────────────────────────────────────────────────────────────────────────┘
@@ -170,7 +215,9 @@ products.stock (Layer 1: Physical On-Hand Ledger)
 InventoryStateEngine (Tier 1: Fact Calculation Surface)
         │
         ▼
-InventoryAvailabilityService & InventoryReservationService (Tier 2: Commercial Availability & Commitments)
+InventoryQueryFacade & InventoryCommandFacade (Tier 2: Public Surface)
+        │
+     ════════════════════ RC3 BOUNDARY ════════════════════
         │
         ▼
 InventoryDecisionEngine (Tier 3: RC3 Order Routing & Fulfillment — Optional Facade)
@@ -290,7 +337,7 @@ Inventory State Engine. UI must never independently recalculate these values.
 | movement_type    | direction | affects_physical | affects_reservation | affects_channel | affects_transit | affects_inv_value | Category / Scope               | Notes                          |
 |------------------|:---------:|:----------------:|:-------------------:|:---------------:|:---------------:|:-----------------:|--------------------------------|--------------------------------|
 | RESERVE          |    +1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Reservation Engine             | Soft-reserve against SO        |
-| UNRESERVE        |    -1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Reservation Engine             | Release soft-reservation       |
+| UNRESERVE        |    -1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | Release soft-reservation       |
 | ALLOCATE         |    +1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | WMS Operational Event          | Hard-allocate to pick task     |
 | UNALLOCATE       |    -1     |        ❌         |          ✅          |        ❌        |        ❌        |        ❌          | WMS Operational Event          | Release hard-allocation        |
 | PICK             |     0     |        ❌         |          ❌          |        ❌        |        ❌        |        ❌          | WMS Operational Event          | WMS pick event audit           |
@@ -334,7 +381,7 @@ MovementTypeRegistry.register_provider(MedicalMovementProvider())
 
 | Phase | Subsystem Focus | Status | Key Deliverable |
 |---|---|---|---|
-| **Phase 1** | Inventory Kernel v1.0.0 | ✅ **FROZEN** | Subsystem Exit Gate Passed — Rules 0–5 & Public Contract Sealed |
+| **Phase 1** | Inventory Kernel v1.0.0 | ✅ **FROZEN** | Subsystem Exit Gate Passed — Rules 0–5, CQRS Facades & DTO Spec Sealed |
 | **Phase 2** | SI_001 Integration | 🔄 **NEXT PRIORITY** | Sales consumes Availability ──► Reservation ──► State Engine ──► Movement ──► Invoice/Dispatch |
 | **Phase 3** | SDK Stabilization | 🔄 Next | Industry Pack extension contracts sealed (v1.0.0) |
 | **Phase 4** | Inventory 360 Workspace | ⏳ Future | Pure read-only UI consumer workspace |
