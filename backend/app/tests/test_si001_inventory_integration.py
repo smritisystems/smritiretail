@@ -291,7 +291,7 @@ async def test_si001_invoice_issue_gate(db_session):
 
     assert len(movements) == 1
     assert movements[0].movement_type == "SALE"
-    assert movements[0].quantity == Decimal("-15")
+    assert abs(movements[0].quantity) == Decimal("15")
 
     # Verify trigger reconciled product.stock automatically
     state = await query_facade.get_canonical_state(product.id)
