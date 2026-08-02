@@ -4,9 +4,11 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import TenantContext
+from ...models.inventory import Product, StockMovement
 from .state_engine import InventoryStateService
 
 
@@ -34,6 +36,29 @@ class InventoryReservationService:
         if requested <= 0:
             raise HTTPException(status_code=400, detail="Reservation quantity must be greater than zero")
 
+        # Idempotency check: same reservation ID should not create duplicate reservations.
+        existing_reservation_result = await self.db.execute(
+            select(StockMovement).where(
+                StockMovement.product_id == product_id,
+                StockMovement.reference_doc_id == reservation_id,
+                StockMovement.reference_doc_type == reservation_type,
+                StockMovement.is_deleted.is_(False),
+            )
+        )
+        existing_reservation = existing_reservation_result.scalars().first()
+        if existing_reservation:
+            state = await self.state_engine.get_product_state(product_id)
+            available_after = self._to_decimal(state.get("available", 0))
+            return {
+                "product_id": product_id,
+                "reservation_type": reservation_type,
+                "reservation_id": reservation_id,
+                "reserved_qty": float(existing_reservation.quantity),
+                "available_after": float(available_after),
+                "on_hand": float(state.get("on_hand", 0)),
+                "status": "reserved",
+            }
+
         product = await self.state_engine._get_product_for_update(product_id)
         state = await self.state_engine.get_product_state(product_id)
         available = self._to_decimal(state.get("available", 0))
@@ -48,6 +73,21 @@ class InventoryReservationService:
         new_reserved = current_reserved + requested
         product.reserved_stock = new_reserved
         self.db.add(product)
+
+        reservation_movement = StockMovement(
+            product_id=product.id,
+            product_name=product.name,
+            sku=product.sku or product.code,
+            quantity=requested,
+            movement_type="RESERVE",
+            reference_doc_type=reservation_type,
+            reference_doc_id=reservation_id,
+            source_module="reservation",
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+        )
+        self.db.add(reservation_movement)
+
         await self.db.commit()
         await self.db.refresh(product)
 

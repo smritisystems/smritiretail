@@ -18,6 +18,7 @@ import pytest
 from decimal import Decimal
 from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.api.deps import TenantContext, get_db, get_tenant_context
@@ -955,10 +956,30 @@ async def test_inventory_reservation_rejects_negative_stock_without_changing_sta
     assert float(refreshed_product_after_api.stock) == 10
 
 
+async def _run_concurrent_reservations(db_engine, tenant_ctx, product_id, qty, reservation_ids):
+    from app.services.inventory_reservation import InventoryReservationService
+
+    async_session = async_sessionmaker(
+        bind=db_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+
+    async def _reserve(reservation_id):
+        async with async_session() as session:
+            service = InventoryReservationService(session, tenant_ctx)
+            try:
+                return await service.reserve(product_id, qty=qty, reservation_type="SO", reservation_id=reservation_id)
+            except HTTPException as exc:
+                return exc
+
+    tasks = [asyncio.create_task(_reserve(res_id)) for res_id in reservation_ids]
+    return await asyncio.gather(*tasks)
+
+
 @pytest.mark.asyncio
 async def test_inventory_concurrent_reservations_against_final_available_quantity(db_session, db_engine):
     from app.services.inventory_availability import InventoryAvailabilityService
-    from app.services.inventory_reservation import InventoryReservationService
 
     comp, br = await _make_tenant(db_session, "con1")
     tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
@@ -977,39 +998,103 @@ async def test_inventory_concurrent_reservations_against_final_available_quantit
     db_session.add(product)
     await db_session.commit()
 
-    # Create two independent sessions from the shared test engine to simulate concurrent reservations
-    async_session = async_sessionmaker(
-        bind=db_engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-    )
+    row_lock_statements: list[str] = []
 
-    async with async_session() as session_a, async_session() as session_b:
-        service_a = InventoryReservationService(session_a, tenant_ctx)
-        service_b = InventoryReservationService(session_b, tenant_ctx)
+    def _capture_for_update(conn, cursor, statement, parameters, context, executemany):
+        if "FOR UPDATE" in statement.upper():
+            row_lock_statements.append(statement)
 
-        async def try_reserve(service, reservation_id):
-            try:
-                return await service.reserve(product.id, qty=10, reservation_type="SO", reservation_id=reservation_id)
-            except HTTPException as exc:
-                return exc
-
-        results = await asyncio.gather(
-            try_reserve(service_a, "SO-CON-001"),
-            try_reserve(service_b, "SO-CON-002"),
+    event.listen(db_engine.sync_engine, "before_cursor_execute", _capture_for_update)
+    try:
+        results = await _run_concurrent_reservations(
+            db_engine,
+            tenant_ctx,
+            product.id,
+            qty=10,
+            reservation_ids=["SO-CON-001", "SO-CON-002"],
         )
+    finally:
+        event.remove(db_engine.sync_engine, "before_cursor_execute", _capture_for_update)
 
     successes = [r for r in results if isinstance(r, dict) and r.get("status") == "reserved"]
     failures = [r for r in results if isinstance(r, HTTPException)]
 
     assert len(successes) == 1
     assert len(failures) == 1
+    assert any("FOR UPDATE" in stmt.upper() for stmt in row_lock_statements)
 
     product_id = product.id
     db_session.expire_all()
     updated_product = await db_session.get(Product, product_id)
     assert float(getattr(updated_product, "reserved_stock", 0)) == 10.0
     assert float(updated_product.stock) == 10
+
+    reservation_count = await db_session.execute(
+        select(StockMovement).where(
+            StockMovement.product_id == product_id,
+            StockMovement.reference_doc_type == "SO",
+            StockMovement.reference_doc_id.in_(["SO-CON-001", "SO-CON-002"]),
+            StockMovement.is_deleted.is_(False),
+        )
+    )
+    assert len(reservation_count.scalars().all()) == 1
+
+    available_after = await InventoryAvailabilityService(db_session, tenant_ctx).can_fulfill(product_id, warehouse_id="wh-main", qty=1)
+    assert available_after["can_fulfill"] is False
+
+
+@pytest.mark.asyncio
+async def test_inventory_high_contention_reservations_do_not_over_reserve(db_session, db_engine):
+    from app.services.inventory_availability import InventoryAvailabilityService
+
+    comp, br = await _make_tenant(db_session, "conhc")
+    tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
+
+    product = Product(
+        id="prod-con-hc-1",
+        code="PROD-CON-HC-1",
+        name="High Contention Reservation Product",
+        price=150.0,
+        stock=25,
+        category="General",
+        barcode="HCCON-0001",
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    db_session.add(product)
+    await db_session.commit()
+
+    reservation_ids = [f"SO-HC-{i:03d}" for i in range(1, 51)]
+    results = await _run_concurrent_reservations(
+        db_engine,
+        tenant_ctx,
+        product.id,
+        qty=1,
+        reservation_ids=reservation_ids,
+    )
+
+    successes = [r for r in results if isinstance(r, dict) and r.get("status") == "reserved"]
+    failures = [r for r in results if isinstance(r, HTTPException)]
+
+    assert len(successes) == 25
+    assert len(failures) == 25
+    assert len({r["reservation_id"] for r in successes}) == 25
+    assert {r["reserved_qty"] for r in successes} == {1.0}
+
+    product_id = product.id
+    db_session.expire_all()
+    updated_product = await db_session.get(Product, product_id)
+    assert float(getattr(updated_product, "reserved_stock", 0)) == 25.0
+    assert float(updated_product.stock) == 25
+
+    reservation_movements = await db_session.execute(
+        select(StockMovement).where(
+            StockMovement.product_id == product_id,
+            StockMovement.reference_doc_type == "SO",
+            StockMovement.is_deleted.is_(False),
+        )
+    )
+    assert len(reservation_movements.scalars().all()) == 25
 
     available_after = await InventoryAvailabilityService(db_session, tenant_ctx).can_fulfill(product_id, warehouse_id="wh-main", qty=1)
     assert available_after["can_fulfill"] is False

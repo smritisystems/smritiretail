@@ -27,7 +27,7 @@ class Base(DeclarativeBase):
 class BaseEntity(Base):
     __abstract__ = True
 
-    id = Column(String(50), primary_key=True)
+    id = Column(String(50), primary_key=True, default=lambda: str(uuid_pkg.uuid4()))
     uuid = Column(String(36), default=lambda: str(uuid_pkg.uuid4()), unique=True, nullable=False)
     tenant_id = Column(String(50), nullable=True, index=True)
     company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True)
