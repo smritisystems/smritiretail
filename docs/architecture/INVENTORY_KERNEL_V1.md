@@ -5,7 +5,7 @@
 **Version:** 1.0  
 **Date:** 2026-08-02  
 **Owner:** Chief Systems Architect — Jawahar Ramkripal Mallah  
-**Classification:** Internal
+**Classification:** Internal Architecture Standard
 
 ---
 
@@ -49,6 +49,13 @@
 > `InventoryStateEngine` MUST always produce 100% identical state outputs.
 > No timestamps, cache evaluation order, API request sequencing, or UI state may introduce non-determinism into inventory state calculation.
 
+> [!IMPORTANT]
+> **Platform Rule #6 — Read Model Separation Invariant**
+> The Inventory State Engine and its calculation services MUST NEVER format, present, or aggregate state for specific UI components.
+> The Engine produces raw, canonical state objects exclusively (`{on_hand, reserved, allocated, available, in_transit, ...}`).
+> Consumers (Inventory 360, POS, Mobile, WMS, Reports) own their own presentation read models.
+> The kernel engine code NEVER changes to accommodate presentation or UI formatting requirements.
+
 ---
 
 ## Architecture Layers & Functional Separation
@@ -80,9 +87,9 @@ The SMRITI Platform strictly separates inventory calculation into three isolated
 ┌────────────────────────────────────────────────────────────────────────┐
 │ Tier 1: Inventory State Engine (Facts & State Calculation)            │
 │   • Pure state evaluation (On Hand, Reserved, In Transit, etc.)        │
-│   • Never makes business decisions or routing choices                  │
+│   • Never makes business decisions, formatting, or routing choices     │
 ├────────────────────────────────────────────────────────────────────────┤
-│ Tier 2: Inventory Availability Service (ATP & Commitment Rules)       │
+│ Tier 2: Inventory Availability & Reservation Services (ATP & Rules)   │
 │   • Applies reservation rules and evaluates Commercial Availability    │
 ├────────────────────────────────────────────────────────────────────────┤
 │ Tier 3: Inventory Decision Engine (RC3 Fulfillment & Routing)         │
@@ -93,22 +100,37 @@ The SMRITI Platform strictly separates inventory calculation into three isolated
 
 ---
 
-## Engine Hierarchy
+## Complete Kernel Engine Topology
 
 ```text
-StockMovement
-        ↓
+               SMRITI Inventory Kernel
+────────────────────────────────────────────────────────
+
+StockMovement Ledger (Immutable Audit Log)
+        │
+        ▼
 trg_inventory_state_reconciliation (DB Trigger)
-        ↓
+        │
+        ▼
 products.stock (Layer 1: Physical On-Hand Ledger)
-        ↓
+        │
+        ▼
 InventoryStateEngine (Tier 1: Fact Calculation Surface)
-        ↓
+        │
+        ▼
 InventoryAvailabilityService & InventoryReservationService (Tier 2: Commercial Availability & Commitments)
-        ↓
+        │
+        ▼
 InventoryDecisionEngine (Tier 3: RC3 Order Routing & Fulfillment — Optional Facade)
-        ↓
-Consumers (POS, Sales, Purchase, Transfer, WMS, Industry SDKs)
+        │
+        ▼
+Read Models & Consumer Systems (Layer 3 & UI)
+  ├── Sales / POS / Purchase
+  ├── Warehouse / WMS
+  ├── Marketplace Channels
+  ├── Inventory 360 Workspace
+  ├── Mobile & Web Apps
+  └── Industry SDKs & Reports
 ```
 
 ```text
@@ -260,7 +282,7 @@ MovementTypeRegistry.register_provider(MedicalMovementProvider())
 
 | Phase | Subsystem Focus | Status | Key Deliverable |
 |---|---|---|---|
-| **Phase 1** | Inventory Kernel | ✅ **FROZEN** | Subsystem Exit Gate Passed — Rules 0–5 Sealed |
+| **Phase 1** | Inventory Kernel | ✅ **FROZEN** | Subsystem Exit Gate Passed — Rules 0–6 Sealed |
 | **Phase 2** | SI_001 Integration | 🔄 **NEXT PRIORITY** | Sales consumes Availability ──► Reservation ──► State Engine |
 | **Phase 3** | SDK Stabilization | 🔄 Next | Industry Pack extension contracts sealed |
 | **Phase 4** | Inventory 360 Workspace | ⏳ Future | Pure read-only UI consumer workspace |
