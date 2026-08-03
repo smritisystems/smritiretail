@@ -118,10 +118,11 @@ To enable horizontal worker scaling without duplicate cron execution:
 
 ---
 
-## 6. SPD Architecture Compliance & Mandatory Binary Certification Gates
+## 6. SPD Architecture Compliance, Mandatory Binary Gates & Drift Detection
 
-Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** evaluates total runtime governance compliance producing a weighted **Architecture Compliance Score (100%)** alongside **Strict Mandatory Binary Certification Gates**:
+Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** evaluates total runtime governance compliance producing a weighted **Architecture Compliance Score (100%)**, enforcing **Strict Mandatory Binary Certification Gates**, and executing continuous **Architecture Drift Detection**:
 
+### A. Mandatory Binary Certification Gates
 | Compliance Category | Weight | Mandatory Binary Gate | Pass Threshold |
 |---|---|---|---|
 | **Constitution Compliance** | **20%** | Gate 1: 7-Layer Topology & Precedence | 100% (PASS Required) |
@@ -132,14 +133,22 @@ Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagno
 | **Dependency Integrity** | **15%** | Graph resolution & `dependency_graph_hash` | 100% |
 | **Health & Observability**| **10%** | Health levels & OpenTelemetry export | 100% |
 
-> **Certification Rule:** If ANY Mandatory Binary Gate fails, Certification Status is `REJECTED (UNCERTIFIED)` regardless of score. Enterprise Certification requires 100% Gate Pass.
+### B. SPD Architecture Drift Detection Engine
+SPD compares the active runtime state against the frozen constitutional baseline:
+- **Container Drift:** Asserts zero unauthorized container modifications.
+- **Manifest Drift:** Validates manifest hashes against `platform.lock.yaml`.
+- **API Drift:** Detects unapproved facade API signature alterations.
+- **Dependency Drift:** Verifies resolved dependency graph match.
+- **Registry Drift:** Audits UPR registry definitions.
+- **Security Drift:** Verifies Ed25519 key IDs and CRL status.
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
- │ SMRITI PLATFORM COMPLIANCE REPORT                                      │
+ │ SMRITI PLATFORM COMPLIANCE & DRIFT REPORT                             │
  ├────────────────────────────────────────────────────────────────────────┤
  │ Overall Compliance Score : 100.0%                                      │
  │ Mandatory Binary Gates   : 5/5 PASSED                                  │
+ │ Architecture Drift       : NO ARCHITECTURE DRIFT DETECTED              │
  │ Certification Status    : ENTERPRISE CERTIFIED (PRODUCTION READY)     │
  └────────────────────────────────────────────────────────────────────────┘
 ```
