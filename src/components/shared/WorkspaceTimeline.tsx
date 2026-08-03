@@ -1,31 +1,31 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
- * Module       : SXP v1.0 — WorkspaceTimeline Engine (SWEF P-005)
- * Standard     : SXP Constitution v1.0 / SWEF v1.0 — Certification Gate SXP-CS-005
+ * Module       : SXP v1.0 â€” WorkspaceTimeline Engine (SWEF P-005)
+ * Standard     : SXP Constitution v1.0 / SWEF v1.0 â€” Certification Gate SXP-CS-005
  * Author       : Jawahar Ramkripal Mallah
  * Version      : 1.0.0
  * Created      : 2026-08-03
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  *
  * GOVERNANCE (SWEF P-005):
  *   All timeline views MUST use WorkspaceTimeline.
  *   No custom timeline components are permitted in any studio.
  *
- * DESIGN: Single renderer — domain adapters supplied as props.
- *   Timeline entries always show PLAIN LANGUAGE — never ERP codes.
+ * DESIGN: Single renderer â€” domain adapters supplied as props.
+ *   Timeline entries always show PLAIN LANGUAGE â€” never ERP codes.
  *   "Purchase Receipt" not "ITEX_INWARD_MOVEMENT"
  */
 
 import React from "react";
 
-// ── Adapter Interface ─────────────────────────────────────────────────────────
+// â”€â”€ Adapter Interface â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface TimelineEntry {
   id: string;
-  /** Plain-language label — "Purchase Receipt", not "ITEX_INWARD_MOVEMENT" */
+  /** Plain-language label â€” "Purchase Receipt", not "ITEX_INWARD_MOVEMENT" */
   label: string;
-  /** Plain description — "25 units received from Nike India" */
+  /** Plain description â€” "25 units received from Nike India" */
   description?: string;
   timestamp: string;
   status: "completed" | "active" | "pending" | "failed";
@@ -41,17 +41,17 @@ export interface TimelineAdapter {
   getEntries(entityId: string, limit?: number): Promise<TimelineEntry[]>;
 }
 
-// ── Built-in Adapter Stubs ────────────────────────────────────────────────────
+// â”€â”€ Built-in Adapter Stubs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Inventory Studio wires real data to these adapters in Phase 3.
 
 export const InventoryTimelineAdapter: TimelineAdapter = {
   id: "inventory",
   async getEntries(entityId, limit = 10) {
-    // Placeholder — replaced by real API call in InventoryDashboardWorkspace
+    // Placeholder â€” replaced by real API call in InventoryDashboardWorkspace
     return ([
-      { id: "1", label: "Purchase Receipt", description: "25 units received", timestamp: new Date().toISOString(), status: "completed" as const, icon: "📦" },
-      { id: "2", label: "Transferred Out", description: "10 units to Branch 2", timestamp: new Date(Date.now() - 3600000).toISOString(), status: "completed" as const, icon: "🚚" },
-      { id: "3", label: "Reserved", description: "5 units reserved for Order #1042", timestamp: new Date(Date.now() - 7200000).toISOString(), status: "active" as const, icon: "🔒" },
+      { id: "1", label: "Purchase Receipt", description: "25 units received", timestamp: new Date().toISOString(), status: "completed" as const, icon: "ðŸ“¦" },
+      { id: "2", label: "Transferred Out", description: "10 units to Branch 2", timestamp: new Date(Date.now() - 3600000).toISOString(), status: "completed" as const, icon: "ðŸšš" },
+      { id: "3", label: "Reserved", description: "5 units reserved for Order #1042", timestamp: new Date(Date.now() - 7200000).toISOString(), status: "active" as const, icon: "ðŸ”’" },
     ] satisfies TimelineEntry[]).slice(0, limit);
   },
 };
@@ -60,9 +60,9 @@ export const SalesTimelineAdapter: TimelineAdapter = {
   id: "sales",
   async getEntries(_entityId, limit = 10) {
     return ([
-      { id: "1", label: "Quotation Sent", timestamp: new Date().toISOString(), status: "completed" as const, icon: "📄" },
-      { id: "2", label: "Order Confirmed", timestamp: new Date(Date.now() - 3600000).toISOString(), status: "completed" as const, icon: "✅" },
-      { id: "3", label: "Invoice Generated", timestamp: new Date(Date.now() - 7200000).toISOString(), status: "active" as const, icon: "🧾" },
+      { id: "1", label: "Quotation Sent", timestamp: new Date().toISOString(), status: "completed" as const, icon: "ðŸ“„" },
+      { id: "2", label: "Order Confirmed", timestamp: new Date(Date.now() - 3600000).toISOString(), status: "completed" as const, icon: "âœ…" },
+      { id: "3", label: "Invoice Generated", timestamp: new Date(Date.now() - 7200000).toISOString(), status: "active" as const, icon: "ðŸ§¾" },
     ] satisfies TimelineEntry[]).slice(0, limit);
   },
 };
@@ -71,8 +71,8 @@ export const PurchaseTimelineAdapter: TimelineAdapter = {
   id: "purchase",
   async getEntries(_entityId, limit = 10) {
     return ([
-      { id: "1", label: "Purchase Order Raised", timestamp: new Date().toISOString(), status: "completed" as const, icon: "📋" },
-      { id: "2", label: "Goods Receipt", timestamp: new Date(Date.now() - 3600000).toISOString(), status: "active" as const, icon: "🏭" },
+      { id: "1", label: "Purchase Order Raised", timestamp: new Date().toISOString(), status: "completed" as const, icon: "ðŸ“‹" },
+      { id: "2", label: "Goods Receipt", timestamp: new Date(Date.now() - 3600000).toISOString(), status: "active" as const, icon: "ðŸ­" },
     ] satisfies TimelineEntry[]).slice(0, limit);
   },
 };
@@ -81,17 +81,17 @@ export const WorkflowTimelineAdapter: TimelineAdapter = {
   id: "workflow",
   async getEntries(_entityId, limit = 10) {
     return ([
-      { id: "1", label: "Submitted for Approval", timestamp: new Date().toISOString(), status: "completed" as const, icon: "📤" },
-      { id: "2", label: "Under Review", timestamp: new Date(Date.now() - 1800000).toISOString(), status: "active" as const, icon: "👁" },
+      { id: "1", label: "Submitted for Approval", timestamp: new Date().toISOString(), status: "completed" as const, icon: "ðŸ“¤" },
+      { id: "2", label: "Under Review", timestamp: new Date(Date.now() - 1800000).toISOString(), status: "active" as const, icon: "ðŸ‘" },
     ] satisfies TimelineEntry[]).slice(0, limit);
   },
 };
 
 /**
- * POSTimelineAdapter — SXP-CS-009 (POS Studio timeline gate)
+ * POSTimelineAdapter â€” SXP-CS-009 (POS Studio timeline gate)
  * Shows bill-lifecycle events for a given bill ID.
  * Sprint 1: wired to /api/v1/pos/bills/{entityId}/timeline with stub fallback.
- * Plain language only — "Payment Collected" not "BILLING_PAYMENT_ENTRY"
+ * Plain language only â€” "Payment Collected" not "BILLING_PAYMENT_ENTRY"
  */
 
 interface POSTimelineAPIEntry {
@@ -103,10 +103,10 @@ interface POSTimelineAPIEntry {
 }
 
 const POS_STUB_ENTRIES = (entityId: string): TimelineEntry[] => [
-  { id: `${entityId}-1`, label: "New Bill Started", description: "Billing session opened at POS counter", timestamp: new Date(Date.now() - 600000).toISOString(), status: "completed", icon: "🧾" },
-  { id: `${entityId}-2`, label: "Items Scanned", description: "6 line items added to bill", timestamp: new Date(Date.now() - 300000).toISOString(), status: "completed", icon: "📷" },
-  { id: `${entityId}-3`, label: "Payment Collected", description: "₹3,450 received — UPI", timestamp: new Date(Date.now() - 60000).toISOString(), status: "completed", icon: "✅" },
-  { id: `${entityId}-4`, label: "Bill Printed", description: "Tax Invoice #SI-2026-00842 printed", timestamp: new Date().toISOString(), status: "active", icon: "🖨️" },
+  { id: `${entityId}-1`, label: "New Bill Started", description: "Billing session opened at POS counter", timestamp: new Date(Date.now() - 600000).toISOString(), status: "completed", icon: "ðŸ§¾" },
+  { id: `${entityId}-2`, label: "Items Scanned", description: "6 line items added to bill", timestamp: new Date(Date.now() - 300000).toISOString(), status: "completed", icon: "ðŸ“·" },
+  { id: `${entityId}-3`, label: "Payment Collected", description: "â‚¹3,450 received â€” UPI", timestamp: new Date(Date.now() - 60000).toISOString(), status: "completed", icon: "âœ…" },
+  { id: `${entityId}-4`, label: "Bill Printed", description: "Tax Invoice #SI-2026-00842 printed", timestamp: new Date().toISOString(), status: "active", icon: "ðŸ–¨ï¸" },
 ];
 
 export const POSTimelineAdapter: TimelineAdapter = {
@@ -123,16 +123,16 @@ export const POSTimelineAdapter: TimelineAdapter = {
         description: e.detail,
         timestamp: e.occurred_at,
         status: "completed" as const,
-        icon: e.icon ?? "🧾",
+        icon: e.icon ?? "ðŸ§¾",
       })).slice(0, limit);
     } catch {
-      // Graceful fallback — stub data shown when API is unavailable
+      // Graceful fallback â€” stub data shown when API is unavailable
       return POS_STUB_ENTRIES(entityId).slice(0, limit);
     }
   },
 };
 
-// ── Timeline Component ────────────────────────────────────────────────────────
+// â”€â”€ Timeline Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface WorkspaceTimelineProps {
   adapter: TimelineAdapter;
@@ -161,15 +161,15 @@ export const WorkspaceTimeline: React.FC<WorkspaceTimelineProps> = ({
 
   if (loading) {
     return (
-      <div style={{ padding: 16, color: "var(--c-text-muted, #64748b)", fontSize: 13 }}>
-        Loading timeline…
+      <div style={{ padding: 16, color: "var(--c-theme-muted)", fontSize: 13 }}>
+        Loading timelineâ€¦
       </div>
     );
   }
 
   if (entries.length === 0) {
     return (
-      <div style={{ padding: 16, color: "var(--c-text-muted, #64748b)", fontSize: 13 }}>
+      <div style={{ padding: 16, color: "var(--c-theme-muted)", fontSize: 13 }}>
         No activity yet
       </div>
     );
@@ -216,7 +216,7 @@ export const WorkspaceTimeline: React.FC<WorkspaceTimelineProps> = ({
                 flexShrink: 0,
               }}
             >
-              {entry.icon ?? "●"}
+              {entry.icon ?? "â—"}
             </div>
             {idx < entries.length - 1 && (
               <div
@@ -224,7 +224,7 @@ export const WorkspaceTimeline: React.FC<WorkspaceTimelineProps> = ({
                   width: "var(--sxp-timeline-connector, 2px)",
                   flex: 1,
                   minHeight: 16,
-                  background: "var(--c-border, rgba(255,255,255,0.1))",
+                  background: "var(--c-theme-divider)",
                   margin: "2px 0",
                 }}
               />
@@ -233,15 +233,15 @@ export const WorkspaceTimeline: React.FC<WorkspaceTimelineProps> = ({
 
           {/* Content */}
           <div style={{ paddingTop: 2, flex: 1 }}>
-            <div style={{ fontSize: compact ? 12 : 13, fontWeight: 600, color: "var(--c-text-primary, #e2e8f0)" }}>
+            <div style={{ fontSize: compact ? 12 : 13, fontWeight: 600, color: "var(--c-theme-body)" }}>
               {entry.label}
             </div>
             {entry.description && !compact && (
-              <div style={{ fontSize: 12, color: "var(--c-text-secondary, #94a3b8)", marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: "var(--c-theme-muted)", marginTop: 2 }}>
                 {entry.description}
               </div>
             )}
-            <div style={{ fontSize: 11, color: "var(--c-text-muted, #64748b)", marginTop: 2 }}>
+            <div style={{ fontSize: 11, color: "var(--c-theme-muted)", marginTop: 2 }}>
               {new Date(entry.timestamp).toLocaleString()}
             </div>
           </div>

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
  * Module       : Item Master & Inventory Studio Host (ADR-012 Standard v7.0)
  * Standard     : ADR-012 (SMRITI_PROCUREMENT_STUDIO_ENTERPRISE_STANDARD_v1.0)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * Version      : 7.0.0
  */
 
@@ -29,7 +29,7 @@ import {
   Save, AlertOctagon, Info, ChevronDown, ChevronUp, Layers, UploadCloud, Trash2,
   Boxes, ExternalLink, Sparkles, Sliders, Filter, RefreshCw, Check
 } from "lucide-react";
-// SXP v1.0 — WorkspaceTimeline for product movement history
+// SXP v1.0 â€” WorkspaceTimeline for product movement history
 import { WorkspaceTimeline, InventoryTimelineAdapter } from "./shared/WorkspaceTimeline.js";
 import { useSmritiExperience } from "../context/SmritiExperienceContext.js";
 
@@ -84,7 +84,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   currentUser
 }) => {
   const isReadOnly = currentUser?.role === "Report User";
-  // SXP v1.0 — adaptive visibility for timeline and cost layers
+  // SXP v1.0 â€” adaptive visibility for timeline and cost layers
   const { canRender } = useSmritiExperience();
   const [viewMode, setViewMode] = useState<ItemMasterViewMode>("registry");
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -102,7 +102,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     return Array.from(new Set(products.map((p) => (p.brand || "Smriti Standard")).filter(Boolean)));
   }, [products]);
 
-  /* ── Modal & Form State ── */
+  /* â”€â”€ Modal & Form State â”€â”€ */
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formMode, setFormMode] = useState<ItemFormMode>("quick");
   const [formData, setFormData] = useState<ItemFormData>(blankItemForm);
@@ -281,8 +281,8 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                       <th className="py-1.5 px-2">SKU / Code *</th>
                       <th className="py-1.5 px-2">Product Name *</th>
                       <th className="py-1.5 px-2">Category</th>
-                      <th className="py-1.5 px-2 text-right">MRP (₹)</th>
-                      <th className="py-1.5 px-2 text-right font-extrabold">Price (₹)</th>
+                      <th className="py-1.5 px-2 text-right">MRP (â‚¹)</th>
+                      <th className="py-1.5 px-2 text-right font-extrabold">Price (â‚¹)</th>
                       <th className="py-1.5 px-2 text-right">Stock Qty</th>
                       <th className="py-1.5 px-2 text-center">Status</th>
                     </tr>
@@ -305,8 +305,8 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                           <td className="py-1 px-2 font-mono font-bold text-theme-heading">{prod.code || prod.sku}</td>
                           <td className="py-1 px-2 font-semibold text-theme-heading">{prod.name}</td>
                           <td className="py-1 px-2 text-theme-muted">{prod.category || "General"}</td>
-                          <td className="py-1 px-2 text-right font-mono text-theme-muted">₹ {prod.mrp || prod.price}</td>
-                          <td className="py-1 px-2 text-right font-mono font-bold text-blue-700">₹ {prod.price}</td>
+                          <td className="py-1 px-2 text-right font-mono text-theme-muted">â‚¹ {prod.mrp || prod.price}</td>
+                          <td className="py-1 px-2 text-right font-mono font-bold text-blue-700">â‚¹ {prod.price}</td>
                           <td className="py-1 px-2 text-right font-mono font-bold text-theme-heading">{qty} {prod.unit || "Pcs"}</td>
                           <td className="py-1 px-2 text-center">
                             {isLow ? (
@@ -347,7 +347,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                 <div className="flex items-center justify-between pt-1 border-t border-theme-divider">
                   <span className="font-bold text-theme-heading">Total Inventory Valuation</span>
                   <span className="font-mono font-black text-emerald-600 text-sm">
-                    ₹ {inventoryTotals.totalValuation.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    â‚¹ {inventoryTotals.totalValuation.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>
@@ -369,11 +369,11 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                     </div>
                     <div>
                       <span className="text-theme-muted uppercase text-[9px] block">Buying Rate</span>
-                      <span className="font-mono font-bold text-theme-body">₹ {selectedProduct.purchasePrice || 60}</span>
+                      <span className="font-mono font-bold text-theme-body">â‚¹ {selectedProduct.purchasePrice || 60}</span>
                     </div>
                     <div>
                       <span className="text-theme-muted uppercase text-[9px] block">Retail Selling Price</span>
-                      <span className="font-mono font-bold text-blue-700">₹ {selectedProduct.price}</span>
+                      <span className="font-mono font-bold text-blue-700">â‚¹ {selectedProduct.price}</span>
                     </div>
                   </div>
                 </div>
@@ -381,7 +381,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                 <div className="p-4 text-center text-theme-muted text-xs italic">Select a product row to inspect details.</div>
               )}
 
-              {/* SXP v1.0 — Stock Movement Timeline (HYBRID+ only via canRender) */}
+              {/* SXP v1.0 â€” Stock Movement Timeline (HYBRID+ only via canRender) */}
               {selectedProduct && canRender("raw_ledger") && (
                 <div style={{ marginTop: 12 }}>
                   <div style={{
@@ -389,7 +389,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                     fontWeight: 700,
                     textTransform: "uppercase",
                     letterSpacing: "0.07em",
-                    color: "var(--c-text-muted, #64748b)",
+                    color: "var(--c-theme-muted)",
                     marginBottom: 8,
                   }}>
                     Stock Movement History
@@ -562,7 +562,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">MRP (₹)</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">MRP (â‚¹)</label>
                   <input
                     type="number"
                     value={formData.mrp}
@@ -571,7 +571,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Selling Price (₹) *</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Selling Price (â‚¹) *</label>
                   <input
                     type="number"
                     required

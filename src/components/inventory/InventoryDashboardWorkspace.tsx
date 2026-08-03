@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
- * Module       : SXP v1.0 — Inventory Dashboard Workspace
- * Standard     : SXP Constitution v1.0 / SWEF v1.0 — Dashboard Zone
+ * Module       : SXP v1.0 â€” Inventory Dashboard Workspace
+ * Standard     : SXP Constitution v1.0 / SWEF v1.0 â€” Dashboard Zone
  * Author       : Jawahar Ramkripal Mallah
- * Version      : 2.0.0  (Sprint 1 — real API wiring)
+ * Version      : 2.0.0  (Sprint 1 â€” real API wiring)
  * Created      : 2026-08-03
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  *
  * Renders: Health Group + Alerts Group + Operations Group + Timeline
@@ -26,12 +26,12 @@ import { TrendCard } from "../shared/widgets/TrendCard.js";
 import { InventoryTimelineAdapter } from "../shared/WorkspaceTimeline.js";
 import { INVENTORY_WORKSPACE_IDS } from "./inventory.manifest.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
-// Sprint 3 — skeleton loaders replace bare loading text
+// Sprint 3 â€” skeleton loaders replace bare loading text
 import { SkeletonCard, SkeletonRow } from "../shared/SkeletonLoader.js";
 
-// ── Fallback mock data (used when API is unavailable) ─────────────────────────────────
+// â”€â”€ Fallback mock data (used when API is unavailable) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-const FALLBACK_STOCK_VALUE = "₹24,87,450";
+const FALLBACK_STOCK_VALUE = "â‚¹24,87,450";
 const FALLBACK_HEALTH = { current: 78, target: 100 };
 const FALLBACK_TREND = [
   { label: "Mon", value: 420 }, { label: "Tue", value: 380 }, { label: "Wed", value: 510 },
@@ -39,12 +39,12 @@ const FALLBACK_TREND = [
   { label: "Today", value: 682 },
 ];
 const FALLBACK_ALERTS = [
-  { id: "a1", severity: "warning" as AlertSeverity, title: "Stock Below Reorder Point", description: "Nike Air Max 270 (Size 9) — 3 units remaining", raisedAt: new Date(Date.now() - 1800000).toISOString(), actionLabel: "Order Now" },
-  { id: "a2", severity: "warning" as AlertSeverity, title: "Stock Below Reorder Point", description: "Adidas Stan Smith (Size 8) — 2 units remaining", raisedAt: new Date(Date.now() - 3600000).toISOString(), actionLabel: "Order Now" },
-  { id: "a3", severity: "info" as AlertSeverity, title: "Batch Nearing Expiry", description: "Cold Storage Item — 15 days to expiry (12 units)", raisedAt: new Date(Date.now() - 7200000).toISOString() },
+  { id: "a1", severity: "warning" as AlertSeverity, title: "Stock Below Reorder Point", description: "Nike Air Max 270 (Size 9) â€” 3 units remaining", raisedAt: new Date(Date.now() - 1800000).toISOString(), actionLabel: "Order Now" },
+  { id: "a2", severity: "warning" as AlertSeverity, title: "Stock Below Reorder Point", description: "Adidas Stan Smith (Size 8) â€” 2 units remaining", raisedAt: new Date(Date.now() - 3600000).toISOString(), actionLabel: "Order Now" },
+  { id: "a3", severity: "info" as AlertSeverity, title: "Batch Nearing Expiry", description: "Cold Storage Item â€” 15 days to expiry (12 units)", raisedAt: new Date(Date.now() - 7200000).toISOString() },
 ];
 
-// ── API response shapes ──────────────────────────────────────────────────────────────
+// â”€â”€ API response shapes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface InventoryAlert {
   id: string;
@@ -64,12 +64,12 @@ interface InventoryKPI {
   units_moved_positive: boolean;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const InventoryDashboardWorkspace: React.FC = () => {
   const { canRender, mode } = useSmritiExperience();
 
-  // ── API state ──────────────────────────────────────────────────────────────
+  // â”€â”€ API state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [alerts, setAlerts] = useState(FALLBACK_ALERTS);
   const [kpi, setKpi] = useState<InventoryKPI>({
     stock_value_formatted: FALLBACK_STOCK_VALUE,
@@ -85,7 +85,7 @@ export const InventoryDashboardWorkspace: React.FC = () => {
   const metadata = WorkspaceRegistry.get(INVENTORY_WORKSPACE_IDS.DASHBOARD)!;
   const widgetsByGroup = WidgetEngine.getWidgetsByGroup("dash.inventory_overview", mode);
 
-  // ── Fetch KPI data ────────────────────────────────────────────────────────────
+  // â”€â”€ Fetch KPI data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     let cancelled = false;
     apiFetchV1("/api/v1/inventory/kpi")
@@ -96,7 +96,7 @@ export const InventoryDashboardWorkspace: React.FC = () => {
     return () => { cancelled = true; };
   }, []);
 
-  // ── Fetch alerts ───────────────────────────────────────────────────────────────
+  // â”€â”€ Fetch alerts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     let cancelled = false;
     apiFetchV1("/api/v1/inventory/alerts")
@@ -124,9 +124,9 @@ export const InventoryDashboardWorkspace: React.FC = () => {
         style={{
           padding: "4px 10px",
           borderRadius: 6,
-          border: "1px solid var(--c-border, rgba(255,255,255,0.1))",
-          background: "var(--c-surface, #1a1a2e)",
-          color: "var(--c-text-primary, #e2e8f0)",
+          border: "1px solid var(--c-theme-divider)",
+          background: "var(--c-theme-surface-2)",
+          color: "var(--c-theme-body)",
           fontSize: 12,
         }}
       >
@@ -139,9 +139,9 @@ export const InventoryDashboardWorkspace: React.FC = () => {
         style={{
           padding: "4px 10px",
           borderRadius: 6,
-          border: "1px solid var(--c-border, rgba(255,255,255,0.1))",
-          background: "var(--c-surface, #1a1a2e)",
-          color: "var(--c-text-primary, #e2e8f0)",
+          border: "1px solid var(--c-theme-divider)",
+          background: "var(--c-theme-surface-2)",
+          color: "var(--c-theme-body)",
           fontSize: 12,
         }}
       >
@@ -156,9 +156,9 @@ export const InventoryDashboardWorkspace: React.FC = () => {
   const dashboardBody = (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--sxp-widget-gap, 16px)", padding: 16 }}>
 
-      {/* ── Health Group ── */}
+      {/* â”€â”€ Health Group â”€â”€ */}
       <section aria-label="Stock Health">
-        <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--c-text-muted, #64748b)", marginBottom: 12 }}>
+        <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--c-theme-muted)", marginBottom: 12 }}>
           Today's Stock
         </h3>
         {kpiLoading ? (
@@ -171,7 +171,7 @@ export const InventoryDashboardWorkspace: React.FC = () => {
             title="Total Stock Value"
             value={kpi.stock_value_formatted}
             subtitle="Across all locations"
-            icon="💰"
+            icon="ðŸ’°"
             accent
           />
           {canRender("reservations") && (
@@ -180,7 +180,7 @@ export const InventoryDashboardWorkspace: React.FC = () => {
               value={kpi.active_reservations}
               unit="items"
               subtitle="Locked for orders"
-              icon="🔒"
+              icon="ðŸ”’"
             />
           )}
           {canRender("reservations") && (
@@ -190,7 +190,7 @@ export const InventoryDashboardWorkspace: React.FC = () => {
               target={100}
               unit="%"
               direction="high_is_good"
-              icon="❤️"
+              icon="â¤ï¸"
             />
           )}
           <TrendCard
@@ -204,12 +204,12 @@ export const InventoryDashboardWorkspace: React.FC = () => {
         )}
       </section>
 
-      {/* ── Alerts Group ── */}
+      {/* â”€â”€ Alerts Group â”€â”€ */}
       {alertsLoading
         ? <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{[0,1,2].map((i) => <SkeletonRow key={i} cols={3} />)}</div>
         : (widgetsByGroup.get("alerts")?.length ?? 0) > 0 && (
           <section aria-label="Stock Alerts">
-            <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--c-text-muted, #64748b)", marginBottom: 12 }}>
+            <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--c-theme-muted)", marginBottom: 12 }}>
               Alerts
             </h3>
             <AlertCard
@@ -219,9 +219,9 @@ export const InventoryDashboardWorkspace: React.FC = () => {
           </section>
         )}
 
-      {/* ── Operations / Timeline Group ── */}
+      {/* â”€â”€ Operations / Timeline Group â”€â”€ */}
       <section aria-label="Recent Stock Movements">
-        <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--c-text-muted, #64748b)", marginBottom: 12 }}>
+        <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--c-theme-muted)", marginBottom: 12 }}>
           Recent Movements
         </h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "var(--sxp-widget-gap, 16px)" }}>
@@ -237,7 +237,7 @@ export const InventoryDashboardWorkspace: React.FC = () => {
   );
 
   if (!metadata) {
-    return <div style={{ padding: 32, color: "var(--c-text-muted, #64748b)" }}>Inventory workspace not registered. Import inventory.manifest.ts.</div>;
+    return <div style={{ padding: 32, color: "var(--c-theme-muted)" }}>Inventory workspace not registered. Import inventory.manifest.ts.</div>;
   }
 
   return (

@@ -1,21 +1,21 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
- * Module       : SXP v1.0 — OperationLauncher (SWEF P-007)
+ * Module       : SXP v1.0 â€” OperationLauncher (SWEF P-007)
  * Standard     : SXP Constitution v1.0 / SWEF v1.0 / 3-Interaction Rule
  * Author       : Jawahar Ramkripal Mallah
- * Version      : 1.2.0  (Sprint 3 — WCAG AA accessibility pass)
+ * Version      : 1.2.0  (Sprint 3 â€” WCAG AA accessibility pass)
  * Created      : 2026-08-03
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  *
  * FOUR EXECUTION MODES (same engine):
- *   wizard       — multi-step (max 4 steps): Receive, GRN, Transfer
- *   quick_action — single confirm (max 2 steps): Adjust qty
- *   bulk_action  — multi-SKU select then confirm (max 3 steps)
- *   scanner_action — 3-INTERACTION RULE ENFORCED: Scan → Confirm → Done
+ *   wizard       â€” multi-step (max 4 steps): Receive, GRN, Transfer
+ *   quick_action â€” single confirm (max 2 steps): Adjust qty
+ *   bulk_action  â€” multi-SKU select then confirm (max 3 steps)
+ *   scanner_action â€” 3-INTERACTION RULE ENFORCED: Scan â†’ Confirm â†’ Done
  *
- * SWEF P-007: Mobile warehouse ≤ 3 interactions after scan.
- * This component enforces that rule structurally — it's impossible to
+ * SWEF P-007: Mobile warehouse â‰¤ 3 interactions after scan.
+ * This component enforces that rule structurally â€” it's impossible to
  * create a scanner_action with more than 3 steps.
  */
 
@@ -23,7 +23,7 @@ import React, { useState, useEffect, useRef, useId } from "react";
 import { WorkspaceActionRegistry, WorkspaceActionDef, ActionExecutionContext } from "../../layout_engine/WorkspaceActionRegistry.js";
 import { adaptiveWorkspaceStore } from "../../layout_engine/adaptive_workspace_store.js";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type OperationMode = "wizard" | "quick_action" | "bulk_action" | "scanner_action";
 
@@ -31,7 +31,7 @@ const MAX_STEPS: Record<OperationMode, number> = {
   wizard: 4,
   quick_action: 2,
   bulk_action: 3,
-  scanner_action: 3, // FROZEN — SWEF P-007 / 3-interaction rule
+  scanner_action: 3, // FROZEN â€” SWEF P-007 / 3-interaction rule
 };
 
 export interface OperationStep {
@@ -51,7 +51,7 @@ export interface OperationDef {
   context: ActionExecutionContext;
 }
 
-// ── Operation Card (action grid tile) ────────────────────────────────────────
+// â”€â”€ Operation Card (action grid tile) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface OperationCardProps {
   action: WorkspaceActionDef;
@@ -63,7 +63,7 @@ const OperationCard: React.FC<OperationCardProps> = ({ action, onSelect, dense }
   <button
     id={`op-card-${action.id}`}
     aria-label={action.shortcut ? `${action.label}, shortcut ${action.shortcut}` : action.label}
-    title={action.shortcut ? `${action.label} · ${action.shortcut}` : action.label}
+    title={action.shortcut ? `${action.label} Â· ${action.shortcut}` : action.label}
     onClick={() => onSelect(action.id)}
     onKeyDown={(e) => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(action.id); }
@@ -78,9 +78,9 @@ const OperationCard: React.FC<OperationCardProps> = ({ action, onSelect, dense }
       maxWidth: "var(--sxp-op-card-max, 220px)",
       padding: dense ? "14px 12px" : "20px 16px",
       borderRadius: 12,
-      border: "1px solid var(--c-border, rgba(255,255,255,0.1))",
-      background: "var(--c-surface-elevated, rgba(255,255,255,0.04))",
-      color: "var(--c-text-primary, #e2e8f0)",
+      border: "1px solid var(--c-theme-divider)",
+      background: "var(--c-theme-surface-2)",
+      color: "var(--c-theme-body)",
       cursor: "pointer",
       transition: "all var(--sxp-motion-action, 150ms)",
       textAlign: "center",
@@ -90,8 +90,8 @@ const OperationCard: React.FC<OperationCardProps> = ({ action, onSelect, dense }
       (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,0.08)";
     }}
     onMouseLeave={(e) => {
-      (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--c-border, rgba(255,255,255,0.1))";
-      (e.currentTarget as HTMLButtonElement).style.background = "var(--c-surface-elevated, rgba(255,255,255,0.04))";
+      (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--c-theme-divider)";
+      (e.currentTarget as HTMLButtonElement).style.background = "var(--c-theme-surface-2)";
     }}
   >
     <span aria-hidden="true" style={{ fontSize: dense ? 22 : 28 }}>{action.icon}</span>
@@ -104,13 +104,13 @@ const OperationCard: React.FC<OperationCardProps> = ({ action, onSelect, dense }
         background: "rgba(255,255,255,0.07)",
         border: "1px solid rgba(255,255,255,0.15)",
         fontFamily: "monospace",
-        color: "var(--c-text-muted, #64748b)",
+        color: "var(--c-theme-muted)",
       }}>{action.shortcut}</kbd>
     )}
   </button>
 );
 
-// ── Wizard / Modal ────────────────────────────────────────────────────────────
+// â”€â”€ Wizard / Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface OperationWizardProps {
   operation: OperationDef;
@@ -181,12 +181,12 @@ export const OperationWizard: React.FC<OperationWizardProps> = ({ operation, onC
       <div style={overlayStyle} role="alertdialog" aria-modal="true" aria-label={result.success ? "Operation completed" : "Operation failed"}>
         <div style={panelStyle} role="alert" ref={panelRef}>
           <div style={{ textAlign: "center", padding: 32 }}>
-            <div aria-hidden="true" style={{ fontSize: 48, marginBottom: 12 }}>{result.success ? "✅" : "❌"}</div>
+            <div aria-hidden="true" style={{ fontSize: 48, marginBottom: 12 }}>{result.success ? "âœ…" : "âŒ"}</div>
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
               {result.success ? "Done" : "Something went wrong"}
             </div>
             {result.message && (
-              <div style={{ fontSize: 13, color: "var(--c-text-secondary, #94a3b8)", marginBottom: 16 }}>
+              <div style={{ fontSize: 13, color: "var(--c-theme-muted)", marginBottom: 16 }}>
                 {result.message}
               </div>
             )}
@@ -203,11 +203,11 @@ export const OperationWizard: React.FC<OperationWizardProps> = ({ operation, onC
     <div style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby={headerId} aria-describedby={stepId}>
       <div style={panelStyle} ref={panelRef}>
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--c-border, rgba(255,255,255,0.08))" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--c-theme-divider)" }}>
           <div>
             <div id={headerId} style={{ fontSize: 14, fontWeight: 600 }}>{currentStep.label}</div>
             {!isScannerMode && (
-              <div id={stepId} style={{ fontSize: 11, color: "var(--c-text-muted, #64748b)", marginTop: 2 }}>
+              <div id={stepId} style={{ fontSize: 11, color: "var(--c-theme-muted)", marginTop: 2 }}>
                 Step {stepIndex + 1} of {steps.length}
               </div>
             )}
@@ -215,9 +215,9 @@ export const OperationWizard: React.FC<OperationWizardProps> = ({ operation, onC
           <button
             onClick={onClose}
             aria-label="Close dialog"
-            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text-muted, #64748b)", fontSize: 18 }}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-theme-muted)", fontSize: 18 }}
           >
-            <span aria-hidden="true">×</span>
+            <span aria-hidden="true">Ã—</span>
           </button>
         </div>
 
@@ -225,7 +225,7 @@ export const OperationWizard: React.FC<OperationWizardProps> = ({ operation, onC
         {!isScannerMode && steps.length > 1 && (
           <div style={{ display: "flex", padding: "12px 20px 0", gap: 6 }}>
             {steps.map((_, i) => (
-              <div key={i} style={{ height: 3, flex: 1, borderRadius: 2, background: i <= stepIndex ? "var(--c-brand, #818cf8)" : "var(--c-border, rgba(255,255,255,0.1))" }} />
+              <div key={i} style={{ height: 3, flex: 1, borderRadius: 2, background: i <= stepIndex ? "var(--c-seef-accent)" : "var(--c-theme-divider)" }} />
             ))}
           </div>
         )}
@@ -236,12 +236,12 @@ export const OperationWizard: React.FC<OperationWizardProps> = ({ operation, onC
         </div>
 
         {/* Actions */}
-        <div style={{ padding: "12px 20px", borderTop: "1px solid var(--c-border, rgba(255,255,255,0.08))", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <div style={{ padding: "12px 20px", borderTop: "1px solid var(--c-theme-divider)", display: "flex", gap: 8, justifyContent: "flex-end" }}>
           {stepIndex > 0 && !isScannerMode && (
             <button onClick={() => setStepIndex((i) => i - 1)} style={secondaryBtnStyle}>Back</button>
           )}
           <button onClick={handleNext} disabled={executing} style={primaryBtnStyle}>
-            {executing ? "Processing…" : isLast ? (isScannerMode ? "Done" : "Confirm") : "Next"}
+            {executing ? "Processingâ€¦" : isLast ? (isScannerMode ? "Done" : "Confirm") : "Next"}
           </button>
         </div>
       </div>
@@ -249,7 +249,7 @@ export const OperationWizard: React.FC<OperationWizardProps> = ({ operation, onC
   );
 };
 
-// ── Styles ────────────────────────────────────────────────────────────────────
+// â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const overlayStyle: React.CSSProperties = {
   position: "fixed",
@@ -263,7 +263,7 @@ const overlayStyle: React.CSSProperties = {
 };
 
 const panelStyle: React.CSSProperties = {
-  background: "var(--c-surface-elevated, #1e1e3a)",
+  background: "var(--c-theme-surface-2)",
   border: "1px solid rgba(99,102,241,0.25)",
   borderRadius: 14,
   minWidth: 360,
@@ -280,7 +280,7 @@ const primaryBtnStyle: React.CSSProperties = {
   padding: "8px 20px",
   borderRadius: 8,
   border: "none",
-  background: "var(--c-brand, #818cf8)",
+  background: "var(--c-seef-accent)",
   color: "#fff",
   fontWeight: 600,
   fontSize: 13,
@@ -290,15 +290,15 @@ const primaryBtnStyle: React.CSSProperties = {
 const secondaryBtnStyle: React.CSSProperties = {
   padding: "8px 16px",
   borderRadius: 8,
-  border: "1px solid var(--c-border, rgba(255,255,255,0.1))",
+  border: "1px solid var(--c-theme-divider)",
   background: "transparent",
-  color: "var(--c-text-secondary, #94a3b8)",
+  color: "var(--c-theme-muted)",
   fontWeight: 500,
   fontSize: 13,
   cursor: "pointer",
 };
 
-// ── OperationLauncher ─────────────────────────────────────────────────────────
+// â”€â”€ OperationLauncher â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface OperationLauncherProps {
   /** Action IDs visible in this launcher (from workspace manifest) */
@@ -328,7 +328,7 @@ export const OperationLauncher: React.FC<OperationLauncherProps> = ({
         return;
       }
     }
-    // No multi-step wizard — direct execute
+    // No multi-step wizard â€” direct execute
     WorkspaceActionRegistry.execute(actionId, executionContext);
   };
 
@@ -353,7 +353,7 @@ export const OperationLauncher: React.FC<OperationLauncherProps> = ({
           />
         ))}
         {visibleActions.length === 0 && (
-          <div style={{ color: "var(--c-text-muted, #64748b)", fontSize: 13, padding: 16 }}>
+          <div style={{ color: "var(--c-theme-muted)", fontSize: 13, padding: 16 }}>
             No operations available in {mode} mode.
           </div>
         )}

@@ -1,5 +1,5 @@
-/**
- * SXP v1.0 — ActionCard Widget
+﻿/**
+ * SXP v1.0 â€” ActionCard Widget
  * SWEF: WidgetType "action_card" | Quick single-click operation tile
  */
 import React from "react";
@@ -36,8 +36,8 @@ const _ActionCardComponent: React.FC<ActionCardProps> = ({
         gap: 12,
         padding: "var(--sxp-widget-padding, 20px)",
         borderRadius: "var(--sxp-widget-radius, 10px)",
-        border: "1px solid var(--c-border, rgba(255,255,255,0.08))",
-        background: disabled ? "transparent" : "var(--c-surface-elevated, rgba(255,255,255,0.04))",
+        border: "1px solid var(--c-theme-divider)",
+        background: disabled ? "transparent" : "var(--c-theme-surface-2)",
         width: "100%",
         textAlign: "left",
         cursor: disabled ? "not-allowed" : "pointer",
@@ -48,7 +48,7 @@ const _ActionCardComponent: React.FC<ActionCardProps> = ({
       <span style={{ fontSize: 24, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-text-primary, #e2e8f0)" }}>{title}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--c-theme-body)" }}>{title}</span>
           {badge !== undefined && (
             <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 10, background: badgeStyle.bg, color: badgeStyle.color, flexShrink: 0 }}>
               {badge}
@@ -56,7 +56,7 @@ const _ActionCardComponent: React.FC<ActionCardProps> = ({
           )}
         </div>
         {description && (
-          <span style={{ fontSize: 12, color: "var(--c-text-secondary, #94a3b8)", marginTop: 3, display: "block" }}>{description}</span>
+          <span style={{ fontSize: 12, color: "var(--c-theme-muted)", marginTop: 3, display: "block" }}>{description}</span>
         )}
       </div>
     </button>

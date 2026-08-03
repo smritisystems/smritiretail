@@ -75,12 +75,6 @@ const KNOWN = new Set([
   "--c-seef-brand","--c-seef-accent","--c-seef-info",
   "--c-seef-success","--c-seef-warning","--c-seef-danger",
   "--c-seef-accent-rgb",
-  // Stale v1 token aliases — Phase C remediation targets
-  "--c-border","--c-brand","--c-surface","--c-surface-elevated",
-  "--c-text-primary","--c-text-secondary","--c-text-muted",
-  // Stale v1 token aliases — used in inventory/shared components (Phase C remediation)
-  "--c-border","--c-brand","--c-surface","--c-surface-elevated",
-  "--c-text-primary","--c-text-secondary","--c-text-muted",
 ]);
 
 // 4. Find undefined

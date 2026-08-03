@@ -1,12 +1,12 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
- * Module       : SXP v1.0 — WorkspaceShell (Nine-Region Layout Container)
- * Standard     : SXP Constitution v1.0 / SWEF v1.0 — Certification Gate SXP-CS-001
+ * Module       : SXP v1.0 â€” WorkspaceShell (Nine-Region Layout Container)
+ * Standard     : SXP Constitution v1.0 / SWEF v1.0 â€” Certification Gate SXP-CS-001
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Version      : 1.0.0
  * Created      : 2026-08-03
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  *
  * GOVERNANCE (SXP-CS-001 / P-004):
@@ -16,15 +16,15 @@
  *   Zone-specific layout is applied via the `zone` field in WorkspaceMetadata.
  *
  * NINE REGIONS:
- *   1. Header           — title, domain badge, mode switcher, user controls
- *   2. Breadcrumb Bar   — WNE-provided navigation trail
- *   3. Smart Action Bar — manifest actions, adaptive-filtered
- *   4. Filter Strip     — collapsible (WNG-003), drawer on phone
- *   5. Workspace Body   — studio-supplied zone ReactNode
- *   6. Inspector Panel  — slide-in right (Object Page detail)
- *   7. Notification Tray— isolated toasts, never overlay body
- *   8. Status Bar       — kernel health, record count, last sync
- *   9. [AI Panel slot]  — hidden by default, expands when SPK.ai licensed
+ *   1. Header           â€” title, domain badge, mode switcher, user controls
+ *   2. Breadcrumb Bar   â€” WNE-provided navigation trail
+ *   3. Smart Action Bar â€” manifest actions, adaptive-filtered
+ *   4. Filter Strip     â€” collapsible (WNG-003), drawer on phone
+ *   5. Workspace Body   â€” studio-supplied zone ReactNode
+ *   6. Inspector Panel  â€” slide-in right (Object Page detail)
+ *   7. Notification Trayâ€” isolated toasts, never overlay body
+ *   8. Status Bar       â€” kernel health, record count, last sync
+ *   9. [AI Panel slot]  â€” hidden by default, expands when SPK.ai licensed
  */
 
 import React, { useRef, useEffect, useState } from "react";
@@ -36,7 +36,7 @@ import { WorkspaceEventBus } from "../../layout_engine/WorkspaceEventBus.js";
 import { useSmritiExperience } from "../../context/SmritiExperienceContext.js";
 import { adaptiveWorkspaceStore } from "../../layout_engine/adaptive_workspace_store.js";
 
-// ── Zone CSS Mapping ──────────────────────────────────────────────────────────
+// â”€â”€ Zone CSS Mapping â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const ZONE_BODY_CLASS: Record<string, string> = {
   dashboard:  "sxp-zone-dashboard",
@@ -47,14 +47,14 @@ const ZONE_BODY_CLASS: Record<string, string> = {
   approval:   "sxp-zone-approval",
 };
 
-// ── Props ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Props â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface WorkspaceShellProps {
   /** Workspace metadata from WorkspaceRegistry / manifest */
   metadata: WorkspaceMetadata;
   /** Collapsible filter strip content (WNG-003 compliant) */
   filterStrip?: React.ReactNode;
-  /** Main workspace content — must match the declared zone */
+  /** Main workspace content â€” must match the declared zone */
   body: React.ReactNode;
   /** Slide-in inspector panel (Object Page detail) */
   inspector?: React.ReactNode;
@@ -62,7 +62,7 @@ export interface WorkspaceShellProps {
   statusBar?: React.ReactNode;
 }
 
-// ── Shell ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Shell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
   metadata,
@@ -139,11 +139,11 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
         flexDirection: "column",
         height: "100%",
         overflow: "hidden",
-        background: "var(--c-surface, #1a1a2e)",
-        color: "var(--c-text-primary, #e2e8f0)",
+        background: "var(--c-theme-surface-2)",
+        color: "var(--c-theme-body)",
       }}
     >
-      {/* ── Region 1: Header ── */}
+      {/* â”€â”€ Region 1: Header â”€â”€ */}
       <header
         className="sxp-header"
         style={{
@@ -152,9 +152,9 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           alignItems: "center",
           justifyContent: "space-between",
           padding: "0 16px",
-          borderBottom: "1px solid var(--c-border, rgba(255,255,255,0.08))",
+          borderBottom: "1px solid var(--c-theme-divider)",
           flexShrink: 0,
-          background: "var(--c-surface-elevated, #1e1e3a)",
+          background: "var(--c-theme-surface-2)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -167,7 +167,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               padding: "2px 6px",
               borderRadius: 4,
               background: "rgba(99,102,241,0.15)",
-              color: "var(--c-brand, #818cf8)",
+              color: "var(--c-seef-accent)",
               border: "1px solid rgba(99,102,241,0.25)",
               fontWeight: 500,
               letterSpacing: "0.05em",
@@ -184,9 +184,9 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               style={{
                 padding: "4px 10px",
                 borderRadius: 6,
-                border: "1px solid var(--c-border, rgba(255,255,255,0.1))",
+                border: "1px solid var(--c-theme-divider)",
                 background: filterOpen ? "rgba(99,102,241,0.15)" : "transparent",
-                color: "var(--c-text-secondary, #94a3b8)",
+                color: "var(--c-theme-muted)",
                 fontSize: 12,
                 cursor: "pointer",
               }}
@@ -200,9 +200,9 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               style={{
                 padding: "4px 10px",
                 borderRadius: 6,
-                border: "1px solid var(--c-border, rgba(255,255,255,0.1))",
+                border: "1px solid var(--c-theme-divider)",
                 background: inspectorOpen ? "rgba(99,102,241,0.15)" : "transparent",
-                color: "var(--c-text-secondary, #94a3b8)",
+                color: "var(--c-theme-muted)",
                 fontSize: 12,
                 cursor: "pointer",
               }}
@@ -213,7 +213,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
         </div>
       </header>
 
-      {/* ── Region 2: Breadcrumb Bar ── */}
+      {/* â”€â”€ Region 2: Breadcrumb Bar â”€â”€ */}
       <nav
         className="sxp-breadcrumb"
         aria-label="Breadcrumb navigation"
@@ -224,16 +224,16 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           padding: "0 16px",
           gap: 6,
           fontSize: 12,
-          color: "var(--c-text-muted, #64748b)",
-          borderBottom: "1px solid var(--c-border, rgba(255,255,255,0.06))",
+          color: "var(--c-theme-muted)",
+          borderBottom: "1px solid var(--c-theme-divider)",
           flexShrink: 0,
         }}
       >
         {breadcrumbs.map((crumb, i) => (
           <React.Fragment key={crumb.label}>
-            {i > 0 && <span style={{ opacity: 0.4 }}>›</span>}
+            {i > 0 && <span style={{ opacity: 0.4 }}>â€º</span>}
             {crumb.isCurrent ? (
-              <span style={{ color: "var(--c-text-primary, #e2e8f0)", fontWeight: 500 }}>
+              <span style={{ color: "var(--c-theme-body)", fontWeight: 500 }}>
                 {crumb.label}
               </span>
             ) : (
@@ -255,7 +255,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
         ))}
       </nav>
 
-      {/* ── Region 3: Smart Action Bar ── */}
+      {/* â”€â”€ Region 3: Smart Action Bar â”€â”€ */}
       {visibleActions.length > 0 && (
         <div
           className="sxp-action-bar"
@@ -267,7 +267,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
             alignItems: "center",
             padding: "0 16px",
             gap: 6,
-            borderBottom: "1px solid var(--c-border, rgba(255,255,255,0.06))",
+            borderBottom: "1px solid var(--c-theme-divider)",
             flexShrink: 0,
             overflowX: "auto",
           }}
@@ -283,9 +283,9 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
                 gap: 6,
                 padding: "6px 12px",
                 borderRadius: 6,
-                border: "1px solid var(--c-border, rgba(255,255,255,0.1))",
-                background: "var(--c-surface-elevated, rgba(255,255,255,0.05))",
-                color: "var(--c-text-primary, #e2e8f0)",
+                border: "1px solid var(--c-theme-divider)",
+                background: "var(--c-theme-surface-2)",
+                color: "var(--c-theme-body)",
                 fontSize: 12,
                 fontWeight: 500,
                 cursor: "pointer",
@@ -314,25 +314,25 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
         </div>
       )}
 
-      {/* ── Region 4: Filter Strip ── */}
+      {/* â”€â”€ Region 4: Filter Strip â”€â”€ */}
       {filterStrip && filterOpen && (
         <div
           className="sxp-filter-strip"
           style={{
             minHeight: "var(--sxp-filter-strip-height, 44px)",
             padding: "8px 16px",
-            borderBottom: "1px solid var(--c-border, rgba(255,255,255,0.06))",
+            borderBottom: "1px solid var(--c-theme-divider)",
             flexShrink: 0,
-            background: "var(--c-surface, rgba(255,255,255,0.02))",
+            background: "var(--c-theme-surface-2)",
           }}
         >
           {filterStrip}
         </div>
       )}
 
-      {/* ── Main Content Row (Body + Inspector) ── */}
+      {/* â”€â”€ Main Content Row (Body + Inspector) â”€â”€ */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden", position: "relative" }}>
-        {/* ── Region 5: Workspace Body ── */}
+        {/* â”€â”€ Region 5: Workspace Body â”€â”€ */}
         <main
           className={`sxp-body ${zoneClass}`}
           style={{
@@ -344,27 +344,27 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           {body}
         </main>
 
-        {/* ── Region 6: Inspector Panel ── */}
+        {/* â”€â”€ Region 6: Inspector Panel â”€â”€ */}
         {inspector && inspectorOpen && (
           <aside
             className="sxp-inspector"
             style={{
               width: "var(--sxp-inspector-width, 360px)",
-              borderLeft: "1px solid var(--c-border, rgba(255,255,255,0.08))",
+              borderLeft: "1px solid var(--c-theme-divider)",
               overflow: "auto",
               flexShrink: 0,
-              background: "var(--c-surface-elevated, #1e1e3a)",
+              background: "var(--c-theme-surface-2)",
             }}
           >
             {inspector}
           </aside>
         )}
 
-        {/* ── Region 9: AI Panel Slot (hidden by default) ── */}
-        {/* Reserved — expands when SPK.ai is licensed */}
+        {/* â”€â”€ Region 9: AI Panel Slot (hidden by default) â”€â”€ */}
+        {/* Reserved â€” expands when SPK.ai is licensed */}
       </div>
 
-      {/* ── Region 7: Notification Tray (isolated from body) ── */}
+      {/* â”€â”€ Region 7: Notification Tray (isolated from body) â”€â”€ */}
       {notifications.length > 0 && (
         <div
           className="sxp-notification-tray"
@@ -402,7 +402,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
         </div>
       )}
 
-      {/* ── Region 8: Status Bar ── */}
+      {/* â”€â”€ Region 8: Status Bar â”€â”€ */}
       <footer
         className="sxp-status-bar"
         style={{
@@ -412,15 +412,15 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           padding: "0 16px",
           gap: 16,
           fontSize: 11,
-          color: "var(--c-text-muted, #64748b)",
-          borderTop: "1px solid var(--c-border, rgba(255,255,255,0.06))",
+          color: "var(--c-theme-muted)",
+          borderTop: "1px solid var(--c-theme-divider)",
           flexShrink: 0,
-          background: "var(--c-surface-elevated, #1e1e3a)",
+          background: "var(--c-theme-surface-2)",
         }}
       >
         <span>{metadata.title}</span>
         {showDiagnostics && healthViolation && (
-          <span style={{ color: "#f59e0b", fontWeight: 500 }}>⚠ Slow widgets detected</span>
+          <span style={{ color: "#f59e0b", fontWeight: 500 }}>âš  Slow widgets detected</span>
         )}
         <span style={{ marginLeft: "auto" }}>{canRender("diagnostics") ? "ADVANCED" : mode}</span>
         {statusBar}

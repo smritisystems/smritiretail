@@ -1,5 +1,5 @@
-/**
- * SXP v1.0 — TimelineCard Widget
+﻿/**
+ * SXP v1.0 â€” TimelineCard Widget
  * SWEF: WidgetType "timeline_card" | Embeds WorkspaceTimeline in a card shell
  */
 import React from "react";
@@ -16,14 +16,14 @@ const _TimelineCardComponent: React.FC<TimelineCardProps> = ({ title, adapter, e
   <div style={{
     padding: "var(--sxp-widget-padding, 20px)",
     borderRadius: "var(--sxp-widget-radius, 10px)",
-    border: "1px solid var(--c-border, rgba(255,255,255,0.08))",
-    background: "var(--c-surface-elevated, rgba(255,255,255,0.04))",
+    border: "1px solid var(--c-theme-divider)",
+    background: "var(--c-theme-surface-2)",
     display: "flex",
     flexDirection: "column",
     gap: 12,
     minHeight: 200,
   }}>
-    <div style={{ fontSize: 11, color: "var(--c-text-muted, #64748b)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>
+    <div style={{ fontSize: 11, color: "var(--c-theme-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>
       {title}
     </div>
     <WorkspaceTimeline adapter={adapter} entityId={entityId} limit={limit} compact />
