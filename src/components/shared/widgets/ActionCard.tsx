@@ -21,7 +21,7 @@ const BADGE_COLORS = {
   error:   { bg: "rgba(239,68,68,0.15)",  color: "#ef4444" },
 };
 
-export const ActionCard: React.FC<ActionCardProps> = ({
+const _ActionCardComponent: React.FC<ActionCardProps> = ({
   icon, title, description, badge, badgeVariant = "info", onClick, disabled,
 }) => {
   const badgeStyle = BADGE_COLORS[badgeVariant];
@@ -62,3 +62,6 @@ export const ActionCard: React.FC<ActionCardProps> = ({
     </button>
   );
 };
+
+/** Sprint 3: React.memo prevents re-renders on every EventBus tick */
+export const ActionCard = React.memo(_ActionCardComponent);

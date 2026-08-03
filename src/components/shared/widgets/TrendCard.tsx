@@ -14,7 +14,7 @@ interface TrendCardProps {
   changeLabel?: string;
 }
 
-export const TrendCard: React.FC<TrendCardProps> = ({
+const _TrendCardComponent: React.FC<TrendCardProps> = ({
   title, data, unit, positive, changeLabel,
 }) => {
   const max = Math.max(...data.map((d) => d.value), 1);
@@ -61,3 +61,6 @@ export const TrendCard: React.FC<TrendCardProps> = ({
     </div>
   );
 };
+
+/** Sprint 3: React.memo prevents re-renders on every EventBus tick */
+export const TrendCard = React.memo(_TrendCardComponent);

@@ -12,7 +12,7 @@ interface TimelineCardProps {
   limit?: number;
 }
 
-export const TimelineCard: React.FC<TimelineCardProps> = ({ title, adapter, entityId, limit = 5 }) => (
+const _TimelineCardComponent: React.FC<TimelineCardProps> = ({ title, adapter, entityId, limit = 5 }) => (
   <div style={{
     padding: "var(--sxp-widget-padding, 20px)",
     borderRadius: "var(--sxp-widget-radius, 10px)",
@@ -29,3 +29,6 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({ title, adapter, enti
     <WorkspaceTimeline adapter={adapter} entityId={entityId} limit={limit} compact />
   </div>
 );
+
+/** Sprint 3: React.memo prevents re-renders on every EventBus tick */
+export const TimelineCard = React.memo(_TimelineCardComponent);

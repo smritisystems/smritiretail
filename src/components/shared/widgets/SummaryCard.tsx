@@ -13,7 +13,7 @@ interface SummaryCardProps {
   accent?: boolean;
 }
 
-export const SummaryCard: React.FC<SummaryCardProps> = ({
+const _SummaryCardComponent: React.FC<SummaryCardProps> = ({
   title, value, unit, subtitle, icon, accent,
 }) => (
   <div style={{
@@ -39,3 +39,6 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({
     {subtitle && <div style={{ fontSize: 12, color: "var(--c-text-secondary, #94a3b8)" }}>{subtitle}</div>}
   </div>
 );
+
+/** Sprint 3: React.memo prevents re-renders on every EventBus tick */
+export const SummaryCard = React.memo(_SummaryCardComponent);

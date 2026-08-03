@@ -30,7 +30,7 @@ const SEVERITY_STYLES: Record<AlertSeverity, { icon: string; bg: string; border:
   critical: { icon: "🚨", bg: "rgba(239,68,68,0.10)",   border: "rgba(239,68,68,0.30)",   color: "#ef4444" },
 };
 
-export const AlertCard: React.FC<AlertCardProps> = ({ alerts, maxVisible = 5, onDismiss }) => {
+const _AlertCardComponent: React.FC<AlertCardProps> = ({ alerts, maxVisible = 5, onDismiss }) => {
   const visible = alerts.slice(0, maxVisible);
 
   if (visible.length === 0) {
@@ -88,3 +88,6 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alerts, maxVisible = 5, on
     </div>
   );
 };
+
+/** Sprint 3: React.memo prevents re-renders on every EventBus tick */
+export const AlertCard = React.memo(_AlertCardComponent);

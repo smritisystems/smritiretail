@@ -14,7 +14,7 @@ interface KPIProgressCardProps {
   icon?: string;
 }
 
-export const KPIProgressCard: React.FC<KPIProgressCardProps> = ({
+const _KPIProgressCardComponent: React.FC<KPIProgressCardProps> = ({
   title, current, target, unit, direction = "high_is_good", icon,
 }) => {
   const pct = Math.min(Math.round((current / Math.max(target, 1)) * 100), 100);
@@ -63,3 +63,6 @@ export const KPIProgressCard: React.FC<KPIProgressCardProps> = ({
     </div>
   );
 };
+
+/** Sprint 3: React.memo prevents re-renders on every EventBus tick */
+export const KPIProgressCard = React.memo(_KPIProgressCardComponent);
