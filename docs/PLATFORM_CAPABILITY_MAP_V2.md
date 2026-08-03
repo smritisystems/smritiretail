@@ -28,7 +28,7 @@
  │ Level 1: Platform Operating System (SXP, SEEF, SEDS, WNG, USR)         │
  │ Level 2: Shared Platform Services (SEB, SES, SNP, SWA, SAS, STS, SAI)  │
  │ Level 3: Shared Business Kernels (SDK, SBPK, SPPK, SIK, SNK, STK, SLK, │
- │          SAK Asset Kernel v2.1 KDS Baseline)                           │
+ │          SAK Asset Kernel)                                             │
  │ Level 4: Master Data Platform (MDP v3.1, Reference Master Hub, MDGC)   │
  │ Level 5: Universal Registries (UFR, UWR, URR, USR, UPRT, ULR, UEDF)     │
  │ Level 6: Enterprise Business Studios (13 Certified Business Studios)   │
@@ -42,12 +42,14 @@
 
 | Component / Standard | Acronym | Governance Scope & Architectural Role | Status |
 |---|---|---|---|
-| **Platform Constitution** | **SPC v1.0**| Supreme Platform Architecture Constitution | ✅ Certified (`026eb550`) |
-| **Kernel Development Standard**| **KDS v1.1**| 15 Sections, 15 Principles, Dual Checklist, ADRs | ✅ Certified (`e07acb20`) |
-| **Service Development Standard**| **SDS v1.0**| Level 2 Shared Platform Services Standard | ✅ Certified (`e07acb20`) |
-| **Registry Development Standard**|**RDS v1.0**| Level 5 Universal Registries Standard | ✅ Certified (`d4a61a27`) |
-| **Studio Development Standard**  |**BDS v1.0**| Level 6 Enterprise Business Studios Standard | ✅ Certified (`d4a61a27`) |
-| **Network Development Standard** |**NDS v1.0**| Level 7 SMN Network Protocol Standard | ✅ Certified (`d4a61a27`) |
+| **Platform Constitution** | **SPC v1.0**| Supreme Platform Architecture Constitution | ✅ Certified (`b4afa62a`) |
+| **Platform Maturity Model** | **PCMM v1.0**| L1 Foundation -> L2 Oper -> L3 Integ -> L4 Ent -> L5 Ecosys | ✅ L4 Enterprise (`b4afa62a`) |
+| **Kernel Standard** | **KDS v1.1**| 15 Sections, 15 Principles, Dual Checklist, ADRs | ✅ Certified (`e07acb20`) |
+| **Integration Standard** | **IDS v1.0**| REST, GraphQL, Webhooks, OAuth, Connectors Standard | ✅ Certified (`b4afa62a`) |
+| **Service Standard** | **SDS v1.0**| Level 2 Shared Platform Services Standard | ✅ Certified (`e07acb20`) |
+| **Registry Standard** | **RDS v1.0**| Level 5 Universal Registries Standard | ✅ Certified (`d4a61a27`) |
+| **Studio Standard** | **BDS v1.0**| Level 6 Enterprise Business Studios Standard | ✅ Certified (`d4a61a27`) |
+| **Network Standard** | **NDS v1.0**| Level 7 SMN Network Protocol Standard | ✅ Certified (`d4a61a27`) |
 | **Level 3: Shared Kernel**  | **STK** | Universal GST, HSN validation, and tax rule engine | ✅ Platinum (`d5da7922`) |
 | **Level 3: Shared Kernel**  | **SLK** | Immutable Stock, Customer, Supplier, & Financial Ledger | ✅ Platinum (`d5da7922`) |
 | **Level 3: Shared Kernel**  | **SAK** | KDS v1.0 15-Section Compliant, Quick Facts & 15 Principles | ✅ Platinum (`9e1f1a4b`) |
