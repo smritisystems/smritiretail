@@ -46,11 +46,11 @@
 
 | Component / Standard | Acronym | Governance Scope & Architectural Role | Status |
 |---|---|---|---|
-| **Platform Constitution** | **SPC v1.0**| Lock File Specification & Semantic Freeze Rules | ✅ Certified (`d815dc42`) |
+| **Platform Constitution** | **SPC v1.0**| `smriti.lock.v1` Schema & Layer Freeze Matrix | ✅ Certified (`70943af3`) |
 | **Reference Implementation**|**PRIG v1.0**| Developer Cookbook, Repo Layout & Mandatory Interfaces | ✅ Certified (`83013a75`) |
-| **Deployment Standard** | **DDS v1.0**| DDS v1.0 Frozen Baseline & Recovery State Model | ✅ Certified (`d815dc42`) |
-| **Platform Doctor Service** |**SPD v1.0**| 11-Dimensional Architecture Drift Detection Engine | ✅ Certified (`d815dc42`) |
-| **Platform Maturity Model** | **PCMM v1.0**| L1 Foundation -> L2 Oper -> L3 Integ -> L4 Ent -> L5 Ecosys | ✅ L4 Enterprise (`d815dc42`) |
+| **Deployment Standard** | **DDS v1.0**| DDS v1.0 Frozen Baseline & Recovery State Model | ✅ Certified (`70943af3`) |
+| **Platform Doctor Service** |**SPD v1.0**| Module Signatures & Per-Module Drift Engine | ✅ Certified (`70943af3`) |
+| **Platform Maturity Model** | **PCMM v1.0**| L1 Foundation -> L2 Oper -> L3 Integ -> L4 Ent -> L5 Ecosys | ✅ L4 Enterprise (`70943af3`) |
 | **Kernel Standard** | **KDS v1.1**| 15 Sections, 15 Principles, Dual Checklist, ADRs | ✅ Certified (`e07acb20`) |
 | **Integration Standard** | **IDS v1.0**| REST, GraphQL, Webhooks, OAuth, Connectors Standard | ✅ Certified (`b4afa62a`) |
 | **Service Standard** | **SDS v1.0**| Level 2 Shared Platform Services Standard | ✅ Certified (`e07acb20`) |
@@ -88,4 +88,4 @@
 
 ## 4. Platform Structural Freeze Directive
 
-> **Directive:** Platform OS v4.2 Foundation (SPC, PRIG, DDS, KDS, SDS, IDS, RDS, BDS, NDS, manifest schemas, boot lifecycle, and deployment topology) is **PERMANENTLY FROZEN**. Future development effort is focused strictly on implementing capabilities within Shared Services, Shared Business Kernels, Universal Registries, and Enterprise Business Studios on top of the frozen foundation contracts.
+> **Directive:** Platform OS v4.2 Foundation (SPC, PRIG, DDS, KDS, SDS, IDS, RDS, BDS, NDS, manifest/lock schemas, boot lifecycle, and deployment topology) is **PERMANENTLY FROZEN**. Future development effort is focused strictly on implementing capabilities within Shared Services, Shared Business Kernels, Universal Registries, and Enterprise Business Studios on top of the frozen foundation contracts.
