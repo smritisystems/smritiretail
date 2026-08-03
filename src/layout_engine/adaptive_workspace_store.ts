@@ -33,7 +33,7 @@ export type FeatureKey =
   | "lock_inspector"; // ADVANCED only
 
 /** FROZEN — matches SWEF v1.0 visibility matrix in SXP Constitution */
-const ADAPTIVE_VISIBILITY_MATRIX: Record<FeatureKey, WorkspaceMode[]> = Object.freeze({
+export const ADAPTIVE_VISIBILITY_MATRIX: Record<FeatureKey, WorkspaceMode[]> = Object.freeze({
   timeline:       ["SIMPLE", "HYBRID", "ADVANCED"],
   reservations:   ["HYBRID", "ADVANCED"],
   batch_serial:   ["HYBRID", "ADVANCED"],

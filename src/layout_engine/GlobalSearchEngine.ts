@@ -136,6 +136,11 @@ class GlobalSearchEngineService {
   public getSources(): string[] {
     return Array.from(this.sources.keys());
   }
+
+  /** Remove a previously registered search source */
+  public unregisterSource(id: string): void {
+    this.sources.delete(id);
+  }
 }
 
 export const GlobalSearchEngine = new GlobalSearchEngineService();
