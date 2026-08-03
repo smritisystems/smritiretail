@@ -28,7 +28,7 @@
  │ Level 1: Platform OS & UX (SXP v1.0, SEEF v1.0, SEDS v1.0, WNG)       │
  │ Level 2: Shared Platform Kernels (Inventory, SDK, SBPK, SIK, SPPK)     │
  │ Level 3: Universal Registries (UFR, UWR, URR, USR, UPRT)               │
- │ Level 4: Enterprise Business Studios (10 Certified Studios)            │
+ │ Level 4: Enterprise Business Studios (11 Certified Studios)            │
  │ Level 5: External Integration Connectors (Statutory, Tally, Devices)   │
  └────────────────────────────────────────────────────────────────────────┘
 ```
@@ -66,7 +66,8 @@
 | **Merchandising Studio**| 8 Workspaces | Assortments, buying calendar, markdowns | ✅ Certified (`63027116`) |
 | **Pricing & Promo Studio**| 8 Workspaces | Store price lists, BOGO, happy hour rules | ✅ Certified (`d8e41bc9`) |
 | **Replenishment Studio**| 8 Workspaces | Demand forecast, min/max reorder, ABC analysis| ✅ Certified (`f2da0df9`) |
-| **Omnichannel Studio** | 8 Workspaces | Marketplace sync, click & collect, ship-from-store| 🎯 Next Milestone |
+| **Omnichannel Studio** | 8 Workspaces | Marketplace sync, click & collect, ship-from-store| ✅ Certified (`d18789de`) |
+| **HR & Workforce Studio**| 8 Workspaces | Time & attendance, commissions, payroll | 🎯 Next Milestone |
 
 ---
 
