@@ -46,11 +46,11 @@
 
 | Component / Standard | Acronym | Governance Scope & Architectural Role | Status |
 |---|---|---|---|
-| **Platform Constitution** | **SPC v1.0**| `smriti.lock.v1` Schema & Layer Freeze Matrix | ✅ Certified (`70943af3`) |
+| **Platform Constitution** | **SPC v1.0**| Container Digests, DB Migration Locks & Freeze Matrix| ✅ Certified (`3712942b`) |
 | **Reference Implementation**|**PRIG v1.0**| Developer Cookbook, Repo Layout & Mandatory Interfaces | ✅ Certified (`83013a75`) |
-| **Deployment Standard** | **DDS v1.0**| DDS v1.0 Frozen Baseline & Recovery State Model | ✅ Certified (`70943af3`) |
-| **Platform Doctor Service** |**SPD v1.0**| Module Signatures & Per-Module Drift Engine | ✅ Certified (`70943af3`) |
-| **Platform Maturity Model** | **PCMM v1.0**| L1 Foundation -> L2 Oper -> L3 Integ -> L4 Ent -> L5 Ecosys | ✅ L4 Enterprise (`70943af3`) |
+| **Deployment Standard** | **DDS v1.0**| DDS v1.0 Frozen Baseline & Recovery State Model | ✅ Certified (`3712942b`) |
+| **Platform Doctor Service** |**SPD v1.0**| Container Digest Audit & DB Schema Migration Check | ✅ Certified (`3712942b`) |
+| **Platform Maturity Model** | **PCMM v1.0**| L1 Foundation -> L2 Oper -> L3 Integ -> L4 Ent -> L5 Ecosys | ✅ L4 Enterprise (`3712942b`) |
 | **Kernel Standard** | **KDS v1.1**| 15 Sections, 15 Principles, Dual Checklist, ADRs | ✅ Certified (`e07acb20`) |
 | **Integration Standard** | **IDS v1.0**| REST, GraphQL, Webhooks, OAuth, Connectors Standard | ✅ Certified (`b4afa62a`) |
 | **Service Standard** | **SDS v1.0**| Level 2 Shared Platform Services Standard | ✅ Certified (`e07acb20`) |
