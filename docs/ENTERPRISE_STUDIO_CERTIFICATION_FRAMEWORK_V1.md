@@ -42,7 +42,7 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
 
 ### Platform OS v1.x (Frozen Operating System & Shared Kernels)
 - **Status:** Immutable Execution Environment.
-- **Shared Kernels:** Inventory Kernel v1.0, SXP v1.0, SEEF v1.0, SEDS, WNG Navigation, SBPK v1.0 (Printing), Notification Kernel v1.0, Payment Kernel v1.0.
+- **Shared Kernels:** Inventory Kernel v1.0, SXP v1.0, SEEF v1.0, SEDS, WNG Navigation, **SBPK v1.0 (Printing)**, **SDK v1.0 (Document)**, Notification Kernel v1.0, Payment Kernel v1.0.
 - **Allowed Changes:** Critical security patches, bug fixes, performance optimizations.
 - **Forbidden Changes:** Breaking API changes, custom uncertified UI engine extensions, direct platform token modifications.
 - **Major Versioning:** Platform OS structural evolution requires an approved Architecture Decision Record (ADR) and a major version increment (e.g., Platform OS v2.0).
@@ -65,21 +65,23 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
  │ SBPK Kernel  │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ CRM          │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ Accounting   │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
- │ Warehouse    │     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
+ │ Warehouse    │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ SDK Kernel   │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ Merchandising│     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
  │ HR Studio    │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
  └──────────────┴────────────┴───────────┴──────────┴──────────┴─────────────┴────────────┴───────────┘
 ```
 
 ---
 
-## 4. Next Milestone Target: Warehouse Management Studio v1.0
+## 4. Next Milestone Target: Merchandising & Assortment Studio v1.0
 
-Warehouse Management Studio v1.0 will execute certification under the exact 6-dimensional framework across 8 workspaces:
-1. Warehouse Operations Dashboard
-2. Inbound Put-Away & Bin Allocation
-3. Outbound Wave Picking & Batch Packing
-4. Bin-to-Bin Transfer & Stock Relocation
-5. Cycle Count & Physical Audit
-6. Mobile Scanner Operations
-7. Dispatch & Carrier Logistics
-8. Warehouse Reports & Analytics
+Merchandising Studio v1.0 will execute certification under the exact 6-dimensional framework across 8 workspaces:
+1. Merchandising Dashboard & Seasonality Trends
+2. Assortment Planning & Store Grouping
+3. Buying Plans & Vendor Catalogs
+4. Seasonal Collections & Markdown Planning
+5. Promotional Pricing & Discount Rules
+6. Item Lifecycle & Discontinuation Management
+7. Retail Margin & Mark-Up Analysis
+8. Merchandising Reports & Analytics
