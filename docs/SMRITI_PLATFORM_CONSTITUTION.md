@@ -52,7 +52,7 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 Every layer and operational aspect derives its engineering authority from a dedicated governance standard:
 - **SPC (Platform Constitution):** Supreme architectural governance framework (`a6500275`).
-- **PRIG (Reference Implementation Guide):** Canonical repo layout, coding rules, & OpenTelemetry standards.
+- **PRIG (Reference Implementation Guide):** Canonical repo layout, developer cookbook, & mandatory interface standards (`83013a75`).
 - **PCMM (Platform Capability Maturity Model):** L1 Foundation $\rightarrow$ L2 Operational $\rightarrow$ L3 Integrated $\rightarrow$ L4 Enterprise $\rightarrow$ L5 Ecosystem.
 - **DDS (Deployment Development Standard):** Governs Docker container contracts, readiness/health levels, graceful shutdown, and distributed leader election.
 - **KDS (Kernel Development Standard):** Governs Level 3 Shared Business Kernels.
@@ -118,26 +118,28 @@ To enable horizontal worker scaling without duplicate cron execution:
 
 ---
 
-## 6. SPD Architecture Compliance Score Matrix
+## 6. SPD Architecture Compliance & Mandatory Binary Certification Gates
 
-Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** evaluates total runtime governance compliance producing a single, weighted **Architecture Compliance Score**:
+Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** evaluates total runtime governance compliance producing a weighted **Architecture Compliance Score (100%)** alongside **Strict Mandatory Binary Certification Gates**:
 
-| Compliance Category | Weight | Evaluated Governance Scope | Pass Threshold |
+| Compliance Category | Weight | Mandatory Binary Gate | Pass Threshold |
 |---|---|---|---|
-| **Constitution Compliance** | **20%** | SPC 7-layer topology, structural freeze, & precedence order | 100% |
-| **Manifest Validation** | **15%** | `smriti.manifest.v1` schema, inheritance, & checksum integrity | 100% |
-| **Standards Compliance** | **15%** | KDS, SDS, IDS, RDS, BDS, NDS, & DDS specification adherence | 100% |
-| **Dependency Integrity** | **15%** | Resolved capability graphs & `dependency_graph_hash` verification | 100% |
-| **Security & Trust** | **15%** | Ed25519 signature bytes, key revocation (CRL/OCSP), & USR ABAC | 100% |
-| **Health & Observability**| **10%** | Health levels (`STARTING`..`FAILED`) & OpenTelemetry exports | 100% |
-| **Deployment Compliance**| **10%** | Container readiness contracts, graceful shutdown, & leader locks | 100% |
+| **Constitution Compliance** | **20%** | Gate 1: 7-Layer Topology & Precedence | 100% (PASS Required) |
+| **Manifest Validation** | **15%** | Gate 2: Schema & Checksum Verification | 100% (PASS Required) |
+| **Security & Trust** | **15%** | Gate 3: Signature & Revocation Audit | 100% (PASS Required) |
+| **Standards Compliance** | **15%** | Gate 4: KDS, DDS, & PRIG Code Layout | 100% (PASS Required) |
+| **Deployment Compliance**| **10%** | Gate 5: Container Readiness Contracts | 100% (PASS Required) |
+| **Dependency Integrity** | **15%** | Graph resolution & `dependency_graph_hash` | 100% |
+| **Health & Observability**| **10%** | Health levels & OpenTelemetry export | 100% |
+
+> **Certification Rule:** If ANY Mandatory Binary Gate fails, Certification Status is `REJECTED (UNCERTIFIED)` regardless of score. Enterprise Certification requires 100% Gate Pass.
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
  │ SMRITI PLATFORM COMPLIANCE REPORT                                      │
  ├────────────────────────────────────────────────────────────────────────┤
  │ Overall Compliance Score : 100.0%                                      │
- │ Status                  : PASS                                         │
+ │ Mandatory Binary Gates   : 5/5 PASSED                                  │
  │ Certification Status    : ENTERPRISE CERTIFIED (PRODUCTION READY)     │
  └────────────────────────────────────────────────────────────────────────┘
 ```
