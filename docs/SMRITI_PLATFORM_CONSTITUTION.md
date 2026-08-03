@@ -51,7 +51,7 @@ All platform capabilities MUST be categorized into exactly one of the following 
 ## 3. Governance Standards Hierarchy (Including DDS v1.0)
 
 Every layer and operational aspect derives its engineering authority from a dedicated governance standard:
-- **SPC (Platform Constitution):** Supreme architectural governance framework (`8732cb77`).
+- **SPC (Platform Constitution):** Supreme architectural governance framework (`02de5396`).
 - **PRIG (Reference Implementation Guide):** Canonical repo layout, coding rules, & OpenTelemetry standards.
 - **PCMM (Platform Capability Maturity Model):** L1 Foundation $\rightarrow$ L2 Operational $\rightarrow$ L3 Integrated $\rightarrow$ L4 Enterprise $\rightarrow$ L5 Ecosystem.
 - **DDS (Deployment Development Standard):** Governs Docker container contracts, readiness/health levels, graceful shutdown, and distributed leader election.
@@ -84,14 +84,17 @@ The **Professional Edition (5 Containers)** is the **DEFAULT PRODUCTION DEPLOYME
 
 ## 5. Container Health Levels & Graceful Shutdown Contracts (DDS v1.0)
 
-### A. Health State Levels
-Containers expose detailed `/health` status reports adhering to 6 canonical **Health Levels**:
+### A. Health State Levels & Recovery Pipeline
+Containers expose detailed `/health` status reports adhering to canonical **Health Levels**:
 - **`STARTING`:** Container initializing; readiness check in progress.
 - **`READY`:** Fully functional; accepting production traffic.
 - **`DEGRADED`:** Partial capability degradation (e.g. Redis cache miss fallback to DB); traffic accepted with warning.
 - **`READONLY`:** Storage or database restriction mode; read transactions permitted; write transactions blocked.
+- **`RECOVERING`:** Container replaying WAL/events or rebuilding cache.
+- **`SYNCING`:** Multi-site node synchronizing state before becoming `READY`.
+- **`MAINTENANCE`:** Intentionally unavailable for upgrades or administration.
 - **`STOPPING`:** Graceful shutdown sequence initiated; draining active jobs.
-- **`FAILED`:** Unrecoverable error; triggers container restart / failover.
+- **`FAILED`:** Unrecoverable error; triggers automated recovery path (`FAILED` $\rightarrow$ `RECOVERING` $\rightarrow$ `STARTING` $\rightarrow$ `READY`).
 
 ### B. Graceful Shutdown Order (Reverse Boot Order)
 When a platform shutdown signal (`SIGTERM` / `SIGINT`) is received, containers execute **Graceful Shutdown** in reverse order to prevent data loss or corrupted transactions:
@@ -145,7 +148,7 @@ Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagno
 - **Manifest & Lock File Audit:** Validates `platform.manifest.yaml` and `platform.lock.yaml`.
 - **SHA256 & Dependency Graph Hash Verification:** Asserts payload and resolved graph hashes.
 - **Ed25519 Signature & Revocation Audit:** Verifies signatures, checks `key_id` against CRL/OCSP revocation sources.
-- **Health Level Audit:** Asserts health states (`STARTING`, `READY`, `DEGRADED`, `READONLY`, `STOPPING`, `FAILED`).
+- **Health Level Audit:** Asserts health states (`STARTING`, `READY`, `DEGRADED`, `READONLY`, `RECOVERING`, `SYNCING`, `MAINTENANCE`, `STOPPING`, `FAILED`).
 - **Graceful Shutdown Audit:** Verifies reverse shutdown handling (`web` $\rightarrow$ `worker` $\rightarrow$ `api` $\rightarrow$ `redis` $\rightarrow$ `db`).
 - **Distributed Leader Lock Audit:** Verifies single-leader lock ownership across worker nodes.
 - **Platform Health Report:** Generates an enterprise-ready certification report (`100% READY FOR PRODUCTION`).
@@ -155,9 +158,10 @@ Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagno
 ## 9. Baseline Structural Freeze & ADR Policy
 
 1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Professional Edition Deployment Topology (5 Containers), Graceful Shutdown Order, Health Levels, Distributed Leader Election, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
-2. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
+2. **DDS v1.0 Freeze Directive:** Deployment Development Standard v1.0 is the canonical deployment specification for SMRITI Digital Commerce Platform OS v4.2. Non-breaking operational clarifications may be added in patch releases. Changes affecting container topology, deployment lifecycle, readiness contracts, health semantics, or orchestration behavior require a DDS major version increment and an approved Architecture Decision Record (ADR).
+3. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
    - Introduction of a new Level 3 Shared Business Kernel or Level 2 Shared Service.
    - Breaking API changes to an existing public service facade (`KernelName.Service`).
    - Modification of cross-kernel transaction boundaries.
    - Alteration of USR security ABAC policies or data isolation models.
-3. **Semantic Evolution Policy:** Routine bug fixes and non-breaking feature extensions use minor version increments (`v4.2.x`). Structural changes require a major version bump and an approved ADR.
+4. **Semantic Evolution Policy:** Routine bug fixes and non-breaking feature extensions use minor version increments (`v4.2.x`). Structural changes require a major version bump and an approved ADR.
