@@ -3,7 +3,7 @@
  * Module       : SXP v1.0 — OperationLauncher (SWEF P-007)
  * Standard     : SXP Constitution v1.0 / SWEF v1.0 / 3-Interaction Rule
  * Author       : Jawahar Ramkripal Mallah
- * Version      : 1.0.0
+ * Version      : 1.2.0  (Sprint 3 — WCAG AA accessibility pass)
  * Created      : 2026-08-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
@@ -19,7 +19,7 @@
  * create a scanner_action with more than 3 steps.
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, useId } from "react";
 import { WorkspaceActionRegistry, WorkspaceActionDef, ActionExecutionContext } from "../../layout_engine/WorkspaceActionRegistry.js";
 import { adaptiveWorkspaceStore } from "../../layout_engine/adaptive_workspace_store.js";
 
@@ -62,9 +62,12 @@ interface OperationCardProps {
 const OperationCard: React.FC<OperationCardProps> = ({ action, onSelect, dense }) => (
   <button
     id={`op-card-${action.id}`}
-    aria-label={action.label}
+    aria-label={action.shortcut ? `${action.label}, shortcut ${action.shortcut}` : action.label}
     title={action.shortcut ? `${action.label} · ${action.shortcut}` : action.label}
     onClick={() => onSelect(action.id)}
+    onKeyDown={(e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(action.id); }
+    }}
     style={{
       display: "flex",
       flexDirection: "column",
@@ -91,7 +94,7 @@ const OperationCard: React.FC<OperationCardProps> = ({ action, onSelect, dense }
       (e.currentTarget as HTMLButtonElement).style.background = "var(--c-surface-elevated, rgba(255,255,255,0.04))";
     }}
   >
-    <span style={{ fontSize: dense ? 22 : 28 }}>{action.icon}</span>
+    <span aria-hidden="true" style={{ fontSize: dense ? 22 : 28 }}>{action.icon}</span>
     <span style={{ fontSize: dense ? 12 : 13, fontWeight: 600, lineHeight: 1.3 }}>{action.label}</span>
     {action.shortcut && (
       <kbd style={{
@@ -119,6 +122,43 @@ export const OperationWizard: React.FC<OperationWizardProps> = ({ operation, onC
   const [executing, setExecuting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message?: string } | null>(null);
 
+  // Stable IDs for ARIA
+  const headerId = useId();
+  const stepId   = useId();
+
+  // Focus trap
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    // Auto-focus first focusable element
+    const first = panel.querySelector<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    first?.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key !== "Tab") return;
+      const focusable = Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      );
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last  = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, result]);
+
   const steps = operation.steps.slice(0, MAX_STEPS[operation.mode]);
   const currentStep = steps[stepIndex];
   const isLast = stepIndex === steps.length - 1;
@@ -138,19 +178,19 @@ export const OperationWizard: React.FC<OperationWizardProps> = ({ operation, onC
 
   if (result) {
     return (
-      <div style={overlayStyle}>
-        <div style={panelStyle}>
+      <div style={overlayStyle} role="alertdialog" aria-modal="true" aria-label={result.success ? "Operation completed" : "Operation failed"}>
+        <div style={panelStyle} role="alert" ref={panelRef}>
           <div style={{ textAlign: "center", padding: 32 }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>{result.success ? "✅" : "❌"}</div>
+            <div aria-hidden="true" style={{ fontSize: 48, marginBottom: 12 }}>{result.success ? "✅" : "❌"}</div>
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
-              {result.success ? "Done" : "Failed"}
+              {result.success ? "Done" : "Something went wrong"}
             </div>
             {result.message && (
-              <div style={{ fontSize: 13, color: "var(--c-text-secondary, #94a3b8)" }}>
+              <div style={{ fontSize: 13, color: "var(--c-text-secondary, #94a3b8)", marginBottom: 16 }}>
                 {result.message}
               </div>
             )}
-            <button onClick={onClose} style={primaryBtnStyle}>
+            <button onClick={onClose} autoFocus style={primaryBtnStyle}>
               Close
             </button>
           </div>
@@ -160,19 +200,25 @@ export const OperationWizard: React.FC<OperationWizardProps> = ({ operation, onC
   }
 
   return (
-    <div style={overlayStyle} role="dialog" aria-modal="true" aria-label={operation.actionId}>
-      <div style={panelStyle}>
+    <div style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby={headerId} aria-describedby={stepId}>
+      <div style={panelStyle} ref={panelRef}>
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--c-border, rgba(255,255,255,0.08))" }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>{currentStep.label}</div>
+            <div id={headerId} style={{ fontSize: 14, fontWeight: 600 }}>{currentStep.label}</div>
             {!isScannerMode && (
-              <div style={{ fontSize: 11, color: "var(--c-text-muted, #64748b)", marginTop: 2 }}>
+              <div id={stepId} style={{ fontSize: 11, color: "var(--c-text-muted, #64748b)", marginTop: 2 }}>
                 Step {stepIndex + 1} of {steps.length}
               </div>
             )}
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text-muted, #64748b)", fontSize: 18 }}>×</button>
+          <button
+            onClick={onClose}
+            aria-label="Close dialog"
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text-muted, #64748b)", fontSize: 18 }}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
         </div>
 
         {/* Step progress (non-scanner) */}
