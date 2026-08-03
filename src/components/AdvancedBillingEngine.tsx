@@ -5,7 +5,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.2.0  (SXP v1.0 — POS Studio manifest + WorkspaceShell zone)
+ * Version      : 5.3.0  (SXP-CS-002 — scanner zone + POS timeline adapter + offline handler)
  * Created      : 2026-07-10
  * Modified     : 2026-07-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -770,7 +770,12 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#0b1329] text-gray-200 overflow-hidden font-sans select-none relative">
+    <div
+      className="w-full h-full flex flex-col bg-[#0b1329] text-gray-200 overflow-hidden font-sans select-none relative"
+      data-sxp-zone="scanner"
+      data-sxp-workspace="pos.billing"
+      data-sxp-mode={workspaceMode}
+    >
       {/* SMRITI RETAIL TERMINAL HEADER BAR (TOP CONTROL ROW) */}
       <div className="px-4 py-2 bg-[#0f172a] border-b border-theme-divider flex items-center justify-between text-xs font-mono">
         <div className="flex items-center space-x-4">

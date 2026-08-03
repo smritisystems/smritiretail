@@ -3,7 +3,7 @@
  * Module       : SXP v1.0 — POS Studio Manifest (co-located)
  * Standard     : SXP Constitution v1.0 / WNG-005 / SWEF v1.0
  * Author       : Jawahar Ramkripal Mallah
- * Version      : 1.0.0
+ * Version      : 1.1.0  (SXP-CS-010 — offline sale handler)
  * Created      : 2026-08-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
@@ -18,6 +18,9 @@ import { WorkspaceManifest } from "../../layout_engine/WorkspaceRegistry.js";
 import { WorkspaceRegistry } from "../../layout_engine/WorkspaceRegistry.js";
 import { WorkspaceActionRegistry, WorkspaceActionDef } from "../../layout_engine/WorkspaceActionRegistry.js";
 import { DashboardRegistry } from "../../kernel/upr/dashboard/DashboardRegistry.js";
+// SXP-CS-010 — Offline sale sync handler
+import { OfflineExperienceManager } from "../../layout_engine/OfflineExperienceManager.js";
+import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 
 // ── POS Actions ───────────────────────────────────────────────────────────────
 
@@ -172,6 +175,21 @@ export function registerPOSStudio(): void {
   POS_ACTIONS.forEach((action) => WorkspaceActionRegistry.register(action));
   POS_WORKSPACES.forEach((workspace) => WorkspaceRegistry.register(workspace));
   registerPOSDashboard();
+
+  // SXP-CS-010 — Register offline sale sync handler
+  // Called by OfflineExperienceManager.syncAll() when network is restored.
+  // AOP-001: no automatic financial action — syncs only queued user-initiated sales.
+  OfflineExperienceManager.registerHandler("sale", async (operation) => {
+    try {
+      const response = await apiFetchV1("/api/v1/pos/bills/offline", {
+        method: "POST",
+        body: JSON.stringify(operation.payload),
+      });
+      return { success: response.ok, error: response.ok ? undefined : `HTTP ${response.status}` };
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : "Network error" };
+    }
+  });
 }
 
 // Auto-register

@@ -87,6 +87,52 @@ export const WorkflowTimelineAdapter: TimelineAdapter = {
   },
 };
 
+/**
+ * POSTimelineAdapter — SXP-CS-009 (POS Studio timeline gate)
+ * Shows bill-lifecycle events for a given bill ID.
+ * Plain language only — "Payment Collected" not "BILLING_PAYMENT_ENTRY"
+ */
+export const POSTimelineAdapter: TimelineAdapter = {
+  id: "pos",
+  async getEntries(entityId, limit = 10) {
+    // Stub — Sprint 1 wires to /api/v1/pos/bills/{entityId}/timeline
+    return ([
+      {
+        id: `${entityId}-1`,
+        label: "New Bill Started",
+        description: "Billing session opened at POS counter",
+        timestamp: new Date(Date.now() - 600000).toISOString(),
+        status: "completed" as const,
+        icon: "🧾",
+      },
+      {
+        id: `${entityId}-2`,
+        label: "Items Scanned",
+        description: "6 line items added to bill",
+        timestamp: new Date(Date.now() - 300000).toISOString(),
+        status: "completed" as const,
+        icon: "📷",
+      },
+      {
+        id: `${entityId}-3`,
+        label: "Payment Collected",
+        description: "₹3,450 received — UPI",
+        timestamp: new Date(Date.now() - 60000).toISOString(),
+        status: "completed" as const,
+        icon: "✅",
+      },
+      {
+        id: `${entityId}-4`,
+        label: "Bill Printed",
+        description: "Tax Invoice #SI-2026-00842 printed",
+        timestamp: new Date().toISOString(),
+        status: "active" as const,
+        icon: "🖨️",
+      },
+    ] satisfies TimelineEntry[]).slice(0, limit);
+  },
+};
+
 // ── Timeline Component ────────────────────────────────────────────────────────
 
 export interface WorkspaceTimelineProps {
