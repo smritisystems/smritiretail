@@ -50,28 +50,50 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ## 3. Platform Deployment Topology: Professional Edition (DEFAULT BASELINE)
 
-The **Professional Edition (5 Containers)** is the **DEFAULT PRODUCTION DEPLOYMENT** for SMRITI Retail OS across all standard customer environments:
+The **Professional Edition (5 Containers)** is the **DEFAULT PRODUCTION DEPLOYMENT** for SMRITI Retail OS across 95% of customer environments. It cleanly separates business logic execution from background processing and container responsibilities:
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
  │ SMRITI PROFESSIONAL EDITION (DEFAULT 5-CONTAINER DOCKER TOPOLOGY)      │
  ├────────────────────────────────────────────────────────────────────────┤
  │ 1. smriti-web    ── Next.js Single Page UI, PWA & Mobile Web Layout    │
- │ 2. smriti-api    ── Platform OS, Boot Manager, SPD Doctor, SEB/SES/SAS,│
- │                     SDK/SLK/STK/SAK Kernels, Registries, All 13 Studios │
+ │ 2. smriti-api    ── Stateless API: Platform OS, Boot Manager, SPD,     │
+ │                     SDK/SLK/STK/SAK Kernels, Registries, All Studios    │
  │ 3. smriti-db     ── PostgreSQL Master Database                         │
- │ 4. smriti-redis  ── Cache, Message Queue, Session, & Distributed Locks │
- │ 5. smriti-worker  ── Background Worker (WhatsApp, SMS, AI, PDF, Sync)  │
+ │ 4. smriti-redis  ── Cache, Queue, Pub/Sub, Sessions, Distributed Lock  │
+ │ 5. smriti-worker  ── Background Worker: Scheduler, Automation, AI Jobs,│
+ │                     Reports, PDF, WhatsApp, SMS, Email, Stock Sync     │
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Platform Deployment Editions Summary
+### Container Responsibility Principle
 
-| Edition Name | Default Status | Container Count | Deployment Topology & Target |
+| Container Name | Primary Responsibility | Stateless / Stateful | Scaling Strategy |
+|---|---|---|---|
+| **`smriti-web`** | User Interface Rendering (Next.js/PWA) | Stateless | Horizontal Auto-Scale |
+| **`smriti-api`** | Business Logic, Kernels, Registries & OS | Stateless | Horizontal Auto-Scale |
+| **`smriti-db`** | Persistent Primary Data (PostgreSQL) | Stateful | Master-Replica Failover |
+| **`smriti-redis`** | Cache, Message Queue, Distributed Lock | Stateful | Redis Sentinel / Cluster |
+| **`smriti-worker`**| Asynchronous Jobs & Cron Scheduler | Stateless | Horizontal Worker Scale |
+
+### Sequential Container Boot & Health Orchestration
+
+```text
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │ SEQUENTIAL CONTAINER BOOT & HEALTH ORCHESTRATION                       │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ 1. smriti-db ──► 2. smriti-redis ──► 3. smriti-api (SPD Doctor Check)  │
+ │              ──► 4. smriti-worker ──► 5. smriti-web (Expose Traffic)   │
+ └────────────────────────────────────────────────────────────────────────┘
+```
+
+### Platform Deployment Editions Index
+
+| Edition Name | Default Status | Container Count | Deployment Scope |
 |---|---|---|---|
 | **Community Edition** | Optional | 3 Containers | `smriti-web`, `smriti-api`, `smriti-db` (Demos / Small Shops) |
 | **Professional Edition**| **DEFAULT (✅)** | **5 Containers** | **`smriti-web`, `smriti-api`, `smriti-db`, `smriti-redis`, `smriti-worker`** |
-| **Enterprise Edition** | Optional | 12+ Containers | Professional + `gateway`, `search`, `otel`, `prometheus`, `grafana`, `smn`, `ai` |
+| **Enterprise Edition** | Optional | 12–15 Containers| Professional + `gateway`, `search`, `smn`, `otel`, `prometheus`, `grafana`, `ai` |
 
 ---
 
@@ -234,8 +256,8 @@ Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagno
 - **Manifest & Lock File Audit:** Validates `platform.manifest.yaml` and `platform.lock.yaml`.
 - **SHA256 & Dependency Graph Hash Verification:** Asserts payload and resolved graph hashes.
 - **Ed25519 Signature & Revocation Audit:** Verifies signatures, checks `key_id` against CRL/OCSP revocation sources.
-- **Container & Deployment Edition Audit:** Validates Professional Edition 5-container topology (`web`, `api`, `db`, `redis`, `worker`).
-- **Startup Phase & Priority Orchestration:** Schedules initialization from `00-core` to `50-connector`.
+- **Container Responsibility & Stateless API Audit:** Asserts `smriti-api` statelessness and validates `smriti-worker` scheduler ownership.
+- **Sequential Boot Health Check:** Verifies container boot sequence (`db` $\rightarrow$ `redis` $\rightarrow$ `api` $\rightarrow$ `worker` $\rightarrow$ `web`).
 - **Compatibility Profile Verification:** Asserts environment profile (`enterprise`, `community`, `cloud`, `edge`).
 - **Platform Health Report:** Generates an enterprise-ready certification report (`100% READY FOR PRODUCTION`).
 
@@ -243,7 +265,7 @@ Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagno
 
 ## 10. Baseline Structural Freeze & ADR Policy
 
-1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Professional Edition Deployment Topology (5 Containers), Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
+1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Professional Edition Deployment Topology (5 Containers), Container Responsibility Principle, Sequential Container Boot Order, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
 2. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
    - Introduction of a new Level 3 Shared Business Kernel or Level 2 Shared Service.
    - Breaking API changes to an existing public service facade (`KernelName.Service`).
