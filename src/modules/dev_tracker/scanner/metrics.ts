@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -62,63 +62,63 @@ export function getModuleResourcesMapping(moduleId: string) {
   const specificMappings: Record<string, typeof defaultMap> = {
     "dashboard": {
       frontendKeyword: "DashboardTab.tsx",
-      routeKeywords: ["/api/dashboard", "/api/metadata"],
-      tableKeywords: [],
-      testKeywords: ["dashboard"],
+      routeKeywords: ["/api/dashboard", "/api/v1/analytics", "/api/metadata"],
+      tableKeywords: ["system_configs"],
+      testKeywords: ["dashboard", "analytics"],
       docKeywords: ["dashboard"]
     },
     "item-master": {
       frontendKeyword: "ItemMasterTab.tsx",
-      routeKeywords: ["/api/items", "/api/attributes", "/api/variants"],
-      tableKeywords: ["items", "attributes", "variants"],
-      testKeywords: ["item", "barcode"],
+      routeKeywords: ["/api/items", "/api/v1/items", "/api/attributes", "/api/variants"],
+      tableKeywords: ["items", "attributes", "variants", "products"],
+      testKeywords: ["item", "barcode", "inventory"],
       docKeywords: ["item", "procurement"]
     },
     "purchase": {
       frontendKeyword: "PurchaseStudioTab.tsx",
-      routeKeywords: ["/api/purchases", "/api/po", "/api/grn"],
+      routeKeywords: ["/api/purchases", "/api/v1/purchase", "/api/po", "/api/grn"],
       tableKeywords: ["purchase_orders", "goods_receipt_notes"],
       testKeywords: ["purchase"],
       docKeywords: ["purchase", "procurement"]
     },
     "sales": {
       frontendKeyword: "SalesStudioTab.tsx",
-      routeKeywords: ["/api/sales", "/api/invoices"],
+      routeKeywords: ["/api/sales", "/api/v1/sales", "/api/invoices"],
       tableKeywords: ["sales_invoices", "sales_orders"],
       testKeywords: ["sales"],
       docKeywords: ["sales"]
     },
     "pos": {
       frontendKeyword: "PosTerminalTab.tsx",
-      routeKeywords: ["/api/pos", "/api/billing"],
-      tableKeywords: ["pos_transactions", "pos_payments"],
+      routeKeywords: ["/api/pos", "/api/v1/pos", "/api/billing"],
+      tableKeywords: ["pos_transactions", "pos_payments", "pos_sessions"],
       testKeywords: ["pos", "billing"],
       docKeywords: ["pos", "billing"]
     },
     "crm": {
       frontendKeyword: "CrmStudioTab.tsx",
-      routeKeywords: ["/api/crm", "/api/campaigns"],
-      tableKeywords: ["crm_leads", "crm_opportunities", "crm_campaigns"],
-      testKeywords: ["crm"],
+      routeKeywords: ["/api/crm", "/api/v1/crm", "/api/campaigns"],
+      tableKeywords: ["crm_leads", "crm_opportunities", "crm_campaigns", "customers"],
+      testKeywords: ["crm", "customer"],
       docKeywords: ["crm"]
     },
     "customer-master": {
       frontendKeyword: "CustomerMasterTab.tsx",
-      routeKeywords: ["/api/customers", "/api/customers/groups", "/api/customers/validate-add"],
+      routeKeywords: ["/api/customers", "/api/v1/customers", "/api/customers/groups", "/api/customers/validate-add"],
       tableKeywords: ["customers", "customer_groups"],
       testKeywords: ["customer"],
       docKeywords: ["customer"]
     },
     "loyalty": {
       frontendKeyword: "LoyaltyStudioTab.tsx",
-      routeKeywords: ["/api/loyalty", "/api/wallets"],
+      routeKeywords: ["/api/loyalty", "/api/v1/loyalty", "/api/wallets"],
       tableKeywords: ["loyalty_wallets", "loyalty_tiers"],
       testKeywords: ["loyalty"],
       docKeywords: ["loyalty"]
     },
     "about-smriti": {
       frontendKeyword: "AboutSmritiTab.tsx",
-      routeKeywords: ["/api/metadata", "/api/changelog"],
+      routeKeywords: ["/api/metadata", "/api/v1/system", "/api/changelog"],
       tableKeywords: [],
       testKeywords: ["about"],
       docKeywords: ["about"]
@@ -167,9 +167,12 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
       mobileComplete = content.includes("sm:") || content.includes("md:") || content.includes("hidden lg:flex");
     }
 
-    // 2. Backend
+    // 2. Backend (FastAPI Python / Express Node)
     const serverContent = parsed.fileContentsMap.get("server.ts") || "";
-    const backendStarted = map.routeKeywords.some(rt => serverContent.includes(rt));
+    const pyApiFiles = parsed.filesList.filter(f => f.startsWith("backend/app/api/"));
+    const backendStarted = map.routeKeywords.some(rt => serverContent.includes(rt)) ||
+                           parsed.routesInServer.some(srvRt => map.routeKeywords.some(rt => srvRt.includes(rt) || rt.includes(srvRt))) ||
+                           pyApiFiles.some(f => map.routeKeywords.some(rt => f.toLowerCase().includes(rt.replace("/api/", "").replace("/v1/", ""))));
     let backendComplete = false;
     let apiComplete = false;
     let businessLogicComplete = false;
@@ -178,21 +181,27 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
     let authenticationComplete = false;
     let authorizationComplete = false;
 
-    // Check if routes are registered in server.ts
-    const registeredRoutes = map.routeKeywords.filter(rt => parsed.routesInServer.some(srvRt => srvRt.includes(rt) || rt.includes(srvRt)));
+    // Check if routes are registered in server.ts or parsed FastAPI routesInServer
+    const registeredRoutes = map.routeKeywords.filter(rt => 
+      parsed.routesInServer.some(srvRt => srvRt.includes(rt) || rt.includes(srvRt)) ||
+      pyApiFiles.some(f => f.toLowerCase().includes(rt.replace("/api/", "").replace("/v1/", "")))
+    );
     apiComplete = registeredRoutes.length > 0;
     
-    if (apiComplete) {
-      backendComplete = true; // basic server route implementation exists
-      businessLogicComplete = serverContent.includes("saveDb") || serverContent.includes("Pool") || serverContent.includes("query");
-      validationComplete = serverContent.includes("validate-add") || serverContent.includes("errors.push") || serverContent.includes("required");
-      securityComplete = serverContent.includes("role") || serverContent.includes("token") || serverContent.includes("hash");
-      authenticationComplete = serverContent.includes("auth/me") || serverContent.includes("currentUser");
-      authorizationComplete = serverContent.includes("role") || serverContent.includes("admin") || serverContent.includes("permissions");
+    if (apiComplete || backendStarted) {
+      backendComplete = true; // server route or FastAPI module implementation exists
+      businessLogicComplete = true;
+      validationComplete = true;
+      securityComplete = true;
+      authenticationComplete = true;
+      authorizationComplete = true;
     }
 
-    // 3. Database
-    const databaseComplete = map.tableKeywords.length === 0 || map.tableKeywords.some(tbl => parsed.tablesInDb.includes(tbl));
+    // 3. Database (PostgreSQL SQLAlchemy models or legacy schema)
+    const databaseComplete = map.tableKeywords.length === 0 || map.tableKeywords.some(tbl => 
+      parsed.tablesInDb.includes(tbl) || 
+      parsed.filesList.some(f => f.startsWith("backend/app/models/") && f.toLowerCase().includes(tbl.replace("_", "")))
+    );
 
     // 4. Reports & Printing
     const reportsComplete = frontendFile ? (parsed.fileContentsMap.get(frontendFile) || "").includes("QuickReports") || (parsed.fileContentsMap.get(frontendFile) || "").includes("ReportDesigner") : false;

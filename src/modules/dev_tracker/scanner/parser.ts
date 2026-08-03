@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -27,7 +27,7 @@ import fs from "fs";
 import path from "path";
 
 // Helper to recursively list all files matching extensions
-export function getFilesRecursively(dir: string, extensions: string[] = [".ts", ".tsx", ".js", ".jsx", ".css", ".sql", ".md", ".json"]): string[] {
+export function getFilesRecursively(dir: string, extensions: string[] = [".ts", ".tsx", ".js", ".jsx", ".css", ".sql", ".md", ".json", ".py"]): string[] {
   let results: string[] = [];
   if (!fs.existsSync(dir)) return results;
 
@@ -36,7 +36,18 @@ export function getFilesRecursively(dir: string, extensions: string[] = [".ts", 
     const filePath = path.join(dir, file);
     const stat = fs.statSync(filePath);
     if (stat && stat.isDirectory()) {
-      if (file !== "node_modules" && file !== "dist" && file !== ".git" && file !== ".gemini" && file !== ".agents") {
+      if (
+        file !== "node_modules" && 
+        file !== "dist" && 
+        file !== ".git" && 
+        file !== ".gemini" && 
+        file !== ".agents" && 
+        file !== ".venv" && 
+        file !== "venv" && 
+        file !== "__pycache__" && 
+        file !== ".pytest_cache" && 
+        file !== ".mypy_cache"
+      ) {
         results = results.concat(getFilesRecursively(filePath, extensions));
       }
     } else {
@@ -88,8 +99,15 @@ export function parseCodebase(): ParsedCodebase {
   for (const filePath of allFiles) {
     const relPath = path.relative(rootDir, filePath).replace(/\\/g, "/");
     
-    // Categorize test and doc files
-    if (relPath.startsWith("src/tests/") || relPath.endsWith(".test.ts") || relPath.endsWith(".test.tsx")) {
+    // Categorize test and doc files (both TS/JS vitest and Python pytest)
+    if (
+      relPath.startsWith("src/tests/") || 
+      relPath.endsWith(".test.ts") || 
+      relPath.endsWith(".test.tsx") ||
+      relPath.startsWith("backend/app/tests/") ||
+      relPath.startsWith("backend/tests/") ||
+      relPath.includes("test_")
+    ) {
       testFiles.push(relPath);
     }
     if (relPath.startsWith("docs/") && relPath.endsWith(".md")) {
@@ -128,13 +146,30 @@ export function parseCodebase(): ParsedCodebase {
         }
       }
 
-      // 4. Parse server.ts routes
+      // 4. Parse server.ts routes and FastAPI backend routes
       if (relPath === "server.ts") {
         const routeRegex = /app\.(get|post|put|delete)\(\s*["'](\/api\/.*?)["']/g;
         let match;
         while ((match = routeRegex.exec(content)) !== null) {
           if (!routesInServer.includes(match[2])) {
             routesInServer.push(match[2]);
+          }
+        }
+      }
+      if (relPath.startsWith("backend/app/api/") && relPath.endsWith(".py")) {
+        const pyRouteRegex = /@router\.(get|post|put|delete|patch)\(\s*["'](\/.*?)["']/g;
+        let match;
+        const prefixMatch = content.match(/APIRouter\([^)]*prefix=["'](\/[^"']+)["']/);
+        const prefix = prefixMatch ? prefixMatch[1] : "";
+        while ((match = pyRouteRegex.exec(content)) !== null) {
+          const rawRoute = `/api/v1${prefix}${match[2]}`.replace(/\/+/g, "/");
+          if (!routesInServer.includes(rawRoute)) {
+            routesInServer.push(rawRoute);
+          }
+          // Also add /api<prefix> alias for route matching flexibility
+          const aliasRoute = `/api${prefix}${match[2]}`.replace(/\/+/g, "/");
+          if (!routesInServer.includes(aliasRoute)) {
+            routesInServer.push(aliasRoute);
           }
         }
       }
@@ -150,11 +185,21 @@ export function parseCodebase(): ParsedCodebase {
         }
       }
 
-      // 6. Parse Database tables from schema.sql
+      // 6. Parse Database tables from schema.sql, server.ts, and SQLAlchemy models
       if (relPath === "src/db/schema.sql" || relPath === "server.ts") {
         const tableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/gi;
         let match;
         while ((match = tableRegex.exec(content)) !== null) {
+          const tableName = match[1].toLowerCase();
+          if (!tablesInDb.includes(tableName)) {
+            tablesInDb.push(tableName);
+          }
+        }
+      }
+      if (relPath.startsWith("backend/app/models/") && relPath.endsWith(".py")) {
+        const modelRegex = /__tablename__\s*=\s*["'](\w+)["']/g;
+        let match;
+        while ((match = modelRegex.exec(content)) !== null) {
           const tableName = match[1].toLowerCase();
           if (!tablesInDb.includes(tableName)) {
             tablesInDb.push(tableName);

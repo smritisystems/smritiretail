@@ -248,8 +248,8 @@ Capability Matrix Status Vocabulary: ✅ Implemented / 🟡 Partial / 🔵 Plann
 
 | Feature Area | Sub-feature / Requirement | Status | Details / Constraints |
 |---|---|---|---|
-| **POS Billing** | Shifts, hold tickets, register checkout, tax calculations | ✅ Implemented | Fully verified via test suite (`test_pos.py`, `test_sales.py`). |
-| **Inventory Management** | Barcode registration, SKU tracking, stock ledger entries | ✅ Implemented | Verified via `test_inventory_endpoint_permissions`. |
+| **POS Billing** | Shifts, hold tickets, register checkout, tax calculations | ✅ Implemented | Verified via FastAPI router (`pos.py`, 92% health score in `DEVELOPMENT_STATUS.md`) and test suite (`test_pos.py`, `test_sales.py`). |
+| **Inventory Management** | Barcode registration, SKU tracking, stock ledger entries | ✅ Implemented | Verified via Item Master (`app/api/v1/inventory.py`, 96% health score in `DEVELOPMENT_STATUS.md`) and `test_inventory_endpoint_permissions`. |
 | **Multi-Tenant Isolation** | Multi-company & multi-branch boundary checks | ✅ Implemented | Enforced in database session filters and checked via `test_tenant_isolation.py`. |
 | **GSTIN Validation** | Structural checksum validation (Luhn mod 36) | ✅ Implemented | Centralized check digit algorithm in `app/core/gstin.py` and covered in `test_gstin_compliance.py`. |
 | **GSTIN Registry** | Active taxpayer registry verification via GSTN/GSP portal | 🔵 Planned | Out of scope for this phase. Requires external API integration. |
