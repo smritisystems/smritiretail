@@ -22,7 +22,7 @@
 
 ## 1. Platform Vision & Identity Statement
 
-> **SMRITI Digital Commerce Platform OS** is a modular, multi-tenant, enterprise digital commerce operating system built on a strictly frozen 7-layer architecture, governed by constitutional engineering standards (KDS, SDS, RDS, BDS, NDS), powered by shared platform services and business kernels, and extended through certified business capability studios and distributed network nodes.
+> **SMRITI Digital Commerce Platform OS** is a modular, multi-tenant, enterprise digital commerce operating system built on a strictly frozen 7-layer architecture, governed by constitutional engineering standards (KDS, SDS, RDS, BDS, NDS, IDS), powered by shared platform services and business kernels, and extended through certified business capability studios and distributed network nodes.
 
 ---
 
@@ -47,38 +47,43 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ---
 
-## 3. Constitutional Architectural Principles (KDS v1.1 Baseline)
-
-1. **Domain Ownership:** Shared Business Kernels exclusively own their respective business domain logic. No Business Studio or UI component may modify domain tables directly.
-2. **Mandatory Service Facade:** All domain operations MUST execute exclusively through `KernelName.Service`.
-3. **Immutable Master Identity:** Entity primary keys and universal UUIDs are 100% immutable once issued.
-4. **Dual Lifecycle State/Status Separation:** Primary lifecycle states are immutable state machines; operational sub-statuses are concurrent.
-5. **Delegated Financial Ledger Postings:** Capitalization, depreciation, and disposal GL postings MUST delegate to `SLK Ledger Kernel v1.0`.
-6. **Delegated Tax Calculations:** Input tax credit (ITC) and GST write-offs MUST delegate to `STK Tax Kernel v1.0`.
-7. **Delegated Document Lifecycle:** Transaction document creation and approvals MUST delegate to `SDK Document Kernel v1.0`.
-8. **Multi-Channel Notification Alerts:** Maintenance reminders and warranty alerts MUST delegate to `SNP Notification Platform`.
-9. **Event-Driven Communication (SEB):** All domain state changes MUST publish asynchronous events over `SEB Event Bus`.
-10. **Strict Versioning Policy:** Baseline versions are locked. Breaking API changes require a major version increment and an approved ADR.
-11. **Strict Backward Compatibility:** Existing public APIs shall NEVER break within the same major version.
-12. **Idempotent Operations:** Kernel state operations MUST be idempotent to prevent duplicate records during retries or sync.
-13. **Explicit Transaction Boundaries:** Each kernel owns its transaction boundary. Cross-kernel operations execute via service contracts.
-14. **Full Operational Observability:** Every kernel MUST expose health endpoints, Prometheus metrics, structured logs, and OpenTelemetry tracing.
-15. **Closed Core, Open Extensibility:** Kernels are closed for modification of core logic but open for extension via Industry Packs.
-
----
-
-## 4. Governance Standards Hierarchy
+## 3. Governance Standards Hierarchy (Including IDS & PCMM)
 
 Every layer in the platform hierarchy derives its engineering authority from a dedicated governance standard:
+- **SPC (Platform Constitution):** Supreme architectural governance framework (`026eb550`).
+- **PCMM (Platform Capability Maturity Model):** L1 Foundation $\rightarrow$ L2 Operational $\rightarrow$ L3 Integrated $\rightarrow$ L4 Enterprise $\rightarrow$ L5 Ecosystem.
 - **KDS (Kernel Development Standard):** Governs Level 3 Shared Business Kernels.
 - **SDS (Service Development Standard):** Governs Level 2 Shared Platform Services.
 - **RDS (Registry Development Standard):** Governs Level 5 Universal Registries.
 - **BDS (Business Studio Standard):** Governs Level 6 Business Capability Studios.
 - **NDS (Network Development Standard):** Governs Level 7 SMN Network Protocols.
+- **IDS (Integration Development Standard):** Governs REST APIs, GraphQL, Webhooks, OAuth, & external connectors.
 
 ---
 
-## 5. Baseline Structural Freeze & ADR Policy
+## 4. Platform Capability Maturity Model (PCMM v1.0)
+
+| PCMM Maturity Level | Level Name | Architectural Scope & Operational Readiness | Status |
+|---|---|---|---|
+| **L1** | **Foundation** | 7-Level Topology, Platform OS v4.2 & Standards frozen | ✅ Certified |
+| **L2** | **Operational** | Core Level 3 Kernels (SDK, SLK, STK, SAK) & Level 2 Services active | ✅ Certified |
+| **L3** | **Integrated** | All 13 Business Studios certified & SEB Event Bus integrated | ✅ Certified |
+| **L4** | **Enterprise** | Multi-node SMN replication, HA, and OpenTelemetry monitoring | ✅ Certified |
+| **L5** | **Ecosystem** | Extension Marketplace, Partner SDKs, & Developer Tooling | 🎯 Next Phase |
+
+---
+
+## 5. Automated Runtime Governance Engine (`kernel.manifest.yaml`)
+
+At application startup, SMRITI Digital Commerce Platform OS automatically executes **Runtime Architecture Governance**:
+1. Parses and loads every Level 3 `kernel.manifest.yaml`.
+2. Validates inter-kernel dependency trees and version compatibility matrix.
+3. Verifies API contract compatibility and rejects uncertified or incompatible plugins.
+4. Asserts OpenTelemetry health endpoints (`/health`) and metrics endpoints (`/metrics`).
+
+---
+
+## 6. Baseline Structural Freeze & ADR Policy
 
 1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
 2. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
