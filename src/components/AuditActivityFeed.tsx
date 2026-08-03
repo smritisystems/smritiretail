@@ -131,7 +131,7 @@ export const AuditActivityFeed: React.FC = () => {
       <div>
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center space-x-2">
-            <span className="material-symbols-outlined text-[#2563EB] animate-pulse">
+            <span className="material-symbols-outlined text-[var(--c-seef-accent)] animate-pulse">
               browse_activity
             </span>
             <h3 className="font-display font-semibold text-base text-theme-body">
@@ -139,7 +139,7 @@ export const AuditActivityFeed: React.FC = () => {
             </h3>
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-[10px] bg-blue-500 bg-opacity-10 text-[#2563EB] font-mono font-semibold px-2 py-0.5 rounded border border-blue-500 border-opacity-20">
+            <span className="text-[10px] bg-blue-500 bg-opacity-10 text-[var(--c-seef-accent)] font-mono font-semibold px-2 py-0.5 rounded border border-blue-500 border-opacity-20">
               LIVE
             </span>
           </div>
@@ -154,7 +154,7 @@ export const AuditActivityFeed: React.FC = () => {
                 onClick={() => setFilterType(t)}
                 className={`text-[10px] font-mono font-semibold px-2 py-1 rounded transition-colors uppercase ${
                   filterType === t
-                    ? "bg-[#2563EB] text-white"
+                    ? "bg-[var(--c-seef-accent)] text-white"
                     : "bg-theme-surface-2 text-theme-muted hover:bg-theme-surface-hover hover:text-theme-body"
                 }`}
               >
@@ -164,7 +164,7 @@ export const AuditActivityFeed: React.FC = () => {
           </div>
           <button
             onClick={markAllAsRead}
-            className="text-[10px] text-theme-muted hover:text-[#2563EB] transition-colors flex items-center font-semibold"
+            className="text-[10px] text-theme-muted hover:text-[var(--c-seef-accent)] transition-colors flex items-center font-semibold"
           >
             <span className="material-symbols-outlined text-xs mr-0.5">done_all</span>
             Clear Badge

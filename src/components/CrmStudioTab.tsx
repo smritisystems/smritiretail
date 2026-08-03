@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS v6.5
  * Module       : Enterprise CRM Studio & Sales Lifecycle Platform
- *                Leads · Opportunity Kanban · Field Visits · Campaigns · AI Nudges
+ *                Leads Â· Opportunity Kanban Â· Field Visits Â· Campaigns Â· AI Nudges
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com and AITDL.com. All Rights Reserved.
  * Version      : 6.5.0
  */
 
@@ -58,12 +58,12 @@ export interface FieldVisitRecord {
 export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotification }) => {
   const isReadOnly = currentUser?.role === "Report User";
 
-  /* ── Sub Tab Selector ── */
+  /* â”€â”€ Sub Tab Selector â”€â”€ */
   const [activeSubTab, setActiveSubTab] = useState<
     "dashboard" | "leads" | "pipeline" | "visits" | "campaigns"
   >("dashboard");
 
-  /* ── Lead Datastore ── */
+  /* â”€â”€ Lead Datastore â”€â”€ */
   const [leads, setLeads] = useState<LeadRecord[]>([
     { id: "LD-2026-001", name: "Vikram Malhotra", company: "Malhotra Electronics", email: "vikram@outlook.com", phone: "+91 98200 12345", source: "Website", status: "New", value: 150000, score: 85, assignedRep: "Ramesh Chandra", date: "2026-07-25", expectedClose: "2026-08-15" },
     { id: "LD-2026-002", name: "Ananya Sen", company: "Sen Textiles Pvt Ltd", email: "ananya@sentextiles.com", phone: "+91 98700 98765", source: "Referral", status: "Contacted", value: 420000, score: 72, assignedRep: "Anil Kapoor", date: "2026-07-26", expectedClose: "2026-08-20" },
@@ -71,13 +71,13 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
     { id: "LD-2026-004", name: "Priya Desai", company: "Desai Supermarkets", email: "priya@desaisuper.com", phone: "+91 98222 33445", source: "WhatsApp", status: "Proposal Sent", value: 1200000, score: 98, assignedRep: "Suresh Sharma", date: "2026-07-28", expectedClose: "2026-08-05" },
   ]);
 
-  /* ── Field Visits Datastore ── */
+  /* â”€â”€ Field Visits Datastore â”€â”€ */
   const [fieldVisits, setFieldVisits] = useState<FieldVisitRecord[]>([
     { id: "VST-101", customerName: "Reliance Retail Ltd", repName: "Ramesh Chandra", timestamp: "2026-07-29 10:30", location: "Andheri East, Mumbai", purpose: "Annual Rate Contract Review", notes: "Reviewed catalog add-ons. Client requested 5% extra discount on bulk FMCG.", status: "Completed" },
     { id: "VST-102", customerName: "Malhotra Electronics", repName: "Anil Kapoor", timestamp: "2026-07-30 14:00", location: "Hinjewadi Phase 1, Pune", purpose: "Product Demo & Proposal Discussion", notes: "Scheduled live demo of POS terminal hardware.", status: "Scheduled" },
   ]);
 
-  /* ── Filter & Modal States ── */
+  /* â”€â”€ Filter & Modal States â”€â”€ */
   const [searchQuery, setSearchQuery] = useState("");
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [newLeadName, setNewLeadName] = useState("");
@@ -87,12 +87,12 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
   const [newLeadSource, setNewLeadSource] = useState<LeadRecord["source"]>("In-Store Walk-in");
   const [newLeadValue, setNewLeadValue] = useState("100000");
 
-  /* ── Telemetry Audit Triggers ── */
+  /* â”€â”€ Telemetry Audit Triggers â”€â”€ */
   useEffect(() => {
     recordAuditAction("VIEW", "crm", activeSubTab, `Switched CRM view to: ${activeSubTab}`);
   }, [activeSubTab]);
 
-  /* ── Move Lead Stage ── */
+  /* â”€â”€ Move Lead Stage â”€â”€ */
   const handleUpdateLeadStatus = (leadId: string, nextStatus: LeadRecord["status"]) => {
     if (isReadOnly) {
       onNotification?.("Access Denied", "Read-only operators cannot update pipeline stages.", "error");
@@ -103,7 +103,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
     recordAuditAction("UPDATE", "crm_leads", leadId, `Updated status to: ${nextStatus}`);
   };
 
-  /* ── Add New Lead ── */
+  /* â”€â”€ Add New Lead â”€â”€ */
   const handleCreateLead = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newLeadName.trim() || !newLeadPhone.trim()) {
@@ -128,7 +128,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
     };
 
     setLeads((p) => [newLd, ...p]);
-    onNotification?.("Lead Captured ✓", `${newLd.name} registered in CRM pipeline.`, "success");
+    onNotification?.("Lead Captured âœ“", `${newLd.name} registered in CRM pipeline.`, "success");
     setIsLeadModalOpen(false);
     setNewLeadName("");
     setNewLeadCompany("");
@@ -136,12 +136,12 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
     setNewLeadEmail("");
   };
 
-  /* ── Pipeline Calculation ── */
+  /* â”€â”€ Pipeline Calculation â”€â”€ */
   const pipelineStages: LeadRecord["status"][] = ["New", "Contacted", "Qualified", "Proposal Sent", "Negotiation", "Closed Won", "Closed Lost"];
   const totalPipelineValue = leads.reduce((sum, l) => sum + (l.status !== "Closed Lost" ? l.value : 0), 0);
   const hotLeadsCount = leads.filter((l) => l.score >= 80).length;
 
-  /* ── Filtered Leads ── */
+  /* â”€â”€ Filtered Leads â”€â”€ */
   const filteredLeads = leads.filter(
     (l) =>
       l.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -165,16 +165,16 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-theme-divider bg-theme-surface-2 px-6 py-4 gap-4">
         <div>
           <h2 className="text-xl font-bold font-display text-theme-primary tracking-tight flex items-center gap-2">
-            <Briefcase className="w-6 h-6 text-[#0a6ed1]" /> Enterprise CRM &amp; Sales Lifecycle Studio
+            <Briefcase className="w-6 h-6 text-[var(--c-seef-accent)]" /> Enterprise CRM &amp; Sales Lifecycle Studio
           </h2>
           <p className="text-xs text-theme-muted mt-1">
-            Lead Acquisition · 0-100% Lead Scoring · Interactive Kanban Deal Pipeline · Field Visits &amp; Multi-Channel Campaigns
+            Lead Acquisition Â· 0-100% Lead Scoring Â· Interactive Kanban Deal Pipeline Â· Field Visits &amp; Multi-Channel Campaigns
           </p>
         </div>
         <div className="flex items-center gap-4 bg-theme-surface-3 px-4 py-2 rounded-xl border border-theme-divider">
           <div className="text-right font-mono">
             <div className="text-[10px] text-theme-muted uppercase font-bold">Total Pipeline Value</div>
-            <div className="text-sm font-bold text-emerald-400">₹{totalPipelineValue.toLocaleString("en-IN")}</div>
+            <div className="text-sm font-bold text-emerald-400">â‚¹{totalPipelineValue.toLocaleString("en-IN")}</div>
           </div>
           <div className="w-px h-8 bg-theme-divider" />
           <div className="text-right font-mono">
@@ -193,7 +193,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
               onClick={() => setActiveSubTab(tab)}
               className={`px-4 py-3 text-xs font-bold uppercase tracking-wider font-mono border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
                 activeSubTab === tab
-                  ? "border-[#0a6ed1] text-[#0a6ed1] bg-theme-surface-3"
+                  ? "border-[var(--c-seef-accent)] text-[var(--c-seef-accent)] bg-theme-surface-3"
                   : "border-transparent text-theme-muted hover:text-theme-primary"
               }`}
             >
@@ -208,7 +208,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
         {!isReadOnly && (
           <button
             onClick={() => setIsLeadModalOpen(true)}
-            className="my-2 px-4 py-2 text-xs font-bold bg-[#0a6ed1] hover:bg-[#085caf] text-white rounded-lg flex items-center gap-1.5 shadow-xs cursor-pointer whitespace-nowrap transition-colors"
+            className="my-2 px-4 py-2 text-xs font-bold bg-[var(--c-seef-accent)] hover:bg-[var(--c-seef-accent)]/90 text-white rounded-lg flex items-center gap-1.5 shadow-xs cursor-pointer whitespace-nowrap transition-colors"
           >
             <Plus className="w-4 h-4" /> Capture New Lead
           </button>
@@ -224,8 +224,8 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-5 font-mono">
                 {[
-                  { l: "Total Leads", v: leads.length, c: "text-[#0a6ed1]", sub: "+12% vs last month" },
-                  { l: "Pipeline Value", v: `₹${totalPipelineValue.toLocaleString("en-IN")}`, c: "text-emerald-400", sub: "Weighted forecast" },
+                  { l: "Total Leads", v: leads.length, c: "text-[var(--c-seef-accent)]", sub: "+12% vs last month" },
+                  { l: "Pipeline Value", v: `â‚¹${totalPipelineValue.toLocaleString("en-IN")}`, c: "text-emerald-400", sub: "Weighted forecast" },
                   { l: "Conversion Rate", v: "24.5%", c: "text-purple-400", sub: "Lead to Customer" },
                   { l: "Hot Prospects", v: hotLeadsCount, c: "text-amber-400", sub: "High buying intent" },
                 ].map((k) => (
@@ -240,7 +240,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
               {/* Conversion Funnel Overview */}
               <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-4">
                 <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-[#0a6ed1]" /> Sales Funnel Conversion Distribution
+                  <TrendingUp className="w-4 h-4 text-[var(--c-seef-accent)]" /> Sales Funnel Conversion Distribution
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-7 gap-3 font-mono text-center">
                   {pipelineStages.map((stage) => {
@@ -268,7 +268,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search by Lead Name, Company, Phone, or ID..."
-                    className="w-full pl-9 pr-3 py-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading placeholder:text-theme-muted focus:outline-none focus:border-[#0a6ed1]"
+                    className="w-full pl-9 pr-3 py-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading placeholder:text-theme-muted focus:outline-none focus:border-[var(--c-seef-accent)]"
                   />
                 </div>
                 <span className="font-mono text-xs text-theme-muted">{filteredLeads.length} leads listed</span>
@@ -290,7 +290,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
                   <tbody className="text-xs divide-y divide-theme-divider">
                     {filteredLeads.map((l) => (
                       <tr key={l.id} className="hover:bg-theme-surface-hover transition-colors">
-                        <td className="px-4 py-3 font-bold text-[#0a6ed1]">{l.id}</td>
+                        <td className="px-4 py-3 font-bold text-[var(--c-seef-accent)]">{l.id}</td>
                         <td className="px-4 py-3 font-sans">
                           <div className="font-bold text-theme-heading">{l.name}</div>
                           <div className="text-[10px] text-theme-muted font-mono">{l.company || "Individual"} | {l.phone}</div>
@@ -306,7 +306,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-emerald-400">
-                          ₹{l.value.toLocaleString("en-IN")}
+                          â‚¹{l.value.toLocaleString("en-IN")}
                         </td>
                         <td className="px-4 py-3">
                           <span className="px-2 py-0.5 bg-purple-500/10 text-purple-400 border border-purple-500/30 rounded text-[10px] font-bold">
@@ -337,7 +337,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
           {activeSubTab === "pipeline" && (
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-theme-heading font-display uppercase tracking-wider flex items-center gap-2">
-                <Layers3 className="w-5 h-5 text-[#0a6ed1]" /> Opportunity Deal Kanban Pipeline
+                <Layers3 className="w-5 h-5 text-[var(--c-seef-accent)]" /> Opportunity Deal Kanban Pipeline
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 font-mono">
                 {(["New", "Contacted", "Qualified", "Proposal Sent"] as const).map((stage) => {
@@ -347,17 +347,17 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
                     <div key={stage} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl flex flex-col h-[520px]">
                       <div className="flex items-center justify-between border-b border-theme-divider pb-2 mb-3">
                         <span className="font-bold text-xs uppercase text-theme-heading">{stage}</span>
-                        <span className="px-2 py-0.5 bg-[#0a6ed1]/10 text-[#0a6ed1] rounded-full text-[10px] font-bold">
+                        <span className="px-2 py-0.5 bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)] rounded-full text-[10px] font-bold">
                           {stageLeads.length} Deals
                         </span>
                       </div>
-                      <div className="text-[10px] text-emerald-400 font-bold mb-3">Total: ₹{stageVal.toLocaleString("en-IN")}</div>
+                      <div className="text-[10px] text-emerald-400 font-bold mb-3">Total: â‚¹{stageVal.toLocaleString("en-IN")}</div>
                       <div className="space-y-3 flex-1 overflow-y-auto pr-1">
                         {stageLeads.map((ld) => (
-                          <div key={ld.id} className="p-3 bg-theme-surface-1 border border-theme-divider rounded-xl space-y-2 hover:border-[#0a6ed1] transition-all">
+                          <div key={ld.id} className="p-3 bg-theme-surface-1 border border-theme-divider rounded-xl space-y-2 hover:border-[var(--c-seef-accent)] transition-all">
                             <div className="flex items-center justify-between font-sans">
                               <span className="font-bold text-theme-heading text-xs truncate">{ld.name}</span>
-                              <span className="text-[10px] font-mono text-emerald-400 font-bold">₹{(ld.value / 1000).toFixed(0)}k</span>
+                              <span className="text-[10px] font-mono text-emerald-400 font-bold">â‚¹{(ld.value / 1000).toFixed(0)}k</span>
                             </div>
                             {ld.company && <div className="text-[10px] text-theme-muted font-mono">{ld.company}</div>}
                             <div className="flex items-center justify-between text-[9px] text-theme-muted pt-1 border-t border-theme-divider/40">
@@ -381,7 +381,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
           {activeSubTab === "visits" && (
             <div className="space-y-4 font-mono">
               <h3 className="text-sm font-bold text-theme-heading font-display uppercase tracking-wider flex items-center gap-2">
-                <Compass className="w-5 h-5 text-[#0a6ed1]" /> Field Sales Visits &amp; Meeting Logs
+                <Compass className="w-5 h-5 text-[var(--c-seef-accent)]" /> Field Sales Visits &amp; Meeting Logs
               </h3>
               <div className="space-y-3">
                 {fieldVisits.map((v) => (
@@ -389,7 +389,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <strong className="font-sans text-sm text-theme-heading">{v.customerName}</strong>
-                        <span className="px-2 py-0.5 bg-[#0a6ed1]/10 text-[#0a6ed1] rounded text-[10px] font-bold">{v.purpose}</span>
+                        <span className="px-2 py-0.5 bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)] rounded text-[10px] font-bold">{v.purpose}</span>
                       </div>
                       <p className="text-xs text-theme-muted">{v.timestamp} | Rep: {v.repName} | Location: {v.location}</p>
                       <p className="text-xs text-theme-heading font-sans mt-1 bg-theme-surface-1 p-2 rounded border border-theme-divider">{v.notes}</p>
@@ -431,9 +431,9 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
         </motion.div>
       </SmritiScrollArea>
 
-      {/* ════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {/*             CAPTURE LEAD MODAL                   */}
-      {/* ════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 z-50 bg-theme-surface-3 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4 font-sans text-xs">
@@ -459,7 +459,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
                   <input type="tel" required placeholder="9820012345" value={newLeadPhone} onChange={(e) => setNewLeadPhone(e.target.value)} className="w-full p-2.5 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading" />
                 </div>
                 <div>
-                  <label className="block text-theme-muted font-bold mb-1 uppercase text-[10px]">Estimated Value (₹)</label>
+                  <label className="block text-theme-muted font-bold mb-1 uppercase text-[10px]">Estimated Value (â‚¹)</label>
                   <input type="number" value={newLeadValue} onChange={(e) => setNewLeadValue(e.target.value)} className="w-full p-2.5 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading" />
                 </div>
               </div>
@@ -473,7 +473,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
 
               <div className="flex justify-end gap-2 pt-3 border-t border-theme-divider">
                 <button type="button" onClick={() => setIsLeadModalOpen(false)} className="px-4 py-2 border border-theme-divider text-theme-muted hover:text-theme-heading rounded-lg font-bold">Cancel</button>
-                <button type="submit" className="px-5 py-2 bg-[#0a6ed1] hover:bg-[#085caf] text-white font-bold rounded-lg shadow-xs cursor-pointer">Save Lead</button>
+                <button type="submit" className="px-5 py-2 bg-[var(--c-seef-accent)] hover:bg-[var(--c-seef-accent)]/90 text-white font-bold rounded-lg shadow-xs cursor-pointer">Save Lead</button>
               </div>
             </form>
           </div>

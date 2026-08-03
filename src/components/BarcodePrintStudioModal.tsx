@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
  * Author       : Jawahar Ramkripal Mallah
@@ -7,7 +7,7 @@
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 5.3.0
  * Created      : 2026-07-27
- * Copyright    : © SmritiSys. All Rights Reserved.
+ * Copyright    : Â© SmritiSys. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 
@@ -105,9 +105,9 @@ export const BarcodePrintStudioModal: React.FC<BarcodePrintStudioModalProps> = (
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#12151e] border border-cyan-500/30 w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+      <div className="bg-theme-surface-1 border border-cyan-500/30 w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="px-6 py-4 bg-[#181c28] border-b border-cyan-500/20 flex items-center justify-between">
+        <div className="px-6 py-4 bg-theme-surface-1 border-b border-cyan-500/20 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
               <Tag size={18} />
@@ -123,7 +123,7 @@ export const BarcodePrintStudioModal: React.FC<BarcodePrintStudioModalProps> = (
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-theme-muted hover:text-white rounded-lg hover:bg-theme-surface-hover transition-colors"
+            className="p-1.5 text-theme-muted hover:text-theme-heading rounded-lg hover:bg-theme-surface-hover transition-colors"
           >
             <X size={18} />
           </button>
@@ -138,13 +138,13 @@ export const BarcodePrintStudioModal: React.FC<BarcodePrintStudioModalProps> = (
               <label className="text-xs font-semibold text-theme-muted uppercase tracking-wider font-mono flex items-center gap-1.5">
                 <FileCode size={13} className="text-cyan-400" /> Printer Command Language
               </label>
-              <div className="grid grid-cols-2 gap-2 p-1 bg-[#1a1e2b] rounded-xl border border-theme-divider">
+              <div className="grid grid-cols-2 gap-2 p-1 bg-theme-surface-2 rounded-xl border border-theme-divider">
                 <button
                   onClick={() => setLanguage("TSPL")}
                   className={`py-2 rounded-lg text-xs font-bold transition-all ${
                     language === "TSPL"
                       ? "bg-cyan-500 text-black shadow-md"
-                      : "text-theme-muted hover:text-white"
+                      : "text-theme-muted hover:text-theme-heading"
                   }`}
                 >
                   TSPL (TSC / GPrinter)
@@ -154,7 +154,7 @@ export const BarcodePrintStudioModal: React.FC<BarcodePrintStudioModalProps> = (
                   className={`py-2 rounded-lg text-xs font-bold transition-all ${
                     language === "ZPL"
                       ? "bg-cyan-500 text-black shadow-md"
-                      : "text-theme-muted hover:text-white"
+                      : "text-theme-muted hover:text-theme-heading"
                   }`}
                 >
                   ZPL (Zebra)
@@ -182,7 +182,7 @@ export const BarcodePrintStudioModal: React.FC<BarcodePrintStudioModalProps> = (
                     className={`p-2.5 rounded-xl border text-center transition-all ${
                       widthMm === preset.w && heightMm === preset.h
                         ? "bg-cyan-500/10 border-cyan-500/50 text-cyan-400 font-bold"
-                        : "bg-[#1a1e2b] border-theme-divider text-theme-muted hover:text-white"
+                        : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:text-theme-heading"
                     }`}
                   >
                     <span className="text-xs block font-mono">{preset.label}</span>
@@ -197,7 +197,7 @@ export const BarcodePrintStudioModal: React.FC<BarcodePrintStudioModalProps> = (
                 <Layers size={13} className="text-cyan-400" /> Copies Source
               </label>
               <div className="space-y-2">
-                <label className="flex items-center gap-2 p-2.5 rounded-xl bg-[#1a1e2b] border border-theme-divider cursor-pointer">
+                <label className="flex items-center gap-2 p-2.5 rounded-xl bg-theme-surface-2 border border-theme-divider cursor-pointer">
                   <input
                     type="radio"
                     name="copiesMode"
@@ -213,11 +213,11 @@ export const BarcodePrintStudioModal: React.FC<BarcodePrintStudioModalProps> = (
                     value={fixedCopies}
                     onChange={(e) => setFixedCopies(parseInt(e.target.value) || 1)}
                     disabled={copiesMode !== "fixed"}
-                    className="w-16 bg-[#12151e] border border-theme-divider rounded px-2 py-0.5 text-xs text-white font-mono outline-none"
+                    className="w-16 bg-theme-surface-1 border border-theme-divider rounded px-2 py-0.5 text-xs text-white font-mono outline-none"
                   />
                 </label>
 
-                <label className="flex items-center gap-2 p-2.5 rounded-xl bg-[#1a1e2b] border border-theme-divider cursor-pointer">
+                <label className="flex items-center gap-2 p-2.5 rounded-xl bg-theme-surface-2 border border-theme-divider cursor-pointer">
                   <input
                     type="radio"
                     name="copiesMode"
@@ -243,7 +243,7 @@ export const BarcodePrintStudioModal: React.FC<BarcodePrintStudioModalProps> = (
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     activeTab === "preview"
                       ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/30"
-                      : "text-theme-muted hover:text-white"
+                      : "text-theme-muted hover:text-theme-heading"
                   }`}
                 >
                   Label Visual Preview
@@ -253,7 +253,7 @@ export const BarcodePrintStudioModal: React.FC<BarcodePrintStudioModalProps> = (
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     activeTab === "script"
                       ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/30"
-                      : "text-theme-muted hover:text-white"
+                      : "text-theme-muted hover:text-theme-heading"
                   }`}
                 >
                   Raw PRN Script ({language})
@@ -267,7 +267,7 @@ export const BarcodePrintStudioModal: React.FC<BarcodePrintStudioModalProps> = (
 
             {/* Visual Preview */}
             {activeTab === "preview" ? (
-              <div className="flex-1 min-h-[220px] bg-[#0c0e14] border border-theme-divider rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
+              <div className="flex-1 min-h-[220px] bg-theme-surface-1 border border-theme-divider rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
                 <span className="text-[10px] uppercase font-mono text-theme-muted mb-3">
                   Live Thermal Label Mockup ({widthMm} x {heightMm} mm)
                 </span>
@@ -285,12 +285,12 @@ export const BarcodePrintStudioModal: React.FC<BarcodePrintStudioModalProps> = (
                       {sampleItem.name}
                     </span>
                     <span className="text-[10px] font-bold">
-                      ₹{Number(sampleItem.price || 0).toFixed(2)}
+                      â‚¹{Number(sampleItem.price || 0).toFixed(2)}
                     </span>
                   </div>
 
                   <div className="text-[9px] font-mono text-gray-600">
-                    SKU: {sampleItem.code} {sampleItem.mrp ? `| MRP: ₹${sampleItem.mrp}` : ""}
+                    SKU: {sampleItem.code} {sampleItem.mrp ? `| MRP: â‚¹${sampleItem.mrp}` : ""}
                   </div>
 
                   <div className="flex flex-col items-center mt-1">
@@ -312,7 +312,7 @@ export const BarcodePrintStudioModal: React.FC<BarcodePrintStudioModalProps> = (
               </div>
             ) : (
               /* PRN Script View */
-              <div className="flex-1 min-h-[220px] bg-[#090b10] border border-theme-divider rounded-2xl p-4 font-mono text-xs text-cyan-300 overflow-auto relative scrollbar-none">
+              <div className="flex-1 min-h-[220px] bg-theme-surface-1 border border-theme-divider rounded-2xl p-4 font-mono text-xs text-cyan-300 overflow-auto relative scrollbar-none">
                 <pre className="whitespace-pre-wrap">{rawPRNScript}</pre>
               </div>
             )}
@@ -321,7 +321,7 @@ export const BarcodePrintStudioModal: React.FC<BarcodePrintStudioModalProps> = (
             <div className="flex items-center justify-between pt-2">
               <button
                 onClick={handleCopyScript}
-                className="px-4 py-2 bg-[#1a1e2b] hover:bg-theme-surface-hover border border-theme-divider text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2"
+                className="px-4 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2"
               >
                 {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
                 {copied ? "Copied!" : "Copy PRN Script"}

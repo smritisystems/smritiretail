@@ -1,9 +1,9 @@
-/**
- * Project      : SMRITI Retail OS v6.5 — Platform Architecture Constitution
+﻿/**
+ * Project      : SMRITI Retail OS v6.5 â€” Platform Architecture Constitution
  * Module       : EntityCard (Metadata-Driven Generic Entity Card Component)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com and AITDL.com. All Rights Reserved.
  * Version      : 3.1.0
  */
 
@@ -38,7 +38,7 @@ export const EntityCard: React.FC<EntityCardProps> = ({
       case "building": return <Building className="w-5 h-5 text-purple-400" />;
       case "package": return <Package className="w-5 h-5 text-emerald-400" />;
       case "warehouse": return <Warehouse className="w-5 h-5 text-amber-400" />;
-      default: return <Package className="w-5 h-5 text-[#0a6ed1]" />;
+      default: return <Package className="w-5 h-5 text-[var(--c-seef-accent)]" />;
     }
   };
 
@@ -79,7 +79,7 @@ export const EntityCard: React.FC<EntityCardProps> = ({
 
       <button
         onClick={handleOpenWorkspace}
-        className="w-full py-2 bg-[#0a6ed1] hover:bg-[#085caf] text-white rounded-lg text-xs font-bold font-mono flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+        className="w-full py-2 bg-[var(--c-seef-accent)] hover:bg-[var(--c-seef-accent)]/90 text-white rounded-lg text-xs font-bold font-mono flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors"
       >
         <span>Open {manifest?.entity || entity} Workspace</span>
         <ExternalLink className="w-3.5 h-3.5" />

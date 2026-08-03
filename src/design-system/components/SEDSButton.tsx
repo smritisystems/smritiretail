@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Business OS
  * Product      : SMRITI Enterprise Design System (SEDS)
  * Author       : Jawahar Ramkripal Mallah
@@ -32,9 +32,9 @@ export const SEDSButton: React.FC<SEDSButtonProps> = ({
   const normalizedVariant = variant === 'tertiary' ? 'subtle' : variant === 'negative' ? 'destructive' : variant;
 
   const variantCls = {
-    primary: 'bg-[#2563EB] text-white hover:bg-[#1D4ED8] active:bg-[#1E40AF] focus:ring-2 focus:ring-[#2563EB]/40',
-    secondary: 'bg-[#1E293B] text-slate-200 border border-slate-700/60 hover:bg-[#334155] active:bg-[#475569] focus:ring-2 focus:ring-slate-500/40',
-    subtle: 'bg-transparent text-slate-300 hover:bg-[#1E293B] hover:text-white active:bg-[#334155] focus:ring-2 focus:ring-slate-500/40',
+    primary: 'bg-[var(--c-seef-accent)] text-white hover:bg-[var(--c-seef-accent)]/90 active:bg-[var(--c-seef-accent)]/80 focus:ring-2 focus:ring-[var(--c-seef-accent)]/40',
+    secondary: 'bg-theme-surface-2 text-theme-primary border border-slate-700/60 hover:bg-theme-surface-hover active:bg-theme-surface-hover focus:ring-2 focus:ring-slate-500/40',
+    subtle: 'bg-transparent text-theme-body hover:bg-theme-surface-hover hover:text-theme-heading active:bg-theme-surface-hover focus:ring-2 focus:ring-slate-500/40',
     destructive: 'bg-[#DC2626] text-white hover:bg-[#B91C1C] active:bg-[#991B1B] focus:ring-2 focus:ring-[#DC2626]/40',
   }[normalizedVariant];
 

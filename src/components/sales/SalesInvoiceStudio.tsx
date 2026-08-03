@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SMRITI Adaptive Workspace Framework (SAWF v1.1)
  * Reference Implementation: Sales Invoice Studio
  * Dedicated Document Workspace for Creating/Editing ONE Invoice
@@ -151,7 +151,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
               <select
                 value={customerId}
                 onChange={(e) => setCustomerId(e.target.value)}
-                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold"
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[var(--c-seef-accent)] font-semibold"
               >
                 <option value="">-- Choose Registered Customer --</option>
                 {customers.map((c) => (
@@ -195,7 +195,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
                 <input
                   type="text"
                   defaultValue="24 Commercial Street, Retail Zone, Mumbai, Maharashtra 400001"
-                  className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
                 />
               </div>
               <div>
@@ -205,7 +205,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
                 <input
                   type="text"
                   defaultValue="Same as Billing Address"
-                  className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
                 />
               </div>
             </div>
@@ -223,7 +223,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
                 type="date"
                 value={invoiceDate}
                 onChange={(e) => setInvoiceDate(e.target.value)}
-                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
               />
             </div>
             <div>
@@ -234,7 +234,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
               />
             </div>
             <div>
@@ -244,7 +244,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
               <select
                 value={priceList}
                 onChange={(e) => setPriceList(e.target.value)}
-                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none"
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none"
               >
                 <option>Standard Retail List</option>
                 <option>Wholesale Partner Tier</option>
@@ -259,7 +259,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
                 type="text"
                 value={salesperson}
                 onChange={(e) => setSalesperson(e.target.value)}
-                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none"
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none"
               />
             </div>
           </div>
@@ -268,13 +268,13 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
       case "tax":
         return (
           <div className="space-y-3 text-xs">
-            <div className="flex items-center space-x-3 bg-[#121824] p-3 rounded-xl border border-theme-divider">
+            <div className="flex items-center space-x-3 bg-theme-surface-1 p-3 rounded-xl border border-theme-divider">
               <input
                 type="checkbox"
                 id="isInterstate"
                 checked={isInterstate}
                 onChange={(e) => setIsInterstate(e.target.checked)}
-                className="rounded border-theme-divider bg-[#1E293B] accent-indigo-600 h-4 w-4"
+                className="rounded border-theme-divider bg-theme-surface-2 accent-indigo-600 h-4 w-4"
               />
               <label htmlFor="isInterstate" className="text-xs font-semibold text-white select-none cursor-pointer">
                 Interstate IGST Supply (Out-of-State Customer Transaction)
@@ -298,7 +298,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
                 value={transporterName}
                 onChange={(e) => setTransporterName(e.target.value)}
                 placeholder="e.g. VRL Logistics"
-                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
               />
             </div>
             <div>
@@ -310,7 +310,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
                 value={lrNumber}
                 onChange={(e) => setLrNumber(e.target.value)}
                 placeholder="e.g. LR-990812"
-                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
               />
             </div>
           </div>
@@ -328,7 +328,7 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
                 value={eWayBillNo}
                 onChange={(e) => setEWayBillNo(e.target.value)}
                 placeholder="12-digit E-Way Bill Number"
-                className="w-full bg-[#1E293B] border border-theme-divider rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none"
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none"
               />
             </div>
           </div>

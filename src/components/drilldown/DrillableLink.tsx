@@ -1,9 +1,9 @@
-/**
- * Project      : SMRITI Retail OS v6.5 — Platform Architecture Constitution
+﻿/**
+ * Project      : SMRITI Retail OS v6.5 â€” Platform Architecture Constitution
  * Module       : DrillableLink (SUNEF Metadata-Driven Entity Link Component)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com and AITDL.com. All Rights Reserved.
  * Version      : 3.1.0
  */
 
@@ -43,8 +43,8 @@ export const DrillableLink: React.FC<Props> = ({ context, children, className = 
   };
 
   const baseStyles = asMenuItem
-    ? "w-full text-left hover:bg-theme-surface-hover hover:text-[#0a6ed1] transition-colors cursor-pointer group"
-    : "text-[#0a6ed1] hover:text-[#085caf] hover:underline cursor-pointer transition-colors font-bold";
+    ? "w-full text-left hover:bg-theme-surface-hover hover:text-[var(--c-seef-accent)] transition-colors cursor-pointer group"
+    : "text-[var(--c-seef-accent)] hover:text-[#085caf] hover:underline cursor-pointer transition-colors font-bold";
 
   return (
     <>
@@ -76,7 +76,7 @@ export const DrillableLink: React.FC<Props> = ({ context, children, className = 
               onClick={handleOpenWorkspace}
               className="w-full text-left px-4 py-2 hover:bg-theme-surface-hover text-theme-heading flex items-center space-x-2 transition-colors cursor-pointer font-bold"
             >
-              <span className="material-symbols-outlined text-[16px] text-[#0a6ed1]">open_in_new</span>
+              <span className="material-symbols-outlined text-[16px] text-[var(--c-seef-accent)]">open_in_new</span>
               <span>Open Dedicated Workspace</span>
             </button>
             <button

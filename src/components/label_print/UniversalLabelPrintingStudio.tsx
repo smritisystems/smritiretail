@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Business OS
  * Component    : UniversalLabelPrintingStudio (Rule SLP-001)
  * Author       : Jawahar Ramkripal Mallah
@@ -46,7 +46,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
   const [scriptFileName, setScriptFileName] = useState<string>("C:\\smriti\\pesh.txt");
   const [ptFileName, setPtFileName] = useState<string>("");
 
-  // Range Criteria Filters (From ──► To)
+  // Range Criteria Filters (From â”€â”€â–º To)
   const [stockNoFrom, setStockNoFrom] = useState<string>("");
   const [stockNoTo, setStockNoTo] = useState<string>("");
   const [productFrom, setProductFrom] = useState<string>("ALL");
@@ -330,7 +330,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                 </span>
               </div>
               <p className="text-xs text-theme-muted mt-0.5">
-                Single Label Printing Application • Multi-Provider Framework (ZPL/TSPL) • Size Matrix Pivot
+                Single Label Printing Application â€¢ Multi-Provider Framework (ZPL/TSPL) â€¢ Size Matrix Pivot
               </p>
             </div>
           </div>
@@ -369,7 +369,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
       {/* 2. Scrollable Object Page Body */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
-        {/* ─── TAG PRINTING HARDWARE & SELECTION SPECIFICATION PANEL (SLP-001) ─── */}
+        {/* â”€â”€â”€ TAG PRINTING HARDWARE & SELECTION SPECIFICATION PANEL (SLP-001) â”€â”€â”€ */}
         <div className="p-5 rounded-2xl bg-theme-surface-1 border border-theme-divider space-y-5 shadow-lg">
           
           {/* Top Control Bar: Script File & Labels Per Row */}
@@ -384,7 +384,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                   type="text"
                   value={scriptFileName}
                   onChange={(e) => setScriptFileName(e.target.value)}
-                  className="flex-1 bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs font-mono text-theme-heading focus:outline-none focus:border-indigo-500"
+                  className="flex-1 bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs font-mono text-theme-heading focus:outline-none focus:border-[var(--c-seef-accent)]"
                   placeholder="e.g. C:\smriti\pesh.txt"
                 />
                 <button
@@ -512,12 +512,12 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
               </div>
             </div>
 
-            {/* Right Column: From ──► To Range Filter Matrix */}
+            {/* Right Column: From â”€â”€â–º To Range Filter Matrix */}
             <div className="lg:col-span-8 space-y-3">
               <div className="flex items-center justify-between border-b border-theme-divider pb-2">
                 <span className="text-xs font-bold font-display text-theme-heading uppercase tracking-wide flex items-center gap-2">
                   <Sliders size={14} className="text-indigo-400" />
-                  <span>Selection Criteria Matrix (From ──► To Ranges)</span>
+                  <span>Selection Criteria Matrix (From â”€â”€â–º To Ranges)</span>
                 </span>
                 <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
                   {filteredProducts.length} Matching SKUs
@@ -681,7 +681,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Quick Filter Keyword: SKU, Barcode, Article, Supplier, Brand..."
-                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-9 pr-3 py-2 text-xs text-theme-body focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-9 pr-3 py-2 text-xs text-theme-body focus:outline-none focus:border-[var(--c-seef-accent)]"
                   />
                 </div>
               </div>
@@ -775,8 +775,8 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                       <th className="px-4 py-3">SKU Code</th>
                       <th className="px-4 py-3">Barcode</th>
                       <th className="px-4 py-3">Color / Size</th>
-                      <th className="px-4 py-3 text-right">MRP (₹)</th>
-                      <th className="px-4 py-3 text-right">Price (₹)</th>
+                      <th className="px-4 py-3 text-right">MRP (â‚¹)</th>
+                      <th className="px-4 py-3 text-right">Price (â‚¹)</th>
                       <th className="px-4 py-3 text-right">Stock</th>
                       <th className="px-4 py-3 text-right">Print Copies</th>
                     </tr>
@@ -802,8 +802,8 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                           <td className="px-4 py-3 font-mono text-theme-muted">{p.code || "N/A"}</td>
                           <td className="px-4 py-3 font-mono text-indigo-400 font-bold">{p.barcode || p.code || "123456789"}</td>
                           <td className="px-4 py-3 font-mono text-theme-muted">{p.color || "N/A"} / {p.size || "OS"}</td>
-                          <td className="px-4 py-3 font-mono text-right text-theme-muted">₹{(p.mrp || p.price || 0).toLocaleString("en-IN")}</td>
-                          <td className="px-4 py-3 font-mono text-right font-bold text-emerald-400">₹{(p.price || 0).toLocaleString("en-IN")}</td>
+                          <td className="px-4 py-3 font-mono text-right text-theme-muted">â‚¹{(p.mrp || p.price || 0).toLocaleString("en-IN")}</td>
+                          <td className="px-4 py-3 font-mono text-right font-bold text-emerald-400">â‚¹{(p.price || 0).toLocaleString("en-IN")}</td>
                           <td className="px-4 py-3 font-mono text-right text-theme-muted">{p.stock || 0}</td>
                           <td className="px-4 py-3 text-right">
                             <input
@@ -906,8 +906,8 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                     <span className="text-sm font-bold text-theme-heading">{totalPivotSelectionCount}</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] font-mono text-theme-muted block">Rows × Columns</span>
-                    <span className="text-sm font-bold text-theme-heading">{pivotMatrixRows.length}×{pivotColorColumns.length}</span>
+                    <span className="text-[10px] font-mono text-theme-muted block">Rows Ã— Columns</span>
+                    <span className="text-sm font-bold text-theme-heading">{pivotMatrixRows.length}Ã—{pivotColorColumns.length}</span>
                   </div>
                 </div>
               </div>
@@ -915,7 +915,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
               {pivotArticle && pivotMatrixRows.length > 0 && (
                 <div className="space-y-4 pt-2 border-t border-theme-divider/50">
                   <div className="overflow-x-auto bg-theme-surface-2 p-4 rounded-xl border border-theme-divider">
-                    <h4 className="text-[10px] font-mono text-indigo-400 uppercase tracking-wider mb-3">SIZE × COLOR ALLOCATION MATRIX</h4>
+                    <h4 className="text-[10px] font-mono text-indigo-400 uppercase tracking-wider mb-3">SIZE Ã— COLOR ALLOCATION MATRIX</h4>
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-theme-surface-1 text-theme-muted uppercase font-mono text-[9px] border-b border-theme-divider">
@@ -986,11 +986,11 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                       {selectedItemsList[0]?.name || "Sample Article"}
                     </span>
                     <span className="font-mono text-[10px] bg-black text-white px-1.5 py-0.5 rounded">
-                      ₹{selectedItemsList[0]?.price || 999}
+                      â‚¹{selectedItemsList[0]?.price || 999}
                     </span>
                   </div>
                   <div className="text-[10px] text-gray-700 font-mono">
-                    SKU: {selectedItemsList[0]?.code || "SMR-1001"} | MRP: ₹{selectedItemsList[0]?.mrp || 1299}
+                    SKU: {selectedItemsList[0]?.code || "SMR-1001"} | MRP: â‚¹{selectedItemsList[0]?.mrp || 1299}
                   </div>
                   <div className="my-1 flex flex-col items-center">
                     <div className="w-full h-8 bg-black flex items-center justify-between px-2 text-white font-mono text-[8px]">
@@ -1076,7 +1076,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
       </div>
 
       {/* 4. SMRITI Tag Printing Action Bar & Footer Toolbar */}
-      <div className="bg-[#121824] border-t border-theme-divider px-6 py-3 flex flex-wrap items-center justify-between gap-4 shrink-0 font-sans">
+      <div className="bg-theme-surface-1 border-t border-theme-divider px-6 py-3 flex flex-wrap items-center justify-between gap-4 shrink-0 font-sans">
         
         {/* Template & Print Provider Selection */}
         <div className="flex items-center gap-4 text-xs">

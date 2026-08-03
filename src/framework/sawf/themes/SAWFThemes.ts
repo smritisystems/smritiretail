@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SMRITI Adaptive Workspace Framework (SAWF v1.1)
  * Theme Engine Definitions
  */
@@ -18,14 +18,14 @@ export interface SAWFThemeClasses {
 
 export const SAWFThemes: Record<SAWFTheme, SAWFThemeClasses> = {
   dark: {
-    bg: "bg-[#0E131F]",
-    surface: "bg-[#161E2E]",
-    surfaceHover: "hover:bg-[#1E293B]",
-    border: "border-[#1E293B]",
-    textPrimary: "text-slate-100",
-    textMuted: "text-slate-400",
+    bg: "bg-theme-surface-1",
+    surface: "bg-theme-surface-2",
+    surfaceHover: "hover:bg-theme-surface-hover",
+    border: "border-theme-divider",
+    textPrimary: "text-theme-heading",
+    textMuted: "text-theme-muted",
     accent: "bg-indigo-600 hover:bg-indigo-500 text-white",
-    headerBg: "bg-[#121824]",
+    headerBg: "bg-theme-surface-1",
   },
   light: {
     bg: "bg-slate-50",
@@ -33,18 +33,18 @@ export const SAWFThemes: Record<SAWFTheme, SAWFThemeClasses> = {
     surfaceHover: "hover:bg-slate-100",
     border: "border-slate-200",
     textPrimary: "text-slate-900",
-    textMuted: "text-slate-500",
+    textMuted: "text-theme-muted",
     accent: "bg-blue-600 hover:bg-blue-500 text-white",
     headerBg: "bg-slate-100",
   },
   fiori: {
-    bg: "bg-[#354A5F]",
-    surface: "bg-[#2F3D4C]",
-    surfaceHover: "hover:bg-[#3B4D5F]",
-    border: "border-[#4A5D70]",
+    bg: "bg-theme-surface-2",
+    surface: "bg-theme-surface-2",
+    surfaceHover: "hover:bg-theme-surface-hover",
+    border: "border-theme-divider",
     textPrimary: "text-white",
-    textMuted: "text-slate-300",
-    accent: "bg-[#0A6ED1] hover:bg-[#0854A0] text-white",
-    headerBg: "bg-[#273543]",
+    textMuted: "text-theme-body",
+    accent: "bg-[var(--c-seef-accent)] hover:bg-[var(--c-seef-accent)]/90 text-white",
+    headerBg: "bg-theme-surface-1",
   },
 };

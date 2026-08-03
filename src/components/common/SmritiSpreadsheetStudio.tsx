@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
  * Author       : Jawahar Ramkripal Mallah
@@ -7,7 +7,7 @@
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 5.3.0
  * Created      : 2026-07-27
- * Copyright    : © SmritiSys. All Rights Reserved.
+ * Copyright    : Â© SmritiSys. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 
@@ -42,7 +42,7 @@ export interface SmritiSpreadsheetStudioProps<TRow = Record<string, any>> {
 
 export function SmritiSpreadsheetStudio<TRow extends Record<string, any>>({
   title = "SMRITI Spreadsheet Studio",
-  subtitle = "Live Excel Workspace — Real-time database grid editing, formulas, clipboard engine, and AI assistant",
+  subtitle = "Live Excel Workspace â€” Real-time database grid editing, formulas, clipboard engine, and AI assistant",
   columns,
   initialData = [],
   onSaveData,
@@ -55,7 +55,7 @@ export function SmritiSpreadsheetStudio<TRow extends Record<string, any>>({
   const [aiPrompt, setAiPrompt] = useState<string>("");
   const [isAiProcessing, setIsAiProcessing] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [savedStatus, setSavedStatus] = useState<string>("✓ Synced");
+  const [savedStatus, setSavedStatus] = useState<string>("âœ“ Synced");
   const [highlightedRows, setHighlightedRows] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>("");
 
@@ -125,9 +125,9 @@ export function SmritiSpreadsheetStudio<TRow extends Record<string, any>>({
         if (onSaveData) {
           await onSaveData(currentRows as TRow[]);
         }
-        setSavedStatus("✓ Saved to DB");
+        setSavedStatus("âœ“ Saved to DB");
       } catch (err) {
-        setSavedStatus("⚠️ Save Error");
+        setSavedStatus("âš ï¸ Save Error");
         console.error("Auto-save failed:", err);
       } finally {
         setIsSaving(false);
@@ -231,9 +231,9 @@ export function SmritiSpreadsheetStudio<TRow extends Record<string, any>>({
   }, [rows, searchQuery]);
 
   return (
-    <div className="flex flex-col h-full bg-[#0d1017] text-theme-body rounded-2xl border border-theme-divider overflow-hidden font-sans">
-      {/* ── Top Header & Branding ────────────────────────────────────────────── */}
-      <div className="p-4 bg-[#141824] border-b border-theme-divider flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="flex flex-col h-full bg-theme-surface-1 text-theme-body rounded-2xl border border-theme-divider overflow-hidden font-sans">
+      {/* â”€â”€ Top Header & Branding â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <div className="p-4 bg-theme-surface-2 border-b border-theme-divider flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
             <FileSpreadsheet size={22} />
@@ -258,16 +258,16 @@ export function SmritiSpreadsheetStudio<TRow extends Record<string, any>>({
               placeholder="Search live grid..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#1c2234] border border-theme-divider rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-theme-muted outline-none focus:border-emerald-500"
+              className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-theme-muted outline-none focus:border-emerald-500"
             />
           </div>
         </div>
       </div>
 
-      {/* ── Formula Bar & AI Assistant Toolbar ──────────────────────────────── */}
-      <div className="p-3 bg-[#11141f] border-b border-theme-divider grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+      {/* â”€â”€ Formula Bar & AI Assistant Toolbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <div className="p-3 bg-theme-surface-2 border-b border-theme-divider grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
         {/* Formula Bar (7 cols) */}
-        <div className="md:col-span-7 flex items-center gap-2 bg-[#1a1f30] px-3 py-1.5 rounded-xl border border-theme-divider">
+        <div className="md:col-span-7 flex items-center gap-2 bg-theme-surface-2 px-3 py-1.5 rounded-xl border border-theme-divider">
           <span className="text-xs font-mono font-bold text-emerald-400 italic shrink-0">fx =</span>
           <input
             type="text"
@@ -294,7 +294,7 @@ export function SmritiSpreadsheetStudio<TRow extends Record<string, any>>({
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleRunAI()}
-              className="w-full bg-[#1c2234] border border-amber-500/30 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-theme-muted outline-none focus:border-amber-400"
+              className="w-full bg-theme-surface-2 border border-amber-500/30 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-theme-muted outline-none focus:border-amber-400"
             />
           </div>
           <button
@@ -307,14 +307,14 @@ export function SmritiSpreadsheetStudio<TRow extends Record<string, any>>({
         </div>
       </div>
 
-      {/* ── Live Excel Grid Surface ─────────────────────────────────────────── */}
+      {/* â”€â”€ Live Excel Grid Surface â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div
-        className="flex-1 overflow-auto bg-[#0a0c12] relative scrollbar-none"
+        className="flex-1 overflow-auto bg-theme-surface-1 relative scrollbar-none"
         onPaste={handlePaste}
       >
         <table className="w-full border-collapse text-xs select-none">
           <thead>
-            <tr className="bg-[#161a29] border-b border-theme-divider text-theme-muted sticky top-0 z-20">
+            <tr className="bg-theme-surface-2 border-b border-theme-divider text-theme-muted sticky top-0 z-20">
               <th className="w-12 p-2 border-r border-theme-divider text-center font-mono text-[10px]">#</th>
               {columns.map((col) => (
                 <th
@@ -336,11 +336,11 @@ export function SmritiSpreadsheetStudio<TRow extends Record<string, any>>({
                 <tr
                   key={rIdx}
                   className={`border-b border-theme-divider/50 transition-colors ${
-                    isHighlighted ? "bg-amber-500/10" : "hover:bg-[#151927]"
+                    isHighlighted ? "bg-amber-500/10" : "hover:bg-theme-surface-hover"
                   }`}
                 >
                   {/* Row Index Indicator */}
-                  <td className="p-2 border-r border-theme-divider bg-[#121624] text-center font-mono text-[10px] text-theme-muted">
+                  <td className="p-2 border-r border-theme-divider bg-theme-surface-1 text-center font-mono text-[10px] text-theme-muted">
                     {rIdx + 1}
                   </td>
 
@@ -387,8 +387,8 @@ export function SmritiSpreadsheetStudio<TRow extends Record<string, any>>({
         </table>
       </div>
 
-      {/* ── Bottom Grid Footer Bar ──────────────────────────────────────────── */}
-      <div className="p-3 bg-[#11141f] border-t border-theme-divider flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-theme-muted font-mono">
+      {/* â”€â”€ Bottom Grid Footer Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <div className="p-3 bg-theme-surface-2 border-t border-theme-divider flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-theme-muted font-mono">
         <div className="flex items-center gap-4">
           <span>Rows: <strong className="text-white">{rows.length}</strong></span>
           <span>Columns: <strong className="text-white">{columns.length}</strong></span>

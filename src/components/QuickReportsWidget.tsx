@@ -232,7 +232,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
       {/* SIDEBAR WIDGET UI */}
       <div id="quick-reports-sidebar-card" className="bg-theme-surface-1 rounded-xl p-5 border border-theme-divider shadow-md flex flex-col space-y-4">
         <div className="flex items-center space-x-2">
-          <span className="material-symbols-outlined text-[#2563EB] text-xl">print</span>
+          <span className="material-symbols-outlined text-[var(--c-seef-accent)] text-xl">print</span>
           <div className="flex-1">
             <h4 className="font-display font-semibold text-sm text-theme-body">
               Quick Reports Printout
@@ -395,7 +395,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
       {/* DYNAMIC INTERACTIVE LIVE PREVIEW OVERLAY MODAL */}
       {isPreviewOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center bg-theme-surface-3 backdrop-blur-md p-4 animate-fadeIn">
-          <div className="bg-theme-surface-1 border border-[#2a3a5c] rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+          <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-theme-divider bg-theme-surface-3 flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
@@ -412,7 +412,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
               <div className="flex items-center space-x-2">
                 <button
                   onClick={handlePrint}
-                  className="px-3.5 py-1.5 bg-[#2563EB] hover:bg-blue-700 text-white font-semibold rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-md shadow-blue-500/10"
+                  className="px-3.5 py-1.5 bg-[var(--c-seef-accent)] hover:bg-blue-700 text-white font-semibold rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-md shadow-blue-500/10"
                 >
                   <Printer size={13} />
                   <span>Execute Print</span>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Module       : SMRITI Spreadsheet Platform (SSP)
  * Organization : SmritiSys
@@ -8,7 +8,7 @@
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 5.3.0
  * Created      : 2026-07-27
- * Copyright    : © SmritiSys. All Rights Reserved.
+ * Copyright    : Â© SmritiSys. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 
@@ -49,7 +49,7 @@ export interface SmritiSpreadsheetPlatformProps<TRow = Record<string, any>> {
 
 export function SmritiSpreadsheetPlatform<TRow extends Record<string, any>>({
   title = "SMRITI Spreadsheet Platform (SSP)",
-  subtitle = "Universal Enterprise Live Grid Workspace — Formula engine, clipboard parser, history undo/redo, and transaction buffer",
+  subtitle = "Universal Enterprise Live Grid Workspace â€” Formula engine, clipboard parser, history undo/redo, and transaction buffer",
   columns,
   initialData = [],
   userRole = "Store Manager",
@@ -62,7 +62,7 @@ export function SmritiSpreadsheetPlatform<TRow extends Record<string, any>>({
   const [formulaInput, setFormulaInput] = useState<string>("");
   const [aiPrompt, setAiPrompt] = useState<string>("");
   const [isAiProcessing, setIsAiProcessing] = useState<boolean>(false);
-  const [savedStatus, setSavedStatus] = useState<string>("✓ Synced");
+  const [savedStatus, setSavedStatus] = useState<string>("âœ“ Synced");
   const [highlightedRows, setHighlightedRows] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>("");
 
@@ -169,12 +169,12 @@ export function SmritiSpreadsheetPlatform<TRow extends Record<string, any>>({
         await onSaveData(rows as TRow[]);
       }
       transactionEngine.commit();
-      setSavedStatus("✓ Synced to DB");
+      setSavedStatus("âœ“ Synced to DB");
       if (onNotification) {
         onNotification("Transaction Committed", "SSP grid edits successfully committed to database.", "success");
       }
     } catch (err) {
-      setSavedStatus("⚠️ Commit Failed");
+      setSavedStatus("âš ï¸ Commit Failed");
       if (onNotification) {
         onNotification("Commit Error", "Failed to commit grid changes to database.", "error");
       }
@@ -188,7 +188,7 @@ export function SmritiSpreadsheetPlatform<TRow extends Record<string, any>>({
       setRows(initialSnap);
       transactionEngine.rollback();
       historyEngine.clear();
-      setSavedStatus("✓ Restored Snapshot");
+      setSavedStatus("âœ“ Restored Snapshot");
       if (onNotification) {
         onNotification("Rollback Executed", "Restored grid dataset to pre-transaction snapshot.", "success");
       }
@@ -249,9 +249,9 @@ export function SmritiSpreadsheetPlatform<TRow extends Record<string, any>>({
   }, [rows, searchQuery]);
 
   return (
-    <div className="flex flex-col h-full bg-[#0d1017] text-theme-body rounded-2xl border border-theme-divider overflow-hidden font-sans">
+    <div className="flex flex-col h-full bg-theme-surface-1 text-theme-body rounded-2xl border border-theme-divider overflow-hidden font-sans">
       {/* Header Bar */}
-      <div className="p-4 bg-[#141824] border-b border-theme-divider flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="p-4 bg-theme-surface-2 border-b border-theme-divider flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
             <FileSpreadsheet size={22} />
@@ -266,11 +266,11 @@ export function SmritiSpreadsheetPlatform<TRow extends Record<string, any>>({
 
         <div className="flex items-center gap-3">
           {/* History Undo / Redo */}
-          <div className="flex items-center bg-[#1c2234] rounded-xl border border-theme-divider p-0.5">
+          <div className="flex items-center bg-theme-surface-2 rounded-xl border border-theme-divider p-0.5">
             <button
               onClick={handleUndo}
               disabled={!historyEngine.canUndo() || isReadOnly}
-              className="p-1.5 text-theme-muted hover:text-white disabled:opacity-30 rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 text-theme-muted hover:text-theme-heading disabled:opacity-30 rounded-lg transition-colors cursor-pointer"
               title="Undo Edit (Ctrl+Z)"
             >
               <RotateCcw size={14} />
@@ -278,7 +278,7 @@ export function SmritiSpreadsheetPlatform<TRow extends Record<string, any>>({
             <button
               onClick={handleRedo}
               disabled={!historyEngine.canRedo() || isReadOnly}
-              className="p-1.5 text-theme-muted hover:text-white disabled:opacity-30 rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 text-theme-muted hover:text-theme-heading disabled:opacity-30 rounded-lg transition-colors cursor-pointer"
               title="Redo Edit (Ctrl+Y)"
             >
               <RotateCw size={14} />
@@ -296,15 +296,15 @@ export function SmritiSpreadsheetPlatform<TRow extends Record<string, any>>({
               placeholder="Search SSP grid..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#1c2234] border border-theme-divider rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-theme-muted outline-none focus:border-emerald-500"
+              className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-theme-muted outline-none focus:border-emerald-500"
             />
           </div>
         </div>
       </div>
 
       {/* Formula Bar & AI Assistant Bar */}
-      <div className="p-3 bg-[#11141f] border-b border-theme-divider grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-        <div className="md:col-span-7 flex items-center gap-2 bg-[#1a1f30] px-3 py-1.5 rounded-xl border border-theme-divider">
+      <div className="p-3 bg-theme-surface-2 border-b border-theme-divider grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+        <div className="md:col-span-7 flex items-center gap-2 bg-theme-surface-2 px-3 py-1.5 rounded-xl border border-theme-divider">
           <span className="text-xs font-mono font-bold text-emerald-400 italic shrink-0">fx =</span>
           <input
             type="text"
@@ -330,7 +330,7 @@ export function SmritiSpreadsheetPlatform<TRow extends Record<string, any>>({
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleRunAI()}
-              className="w-full bg-[#1c2234] border border-amber-500/30 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-theme-muted outline-none focus:border-amber-400"
+              className="w-full bg-theme-surface-2 border border-amber-500/30 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-theme-muted outline-none focus:border-amber-400"
             />
           </div>
           <button
@@ -344,10 +344,10 @@ export function SmritiSpreadsheetPlatform<TRow extends Record<string, any>>({
       </div>
 
       {/* Grid Table Surface */}
-      <div className="flex-1 overflow-auto bg-[#0a0c12] relative scrollbar-none" onPaste={handlePaste}>
+      <div className="flex-1 overflow-auto bg-theme-surface-1 relative scrollbar-none" onPaste={handlePaste}>
         <table className="w-full border-collapse text-xs select-none">
           <thead>
-            <tr className="bg-[#161a29] border-b border-theme-divider text-theme-muted sticky top-0 z-20">
+            <tr className="bg-theme-surface-2 border-b border-theme-divider text-theme-muted sticky top-0 z-20">
               <th className="w-12 p-2 border-r border-theme-divider text-center font-mono text-[10px]">#</th>
               {columns.map((col) => (
                 <th key={col.key} className="p-2.5 border-r border-theme-divider text-left font-semibold text-white font-mono text-[11px]">
@@ -363,8 +363,8 @@ export function SmritiSpreadsheetPlatform<TRow extends Record<string, any>>({
             {filteredRows.map((row, rIdx) => {
               const isHighlighted = highlightedRows.has(rIdx);
               return (
-                <tr key={rIdx} className={`border-b border-theme-divider/50 transition-colors ${isHighlighted ? "bg-amber-500/10" : "hover:bg-[#151927]"}`}>
-                  <td className="p-2 border-r border-theme-divider bg-[#121624] text-center font-mono text-[10px] text-theme-muted">
+                <tr key={rIdx} className={`border-b border-theme-divider/50 transition-colors ${isHighlighted ? "bg-amber-500/10" : "hover:bg-theme-surface-hover"}`}>
+                  <td className="p-2 border-r border-theme-divider bg-theme-surface-1 text-center font-mono text-[10px] text-theme-muted">
                     {rIdx + 1}
                   </td>
                   {columns.map((col) => {
@@ -409,7 +409,7 @@ export function SmritiSpreadsheetPlatform<TRow extends Record<string, any>>({
       </div>
 
       {/* Footer Bar with Commit / Rollback Actions */}
-      <div className="p-3 bg-[#11141f] border-t border-theme-divider flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-theme-muted font-mono">
+      <div className="p-3 bg-theme-surface-2 border-t border-theme-divider flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-theme-muted font-mono">
         <div className="flex items-center gap-4">
           <span>Total Rows: <strong className="text-white">{rows.length}</strong></span>
           <span>Pending Edits: <strong className="text-amber-400">{transactionEngine.getPendingCount()}</strong></span>
@@ -419,7 +419,7 @@ export function SmritiSpreadsheetPlatform<TRow extends Record<string, any>>({
           <button
             onClick={handleRollbackTransaction}
             disabled={isReadOnly}
-            className="px-3 py-1.5 bg-[#1c2234] hover:bg-theme-surface-hover text-rose-400 border border-rose-500/30 rounded-xl transition-all cursor-pointer"
+            className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-rose-400 border border-rose-500/30 rounded-xl transition-all cursor-pointer"
           >
             Rollback
           </button>

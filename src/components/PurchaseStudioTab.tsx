@@ -1,14 +1,14 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.0.0  (SEEF Phase 6 — Density Cascade Integration)
+ * Version      : 4.0.0  (SEEF Phase 6 â€” Density Cascade Integration)
  * Created      : 2026-07-10
  * Modified     : 2026-07-27
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 import React, { useState, useEffect } from "react";
@@ -46,7 +46,7 @@ import { Product } from "../types.js";
 import { SmartFilter, FilterDefinition } from "./SmartFilter.tsx";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
-// SEEFListReport alias (FioriListReport is the SEEF-upgraded primitive — see FioriListReport.tsx v5.2.0)
+// SEEFListReport alias (FioriListReport is the SEEF-upgraded primitive â€” see FioriListReport.tsx v5.2.0)
 import { FioriListReport, ListReportColumn } from "./common/FioriListReport.tsx";
 export { FioriListReport as SEEFListReport };
 import { useSEEF } from "../layout_engine/SEEFContext.tsx";
@@ -357,7 +357,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
     setMatrixSources(newSources);
   };
 
-  // â”€â”€ OPERATIONS â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ OPERATIONS Ã¢â€â‚¬Ã¢â€â‚¬
 
   // Save/Update Supplier
   const handleSaveSupplier = async (e: React.FormEvent) => {
@@ -662,7 +662,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         method: "POST",
         body: JSON.stringify({ amount })
       });
-      onNotification("Payment Settled", `Registered payment of â‚¹${amount} against ${payModalPO.orderNo}.`, "success");
+      onNotification("Payment Settled", `Registered payment of Ã¢â€šÂ¹${amount} against ${payModalPO.orderNo}.`, "success");
       setPayModalPO(null);
       setPayAmount("");
       fetchOutstandingReport();
@@ -739,7 +739,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         </div>
       )}
       
-      {/* Dynamic Sourcing Control Header — Compact 55px Hero */}
+      {/* Dynamic Sourcing Control Header â€” Compact 55px Hero */}
       <div className="bg-theme-surface-1 border border-theme-divider rounded-xl px-4 py-2.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 rounded-lg bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
@@ -784,13 +784,13 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         </div>
       </div>
 
-      {/* Five Studio Sub-Tabs Bar — Sleek Single Horizontal Row (42px) */}
+      {/* Five Studio Sub-Tabs Bar â€” Sleek Single Horizontal Row (42px) */}
       <div className="flex items-center space-x-1.5 overflow-x-auto smriti-hide-scrollbar py-0.5 bg-theme-surface-2 p-1 border border-theme-divider rounded-xl text-xs font-semibold">
         <button
           onClick={() => setActiveSubTab("create")}
           className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer ${
             activeSubTab === "create"
-              ? "bg-[#2563EB] text-white shadow-xs font-bold"
+              ? "bg-[var(--c-seef-accent)] text-white shadow-xs font-bold"
               : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
@@ -802,7 +802,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
           onClick={() => setActiveSubTab("suppliers")}
           className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer ${
             activeSubTab === "suppliers"
-              ? "bg-[#2563EB] text-white shadow-xs font-bold"
+              ? "bg-[var(--c-seef-accent)] text-white shadow-xs font-bold"
               : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
@@ -814,7 +814,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
           onClick={() => setActiveSubTab("reorder")}
           className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all relative cursor-pointer ${
             activeSubTab === "reorder"
-              ? "bg-[#2563EB] text-white shadow-xs font-bold"
+              ? "bg-[var(--c-seef-accent)] text-white shadow-xs font-bold"
               : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
@@ -831,7 +831,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
           onClick={() => setActiveSubTab("receive")}
           className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer ${
             activeSubTab === "receive"
-              ? "bg-[#2563EB] text-white shadow-xs font-bold"
+              ? "bg-[var(--c-seef-accent)] text-white shadow-xs font-bold"
               : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
@@ -843,7 +843,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
           onClick={() => setActiveSubTab("reports")}
           className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer ${
             activeSubTab === "reports"
-              ? "bg-[#2563EB] text-white shadow-xs font-bold"
+              ? "bg-[var(--c-seef-accent)] text-white shadow-xs font-bold"
               : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
@@ -853,7 +853,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 
         <button
           onClick={() => WindowManager.openTabStandalone("purchase", "SMRITI Procurement Studio")}
-          className="px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer text-theme-muted hover:text-white hover:bg-theme-surface-hover ml-auto"
+          className="px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer text-theme-muted hover:text-theme-heading hover:bg-theme-surface-hover ml-auto"
           title="Open Procurement Studio in New Standalone Window (SWMF v1.0)"
         >
           <ExternalLink className="w-3.5 h-3.5" />
@@ -876,7 +876,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 
       {/* Dynamic Sourcing Workspace Content */}
       <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6 shadow-xl min-h-[450px]">
-        {/* ──── SUB-TAB 1: UNIFIED PURCHASE OPERATIONS STUDIO WORKSPACE ──── */}
+        {/* â”€â”€â”€â”€ SUB-TAB 1: UNIFIED PURCHASE OPERATIONS STUDIO WORKSPACE â”€â”€â”€â”€ */}
         {activeSubTab === "create" && (
           <PurchaseOperationsStudio
             initialDocumentType="PO"
@@ -888,7 +888,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         )}
 
 
-        {/* â”€â”€ SUB-TAB 2: SUPPLIERS LEDGER â”€â”€ */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ SUB-TAB 2: SUPPLIERS LEDGER Ã¢â€â‚¬Ã¢â€â‚¬ */}
         {activeSubTab === "suppliers" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
@@ -1009,7 +1009,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 
                     <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/40 text-left">
                       <span className="text-[10px] font-mono text-theme-muted block">AGGREGATE VALUE BOUGHT</span>
-                      <span className="text-lg font-bold text-emerald-500 dark:text-emerald-400 font-mono mt-1 block">₹{supplierDetails.summary.totalValue}</span>
+                      <span className="text-lg font-bold text-emerald-500 dark:text-emerald-400 font-mono mt-1 block">â‚¹{supplierDetails.summary.totalValue}</span>
                       <span className="text-[9px] text-emerald-500 mt-1 block">Fully Confirmed contracts value</span>
                     </div>
 
@@ -1148,7 +1148,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         )}
 
 
-        {/* â”€â”€ SUB-TAB 3: REORDER SUGGESTIONS â”€â”€ */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ SUB-TAB 3: REORDER SUGGESTIONS Ã¢â€â‚¬Ã¢â€â‚¬ */}
         {activeSubTab === "reorder" && (
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-theme-divider/60 pb-3">
@@ -1238,7 +1238,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                             <span className="block text-[10px] text-theme-muted font-mono mt-0.5">{s.code}</span>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="text-theme-body">{s.color || "N/A"}</span> • <span className="font-semibold text-theme-muted">{s.size || "OS"}</span>
+                            <span className="text-theme-body">{s.color || "N/A"}</span> â€¢ <span className="font-semibold text-theme-muted">{s.size || "OS"}</span>
                           </td>
                           <td className="px-4 py-3 text-right font-mono font-bold text-rose-400">{s.currentStock} units</td>
                           <td className="px-4 py-3 text-right font-mono text-theme-muted">{s.reorderLevel} units</td>
@@ -1248,7 +1248,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                             <span className="text-theme-body text-xs font-semibold">{s.preferredSupplierName}</span>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <span className="font-mono text-theme-primary">â‚¹{s.lastPurchaseRate}</span>
+                            <span className="font-mono text-theme-primary">Ã¢â€šÂ¹{s.lastPurchaseRate}</span>
                             <span className="block text-[8px] text-theme-muted font-mono truncate">{s.rateSource}</span>
                           </td>
                         </tr>
@@ -1295,7 +1295,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         )}
 
 
-        {/* â”€â”€ SUB-TAB 4: GOODS RECEIPT (GRN) â”€â”€ */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ SUB-TAB 4: GOODS RECEIPT (GRN) Ã¢â€â‚¬Ã¢â€â‚¬ */}
         {activeSubTab === "receive" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
@@ -1333,7 +1333,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                         </div>
                         <div className="flex items-center justify-between text-[10px] text-theme-muted mt-2 font-mono">
                           <span>{po.supplierName}</span>
-                          <span>Value: â‚¹{po.grandTotal}</span>
+                          <span>Value: Ã¢â€šÂ¹{po.grandTotal}</span>
                         </div>
                         <span className="block text-[8px] text-theme-muted font-mono mt-1.5">Expected: {new Date(po.expectedDeliveryDate).toLocaleDateString()}</span>
                       </div>
@@ -1388,7 +1388,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                                   {item.name}
                                   <span className="block text-[10px] text-theme-muted font-mono mt-0.5">{item.code}</span>
                                 </td>
-                                <td className="px-4 py-3 text-right font-mono text-[#cbd5e1]">{item.quantity} units</td>
+                                <td className="px-4 py-3 text-right font-mono text-theme-body">{item.quantity} units</td>
                                 <td className="px-4 py-3 text-right font-mono text-emerald-400">{item.receivedQuantity} units</td>
                                 <td className="px-4 py-3 text-right font-mono font-bold text-amber-300">{pending} units</td>
                                 <td className="px-4 py-3 text-right">
@@ -1435,7 +1435,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         )}
 
 
-        {/* â”€â”€ SUB-TAB 5: REPORTS & REGISTERS â”€â”€ */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ SUB-TAB 5: REPORTS & REGISTERS Ã¢â€â‚¬Ã¢â€â‚¬ */}
         {activeSubTab === "reports" && (
           <div className="space-y-8">
 
@@ -1474,7 +1474,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                         <tr key={row.size} className="hover:bg-theme-surface-3/20">
                           <td className="px-3 py-2.5 font-sans font-bold text-theme-body">{row.size}</td>
                           <td className="px-3 py-2.5 text-right text-theme-body">{row.orderedQty}</td>
-                          <td className="px-3 py-2.5 text-right text-emerald-400">₹{row.orderedValue}</td>
+                          <td className="px-3 py-2.5 text-right text-emerald-400">â‚¹{row.orderedValue}</td>
                           <td className="px-3 py-2.5 text-right text-theme-muted">{row.poCount}</td>
                         </tr>
                       ))}
@@ -1520,7 +1520,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                         {outstandingReport.map(r => (
                           <tr key={r.supplierId} className="hover:bg-theme-surface-3/20">
                             <td className="px-3 py-2.5 font-sans font-bold text-theme-body text-xs">{r.name}</td>
-                            <td className="px-3 py-2.5 text-right text-rose-400 font-bold">â‚¹{r.totalOwed}</td>
+                            <td className="px-3 py-2.5 text-right text-rose-400 font-bold">Ã¢â€šÂ¹{r.totalOwed}</td>
                             <td className="px-3 py-2.5 text-theme-muted">
                               {r.oldestOrderDate === "-" ? "-" : new Date(r.oldestOrderDate).toLocaleDateString()}
                             </td>
@@ -1536,7 +1536,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                                     onNotification("No specific PO found", "Outstanding balance is consolidated. Apply via invoice register payments.", "error");
                                   }
                                 }}
-                                className="px-2 py-0.5 bg-indigo-950 text-indigo-300 border border-indigo-500/20 rounded text-[9px] font-bold hover:bg-indigo-600 hover:text-white transition-all cursor-pointer"
+                                className="px-2 py-0.5 bg-indigo-950 text-indigo-300 border border-indigo-500/20 rounded text-[9px] font-bold hover:bg-indigo-600 hover:text-theme-heading transition-all cursor-pointer"
                               >
                                 REGISTER PAYMENT
                               </button>
@@ -1585,7 +1585,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                           <tr key={item.productId} className="hover:bg-theme-surface-3/20">
                             <td className="px-3 py-2.5 font-sans font-semibold text-theme-body">
                               {item.name}
-                              <span className="block text-[9px] text-theme-muted mt-0.5">{item.color || "N/A"} â€¢ {item.size || "OS"}</span>
+                              <span className="block text-[9px] text-theme-muted mt-0.5">{item.color || "N/A"} Ã¢â‚¬Â¢ {item.size || "OS"}</span>
                             </td>
                             <td className="px-3 py-2.5 text-right text-theme-body">{item.totalOrdered}</td>
                             <td className="px-3 py-2.5 text-right text-emerald-400">{item.totalReceived}</td>
@@ -1652,7 +1652,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                         <tr key={item.productId} className="hover:bg-theme-surface-3/20">
                           <td className="px-4 py-2.5 font-semibold text-theme-body">
                             {item.name}
-                            <span className="block text-[9px] text-theme-muted font-mono">{item.color || "N/A"} â€¢ Size: {item.size || "OS"}</span>
+                            <span className="block text-[9px] text-theme-muted font-mono">{item.color || "N/A"} Ã¢â‚¬Â¢ Size: {item.size || "OS"}</span>
                           </td>
                           <td className="px-4 py-2.5 text-right font-mono text-theme-muted">{item.quantity} units</td>
                           <td className="px-4 py-2.5 text-right">
@@ -1721,20 +1721,20 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                 </div>
                 <div className="flex justify-between">
                   <span>Grand Total:</span>
-                  <span className="font-mono text-emerald-400">â‚¹{payModalPO.grandTotal}</span>
+                  <span className="font-mono text-emerald-400">Ã¢â€šÂ¹{payModalPO.grandTotal}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Paid Balance already:</span>
-                  <span className="font-mono text-theme-muted">â‚¹{payModalPO.paidAmount || 0}</span>
+                  <span className="font-mono text-theme-muted">Ã¢â€šÂ¹{payModalPO.paidAmount || 0}</span>
                 </div>
                 <div className="border-t border-theme-divider/40 my-2 pt-2 flex justify-between font-bold text-theme-body">
                   <span>Remaining Outstanding:</span>
-                  <span className="font-mono text-rose-400">â‚¹{payModalPO.grandTotal - (payModalPO.paidAmount || 0)}</span>
+                  <span className="font-mono text-rose-400">Ã¢â€šÂ¹{payModalPO.grandTotal - (payModalPO.paidAmount || 0)}</span>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-mono text-theme-muted block">PAYMENT SETTLEMENT AMOUNT (â‚¹)</label>
+                <label className="text-[10px] font-mono text-theme-muted block">PAYMENT SETTLEMENT AMOUNT (Ã¢â€šÂ¹)</label>
                 <input
                   type="number"
                   min="1"

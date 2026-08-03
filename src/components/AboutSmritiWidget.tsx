@@ -55,7 +55,7 @@ export const AboutSmritiWidget: React.FC = () => {
     <div className="bg-theme-surface-1 rounded-xl p-5 border border-theme-divider flex flex-col justify-between">
       <div className="flex justify-between items-start mb-4">
         <div className="flex items-center space-x-2">
-          <Server size={18} className="text-[#2563EB]" />
+          <Server size={18} className="text-[var(--c-seef-accent)]" />
           <h3 className="font-display font-semibold text-lg text-theme-body">
             About {metadata?.app?.productName || 'SMRITI'}
           </h3>

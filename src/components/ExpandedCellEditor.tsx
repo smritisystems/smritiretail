@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,10 +7,10 @@
  * Version      : 1.0.0
  * Created      : 2026-07-25
  * Modified     : 2026-07-25
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  *
- * ExpandedCellEditor — Universal floating cell expand panel for SMRITI data grids.
+ * ExpandedCellEditor â€” Universal floating cell expand panel for SMRITI data grids.
  * Mirrors the Microsoft Excel "F2 expand" UX. Renders as a fixed floating panel
  * anchored to the viewport bottom-right so the grid stays fully visible.
  *
@@ -26,11 +26,11 @@
  *   />
  *
  * Keyboard shortcuts (when panel is open):
- *   Ctrl+Enter   — Confirm & close
- *   Escape       — Cancel & close
- *   Ctrl+F       — Focus search bar
- *   Ctrl+A       — Select all in textarea
- *   Ctrl+C/V     — Native copy/paste
+ *   Ctrl+Enter   â€” Confirm & close
+ *   Escape       â€” Cancel & close
+ *   Ctrl+F       â€” Focus search bar
+ *   Ctrl+A       â€” Select all in textarea
+ *   Ctrl+C/V     â€” Native copy/paste
  */
 
 import React, {
@@ -52,7 +52,7 @@ import {
   Keyboard,
 } from "lucide-react";
 
-/* ─── Props ──────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Props â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 export interface ExpandedCellEditorProps {
   isOpen?: boolean;
@@ -66,7 +66,7 @@ export interface ExpandedCellEditorProps {
   onClose: () => void;
 }
 
-/* ─── Search match highlight ─────────────────────────────────────────────── */
+/* â”€â”€â”€ Search match highlight â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function buildHighlightedSegments(
   text: string,
@@ -87,7 +87,7 @@ function buildHighlightedSegments(
   return segments;
 }
 
-/* ─── Component ──────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
   isOpen = true,
@@ -181,14 +181,14 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
 
   if (!isOpen) return null;
 
-  /* ── Panel size classes ── */
+  /* â”€â”€ Panel size classes â”€â”€ */
   const panelClass = isFullscreen
     ? "fixed inset-4 z-[9999] flex flex-col"
     : "fixed bottom-4 right-4 z-[9999] flex flex-col w-[580px] h-[420px]";
 
   return (
     <>
-      {/* Backdrop — semi-transparent, clicking it closes */}
+      {/* Backdrop â€” semi-transparent, clicking it closes */}
       <div
         className="fixed inset-0 z-[9998] bg-black/30 backdrop-blur-[1px]"
         onClick={onClose}
@@ -198,17 +198,17 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
       {/* Panel */}
       <div
         ref={panelRef}
-        className={`${panelClass} rounded-2xl shadow-2xl border border-indigo-500/40 bg-[#0f1117] overflow-hidden`}
+        className={`${panelClass} rounded-2xl shadow-2xl border border-indigo-500/40 bg-theme-surface-1 overflow-hidden`}
         style={{
           animation: "smriti-expand-slide-in 180ms cubic-bezier(0.16,1,0.3,1) both",
         }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
-        aria-label={`Expanded cell editor — ${fieldLabel}, row ${rowIndex + 1}`}
+        aria-label={`Expanded cell editor â€” ${fieldLabel}, row ${rowIndex + 1}`}
         aria-modal="true"
       >
-        {/* ── Header ──────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#141720] border-b border-indigo-500/20 flex-shrink-0">
+        {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <div className="flex items-center justify-between px-4 py-3 bg-theme-surface-1 border-b border-indigo-500/20 flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <Maximize2 size={14} className="text-indigo-400" />
             <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-widest font-mono">
@@ -218,7 +218,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
               {fieldLabel}
             </span>
             <span className="text-[10px] text-theme-muted font-mono">
-              Row {rowIndex + 1} · {fieldKey}
+              Row {rowIndex + 1} Â· {fieldKey}
             </span>
           </div>
 
@@ -250,7 +250,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
           </div>
         </div>
 
-        {/* ── Shortcuts hint ───────────────────────────────────────────── */}
+        {/* â”€â”€ Shortcuts hint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {showShortcuts && (
           <div className="px-4 py-2.5 bg-indigo-950/30 border-b border-indigo-500/10 flex flex-wrap gap-3 text-[10px] font-mono text-theme-muted flex-shrink-0">
             {[
@@ -270,7 +270,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
           </div>
         )}
 
-        {/* ── Search bar ───────────────────────────────────────────────── */}
+        {/* â”€â”€ Search bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="flex items-center gap-2 px-3 py-2 bg-theme-surface-2 border-b border-theme-divider flex-shrink-0">
           <Search size={12} className="text-theme-muted flex-shrink-0" />
           <input
@@ -278,7 +278,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setMatchIndex(0); }}
-            placeholder="Search within cell content… (Ctrl+F)"
+            placeholder="Search within cell contentâ€¦ (Ctrl+F)"
             className="flex-1 bg-transparent text-[11px] font-mono text-theme-body placeholder-theme-muted outline-none"
           />
           {searchQuery && (
@@ -315,7 +315,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
           )}
         </div>
 
-        {/* ── Textarea / Preview pane ───────────────────────────────────── */}
+        {/* â”€â”€ Textarea / Preview pane â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="flex-1 relative overflow-hidden">
           {/* Highlight overlay (read-only, pointer-events-none) */}
           {searchQuery && (
@@ -347,18 +347,18 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
             onChange={(e) => setDraft(e.target.value)}
             spellCheck={false}
             className="absolute inset-0 w-full h-full resize-none bg-transparent border-0 outline-none p-3 text-[12px] font-mono leading-relaxed text-theme-heading placeholder-theme-muted z-20"
-            placeholder={`Enter value for ${fieldLabel}…`}
+            placeholder={`Enter value for ${fieldLabel}â€¦`}
             style={{ caretColor: "#818cf8" }}
           />
         </div>
 
-        {/* ── Character / word count bar ────────────────────────────────── */}
+        {/* â”€â”€ Character / word count bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="px-4 py-1.5 bg-theme-surface-2 border-t border-theme-divider flex items-center justify-between flex-shrink-0">
           <span className="text-[10px] font-mono text-theme-muted">
             {draft.length} chars
-            {draft.trim() && ` · ${draft.trim().split(/\s+/).length} words`}
+            {draft.trim() && ` Â· ${draft.trim().split(/\s+/).length} words`}
             {draft !== value && (
-              <span className="ml-2 text-amber-400/80">● modified</span>
+              <span className="ml-2 text-amber-400/80">â— modified</span>
             )}
           </span>
           {searchQuery && matchCount > 0 && (
@@ -368,7 +368,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
           )}
         </div>
 
-        {/* ── Footer toolbar ────────────────────────────────────────────── */}
+        {/* â”€â”€ Footer toolbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="flex items-center justify-between px-4 py-3 bg-theme-surface-1 border-t border-indigo-500/15 flex-shrink-0 gap-2">
           {/* Left: destructive actions */}
           <div className="flex items-center gap-2">
@@ -404,7 +404,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
             >
               <Check size={11} />
               Confirm
-              <span className="text-[9px] opacity-60 ml-1">Ctrl+↵</span>
+              <span className="text-[9px] opacity-60 ml-1">Ctrl+â†µ</span>
             </button>
           </div>
         </div>
@@ -425,7 +425,7 @@ export const ExpandedCellEditor: React.FC<ExpandedCellEditorProps> = ({
   );
 };
 
-/* ─── Context Menu ────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Context Menu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 export interface ExpandContextMenuProps {
   x: number;
@@ -460,20 +460,20 @@ export const ExpandContextMenu: React.FC<ExpandContextMenuProps> = ({
 
   const items = [
     {
-      icon: "⤢",
+      icon: "â¤¢",
       label: "Expand Cell",
       sub: "F2 / Ctrl+Shift+E",
       action: () => { onExpand(); onClose(); },
       highlight: true,
     },
     {
-      icon: "⎘",
+      icon: "âŽ˜",
       label: "Copy Cell Value",
       sub: "Ctrl+C",
       action: () => { onCopy ? onCopy() : undefined; onClose(); },
     },
     {
-      icon: "✕",
+      icon: "âœ•",
       label: "Clear Cell",
       sub: "Delete",
       action: () => { onClear ? onClear() : undefined; onClose(); },

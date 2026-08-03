@@ -1,14 +1,14 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.0.0  (SEEF Phase 6 — SEEFListReport Cascade Integration)
+ * Version      : 4.0.0  (SEEF Phase 6 â€” SEEFListReport Cascade Integration)
  * Created      : 2026-07-10
  * Modified     : 2026-07-19
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 import React, { useState, useEffect, useCallback } from "react";
@@ -25,7 +25,7 @@ import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { Product, Quotation, SalesOrder, SalesItemLine, SalesInvoice, SalesReturn, Customer, CustomerGroup } from "../types.js";
 import { SmartFilter, FilterDefinition } from "./SmartFilter.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
-// SEEFListReport alias (FioriListReport is the SEEF-upgraded primitive — see FioriListReport.tsx v5.2.0)
+// SEEFListReport alias (FioriListReport is the SEEF-upgraded primitive â€” see FioriListReport.tsx v5.2.0)
 import { FioriListReport, ListReportColumn } from "./common/FioriListReport.tsx";
 export { FioriListReport as SEEFListReport };
 import { useSEEF } from "../layout_engine/SEEFContext.tsx";
@@ -281,7 +281,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [loading, setLoading] = useState<boolean>(false);
   const [subView, setSubView] = useState<"dashboard" | "quotations" | "orders" | "invoices" | "returns" | "customers">("dashboard");
 
-  // SEEF Phase 6: density now resolved from SEEF Resolution Cascade (Admin Configurator → global config)
+  // SEEF Phase 6: density now resolved from SEEF Resolution Cascade (Admin Configurator â†’ global config)
   const { config: seefConfig } = useSEEF();
   const density = seefConfig.density === "compact" ? "compact" : seefConfig.density === "spacious" ? "relaxed" : "comfortable";
   const densityPadding = density === "compact" ? "py-1.5" : density === "comfortable" ? "py-3" : "py-4";
@@ -451,7 +451,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const fetchSalesInvoices = async (filters: Record<string, any> = activeFilters) => {
     setLoading(true);
     try {
-      // Migrated: GET /api/sales/invoices (Express) → GET /api/v1/sales/invoices (FastAPI)
+      // Migrated: GET /api/sales/invoices (Express) â†’ GET /api/v1/sales/invoices (FastAPI)
       const params = new URLSearchParams();
       if (filters.customer) params.append("customer", filters.customer);
       if (filters.status && filters.status.length > 0) params.append("status", filters.status.join(","));
@@ -469,7 +469,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const fetchSalesReturns = async (filters: Record<string, any> = activeFilters) => {
     setLoading(true);
     try {
-      // Migrated: GET /api/sales/returns (Express) → GET /api/v1/sales/returns (FastAPI)
+      // Migrated: GET /api/sales/returns (Express) â†’ GET /api/v1/sales/returns (FastAPI)
       const params = new URLSearchParams();
       if (filters.customer) params.append("customer", filters.customer);
       if (filters.status && filters.status.length > 0) params.append("status", filters.status.join(","));
@@ -542,7 +542,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     );
   }
 
-  // ACAS Global Event Handlers — hoisted to component scope so they can be
+  // ACAS Global Event Handlers â€” hoisted to component scope so they can be
   // used both as window event listeners (ACAS) and as direct onClick handlers in JSX.
   const handlePrintInvoice = useCallback((e: any) => {
     const inv = e?.detail ?? e;
@@ -562,7 +562,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const handleApproveInvoice = useCallback(async (e: any) => {
     const inv = e?.detail ?? e;
     try {
-      // Migrated: invoice approve → apiFetchV1 (FastAPI workflow)
+      // Migrated: invoice approve â†’ apiFetchV1 (FastAPI workflow)
       await apiFetchV1(`/workflow/SalesInvoice/${inv.id}/approve`, { method: "POST" });
       onNotification("Invoice Approved", `Sales Invoice ${inv.invoiceNo ?? ""} is now approved and written to financial ledgers.`, "success");
       fetchSalesInvoices();
@@ -577,7 +577,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const handleCancelInvoice = useCallback(async (e: any) => {
     const inv = e?.detail ?? e;
     try {
-      // Migrated: invoice cancel → apiFetchV1 (FastAPI workflow)
+      // Migrated: invoice cancel â†’ apiFetchV1 (FastAPI workflow)
       await apiFetchV1(`/workflow/SalesInvoice/${inv.id}/cancel`, { method: "POST" });
       onNotification("Invoice Cancelled", `Sales Invoice ${inv.invoiceNo ?? ""} is now marked as Cancelled.`, "success");
       fetchSalesInvoices();
@@ -589,7 +589,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
   }, [onNotification, selectedInvoice]);
 
-  // ACAS Global Event Listeners — attach the stable callbacks to window events
+  // ACAS Global Event Listeners â€” attach the stable callbacks to window events
   useEffect(() => {
     window.addEventListener("SMRITI_PRINT_SALES_INVOICE", handlePrintInvoice);
     window.addEventListener("SMRITI_WHATSAPP_SALES_INVOICE", handleWhatsAppInvoice);
@@ -624,7 +624,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const fetchQuotations = async (filters: Record<string, any> = activeFilters) => {
     setLoading(true);
     try {
-      // Migrated: GET /api/sales/quotations (Express unmounted) → GET /api/v1/sales/quotations/ (FastAPI)
+      // Migrated: GET /api/sales/quotations (Express unmounted) â†’ GET /api/v1/sales/quotations/ (FastAPI)
       const params = new URLSearchParams();
       if (filters.customer) params.append("customer", filters.customer);
       if (filters.status && filters.status.length > 0) params.append("status", filters.status.join(","));
@@ -641,7 +641,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
   const fetchSalesOrders = async (filters: Record<string, any> = activeFilters) => {
     try {
-      // Migrated: GET /api/sales/orders (Express unmounted) → GET /api/v1/sales/orders/ (FastAPI)
+      // Migrated: GET /api/sales/orders (Express unmounted) â†’ GET /api/v1/sales/orders/ (FastAPI)
       const params = new URLSearchParams();
       if (filters.customer) params.append("customer", filters.customer);
       if (filters.status && filters.status.length > 0) params.append("status", filters.status.join(","));
@@ -784,7 +784,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
 
     try {
-      // Migrated: POST /api/sales/quotations (Express) → POST /api/v1/sales/quotations (FastAPI)
+      // Migrated: POST /api/sales/quotations (Express) â†’ POST /api/v1/sales/quotations (FastAPI)
       await apiFetchV1("/sales/quotations", {
         method: "POST",
         body: JSON.stringify({
@@ -806,7 +806,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   
   const handleWorkflowAction = async (docType: string, id: string, action: string) => {
     try {
-      // Migrated: workflow actions → apiFetchV1 (FastAPI)
+      // Migrated: workflow actions â†’ apiFetchV1 (FastAPI)
       await apiFetchV1(`/workflow/${docType}/${id}/${action}`, { method: "POST" });
       onNotification("Success", `Document ${action}ed successfully.`, "success");
       if (docType === "Quotation") fetchQuotations();
@@ -834,7 +834,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
 
     try {
-      // Migrated: POST /api/sales/invoices (Express) → POST /api/v1/sales/invoices (FastAPI)
+      // Migrated: POST /api/sales/invoices (Express) â†’ POST /api/v1/sales/invoices (FastAPI)
       await apiFetchV1("/sales/invoices", {
         method: "POST",
         body: JSON.stringify({
@@ -871,7 +871,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
 
     try {
-      // Migrated: POST /api/sales/returns (Express) → POST /api/v1/sales/returns (FastAPI)
+      // Migrated: POST /api/sales/returns (Express) â†’ POST /api/v1/sales/returns (FastAPI)
       await apiFetchV1("/sales/returns/", {
         method: "POST",
         body: JSON.stringify({
@@ -895,7 +895,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
   const handleConvertQuotation = async (qId: string) => {
     try {
-      // Migrated: quotation convert → apiFetchV1 (FastAPI)
+      // Migrated: quotation convert â†’ apiFetchV1 (FastAPI)
       const data = await apiFetchV1(`/sales/quotations/convert/${qId}`, { method: "POST" });
       onNotification("Order Confirmed", `Quotation converted successfully to ${data.salesOrder.orderNo}!`, "success");
       fetchQuotations();
@@ -909,7 +909,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const handleDeleteQuotation = async (qId: string) => {
     if (!confirm("Are you sure you want to permanently delete this quotation draft?")) return;
     try {
-      // Migrated: quotation delete → apiFetchV1 (FastAPI)
+      // Migrated: quotation delete â†’ apiFetchV1 (FastAPI)
       await apiFetchV1(`/sales/quotations/${qId}`, { method: "DELETE" });
       onNotification("Success", "Quotation draft deleted.", "success");
       setSelectedQuotation(null);
@@ -1144,7 +1144,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
                 <div className="bg-theme-surface-1 p-3.5 rounded-2xl border border-theme-divider shadow-md">
                   <span className="text-[9px] text-theme-muted font-mono font-bold uppercase tracking-wider block">Revenue Today</span>
-                  <span className="text-lg font-bold font-display text-emerald-400 mt-1 block">₹{totalSalesOrdered.toLocaleString("en-IN")}</span>
+                  <span className="text-lg font-bold font-display text-emerald-400 mt-1 block">â‚¹{totalSalesOrdered.toLocaleString("en-IN")}</span>
                   <span className="text-[10px] text-theme-muted mt-0.5 block">+12.4% vs yesterday</span>
                 </div>
 
@@ -1162,7 +1162,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
                 <div className="bg-theme-surface-1 p-3.5 rounded-2xl border border-theme-divider shadow-md">
                   <span className="text-[9px] text-theme-muted font-mono font-bold uppercase tracking-wider block">Collection</span>
-                  <span className="text-lg font-bold font-display text-emerald-400 mt-1 block">₹{Math.round(totalSalesOrdered * 0.85).toLocaleString("en-IN")}</span>
+                  <span className="text-lg font-bold font-display text-emerald-400 mt-1 block">â‚¹{Math.round(totalSalesOrdered * 0.85).toLocaleString("en-IN")}</span>
                   <span className="text-[10px] text-theme-muted mt-0.5 block">85% Cleared</span>
                 </div>
 
@@ -1209,21 +1209,21 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-center justify-between">
                         <div>
                           <span className="font-bold text-theme-body">Tax Invoice INV-000145 Created</span>
-                          <span className="text-theme-muted block text-[11px]">Customer: Apex Retailers Ltd • Amount: ₹1,25,000</span>
+                          <span className="text-theme-muted block text-[11px]">Customer: Apex Retailers Ltd â€¢ Amount: â‚¹1,25,000</span>
                         </div>
                         <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 text-[10px] font-bold">APPROVED</span>
                       </div>
                       <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-center justify-between">
                         <div>
-                          <span className="font-bold text-theme-body">Payment ₹85,000 Received via UPI</span>
-                          <span className="text-theme-muted block text-[11px]">Customer: City Footwear Mart • Ref: UPI-2026-9912</span>
+                          <span className="font-bold text-theme-body">Payment â‚¹85,000 Received via UPI</span>
+                          <span className="text-theme-muted block text-[11px]">Customer: City Footwear Mart â€¢ Ref: UPI-2026-9912</span>
                         </div>
                         <span className="px-2 py-0.5 rounded bg-blue-950 text-blue-400 text-[10px] font-bold">SETTLED</span>
                       </div>
                       <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-center justify-between">
                         <div>
                           <span className="font-bold text-theme-body">Sales Return CN-2026-04 Recorded</span>
-                          <span className="text-theme-muted block text-[11px]">Customer: Metro Garments • Reason: Size Exchange</span>
+                          <span className="text-theme-muted block text-[11px]">Customer: Metro Garments â€¢ Reason: Size Exchange</span>
                         </div>
                         <span className="px-2 py-0.5 rounded bg-rose-950 text-rose-400 text-[10px] font-bold">CREDIT NOTE</span>
                       </div>
@@ -1243,7 +1243,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                             <th className="pb-2">SKU Code</th>
                             <th className="pb-2">Product Description</th>
                             <th className="pb-2 text-right">Units Sold</th>
-                            <th className="pb-2 text-right">Total Revenue (₹)</th>
+                            <th className="pb-2 text-right">Total Revenue (â‚¹)</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-theme-divider/50">
@@ -1252,7 +1252,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                               <td className="py-2.5 font-bold text-indigo-400">{p.barcode || `SKU-${idx + 101}`}</td>
                               <td className="py-2.5 font-semibold text-theme-body">{p.name}</td>
                               <td className="py-2.5 text-right text-indigo-300 font-bold">{(idx + 1) * 45} Pcs</td>
-                              <td className="py-2.5 text-right text-emerald-400 font-bold">₹{((idx + 1) * 45 * p.price).toLocaleString("en-IN")}</td>
+                              <td className="py-2.5 text-right text-emerald-400 font-bold">â‚¹{((idx + 1) * 45 * p.price).toLocaleString("en-IN")}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1298,7 +1298,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                             <span className="font-bold text-theme-body block">{c.name}</span>
                             <span className="text-[10px] text-theme-muted">{c.mobile}</span>
                           </div>
-                          <span className="font-bold text-emerald-400">₹{(idx + 1) * 85000}</span>
+                          <span className="font-bold text-emerald-400">â‚¹{(idx + 1) * 85000}</span>
                         </div>
                       ))}
                     </div>
@@ -1312,10 +1312,10 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                     </h3>
                     <div className="space-y-2 text-xs font-mono">
                       <div className="p-2.5 bg-rose-950/40 border border-rose-500/40 rounded-xl text-rose-300">
-                        • Customer "Metro Garments" exceeded ₹2,00,000 credit limit.
+                        â€¢ Customer "Metro Garments" exceeded â‚¹2,00,000 credit limit.
                       </div>
                       <div className="p-2.5 bg-amber-950/40 border border-amber-500/40 rounded-xl text-amber-300">
-                        • Low Stock Alert: SKU-104 (Cotton Shirt Blue L) below reorder point.
+                        â€¢ Low Stock Alert: SKU-104 (Cotton Shirt Blue L) below reorder point.
                       </div>
                     </div>
                   </div>
@@ -1363,7 +1363,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
             <button
               onClick={() => setIsCreatingQuotation(true)}
               disabled={isReadOnly}
-              className={`px-4 py-2 bg-[#2563EB] hover:bg-blue-600 active:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center space-x-2 shadow-lg hover:shadow-blue-900/30 transition-all ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+              className={`px-4 py-2 bg-[var(--c-seef-accent)] hover:bg-[var(--c-seef-accent)]/90 active:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center space-x-2 shadow-lg hover:shadow-blue-900/30 transition-all ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
             >
               <Plus size={14} />
               <span>Generate Quotation</span>
@@ -1491,7 +1491,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         onClick={() => setEditorStatus("Draft")}
                         className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
                           editorStatus === "Draft" 
-                            ? "bg-[#2563EB] border-blue-500 text-theme-body" 
+                            ? "bg-[var(--c-seef-accent)] border-blue-500 text-theme-body" 
                             : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-theme-body"
                         }`}
                       >
@@ -1551,7 +1551,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                             <option value="">-- Choose Article Variant --</option>
                             {products.map(p => (
                               <option key={p.id} value={p.id}>
-                                {p.name} ({p.color || "N/A"} - Size {p.size || "N/A"}) - â‚¹{p.price} [SMR-Barcode: {p.barcode}]
+                                {p.name} ({p.color || "N/A"} - Size {p.size || "N/A"}) - Ã¢â€šÂ¹{p.price} [SMR-Barcode: {p.barcode}]
                               </option>
                             ))}
                           </select>
@@ -1641,7 +1641,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                               {matrixVariants.map(variant => (
                                 <div key={variant.id} className="bg-theme-surface-2 p-2 rounded border border-theme-divider/60 flex flex-col items-center">
                                   <span className="text-[10px] font-mono text-theme-muted">Size {variant.size || "OS"}</span>
-                                  <span className="text-xs font-semibold text-theme-body mt-0.5">â‚¹{variant.price}</span>
+                                  <span className="text-xs font-semibold text-theme-body mt-0.5">Ã¢â€šÂ¹{variant.price}</span>
                                   <span className="text-[9px] text-emerald-400 mt-0.5">Stock: {variant.stock}</span>
                                   <input
                                     type="number"
@@ -1708,8 +1708,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                             <th className="px-4 py-2.5 text-right">Qty</th>
                             <th className="px-4 py-2.5 text-right">Price</th>
                             <th className="px-4 py-2.5 text-right">GST %</th>
-                            <th className="px-4 py-2.5 text-right">Tax (â‚¹)</th>
-                            <th className="px-4 py-2.5 text-right">Total (â‚¹)</th>
+                            <th className="px-4 py-2.5 text-right">Tax (Ã¢â€šÂ¹)</th>
+                            <th className="px-4 py-2.5 text-right">Total (Ã¢â€šÂ¹)</th>
                             <th className="px-4 py-2.5 text-center">Action</th>
                           </tr>
                         </thead>
@@ -1751,16 +1751,16 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                   {item.quantity}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono">
-                                  â‚¹{item.price.toLocaleString("en-IN")}
+                                  Ã¢â€šÂ¹{item.price.toLocaleString("en-IN")}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-amber-400">
                                   {taxRate}%
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-theme-muted">
-                                  â‚¹{Math.round(taxAmount).toLocaleString("en-IN")}
+                                  Ã¢â€šÂ¹{Math.round(taxAmount).toLocaleString("en-IN")}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-emerald-400 font-semibold">
-                                  â‚¹{Math.round(lineTotal).toLocaleString("en-IN")}
+                                  Ã¢â€šÂ¹{Math.round(lineTotal).toLocaleString("en-IN")}
                                 </td>
                                 <td className="px-4 py-2 text-center">
                                   <button
@@ -1784,13 +1784,13 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         </div>
                         <div className="space-y-1 text-right w-full sm:w-auto">
                           <div>
-                            Base Net Total: <span className="font-mono text-theme-body">â‚¹{editorItems.reduce((acc, item) => acc + (item.quantity * item.price), 0).toLocaleString("en-IN")}</span>
+                            Base Net Total: <span className="font-mono text-theme-body">Ã¢â€šÂ¹{editorItems.reduce((acc, item) => acc + (item.quantity * item.price), 0).toLocaleString("en-IN")}</span>
                           </div>
                           <div>
-                            Taxes Consolidated: <span className="font-mono text-theme-body">â‚¹{editorItems.reduce((acc, item) => acc + ((item.quantity * item.price * (item.taxRate || 18)) / 100), 0).toFixed(1)}</span>
+                            Taxes Consolidated: <span className="font-mono text-theme-body">Ã¢â€šÂ¹{editorItems.reduce((acc, item) => acc + ((item.quantity * item.price * (item.taxRate || 18)) / 100), 0).toFixed(1)}</span>
                           </div>
                           <div className="text-sm font-bold text-emerald-400">
-                            Grand Quotation Total: â‚¹{editorItems.reduce((acc, item) => acc + (item.quantity * item.price * (1 + (item.taxRate || 18) / 100)), 0).toLocaleString("en-IN")}
+                            Grand Quotation Total: Ã¢â€šÂ¹{editorItems.reduce((acc, item) => acc + (item.quantity * item.price * (1 + (item.taxRate || 18) / 100)), 0).toLocaleString("en-IN")}
                           </div>
                         </div>
                       </div>
@@ -1887,7 +1887,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         const cust = customers.find(c => c.id === si.customerId);
                         return (
                           <option key={si.id} value={si.id}>
-                            {si.invoiceNo} - {cust?.name || "Walk-In"} (â‚¹{si.grandTotal})
+                            {si.invoiceNo} - {cust?.name || "Walk-In"} (Ã¢â€šÂ¹{si.grandTotal})
                           </option>
                         );
                       })}
@@ -2008,7 +2008,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                   {item.maxQty} units
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono">
-                                  â‚¹{item.price.toLocaleString("en-IN")}
+                                  Ã¢â€šÂ¹{item.price.toLocaleString("en-IN")}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-amber-400">
                                   {item.gstRate}%
@@ -2030,10 +2030,10 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                   />
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-theme-muted">
-                                  â‚¹{Math.round(taxAmount).toLocaleString("en-IN")}
+                                  Ã¢â€šÂ¹{Math.round(taxAmount).toLocaleString("en-IN")}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-rose-400 font-semibold">
-                                  â‚¹{Math.round(lineTotal).toLocaleString("en-IN")}
+                                  Ã¢â€šÂ¹{Math.round(lineTotal).toLocaleString("en-IN")}
                                 </td>
                               </tr>
                             );
@@ -2048,7 +2048,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         </div>
                         <div className="space-y-1 text-right w-full sm:w-auto">
                           <div className="text-sm font-bold text-rose-400">
-                            Total Credit Note Value: â‚¹{returnItems.reduce((acc, item) => acc + (item.quantity * item.price * (1 + item.gstRate / 100)), 0).toLocaleString("en-IN")}
+                            Total Credit Note Value: Ã¢â€šÂ¹{returnItems.reduce((acc, item) => acc + (item.quantity * item.price * (1 + item.gstRate / 100)), 0).toLocaleString("en-IN")}
                           </div>
                         </div>
                       </div>
@@ -2117,7 +2117,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                     value={newCustomerName}
                     onChange={(e) => setNewCustomerName(e.target.value)}
                     placeholder="e.g. Rahul Sharma"
-                    className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-[var(--c-seef-accent)] transition-colors"
                   />
                 </div>
 
@@ -2131,7 +2131,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       value={newCustomerMobile}
                       onChange={(e) => setNewCustomerMobile(e.target.value)}
                       placeholder="e.g. 9876543210"
-                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors"
+                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-[var(--c-seef-accent)] transition-colors"
                     />
                   </div>
 
@@ -2144,7 +2144,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       value={newCustomerEmail}
                       onChange={(e) => setNewCustomerEmail(e.target.value)}
                       placeholder="e.g. rahul@sharma.com"
-                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors"
+                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-[var(--c-seef-accent)] transition-colors"
                     />
                   </div>
                 </div>
@@ -2159,7 +2159,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       value={newCustomerGst}
                       onChange={(e) => setNewCustomerGst(e.target.value)}
                       placeholder="e.g. 27AAACS1094J1Z3"
-                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-[var(--c-seef-accent)] transition-colors font-mono"
                     />
                   </div>
 
@@ -2172,7 +2172,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       value={newCustomerPan}
                       onChange={(e) => setNewCustomerPan(e.target.value)}
                       placeholder="e.g. ABCDE1234F"
-                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-[var(--c-seef-accent)] transition-colors font-mono"
                     />
                   </div>
                 </div>
@@ -2185,7 +2185,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       id="new-cust-group"
                       value={newCustomerGroup}
                       onChange={(e) => setNewCustomerGroup(e.target.value)}
-                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors"
+                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-[var(--c-seef-accent)] transition-colors"
                     >
                       {customerGroups.map(g => (
                         <option key={g.id} value={g.id}>{g.name}</option>
@@ -2200,7 +2200,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       id="new-cust-status"
                       value={newCustomerStatus}
                       onChange={(e) => setNewCustomerStatus(e.target.value as any)}
-                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors"
+                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-[var(--c-seef-accent)] transition-colors"
                     >
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
@@ -2626,7 +2626,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                 </span>
                               </td>
                               <td className="px-4 py-2 text-right font-mono text-theme-body font-semibold">
-                                â‚¹{row.outstanding.toLocaleString("en-IN")}
+                                Ã¢â€šÂ¹{row.outstanding.toLocaleString("en-IN")}
                               </td>
                               <td className="px-4 py-2 text-center">
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
@@ -2690,7 +2690,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         value={customerSearchQuery}
                         onChange={(e) => setCustomerSearchQuery(e.target.value)}
                         placeholder="Filter by name, phone, email or tags..."
-                        className="w-full pl-9 pr-14 py-1.5 bg-theme-surface-1 border border-theme-divider rounded-lg text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-indigo-500/80 transition-colors"
+                        className="w-full pl-9 pr-14 py-1.5 bg-theme-surface-1 border border-theme-divider rounded-lg text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-[var(--c-seef-accent)]/80 transition-colors"
                       />
                       {customerSearchQuery && (
                         <button
@@ -2712,7 +2712,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         id="tag-filter-select"
                         value={selectedTagFilter}
                         onChange={(e) => setSelectedTagFilter(e.target.value)}
-                        className="px-3 py-1.5 bg-theme-surface-1 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500/80 transition-colors"
+                        className="px-3 py-1.5 bg-theme-surface-1 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-[var(--c-seef-accent)]/80 transition-colors"
                       >
                         <option value="">All Tags</option>
                         {Array.from(new Set(customers.flatMap(c => c.tags || []))).filter(Boolean).sort().map(tag => (
@@ -2747,7 +2747,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   <span className="text-xs text-theme-muted">Syncing real-time ledger data...</span>
                 </div>
               ) : subView === "quotations" ? (
-                /* Quotations Registry — WNG-002 Fiori List Report Pattern */
+                /* Quotations Registry â€” WNG-002 Fiori List Report Pattern */
                 <FioriListReport
                   title="Quotations Registry"
                   subtitle="Manage sales proposals, quotation lifecycle, client approvals, and conversion to orders."
@@ -2927,7 +2927,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   currentUser={currentUser}
                 />
               ) : subView === "returns" ? (
-                /* Sales Returns Registry — WNG-002 Fiori List Report Pattern */
+                /* Sales Returns Registry â€” WNG-002 Fiori List Report Pattern */
                 <FioriListReport
                   title="Sales Returns Registry"
                   subtitle="Log of customer return requests, credit note generation, and return inventory restoration."
@@ -3129,10 +3129,10 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                 </div>
                               </td>
                               <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
-                                â‚¹{(c.creditLimit || 50000).toLocaleString("en-IN")}
+                                Ã¢â€šÂ¹{(c.creditLimit || 50000).toLocaleString("en-IN")}
                               </td>
                               <td className={`px-5 ${densityPadding} text-right font-mono font-semibold ${c.outstanding > 0 ? "text-amber-400" : "text-emerald-400"}`}>
-                                â‚¹{c.outstanding.toLocaleString("en-IN")}
+                                Ã¢â€šÂ¹{c.outstanding.toLocaleString("en-IN")}
                               </td>
                               <td className={`px-5 ${densityPadding} text-center`}>
                                 <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
@@ -3210,12 +3210,12 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       <div>
                         <div className="font-semibold text-theme-body">{line.name}</div>
                         <div className="text-[10px] text-theme-muted font-mono mt-0.5">
-                          {line.color || "N/A"} / {line.size || "N/A"} â€¢ Qty {line.quantity}
+                          {line.color || "N/A"} / {line.size || "N/A"} Ã¢â‚¬Â¢ Qty {line.quantity}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-theme-body">â‚¹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
-                        <div className="text-[9px] text-theme-muted mt-0.5 font-mono">â‚¹{line.price} + {line.taxRate}% GST</div>
+                        <div className="font-semibold text-theme-body">Ã¢â€šÂ¹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
+                        <div className="text-[9px] text-theme-muted mt-0.5 font-mono">Ã¢â€šÂ¹{line.price} + {line.taxRate}% GST</div>
                       </div>
                     </div>
                   ))}
@@ -3226,11 +3226,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-2">
                 <div className="flex justify-between items-center text-xs text-theme-muted">
                   <span>Consolidated Taxes (GST)</span>
-                  <span className="font-mono text-theme-body">â‚¹{selectedQuotation.taxTotal.toLocaleString("en-IN")}</span>
+                  <span className="font-mono text-theme-body">Ã¢â€šÂ¹{selectedQuotation.taxTotal.toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-bold text-theme-body pt-2 border-t border-theme-divider/60">
                   <span>Grand Ledger Total</span>
-                  <span className="text-emerald-400 font-mono text-sm">â‚¹{selectedQuotation.grandTotal.toLocaleString("en-IN")}</span>
+                  <span className="text-emerald-400 font-mono text-sm">Ã¢â€šÂ¹{selectedQuotation.grandTotal.toLocaleString("en-IN")}</span>
                 </div>
               </div>
 
@@ -3341,12 +3341,12 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       <div>
                         <div className="font-semibold text-theme-body">{line.name}</div>
                         <div className="text-[10px] text-theme-muted font-mono mt-0.5">
-                          {line.color || "N/A"} / {line.size || "N/A"} â€¢ Qty {line.quantity}
+                          {line.color || "N/A"} / {line.size || "N/A"} Ã¢â‚¬Â¢ Qty {line.quantity}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-theme-body">â‚¹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
-                        <div className="text-[9px] text-theme-muted mt-0.5 font-mono">â‚¹{line.price} + {line.taxRate}% GST</div>
+                        <div className="font-semibold text-theme-body">Ã¢â€šÂ¹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
+                        <div className="text-[9px] text-theme-muted mt-0.5 font-mono">Ã¢â€šÂ¹{line.price} + {line.taxRate}% GST</div>
                       </div>
                     </div>
                   ))}
@@ -3357,11 +3357,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-2">
                 <div className="flex justify-between items-center text-xs text-theme-muted">
                   <span>Consolidated Taxes (GST)</span>
-                  <span className="font-mono text-theme-body">â‚¹{selectedOrder.taxTotal.toLocaleString("en-IN")}</span>
+                  <span className="font-mono text-theme-body">Ã¢â€šÂ¹{selectedOrder.taxTotal.toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-bold text-theme-body pt-2 border-t border-theme-divider/60">
                   <span>Grand Booking Value</span>
-                  <span className="text-emerald-400 font-mono text-sm">â‚¹{selectedOrder.grandTotal.toLocaleString("en-IN")}</span>
+                  <span className="text-emerald-400 font-mono text-sm">Ã¢â€šÂ¹{selectedOrder.grandTotal.toLocaleString("en-IN")}</span>
                 </div>
               </div>
 
@@ -3455,11 +3455,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       <div>
                         <div className="font-semibold text-theme-body">{line.name}</div>
                         <div className="text-[10px] text-theme-muted font-mono mt-0.5">
-                          Qty {line.quantity} × â‚¹{line.price}
+                          Qty {line.quantity} Ã— Ã¢â€šÂ¹{line.price}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-theme-body">â‚¹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
+                        <div className="font-semibold text-theme-body">Ã¢â€šÂ¹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
                         <div className="text-[9px] text-theme-muted mt-0.5 font-mono">GST {line.gstRate}%</div>
                       </div>
                     </div>
@@ -3470,15 +3470,15 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-2">
                 <div className="flex justify-between items-center text-xs text-theme-muted">
                   <span>GST Total</span>
-                  <span className="font-mono text-theme-body">â‚¹{selectedInvoice.taxTotal.toLocaleString("en-IN")}</span>
+                  <span className="font-mono text-theme-body">Ã¢â€šÂ¹{selectedInvoice.taxTotal.toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs text-theme-muted">
                   <span>Subtotal</span>
-                  <span className="font-mono text-theme-body">â‚¹{(selectedInvoice.grandTotal - selectedInvoice.taxTotal).toLocaleString("en-IN")}</span>
+                  <span className="font-mono text-theme-body">Ã¢â€šÂ¹{(selectedInvoice.grandTotal - selectedInvoice.taxTotal).toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-bold text-theme-body pt-2 border-t border-theme-divider/60">
                   <span>Total Payable</span>
-                  <span className="text-emerald-400 font-mono text-sm">â‚¹{selectedInvoice.grandTotal.toLocaleString("en-IN")}</span>
+                  <span className="text-emerald-400 font-mono text-sm">Ã¢â€šÂ¹{selectedInvoice.grandTotal.toLocaleString("en-IN")}</span>
                 </div>
               </div>
 
@@ -3592,7 +3592,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   value={quickEditMobile}
                   onChange={(e) => setQuickEditMobile(e.target.value)}
                   placeholder="e.g. 9876543210"
-                  className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider focus:border-indigo-500 rounded-lg text-xs text-theme-body focus:outline-none transition-colors"
+                  className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider focus:border-[var(--c-seef-accent)] rounded-lg text-xs text-theme-body focus:outline-none transition-colors"
                 />
               </div>
 
@@ -3605,7 +3605,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   value={quickEditEmail}
                   onChange={(e) => setQuickEditEmail(e.target.value)}
                   placeholder="e.g. customer@domain.com"
-                  className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider focus:border-indigo-500 rounded-lg text-xs text-theme-body focus:outline-none transition-colors"
+                  className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider focus:border-[var(--c-seef-accent)] rounded-lg text-xs text-theme-body focus:outline-none transition-colors"
                 />
               </div>
 

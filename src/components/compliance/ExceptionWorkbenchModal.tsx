@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Business OS
  * Component    : ExceptionWorkbenchModal (SCP Exception Manager Studio)
  * Author       : Jawahar Ramkripal Mallah
@@ -64,8 +64,8 @@ const MOCK_EXCEPTIONS: ComplianceException[] = [
     severity: "WARNING",
     category: "EWAY_BILL",
     errorCode: "EWAY_THRESHOLD_EXCEEDED",
-    title: "Consignment Exceeds ₹50,000 Threshold",
-    description: "Interstate B2B invoice total is ₹1,24,500. Statutory E-Way bill is required prior to dispatch.",
+    title: "Consignment Exceeds â‚¹50,000 Threshold",
+    description: "Interstate B2B invoice total is â‚¹1,24,500. Statutory E-Way bill is required prior to dispatch.",
     suggestedFix: "Generate E-Way Bill or provide vehicle number & transporter ID.",
     fieldRef: "eway_bill_no",
     currentValue: "PENDING"
@@ -176,7 +176,7 @@ export const ExceptionWorkbenchModal: React.FC<ExceptionWorkbenchModalProps> = (
         </div>
 
         {/* Telemetry Tabs Bar */}
-        <div className="px-6 py-3 border-b border-theme-divider/60 bg-[#0E131F] flex items-center justify-between gap-4">
+        <div className="px-6 py-3 border-b border-theme-divider/60 bg-theme-surface-1 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActiveTab("ALL")}
@@ -224,7 +224,7 @@ export const ExceptionWorkbenchModal: React.FC<ExceptionWorkbenchModalProps> = (
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search voucher, title, category..."
-              className="pl-9 pr-3 py-1.5 bg-theme-surface-2 border border-theme-divider rounded-xl text-xs text-theme-body focus:border-indigo-500 outline-none w-64"
+              className="pl-9 pr-3 py-1.5 bg-theme-surface-2 border border-theme-divider rounded-xl text-xs text-theme-body focus:border-[var(--c-seef-accent)] outline-none w-64"
             />
           </div>
         </div>
@@ -321,7 +321,7 @@ export const ExceptionWorkbenchModal: React.FC<ExceptionWorkbenchModalProps> = (
                     type="text"
                     value={correctionValue}
                     onChange={(e) => setCorrectionValue(e.target.value)}
-                    className="w-full px-3 py-2 bg-theme-surface-1 border border-indigo-500/40 rounded-xl text-xs text-theme-heading outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-mono"
+                    className="w-full px-3 py-2 bg-theme-surface-1 border border-indigo-500/40 rounded-xl text-xs text-theme-heading outline-none focus:border-[var(--c-seef-accent)] focus:ring-2 focus:ring-indigo-500/20 font-mono"
                     placeholder="Enter corrected value..."
                   />
                 </div>

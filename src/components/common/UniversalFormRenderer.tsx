@@ -1,7 +1,7 @@
-/**
+﻿/**
  * Project      : SMRITI Application Platform (SMAP) v1.0
  * Module       : Universal Form Renderer (UFR-002)
- * Standard     : SMAP Constitution v1.0 — Rule SAP-018 (Metadata First) & UFR Standard v1.0
+ * Standard     : SMAP Constitution v1.0 â€” Rule SAP-018 (Metadata First) & UFR Standard v1.0
  * Author       : Jawahar Ramkripal Mallah
  * License      : Proprietary Commercial Software
  */
@@ -103,7 +103,7 @@ export const UniversalFormRenderer: React.FC<UniversalFormRendererProps> = ({
           <h2 className="text-sm font-bold text-theme-heading tracking-wide uppercase">{formDef.title}</h2>
           {formDef.description && <p className="text-[11px] text-theme-muted mt-0.5">{formDef.description}</p>}
         </div>
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#0a6ed1]/10 text-[#0a6ed1] border border-[#0a6ed1]/20">
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)] border border-[var(--c-seef-accent)]/20">
           UFR Form v{formDef.version}
         </span>
       </div>
@@ -112,7 +112,7 @@ export const UniversalFormRenderer: React.FC<UniversalFormRendererProps> = ({
       <div className="space-y-6">
         {formDef.sections.map((section) => (
           <div key={section.id} className="space-y-3 bg-theme-surface-2/40 p-3.5 rounded-xl border border-theme-divider/60">
-            <h3 className="text-xs font-bold text-theme-heading uppercase tracking-wider text-[#0a6ed1] border-b border-theme-divider/40 pb-1.5">
+            <h3 className="text-xs font-bold text-theme-heading uppercase tracking-wider text-[var(--c-seef-accent)] border-b border-theme-divider/40 pb-1.5">
               {section.title}
             </h3>
 
@@ -156,7 +156,7 @@ export const UniversalFormRenderer: React.FC<UniversalFormRendererProps> = ({
 
           <button
             type="submit"
-            className="px-4 py-1.5 rounded-lg bg-[#0a6ed1] hover:bg-[#0854a0] text-white font-bold flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
+            className="px-4 py-1.5 rounded-lg bg-[var(--c-seef-accent)] hover:bg-[var(--c-seef-accent)]/90 text-white font-bold flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
           >
             <Save className="w-3.5 h-3.5" />
             <span>Save Entity</span>

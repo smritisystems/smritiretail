@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SMRITI Adaptive Workspace Framework (SAWF v1.1)
  * Reference Implementation: Sales Invoice Registry
  * Dedicated Management Workspace (Zero Inline Form Contamination)
@@ -40,7 +40,7 @@ export const SalesInvoiceRegistry: React.FC<SalesInvoiceRegistryProps> = ({
   }));
 
   return (
-    <div className="w-full bg-[#0E131F] border border-[#1E293B] rounded-2xl overflow-hidden shadow-2xl">
+    <div className="w-full bg-theme-surface-1 border border-theme-divider rounded-2xl overflow-hidden shadow-2xl">
       <FioriListReport
         title="Sales Invoices Registry"
         subtitle="Complete tax-compliant GST invoice ledger with workflow status and context actions."

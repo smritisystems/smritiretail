@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -19,7 +19,7 @@
  * * Version    : 2.1.1
  * * Created    : 2026-07-10
  * * Modified   : 2026-07-11
- * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+ * * Copyright  : Â© AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
 
@@ -61,7 +61,7 @@ export const ExplainModal: React.FC<ExplainModalProps> = ({ formula, onClose }) 
               <div className="px-6 border-b border-theme-divider pb-5">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-2">
-                    <span className="material-symbols-outlined text-[#2563EB]">info</span>
+                    <span className="material-symbols-outlined text-[var(--c-seef-accent)]">info</span>
                     <h2 className="text-xl font-semibold font-display text-theme-body" id="slide-over-title">
                       Formula Explanation
                     </h2>
@@ -81,7 +81,7 @@ export const ExplainModal: React.FC<ExplainModalProps> = ({ formula, onClose }) 
               <div className="relative mt-6 flex-1 px-6 space-y-6">
                 {/* Name & Category */}
                 <div>
-                  <span className="inline-flex items-center rounded-full bg-theme-surface-3 px-2.5 py-0.5 text-xs font-medium text-[#2563EB] border border-theme-divider">
+                  <span className="inline-flex items-center rounded-full bg-theme-surface-3 px-2.5 py-0.5 text-xs font-medium text-[var(--c-seef-accent)] border border-theme-divider">
                     {formula.category}
                   </span>
                   <h3 className="mt-2 text-2xl font-bold font-display text-theme-body">{formula.name}</h3>
@@ -141,8 +141,8 @@ export const ExplainModal: React.FC<ExplainModalProps> = ({ formula, onClose }) 
                 </div>
 
                 {/* Recommended Action */}
-                <div className="bg-theme-surface-3 bg-opacity-70 border-l-4 border-[#2563EB] rounded p-4">
-                  <h4 className="text-xs font-semibold text-[#2563EB] uppercase tracking-wider font-display">Recommended Action</h4>
+                <div className="bg-theme-surface-3 bg-opacity-70 border-l-4 border-[var(--c-seef-accent)] rounded p-4">
+                  <h4 className="text-xs font-semibold text-[var(--c-seef-accent)] uppercase tracking-wider font-display">Recommended Action</h4>
                   <p className="mt-2 text-sm text-theme-primary font-medium leading-relaxed">{formula.recommendedAction}</p>
                 </div>
               </div>

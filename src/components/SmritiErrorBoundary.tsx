@@ -89,7 +89,7 @@ export class SmritiErrorBoundary extends React.Component<ErrorBoundaryProps, Err
           <div className="flex gap-3">
             <button
               onClick={this.handleRetry}
-              className="bg-[#2563EB] hover:bg-opacity-90 text-white text-xs font-semibold uppercase px-4 py-2 rounded transition-all"
+              className="bg-[var(--c-seef-accent)] hover:bg-opacity-90 text-white text-xs font-semibold uppercase px-4 py-2 rounded transition-all"
             >
               Retry Module
             </button>

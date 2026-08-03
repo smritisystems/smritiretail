@@ -85,8 +85,8 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
               onClick={() => setSelectedPartyId(p.id)}
               className={`p-4 rounded-xl border cursor-pointer transition-all space-y-2.5 ${
                 selectedPartyId === p.id 
-                  ? "bg-theme-surface-3 border-[#2563EB]" 
-                  : "bg-theme-surface-1 border-theme-divider hover:border-[#2563EB]"
+                  ? "bg-theme-surface-3 border-[var(--c-seef-accent)]" 
+                  : "bg-theme-surface-1 border-theme-divider hover:border-[var(--c-seef-accent)]"
               }`}
             >
               <div className="flex justify-between items-start">

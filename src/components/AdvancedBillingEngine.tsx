@@ -1,14 +1,14 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Organization : AITDL NETWORKS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.4.0  (SXP-CS-007 — Return/Exchange wizard wired)
+ * Version      : 5.4.0  (SXP-CS-007 â€” Return/Exchange wizard wired)
  * Created      : 2026-07-10
  * Modified     : 2026-07-20
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 import React, { useState, useEffect, useMemo } from "react";
@@ -24,12 +24,12 @@ import { StandardDocumentToolbar } from "./terminal/StandardDocumentToolbar";
 import { RightDrawerHost } from "./terminal/RightDrawerHost";
 import { UniversalSearchModal } from "./terminal/UniversalSearchModal";
 import { STRE, TaxContext } from "../sdk";
-// SEEF Phase 6 — surgical cascade integration (POS grid untouched)
+// SEEF Phase 6 â€” surgical cascade integration (POS grid untouched)
 import { useSEEF } from "../layout_engine/SEEFContext.tsx";
-// SXP v1.0 — POS Studio manifest (side-effect import: auto-registers actions + workspaces)
+// SXP v1.0 â€” POS Studio manifest (side-effect import: auto-registers actions + workspaces)
 import "./pos/pos.manifest.js";
 import { useSmritiExperience } from "../context/SmritiExperienceContext.js";
-// SXP-CS-007 — Return/Exchange scanner_action wizard (3-step, SWEF P-007)
+// SXP-CS-007 â€” Return/Exchange scanner_action wizard (3-step, SWEF P-007)
 import { buildReturnExchangeWizard } from "./pos/POSReturnWizard.js";
 import { OperationDef, OperationWizard } from "./shared/OperationLauncher.js";
 
@@ -77,9 +77,9 @@ interface AdvancedBillingEngineProps {
 
 // Dummy databases for demonstration and real matching
 const COUPONS_DB = [
-  { code: "SMRITI10", type: "percent" as const, value: 10, minPurchase: 1000, desc: "10% Off on minimum purchase of ₹1,000" },
-  { code: "SAVE500", type: "flat" as const, value: 500, minPurchase: 3000, desc: "Flat ₹500 Off on minimum purchase of ₹3,000" },
-  { code: "FESTIVE25", type: "percent" as const, value: 25, minPurchase: 2000, desc: "25% Festive Discount on minimum purchase of ₹2,000" }
+  { code: "SMRITI10", type: "percent" as const, value: 10, minPurchase: 1000, desc: "10% Off on minimum purchase of â‚¹1,000" },
+  { code: "SAVE500", type: "flat" as const, value: 500, minPurchase: 3000, desc: "Flat â‚¹500 Off on minimum purchase of â‚¹3,000" },
+  { code: "FESTIVE25", type: "percent" as const, value: 25, minPurchase: 2000, desc: "25% Festive Discount on minimum purchase of â‚¹2,000" }
 ];
 
 const GIFT_CARDS_DB: Record<string, number> = {
@@ -191,15 +191,15 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     policy: "Returns accepted within 7 days on clothing and accessories only if tags are intact."
   };
 
-  // SEEF Phase 6 — density cascade (compact: tighter POS rows, spacious: more breathing room)
-  // AOP-001: useSEEF is advisory only — POS workflow never depends on AI or cascade availability
+  // SEEF Phase 6 â€” density cascade (compact: tighter POS rows, spacious: more breathing room)
+  // AOP-001: useSEEF is advisory only â€” POS workflow never depends on AI or cascade availability
   const { config: seefConfig } = useSEEF();
   const posRowPadding = seefConfig.density === "compact" ? "py-1.5" : seefConfig.density === "spacious" ? "py-3" : "py-2";
   // Gate motion/react transitions on SEEF animation config (respects reducedMotion user preference)
   const motionProps = (seefConfig.animationPolicy === "none" || seefConfig.reducedMotion) ? {} : { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } };
 
-  // SXP v1.0 — zone-aware animation suppression (SWEF P-007: scanner zone = zero animations during active billing)
-  // This is advisory — existing motionProps already handles animation gating from SEEF config
+  // SXP v1.0 â€” zone-aware animation suppression (SWEF P-007: scanner zone = zero animations during active billing)
+  // This is advisory â€” existing motionProps already handles animation gating from SEEF config
   const { mode: workspaceMode } = useSmritiExperience();
 
   // Local Cart State when cart prop is empty
@@ -352,7 +352,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
   // Active edit item-level discount modal
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
 
-  // SXP-CS-007 — Return/Exchange wizard state
+  // SXP-CS-007 â€” Return/Exchange wizard state
   const [returnWizardDef, setReturnWizardDef] = useState<OperationDef | null>(null);
 
   const openReturnWizard = () => {
@@ -513,7 +513,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       }
     }
 
-    // Loyalty Points discount (1 Point = ₹1)
+    // Loyalty Points discount (1 Point = â‚¹1)
     const loyaltyValue = Math.min(loyaltyRedeemPoints, subTotalAfterItemDiscounts - promoValue - billDiscVal - couponDiscountValue, openingLoyaltyPoints);
 
     const totalBillDiscounts = promoValue + billDiscVal + couponDiscountValue + loyaltyValue;
@@ -589,7 +589,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     const balancePayable = Math.max(0, finalGrandTotal - finalGiftCardValue);
 
     // Points earned on current bill
-    const loyaltyPointsEarned = Math.floor(finalGrandTotal / 100); // 1 point per ₹100
+    const loyaltyPointsEarned = Math.floor(finalGrandTotal / 100); // 1 point per â‚¹100
 
     return {
       grossAmount,
@@ -636,7 +636,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     if (bal !== undefined) {
       setGiftCardBalance(bal);
       setGiftCardRedemption(Math.min(bal, totals.grandTotal));
-      onNotification("Gift Card Verified", `Card has available balance of ₹${bal}`, "success");
+      onNotification("Gift Card Verified", `Card has available balance of â‚¹${bal}`, "success");
     } else {
       onNotification("Invalid Card", "The entered Gift Card number was not found.", "error");
     }
@@ -668,7 +668,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     if (cart.length === 0 || !activeShift) return;
 
     if (paymentMode === "Split" && Math.abs(splitUnderpaid) > 1) {
-      onNotification("Payment Mismatch", `Split payment allocation mismatch by ₹${splitUnderpaid.toFixed(2)}. Please balance details.`, "error");
+      onNotification("Payment Mismatch", `Split payment allocation mismatch by â‚¹${splitUnderpaid.toFixed(2)}. Please balance details.`, "error");
       return;
     }
 
@@ -748,7 +748,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     };
 
     try {
-      // Migrated: POST /api/pos/checkout (Express — unmounted) → POST /api/v1/pos/checkout (FastAPI)
+      // Migrated: POST /api/pos/checkout (Express â€” unmounted) â†’ POST /api/v1/pos/checkout (FastAPI)
       await apiFetchV1("/pos/checkout", {
         method: "POST",
         body: JSON.stringify({
@@ -786,13 +786,13 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
 
   return (
     <div
-      className="w-full h-full flex flex-col bg-[#0b1329] text-gray-200 overflow-hidden font-sans select-none relative"
+      className="w-full h-full flex flex-col bg-theme-surface-1 text-gray-200 overflow-hidden font-sans select-none relative"
       data-sxp-zone="scanner"
       data-sxp-workspace="pos.billing"
       data-sxp-mode={workspaceMode}
     >
       {/* SMRITI RETAIL TERMINAL HEADER BAR (TOP CONTROL ROW) */}
-      <div className="px-4 py-2 bg-[#0f172a] border-b border-theme-divider flex items-center justify-between text-xs font-mono">
+      <div className="px-4 py-2 bg-theme-surface-1 border-b border-theme-divider flex items-center justify-between text-xs font-mono">
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <span className="text-theme-muted font-bold">Bill Type:</span>
@@ -827,7 +827,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
           <span className="text-theme-muted">Desk: <strong className="text-white">{activeProfile?.name || "LANE-01"}</strong></span>
           <button 
             onClick={onClose}
-            className="text-theme-muted hover:text-white p-1 rounded hover:bg-theme-surface-hover transition-colors"
+            className="text-theme-muted hover:text-theme-heading p-1 rounded hover:bg-theme-surface-hover transition-colors"
           >
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
@@ -851,7 +851,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
           {/* LEFT COLUMN: SMRITI RETAIL TERMINAL DETAIL SECTION (SMRITI ITEM GRID - 75% WIDTH) */}
           <div className="flex-1 flex flex-col overflow-hidden border-r border-theme-divider p-4 space-y-3">
             {/* Quick Barcode Scanner / SKU Search Bar */}
-            <form onSubmit={handleScanSubmit} className="flex items-center gap-3 bg-[#1e293b] p-2.5 rounded-lg border border-theme-divider">
+            <form onSubmit={handleScanSubmit} className="flex items-center gap-3 bg-theme-surface-2 p-2.5 rounded-lg border border-theme-divider">
               <span className="material-symbols-outlined text-blue-400 text-xl">qr_code_scanner</span>
               <input
                 type="text"
@@ -887,10 +887,10 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                 <button
                   key={p.id}
                   onClick={() => handleAddToCart(p, 1)}
-                  className="bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading hover:text-white px-2.5 py-1 rounded border border-theme-divider hover:border-theme-divider font-semibold transition-all shrink-0 flex items-center gap-1 cursor-pointer"
+                  className="bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading hover:text-theme-heading px-2.5 py-1 rounded border border-theme-divider hover:border-theme-divider font-semibold transition-all shrink-0 flex items-center gap-1 cursor-pointer"
                 >
                   <span>+ {p.name.split(" ")[0]}</span>
-                  <span className="text-emerald-400 font-bold">₹{p.price}</span>
+                  <span className="text-emerald-400 font-bold">â‚¹{p.price}</span>
                 </button>
               ))}
             </div>
@@ -906,7 +906,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
           </div>
 
           {/* RIGHT COLUMN: SMRITI RETAIL TERMINAL FOOTER NET VALUES BREAKDOWN (25% WIDTH) */}
-          <div className="w-full lg:w-80 bg-[#0f172a] border-l border-theme-divider flex flex-col p-4 space-y-4 font-mono">
+          <div className="w-full lg:w-80 bg-theme-surface-1 border-l border-theme-divider flex flex-col p-4 space-y-4 font-mono">
             <div className="border-b border-theme-divider pb-2 flex items-center justify-between">
               <h4 className="font-bold text-theme-heading text-xs uppercase tracking-wide font-display">Net Values Sheet</h4>
               <span className="text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 font-bold">GST Live</span>
@@ -915,62 +915,62 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
             <div className="flex-1 space-y-2.5 text-xs overflow-y-auto custom-scrollbar">
               <div className="flex justify-between text-theme-muted">
                 <span>Gross Sales:</span>
-                <span className="font-bold text-theme-heading">₹{(Number(totals.grossAmount) || 0).toFixed(2)}</span>
+                <span className="font-bold text-theme-heading">â‚¹{(Number(totals.grossAmount) || 0).toFixed(2)}</span>
               </div>
 
               {(totals.itemDiscountsTotal || 0) > 0 && (
                 <div className="flex justify-between text-amber-400">
                   <span>Item Discounts:</span>
-                  <span className="font-bold">-₹{(Number(totals.itemDiscountsTotal) || 0).toFixed(2)}</span>
+                  <span className="font-bold">-â‚¹{(Number(totals.itemDiscountsTotal) || 0).toFixed(2)}</span>
                 </div>
               )}
 
               {(totals.totalBillDiscounts || 0) > 0 && (
                 <div className="flex justify-between text-amber-400">
                   <span>Bill Discounts & Promo:</span>
-                  <span className="font-bold">-₹{(Number(totals.totalBillDiscounts) || 0).toFixed(2)}</span>
+                  <span className="font-bold">-â‚¹{(Number(totals.totalBillDiscounts) || 0).toFixed(2)}</span>
                 </div>
               )}
 
               <div className="flex justify-between text-theme-body border-t border-theme-divider pt-2 font-bold">
                 <span>Taxable Base Value:</span>
-                <span className="text-white">₹{(Number(totals.totalTaxableAmount) || 0).toFixed(2)}</span>
+                <span className="text-white">â‚¹{(Number(totals.totalTaxableAmount) || 0).toFixed(2)}</span>
               </div>
 
               {!totals.isInterstate ? (
                 <>
                   <div className="flex justify-between text-theme-muted pl-2 text-[11px]">
                     <span>Sales Tax (CGST):</span>
-                    <span className="text-blue-400 font-bold">₹{(Number(totals.cgstTotal) || 0).toFixed(2)}</span>
+                    <span className="text-blue-400 font-bold">â‚¹{(Number(totals.cgstTotal) || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-theme-muted pl-2 text-[11px]">
                     <span>Sales Tax (SGST):</span>
-                    <span className="text-blue-400 font-bold">₹{(Number(totals.sgstTotal) || 0).toFixed(2)}</span>
+                    <span className="text-blue-400 font-bold">â‚¹{(Number(totals.sgstTotal) || 0).toFixed(2)}</span>
                   </div>
                 </>
               ) : (
                 <div className="flex justify-between text-theme-muted pl-2 text-[11px]">
                   <span>Sales Tax (IGST):</span>
-                  <span className="text-blue-400 font-bold">₹{(Number(totals.igstTotal) || 0).toFixed(2)}</span>
+                  <span className="text-blue-400 font-bold">â‚¹{(Number(totals.igstTotal) || 0).toFixed(2)}</span>
                 </div>
               )}
 
               {(totals.tcsAmount || 0) > 0 && (
                 <div className="flex justify-between text-purple-400 pl-2 text-[11px]">
                   <span>Statutory TCS:</span>
-                  <span className="font-bold">+₹{(Number(totals.tcsAmount) || 0).toFixed(2)}</span>
+                  <span className="font-bold">+â‚¹{(Number(totals.tcsAmount) || 0).toFixed(2)}</span>
                 </div>
               )}
 
               <div className="flex justify-between text-theme-muted border-t border-theme-divider pt-2 text-[11px]">
                 <span>Round Off:</span>
-                <span className="text-theme-body font-bold">{(totals.roundOff || 0) >= 0 ? `+₹${(Number(totals.roundOff) || 0).toFixed(2)}` : `-₹${Math.abs(Number(totals.roundOff) || 0).toFixed(2)}`}</span>
+                <span className="text-theme-body font-bold">{(totals.roundOff || 0) >= 0 ? `+â‚¹${(Number(totals.roundOff) || 0).toFixed(2)}` : `-â‚¹${Math.abs(Number(totals.roundOff) || 0).toFixed(2)}`}</span>
               </div>
 
               <div className="bg-emerald-950/60 border border-emerald-500/50 p-3.5 rounded-xl space-y-1 text-center mt-3 shadow-lg">
                 <span className="text-[10px] text-emerald-400 uppercase tracking-widest font-bold">Net Amount Payable</span>
                 <p className="text-2xl font-bold text-emerald-300 font-mono">
-                  ₹{(Number(totals.grandTotal) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  â‚¹{(Number(totals.grandTotal) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </p>
               </div>
             </div>
@@ -995,7 +995,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-theme-surface-2">
             
             {/* Left selector menu */}
-            <div className="w-full md:w-64 bg-[#0e172a] border-b md:border-b-0 md:border-r border-theme-divider p-4 space-y-4">
+            <div className="w-full md:w-64 bg-theme-surface-1 border-b md:border-b-0 md:border-r border-theme-divider p-4 space-y-4">
               <h5 className="font-semibold text-xs text-blue-400 font-mono uppercase tracking-wider">Configure Print Queue</h5>
               
               <div className="space-y-2">
@@ -1053,7 +1053,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                     const invoiceNo = finalizedInvoice?.invoiceNo || "N/A";
                     const grandTotal = totals.grandTotal || 0;
                     const customerName = customer.name || "Customer";
-                    const messageText = `Hello ${customerName},\n\nThank you for shopping with SMRITI Retail! Your digital receipt has been generated.\n\n*Invoice No:* ${invoiceNo}\n*Amount Paid:* ₹${grandTotal}\n*Store:* SMRITI Main Flagship Store\n\nHope to see you again soon!`;
+                    const messageText = `Hello ${customerName},\n\nThank you for shopping with SMRITI Retail! Your digital receipt has been generated.\n\n*Invoice No:* ${invoiceNo}\n*Amount Paid:* â‚¹${grandTotal}\n*Store:* SMRITI Main Flagship Store\n\nHope to see you again soon!`;
                     const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(messageText)}`;
                     window.open(waUrl, "_blank");
                     onNotification("WhatsApp Routed", `Secure invoice link dispatched to customer WhatsApp profile: ${customer.mobile || "+91 9999999999"}`, "success");
@@ -1091,7 +1091,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                       <h1 className="text-base font-bold tracking-tight text-gray-900 uppercase">{storeInfo.name}</h1>
                       <p className="text-[10px] text-gray-500 mt-1 max-w-sm leading-relaxed">{storeInfo.address}</p>
                       <p className="font-mono mt-1 text-[10px]">
-                        <strong>GSTIN:</strong> {storeInfo.gstin} • <strong>FSSAI:</strong> {storeInfo.fssai}
+                        <strong>GSTIN:</strong> {storeInfo.gstin} â€¢ <strong>FSSAI:</strong> {storeInfo.fssai}
                       </p>
                     </div>
                     <div className="text-right">
@@ -1148,11 +1148,11 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                           </td>
                           <td className="py-2 px-1 text-right font-mono">{item.hsnCode}</td>
                           <td className="py-2 px-1 text-right font-mono">{item.quantity}</td>
-                          <td className="py-2 px-1 text-right font-mono">₹{item.product.price}</td>
-                          <td className="py-2 px-1 text-right font-mono text-rose-600">₹{item.totalLineDiscount.toFixed(2)}</td>
-                          <td className="py-2 px-1 text-right font-mono">₹{item.taxableValue.toFixed(2)}</td>
+                          <td className="py-2 px-1 text-right font-mono">â‚¹{item.product.price}</td>
+                          <td className="py-2 px-1 text-right font-mono text-rose-600">â‚¹{item.totalLineDiscount.toFixed(2)}</td>
+                          <td className="py-2 px-1 text-right font-mono">â‚¹{item.taxableValue.toFixed(2)}</td>
                           <td className="py-2 px-1 text-right font-mono">{item.gstRate}%</td>
-                          <td className="py-2 px-1 text-right font-mono">₹{item.totalLineFinal.toFixed(2)}</td>
+                          <td className="py-2 px-1 text-right font-mono">â‚¹{item.totalLineFinal.toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1191,18 +1191,18 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                             {totals.items.map((item, idx) => (
                               <tr key={idx} className="text-gray-700">
                                 <td>{item.hsnCode}</td>
-                                <td className="text-right">₹{item.taxableValue.toFixed(2)}</td>
+                                <td className="text-right">â‚¹{item.taxableValue.toFixed(2)}</td>
                                 {!totals.isInterstate ? (
                                   <>
                                     <td className="text-right">{(item.gstRate / 2).toFixed(1)}%</td>
-                                    <td className="text-right">₹{item.cgst.toFixed(2)}</td>
+                                    <td className="text-right">â‚¹{item.cgst.toFixed(2)}</td>
                                     <td className="text-right">{(item.gstRate / 2).toFixed(1)}%</td>
-                                    <td className="text-right">₹{item.sgst.toFixed(2)}</td>
+                                    <td className="text-right">â‚¹{item.sgst.toFixed(2)}</td>
                                   </>
                                 ) : (
                                   <>
                                     <td className="text-right">{item.gstRate}%</td>
-                                    <td className="text-right">₹{item.igst.toFixed(2)}</td>
+                                    <td className="text-right">â‚¹{item.igst.toFixed(2)}</td>
                                   </>
                                 )}
                               </tr>
@@ -1223,49 +1223,49 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                     <div className="col-span-5 space-y-2">
                       <div className="flex justify-between text-gray-600">
                         <span>Gross Amount:</span>
-                        <span className="font-mono">₹{totals.grossAmount.toFixed(2)}</span>
+                        <span className="font-mono">â‚¹{totals.grossAmount.toFixed(2)}</span>
                       </div>
                       {totals.itemDiscountsTotal > 0 && (
                         <div className="flex justify-between text-rose-600">
                           <span>Less Item Discounts:</span>
-                          <span className="font-mono">-₹{totals.itemDiscountsTotal.toFixed(2)}</span>
+                          <span className="font-mono">-â‚¹{totals.itemDiscountsTotal.toFixed(2)}</span>
                         </div>
                       )}
                       {totals.totalBillDiscounts > 0 && (
                         <div className="flex justify-between text-rose-600">
                           <span>Less Bill Offers/Points:</span>
-                          <span className="font-mono">-₹{totals.totalBillDiscounts.toFixed(2)}</span>
+                          <span className="font-mono">-â‚¹{totals.totalBillDiscounts.toFixed(2)}</span>
                         </div>
                       )}
                       <div className="flex justify-between text-gray-600 border-t border-gray-100 pt-1">
                         <span>Net Taxable Base:</span>
-                        <span className="font-mono">₹{totals.totalTaxableAmount.toFixed(2)}</span>
+                        <span className="font-mono">â‚¹{totals.totalTaxableAmount.toFixed(2)}</span>
                       </div>
                       {!totals.isInterstate ? (
                         <>
                           <div className="flex justify-between text-gray-600">
                             <span>Add CGST:</span>
-                            <span className="font-mono">₹{totals.cgstTotal.toFixed(2)}</span>
+                            <span className="font-mono">â‚¹{totals.cgstTotal.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between text-gray-600">
                             <span>Add SGST:</span>
-                            <span className="font-mono">₹{totals.sgstTotal.toFixed(2)}</span>
+                            <span className="font-mono">â‚¹{totals.sgstTotal.toFixed(2)}</span>
                           </div>
                         </>
                       ) : (
                         <div className="flex justify-between text-gray-600">
                           <span>Add IGST:</span>
-                          <span className="font-mono">₹{totals.igstTotal.toFixed(2)}</span>
+                          <span className="font-mono">â‚¹{totals.igstTotal.toFixed(2)}</span>
                         </div>
                       )}
                       <div className="flex justify-between text-gray-500">
                         <span>Round Off:</span>
-                        <span className="font-mono">{totals.roundOff >= 0 ? "+" : ""}₹{totals.roundOff.toFixed(2)}</span>
+                        <span className="font-mono">{totals.roundOff >= 0 ? "+" : ""}â‚¹{totals.roundOff.toFixed(2)}</span>
                       </div>
 
                       <div className="flex justify-between text-gray-900 border-t border-b border-gray-300 py-2.5 font-bold text-xs bg-gray-50 px-2 rounded">
                         <span>GRAND TOTAL (INR):</span>
-                        <span className="font-mono text-sm">₹{totals.grandTotal}</span>
+                        <span className="font-mono text-sm">â‚¹{totals.grandTotal}</span>
                       </div>
 
                       {/* Payment mode details split */}
@@ -1274,7 +1274,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                         {paymentMode === "Single" ? (
                           <div className="flex justify-between text-gray-800 font-mono">
                             <span>{primaryPaymentMethod}:</span>
-                            <span>₹{totals.grandTotal}</span>
+                            <span>â‚¹{totals.grandTotal}</span>
                           </div>
                         ) : (
                           Object.entries(splitAmounts).map(([m, val]) => {
@@ -1282,7 +1282,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                             return (
                               <div key={m} className="flex justify-between text-gray-800 font-mono">
                                 <span>{m}:</span>
-                                <span>₹{val.toFixed(2)}</span>
+                                <span>â‚¹{val.toFixed(2)}</span>
                               </div>
                             );
                           })
@@ -1340,7 +1340,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                           <tr key={idx}>
                             <td>{item.product.name.slice(0, 16)}</td>
                             <td className="text-right">{item.quantity}</td>
-                            <td className="text-right">₹{item.totalLineFinal.toFixed(0)}</td>
+                            <td className="text-right">â‚¹{item.totalLineFinal.toFixed(0)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1350,11 +1350,11 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                   <div className="py-2 text-right space-y-1 text-[9px]">
                     <div className="flex justify-between">
                       <span>Gross total:</span>
-                      <span>₹{totals.grossAmount.toFixed(0)}</span>
+                      <span>â‚¹{totals.grossAmount.toFixed(0)}</span>
                     </div>
                     <div className="flex justify-between font-bold text-xs">
                       <span>Grand Total:</span>
-                      <span>₹{totals.grandTotal}</span>
+                      <span>â‚¹{totals.grandTotal}</span>
                     </div>
                   </div>
 
@@ -1383,7 +1383,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                     {totals.items.map((item, idx) => (
                       <div key={idx} className="flex justify-between text-[8px]">
                         <span>{item.product.name.slice(0, 12)} x{item.quantity}</span>
-                        <span>₹{item.totalLineFinal.toFixed(0)}</span>
+                        <span>â‚¹{item.totalLineFinal.toFixed(0)}</span>
                       </div>
                     ))}
                   </div>
@@ -1391,7 +1391,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                   <div className="py-1.5 text-right font-bold text-[10px]">
                     <div className="flex justify-between">
                       <span>TOTAL:</span>
-                      <span>₹{totals.grandTotal}</span>
+                      <span>â‚¹{totals.grandTotal}</span>
                     </div>
                   </div>
 
@@ -1429,7 +1429,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Flat Discount (₹ Amount per unit)</label>
+                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Flat Discount (â‚¹ Amount per unit)</label>
                     <input
                       type="number"
                       value={itemDetailsList[editingItemIdx]?.discounts.flat}
@@ -1441,7 +1441,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Promotional Discount (₹)</label>
+                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Promotional Discount (â‚¹)</label>
                     <input
                       type="number"
                       value={itemDetailsList[editingItemIdx]?.discounts.promo}
@@ -1453,7 +1453,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Associate/Salesperson Discount (₹)</label>
+                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Associate/Salesperson Discount (â‚¹)</label>
                     <input
                       type="number"
                       value={itemDetailsList[editingItemIdx]?.discounts.salesperson}
@@ -1480,17 +1480,17 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
         </AnimatePresence>
 
       {/* SMRITI RETAIL TERMINAL BOTTOM SUMMARY BAR (FOOTER SECTION) */}
-      <footer className="h-10 bg-[#1e293b] border-t border-theme-divider px-4 flex items-center justify-between font-mono text-xs text-theme-body">
+      <footer className="h-10 bg-theme-surface-2 border-t border-theme-divider px-4 flex items-center justify-between font-mono text-xs text-theme-body">
         <div className="flex items-center space-x-6">
           <div>Total Items: <span className="text-white font-bold">{cart.length}</span></div>
           <div>Total Qty: <span className="text-white font-bold">{totals.totalQty || 0}</span></div>
-          <div>Sales Value: <span className="text-white font-bold">₹{(Number(totals.grossAmount) || 0).toFixed(2)}</span></div>
-          <div>Item Disc: <span className="text-amber-400 font-bold">₹{(Number(totals.itemDiscountsTotal) || 0).toFixed(2)}</span></div>
-          <div>Bill Disc: <span className="text-amber-400 font-bold">₹{(Number(totals.totalBillDiscounts) || 0).toFixed(2)}</span></div>
-          <div>Total Tax: <span className="text-blue-400 font-bold">₹{(Number(totals.totalGstTax) || 0).toFixed(2)}</span></div>
+          <div>Sales Value: <span className="text-white font-bold">â‚¹{(Number(totals.grossAmount) || 0).toFixed(2)}</span></div>
+          <div>Item Disc: <span className="text-amber-400 font-bold">â‚¹{(Number(totals.itemDiscountsTotal) || 0).toFixed(2)}</span></div>
+          <div>Bill Disc: <span className="text-amber-400 font-bold">â‚¹{(Number(totals.totalBillDiscounts) || 0).toFixed(2)}</span></div>
+          <div>Total Tax: <span className="text-blue-400 font-bold">â‚¹{(Number(totals.totalGstTax) || 0).toFixed(2)}</span></div>
         </div>
         <div className="bg-emerald-600/20 px-3 py-1 rounded border border-emerald-500/40 text-emerald-300 font-bold text-sm">
-          Net Amount: ₹{(Number(totals.grandTotal) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+          Net Amount: â‚¹{(Number(totals.grandTotal) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
         </div>
       </footer>
 
@@ -1513,9 +1513,9 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       {/* Customer Master Details Modal */}
       {isCustomerModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0f172a] border border-theme-divider rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl font-sans text-xs">
+          <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl font-sans text-xs">
             {/* Modal Header */}
-            <div className="px-5 py-4 border-b border-theme-divider flex items-center justify-between bg-[#1e293b] rounded-t-2xl">
+            <div className="px-5 py-4 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2 rounded-t-2xl">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-amber-400 text-xl">person_add</span>
                 <div>
@@ -1525,7 +1525,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
               </div>
               <button
                 onClick={() => setIsCustomerModalOpen(false)}
-                className="text-theme-muted hover:text-white p-1 rounded hover:bg-theme-surface-hover transition-colors"
+                className="text-theme-muted hover:text-theme-heading p-1 rounded hover:bg-theme-surface-hover transition-colors"
               >
                 <span className="material-symbols-outlined text-lg">close</span>
               </button>
@@ -1697,9 +1697,9 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
             </div>
 
             {/* Modal Actions */}
-            <div className="px-5 py-3 border-t border-theme-divider flex items-center justify-between bg-[#1e293b] rounded-b-2xl">
+            <div className="px-5 py-3 border-t border-theme-divider flex items-center justify-between bg-theme-surface-2 rounded-b-2xl">
               <span className="text-[10px] text-theme-muted font-mono">
-                STRE Auto-Applied Tax: <strong className="text-emerald-400">✔ Automatically Applied ({tempCustomer.gstin && !tempCustomer.gstin.startsWith("27") ? "Interstate IGST 18%" : "Intrastate CGST 9% + SGST 9%"})</strong>
+                STRE Auto-Applied Tax: <strong className="text-emerald-400">âœ” Automatically Applied ({tempCustomer.gstin && !tempCustomer.gstin.startsWith("27") ? "Interstate IGST 18%" : "Intrastate CGST 9% + SGST 9%"})</strong>
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -1727,7 +1727,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
         </div>
       )}
 
-      {/* SXP-CS-007 — Return/Exchange wizard overlay (scanner_action, ≤3 steps) */}
+      {/* SXP-CS-007 â€” Return/Exchange wizard overlay (scanner_action, â‰¤3 steps) */}
       {returnWizardDef && (
         <OperationWizard
           operation={returnWizardDef}

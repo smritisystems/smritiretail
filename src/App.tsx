@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Organization : AITDL NETWORKS
  * Author       : Jawahar Ramkripal Mallah
@@ -8,7 +8,7 @@
  * Version      : 5.0.0
  * Created      : 2026-07-10
  * Modified     : 2026-07-20
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -189,7 +189,7 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-1.5">
             <span className="material-symbols-outlined text-indigo-400 text-base">desktop_windows</span>
-            <span className="text-xs font-bold tracking-wide uppercase text-slate-200">{popoutTitle}</span>
+            <span className="text-xs font-bold tracking-wide uppercase text-theme-primary">{popoutTitle}</span>
           </div>
 
           <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono font-medium">
@@ -594,8 +594,8 @@ const AppContent: React.FC = () => {
   // Fetch initial system state
   const fetchSystemState = async () => {
     try {
-      // Migrated: /pos/registers/ → /pos/profiles/ (returns camelCase POSProfileResponse)
-      // Migrated: /pos/shifts/ (FastAPI list endpoint — v3.22.0, replaces broken Express stub)
+      // Migrated: /pos/registers/ â†’ /pos/profiles/ (returns camelCase POSProfileResponse)
+      // Migrated: /pos/shifts/ (FastAPI list endpoint â€” v3.22.0, replaces broken Express stub)
       const [profData, shiftsData] = await Promise.all([
         apiFetchV1("/pos/profiles/"),
         apiFetchV1("/pos/shifts/").catch(() => []),  // graceful fallback if no shifts yet
@@ -890,7 +890,7 @@ const AppContent: React.FC = () => {
   if (checkingAuth) {
     return (
       <div className="min-h-screen w-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
-        <div className="w-10 h-10 rounded-xl bg-[#2563EB] flex items-center justify-center font-bold text-lg text-white border border-theme-divider shadow-lg animate-pulse">
+        <div className="w-10 h-10 rounded-xl bg-[var(--c-seef-accent)] flex items-center justify-center font-bold text-lg text-white border border-theme-divider shadow-lg animate-pulse">
           S
         </div>
         <p className="mt-4 text-[10px] font-mono text-theme-muted tracking-widest uppercase">
@@ -1061,7 +1061,7 @@ const AppContent: React.FC = () => {
         onClose={() => setSelectedFormula(null)}
       />
 
-      {/* SMRITI Global Interactive Print Preview Engine Modal — conditional mount only when active */}
+      {/* SMRITI Global Interactive Print Preview Engine Modal â€” conditional mount only when active */}
       {isPrintPreviewOpen && (
         <PrintPreviewModal
           isOpen={isPrintPreviewOpen}
@@ -1070,7 +1070,7 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {/* SEEF Command Palette — Ctrl+K global keyboard launcher */}
+      {/* SEEF Command Palette â€” Ctrl+K global keyboard launcher */}
       <SEEFCommandPalette
         isOpen={seefPaletteOpen}
         onClose={() => setSeefPaletteOpen(false)}

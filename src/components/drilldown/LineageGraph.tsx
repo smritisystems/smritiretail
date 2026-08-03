@@ -1,9 +1,9 @@
-/**
- * Project      : SMRITI Retail OS v6.5 — Platform Architecture Constitution
+﻿/**
+ * Project      : SMRITI Retail OS v6.5 â€” Platform Architecture Constitution
  * Module       : LineageGraph (SUNEF-GOV-015 Infinite Transaction Lineage Engine)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com and AITDL.com. All Rights Reserved.
  * Version      : 3.2.0
  */
 
@@ -57,7 +57,7 @@ export const LineageGraph: React.FC<LineageGraphProps> = ({ nodes, activeId, onS
     <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-3 font-sans select-none shadow-md">
       <div className="flex items-center justify-between border-b border-theme-divider/60 pb-2">
         <h4 className="text-xs font-bold uppercase tracking-wider text-theme-heading flex items-center gap-2">
-          <span className="material-symbols-outlined text-[18px] text-[#0a6ed1]">account_tree</span>
+          <span className="material-symbols-outlined text-[18px] text-[var(--c-seef-accent)]">account_tree</span>
           <span>SUNEF Transaction Lineage (Infinite Drill-Down)</span>
         </h4>
         <span className="text-[10px] text-theme-muted font-mono">{nodes.length} Lineage Nodes</span>
@@ -72,7 +72,7 @@ export const LineageGraph: React.FC<LineageGraphProps> = ({ nodes, activeId, onS
                 onClick={() => handleNodeClick(node)}
                 className={`flex-none min-w-[140px] p-3 rounded-lg border transition-all cursor-pointer ${
                   isActive
-                    ? "bg-[#0a6ed1]/10 border-[#0a6ed1] shadow-xs"
+                    ? "bg-[var(--c-seef-accent)]/10 border-[var(--c-seef-accent)] shadow-xs"
                     : "bg-theme-surface-1 border-theme-divider hover:border-theme-muted hover:bg-theme-surface-hover"
                 }`}
               >
