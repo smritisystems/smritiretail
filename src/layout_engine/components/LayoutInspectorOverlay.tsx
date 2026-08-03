@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Module       : Developer Layout Inspector Overlay (SLGP-001 v2.0 Debug Tool)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * Version      : 5.4.0
  */
 
@@ -22,7 +22,7 @@ export const LayoutInspectorOverlay: React.FC = () => {
     return (
       <button
         onClick={() => setIsEnabled(true)}
-        className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom))] right-3 z-50 p-2 rounded-full bg-[#0a6ed1] text-white shadow-lg hover:scale-105 transition-all text-xs flex items-center gap-1.5 cursor-pointer"
+        className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom))] right-3 z-50 p-2 rounded-full bg-[var(--c-seef-accent)] text-white shadow-lg hover:scale-105 transition-all text-xs flex items-center gap-1.5 cursor-pointer"
         title="Toggle Layout Inspector Overlay"
       >
         <Layout className="w-4 h-4" />
@@ -34,11 +34,11 @@ export const LayoutInspectorOverlay: React.FC = () => {
   return (
     <>
       {/* Visual Bounding Overlay Masks */}
-      <div className="fixed inset-0 z-40 pointer-events-none border-4 border-dashed border-[#0a6ed1]/50">
+      <div className="fixed inset-0 z-40 pointer-events-none border-4 border-dashed border-[var(--c-seef-accent)]/50">
         {/* Header Bounds Mask */}
         <div
           style={{ height: `${bounds.headerHeight}px` }}
-          className="w-full bg-[#0a6ed1]/10 border-b-2 border-dashed border-[#0a6ed1] flex items-center justify-between px-4 text-[11px] font-mono text-[#0a6ed1]"
+          className="w-full bg-[var(--c-seef-accent)]/10 border-b-2 border-dashed border-[var(--c-seef-accent)] flex items-center justify-between px-4 text-[11px] font-mono text-[var(--c-seef-accent)]"
         >
           <span>Zone A Header ({bounds.headerHeight}px)</span>
           <span>Viewport: {bounds.windowWidth}x{bounds.windowHeight}px</span>
@@ -70,10 +70,10 @@ export const LayoutInspectorOverlay: React.FC = () => {
       </div>
 
       {/* Floating Control Widget */}
-      <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom))] right-3 z-50 bg-theme-surface-1 border border-[#0a6ed1] rounded-lg p-3 shadow-2xl space-y-2 text-xs font-mono w-72">
+      <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom))] right-3 z-50 bg-theme-surface-1 border border-[var(--c-seef-accent)] rounded-lg p-3 shadow-2xl space-y-2 text-xs font-mono w-72">
         <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
           <span className="font-bold text-theme-heading flex items-center gap-1.5">
-            <Box className="w-4 h-4 text-[#0a6ed1]" /> Layout Inspector v2.0
+            <Box className="w-4 h-4 text-[var(--c-seef-accent)]" /> Layout Inspector v2.0
           </span>
           <button
             onClick={() => setIsEnabled(false)}

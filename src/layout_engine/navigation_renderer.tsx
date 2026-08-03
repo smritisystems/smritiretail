@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -16,10 +16,10 @@
  *
  * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 3.1.0  (Mega-Menu NavMode + top-bar→top-nav bugfix)
+ * * Version    : 3.1.0  (Mega-Menu NavMode + top-barâ†’top-nav bugfix)
  * * Created    : 2026-07-10
  * * Modified   : 2026-07-26
- * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+ * * Copyright  : Â© AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
 
@@ -143,7 +143,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
   const { isTabAllowed } = useAdaptiveWorkspace();
 
   // Filter workspaces by search term, UPR activeDomain metadata (WNG-004/WNG-005) and Adaptive Workspace Mode
-  // WNG-002: Exclude 'launchpad' — it is a top-level single-purpose screen, not a sidebar module
+  // WNG-002: Exclude 'launchpad' â€” it is a top-level single-purpose screen, not a sidebar module
   const filteredWorkspaces = registeredWorkspaces.filter(w => 
     w.id !== "launchpad" &&
     isTabAllowed(w.id) &&
@@ -171,14 +171,14 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
           <div className="p-3 border-b border-theme-divider/60 space-y-2 bg-theme-surface-2/30">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-theme-muted flex items-center gap-1">
-                <span className="material-symbols-outlined text-xs text-[#0a6ed1]">hub</span> Active Domain
+                <span className="material-symbols-outlined text-xs text-[var(--c-seef-accent)]">hub</span> Active Domain
               </span>
               <button
                 onClick={() => handleItemClick("launchpad")}
-                className="text-[10px] font-bold text-[#0a6ed1] hover:underline flex items-center gap-1 cursor-pointer"
+                className="text-[10px] font-bold text-[var(--c-seef-accent)] hover:underline flex items-center gap-1 cursor-pointer"
                 title="Return to SMRITI Launchpad"
               >
-                <span>Launchpad</span> ➜
+                <span>Launchpad</span> âžœ
               </button>
             </div>
 
@@ -186,7 +186,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
             <select
               value={activeDomain}
               onChange={(e) => handleDomainChange(e.target.value)}
-              className="w-full p-1.5 text-xs bg-theme-surface-1 border border-theme-divider rounded-lg font-bold text-theme-heading focus:outline-none focus:border-[#0a6ed1] cursor-pointer"
+              className="w-full p-1.5 text-xs bg-theme-surface-1 border border-theme-divider rounded-lg font-bold text-theme-heading focus:outline-none focus:border-[var(--c-seef-accent)] cursor-pointer"
             >
               {registeredDomains.map((dom) => (
                 <option key={dom.id} value={dom.id}>
@@ -239,18 +239,18 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                       onContextMenu={(e) => handleContextMenu(e, w.id, w.label, w.icon)}
                       className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between group transition-all cursor-pointer ${
                         activeTab === w.id 
-                          ? "bg-[#2563EB]/20 border border-[#2563EB]/40 text-blue-400 font-medium" 
+                          ? "bg-[var(--c-seef-accent)]/20 border border-[var(--c-seef-accent)]/40 text-[var(--c-seef-accent)] font-medium" 
                           : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-body border border-transparent"
                       }`}
                     >
                       <div className="flex items-center space-x-2.5">
-                        {renderIcon(w.icon, `text-lg ${activeTab === w.id ? "text-blue-400" : "text-theme-muted"}`)}
+                        {renderIcon(w.icon, `text-lg ${activeTab === w.id ? "text-[var(--c-seef-accent)]" : "text-theme-muted"}`)}
                         <span className="text-xs font-display">{w.label}</span>
                       </div>
                       <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
                           onClick={(e) => { e.stopPropagation(); handlePopOut(w.id, w.label, w.icon); }}
-                          className="p-1 rounded text-theme-muted hover:text-blue-400 hover:bg-theme-surface-2 transition-all"
+                          className="p-1 rounded text-theme-muted hover:text-[var(--c-seef-accent)] hover:bg-theme-surface-2 transition-all"
                           title="Pop-out Workspace"
                         >
                           <ExternalLink size={11} />
@@ -289,7 +289,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                       {isGroupCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
                     </button>
                   ) : (
-                    <div className="h-px bg-[#2a3a5c]/50 my-2" />
+                    <div className="h-px bg-theme-divider/50 my-2" />
                   )}
 
                   {/* Category Menu Items */}
@@ -306,11 +306,11 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                             className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between group transition-all border cursor-pointer ${
                               isSel 
                                 ? "bg-blue-600 border-blue-500 text-white font-semibold shadow-lg shadow-blue-950/20" 
-                                : "text-theme-muted hover:bg-theme-surface-3 hover:text-white border-transparent"
+                                : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-heading border-transparent"
                             }`}
                           >
                             <div className="flex items-center space-x-2.5">
-                              {renderIcon(w.icon, `text-lg ${isSel ? "text-white" : "text-theme-muted group-hover:text-white"}`)}
+                              {renderIcon(w.icon, `text-lg ${isSel ? "text-white" : "text-theme-muted group-hover:text-theme-heading"}`)}
                               {!isCollapsed && <span className="text-xs font-display">{w.label}</span>}
                             </div>
                             
@@ -318,7 +318,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                               <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); handlePopOut(w.id, w.label, w.icon); }}
-                                  className={`p-1 rounded transition-all ${isSel ? "text-white hover:bg-blue-700" : "text-theme-muted hover:text-blue-400 hover:bg-theme-surface-2"}`}
+                                  className={`p-1 rounded transition-all ${isSel ? "text-white hover:bg-blue-700" : "text-theme-muted hover:text-[var(--c-seef-accent)] hover:bg-theme-surface-2"}`}
                                   title="Pop-out Workspace"
                                 >
                                   <ExternalLink size={11} />
@@ -363,7 +363,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                       onContextMenu={(e) => handleContextMenu(e, w.id, w.label, w.icon)}
                       className={`w-full text-left px-3 py-1.5 rounded-md flex items-center justify-between group text-xs transition-colors cursor-pointer ${
                         activeTab === w.id 
-                          ? "text-blue-400 font-medium bg-theme-surface-3/40" 
+                          ? "text-[var(--c-seef-accent)] font-medium bg-theme-surface-3/40" 
                           : "text-theme-muted hover:text-theme-body hover:bg-theme-surface-3/20"
                       }`}
                     >
@@ -373,7 +373,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                       </div>
                       <button 
                         onClick={(e) => { e.stopPropagation(); handlePopOut(w.id, w.label, w.icon); }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded text-theme-muted hover:text-blue-400 hover:bg-theme-surface-2"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded text-theme-muted hover:text-[var(--c-seef-accent)] hover:bg-theme-surface-2"
                         title="Pop-out Workspace"
                       >
                         <ExternalLink size={10} />
@@ -399,7 +399,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                     className={`py-1 text-[9px] font-mono font-bold uppercase rounded border transition-colors ${
                       preferences.position === pos 
                         ? "bg-blue-600 border-blue-500 text-white" 
-                        : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:text-white"
+                        : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:text-theme-heading"
                     }`}
                   >
                     {pos}
@@ -466,8 +466,8 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                   onClick={() => setActiveDropdownGroup(isOpen ? null : cat)}
                   className={`px-3 py-1.5 text-xs font-display font-medium rounded-lg flex items-center space-x-1 cursor-pointer transition-colors ${
                     isOpen || catWorkspaces.some(w => w.id === activeTab)
-                      ? "bg-blue-600/10 text-blue-400 border border-blue-500/20" 
-                      : "text-theme-muted hover:text-white hover:bg-theme-surface-3"
+                      ? "bg-blue-600/10 text-[var(--c-seef-accent)] border border-blue-500/20" 
+                      : "text-theme-muted hover:text-theme-heading hover:bg-theme-surface-3"
                   }`}
                 >
                   <span>{cat}</span>
@@ -493,7 +493,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                           className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition-all ${
                             activeTab === w.id 
                               ? "bg-blue-600 text-white font-medium shadow-md shadow-blue-950/20" 
-                              : "text-theme-muted hover:bg-theme-surface-3 hover:text-white"
+                              : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-heading"
                           }`}
                         >
                           <div className="flex items-center space-x-2">
@@ -539,7 +539,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                   className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center space-x-1 transition-all ${
                     activeTab === w.id 
                       ? "bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold" 
-                      : "text-theme-muted hover:text-white hover:bg-theme-surface-3"
+                      : "text-theme-muted hover:text-theme-heading hover:bg-theme-surface-3"
                   }`}
                 >
                   {renderIcon(w.icon, "text-xs")}
@@ -558,7 +558,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                 className={`px-2 py-1 text-[9px] font-mono font-bold uppercase rounded border transition-colors ${
                   preferences.position === pos 
                     ? "bg-blue-600 border-blue-500 text-white" 
-                    : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:text-white"
+                    : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:text-theme-heading"
                 }`}
               >
                 {pos}
@@ -589,10 +589,10 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
               key={item.id}
               onClick={() => handleItemClick(item.id)}
               className={`flex-1 py-1 flex flex-col items-center justify-center space-y-1 transition-all ${
-                isSel ? "text-blue-400 font-bold" : "text-theme-muted hover:text-theme-body"
+                isSel ? "text-[var(--c-seef-accent)] font-bold" : "text-theme-muted hover:text-theme-body"
               }`}
             >
-              {renderIcon(item.icon, `text-xl ${isSel ? "text-blue-400 scale-110" : ""}`)}
+              {renderIcon(item.icon, `text-xl ${isSel ? "text-[var(--c-seef-accent)] scale-110" : ""}`)}
               <span className="text-[10px] font-display truncate">{item.label}</span>
             </button>
           );
@@ -633,7 +633,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                   const items = registeredWorkspaces.filter(w => w.category === cat);
                   return (
                     <div key={`bottom-drawer-cat-${cat}`} className="space-y-2">
-                      <span className="text-[10px] font-mono text-blue-400 font-bold uppercase tracking-wider block">
+                      <span className="text-[10px] font-mono text-[var(--c-seef-accent)] font-bold uppercase tracking-wider block">
                         {cat}
                       </span>
                       <div className="grid grid-cols-2 gap-2">
@@ -644,7 +644,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                             className={`p-3 rounded-xl border flex flex-col items-start space-y-2 transition-all ${
                               activeTab === w.id 
                                 ? "bg-blue-600 border-blue-500 text-white font-bold" 
-                                : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-white"
+                                : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-theme-heading"
                             }`}
                           >
                             {renderIcon(w.icon, `text-xl ${activeTab === w.id ? "text-white" : "text-theme-muted"}`)}
@@ -670,7 +670,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                       className={`py-2 text-[10px] font-mono font-bold uppercase rounded-lg border transition-colors ${
                         preferences.position === pos 
                           ? "bg-blue-600 border-blue-500 text-white" 
-                          : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-white"
+                          : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:text-theme-heading"
                       }`}
                     >
                       {pos}
@@ -685,11 +685,11 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
     );
   };
 
-  // ── 4. RENDER MEGA-MENU NAVIGATION ─────────────────────────────────────
+  // â”€â”€ 4. RENDER MEGA-MENU NAVIGATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Full-screen glassmorphic overlay triggered by a 56px hamburger trigger strip.
   // Module grid grouped by category. ESC, backdrop-click, and re-click close it.
-  // seefNavMode === "mega-menu" → DockManager allocates 0px sidebar slot (handled
-  // by renderLeftDockLayout falling through — mega-menu owns its own fixed overlay).
+  // seefNavMode === "mega-menu" â†’ DockManager allocates 0px sidebar slot (handled
+  // by renderLeftDockLayout falling through â€” mega-menu owns its own fixed overlay).
   const [megaMenuOpen, setMegaMenuOpen] = useState(false);
   const [megaSearchTerm, setMegaSearchTerm] = useState("");
 
@@ -715,7 +715,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
   const renderMegaMenuNav = () => {
     return (
       <>
-        {/* Persistent 56px trigger strip — always visible in mega-menu mode */}
+        {/* Persistent 56px trigger strip â€” always visible in mega-menu mode */}
         <div className="h-full w-14 bg-theme-surface-1 border-r border-theme-divider flex flex-col items-center py-3 gap-3 select-none z-10 flex-shrink-0">
           {/* Hamburger toggle */}
           <button
@@ -724,7 +724,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
             className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               megaMenuOpen
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
-                : "bg-theme-surface-2 text-theme-muted hover:bg-blue-600/10 hover:text-blue-400 border border-theme-divider"
+                : "bg-theme-surface-2 text-theme-muted hover:bg-blue-600/10 hover:text-[var(--c-seef-accent)] border border-theme-divider"
             }`}
           >
             {megaMenuOpen ? <X size={18} /> : <Menu size={18} />}
@@ -738,7 +738,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
               key={w.id}
               onClick={() => handleItemClick(w.id)}
               title={w.label}
-              className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-600/10 text-blue-400 border border-blue-500/20 cursor-pointer"
+              className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-600/10 text-[var(--c-seef-accent)] border border-blue-500/20 cursor-pointer"
             >
               {renderIcon(w.icon, "text-lg")}
             </button>
@@ -762,14 +762,14 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h2 className="text-2xl font-bold text-white font-display tracking-tight flex items-center gap-3">
-                      <Layers className="text-blue-400" size={24} />
+                      <Layers className="text-[var(--c-seef-accent)]" size={24} />
                       SMRITI Workspace
                     </h2>
-                    <p className="text-xs text-theme-muted mt-1">Select a module to open — all access governed by RBAC</p>
+                    <p className="text-xs text-theme-muted mt-1">Select a module to open â€” all access governed by RBAC</p>
                   </div>
                   <button
                     onClick={() => setMegaMenuOpen(false)}
-                    className="w-10 h-10 rounded-xl bg-theme-surface-2/80 hover:bg-theme-surface-3 border border-theme-divider text-theme-muted hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                    className="w-10 h-10 rounded-xl bg-theme-surface-2/80 hover:bg-theme-surface-3 border border-theme-divider text-theme-muted hover:text-theme-heading flex items-center justify-center transition-all cursor-pointer"
                     title="Close (Esc)"
                   >
                     <X size={16} />
@@ -853,7 +853,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                                   activeTab === w.id
                                     ? "bg-blue-600 text-white shadow-md shadow-blue-900/40"
-                                    : "bg-theme-surface-3 text-theme-muted group-hover:bg-blue-600/10 group-hover:text-blue-400"
+                                    : "bg-theme-surface-3 text-theme-muted group-hover:bg-blue-600/10 group-hover:text-[var(--c-seef-accent)]"
                                 } transition-all`}>
                                   {renderIcon(w.icon, "text-lg")}
                                 </div>
@@ -876,7 +876,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
     );
   };
 
-  // 5. RENDER RAIL NAVIGATION (48 px icon-only rail — SEEF navMode: "rail")
+  // 5. RENDER RAIL NAVIGATION (48 px icon-only rail â€” SEEF navMode: "rail")
   // Inspired by VS Code Activity Bar & SAP Fiori Side Navigation compact mode.
   // Rail items show a floating tooltip label on hover. Active item highlighted
   // with an accent-color left bar indicator.
@@ -970,7 +970,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
         {/* Spacer pushes collapse toggle to bottom */}
         <div style={{ flex: 1 }} />
 
-        {/* Collapse → switch back to sidebar button */}
+        {/* Collapse â†’ switch back to sidebar button */}
         <button
           onClick={toggleSidebar}
           title="Expand Sidebar"
@@ -995,7 +995,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
     );
   };
 
-  // Render the matching layout — SEEF navMode takes priority over dock position
+  // Render the matching layout â€” SEEF navMode takes priority over dock position
   const renderedLayout = () => {
     // SEEF navMode overrides (when explicitly configured via SEEF Admin Configurator)
     if (seefNavMode === "mega-menu") return renderMegaMenuNav();
@@ -1032,7 +1032,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
               handleItemClick(contextMenu.tabId);
               setContextMenu(null);
             }}
-            className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center space-x-2 text-xs text-theme-muted hover:text-white hover:bg-theme-surface-3 transition-colors"
+            className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center space-x-2 text-xs text-theme-muted hover:text-theme-heading hover:bg-theme-surface-3 transition-colors"
           >
             <Play size={12} className="text-emerald-500" />
             <span>Open Normally</span>
@@ -1042,9 +1042,9 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
             onClick={() => {
               handlePopOut(contextMenu.tabId, contextMenu.label, contextMenu.icon);
             }}
-            className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center space-x-2 text-xs text-theme-muted hover:text-white hover:bg-theme-surface-3 transition-colors"
+            className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center space-x-2 text-xs text-theme-muted hover:text-theme-heading hover:bg-theme-surface-3 transition-colors"
           >
-            <ExternalLink size={12} className="text-blue-400" />
+            <ExternalLink size={12} className="text-[var(--c-seef-accent)]" />
             <span>Open in Floating Window</span>
           </button>
 
@@ -1053,7 +1053,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
               // Creating a new workspace is the same as popping out a tab
               handlePopOut(contextMenu.tabId, contextMenu.label, contextMenu.icon);
             }}
-            className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center space-x-2 text-xs text-theme-muted hover:text-white hover:bg-theme-surface-3 transition-colors"
+            className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center space-x-2 text-xs text-theme-muted hover:text-theme-heading hover:bg-theme-surface-3 transition-colors"
           >
             <Maximize size={12} className="text-purple-400" />
             <span>Open in New Workspace</span>
@@ -1061,7 +1061,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
 
           <button
             onClick={() => handleOpenNewTab(contextMenu.tabId)}
-            className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center space-x-2 text-xs text-theme-muted hover:text-white hover:bg-theme-surface-3 transition-colors"
+            className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center space-x-2 text-xs text-theme-muted hover:text-theme-heading hover:bg-theme-surface-3 transition-colors"
           >
             <ExternalLink size={12} className="text-amber-400" />
             <span>Open in New Browser Tab</span>
@@ -1072,7 +1072,7 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
   );
 };
 
-// ── RailItem ──────────────────────────────────────────────────────────────────
+// â”€â”€ RailItem â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // 48px rail button with a floating label tooltip on hover.
 // Active state: 3px accent left-bar + accent background tint.
 // Tooltip appears to the right of the rail (left: 52px).
@@ -1120,7 +1120,7 @@ const RailItem: React.FC<RailItemProps> = ({
         }}
         className="seef-focus-ring"
       >
-        {renderIcon(ws.icon, `text-xl ${isActive ? "text-blue-400" : "text-theme-muted"}`)}
+        {renderIcon(ws.icon, `text-xl ${isActive ? "text-[var(--c-seef-accent)]" : "text-theme-muted"}`)}
 
         {/* Favorite star badge */}
         {isFav && (

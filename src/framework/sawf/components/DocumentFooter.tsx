@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SMRITI Adaptive Workspace Framework (SAWF v1.1)
  * Generic Document Footer (Sticky Action Bar)
  */
@@ -28,9 +28,9 @@ export const DocumentFooter: React.FC<DocumentFooterProps> = ({
   lastAutosavedAt,
 }) => {
   return (
-    <div className="sticky bottom-0 z-40 bg-[#121824] border-t border-[#1E293B] px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-2xl">
+    <div className="sticky bottom-0 z-40 bg-theme-surface-1 border-t border-theme-divider px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-2xl">
       {/* Left: Dirty status & Autosave timestamp */}
-      <div className="flex items-center space-x-3 text-slate-400 font-mono text-[11px]">
+      <div className="flex items-center space-x-3 text-theme-muted font-mono text-[11px]">
         {isDirty ? (
           <span className="flex items-center space-x-1 text-amber-400 font-bold">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
@@ -43,8 +43,8 @@ export const DocumentFooter: React.FC<DocumentFooterProps> = ({
           </span>
         )}
         {lastAutosavedAt && (
-          <span className="text-slate-500">
-            • Autosaved {new Date(lastAutosavedAt).toLocaleTimeString()}
+          <span className="text-theme-muted">
+            â€¢ Autosaved {new Date(lastAutosavedAt).toLocaleTimeString()}
           </span>
         )}
       </div>
@@ -54,7 +54,7 @@ export const DocumentFooter: React.FC<DocumentFooterProps> = ({
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 rounded-xl bg-[#161E2E] hover:bg-[#1E293B] border border-[#1E293B] text-slate-300 font-semibold transition cursor-pointer"
+          className="px-4 py-2 rounded-xl bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-theme-body font-semibold transition cursor-pointer"
         >
           Cancel
         </button>
@@ -63,7 +63,7 @@ export const DocumentFooter: React.FC<DocumentFooterProps> = ({
           <button
             type="button"
             onClick={onPrint}
-            className="px-4 py-2 rounded-xl bg-[#161E2E] hover:bg-[#1E293B] border border-[#1E293B] text-slate-300 font-semibold transition flex items-center space-x-1.5 cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-theme-body font-semibold transition flex items-center space-x-1.5 cursor-pointer"
           >
             <Printer size={14} />
             <span>Print</span>
@@ -74,7 +74,7 @@ export const DocumentFooter: React.FC<DocumentFooterProps> = ({
           <button
             type="button"
             onClick={onShare}
-            className="px-4 py-2 rounded-xl bg-[#161E2E] hover:bg-[#1E293B] border border-[#1E293B] text-slate-300 font-semibold transition flex items-center space-x-1.5 cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-theme-body font-semibold transition flex items-center space-x-1.5 cursor-pointer"
           >
             <Share2 size={14} />
             <span>Share</span>
@@ -85,7 +85,7 @@ export const DocumentFooter: React.FC<DocumentFooterProps> = ({
           <button
             type="button"
             onClick={onSaveDraft}
-            className="px-4 py-2 rounded-xl bg-[#161E2E] hover:bg-slate-800 border border-[#1E293B] text-slate-200 font-bold transition cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-theme-primary font-bold transition cursor-pointer"
           >
             Save Draft
           </button>

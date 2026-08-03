@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Module       : Standardized Modal Dialog Component (SLGP-R4 Compliant)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * Version      : 5.4.0
  */
 
@@ -47,7 +47,7 @@ export const SmritiDialog: React.FC<SmritiDialogProps> = ({
           <div className="shrink-0 p-4 border-b border-theme-divider flex items-center justify-between bg-theme-surface-1">
             <div className="flex items-center gap-3">
               {Icon && (
-                <div className="p-2 rounded bg-theme-surface-2 border border-theme-divider text-[#0a6ed1]">
+                <div className="p-2 rounded bg-theme-surface-2 border border-theme-divider text-[var(--c-seef-accent)]">
                   <Icon className="w-5 h-5" />
                 </div>
               )}

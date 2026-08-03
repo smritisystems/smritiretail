@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SMRITI Adaptive Workspace Framework (SAWF v1.1)
  * Spreadsheet-like Keyboard Item Entry Grid
  */
@@ -95,12 +95,12 @@ export const DocumentItemsGrid: React.FC<DocumentItemsGridProps> = ({
   };
 
   return (
-    <div className="bg-[#161E2E] border border-[#1E293B] rounded-2xl overflow-hidden shadow-xl space-y-4">
+    <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl overflow-hidden shadow-xl space-y-4">
       {/* Grid Control Toolbar */}
-      <div className="p-4 bg-[#121824] border-b border-[#1E293B] flex flex-wrap items-center justify-between gap-3">
+      <div className="p-4 bg-theme-surface-1 border-b border-theme-divider flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center space-x-3 flex-1 max-w-md">
           <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-2.5 text-slate-500" />
+            <Search size={14} className="absolute left-3 top-2.5 text-theme-muted" />
             <select
               value={selectedProduct}
               onChange={(e) => {
@@ -108,12 +108,12 @@ export const DocumentItemsGrid: React.FC<DocumentItemsGridProps> = ({
                 setSelectedProduct(val);
                 if (val) handleAddItem(val);
               }}
-              className="w-full pl-9 pr-3 py-1.5 bg-[#1E293B] border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500 font-medium"
+              className="w-full pl-9 pr-3 py-1.5 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-white focus:outline-none focus:border-[var(--c-seef-accent)] font-medium"
             >
               <option value="">-- Add Product to Item Grid --</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} ({p.code}) - ₹{p.mrp}
+                  {p.name} ({p.code}) - â‚¹{p.mrp}
                 </option>
               ))}
             </select>
@@ -136,7 +136,7 @@ export const DocumentItemsGrid: React.FC<DocumentItemsGridProps> = ({
             <button
               type="button"
               onClick={handlePasteRow}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold rounded-lg flex items-center space-x-1.5 transition cursor-pointer"
+              className="px-3 py-1.5 bg-slate-800 hover:bg-theme-surface-hover border border-theme-divider text-theme-primary font-bold rounded-lg flex items-center space-x-1.5 transition cursor-pointer"
             >
               <Clipboard size={14} />
               <span>Paste Line</span>
@@ -149,12 +149,12 @@ export const DocumentItemsGrid: React.FC<DocumentItemsGridProps> = ({
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="bg-[#121824] text-slate-400 font-mono text-[10px] uppercase tracking-wider border-b border-[#1E293B]">
+            <tr className="bg-theme-surface-1 text-theme-muted font-mono text-[10px] uppercase tracking-wider border-b border-theme-divider">
               <th className="px-4 py-3">#</th>
               <th className="px-4 py-3">Barcode / Code</th>
               <th className="px-4 py-3">Item Description</th>
               <th className="px-4 py-3 text-right">Qty</th>
-              <th className="px-4 py-3 text-right">Rate (₹)</th>
+              <th className="px-4 py-3 text-right">Rate (â‚¹)</th>
               <th className="px-4 py-3 text-right">Disc %</th>
               <th className="px-4 py-3 text-right">GST %</th>
               <th className="px-4 py-3 text-right font-bold text-emerald-400">Line Amount</th>
@@ -164,7 +164,7 @@ export const DocumentItemsGrid: React.FC<DocumentItemsGridProps> = ({
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={9} className="p-8 text-center text-slate-500 text-xs">
+                <td colSpan={9} className="p-8 text-center text-theme-muted text-xs">
                   No line items in document grid. Select a product above or press <span className="font-mono text-indigo-400">Ctrl+N</span> to add items.
                 </td>
               </tr>
@@ -174,10 +174,10 @@ export const DocumentItemsGrid: React.FC<DocumentItemsGridProps> = ({
                 return (
                   <tr
                     key={index}
-                    className="border-b border-[#1E293B]/60 hover:bg-[#1E293B]/40 transition text-slate-200"
+                    className="border-b border-theme-divider/60 hover:bg-theme-surface-hover/40 transition text-theme-primary"
                   >
-                    <td className="px-4 py-2 font-mono text-slate-500 text-[11px]">{index + 1}</td>
-                    <td className="px-4 py-2 font-mono text-slate-400 font-semibold">{row.code}</td>
+                    <td className="px-4 py-2 font-mono text-theme-muted text-[11px]">{index + 1}</td>
+                    <td className="px-4 py-2 font-mono text-theme-muted font-semibold">{row.code}</td>
                     <td className="px-4 py-2">
                       <div className="flex items-center space-x-3">
                         {prod?.primaryImageUrl && (
@@ -185,7 +185,7 @@ export const DocumentItemsGrid: React.FC<DocumentItemsGridProps> = ({
                         )}
                         <div>
                           <div className="font-bold text-white">{row.name}</div>
-                          {row.description && <div className="text-[10px] text-slate-400">{row.description}</div>}
+                          {row.description && <div className="text-[10px] text-theme-muted">{row.description}</div>}
                         </div>
                       </div>
                     </td>
@@ -195,7 +195,7 @@ export const DocumentItemsGrid: React.FC<DocumentItemsGridProps> = ({
                         min="1"
                         value={row.quantity}
                         onChange={(e) => handleUpdateField(index, "quantity", parseInt(e.target.value) || 1)}
-                        className="w-16 text-center bg-[#1E293B] border border-slate-700 rounded py-1 text-xs text-white font-mono focus:outline-none focus:border-indigo-500"
+                        className="w-16 text-center bg-theme-surface-2 border border-theme-divider rounded py-1 text-xs text-white font-mono focus:outline-none focus:border-[var(--c-seef-accent)]"
                       />
                     </td>
                     <td className="px-4 py-2 text-right">
@@ -204,7 +204,7 @@ export const DocumentItemsGrid: React.FC<DocumentItemsGridProps> = ({
                         min="0"
                         value={row.price}
                         onChange={(e) => handleUpdateField(index, "price", parseFloat(e.target.value) || 0)}
-                        className="w-20 text-right bg-[#1E293B] border border-slate-700 rounded py-1 px-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500"
+                        className="w-20 text-right bg-theme-surface-2 border border-theme-divider rounded py-1 px-2 text-xs text-white font-mono focus:outline-none focus:border-[var(--c-seef-accent)]"
                       />
                     </td>
                     <td className="px-4 py-2 text-right font-mono">
@@ -214,19 +214,19 @@ export const DocumentItemsGrid: React.FC<DocumentItemsGridProps> = ({
                         max="100"
                         value={row.discountPercent || 0}
                         onChange={(e) => handleUpdateField(index, "discountPercent", parseFloat(e.target.value) || 0)}
-                        className="w-16 text-right bg-[#1E293B] border border-slate-700 rounded py-1 px-2 text-xs text-amber-400 font-mono focus:outline-none focus:border-indigo-500"
+                        className="w-16 text-right bg-theme-surface-2 border border-theme-divider rounded py-1 px-2 text-xs text-amber-400 font-mono focus:outline-none focus:border-[var(--c-seef-accent)]"
                       />
                     </td>
                     <td className="px-4 py-2 text-right font-mono text-amber-400">{row.gstRate}%</td>
                     <td className="px-4 py-2 text-right font-mono font-bold text-emerald-400">
-                      ₹{Math.round(row.totalAmount).toLocaleString("en-IN")}
+                      â‚¹{Math.round(row.totalAmount).toLocaleString("en-IN")}
                     </td>
                     <td className="px-4 py-2 text-center">
                       <div className="flex items-center justify-center space-x-1">
                         <button
                           type="button"
                           onClick={() => handleCopyRow(row)}
-                          className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                          className="p-1 rounded text-theme-muted hover:text-theme-heading hover:bg-theme-surface-hover transition"
                           title="Copy Line"
                         >
                           <Copy size={13} />

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SMRITI Adaptive Workspace Framework (SAWF v1.1)
  * Unsaved Changes Modal Guard
  */
@@ -23,13 +23,13 @@ export const UnsavedChangesModal: React.FC<UnsavedChangesModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-[#161E2E] border border-[#1E293B] rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl text-slate-200">
+      <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl text-theme-primary">
         <div className="flex items-center space-x-3 text-amber-400">
           <AlertTriangle size={24} />
           <h3 className="text-base font-bold font-display text-white">Unsaved Document Changes</h3>
         </div>
 
-        <p className="text-xs text-slate-300 leading-relaxed">
+        <p className="text-xs text-theme-body leading-relaxed">
           You have modified line items or document header details. Exiting without saving will discard your edits.
         </p>
 
@@ -51,7 +51,7 @@ export const UnsavedChangesModal: React.FC<UnsavedChangesModalProps> = ({
           <button
             type="button"
             onClick={onCancel}
-            className="py-2.5 px-4 bg-[#1E293B] hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition cursor-pointer"
+            className="py-2.5 px-4 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body font-semibold text-xs rounded-xl transition cursor-pointer"
           >
             Keep Editing
           </button>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SMRITI Adaptive Workspace Framework (SAWF v1.1)
  * Generic Document Sidebar
  */
@@ -23,7 +23,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
     <div className="space-y-4">
       {/* AI Advisory Panel (if suggestions exist) */}
       {aiSuggestions.length > 0 && (
-        <div className="bg-[#161E2E] border border-indigo-900/60 rounded-xl p-4 space-y-3 text-xs shadow-lg">
+        <div className="bg-theme-surface-2 border border-indigo-900/60 rounded-xl p-4 space-y-3 text-xs shadow-lg">
           <div className="flex items-center space-x-2 text-indigo-400 font-bold font-display uppercase tracking-wider text-[10px]">
             <Sparkles size={14} />
             <span>SMRITI AI Assistant</span>
@@ -39,7 +39,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                   <Lightbulb size={13} className="text-amber-400" />
                   <span>{sug.title}</span>
                 </div>
-                <p className="text-[11px] text-slate-300 leading-relaxed">{sug.description}</p>
+                <p className="text-[11px] text-theme-body leading-relaxed">{sug.description}</p>
               </div>
             ))}
           </div>

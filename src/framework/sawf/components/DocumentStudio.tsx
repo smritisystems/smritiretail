@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SMRITI Adaptive Workspace Framework (SAWF v1.1)
  * Universal Document Studio Workspace Shell
  */
@@ -140,7 +140,7 @@ export const DocumentStudio: React.FC<DocumentStudioProps> = ({
   const allCommands = [...defaultCommands, ...customCommands];
 
   return (
-    <div className="w-full bg-[#0E131F] min-h-[92vh] flex flex-col font-sans text-slate-200 border border-[#1E293B] rounded-2xl overflow-hidden shadow-2xl">
+    <div className="w-full bg-theme-surface-1 min-h-[92vh] flex flex-col font-sans text-theme-primary border border-theme-divider rounded-2xl overflow-hidden shadow-2xl">
       
       {/* 1. DOCUMENT HEADER BAR */}
       <DocumentHeader
