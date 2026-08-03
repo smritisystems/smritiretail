@@ -48,31 +48,33 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ---
 
-## 3. Uniform Manifest Naming & Checksum/Signature Schema
+## 3. Manifest Schema v1.0 & Trust Hierarchy
 
-Every layer artifact MUST expose a standardized, checksum-verified, and digitally signed manifest:
-- `platform.manifest.yaml` (Top-Level Platform OS Manifest)
-- `service.manifest.yaml` (Level 2 Shared Service Manifests)
-- `kernel.manifest.yaml` (Level 3 Shared Kernel Manifests)
-- `registry.manifest.yaml` (Level 5 Universal Registry Manifests)
-- `studio.manifest.yaml` (Level 6 Business Studio Manifests)
-- `connector.manifest.yaml` (Level 7 SMN Connector Manifests)
-- `industrypack.manifest.yaml` (Industry Extension Pack Manifests)
-
-### Top-Level Manifest & Digital Signature Schema (`platform.manifest.yaml`)
+Every deployable artifact MUST expose a standardized `*.manifest.yaml` featuring explicit manifest schema versioning, trust levels, key rotation IDs, and cryptographic signatures:
 
 ```yaml
 # SMRITI Platform Baseline Manifest v1.0
+manifest:
+  schema_version: "1.0.0"
+  type: "platform"
+
 platform:
   constitution_version: "1.0.0"
   platform_os_version: "4.2.0"
-  integrity:
-    algorithm: "SHA256"
-    checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-  signature:
-    algorithm: "Ed25519"
-    signed_by: "SmritiSys Enterprise Authority"
-    signature_bytes: "9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e"
+
+integrity:
+  algorithm: "SHA256"
+  checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+signature:
+  algorithm: "Ed25519"
+  signer: "SmritiSys Enterprise Authority"
+  key_id: "smriti-root-2026"
+  signature_bytes: "9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e"
+
+trust:
+  level: "Root" # Trust Levels: Root | Trusted | Vendor | External
+  policy: "strict"
 
 standards:
   KDS: { version: "1.1.0", checksum: "a1b2c3...", policy: "same-major" }
@@ -83,30 +85,43 @@ standards:
   NDS: { version: "1.0.0", checksum: "6e7f8a...", policy: "same-major" }
 
 kernels:
-  SDK: { version: "1.0.0", checksum: "9b8a7c...", policy: "compatible-minor" }
-  SLK: { version: "1.0.0", checksum: "5d4c3b...", policy: "compatible-minor" }
-  STK: { version: "1.0.0", checksum: "2a1f0e...", policy: "compatible-minor" }
-  SAK: { version: "2.1.0", checksum: "fa7dff...", policy: "compatible-minor" }
+  SDK: { version: "1.0.0", checksum: "9b8a7c...", policy: "compatible-minor", trust_level: "Trusted" }
+  SLK: { version: "1.0.0", checksum: "5d4c3b...", policy: "compatible-minor", trust_level: "Trusted" }
+  STK: { version: "1.0.0", checksum: "2a1f0e...", policy: "compatible-minor", trust_level: "Trusted" }
+  SAK: { version: "2.1.0", checksum: "fa7dff...", policy: "compatible-minor", trust_level: "Trusted" }
 ```
 
 ---
 
-## 4. Policy-Driven Declarative Compatibility Engine Rules
+## 4. Policy Vocabulary & Compatibility Engine Rules
 
-During startup initialization, **SPD Platform Doctor** evaluates declarative compatibility policies rather than hardcoded logic:
+**SPD Platform Doctor** evaluates policy rules using a comprehensive policy vocabulary:
 
-| Component Category | Policy Rule | Compatibility Policy Behavior | Boot Violation Severity |
-|---|---|---|---|
-| **SPC Constitution** | `policy: exact` | Exact major/minor version match required | **Critical** (Abort Boot) |
-| **KDS/SDS/IDS Standards**| `policy: same-major` | Same major version required (`1.x.x`) | **Critical** (Abort Boot) |
-| **Shared Business Kernels**| `policy: compatible-minor`| Compatible minor version required (`^2.1.0`)| **Critical** (Abort Boot) |
-| **Business Studios** | `policy: declared-api` | Compatible with declared Kernel APIs | **Major** (Restricted Mode) |
-| **Industry Packs** | `policy: declared-range`| Compatible with declared kernel range | **Major** (Restricted Mode) |
-| **External Connectors** | `policy: warning` | SIK/SMN API facade compatibility | **Minor** (Logged Warning) |
+| Policy Vocabulary Term | Evaluation Rule | Boot Severity on Violation |
+|---|---|---|
+| **`exact`** | Exact major/minor version match required | **Critical** (Abort Boot) |
+| **`same-major`** | Same major version required (`1.x.x`) | **Critical** (Abort Boot) |
+| **`compatible-minor`** | Compatible minor version required (`^2.1.0`) | **Critical** (Abort Boot) |
+| **`declared-api`** | Compatible with declared Kernel APIs | **Major** (Restricted Mode) |
+| **`declared-range`** | Compatible with declared kernel range | **Major** (Restricted Mode) |
+| **`optional`** | Optional capability; skip if uninstalled | **Info** (Log Note) |
+| **`experimental`** | Experimental feature flag; log warning | **Minor** (Logged Warning) |
+| **`deprecated`** | Deprecated capability; schedule migration | **Minor** (Logged Warning) |
+| **`warning`** | Non-critical facade compatibility | **Minor** (Logged Warning) |
 
 ---
 
-## 5. Deterministic Platform Boot Failure Policy
+## 5. Trust Chains & Ed25519 Key Rotation Hierarchy
+
+The platform enforces a 4-tier cryptographic key rotation hierarchy:
+- **Root Authority Key (`smriti-root-2026`):** Signs Platform OS & Constitution manifests.
+- **Enterprise Key (`smriti-enterprise-2026`):** Signs Shared Business Kernels & Level 2 Services.
+- **Trusted Partner Key (`smriti-partner-*`):** Signs Business Capability Studios & Registries.
+- **Vendor Key (`smriti-vendor-*`):** Signs Marketplace & Industry Extension Packs.
+
+---
+
+## 6. Deterministic Platform Boot Failure Policy
 
 | Boot Failure Severity | Governance Definition | Runtime System Behavior | Failure Examples |
 |---|---|---|---|
@@ -117,7 +132,7 @@ During startup initialization, **SPD Platform Doctor** evaluates declarative com
 
 ---
 
-## 6. Governance Authority Precedence Hierarchy
+## 7. Governance Authority Precedence Hierarchy
 
 1. **SPC (Platform Constitution):** Supreme architectural authority.
 2. **PRIG (Reference Implementation Guide):** Canonical implementation & coding standard.
@@ -130,21 +145,21 @@ During startup initialization, **SPD Platform Doctor** evaluates declarative com
 
 ---
 
-## 7. Shared Platform Service: SPD Platform Doctor Service
+## 8. Shared Platform Service: SPD Platform Doctor Service
 
 Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** acts as the platform's self-healing diagnostic engine:
-- **Checksum Integrity Audit:** Asserts SHA256 checksums across all manifests before loading.
-- **Ed25519 Digital Signature Verification:** Authenticates manifest signatures issued by SmritiSys Enterprise Authority.
-- **Declarative Compatibility Matrix Scan:** Evaluates policy rules per Component Category (`exact`, `same-major`, `compatible-minor`, `declared-api`, `warning`).
-- **Dependency Graph Audit:** Validates `platform.manifest.yaml` & `kernel.manifest.yaml`.
+- **Manifest Schema Audit:** Validates `schema_version: "1.0.0"`.
+- **SHA256 Checksum Verification:** Asserts manifest payload hash integrity.
+- **Ed25519 Key Rotation Verification:** Authenticates manifest signatures against public key store (`key_id`).
+- **Trust Chain Enforcement:** Validates Root, Trusted, Vendor, and External trust levels.
+- **Policy Engine Evaluation:** Evaluates policy vocabulary (`exact`, `same-major`, `compatible-minor`, `declared-api`, `optional`, `experimental`, `deprecated`).
 - **License & ABAC Verification:** Validates tenant edition licenses and security RBAC/ABAC rules.
 - **Database & Schema Audit:** Asserts schema migration integrity across all kernels.
-- **Boot Failure Audit:** Enforces Critical, Major, Minor, and Info boot failure policies.
 - **Platform Health Report:** Generates an enterprise-ready certification report (`100% READY FOR PRODUCTION`).
 
 ---
 
-## 8. Baseline Structural Freeze & ADR Policy
+## 9. Baseline Structural Freeze & ADR Policy
 
 1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
 2. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
