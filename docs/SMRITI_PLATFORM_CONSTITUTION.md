@@ -50,7 +50,7 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ## 3. Standardized Manifest Schema v1.0 (`smriti.manifest.v1`)
 
-Every deployable layer artifact MUST expose a standardized, checksum-verified, digitally signed, and auditable manifest following the `smriti.manifest.v1` schema:
+Every deployable layer artifact MUST expose a standardized, checksum-verified, digitally signed, and auditable manifest following the `smriti.manifest.v1` schema with support for inheritance (`extends`), Scoped Dependencies, Capabilities, Startup Priority, and CI/CD Build Provenance:
 
 ```yaml
 # SMRITI Platform Baseline Manifest v1.0
@@ -58,8 +58,9 @@ manifest:
   id: "urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
   schema: "smriti.manifest.v1"
   type: "platform"
+  extends: "smriti.enterprise.base.v1"
   lifecycle:
-    state: "active" # States: active | deprecated | archived | revoked | experimental
+    state: "active" # Lifecycle State Machine: experimental -> active -> deprecated -> archived -> revoked
 
 identity:
   name: "SMRITI Digital Commerce Platform OS"
@@ -69,6 +70,12 @@ identity:
 metadata:
   version: "4.2.0"
   issued: "2026-08-04T12:30:00Z"
+
+build:
+  generated_by: "SmritiSys CI/CD Governance Pipeline v1.0"
+  pipeline: "release-main-v4.2"
+  commit: "a4fce7d3b2"
+  build_number: "4201"
 
 integrity:
   algorithm: "SHA256"
@@ -91,32 +98,64 @@ trust:
   trust_cache:
     ttl: "300s"
 
+startup:
+  phase: "platform"
+  priority: 100 # Priority Range: 100 (Highest - Platform) to 900 (Connectors)
+
+features:
+  ai: true
+  marketplace: true
+  telemetry: true
+
 capabilities:
   provides:
     - "platform-os"
     - "digital-commerce-kernel-host"
   requires:
-    - "post-postgresql"
+    - "relational-database"
     - "opentelemetry-collector"
 
 dependencies:
-  standards:
-    KDS: { version: "1.1.0", checksum: "a1b2c3...", policy: "same-major" }
-    SDS: { version: "1.0.0", checksum: "d4e5f6...", policy: "same-major" }
-    IDS: { version: "1.0.0", checksum: "7a8b9c...", policy: "same-major" }
-    BDS: { version: "1.0.0", checksum: "0e1f2a...", policy: "same-major" }
-    RDS: { version: "1.0.0", checksum: "3b4c5d...", policy: "same-major" }
-    NDS: { version: "1.0.0", checksum: "6e7f8a...", policy: "same-major" }
-  kernels:
-    SDK: { version: "1.0.0", checksum: "9b8a7c...", policy: "compatible-minor", trust_level: "Enterprise" }
-    SLK: { version: "1.0.0", checksum: "5d4c3b...", policy: "compatible-minor", trust_level: "Enterprise" }
-    STK: { version: "1.0.0", checksum: "2a1f0e...", policy: "compatible-minor", trust_level: "Enterprise" }
-    SAK: { version: "2.1.0", checksum: "fa7dff...", policy: "compatible-minor", trust_level: "Enterprise" }
+  required:
+    standards:
+      KDS: { version: "1.1.0", checksum: "a1b2c3...", policy: "same-major" }
+      SDS: { version: "1.0.0", checksum: "d4e5f6...", policy: "same-major" }
+      IDS: { version: "1.0.0", checksum: "7a8b9c...", policy: "same-major" }
+      BDS: { version: "1.0.0", checksum: "0e1f2a...", policy: "same-major" }
+      RDS: { version: "1.0.0", checksum: "3b4c5d...", policy: "same-major" }
+      NDS: { version: "1.0.0", checksum: "6e7f8a...", policy: "same-major" }
+    kernels:
+      SDK: { version: "1.0.0", checksum: "9b8a7c...", policy: "compatible-minor", trust_level: "Enterprise" }
+      SLK: { version: "1.0.0", checksum: "5d4c3b...", policy: "compatible-minor", trust_level: "Enterprise" }
+      STK: { version: "1.0.0", checksum: "2a1f0e...", policy: "compatible-minor", trust_level: "Enterprise" }
+      SAK: { version: "2.1.0", checksum: "fa7dff...", policy: "compatible-minor", trust_level: "Enterprise" }
+  optional:
+    services:
+      - "SAI-AI-Engine"
 ```
 
 ---
 
-## 4. Deterministic Platform Initialization Pipeline
+## 4. Governed Lifecycle State Machine
+
+Components transition through an explicit, governed **Lifecycle State Machine**:
+
+```text
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │ GOVERNED LIFECYCLE STATE MACHINE                                       │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ experimental ──► active ──► deprecated ──► archived ──► revoked       │
+ └────────────────────────────────────────────────────────────────────────┘
+```
+- **`experimental`:** Staged preview feature; logs warning; non-blocking.
+- **`active`:** Production baseline component; full execution allowed.
+- **`deprecated`:** Legacy component; logs migration warning; active execution allowed.
+- **`archived`:** Read-only mode only; new creation transactions blocked.
+- **`revoked`:** Cryptographically blocked; triggers immediate **Critical Boot Failure**.
+
+---
+
+## 5. Deterministic Platform Initialization Pipeline
 
 Platform boot follows an immutable 17-step deterministic validation pipeline:
 
@@ -136,7 +175,7 @@ Platform boot follows an immutable 17-step deterministic validation pipeline:
 
 ---
 
-## 5. Trust Chains, Revocation & Key Rotation Hierarchy
+## 6. Trust Chains, Revocation & Key Rotation Hierarchy
 
 The platform enforces a 4-tier cryptographic trust hierarchy with active revocation inspection:
 - **`Root`:** Signs Platform OS, Constitution, and Standard specs (`smriti-root-2026`).
@@ -146,7 +185,7 @@ The platform enforces a 4-tier cryptographic trust hierarchy with active revocat
 
 ---
 
-## 6. Deterministic Boot Failure Policy
+## 7. Deterministic Boot Failure Policy
 
 | Boot Failure Severity | Governance Definition | Runtime System Behavior | Failure Examples |
 |---|---|---|---|
@@ -157,7 +196,7 @@ The platform enforces a 4-tier cryptographic trust hierarchy with active revocat
 
 ---
 
-## 7. Governance Authority Precedence Hierarchy
+## 8. Governance Authority Precedence Hierarchy
 
 1. **SPC (Platform Constitution):** Supreme architectural authority.
 2. **PRIG (Reference Implementation Guide):** Canonical implementation & coding standard.
@@ -170,20 +209,21 @@ The platform enforces a 4-tier cryptographic trust hierarchy with active revocat
 
 ---
 
-## 8. Shared Platform Service: SPD Platform Doctor Service
+## 9. Shared Platform Service: SPD Platform Doctor Service
 
 Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** acts as the platform's self-healing diagnostic engine:
 - **Manifest Schema Audit:** Validates `schema: "smriti.manifest.v1"`.
 - **SHA256 Checksum Verification:** Asserts payload hash integrity.
 - **Ed25519 Signature & Key Revocation Audit:** Verifies signatures, checks `key_id` against CRL/OCSP revocation sources.
 - **Runtime Trust Cache Enforcement:** Caches verified signatures in memory with `ttl: "300s"`.
-- **Capabilities & Dependencies Resolver:** Validates `provides` and `requires` contract graphs.
-- **Declarative Compatibility Matrix Scan:** Evaluates policy rules per Component Category.
+- **Capabilities & Scoped Dependencies Resolver:** Validates `provides`, `requires` (`relational-database`), and `required`/`optional` dependency graphs.
+- **Lifecycle & Priority Validator:** Asserts lifecycle transitions (`experimental` $\rightarrow$ `active` $\rightarrow$ `deprecated` $\rightarrow$ `archived` $\rightarrow$ `revoked`) and startup `priority` (100–900).
+- **CI/CD Build Provenance Audit:** Validates build metadata (`generated_by`, `pipeline`, `commit`, `build_number`).
 - **Platform Health Report:** Generates an enterprise-ready certification report (`100% READY FOR PRODUCTION`).
 
 ---
 
-## 9. Baseline Structural Freeze & ADR Policy
+## 10. Baseline Structural Freeze & ADR Policy
 
 1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
 2. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
