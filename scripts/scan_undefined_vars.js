@@ -24,6 +24,7 @@ const TOKEN_FILES = [
   "src/styles/smriti-theme-light.css",
   "src/styles/smriti-theme-fiori-lite.css",
   "src/styles/sxp-tokens.css",
+  "src/styles/smriti-semantic-tokens.css",
   "src/styles/motion-tokens.css",
   "src/index.css",
 ];

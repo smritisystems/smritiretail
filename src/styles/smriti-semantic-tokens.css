@@ -1,0 +1,102 @@
+﻿/*
+ * SMRITI Semantic Component Token Layer (SCT v1.0)
+ * =================================================
+ * Component-scoped semantic tokens that sit above the primitive SEEF/SXP layer.
+ * These reference canonical --c-theme-* and --c-seef-* variables, never raw hex.
+ *
+ * Consumption pattern:
+ *   background: var(--workspace-header-bg);   ✅
+ *   background: var(--c-theme-surface-2);      ✅ (generic)
+ *   background: #161E2E;                       ❌ (hardcoded, TGR-002)
+ *
+ * Extending for new workspaces:
+ *   Add entries here — never add raw hex to component files.
+ *
+ * Version: 1.0.0 | Frozen: No (additive-only per AOP-004)
+ */
+
+/* ─── Shell & Navigation ─────────────────────────────────────── */
+:root {
+  --workspace-header-bg:         var(--c-theme-surface-2);
+  --workspace-header-border:     var(--c-theme-divider);
+  --workspace-toolbar-bg:        var(--c-theme-surface-2);
+  --workspace-toolbar-border:    var(--c-theme-divider);
+  --workspace-sidebar-bg:        var(--c-theme-surface-1);
+  --workspace-sidebar-border:    var(--c-theme-divider);
+  --workspace-sidebar-active-bg: var(--c-seef-accent);
+  --workspace-sidebar-active-fg: #ffffff;
+
+  /* ─── Cards & Panels ─────────────────────────────────────────── */
+  --workspace-card-bg:           var(--c-theme-surface-2);
+  --workspace-card-border:       var(--c-theme-divider);
+  --workspace-card-shadow:       0 1px 4px rgba(0, 0, 0, 0.18);
+
+  --workspace-panel-bg:          var(--c-theme-surface-1);
+  --workspace-panel-border:      var(--c-theme-divider);
+
+  --workspace-object-header-bg:  var(--c-theme-surface-2);
+  --workspace-object-header-fg:  var(--c-theme-heading);
+
+  /* ─── Tables ─────────────────────────────────────────────────── */
+  --table-header-bg:             var(--c-theme-surface-2);
+  --table-header-fg:             var(--c-theme-muted);
+  --table-row-hover-bg:          var(--c-theme-surface-2);
+  --table-row-alt-bg:            transparent;
+  --table-border:                var(--c-theme-divider);
+
+  /* ─── Form Inputs ─────────────────────────────────────────────── */
+  --input-bg:                    var(--c-theme-surface-2);
+  --input-border:                var(--c-theme-divider);
+  --input-fg:                    var(--c-theme-body);
+  --input-placeholder:           var(--c-theme-muted);
+  --input-focus-border:          var(--c-seef-accent);
+
+  /* ─── Wizard & Step flows ─────────────────────────────────────── */
+  --wizard-step-bg:              var(--c-theme-surface-1);
+  --wizard-step-active-bg:       var(--c-seef-accent);
+  --wizard-step-active-fg:       #ffffff;
+  --wizard-step-border:          var(--c-theme-divider);
+  --wizard-footer-bg:            var(--c-theme-surface-2);
+  --wizard-footer-border:        var(--c-theme-divider);
+
+  /* ─── Scanner / Mobile Scan View ─────────────────────────────── */
+  --scanner-panel-bg:            var(--c-theme-surface-2);
+  --scanner-input-border:        var(--c-seef-accent);
+  --scanner-confirm-bg:          var(--c-seef-accent);
+  --scanner-confirm-fg:          #ffffff;
+  --scanner-reset-border:        var(--c-theme-divider);
+  --scanner-reset-fg:            var(--c-theme-muted);
+
+  /* ─── Approval / Status Panels ───────────────────────────────── */
+  --approval-panel-bg:           var(--c-theme-surface-1);
+  --approval-panel-border:       var(--c-theme-divider);
+  --approval-badge-pending-bg:   rgba(245, 158, 11, 0.15);
+  --approval-badge-pending-fg:   var(--c-seef-warning);
+  --approval-badge-done-bg:      rgba(16, 185, 129, 0.15);
+  --approval-badge-done-fg:      var(--c-seef-success);
+  --approval-badge-alert-bg:     rgba(239, 68, 68, 0.15);
+  --approval-badge-alert-fg:     var(--c-seef-danger);
+
+  /* ─── Launchpad ───────────────────────────────────────────────── */
+  --launchpad-shell-bg:          var(--c-theme-surface-1);
+  --launchpad-tile-bg:           var(--c-theme-surface-2);
+  --launchpad-tile-border:       var(--c-theme-divider);
+  --launchpad-tile-hover-bg:     var(--c-theme-surface-2);
+  --launchpad-tile-active-border:var(--c-seef-accent);
+  --launchpad-header-bg:         var(--c-theme-surface-2);
+  --launchpad-searchbar-bg:      var(--c-theme-surface-1);
+  --launchpad-searchbar-border:  var(--c-theme-divider);
+  --launchpad-statusbar-bg:      var(--c-theme-surface-1);
+
+  /* ─── Document Studio (SAWF) ──────────────────────────────────── */
+  --doc-studio-bg:               var(--c-theme-surface-1);
+  --doc-header-bg:               var(--c-theme-surface-2);
+  --doc-header-border:           var(--c-theme-divider);
+  --doc-sidebar-bg:              var(--c-theme-surface-1);
+  --doc-sidebar-border:          var(--c-theme-divider);
+  --doc-footer-bg:               var(--c-theme-surface-2);
+  --doc-footer-border:           var(--c-theme-divider);
+  --doc-panel-bg:                var(--c-theme-surface-1);
+  --doc-grid-header-bg:          var(--c-theme-surface-2);
+  --doc-grid-row-hover:          var(--c-theme-surface-2);
+}

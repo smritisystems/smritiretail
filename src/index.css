@@ -33,6 +33,7 @@
 
 @import './styles/smriti-tokens.css';
 @import './styles/sxp-tokens.css';
+@import './styles/smriti-semantic-tokens.css';
 @import './styles/motion-tokens.css';
 @import './styles/smriti-theme-light.css';
 @import './styles/smriti-theme-fiori-lite.css';
