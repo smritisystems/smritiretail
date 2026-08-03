@@ -3,7 +3,7 @@
  * Module       : Purchase Domain — Command Facade
  * Standard     : SXP Constitution v1.0 / AOP-003 (Contract Boundaries)
  * Author       : Jawahar Ramkripal Mallah
- * Version      : 1.0.0  (Sprint 5 — Wave 1)
+ * Version      : 1.1.0  (Sprint 5 — Wave 2: approvePO + rejectPO via WorkflowRegistry)
  * Created      : 2026-08-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
@@ -14,6 +14,11 @@
  *                                                     ──►  IPurchaseService (via SPK command bus)
  *                                                     ──►  InventoryDomainService.executeMovement()
  *                                                              └──► ITEX ──► ILGE
+ *
+ * WORKFLOW (UWR-002):
+ *   approvePO() and rejectPO() call SPK.workflow.executeTransition()
+ *   exclusively — the single transition execution entry point. No state
+ *   mutation happens outside that call.
  *
  * BOUNDARY CONTRACT (PUR-017):
  *   This file MUST NOT import StockLedgerService, StockTransferService,
@@ -36,6 +41,7 @@ import { WorkspaceEventBus }                                      from "../../la
 import { validatePoPayload, buildPoFromWizard, PoWizardPayload }  from "../../components/purchase/wizards/PoWizard.js";
 import type { PurchaseOrderRequestedPayload }                     from "../../domains/events/DomainEventBus.js";
 import type { PaymentLine }                                       from "../../product-foundation/finance/payment/domain/payment.js";
+import { createPlatformContext }                                  from "../../kernel/context/PlatformContext.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -338,6 +344,113 @@ export class PurchaseCommandFacade {
         success: false,
         error:   err instanceof Error ? err.message : "Network error — draft PO not saved",
         offline: true,
+      };
+    }
+  }
+  // ── 7. Approve Purchase Order ─────────────────────────────────────────────
+  //      UWR-002: single transition entry point via WorkflowRegistry.
+
+  async approvePO(
+    poId: string,
+    ctx:  PurchaseActionContext,
+  ): Promise<PurchaseFacadeResult> {
+    try {
+      // 7a. Resolve current PO to get its state
+      const po = await this.purchaseService.getPOById(poId);
+      if (!po) {
+        return { success: false, error: `PO '${poId}' not found.` };
+      }
+
+      // Map PO status string to workflow state key (lowercase)
+      const currentState = po.status.toLowerCase();
+
+      // 7b. Build immutable PlatformContext for workflow engine (UCR-006)
+      const platformCtx = createPlatformContext({
+        userId:   ctx.userId,
+        userRole: ctx.tenantId ?? "store_manager",
+        storeId:  ctx.workspaceId,
+      });
+
+      // 7c. Execute transition via WorkflowRegistry (UWR-002 single entry point)
+      const transition = SPK.workflow.executeTransition(
+        "wf.purchase_order",
+        currentState,
+        "approve",
+        platformCtx,
+      );
+
+      if (!transition.success) {
+        return { success: false, error: transition.reason };
+      }
+
+      // 7d. Persist new status
+      const updated = await this.purchaseService.savePO({
+        id:     poId,
+        status: transition.newState.charAt(0).toUpperCase() + transition.newState.slice(1),
+      } as Partial<PurchaseOrderRecord>);
+
+      publishSuccess("approve_order", ctx, { poId, newState: transition.newState });
+      return {
+        success: true,
+        data:    updated,
+        message: `PO ${poId} approved. Status: ${transition.newState}.`,
+      };
+    } catch (err: unknown) {
+      return {
+        success: false,
+        error:   err instanceof Error ? err.message : "Approval failed — network error",
+      };
+    }
+  }
+
+  // ── 8. Reject Purchase Order ──────────────────────────────────────────────
+  //      UWR-002: single transition entry point via WorkflowRegistry.
+
+  async rejectPO(
+    poId:   string,
+    reason: string,
+    ctx:    PurchaseActionContext,
+  ): Promise<PurchaseFacadeResult> {
+    try {
+      const po = await this.purchaseService.getPOById(poId);
+      if (!po) {
+        return { success: false, error: `PO '${poId}' not found.` };
+      }
+
+      const currentState  = po.status.toLowerCase();
+      const platformCtx   = createPlatformContext({
+        userId:   ctx.userId,
+        userRole: ctx.tenantId ?? "store_manager",
+        storeId:  ctx.workspaceId,
+      });
+
+      const transition = SPK.workflow.executeTransition(
+        "wf.purchase_order",
+        currentState,
+        "reject",
+        platformCtx,
+      );
+
+      if (!transition.success) {
+        return { success: false, error: transition.reason };
+      }
+
+      const updated = await this.purchaseService.savePO({
+        id:     poId,
+        status: transition.newState.charAt(0).toUpperCase() + transition.newState.slice(1),
+        notes:  reason || "Rejected by approver",
+      } as Partial<PurchaseOrderRecord>);
+
+      publishSuccess("reject_order", ctx, { poId, newState: transition.newState, reason });
+      return {
+        success: true,
+        data:    updated,
+        message: `PO ${poId} rejected. Reason: ${reason || "Not specified"}.`,
+      };
+    } catch (err: unknown) {
+      return {
+        success: false,
+        error:   err instanceof Error ? err.message : "Rejection failed — network error",
       };
     }
   }

@@ -3,7 +3,7 @@
  * Module       : SXP v1.0 — Purchase Studio Manifest (co-located)
  * Standard     : SXP Constitution v1.0 / WNG-005 / SWEF v1.0
  * Author       : Jawahar Ramkripal Mallah
- * Version      : 2.0.0  (Sprint 5 — PurchaseCommandFacade wired; all 5 actions kernel-complete)
+ * Version      : 2.2.0  (Sprint 5 Wave 2 — Reports workspace + PO Approval + Supplier wiring)
  * Created      : 2026-08-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
@@ -44,6 +44,7 @@ import { OfflineExperienceManager }                   from "../../layout_engine/
 import { apiFetchV1 }                                 from "../../lib/apiFetchV1.js";
 import { purchaseCommandFacade }                      from "../../domains/purchase/PurchaseCommandFacade.js";
 import { PurchaseOrderRequestListener }               from "../../domains/purchase/PurchaseOrderRequestListener.js";
+import { registerPurchaseReports }                    from "./purchase.reports.js";
 
 // ── Purchase Actions ──────────────────────────────────────────────────────────
 
@@ -167,6 +168,44 @@ const PURCHASE_ACTIONS: WorkspaceActionDef[] = [
       return { success: true, message: `Payables ledger opened by ${ctx.userId}` };
     },
   },
+
+  // ── 7. Approve Purchase Order — ADVANCED, requires store_manager role ───────
+  {
+    id: "purchase.approve_order",
+    label: "Approve Order",
+    icon: "✅",
+    shortcut: "Ctrl+Alt+A",
+    adaptiveVisibility: ["ADVANCED"],
+    canExecute: () => true,
+    async execute(ctx) {
+      const p = ctx.payload as { poId: string };
+      if (!p?.poId?.trim()) return { success: false, message: "PO ID is required." };
+      const result = await purchaseCommandFacade.approvePO(
+        p.poId,
+        { userId: ctx.userId, workspaceId: ctx.workspaceId },
+      );
+      return { success: result.success, message: result.success ? result.message : result.error };
+    },
+  },
+
+  // ── 8. Reject Purchase Order — ADVANCED, requires store_manager role ────────
+  {
+    id: "purchase.reject_order",
+    label: "Reject Order",
+    icon: "❌",
+    adaptiveVisibility: ["ADVANCED"],
+    canExecute: () => true,
+    async execute(ctx) {
+      const p = ctx.payload as { poId: string; reason?: string };
+      if (!p?.poId?.trim()) return { success: false, message: "PO ID is required." };
+      const result = await purchaseCommandFacade.rejectPO(
+        p.poId,
+        p.reason ?? "",
+        { userId: ctx.userId, workspaceId: ctx.workspaceId },
+      );
+      return { success: result.success, message: result.success ? result.message : result.error };
+    },
+  },
 ];
 
 // ── Purchase Workspaces ───────────────────────────────────────────────────────
@@ -219,6 +258,32 @@ const PURCHASE_WORKSPACES: WorkspaceManifest[] = [
     mobileEnabled: false,
     actions: ["purchase.raise_order"],
     widgets: ["w_purchase_spend_7d", "w_purchase_top_suppliers"],
+  },
+  // ── Wave 2: Purchase Reports workspace ──────────────────────────────────
+  {
+    id: "purchase.reports",
+    title: "Purchase Reports",
+    icon: "📈",
+    domainId: "purchase",
+    adaptiveModes: ["HYBRID", "ADVANCED"],
+    defaultLayout: "scroll",
+    zone: "executive",
+    mobileEnabled: false,
+    actions: [],
+    widgets: [],
+  },
+  // ── Wave 2: PO Approvals workspace ─────────────────────────────────────
+  {
+    id: "purchase.approvals",
+    title: "PO Approvals",
+    icon: "✅",
+    domainId: "purchase",
+    adaptiveModes: ["ADVANCED"],
+    defaultLayout: "scroll",
+    zone: "operator",
+    mobileEnabled: false,
+    actions: ["purchase.approve_order", "purchase.reject_order"],
+    widgets: ["w_purchase_pending_approval"],
   },
 ];
 
@@ -302,6 +367,17 @@ function registerPurchaseDashboard() {
         adaptiveVisibility: ["ADVANCED"],
         refreshIntervalMs: 300_000,
       },
+      // Wave 2: PO approval queue widget
+      {
+        id: "w_purchase_pending_approval",
+        title: "Pending PO Approvals",
+        type: "alert_card",
+        gridSpan: { colSpan: 6, rowSpan: 1 },
+        entityId: "purchase_order",
+        widgetGroup: "alerts",
+        adaptiveVisibility: ["ADVANCED"],
+        refreshIntervalMs: 60_000,
+      },
     ],
   });
 }
@@ -312,6 +388,8 @@ export function registerPurchaseStudio(): void {
   PURCHASE_ACTIONS.forEach((action)    => WorkspaceActionRegistry.register(action));
   PURCHASE_WORKSPACES.forEach((workspace) => WorkspaceRegistry.register(workspace));
   registerPurchaseDashboard();
+  // Wave 2: register 5 purchase reports into URR (URR-001)
+  registerPurchaseReports();
 
   // Sprint 5: Register Inventory→Purchase event bridge listener.
   // PurchaseOrderRequestListener.register() is idempotent — safe to call here.
@@ -343,4 +421,6 @@ export const PURCHASE_WORKSPACE_IDS = Object.freeze({
   RECEIPTS:  "purchase.receipts",
   BILLS:     "purchase.bills",
   DASHBOARD: "purchase.dashboard",
+  REPORTS:   "purchase.reports",
+  APPROVALS: "purchase.approvals",
 });

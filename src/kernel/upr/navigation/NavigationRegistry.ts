@@ -67,7 +67,7 @@ export class NavigationRegistryService {
         emoji: "🛒",
         order: 3,
         defaultWorkspaceId: "purchase",
-        moduleIds: ["purchase", "supplier-mgmt", "transaction-workspaces"]
+        moduleIds: ["purchase", "supplier-mgmt", "supplier-object-page", "transaction-workspaces", "purchase-reports"]
       },
       {
         id: "accounting",
