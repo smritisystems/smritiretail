@@ -27,6 +27,7 @@ export type WorkspaceEventType =
   | "ModeChanged"
   | "SyncCompleted"
   | "OfflineStateChanged"
+  | "CommandPaletteOpened"
   | "HealthReport";
 
 export interface WorkspaceEvent<T = unknown> {

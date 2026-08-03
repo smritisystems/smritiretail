@@ -1,0 +1,88 @@
+/**
+ * Project      : SMRITI Retail OS
+ * Module       : SXP v1.0 — Motion Token System
+ * File         : motion-tokens.css
+ * Standard     : SXP Constitution v1.0 / Sprint 3 UX Polish
+ * Author       : Jawahar Ramkripal Mallah
+ * Version      : 1.0.0
+ * Created      : 2026-08-03
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ *
+ * RULE: No random animation durations anywhere in the platform.
+ * Every transition MUST use one of: fast / normal / slow.
+ * Respects prefers-reduced-motion — all durations collapse to 0.
+ *
+ *   Fast   100ms  — micro-interactions (hover, focus, badge updates)
+ *   Normal 160ms  — panel transitions, tab switching, card reveals
+ *   Slow   240ms  — modal enter/exit, page-level transitions
+ */
+
+:root {
+  /* ── Durations ───────────────────────────────────────────────────────── */
+  --sxp-motion-fast:   100ms;
+  --sxp-motion-normal: 160ms;
+  --sxp-motion-slow:   240ms;
+
+  /* ── Easing curves ───────────────────────────────────────────────────── */
+  --sxp-ease-out:      cubic-bezier(0.0, 0.0, 0.2, 1.0);  /* Decelerate — enter */
+  --sxp-ease-in:       cubic-bezier(0.4, 0.0, 1.0, 1.0);  /* Accelerate — exit */
+  --sxp-ease-inout:    cubic-bezier(0.4, 0.0, 0.2, 1.0);  /* Standard  — move */
+  --sxp-ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1); /* Bounce — expand */
+
+  /* ── Composed transitions ────────────────────────────────────────────── */
+  --sxp-transition-fast:   all var(--sxp-motion-fast)   var(--sxp-ease-out);
+  --sxp-transition-normal: all var(--sxp-motion-normal) var(--sxp-ease-inout);
+  --sxp-transition-slow:   all var(--sxp-motion-slow)   var(--sxp-ease-out);
+
+  /* ── Skeleton shimmer ────────────────────────────────────────────────── */
+  --sxp-skeleton-duration: 1400ms;
+  --sxp-skeleton-timing:   ease-in-out;
+}
+
+/* ── Respects user prefers-reduced-motion (WCAG 2.3.3) ──────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --sxp-motion-fast:   0ms;
+    --sxp-motion-normal: 0ms;
+    --sxp-motion-slow:   0ms;
+    --sxp-skeleton-duration: 0ms;
+  }
+}
+
+/* ── Skeleton shimmer animation ─────────────────────────────────────────── */
+@keyframes sxp-skeleton-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+
+.sxp-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--sxp-skeleton-base)    25%,
+    var(--sxp-skeleton-shimmer) 50%,
+    var(--sxp-skeleton-base)    75%
+  );
+  background-size: 800px 100%;
+  animation: sxp-skeleton-shimmer var(--sxp-skeleton-duration) var(--sxp-skeleton-timing) infinite;
+  border-radius: var(--sxp-radius-sm);
+}
+
+/* ── Fade in utility ────────────────────────────────────────────────────── */
+@keyframes sxp-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+.sxp-fade-in {
+  animation: sxp-fade-in var(--sxp-motion-normal) var(--sxp-ease-out) both;
+}
+
+/* ── Scale in (cards, chips) ────────────────────────────────────────────── */
+@keyframes sxp-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1);    }
+}
+
+.sxp-scale-in {
+  animation: sxp-scale-in var(--sxp-motion-fast) var(--sxp-ease-spring) both;
+}

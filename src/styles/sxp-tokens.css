@@ -1,0 +1,215 @@
+/**
+ * Project      : SMRITI Retail OS
+ * Module       : SXP v1.0 — Design Token System
+ * File         : sxp-tokens.css
+ * Standard     : SXP Constitution v1.0 / Sprint 3 UX Polish
+ * Author       : Jawahar Ramkripal Mallah
+ * Version      : 1.0.0
+ * Created      : 2026-08-03
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ *
+ * FROZEN after Sprint 3 — no new tokens without ADR.
+ *
+ * Token categories:
+ *   --sxp-font-*      Typography
+ *   --sxp-space-*     Spacing (4px grid)
+ *   --sxp-radius-*    Border radius
+ *   --sxp-shadow-*    Elevation shadows
+ *   --sxp-color-*     Semantic color roles
+ *   --sxp-motion-*    Animation durations (from motion-tokens.css)
+ */
+
+/* ── Base (Dark — primary enterprise theme) ─────────────────────────────── */
+:root {
+  /* Typography — system-ui first, zero CDN dependency */
+  --sxp-font-sans:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Noto Sans",
+    sans-serif;
+  --sxp-font-mono:
+    "Cascadia Code",
+    "Fira Code",
+    "Consolas",
+    "Courier New",
+    monospace;
+
+  /* Font sizes — 4-level scale */
+  --sxp-text-xs:   11px;
+  --sxp-text-sm:   13px;
+  --sxp-text-base: 14px;
+  --sxp-text-lg:   16px;
+  --sxp-text-xl:   20px;
+  --sxp-text-2xl:  24px;
+
+  /* Font weights */
+  --sxp-weight-normal:   400;
+  --sxp-weight-medium:   500;
+  --sxp-weight-semibold: 600;
+  --sxp-weight-bold:     700;
+
+  /* Line heights */
+  --sxp-leading-tight:  1.25;
+  --sxp-leading-normal: 1.5;
+  --sxp-leading-loose:  1.75;
+
+  /* Spacing — 4px base grid */
+  --sxp-space-1:  4px;
+  --sxp-space-2:  8px;
+  --sxp-space-3:  12px;
+  --sxp-space-4:  16px;
+  --sxp-space-5:  20px;
+  --sxp-space-6:  24px;
+  --sxp-space-8:  32px;
+  --sxp-space-10: 40px;
+  --sxp-space-12: 48px;
+  --sxp-space-16: 64px;
+
+  /* Border radius */
+  --sxp-radius-sm:   4px;
+  --sxp-radius-md:   8px;
+  --sxp-radius-lg:   12px;
+  --sxp-radius-xl:   16px;
+  --sxp-radius-full: 9999px;
+
+  /* Elevation shadows */
+  --sxp-shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.3);
+  --sxp-shadow-md:  0 4px 12px rgba(0, 0, 0, 0.4);
+  --sxp-shadow-lg:  0 12px 32px rgba(0, 0, 0, 0.5);
+  --sxp-shadow-xl:  0 24px 64px rgba(0, 0, 0, 0.6);
+
+  /* ── Color Roles — Dark Theme ──────────────────────────────────────────── */
+
+  /* Surfaces — 3-tier elevation */
+  --sxp-surface-1:        #141826;
+  --sxp-surface-2:        #1F2430;
+  --sxp-surface-3:        #2B3242;
+  --sxp-surface-hover:    #252D3D;
+  --sxp-surface-active:   #2E3850;
+
+  /* Skeleton shimmer — theme-aware, not grey */
+  --sxp-skeleton-base:    #1F2430;
+  --sxp-skeleton-shimmer: #2B3242;
+
+  /* Brand */
+  --sxp-brand:            #818cf8;
+  --sxp-brand-hover:      #6d7ae8;
+  --sxp-brand-muted:      rgba(129, 140, 248, 0.12);
+  --sxp-brand-border:     rgba(129, 140, 248, 0.25);
+
+  /* Text */
+  --sxp-text-primary:     #e2e8f0;
+  --sxp-text-secondary:   #94a3b8;
+  --sxp-text-muted:       #64748b;
+  --sxp-text-inverse:     #0f172a;
+  --sxp-text-brand:       #818cf8;
+
+  /* Borders */
+  --sxp-border:           rgba(255, 255, 255, 0.08);
+  --sxp-border-strong:    rgba(255, 255, 255, 0.15);
+  --sxp-border-brand:     rgba(129, 140, 248, 0.35);
+
+  /* Semantic — SAP Fiori color language */
+  --sxp-success:          #34d399;
+  --sxp-success-muted:    rgba(52, 211, 153, 0.10);
+  --sxp-success-border:   rgba(52, 211, 153, 0.25);
+
+  --sxp-warning:          #fbbf24;
+  --sxp-warning-muted:    rgba(251, 191, 36, 0.10);
+  --sxp-warning-border:   rgba(251, 191, 36, 0.25);
+
+  --sxp-danger:           #f87171;
+  --sxp-danger-muted:     rgba(248, 113, 113, 0.10);
+  --sxp-danger-border:    rgba(248, 113, 113, 0.25);
+
+  --sxp-info:             #60a5fa;
+  --sxp-info-muted:       rgba(96, 165, 250, 0.10);
+  --sxp-info-border:      rgba(96, 165, 250, 0.25);
+
+  /* Focus ring — WCAG AA */
+  --sxp-focus-ring: 0 0 0 3px rgba(129, 140, 248, 0.5);
+
+  /* Z-index scale */
+  --sxp-z-dropdown: 1000;
+  --sxp-z-sticky:   1100;
+  --sxp-z-overlay:  1200;
+  --sxp-z-modal:    1300;
+  --sxp-z-toast:    1400;
+  --sxp-z-tooltip:  1500;
+}
+
+/* ── Light Mode override ─────────────────────────────────────────────────── */
+@media (prefers-color-scheme: light) {
+  :root {
+    --sxp-surface-1:        #F5F7FA;
+    --sxp-surface-2:        #FFFFFF;
+    --sxp-surface-3:        #FFFFFF;
+    --sxp-surface-hover:    #EEF2F8;
+    --sxp-surface-active:   #E3EAF5;
+    --sxp-skeleton-base:    #F0F3F8;
+    --sxp-skeleton-shimmer: #E7ECF3;
+    --sxp-brand:            #4f46e5;
+    --sxp-brand-hover:      #4338ca;
+    --sxp-brand-muted:      rgba(79, 70, 229, 0.08);
+    --sxp-brand-border:     rgba(79, 70, 229, 0.2);
+    --sxp-text-primary:     #1e293b;
+    --sxp-text-secondary:   #475569;
+    --sxp-text-muted:       #94a3b8;
+    --sxp-text-inverse:     #ffffff;
+    --sxp-text-brand:       #4f46e5;
+    --sxp-border:           rgba(0, 0, 0, 0.08);
+    --sxp-border-strong:    rgba(0, 0, 0, 0.15);
+    --sxp-border-brand:     rgba(79, 70, 229, 0.3);
+    --sxp-shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.08);
+    --sxp-shadow-md:  0 4px 12px rgba(0, 0, 0, 0.10);
+    --sxp-shadow-lg:  0 12px 32px rgba(0, 0, 0, 0.12);
+    --sxp-shadow-xl:  0 24px 64px rgba(0, 0, 0, 0.16);
+    --sxp-success:    #059669;
+    --sxp-warning:    #d97706;
+    --sxp-danger:     #dc2626;
+    --sxp-info:       #2563eb;
+  }
+}
+
+/* ── Base reset (applied to SXP shell root) ─────────────────────────────── */
+.sxp-root {
+  font-family: var(--sxp-font-sans);
+  font-size:   var(--sxp-text-base);
+  font-weight: var(--sxp-weight-normal);
+  line-height: var(--sxp-leading-normal);
+  color:       var(--sxp-text-primary);
+  background:  var(--sxp-surface-1);
+  -webkit-font-smoothing:  antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Screen-reader utility ──────────────────────────────────────────────── */
+.sxp-sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Focus ring — WCAG AA ───────────────────────────────────────────────── */
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--sxp-focus-ring);
+  border-radius: var(--sxp-radius-sm);
+}
+
+/* ── Responsive grid utility (mobile-first: 390 → 768 → 1280) ──────────── */
+.sxp-grid {
+  display: grid;
+  gap: var(--sxp-space-4);
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px)  { .sxp-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1024px) { .sxp-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1280px) { .sxp-grid { grid-template-columns: repeat(4, 1fr); } }

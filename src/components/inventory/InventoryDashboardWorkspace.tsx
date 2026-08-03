@@ -26,6 +26,8 @@ import { TrendCard } from "../shared/widgets/TrendCard.js";
 import { InventoryTimelineAdapter } from "../shared/WorkspaceTimeline.js";
 import { INVENTORY_WORKSPACE_IDS } from "./inventory.manifest.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
+// Sprint 3 — skeleton loaders replace bare loading text
+import { SkeletonCard, SkeletonRow } from "../shared/SkeletonLoader.js";
 
 // ── Fallback mock data (used when API is unavailable) ─────────────────────────────────
 
@@ -157,8 +159,13 @@ export const InventoryDashboardWorkspace: React.FC = () => {
       {/* ── Health Group ── */}
       <section aria-label="Stock Health">
         <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--c-text-muted, #64748b)", marginBottom: 12 }}>
-          Stock Health {kpiLoading && <span style={{ fontSize: 10, opacity: 0.5, marginLeft: 6 }}>(loading…)</span>}
+          Today's Stock
         </h3>
+        {kpiLoading ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "var(--sxp-widget-gap, 16px))" }}>
+            {[0, 1, 2, 3].map((i) => <SkeletonCard key={i} withIcon withTrend={i === 0} />)}
+          </div>
+        ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "var(--sxp-widget-gap, 16px)" }}>
           <SummaryCard
             title="Total Stock Value"
@@ -194,11 +201,12 @@ export const InventoryDashboardWorkspace: React.FC = () => {
             changeLabel={kpi.units_moved_change_pct}
           />
         </div>
+        )}
       </section>
 
       {/* ── Alerts Group ── */}
       {alertsLoading
-        ? <div style={{ fontSize: 12, color: "var(--c-text-muted)", padding: "8px 0" }}>Loading alerts…</div>
+        ? <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{[0,1,2].map((i) => <SkeletonRow key={i} cols={3} />)}</div>
         : (widgetsByGroup.get("alerts")?.length ?? 0) > 0 && (
           <section aria-label="Stock Alerts">
             <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--c-text-muted, #64748b)", marginBottom: 12 }}>
