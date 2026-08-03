@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.0.0
+ * Version      : 5.0.0
  * Created      : 2026-07-20
- * Modified     : 2026-07-20
+ * Modified     : 2026-08-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -14,6 +14,35 @@
 import { useState, useEffect } from "react";
 
 export type WorkspaceMode = "SIMPLE" | "HYBRID" | "ADVANCED";
+
+/**
+ * SXP v1.0 — AdaptiveVisibilityRegistry (SWEF — FROZEN)
+ *
+ * All feature visibility is governed exclusively through canRender().
+ * Components MUST NOT contain `mode === 'ADVANCED'` conditionals.
+ * Adding a new FeatureKey requires an approved ADR in docs/adr/.
+ */
+export type FeatureKey =
+  | "timeline"       // Always visible — all modes
+  | "reservations"   // HYBRID+
+  | "batch_serial"   // HYBRID+
+  | "cost_layers"    // ADVANCED only
+  | "raw_ledger"     // ADVANCED only
+  | "api_inspector" // ADVANCED only
+  | "diagnostics"    // ADVANCED only
+  | "lock_inspector"; // ADVANCED only
+
+/** FROZEN — matches SWEF v1.0 visibility matrix in SXP Constitution */
+const ADAPTIVE_VISIBILITY_MATRIX: Record<FeatureKey, WorkspaceMode[]> = Object.freeze({
+  timeline:       ["SIMPLE", "HYBRID", "ADVANCED"],
+  reservations:   ["HYBRID", "ADVANCED"],
+  batch_serial:   ["HYBRID", "ADVANCED"],
+  cost_layers:    ["ADVANCED"],
+  raw_ledger:     ["ADVANCED"],
+  api_inspector:  ["ADVANCED"],
+  diagnostics:    ["ADVANCED"],
+  lock_inspector: ["ADVANCED"],
+});
 
 export interface WorkspaceModeConfig {
   mode: WorkspaceMode;
@@ -102,6 +131,21 @@ class AdaptiveWorkspaceStore {
     return allowed.includes("*") || allowed.includes(tabId);
   }
 
+  /**
+   * AdaptiveVisibilityRegistry — FROZEN SWEF v1.0
+   *
+   * The ONLY mechanism for feature visibility decisions in the platform.
+   * Usable from: React components, Action Framework, Widget Engine, WNE, unit tests.
+   *
+   * @param featureKey  - one of the frozen FeatureKey values
+   * @param mode        - the current WorkspaceMode (optional — defaults to this.currentMode)
+   */
+  public canRender(featureKey: FeatureKey, mode?: WorkspaceMode): boolean {
+    const effectiveMode = mode ?? this.currentMode;
+    const allowedModes = ADAPTIVE_VISIBILITY_MATRIX[featureKey];
+    return allowedModes.includes(effectiveMode);
+  }
+
   public subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -129,5 +173,7 @@ export function useAdaptiveWorkspace() {
     config: WORKSPACE_MODE_CONFIGS[mode],
     setMode: (newMode: WorkspaceMode) => adaptiveWorkspaceStore.setMode(newMode),
     isTabAllowed: (tabId: string) => adaptiveWorkspaceStore.isTabAllowed(tabId),
+    /** Delegates to AdaptiveVisibilityRegistry singleton — uses current mode from context */
+    canRender: (featureKey: FeatureKey) => adaptiveWorkspaceStore.canRender(featureKey, mode),
   };
 }

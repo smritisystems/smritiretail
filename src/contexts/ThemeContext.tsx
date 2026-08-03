@@ -1,75 +1,141 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
- * Repository   : SMRITIRetailNX
- * Organization : AITDL NETWORKS
+ * Module       : SXP v1.0 — Theme Engine (upgraded from binary toggle)
+ * Standard     : SXP Constitution v1.0 / UCR-001 (BrandingRegistry)
+ * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
+ * Version      : 3.0.0
+ * Created      : 2026-07-10
+ * Modified     : 2026-08-03
+ * Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
  *
- * Founders
+ * SXP Theme Engine — 5 themes, runtime switching, no recompile.
  *
- * * Pushpa Devi Jawahar Mallah
- *   * Founder & Chairperson
- *   * Phone: +91 9324117007
- *   * Email: founder@aitdl.com
+ * Mechanism:
+ *   Sets data-theme="<theme>" on <html>.
+ *   CSS files in src/styles/ scope all vars to [data-theme="<theme>"].
+ *   custom-brand reads from SPK.configuration.branding (UCR-001) at init.
  *
- * * Jawahar Ramkripal Mallah
- *   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
- *   * Email: founder@aitdl.com
- *
- * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
- *
- * * Version    : 2.1.1
- * * Created    : 2026-07-10
- * * Modified   : 2026-07-11
- * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
- * * License    : Proprietary Commercial Software
+ * Themes:
+ *   dark          → smriti-theme-dark.css
+ *   light         → smriti-theme-light.css
+ *   high-contrast → smriti-theme-high-contrast.css
+ *   retail-blue   → smriti-theme-fiori-lite.css
+ *   custom-brand  → injected CSS vars from BrandingRegistry
  */
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { WorkspaceEventBus } from "../layout_engine/WorkspaceEventBus.js";
 
-type Theme = "light" | "dark";
+// ── Theme Types ───────────────────────────────────────────────────────────────
+
+export type SXPTheme =
+  | "dark"
+  | "light"
+  | "high-contrast"
+  | "retail-blue"
+  | "custom-brand";
+
+export interface ThemeOption {
+  id: SXPTheme;
+  label: string;
+  description: string;
+}
+
+export const SXP_THEMES: ThemeOption[] = [
+  { id: "dark",          label: "Dark",          description: "Default SMRITI dark theme" },
+  { id: "light",         label: "Light",          description: "Light professional theme" },
+  { id: "high-contrast", label: "High Contrast", description: "WCAG AAA accessibility theme" },
+  { id: "retail-blue",   label: "Retail Blue",   description: "Fiori-inspired retail theme" },
+  { id: "custom-brand",  label: "Brand Theme",   description: "Custom brand colours from BrandingRegistry" },
+];
+
+// ── Context ───────────────────────────────────────────────────────────────────
 
 interface ThemeContextType {
-  theme: Theme;
-  toggleTheme: () => void;
+  theme: SXPTheme;
+  setTheme(theme: SXPTheme): void;
+  /** Legacy toggle — switches between dark and light only */
+  toggleTheme(): void;
+  themeOptions: ThemeOption[];
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem("smriti-theme");
-    if (saved === "light" || saved === "dark") return saved;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "dark"; // Default to dark for SMRITI
+// ── CSS Var injection for custom-brand ────────────────────────────────────────
+
+function injectBrandTheme(brandColors: Record<string, string>): void {
+  let styleEl = document.getElementById("sxp-custom-brand-vars");
+  if (!styleEl) {
+    styleEl = document.createElement("style");
+    styleEl.id = "sxp-custom-brand-vars";
+    document.head.appendChild(styleEl);
+  }
+  const vars = Object.entries(brandColors)
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join("\n");
+  styleEl.textContent = `[data-theme="custom-brand"] {\n${vars}\n}`;
+}
+
+// ── Provider ──────────────────────────────────────────────────────────────────
+
+export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [theme, setThemeState] = useState<SXPTheme>(() => {
+    const saved = localStorage.getItem("smriti-sxp-theme") as SXPTheme | null;
+    if (saved && SXP_THEMES.some((t) => t.id === saved)) return saved;
+    // Legacy: migrate old "dark"/"light" key
+    const legacy = localStorage.getItem("smriti-theme");
+    if (legacy === "light") return "light";
+    return "dark"; // SMRITI default
   });
 
-  useEffect(() => {
-    const root = window.document.documentElement;
-    if (theme === "dark") {
+  const applyTheme = (t: SXPTheme) => {
+    const root = document.documentElement;
+    root.setAttribute("data-theme", t);
+    // Legacy dark class — kept for backward compat with existing Tailwind dark: selectors
+    if (t === "dark" || t === "custom-brand") {
       root.classList.add("dark");
     } else {
       root.classList.remove("dark");
     }
-    localStorage.setItem("smriti-theme", theme);
+  };
+
+  useEffect(() => {
+    applyTheme(theme);
+    localStorage.setItem("smriti-sxp-theme", theme);
+    WorkspaceEventBus.publish("ThemeChanged", { theme }, "platform");
   }, [theme]);
 
+  const setTheme = (newTheme: SXPTheme) => {
+    setThemeState(newTheme);
+    // If custom-brand, attempt to load brand vars from BrandingRegistry
+    if (newTheme === "custom-brand" && typeof window !== "undefined") {
+      // Forward-compat: SPK.configuration.branding will inject vars when available
+      const brandColors = (window as unknown as { __SMRITI_BRAND_VARS__?: Record<string, string> }).__SMRITI_BRAND_VARS__ ?? {};
+      if (Object.keys(brandColors).length > 0) {
+        injectBrandTheme(brandColors);
+      }
+    }
+  };
+
   const toggleTheme = () => {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+    setTheme(theme === "dark" ? "light" : "dark");
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, themeOptions: SXP_THEMES }}>
       {children}
     </ThemeContext.Provider>
   );
 };
 
-export const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (context === undefined) {
-    throw new Error("useTheme must be used within a ThemeProvider");
+// ── Hook ──────────────────────────────────────────────────────────────────────
+
+export const useTheme = (): ThemeContextType => {
+  const ctx = useContext(ThemeContext);
+  if (ctx === undefined) {
+    throw new Error("useTheme must be used inside <ThemeProvider>");
   }
-  return context;
+  return ctx;
 };

@@ -96,3 +96,109 @@
   --sds-motion-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --sds-motion-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SXP v1.0 Tokens — SMRITI Experience Platform
+   SWEF v1.0 — FROZEN (changes require ADR in docs/adr/)
+   Appended to SDS v1.0 — SDS tokens above are preserved intact.
+───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Shell Region Dimensions ── */
+  --sxp-header-height: 48px;
+  --sxp-breadcrumb-height: 32px;
+  --sxp-action-bar-height: 52px;
+  --sxp-filter-strip-height: 44px;
+  --sxp-status-bar-height: 28px;
+  --sxp-inspector-width: 360px;
+  --sxp-ai-panel-width: 320px;
+
+  /* ── Animation Contract (SWEF — FROZEN) ── */
+  /* Do NOT change these values without an approved ADR. */
+  --sxp-motion-action: 150ms cubic-bezier(0.4, 0, 0.2, 1); /* button, badge, toast */
+  --sxp-motion-panel: 250ms cubic-bezier(0.4, 0, 0.2, 1);  /* drawer, inspector slide */
+  --sxp-motion-page: 300ms cubic-bezier(0.4, 0, 0.2, 1);   /* workspace transition */
+  --sxp-motion-none: 0ms;                                   /* prefers-reduced-motion */
+
+  /* ── Accessibility / Focus ── */
+  --sxp-focus-ring: 0 0 0 2px #818cf8, 0 0 0 4px rgba(129,140,248,0.2);
+  --sxp-touch-target: 44px; /* WCAG 2.1 / Apple HIG minimum */
+
+  /* ── WorkspaceTimeline ── */
+  --sxp-timeline-node: 32px;
+  --sxp-timeline-connector: 2px;
+  --sxp-timeline-gap: 12px;
+
+  /* ── OperationLauncher ── */
+  --sxp-op-card-min: 160px;
+  --sxp-op-card-max: 220px;
+  --sxp-op-card-gap: 16px;
+
+  /* ── Mobile Warehouse (Scanner Zone) ── */
+  --sxp-scan-input-height: 56px;
+  --sxp-scan-confirm-height: 72px;
+
+  /* ── Widget Grid ── */
+  --sxp-widget-gap: 16px;
+  --sxp-widget-radius: 10px;
+  --sxp-widget-padding: 20px;
+
+  /* ── Breakpoints (mirrors SXP_BREAKPOINTS in responsive_manager.ts) ── */
+  --sxp-bp-phone-max: 639px;
+  --sxp-bp-tablet-min: 640px;
+  --sxp-bp-tablet-max: 1023px;
+  --sxp-bp-laptop-min: 1024px;
+  --sxp-bp-laptop-max: 1439px;
+  --sxp-bp-desktop-min: 1440px;
+  --sxp-bp-ultrawide-min: 2560px;
+}
+
+/* ── Reduced Motion Override (SWEF Accessibility Contract) ── */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --sxp-motion-action: var(--sxp-motion-none);
+    --sxp-motion-panel: var(--sxp-motion-none);
+    --sxp-motion-page: var(--sxp-motion-none);
+  }
+}
+
+/* ── POS Billing Zone — Zero Motion (SWEF P-007) ── */
+/* Applied by WorkspaceShell when zone === 'scanner' and billing is active */
+.sxp-billing-active,
+.sxp-zone-scanner.billing-active * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* ── Zone Body Classes ── */
+.sxp-zone-dashboard { padding: 0; }
+.sxp-zone-operator  { padding: 0; }
+.sxp-zone-document  { padding: 0; }
+.sxp-zone-executive { padding: 0; }
+.sxp-zone-scanner   { padding: 0; display: flex; flex-direction: column; }
+.sxp-zone-approval  { padding: 0; }
+
+/* ── Density Classes ── */
+.sxp-density-compact  { --sxp-widget-gap: 8px;  --sxp-widget-padding: 12px; font-size: 0.875rem; }
+.sxp-density-comfortable { --sxp-widget-gap: 16px; --sxp-widget-padding: 20px; }
+
+/* ── Touch Mode ── */
+.sxp-touch button,
+.sxp-touch [role="button"],
+.sxp-touch a {
+  min-height: var(--sxp-touch-target);
+  min-width: var(--sxp-touch-target);
+}
+
+/* ── Focus Rings (Accessibility Contract) ── */
+.sxp-keyboard-mode :focus-visible {
+  outline: none;
+  box-shadow: var(--sxp-focus-ring);
+  border-radius: var(--sds-radius-sm);
+}
+
+/* ── Toast animation ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
