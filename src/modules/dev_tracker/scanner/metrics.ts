@@ -12,9 +12,9 @@
  */
 
 import { ParsedCodebase } from "./parser.ts";
-import { ModuleStatus, CodeHealth, GitInfo, RiskAnalysis, ReleaseScores, ScanResult, ScanHistoryEntry } from "../models/interfaces.ts";
+import { ModuleStatus, CodeHealth, GitInfo, RiskAnalysis, ReleaseScores, ScanResult, ScanHistoryEntry, EvidenceItem, ModuleEvidence } from "../models/interfaces.ts";
 import { defaultAdapterRegistry } from "./adapters/AdapterRegistry.ts";
-import { ModuleImpact, ImpactAnalysisResult, ScanDiff, ModuleDependency, DependencyGraphResult, FitnessRuleResult, ArchitectureFitnessData, WorkerThreadStats, ASTAnalysisResult } from "./adapters/types.ts";
+import { ModuleImpact, ImpactAnalysisResult, ScanDiff, ModuleDependency, DependencyGraphResult, FitnessRuleResult, ArchitectureFitnessData, WorkerThreadStats, ASTAnalysisResult, ScannerFingerprint, ScannerHealth, ArchitectureCoverage } from "./adapters/types.ts";
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
@@ -266,7 +266,7 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
       });
     }
 
-    const evidenceTests: EvidenceItem[] = graphEvidence.filter(e => e.category === "testing").map(e => ({
+    const evidenceTests: EvidenceItem[] = graphEvidence.filter(e => (e.category as string) === "testing" || (e.category as string) === "tests").map(e => ({
       ...e,
       category: "tests" as const
     }));

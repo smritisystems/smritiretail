@@ -137,6 +137,22 @@ export interface ScannerHealth {
   pipelineTimings: PipelineTimings;
 }
 
+export interface AdapterHealth {
+  status: "healthy" | "degraded" | "failing";
+  lastCheck: string;
+  errorCount: number;
+  message?: string;
+}
+
+export interface ArchitectureCoverage {
+  frontendCoverage: number;
+  backendCoverage: number;
+  databaseCoverage: number;
+  apiCoverage: number;
+  testsCoverage: number;
+  documentationCoverage: number;
+}
+
 export interface IAdapter {
   id: string;
   name: string;

@@ -23,7 +23,7 @@
  * * License    : Proprietary Commercial Software
  */
 
-import { ScanResult } from "../models/interfaces.ts";
+import { ScanResult, EvidenceItem } from "../models/interfaces.ts";
 
 function drawProgressBar(percentage: number): string {
   const filledCount = Math.round(percentage / 10);
@@ -323,19 +323,19 @@ export function generateModuleProgress(res: ScanResult): string {
     if (m.evidence) {
       md += `- **Verifiable Implementation Evidence (SGS v1.0 / SDS v2.2):**\n`;
       if (m.evidence.frontend.length > 0) {
-        m.evidence.frontend.forEach(e => { md += `  - **Frontend:** \`${e.file}\` (${e.confidence})\n`; });
+        m.evidence.frontend.forEach((e: EvidenceItem) => { md += `  - **Frontend:** \`${e.file}\` (${e.confidence})\n`; });
       }
       if (m.evidence.api.length > 0) {
-        m.evidence.api.forEach(e => { md += `  - **API Router:** \`${e.file}\` [${e.symbol}] (${e.confidence})\n`; });
+        m.evidence.api.forEach((e: EvidenceItem) => { md += `  - **API Router:** \`${e.file}\` [${e.symbol}] (${e.confidence})\n`; });
       }
       if (m.evidence.database.length > 0) {
-        m.evidence.database.forEach(e => { md += `  - **Database Model:** \`${e.file}\` [${e.symbol}] (${e.confidence})\n`; });
+        m.evidence.database.forEach((e: EvidenceItem) => { md += `  - **Database Model:** \`${e.file}\` [${e.symbol}] (${e.confidence})\n`; });
       }
       if (m.evidence.tests.length > 0) {
-        m.evidence.tests.forEach(e => { md += `  - **Test Suite:** \`${e.file}\` (${e.confidence})\n`; });
+        m.evidence.tests.forEach((e: EvidenceItem) => { md += `  - **Test Suite:** \`${e.file}\` (${e.confidence})\n`; });
       }
       if (m.evidence.docs.length > 0) {
-        m.evidence.docs.forEach(e => { md += `  - **Architecture Doc:** \`${e.file}\` (${e.confidence})\n`; });
+        m.evidence.docs.forEach((e: EvidenceItem) => { md += `  - **Architecture Doc:** \`${e.file}\` (${e.confidence})\n`; });
       }
     }
 
