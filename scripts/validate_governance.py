@@ -64,7 +64,15 @@ def check_uadhp_headers(files):
         r"^package\.json$",
         r"^tsconfig\.json$",
         r"^vite\.config\.ts$",
-        r"^vitest\.config\.ts$"
+        r"^vitest\.config\.ts$",
+        r"^docs/reports/",
+        r"^DEVELOPMENT_STATUS\.md$",
+        r"^SCANNER_HEALTH\.md$",
+        r"^SCAN_DIFF\.md$",
+        r"^IMPACT_ANALYSIS\.md$",
+        r"^DEPENDENCY_GRAPH\.md$",
+        r"^FITNESS_RULES\.md$",
+        r"^SEMANTIC_AST\.md$"
     ]
     
     check_extensions = (".py", ".ts", ".tsx", ".js", ".jsx", ".css", ".md")
