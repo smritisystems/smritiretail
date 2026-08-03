@@ -48,9 +48,50 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ---
 
-## 3. Governance Authority Precedence Hierarchy
+## 3. Top-Level Platform Manifest Schema (`platform.manifest.yaml`)
 
-In the event of any ambiguity, conflict, or contradiction across documentation or implementation code, the following strict **Authority Precedence Hierarchy** prevails:
+Every deployment environment MUST maintain an authoritative `platform.manifest.yaml` validating the platform baseline prior to loading individual kernel manifests:
+
+```yaml
+# SMRITI Platform Baseline Manifest v1.0
+platform:
+  constitution_version: "1.0.0"
+  platform_os_version: "4.2.0"
+  standards:
+    KDS: "1.1.0"
+    SDS: "1.0.0"
+    IDS: "1.0.0"
+    BDS: "1.0.0"
+    RDS: "1.0.0"
+    NDS: "1.0.0"
+
+kernels:
+  SDK: "1.0.0"
+  SLK: "1.0.0"
+  STK: "1.0.0"
+  SBPK: "1.0.0"
+  SPPK: "1.0.0"
+  SIK: "1.0.0"
+  SNK: "1.0.0"
+  SAK: "2.1.0"
+```
+
+---
+
+## 4. Deterministic Platform Boot Failure Policy
+
+During the startup sequence, validation failures map to strict **Boot Severity Levels**:
+
+| Boot Failure Severity | Governance Definition | Runtime System Behavior | Failure Examples |
+|---|---|---|---|
+| **Critical** | Core constitutional or kernel failure | **Abort Startup Immediately** | SPC missing, kernel manifest missing, dependency version mismatch |
+| **Major** | Non-core capability failure | **Start in Restricted / Read-Only Mode** | Optional studio missing, secondary connector offline |
+| **Minor** | Operational service degradation | **Continue Startup with Logged Warnings**| Telemetry collector unreached, non-critical cache miss |
+| **Info** | Non-blocking metric or doc gap | **Log Diagnostic Note Only** | Documentation link mismatch, non-semantic version note |
+
+---
+
+## 5. Governance Authority Precedence Hierarchy
 
 1. **SPC (Platform Constitution):** Supreme architectural authority.
 2. **PRIG (Reference Implementation Guide):** Canonical implementation & coding standard.
@@ -61,50 +102,16 @@ In the event of any ambiguity, conflict, or contradiction across documentation o
 7. **Industry Packs:** Industry extension packs.
 8. **Implementation Code:** Executable codebase.
 
-> **Governance Directive:** If two documents conflict, the higher-ranked document prevails unless explicitly superseded by an approved Architecture Decision Record (ADR).
-
----
-
-## 4. Platform Capability Maturity Model (PCMM v1.0)
-
-PCMM distinguishes **Designed Target Architecture** from **Audited Runtime Implementation Maturity**:
-
-| PCMM Maturity Level | Level Name | Objective Implementation & Runtime Verification Scope | Platform Status |
-|---|---|---|---|
-| **L1** | **Foundation** | 7-Level Topology, Platform OS v4.2 & Standards frozen | ✅ Certified (Designed) |
-| **L2** | **Operational** | Core Level 3 Kernels (SDK, SLK, STK, SAK) & Services active | ✅ Certified (Implemented) |
-| **L3** | **Integrated** | All 13 Business Studios certified & SEB Event Bus integrated | ✅ Certified (Verified) |
-| **L4** | **Enterprise** | Multi-node SMN replication, HA, & OpenTelemetry live | ✅ Certified (Verified) |
-| **L5** | **Ecosystem** | Extension Marketplace, Partner SDKs, & Developer Tooling | 🎯 Next Phase Target |
-
----
-
-## 5. Automated Platform Initialization & Validation Sequence
-
-At application startup, the platform cleanly separates **Loading Phase** from **Validation Phase**:
-
-```text
- ┌────────────────────────────────────────────────────────────────────────┐
- │ AUTOMATED PLATFORM INITIALIZATION & VALIDATION SEQUENCE                │
- ├────────────────────────────────────────────────────────────────────────┤
- │ BOOT -> Load Constitution (SPC) -> Load Standards (KDS/SDS/RDS/BDS/NDS/IDS)
- │       -> Load Registries (L5) -> Load Services (L2)                    │
- │       -> Load Kernels (L3 Manifests) -> Load Studios (L6)              │
- │       -> Load Connectors (L7) -> Validate Dependencies                 │
- │       -> Validate Contracts & Compatibility -> SPD Platform Doctor Check
- │       -> OpenTelemetry Runtime Health Check -> READY                   │
- └────────────────────────────────────────────────────────────────────────┘
-```
-
 ---
 
 ## 6. Shared Platform Service: SPD Platform Doctor Service
 
 Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** acts as the platform's self-healing diagnostic engine:
 - **Architecture Validation:** Asserts 7-layer boundary isolation.
-- **Dependency & Manifest Scan:** Validates `kernel.manifest.yaml` dependency graphs.
+- **Dependency & Manifest Scan:** Validates `platform.manifest.yaml` & `kernel.manifest.yaml`.
 - **License & ABAC Verification:** Validates tenant edition licenses and security RBAC/ABAC rules.
 - **Database & Schema Audit:** Asserts schema migration integrity across all kernels.
+- **Boot Severity Audit:** Enforces Critical, Major, Minor, and Info boot failure policies.
 - **Platform Health Report:** Generates an enterprise-ready certification report (`100% READY FOR PRODUCTION`).
 
 ---
