@@ -65,19 +65,19 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
  │ Inventory    │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ Purchase     │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ Sales        │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
- │ POS          │     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
- │ CRM          │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
+ │ POS          │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ CRM          │     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
  │ Accounting   │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
  └──────────────┴────────────┴───────────┴──────────┴──────────┴─────────────┴────────────┴───────────┘
 ```
 
 ---
 
-## 4. Next Certification Target: POS Studio v1.0
+## 4. Next Certification Target: CRM Studio v1.0
 
-POS Studio v1.0 will execute certification under the exact 6-dimensional framework:
+CRM Studio v1.0 will execute certification under the exact 6-dimensional framework:
 
-1. **Operations Scenarios:** Barcode-first checkout, split tenders, return wizard, shift open/close, offline billing, receipt printing.
-2. **Financial:** Day-end cash reconciliation, float management, cash drop, payment swiper integration.
-3. **Hardware & Peripheral Integration:** ESC/POS Thermal Receipt Printers, Customer Facing Display (CFD), Electronic Cash Drawer.
-4. **Reliability:** Local storage cart recovery, offline billing replay determinism.
+1. **Operations Scenarios:** Customer 360 engagement, lead tracking, interaction log, loyalty tier promotion, targeted SMS/WhatsApp campaign management.
+2. **Financial & Loyalty:** Loyalty point earning/redemption ledger, customer lifetime value (LTV) calculation, credit balance management.
+3. **Analytics & Performance:** Campaign ROI, customer churn risk analysis, purchase frequency profiling.
+4. **Reliability & Integration:** Synchronization with Sales Studio, POS Studio, and Universal Report Registry.
