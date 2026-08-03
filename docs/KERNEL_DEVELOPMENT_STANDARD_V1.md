@@ -15,83 +15,80 @@
 # SMRITI Kernel Development Standard & Governance Framework (KDS v1.1 Baseline)
 
 **Status:** FROZEN — Enterprise Kernel Specification & Governance Standard v1.1 (2026-08-04)
-**Scope:** 15-Section Structure, Runtime Audit Checklist, Kernel ADRs, Dependency Matrix, & Maturity Levels
+**Scope:** Machine-Readable Manifest Schema, Centralized Kernel Registry, ADR Trigger Policy, & Freeze Policy
 
 ---
 
-## 1. Enterprise Governance Development Standards Index
+## 1. Machine-Readable Kernel Manifest Schema (`kernel.manifest.yaml`)
 
-KDS v1.1 acts as the primary specification standard for Level 3 Shared Business Kernels while establishing sister standards across the 7-level architecture:
+Every Level 3 Shared Business Kernel MUST contain a `kernel.manifest.yaml` file in its root directory:
 
-```text
- ┌────────────────────────────────────────────────────────────────────────┐
- │ SMRITI ENTERPRISE GOVERNANCE STANDARDS INDEX                           │
- ├────────────────────────────────────────────────────────────────────────┤
- │ • KDS (Kernel Development Standard)    ── Level 3 Shared Kernels       │
- │ • SDS (Service Development Standard)   ── Level 2 Shared Services      │
- │ • RDS (Registry Development Standard)  ── Level 5 Universal Registries │
- │ • BDS (Business Studio Standard)       ── Level 6 Business Studios    │
- │ • NDS (Network Development Standard)   ── Level 7 SMN Network          │
- └────────────────────────────────────────────────────────────────────────┘
+```yaml
+# SMRITI Kernel Manifest Schema v1.0
+kernel: SAK
+version: 2.1.0
+layer: 3
+owner: "Enterprise Fixed Asset & Equipment Domain"
+maturity: Gold
+
+dependencies:
+  services: [SEB, SES, SNP, SWA, SAS, STS, SAI]
+  kernels: [SDK, SLK, STK, SBPK, SIK, SNK]
+
+events:
+  published: 10
+  consumed: 6
+
+api:
+  facade: "SAK.AssetService"
+  methods: 20
+
+compliance:
+  kds_version: 1.1.0
+  quick_facts: true
+  adr_logged: true
+  observability: true
 ```
 
 ---
 
-## 2. Kernel Maturity Levels (Bronze to Diamond Governance)
+## 2. Centralized Platform Kernel Registry Index
 
-Every SMRITI Shared Business Kernel is assigned an audited **Kernel Maturity Level**:
+| Kernel Acronym | Domain Owner | Version | Layer | Public API Facade | Maturity Level | Status |
+|---|---|---|---|---|---|---|
+| **SDK** (Document) | Universal Document Machine | v1.0 | Level 3 | `SDK.DocumentService` | Platinum | ✅ Active |
+| **SLK** (Ledger) | Financial & Stock Ledgers | v1.0 | Level 3 | `SLK.LedgerService` | Platinum | ✅ Active |
+| **STK** (Tax) | Tax Rules & GST Engine | v1.0 | Level 3 | `STK.TaxService` | Platinum | ✅ Active |
+| **SBPK** (Printing) | Barcodes & ESC/POS Print | v1.0 | Level 3 | `SBPK.PrintService` | Platinum | ✅ Active |
+| **SPPK** (Pricing) | Price Lists & Promotions | v1.0 | Level 3 | `SPPK.PricingService`| Platinum | ✅ Active |
+| **SIK** (Integration)| External Systems & EDI | v1.0 | Level 3 | `SIK.IntegrationService`| Platinum | ✅ Active |
+| **SNK** (Node Sync) | Multi-Site Synchronization | v1.0 | Level 3 | `SNK.NodeService` | Platinum | ✅ Active |
+| **SAK** (Asset) | Fixed Asset Lifecycle | v2.1 | Level 3 | `SAK.AssetService` | Gold | ✅ Active |
 
-| Maturity Level | Governance Definition | Audit & Verification Requirement | Current Platform Kernels |
+---
+
+## 3. Mandatory ADR Trigger Policy & Baseline Freeze Policy
+
+### A. Mandatory ADR Trigger Triggers
+Architecture Decision Records (`ADR.md`) are strictly mandatory ONLY under 5 conditions:
+1. Introduction of a new Level 3 Shared Business Kernel or Level 2 Service.
+2. Breaking change to an existing public service API facade (`KernelName.Service`).
+3. Introduction or modification of cross-kernel transaction boundaries.
+4. Structural change to the 7-level Platform Topology.
+5. Alteration of USR security ABAC policies or data isolation models.
+*Routine feature additions within existing API contracts DO NOT require an ADR.*
+
+### B. Baseline Structural Freeze Policy
+> **Governance Directive:** A frozen baseline (e.g. KDS v1.1, SAK v2.1) may receive ONLY non-breaking corrections, clarifications, or doc updates. Any structural change or breaking API modification REQUIRES a major version bump (e.g. KDS v2.0) and an approved ADR.
+
+---
+
+## 4. Redefined Operational Kernel Maturity Matrix
+
+| Maturity Level | Governance Definition | Audit & Verification Requirement | Current Platform Status |
 |---|---|---|---|
 | **Bronze** | Specification Complete | 15-Section KDS document locked & ADR created | All Kernels |
 | **Silver** | Test Suite Complete | 100% TypeScript compile & Jest/Vite unit tests pass | All Kernels |
 | **Gold** | Production Ready | 20 Business Scenarios certified & SEB Events verified | SDK, SBPK, SIK, SPPK, STK, SLK, SNK, SAK |
 | **Platinum** | Enterprise Certified | 6-Dimension Governance audit & OpenTelemetry live | Platinum Baseline (`cbae5948`) |
-| **Diamond** | Proven at Scale | Multi-node stress test ($>100,000$ txns/hr) validated | Production Nodes |
-
----
-
-## 3. Kernel Dependency & Interaction Matrix
-
-Kernels MUST declare explicit read/write boundaries and service dependency contracts:
-
-| Kernel Acronym | Primary Entities Managed | Reads | Writes | SEB Events | Kernel Dependencies |
-|---|---|---|---|---|---|
-| **SDK** (Document) | Transaction Documents | SDK Docs | SDK Docs | `doc.*` | None (Foundation) |
-| **SLK** (Ledger) | Financial & Stock Ledgers | SLK Ledger| SLK Ledger| `ledger.*` | SDK Document Kernel |
-| **STK** (Tax) | Tax Profiles & Rules | STK Rules | Tax Logs | `tax.*` | SDK Document Kernel |
-| **SBPK** (Printing) | Barcodes, Labels, Prints | Templates | Print Audit| `print.*` | SDK Document Kernel |
-| **SPPK** (Pricing) | Price Lists, Discounts | Price Rules| Price Overrides| `price.*` | SDK Document Kernel |
-| **SIK** (Integration)| External Channels & EDI | Connectors | Sync Logs | `sync.*` | SDK Document Kernel |
-| **SNK** (Node Sync) | Node Identity & Replicas | Node Maps | Vector Clock| `node.*` | SDK Document Kernel |
-| **SAK** (Asset) | Fixed Asset Lifecycle | Asset Master| Asset Ledger| `asset.*` | SDK, SLK, STK, SBPK, SIK, SNK |
-
----
-
-## 4. Kernel Architecture Decision Records (ADR Template)
-
-Every kernel directory MUST maintain an `ADR.md` file recording architectural choices:
-```markdown
-# ADR-001: Selection of Vector Clocks for SNK Node Synchronization
-- Status: Accepted
-- Context: Multi-site standalone nodes require conflict resolution without central lock.
-- Decision: Adopt vector clock revision hashing per master record.
-- Consequences: Eventual consistency guaranteed; primary node owner overrides collisions.
-```
-
----
-
-## 5. Dual-Layer KDS Compliance Checklist (Static & Runtime Audit)
-
-| Audit Layer | Compliance Requirement | Verification Method | Status |
-|---|---|---|---|
-| **Static Audit** | Quick Facts Header schema present | Automated Linter | ✅ PASSED |
-| **Static Audit** | 15-Section KDS Structure complete | Document Validator | ✅ PASSED |
-| **Static Audit** | 15 Constitutional Principles declared | Static Code Scan | ✅ PASSED |
-| **Static Audit** | Kernel Dependency Matrix defined | Contract Inspector | ✅ PASSED |
-| **Runtime Audit** | Health endpoint (`/health`) reachable | Automated HTTP Integration Test | ✅ PASSED |
-| **Runtime Audit** | Metrics endpoint (`/metrics`) active | Prometheus Scraper Audit | ✅ PASSED |
-| **Runtime Audit** | SEB Event Bus listeners active | Event Bus Test Listener | ✅ PASSED |
-| **Runtime Audit** | Financial GL postings delegated to SLK | Unit Test Assertion | ✅ PASSED |
-| **Runtime Audit** | Tax calculations delegated to STK | Unit Test Assertion | ✅ PASSED |
-| **Runtime Audit** | Immutable Audit Trail written to SAS | OpenTelemetry Log Audit | ✅ PASSED |
+| **Diamond** | Proven at Production Scale | Sustained operation with zero-downtime & auto-recovery | Production Nodes |
