@@ -64,8 +64,8 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
  ├──────────────┼────────────┼───────────┼──────────┼──────────┼─────────────┼────────────┼───────────┤
  │ Inventory    │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ Purchase     │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
- │ Sales        │     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
- │ POS          │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
+ │ Sales        │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ POS          │     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
  │ CRM          │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
  │ Accounting   │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
  └──────────────┴────────────┴───────────┴──────────┴──────────┴─────────────┴────────────┴───────────┘
@@ -73,12 +73,11 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
 
 ---
 
-## 4. Next Certification Target: Sales Studio v1.0
+## 4. Next Certification Target: POS Studio v1.0
 
-Sales Studio v1.0 will execute certification under the exact 6-dimensional framework:
+POS Studio v1.0 will execute certification under the exact 6-dimensional framework:
 
-1. **Operations Scenarios:** Quote $\rightarrow$ Sales Order $\rightarrow$ Tax Invoice, Partial Delivery, Back Orders, Sales Returns, Credit Notes.
-2. **Financial & Tax:** Payment Collection, Multi-payment splits, Credit Limit Validation, GST Outward Tax Calculation.
-3. **Operational:** Barcode Billing, Serial Number Tracking, Batch Sales, Home Delivery Routing.
-4. **Reliability:** Offline Billing Replay, Concurrent Stock Reservation Protection.
-5. **Customer 360 Object Page:** Overview, Orders, Deliveries, Invoices, Payments, Credit Balance, Price Lists, Scorecard, Audit Log.
+1. **Operations Scenarios:** Barcode-first checkout, split tenders, return wizard, shift open/close, offline billing, receipt printing.
+2. **Financial:** Day-end cash reconciliation, float management, cash drop, payment swiper integration.
+3. **Hardware & Peripheral Integration:** ESC/POS Thermal Receipt Printers, Customer Facing Display (CFD), Electronic Cash Drawer.
+4. **Reliability:** Local storage cart recovery, offline billing replay determinism.
