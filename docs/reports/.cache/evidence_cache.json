@@ -2,7 +2,7 @@
   "version": "2.5.0",
   "scannerVersion": "SDS v2.5.0",
   "evidenceSchema": "v2",
-  "generatedAt": "2026-08-03T21:29:55.420Z",
+  "generatedAt": "2026-08-03T21:41:05.230Z",
   "adapters": {
     "fastapi-adapter": "2.3.0",
     "sqlalchemy-adapter": "2.3.0",
@@ -5478,6 +5478,10 @@
         }
       ]
     },
+    "backend/app/worker.py": {
+      "sha256": "c8437e9f3e8cf465b6cb403939fb16326bd9155e8736e26c04b225ed18784230",
+      "evidenceItems": []
+    },
     "backend/app/__init__.py": {
       "sha256": "2def99fbe973d4723913ee7f5dfdc9c6fe7f7f1a6094e18e335482d1533dcadc",
       "evidenceItems": []
@@ -8491,11 +8495,11 @@
       "evidenceItems": []
     },
     "DEPENDENCY_GRAPH.md": {
-      "sha256": "e7e4eb64ed63a38847142249626e62e3bf807faebf9bfe1e331a8cb63bc9b169",
+      "sha256": "3066858feb2dca232c394cd546a8d4a296699df6a01be3bfd0cf8f2d6f688639",
       "evidenceItems": []
     },
     "DEVELOPMENT_STATUS.md": {
-      "sha256": "90722578d3d7d58bf79c250c3456a974616478c743134657d3318f38936fffc3",
+      "sha256": "aedc771edf058fb744dad521f2b6118ef8b5cbb6a649199d03d066d798751632",
       "evidenceItems": []
     },
     "docs/ACCOUNTING_STUDIO_BUSINESS_CERTIFICATION_V1.md": {
@@ -9895,7 +9899,7 @@
       "evidenceItems": []
     },
     "docs/reports/.cache/evidence_cache.json": {
-      "sha256": "a8003bbd0f35f1b8c35bf1728dc86461f77f1222fa69afe462a71da9766c4ab0",
+      "sha256": "7774baf213fc03e4ff957699ff45bb02def39b96b97efa6f3ffb6475f0d75354",
       "evidenceItems": []
     },
     "docs/reports/2026-07-11/API_STATUS.md": {
@@ -10691,91 +10695,91 @@
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/API_STATUS.md": {
-      "sha256": "ae8c6e975cf3172c134e8ab81e1534ad03928a799ce81d6f4c7ce446fdd4d13a",
+      "sha256": "1343e81ffcce6ffb26c300876e9d7dd0b1a22ac61f589b9842059cbbf362ddec",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/BACKEND_STATUS.md": {
-      "sha256": "cf735946669ccf70d0d1dd85511530e9c0ae6cd9bbc5cd746bb44b445ff4d1e1",
+      "sha256": "cb728e32789dfcf29d256f5fdcaf07d2ddf6b54f1e7fffbcfff28d830bddf74f",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/BUG_TRACKER.md": {
-      "sha256": "3df61d088f577308e52e7b1d65edff25f51087dec31d58b02217932f4eda2869",
+      "sha256": "0d043436b20172552e1fed54cfce135079a59c928059a0ceeb92d327c21dcfd7",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/CHANGE_HISTORY.md": {
-      "sha256": "6ff05a51bd12f26983dbb04393d743ec8a7d58d3de802bc8a35f8a5f7864ba39",
+      "sha256": "7d12aeffa755c6c2c89867e7a3cbc878988801304e2d6839fcfff7b648d6efbd",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/DATABASE_STATUS.md": {
-      "sha256": "374acad28de0bda1a6f747f45ba50680d778a1689da1d1c83b36527e7bebff7c",
+      "sha256": "6e09b4f4f9c2af445b9b61ab0603cd2c31aa8a7ab5330c856dc0c143ac7a5a64",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/DEPENDENCY_GRAPH.md": {
-      "sha256": "e7e4eb64ed63a38847142249626e62e3bf807faebf9bfe1e331a8cb63bc9b169",
+      "sha256": "3066858feb2dca232c394cd546a8d4a296699df6a01be3bfd0cf8f2d6f688639",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/DEVELOPMENT_STATUS.md": {
-      "sha256": "90722578d3d7d58bf79c250c3456a974616478c743134657d3318f38936fffc3",
+      "sha256": "aedc771edf058fb744dad521f2b6118ef8b5cbb6a649199d03d066d798751632",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/DOCUMENTATION_STATUS.md": {
-      "sha256": "e55c7f3f5b25de3df1dbb1f1b7273cf176f02722d5a405c2bad267492d6f9d52",
+      "sha256": "ea8093ad28b63aea5ac27d4d147910d6181cb2161e6dad50e4ed8cf809514ac8",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/EXECUTIVE_SUMMARY.md": {
-      "sha256": "9ee83863bb95b9e376765ad7f3796cb188c7bf9bc791d59eaf9ba3bce4f0965d",
+      "sha256": "10a7c1ea2552e3af6f9354fb2fa7ce872880dff8ad877fd0976449f1c433960b",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/FEATURE_MATRIX.md": {
-      "sha256": "02a3c4bf35aa4dbf4cb833698405740413bad98c6482341dacb85b5a5a2ba932",
+      "sha256": "7d2653ca708c6caada405b762da549493d510f2dd00e3b559e6b631f2bdc9905",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/FITNESS_RULES.md": {
-      "sha256": "a88f141f5e4854d7dc142882fe82875db048b3dfecbe1047f21ab0a8008262d9",
+      "sha256": "6602aa5a884d940f70b1a2b6f667ba95dfbe99c99de3810c8a0b7bbc6b93f73d",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/IMPACT_ANALYSIS.md": {
-      "sha256": "808084c18f5c11c775eb12178db436734ff06c84e4d8c4828eaa164016deb36d",
+      "sha256": "b0f27a8ab3fe788568f72bf9a9957c81166219adaf46ec80cf59675e77c3dab3",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/MODULE_PROGRESS.md": {
-      "sha256": "77652536af907323de572554b5c5e57d000cbb20803c0c8aa6dcd482e1d6ab44",
+      "sha256": "6490732b78890da80e7dc44e8f16b597466e1da5bf0092b253b5cfbe76832036",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/RELEASE_READINESS.md": {
-      "sha256": "41867ce08c98f73b5452923ecb4cf56c5418af0e08776637c89013242872a107",
+      "sha256": "07bfa8c3ff985d1cd84d4c5bf0f7093dcc51aa431bc3009490dab809b41d21f8",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/SCANNER_HEALTH.md": {
-      "sha256": "90dc1ae06d08249e15582849a10ab31674015d9f74721e0393e5f317866d9d17",
+      "sha256": "90eafbae01176de3171e1a21a06eb6cbc2a2d3ea2b56a7476c8968ef4498e3be",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/SCAN_DIFF.md": {
-      "sha256": "e0f01c27bd69d71a98e3f9ca349b66eb697ef782c11b1816e33486787e5fc5c9",
+      "sha256": "0c54d79e2dd9a8e1660fde9daaad3f502708e7f88aed1aa23aa8dd8f7d11d881",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/SECURITY_STATUS.md": {
-      "sha256": "09310dbb3a52a38dcfd5cb30c56610acc8e74f0ba42ae0cab4cf0c7651d7cb82",
+      "sha256": "03c597a238384611de4ba8431fd3f461cdb314cd39b7ca625d56400ada31f471",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/SEMANTIC_AST.md": {
-      "sha256": "5814c09cc14dedd23371224bb0becaae1748f1078b64c7aedd83bbae98b02eea",
+      "sha256": "a390f920c74112067953bd8850af7d6e252e24cc3fe5dd37d4202fc80d4e7074",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/TECHNICAL_DEBT.md": {
-      "sha256": "80e5ad0a70fd0060bdf84e7c02b3ed3a84ea5dabf8cbf04f0cfe39e2b06b2649",
+      "sha256": "83fdd52331012369906e166a7e2e45d53e0d52cfaa292b0c434a15ed3ce8b163",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/TEST_STATUS.md": {
-      "sha256": "3b6a32cf98fdd1baada745501c9e4ac3d02f7e69e4fee0b9353ef73a2c1d1107",
+      "sha256": "2ac60385c933ca7aed2dca9007a7fa1fed8b568901799f4574dcf4ed18cd856d",
       "evidenceItems": []
     },
     "docs/reports/2026-08-03/UI_STATUS.md": {
-      "sha256": "360a5bd42da2c4349693c6d3882e107af8bbe0664df7ec8fc57a61f0b63044ad",
+      "sha256": "6138e519648c1b64513768508fb54c7f4d66e80f861724f958ec8ebb28b53a02",
       "evidenceItems": []
     },
     "docs/reports/history.json": {
-      "sha256": "af25ce1d9a818caa2f8b7bdf14a7d7a486f93c7aded13e03f8a994b703fb98d8",
+      "sha256": "c6c549c6fe57ab98bff4dd33c11f4b2ea591e547b5761c48a915d99ad4789a2e",
       "evidenceItems": []
     },
     "docs/SALES_STUDIO_BUSINESS_CERTIFICATION_V1.md": {
@@ -11843,7 +11847,7 @@
       "evidenceItems": []
     },
     "FITNESS_RULES.md": {
-      "sha256": "a88f141f5e4854d7dc142882fe82875db048b3dfecbe1047f21ab0a8008262d9",
+      "sha256": "6602aa5a884d940f70b1a2b6f667ba95dfbe99c99de3810c8a0b7bbc6b93f73d",
       "evidenceItems": []
     },
     "frontend/src/modules/pos/POSTouchLayout.tsx": {
@@ -11871,7 +11875,7 @@
       "evidenceItems": []
     },
     "IMPACT_ANALYSIS.md": {
-      "sha256": "808084c18f5c11c775eb12178db436734ff06c84e4d8c4828eaa164016deb36d",
+      "sha256": "b0f27a8ab3fe788568f72bf9a9957c81166219adaf46ec80cf59675e77c3dab3",
       "evidenceItems": []
     },
     "inspect_test_user_password.py": {
@@ -11979,11 +11983,11 @@
       "evidenceItems": []
     },
     "SCANNER_HEALTH.md": {
-      "sha256": "90dc1ae06d08249e15582849a10ab31674015d9f74721e0393e5f317866d9d17",
+      "sha256": "90eafbae01176de3171e1a21a06eb6cbc2a2d3ea2b56a7476c8968ef4498e3be",
       "evidenceItems": []
     },
     "SCAN_DIFF.md": {
-      "sha256": "e0f01c27bd69d71a98e3f9ca349b66eb697ef782c11b1816e33486787e5fc5c9",
+      "sha256": "0c54d79e2dd9a8e1660fde9daaad3f502708e7f88aed1aa23aa8dd8f7d11d881",
       "evidenceItems": []
     },
     "scratch_debug_setup.py": {
@@ -12171,7 +12175,7 @@
       "evidenceItems": []
     },
     "SEMANTIC_AST.md": {
-      "sha256": "5814c09cc14dedd23371224bb0becaae1748f1078b64c7aedd83bbae98b02eea",
+      "sha256": "a390f920c74112067953bd8850af7d6e252e24cc3fe5dd37d4202fc80d4e7074",
       "evidenceItems": []
     },
     "served_bundle.js": {
