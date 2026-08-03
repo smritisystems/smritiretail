@@ -42,7 +42,7 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
 
 ### Platform OS v1.x (Frozen Operating System & Shared Kernels)
 - **Status:** Immutable Execution Environment.
-- **Shared Kernels:** Inventory Kernel v1.0, SXP v1.0, SEEF v1.0, SEDS, WNG Navigation, **SBPK v1.0 (Printing Kernel)**.
+- **Shared Kernels:** Inventory Kernel v1.0, SXP v1.0, SEEF v1.0, SEDS, WNG Navigation, SBPK v1.0 (Printing), Notification Kernel v1.0, Payment Kernel v1.0.
 - **Allowed Changes:** Critical security patches, bug fixes, performance optimizations.
 - **Forbidden Changes:** Breaking API changes, custom uncertified UI engine extensions, direct platform token modifications.
 - **Major Versioning:** Platform OS structural evolution requires an approved Architecture Decision Record (ADR) and a major version increment (e.g., Platform OS v2.0).
@@ -64,20 +64,22 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
  │ POS          │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ SBPK Kernel  │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ CRM          │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
- │ Accounting   │     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
+ │ Accounting   │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ Warehouse    │     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
+ │ HR Studio    │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
  └──────────────┴────────────┴───────────┴──────────┴──────────┴─────────────┴────────────┴───────────┘
 ```
 
 ---
 
-## 4. Next Certification Target: Accounting Studio v1.0
+## 4. Next Milestone Target: Warehouse Management Studio v1.0
 
-Accounting Studio v1.0 will execute certification under the exact 6-dimensional framework across 8 workspaces:
-1. Financial Dashboard
-2. General Ledger & Vouchers
-3. Accounts Payable (AP Integration with Purchase Studio)
-4. Accounts Receivable (AR Integration with Sales Studio)
-5. Bank & Cash Reconciliation
-6. GST & Tax Returns (GSTR-1, GSTR-3B, GSTR-2B ITC Matching)
-7. Financial Statements (Trial Balance, P&L, Balance Sheet)
-8. Accounting Reports & Analytics
+Warehouse Management Studio v1.0 will execute certification under the exact 6-dimensional framework across 8 workspaces:
+1. Warehouse Operations Dashboard
+2. Inbound Put-Away & Bin Allocation
+3. Outbound Wave Picking & Batch Packing
+4. Bin-to-Bin Transfer & Stock Relocation
+5. Cycle Count & Physical Audit
+6. Mobile Scanner Operations
+7. Dispatch & Carrier Logistics
+8. Warehouse Reports & Analytics
