@@ -48,50 +48,70 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ---
 
-## 3. Top-Level Platform Manifest Schema (`platform.manifest.yaml`)
+## 3. Uniform Manifest Naming & Checksum Integrity Schema
 
-Every deployment environment MUST maintain an authoritative `platform.manifest.yaml` validating the platform baseline prior to loading individual kernel manifests:
+Every layer artifact MUST expose a standardized, checksum-verified manifest:
+- `platform.manifest.yaml` (Top-Level Platform OS Manifest)
+- `service.manifest.yaml` (Level 2 Shared Service Manifests)
+- `kernel.manifest.yaml` (Level 3 Shared Kernel Manifests)
+- `registry.manifest.yaml` (Level 5 Universal Registry Manifests)
+- `studio.manifest.yaml` (Level 6 Business Studio Manifests)
+- `connector.manifest.yaml` (Level 7 SMN Connector Manifests)
+- `industrypack.manifest.yaml` (Industry Extension Pack Manifests)
+
+### Top-Level Manifest Integrity Schema (`platform.manifest.yaml`)
 
 ```yaml
 # SMRITI Platform Baseline Manifest v1.0
 platform:
   constitution_version: "1.0.0"
   platform_os_version: "4.2.0"
-  standards:
-    KDS: "1.1.0"
-    SDS: "1.0.0"
-    IDS: "1.0.0"
-    BDS: "1.0.0"
-    RDS: "1.0.0"
-    NDS: "1.0.0"
+  sha256_checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+standards:
+  KDS: { version: "1.1.0", sha256_checksum: "a1b2c3..." }
+  SDS: { version: "1.0.0", sha256_checksum: "d4e5f6..." }
+  IDS: { version: "1.0.0", sha256_checksum: "7a8b9c..." }
+  BDS: { version: "1.0.0", sha256_checksum: "0e1f2a..." }
+  RDS: { version: "1.0.0", sha256_checksum: "3b4c5d..." }
+  NDS: { version: "1.0.0", sha256_checksum: "6e7f8a..." }
 
 kernels:
-  SDK: "1.0.0"
-  SLK: "1.0.0"
-  STK: "1.0.0"
-  SBPK: "1.0.0"
-  SPPK: "1.0.0"
-  SIK: "1.0.0"
-  SNK: "1.0.0"
-  SAK: "2.1.0"
+  SDK: { version: "1.0.0", sha256_checksum: "9b8a7c..." }
+  SLK: { version: "1.0.0", sha256_checksum: "5d4c3b..." }
+  STK: { version: "1.0.0", sha256_checksum: "2a1f0e..." }
+  SAK: { version: "2.1.0", sha256_checksum: "fa7dff..." }
 ```
 
 ---
 
-## 4. Deterministic Platform Boot Failure Policy
+## 4. Platform Semantic Compatibility Matrix Rules
 
-During the startup sequence, validation failures map to strict **Boot Severity Levels**:
+During startup initialization, **SPD Platform Doctor** enforces explicit version compatibility rules:
+
+| Component Type | Compatibility Rule | Boot Violation Severity |
+|---|---|---|
+| **SPC Constitution** | Exact major/minor match required | **Critical** (Abort Boot) |
+| **KDS/SDS/IDS Standards**| Same major version (`1.x.x`) | **Critical** (Abort Boot) |
+| **Shared Business Kernels**| Compatible minor version (`^2.1.0`) | **Critical** (Abort Boot) |
+| **Business Studios** | Compatible with declared Kernel APIs | **Major** (Restricted Mode) |
+| **Industry Packs** | Declared compatible kernel range | **Major** (Restricted Mode) |
+| **External Connectors** | SIK/SMN API facade compatibility | **Minor** (Logged Warning) |
+
+---
+
+## 5. Deterministic Platform Boot Failure Policy
 
 | Boot Failure Severity | Governance Definition | Runtime System Behavior | Failure Examples |
 |---|---|---|---|
-| **Critical** | Core constitutional or kernel failure | **Abort Startup Immediately** | SPC missing, kernel manifest missing, dependency version mismatch |
-| **Major** | Non-core capability failure | **Start in Restricted / Read-Only Mode** | Optional studio missing, secondary connector offline |
+| **Critical** | Core constitutional, checksum, or kernel failure | **Abort Startup Immediately** | SPC missing, checksum mismatch, dependency version violation |
+| **Major** | Non-core studio or connector failure | **Start in Restricted / Read-Only Mode** | Optional studio missing, secondary connector offline |
 | **Minor** | Operational service degradation | **Continue Startup with Logged Warnings**| Telemetry collector unreached, non-critical cache miss |
 | **Info** | Non-blocking metric or doc gap | **Log Diagnostic Note Only** | Documentation link mismatch, non-semantic version note |
 
 ---
 
-## 5. Governance Authority Precedence Hierarchy
+## 6. Governance Authority Precedence Hierarchy
 
 1. **SPC (Platform Constitution):** Supreme architectural authority.
 2. **PRIG (Reference Implementation Guide):** Canonical implementation & coding standard.
@@ -104,19 +124,20 @@ During the startup sequence, validation failures map to strict **Boot Severity L
 
 ---
 
-## 6. Shared Platform Service: SPD Platform Doctor Service
+## 7. Shared Platform Service: SPD Platform Doctor Service
 
 Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** acts as the platform's self-healing diagnostic engine:
-- **Architecture Validation:** Asserts 7-layer boundary isolation.
-- **Dependency & Manifest Scan:** Validates `platform.manifest.yaml` & `kernel.manifest.yaml`.
+- **Checksum Integrity Audit:** Asserts SHA256 checksums across all manifests before loading.
+- **Compatibility Matrix Scan:** Validates version rules per Component Type (Exact vs Minor).
+- **Dependency Graph Audit:** Validates `platform.manifest.yaml` & `kernel.manifest.yaml`.
 - **License & ABAC Verification:** Validates tenant edition licenses and security RBAC/ABAC rules.
 - **Database & Schema Audit:** Asserts schema migration integrity across all kernels.
-- **Boot Severity Audit:** Enforces Critical, Major, Minor, and Info boot failure policies.
+- **Boot Failure Audit:** Enforces Critical, Major, Minor, and Info boot failure policies.
 - **Platform Health Report:** Generates an enterprise-ready certification report (`100% READY FOR PRODUCTION`).
 
 ---
 
-## 7. Baseline Structural Freeze & ADR Policy
+## 8. Baseline Structural Freeze & ADR Policy
 
 1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
 2. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
