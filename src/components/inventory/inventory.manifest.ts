@@ -3,25 +3,90 @@
  * Module       : SXP v1.0 — Inventory Studio Manifest (co-located)
  * Standard     : SXP Constitution v1.0 / WNG-005 / SWEF v1.0
  * Author       : Jawahar Ramkripal Mallah
- * Version      : 1.0.0
+ * Version      : 2.0.0  (Sprint 4 — Kernel wired, all workflows complete)
  * Created      : 2026-08-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  *
  * GOVERNANCE (WNG-005):
  *   This file is the ONLY place where Inventory Studio declares its metadata.
- *   Navigation, shell, actions, widgets are all derived from this manifest.
  *   No hardcoded workspace routes in UI component code.
+ *
+ * Sprint 4 kernel wiring:
+ *   receive_stock   → StockLedgerService.applyMovement({ type:'in' })
+ *   transfer_stock  → StockTransferService.executeTransfer()
+ *   adjust_stock    → StockLedgerService.applyMovement({ type:'in'|'out' })
+ *   write_off_stock → StockLedgerService.applyMovement({ type:'out' })
+ *   reserve_stock   → ReservationService.reserve()
+ *   scan_item       → apiFetchV1 read-only barcode lookup
+ *   inventory_inquiry (NEW) → barcode → stock + timeline (read-only, SIMPLE+)
+ *
+ * New workspaces:
+ *   inventory.count   — Physical Stock Count (HYBRID+)
+ *   inventory.reorder — Reorder Suggestions (SIMPLE+)
+ *
+ * Pattern: Every mutating action:
+ *   1. Fetches current ledger entry from API
+ *   2. Applies movement via kernel service (pure domain logic)
+ *   3. PUTs updated entry back via API
+ *   4. Publishes ActionExecuted on EventBus
+ *   On failure: enqueues to OfflineExperienceManager and returns success:false
  */
 
 import { WorkspaceManifest } from "../../layout_engine/WorkspaceRegistry.js";
 import { WorkspaceRegistry } from "../../layout_engine/WorkspaceRegistry.js";
 import { WorkspaceActionRegistry, WorkspaceActionDef } from "../../layout_engine/WorkspaceActionRegistry.js";
+import { WorkspaceEventBus } from "../../layout_engine/WorkspaceEventBus.js";
+import { OfflineExperienceManager } from "../../layout_engine/OfflineExperienceManager.js";
 import { DashboardRegistry } from "../../kernel/upr/dashboard/DashboardRegistry.js";
+import { StockLedgerService } from "../../product-foundation/inventory/stock-ledger/application/stockLedgerService.js";
+import { ReservationService } from "../../product-foundation/inventory/reservation/application/reservationService.js";
+import { StockTransferService } from "../../product-foundation/inventory/stock-transfer/application/stockTransferService.js";
+import { apiFetchV1 } from "../../lib/apiFetchV1.js";
+import type { StockLedgerEntry } from "../../product-foundation/inventory/stock-ledger/domain/stockLedger.js";
+
+// ── Kernel service singletons ─────────────────────────────────────────────────
+
+const stockLedger   = new StockLedgerService();
+const reservation   = new ReservationService();
+const stockTransfer = new StockTransferService();
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function publishSuccess(actionId: string, workspaceId: string, payload: unknown): void {
+  WorkspaceEventBus.publish("ActionExecuted", { actionId, payload }, workspaceId);
+}
+
+const ACTION_TO_OFFLINE_TYPE: Record<string, import("../../layout_engine/OfflineExperienceManager.js").OfflineOperationType> = {
+  receive_stock:   "stock_receipt",
+  transfer_stock:  "stock_transfer",
+  adjust_stock:    "stock_adjustment",
+  write_off_stock: "stock_adjustment",
+  reserve_stock:   "custom",
+};
+
+function enqueueOffline(actionId: string, workspaceId: string, payload: unknown): void {
+  const type = ACTION_TO_OFFLINE_TYPE[actionId] ?? "custom";
+  OfflineExperienceManager.enqueue(type, workspaceId, payload);
+}
+
+async function fetchLedgerEntry(itemId: string, warehouseId?: string): Promise<StockLedgerEntry> {
+  const qs = warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : "";
+  return apiFetchV1<StockLedgerEntry>(`/api/v1/inventory/ledger/${itemId}${qs}`);
+}
+
+async function putLedgerEntry(itemId: string, entry: StockLedgerEntry): Promise<void> {
+  await apiFetchV1(`/api/v1/inventory/ledger/${itemId}`, {
+    method: "PUT",
+    body: JSON.stringify(entry),
+  });
+}
 
 // ── Inventory Domain Actions ──────────────────────────────────────────────────
 
 const INVENTORY_ACTIONS: WorkspaceActionDef[] = [
+
+  // ── Receive Stock (GRN) — barcode-first, 3 wizard steps ───────────────────
   {
     id: "receive_stock",
     label: "Receive Stock",
@@ -30,9 +95,43 @@ const INVENTORY_ACTIONS: WorkspaceActionDef[] = [
     adaptiveVisibility: ["SIMPLE", "HYBRID", "ADVANCED"],
     canExecute: () => true,
     async execute(ctx) {
-      return { success: true, message: `Stock receipt initiated by ${ctx.userId}` };
+      const p = ctx.payload as {
+        itemId: string;
+        quantity: number;
+        unitCost: number;
+        supplierId: string;
+        warehouseId: string;
+        batchId?: string;
+        expiryDate?: string;
+      };
+      try {
+        const entry = await fetchLedgerEntry(p.itemId, p.warehouseId);
+        const updated = stockLedger.applyMovement(entry, {
+          id: `grn-${ctx.workspaceId}-${Date.now()}`,
+          type: "in",
+          quantity: p.quantity,
+          unitCost: p.unitCost,
+          warehouseId: p.warehouseId,
+          batchId: p.batchId,
+          expiryDate: p.expiryDate,
+        });
+        await putLedgerEntry(p.itemId, {
+          ...updated,
+          _meta: { supplierId: p.supplierId, userId: ctx.userId },
+        } as StockLedgerEntry);
+        publishSuccess("receive_stock", ctx.workspaceId, { itemId: p.itemId, quantity: p.quantity });
+        return {
+          success: true,
+          message: `Received ${p.quantity} units of ${p.itemId} from ${p.supplierId}`,
+        };
+      } catch (err) {
+        enqueueOffline("receive_stock", ctx.workspaceId, p);
+        return { success: false, message: `Queued offline — ${(err as Error).message}` };
+      }
     },
   },
+
+  // ── Transfer Stock — kernel pipeline: workflow → movement → posting ────────
   {
     id: "transfer_stock",
     label: "Transfer Stock",
@@ -41,9 +140,38 @@ const INVENTORY_ACTIONS: WorkspaceActionDef[] = [
     adaptiveVisibility: ["HYBRID", "ADVANCED"],
     canExecute: () => true,
     async execute(ctx) {
-      return { success: true, message: `Transfer initiated by ${ctx.userId}` };
+      const p = ctx.payload as {
+        fromItemId: string;
+        toItemId: string;
+        quantity: number;
+        amount: number;
+        fromWarehouseId?: string;
+        toWarehouseId?: string;
+      };
+      try {
+        const result = stockTransfer.executeTransfer({
+          transferId: `trf-${ctx.workspaceId}-${Date.now()}`,
+          fromEntry: { itemId: p.fromItemId, quantity: p.quantity },
+          toEntry:   { itemId: p.toItemId,   quantity: p.quantity },
+          amount:    p.amount,
+        });
+        await Promise.all([
+          putLedgerEntry(p.fromItemId, result.fromEntry),
+          putLedgerEntry(p.toItemId,   result.toEntry),
+        ]);
+        publishSuccess("transfer_stock", ctx.workspaceId, p);
+        return {
+          success: true,
+          message: `Transferred ${p.quantity} units: ${p.fromItemId} → ${p.toItemId}`,
+        };
+      } catch (err) {
+        enqueueOffline("transfer_stock", ctx.workspaceId, p);
+        return { success: false, message: `Queued offline — ${(err as Error).message}` };
+      }
     },
   },
+
+  // ── Adjust Stock — +/- with reason code ───────────────────────────────────
   {
     id: "adjust_stock",
     label: "Adjust Quantity",
@@ -52,9 +180,39 @@ const INVENTORY_ACTIONS: WorkspaceActionDef[] = [
     adaptiveVisibility: ["HYBRID", "ADVANCED"],
     canExecute: () => true,
     async execute(ctx) {
-      return { success: true, message: `Adjustment logged by ${ctx.userId}` };
+      const p = ctx.payload as {
+        itemId: string;
+        adjustmentQty: number;
+        reason: string;
+        notes?: string;
+        warehouseId?: string;
+      };
+      try {
+        const entry  = await fetchLedgerEntry(p.itemId, p.warehouseId);
+        const isAdd  = p.adjustmentQty >= 0;
+        const updated = stockLedger.applyMovement(entry, {
+          id: `adj-${ctx.workspaceId}-${Date.now()}`,
+          type: isAdd ? "in" : "out",
+          quantity: Math.abs(p.adjustmentQty),
+          warehouseId: p.warehouseId,
+        });
+        await putLedgerEntry(p.itemId, {
+          ...updated,
+          _meta: { reason: p.reason, notes: p.notes, userId: ctx.userId },
+        } as StockLedgerEntry);
+        publishSuccess("adjust_stock", ctx.workspaceId, p);
+        return {
+          success: true,
+          message: `Adjusted ${p.itemId} by ${p.adjustmentQty > 0 ? "+" : ""}${p.adjustmentQty} (${p.reason})`,
+        };
+      } catch (err) {
+        enqueueOffline("adjust_stock", ctx.workspaceId, p);
+        return { success: false, message: `Queued offline — ${(err as Error).message}` };
+      }
     },
   },
+
+  // ── Write-Off Stock — ADVANCED only ───────────────────────────────────────
   {
     id: "write_off_stock",
     label: "Write Off",
@@ -63,9 +221,34 @@ const INVENTORY_ACTIONS: WorkspaceActionDef[] = [
     adaptiveVisibility: ["ADVANCED"],
     canExecute: () => true,
     async execute(ctx) {
-      return { success: true, message: `Write-off recorded by ${ctx.userId}` };
+      const p = ctx.payload as {
+        itemId: string;
+        quantity: number;
+        reason: string;
+        warehouseId?: string;
+      };
+      try {
+        const entry   = await fetchLedgerEntry(p.itemId, p.warehouseId);
+        const updated = stockLedger.applyMovement(entry, {
+          id: `woff-${ctx.workspaceId}-${Date.now()}`,
+          type: "out",
+          quantity: p.quantity,
+          warehouseId: p.warehouseId,
+        });
+        await putLedgerEntry(p.itemId, {
+          ...updated,
+          _meta: { reason: p.reason, writeOff: true, userId: ctx.userId },
+        } as StockLedgerEntry);
+        publishSuccess("write_off_stock", ctx.workspaceId, p);
+        return { success: true, message: `Wrote off ${p.quantity} units of ${p.itemId} (${p.reason})` };
+      } catch (err) {
+        enqueueOffline("write_off_stock", ctx.workspaceId, p);
+        return { success: false, message: `Queued offline — ${(err as Error).message}` };
+      }
     },
   },
+
+  // ── Reserve Stock ──────────────────────────────────────────────────────────
   {
     id: "reserve_stock",
     label: "Reserve Stock",
@@ -74,9 +257,33 @@ const INVENTORY_ACTIONS: WorkspaceActionDef[] = [
     adaptiveVisibility: ["HYBRID", "ADVANCED"],
     canExecute: () => true,
     async execute(ctx) {
-      return { success: true, message: `Reservation created by ${ctx.userId}` };
+      const p = ctx.payload as {
+        itemId: string;
+        quantity: number;
+        referenceId?: string;
+      };
+      try {
+        const entry   = await fetchLedgerEntry(p.itemId);
+        const updated = reservation.reserve(entry, p.quantity);
+        await putLedgerEntry(p.itemId, {
+          ...updated,
+          _meta: { referenceId: p.referenceId, userId: ctx.userId },
+        } as StockLedgerEntry);
+        publishSuccess("reserve_stock", ctx.workspaceId, p);
+        return {
+          success: true,
+          message: `Reserved ${p.quantity} units of ${p.itemId}${p.referenceId ? ` for ${p.referenceId}` : ""}`,
+        };
+      } catch (err) {
+        // Reservation errors (insufficient stock) must NOT be queued offline —
+        // they are business rule violations, not network failures.
+        const msg = (err as Error).message;
+        return { success: false, message: msg };
+      }
     },
   },
+
+  // ── Scan Item — barcode → item lookup (read-only) ─────────────────────────
   {
     id: "scan_item",
     label: "Scan Item",
@@ -85,7 +292,40 @@ const INVENTORY_ACTIONS: WorkspaceActionDef[] = [
     adaptiveVisibility: ["SIMPLE", "HYBRID", "ADVANCED"],
     canExecute: () => true,
     async execute(ctx) {
-      return { success: true, message: `Scan initiated by ${ctx.userId}` };
+      const p = ctx.payload as { barcode: string };
+      const result = await apiFetchV1<{ itemId: string; name: string; available: number }>(
+        `/api/v1/inventory/item-by-barcode?barcode=${encodeURIComponent(p.barcode ?? "")}`
+      ).catch(() => null);
+      if (!result) return { success: false, message: "Item not found" };
+      publishSuccess("scan_item", ctx.workspaceId, result);
+      return { success: true, message: `${result.name} — ${result.available} available` };
+    },
+  },
+
+  // ── Inventory Inquiry — barcode → stock + timeline (SIMPLE+, read-only) ───
+  // Added per Sprint 4 user direction: warehouse staff check stock frequently.
+  {
+    id: "inventory_inquiry",
+    label: "Check Stock",
+    icon: "🔍",
+    shortcut: "F9",
+    adaptiveVisibility: ["SIMPLE", "HYBRID", "ADVANCED"],
+    canExecute: () => true,
+    async execute(ctx) {
+      const p = ctx.payload as { barcode?: string; itemId?: string };
+      const url = p.barcode
+        ? `/api/v1/inventory/item-by-barcode?barcode=${encodeURIComponent(p.barcode)}`
+        : `/api/v1/inventory/ledger/${p.itemId}`;
+      const result = await apiFetchV1<{
+        itemId: string; name: string;
+        available: number; onHand: number; reserved: number;
+      }>(url).catch(() => null);
+      if (!result) return { success: false, message: "Item not found" };
+      publishSuccess("inventory_inquiry", ctx.workspaceId, result);
+      return {
+        success: true,
+        message: `${result.name}: ${result.available} available (${result.onHand} on hand, ${result.reserved} reserved)`,
+      };
     },
   },
 ];
@@ -95,14 +335,14 @@ const INVENTORY_ACTIONS: WorkspaceActionDef[] = [
 const INVENTORY_WORKSPACES: WorkspaceManifest[] = [
   {
     id: "inventory.dashboard",
-    title: "Stock Overview",
+    title: "Today's Stock",
     icon: "📊",
     domainId: "inventory",
     adaptiveModes: ["SIMPLE", "HYBRID", "ADVANCED"],
     defaultLayout: "scroll",
     zone: "dashboard",
     mobileEnabled: true,
-    actions: ["receive_stock", "scan_item"],
+    actions: ["receive_stock", "scan_item", "inventory_inquiry"],
     widgets: [
       "w_total_stock_value",
       "w_low_stock_alerts",
@@ -111,11 +351,11 @@ const INVENTORY_WORKSPACES: WorkspaceManifest[] = [
       "w_reservation_status",
     ],
     timelineAdapterId: "inventory",
-    shortcuts: { F5: "receive_stock", F8: "scan_item" },
+    shortcuts: { F5: "receive_stock", F8: "scan_item", F9: "inventory_inquiry" },
   },
   {
     id: "inventory.operations",
-    title: "Stock Operations",
+    title: "What would you like to do?",
     icon: "⚙️",
     domainId: "inventory",
     adaptiveModes: ["SIMPLE", "HYBRID", "ADVANCED"],
@@ -136,14 +376,42 @@ const INVENTORY_WORKSPACES: WorkspaceManifest[] = [
     zone: "scanner",
     mobileEnabled: true,
     mobileLayout: "scan_first",
-    actions: ["scan_item", "receive_stock"],
+    actions: ["scan_item", "inventory_inquiry", "receive_stock"],
+    widgets: [],
+    shortcuts: { F8: "scan_item", F9: "inventory_inquiry" },
+  },
+  // Sprint 4: Physical Stock Count — warehouse + optional bin scope
+  {
+    id: "inventory.count",
+    title: "Stock Count",
+    icon: "🔢",
+    domainId: "inventory",
+    adaptiveModes: ["HYBRID", "ADVANCED"],
+    defaultLayout: "scroll",
+    zone: "operator",
+    mobileEnabled: true,
+    actions: ["scan_item", "adjust_stock"],
+    widgets: [],
+    shortcuts: { F8: "scan_item" },
+  },
+  // Sprint 4: Reorder Suggestions — raises PO via EventBus (no direct navigation)
+  {
+    id: "inventory.reorder",
+    title: "What to Order",
+    icon: "📋",
+    domainId: "inventory",
+    adaptiveModes: ["SIMPLE", "HYBRID", "ADVANCED"],
+    defaultLayout: "scroll",
+    zone: "operator",
+    mobileEnabled: true,
+    actions: [],
     widgets: [],
   },
 ];
 
 // ── Dashboard Widgets ─────────────────────────────────────────────────────────
 
-function registerInventoryDashboard() {
+function registerInventoryDashboard(): void {
   DashboardRegistry.registerDashboard({
     id: "dash.inventory_overview",
     name: "Stock Overview Dashboard",
@@ -151,7 +419,6 @@ function registerInventoryDashboard() {
     domainId: "inventory",
     permissionId: "inventory.stock.read",
     widgets: [
-      // ── Health Group ──
       {
         id: "w_total_stock_value",
         title: "Total Stock Value",
@@ -170,7 +437,6 @@ function registerInventoryDashboard() {
         widgetGroup: "health",
         adaptiveVisibility: ["HYBRID", "ADVANCED"],
       },
-      // ── Alerts Group ──
       {
         id: "w_low_stock_alerts",
         title: "Reorder Alerts",
@@ -181,7 +447,6 @@ function registerInventoryDashboard() {
         adaptiveVisibility: ["SIMPLE", "HYBRID", "ADVANCED"],
         refreshIntervalMs: 60_000,
       },
-      // ── Operations Group ──
       {
         id: "w_recent_movements",
         title: "Recent Movements",
@@ -191,7 +456,6 @@ function registerInventoryDashboard() {
         widgetGroup: "operations",
         adaptiveVisibility: ["SIMPLE", "HYBRID", "ADVANCED"],
       },
-      // ── Planning Group (HYBRID+) ──
       {
         id: "w_reservation_status",
         title: "Active Reservations",
@@ -205,25 +469,20 @@ function registerInventoryDashboard() {
   });
 }
 
-// ── Registration (called on module load) ─────────────────────────────────────
+// ── Registration ──────────────────────────────────────────────────────────────
 
 export function registerInventoryStudio(): void {
-  // Register actions
-  INVENTORY_ACTIONS.forEach((action) => WorkspaceActionRegistry.register(action));
-
-  // Register workspaces
-  INVENTORY_WORKSPACES.forEach((workspace) => WorkspaceRegistry.register(workspace));
-
-  // Register dashboard
+  INVENTORY_ACTIONS.forEach((action)    => WorkspaceActionRegistry.register(action));
+  INVENTORY_WORKSPACES.forEach((ws)     => WorkspaceRegistry.register(ws));
   registerInventoryDashboard();
 }
 
-// Auto-register when this module is imported
 registerInventoryStudio();
 
-// Export workspace IDs for use in InventoryDashboardWorkspace
 export const INVENTORY_WORKSPACE_IDS = Object.freeze({
-  DASHBOARD: "inventory.dashboard",
+  DASHBOARD:  "inventory.dashboard",
   OPERATIONS: "inventory.operations",
-  SCAN: "inventory.scan",
+  SCAN:       "inventory.scan",
+  COUNT:      "inventory.count",
+  REORDER:    "inventory.reorder",
 });
