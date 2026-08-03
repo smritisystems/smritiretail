@@ -5,116 +5,132 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 2.0.0
+  Version      : 2.1.0
   Created      : 2026-08-04
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal Architecture Specification
 -->
 
-# SMRITI Product Studio & PIM Engine Specification (PROD v2.0)
+# SMRITI Product Studio & Master Data Hub Specification (PROD v2.1)
 
-**Status:** FROZEN — Enterprise Product Information Management Specification v2.0 (2026-08-04)
-**Scope:** Single Source of Truth Product Catalog, Product Health Score, Governed Lifecycle, & Kernel Connectors
+**Status:** FROZEN — Enterprise Master Data Hub & Catalog Publisher Specification v2.1 (2026-08-04)
+**Scope:** Master Data Hub, Product Identity Service, Catalog Publisher, Completeness Rules, & Versioning
 
 ---
 
-## 1. Universal Product Single Source of Truth Architecture
+## 1. Product Studio v2.1 Master Data Hub Architecture
 
-`Product Studio v2.0` acts as the single source of truth for product data across the SMRITI Digital Commerce Platform. All transactional, operational, and channel capabilities consume `Product Studio v2.0` through immutable platform kernels:
+`Product Studio v2.1` expands from a standalone PIM engine into the centralized **Master Data Hub** for all product, category, brand, attribute, and identity entities across SMRITI Retail OS.
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
- │ SMRITI PRODUCT STUDIO V2.0 (SINGLE SOURCE OF TRUTH PIM ENGINE)          │
+ │ MASTER DATA HUB ARCHITECTURE (ENTERPRISE PRODUCT PLATFORM)              │
  ├────────────────────────────────────────────────────────────────────────┤
  │                                                                        │
  │                            PRODUCT STUDIO                              │
  │                                  │                                     │
- │       ┌──────────────────────────┼──────────────────────────┐          │
- │       │                          │                          │          │
- │   Purchase                  Sales / POS                 Inventory      │
- │       │                          │                          │          │
- │       └────────────────── SDK Document Kernel ──────────────┘          │
+ │ ┌────────────────────────────────┼──────────────────────────────────┐  │
+ │ │                                │                                  │  │
+ │ Product Master               Brand Master                    Category  │
+ │ │                                │                                  │  │
+ │ Supplier Master              Attribute Templates             Price Lists│
+ │ │                                │                                  │  │
+ │ Identity Service             Media Assets                    Tax Profile│
+ │ └────────────────────────────────┴──────────────────────────────────┘  │
  │                                  │                                     │
- │                        SBPK Printing Kernel                            │
+ │                           Catalog Publisher                            │
  │                                  │                                     │
- │                        SPPK Pricing Kernel                             │
- │                                  │                                     │
- │                        SIK Integration Kernel                          │
+ │        ┌─────────────────────────┼─────────────────────────┐           │
+ │        │                         │                         │           │
+ │       POS                      Sales                   Omnichannel     │
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Product Governed Lifecycle State Machine
+## 2. Product Identity Service & Multi-Barcode Registry
 
-Product catalog lifecycle transitions are governed strictly via **SDK Document Kernel (`SDK v1.0`)** and **Universal Workflow Registry (`UWR`)**:
+`Product Identity Service` centralizes all product SKU codes, barcodes, RFID tags, and external marketplace identifiers:
+
+| Identifier Type | Standard / Format | Target System Usage |
+|---|---|---|
+| **Primary SKU Code** | System Generated / Custom | Core Inventory Kernel & Transactions |
+| **EAN-13 / UPC Barcode** | International GTIN | Retail Counter POS & Scanner |
+| **Vendor Barcode** | Supplier Package Barcode | Purchase Inbound Receiving & GRN |
+| **Internal Barcode** | Custom Store Label | Internal Bin & Shelf Tagging |
+| **Carton / Pallet Code** | ITF-14 / GS1-128 | Warehouse Receiving & Pallet Moving |
+| **Marketplace SKU** | ASIN / FSN / Shopify ID | SIK Omnichannel Channel Sync |
+| **RFID Electronic Tag** | EPC Class 1 Gen 2 | High-Speed RFID Checkout & Audit |
+
+---
+
+## 3. Product Completeness Rules Engine
+
+Product activation from `Under Review` to `Active` state requires satisfying mandatory **Completeness Rules**:
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
- │ PRODUCT GOVERNED LIFECYCLE STATE MACHINE                               │
+ │ MANDATORY PRODUCT COMPLETENESS RULES (ACTIVATION BLOCKERS)             │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ [ ] Rule 1: Primary EAN-13 or SKU Code must be assigned & unique       │
+ │ [ ] Rule 2: Valid HSN/SAC code and GST tax rate profile assigned       │
+ │ [ ] Rule 3: Base UOM and packaging hierarchy conversion defined       │
+ │ [ ] Rule 4: Primary Buying Cost and Landed Cost defined                │
+ │ [ ] Rule 5: Standard MRP and Retail Selling Price defined in SPPK      │
+ │ [ ] Rule 6: Primary Supplier linked with MOQ and Lead Time             │
+ │ [ ] Rule 7: Primary High-Res product image uploaded to Media Library   │
+ │ [ ] Rule 8: Mandatory Industry Pack attributes completed               │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ Enforcement: Activation blocked if Product Health Score < 85%          │
+ └────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 4. Product Catalog Publisher Workflow
+
+The **Catalog Publisher Engine** controls publication releases to distribution channels:
+
+```text
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │ CATALOG PUBLISHER WORKFLOW                                             │
  ├────────────────────────────────────────────────────────────────────────┤
  │                                                                        │
- │   ┌───────────┐    Submit    ┌──────────────┐   Approve   ┌──────────┐ │
- │   │   DRAFT   ├─────────────►│ UNDER REVIEW ├────────────►│ APPROVED │ │
- │   └─────┬─────┘              └──────┬───────┘             └────┬─────┘ │
- │         │                           │                          │       │
- │         │ Cancel                    │ Reject                   │       │
- │         ▼                           ▼                          │ Activate
- │   ┌───────────┐              ┌──────────────┐                  ▼       │
- │   │ CANCELLED │              │   REJECTED   │             ┌──────────┐ │
- │   └───────────┘              └──────────────┘             │  ACTIVE  │ │
- │                                                           └────┬─────┘ │
- │                                                                │       │
- │                                                 Season / EOL   ▼       │
- │                                                           ┌──────────┐ │
- │                                                           │ SEASONAL │ │
- │                                                           └────┬─────┘ │
- │                                                                │       │
- │                                                                ▼       │
- │                                                           ┌──────────┐ │
- │                                                           │DISCONTINUED│
- │                                                           └────┬─────┘ │
- │                                                                │       │
- │                                                                ▼       │
- │                                                           ┌──────────┐ │
- │                                                           │ ARCHIVED │ │
- │                                                           └──────────┘ │
+ │  ┌────────────────┐     Publish     ┌──────────────────┐               │
+ │  │ PRODUCT STUDIO ├────────────────►│ CATALOG PUBLISHER│               │
+ │  └────────────────┘                 └────────┬─────────┘               │
+ │                                              │                         │
+ │        ┌─────────────────┬───────────────────┼──────────────────┐      │
+ │        │                 │                   │                  │      │
+ │        ▼                 ▼                   ▼                  ▼      │
+ │  ┌───────────┐    ┌─────────────┐    ┌──────────────┐    ┌───────────┐ │
+ │  │ POS STORE │    │ SALES BILL  │    │ SHOPIFY WEB  │    │ AMAZON    │ │
+ │  │ REGISTERS │    │ INVOICES    │    │ STORE FRONT  │    │MARKETPLACE│ │
+ │  └───────────┘    └─────────────┘    └──────────────┘    └───────────┘ │
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Product Health Score & Governance Index
-
-Product Studio v2.0 calculates an automated **Product Health Score (0–100%)** per SKU to enforce catalog completeness before active billing deployment:
+## 5. Product Studio v2.1 Workspace Architecture (13 Workspaces)
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
- │ PRODUCT HEALTH SCORE EVALUATION ALGORITHM (100% MAXIMUM SCORE)          │
+ │ PRODUCT STUDIO V2.1 WORKSPACE ARCHITECTURE                             │
  ├────────────────────────────────────────────────────────────────────────┤
- │ • Identity & Classification (Name, HSN Code, Category, Brand) ── [20%] │
- │ • Primary Barcode & SKU Code Verification                     ── [15%] │
- │ • Multi-Price Matrix (MRP, Cost, Retail, Wholesale Prices)    ── [15%] │
- │ • Multi-Supplier Assignment & Rate Matrix                     ── [10%] │
- │ • Primary & High-Res Product Media Asset                      ── [15%] │
- │ • GST Tax Rate & Statutory Compliance Badging                 ── [10%] │
- │ • Packaging Hierarchy & Base UOM Ratios                       ── [10%] │
- ├────────────────────────────────────────────────────────────────────────┤
- │ Target Health Threshold: ≥ 85% Required for Active Channel Distribution│
+ │ 1. Product Dashboard             ── (Catalog Health KPIs, Stock Value)  │
+ │ 2. Product Registry              ── (List Report & Multi-Facet Filters)│
+ │ 3. 5-Step Product Wizard         ── (Guided Creation Workflow)         │
+ │ 4. Product 360 Object Page       ── (16-Tab Enterprise Object Page)    │
+ │ 5. Variant & Matrix Manager      ── (Color/Size Grid & SKU Auto-Gen)   │
+ │ 6. Barcode & Label Center        ── (SBPK Thermal/ZPL Printing Engine) │
+ │ 7. Multi-Price Matrix             ── (MRP, Cost, Retail, Wholesale, Web)│
+ │ 8. Multi-Supplier Matrix         ── (MOQ, Lead Times, Supplier Rates)   │
+ │ 9. Media & Digital Asset Library ── (Images, 360 Spin, Video, Manuals)  │
+ │ 10. Industry Pack Extension      ── (Apparel, Medical, Gems, Electronics)│
+ │ 11. Product Governance Center    ── (Health Score & Completeness Rules) │
+ │ 12. Catalog Publisher            ── (Channel Releases & Sync Monitor)   │
+ │ 13. Product Reports & Analytics  ── (Universal Report Registry Engine) │
  └────────────────────────────────────────────────────────────────────────┘
 ```
-
----
-
-## 4. Product Relationship Matrix
-
-Product Studio v2.0 maintains structured product relationships across 8 relational dimensions:
-1. **Cross-Sell:** Suggested complementary items at counter checkout.
-2. **Up-Sell:** Higher margin premium tier alternatives.
-3. **Replacement / Substitute:** Equivalent SKU for out-of-stock items.
-4. **Accessory:** Required attachments or peripherals.
-5. **Bundle Component:** Composite SKU parts for Kitting/BOM assembly.
-6. **Parent Product:** Master style SKU for variant children.
-7. **Child Variant:** Specific Color/Size/Fit SKU.
-8. **Alternative Item:** Industry-compatible SKU equivalent.
