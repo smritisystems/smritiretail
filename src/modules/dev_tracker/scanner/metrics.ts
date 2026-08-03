@@ -433,7 +433,7 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
   );
 
   const developmentScore = Math.round((avgFrontend + avgBackend + avgDB + avgAPI) / 4);
-  const qualityScore = Math.max(0, 100 - (parsed.todosCount / 10) - (parsed.largeComponents.length * 2));
+  const qualityScore = Math.round(Math.max(0, 100 - (parsed.todosCount / 10) - (parsed.largeComponents.length * 2)));
   const testCoverage = avgTests;
   const documentation = avgDocs;
   const securityScore = avgSecurity;
@@ -523,10 +523,35 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
   const tsFiles = parsed.filesList.filter(f => f.endsWith(".ts") || f.endsWith(".tsx")).length;
   const adapterStats = defaultAdapterRegistry.getAdapterStatistics();
 
+  // Load Scan History for SDS v2.6 Trend & Diff Analysis
+  let history: ScanHistoryEntry[] = [];
+  const historyPath = path.resolve("docs/reports/history.json");
+  try {
+    if (fs.existsSync(historyPath)) {
+      history = JSON.parse(fs.readFileSync(historyPath, "utf8"));
+    }
+  } catch (e) {
+    console.warn("[SDIC Scanner] Failed to load history.json for trend calculation.");
+  }
+
+  const prevScan = history.length > 0 ? history[history.length - 1] : undefined;
+  const scanDiff: ScanDiff = {
+    previousTimestamp: prevScan?.timestamp,
+    dhiDelta: prevScan ? dhi - prevScan.dhi : 0,
+    routesDelta: 0,
+    modelsDelta: 0,
+    testsDelta: 0,
+    qualityDelta: prevScan ? Math.round(qualityScore - prevScan.qualityScore) : 0,
+    addedRoutes: [],
+    removedRoutes: [],
+    addedModels: [],
+    removedModels: []
+  };
+
   const fingerprint: ScannerFingerprint = {
-    version: "2.4.0",
+    version: "2.6.0",
     build: new Date().toISOString().split("T")[0].replace(/-/g, "."),
-    gitCommit: gitInfo.lastCommitHash || "143830d8",
+    gitCommit: gitInfo.lastCommitHash || "2e69caf9",
     rulesHash: "SHA256:e07acb20-sgs-v1.0",
     adapters: [
       { name: "FastAPI Adapter", status: "active" },
@@ -575,9 +600,10 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
     riskAnalysis,
     codeHealth,
     modules,
-    history: [],
+    history,
     fingerprint,
     scannerHealth,
-    architectureCoverage
+    architectureCoverage,
+    scanDiff
   };
 }

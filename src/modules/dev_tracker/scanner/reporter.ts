@@ -68,12 +68,14 @@ export function writeReports(res: ScanResult): void {
     fs.writeFileSync(historyFilePath, JSON.stringify(history, null, 2), "utf8");
   }
 
-  // 3. Generate and write the 16 reports (SDS v2.4)
+  // 3. Generate and write the 17 reports (SDS v2.6)
   const scannerHealthContent = templates.generateScannerHealthReport(res);
+  const scanDiffContent = templates.generateScanDiffReport(res);
 
   const reportsList = [
     { name: "DEVELOPMENT_STATUS.md", content: templates.generateDevelopmentStatus(res) },
     { name: "SCANNER_HEALTH.md", content: scannerHealthContent },
+    { name: "SCAN_DIFF.md", content: scanDiffContent },
     { name: "EXECUTIVE_SUMMARY.md", content: templates.generateExecutiveSummary(res) },
     { name: "MODULE_PROGRESS.md", content: templates.generateModuleProgress(res) },
     { name: "FEATURE_MATRIX.md", content: templates.generateFeatureMatrix(res) },
@@ -96,10 +98,13 @@ export function writeReports(res: ScanResult): void {
     fs.writeFileSync(reportPath, report.content, "utf8");
   }
 
-  // Also write master DEVELOPMENT_STATUS.md and SCANNER_HEALTH.md to the workspace root
+  // Also write master DEVELOPMENT_STATUS.md, SCANNER_HEALTH.md, and SCAN_DIFF.md to the workspace root
   const rootDevStatusPath = path.join(rootDir, "DEVELOPMENT_STATUS.md");
   fs.writeFileSync(rootDevStatusPath, templates.generateDevelopmentStatus(res), "utf8");
 
   const rootScannerHealthPath = path.join(rootDir, "SCANNER_HEALTH.md");
   fs.writeFileSync(rootScannerHealthPath, scannerHealthContent, "utf8");
+
+  const rootScanDiffPath = path.join(rootDir, "SCAN_DIFF.md");
+  fs.writeFileSync(rootScanDiffPath, scanDiffContent, "utf8");
 }

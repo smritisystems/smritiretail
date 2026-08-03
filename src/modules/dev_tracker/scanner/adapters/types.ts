@@ -36,6 +36,19 @@ export interface PipelineTimings {
   totalMs: number;
 }
 
+export interface ScanDiff {
+  previousTimestamp?: string;
+  dhiDelta: number;
+  routesDelta: number;
+  modelsDelta: number;
+  testsDelta: number;
+  qualityDelta: number;
+  addedRoutes: string[];
+  removedRoutes: string[];
+  addedModels: string[];
+  removedModels: string[];
+}
+
 export interface AdapterStatus {
   name: string;
   status: "active" | "disabled" | "failed";
