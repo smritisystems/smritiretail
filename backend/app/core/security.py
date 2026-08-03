@@ -1,27 +1,22 @@
 """
-Author & Creator:
-Jawahar Ramkripal Mallah
-
-Founder:
-SmritiSys
-AITDL Networks
-
-Role:
-Chief Systems Architect
-
-Web:
-smritisys.com | smritibooks.com | aitdl.com
-
-Email:
-jawahar.mallah@gmail.com
-
-Copyright © 2026 SmritiSys.
-All Rights Reserved.
+Project         : SMRITI Retail OS
+Organization    : SmritiSys
+Author          : Jawahar Ramkripal Mallah
+Designation     : Chief Systems Architect & Creator
+Email           : support@smritibooks.com
+Websites        : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version         : 3.32.0
+Created         : 2026-07-11
+Modified        : 2026-08-04
+Copyright       : © SMRITIBooks.com. All Rights Reserved.
+License         : Proprietary Commercial Software
+Classification  : Internal
 """
 
 from datetime import datetime, timezone, timedelta
 from typing import Optional
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError
 from fastapi import HTTPException
 from passlib.context import CryptContext
 from passlib.exc import MissingBackendError
@@ -158,7 +153,7 @@ def decode_token(token: str) -> dict:
             algorithms=[settings.JWT_ALGORITHM],
         )
         return payload
-    except JWTError:
+    except (PyJWTError, Exception):
         raise HTTPException(
             status_code=401,
             detail="Token is invalid or has expired. Please log in again.",
