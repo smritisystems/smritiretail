@@ -71,21 +71,21 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
  │ Warehouse    │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ Merchandising│     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ Pricing/Promo│     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
- │ Replenish    │     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
- │ Omnichannel │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
+ │ Replenish    │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ Omnichannel │     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
  └──────────────┴────────────┴───────────┴──────────┴──────────┴─────────────┴────────────┴───────────┘
 ```
 
 ---
 
-## 4. Next Milestone Target: Replenishment & Planning Studio v1.0
+## 4. Next Milestone Target: Omnichannel Commerce Studio v1.0
 
-Replenishment & Planning Studio v1.0 will execute certification under the exact 6-dimensional framework across 8 workspaces:
-1. Replenishment Dashboard & Inventory Health
-2. Demand Forecasting Engine
-3. Auto Reorder & Suggested Purchase Orders
-4. Min/Max Stock Planning & Lead Time Audit
-5. ABC & XYZ Inventory Classification Matrix
-6. Fast Movers, Slow Movers & Dead Stock Analysis
-7. Distribution & Inter-Branch Stock Allocation
-8. Replenishment Reports & Analytics
+Omnichannel Commerce Studio v1.0 will execute certification under the exact 6-dimensional framework across 8 workspaces:
+1. Omnichannel Dashboard & Order Pipeline
+2. Marketplace Integrations (Amazon, Flipkart, OpenCart)
+3. Web Store & Mobile App Orders
+4. WhatsApp Commerce & Conversational Billing
+5. Click & Collect (BOPIS — Buy Online Pick Up In Store)
+6. Ship from Store & Local Courier Routing
+7. Omnichannel Returns & Cross-Channel Refunds
+8. Omnichannel Analytics & Channel Performance
