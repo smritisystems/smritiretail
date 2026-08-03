@@ -22,7 +22,7 @@
 
 ## 1. Platform Vision & Identity Statement
 
-> **SMRITI Digital Commerce Platform OS** is a modular, multi-tenant, enterprise digital commerce operating system built on a strictly frozen 7-layer architecture, governed by constitutional engineering standards (KDS, SDS, RDS, BDS, NDS, IDS), powered by shared platform services and business kernels, and extended through certified business capability studios and distributed network nodes.
+> **SMRITI Digital Commerce Platform OS** is a modular, multi-tenant, enterprise digital commerce operating system built on a strictly frozen 7-layer architecture, governed by constitutional engineering standards (KDS, SDS, RDS, BDS, NDS, IDS, DDS), powered by shared platform services and business kernels, and extended through certified business capability studios and distributed network nodes.
 
 ---
 
@@ -48,200 +48,76 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ---
 
-## 3. Platform Deployment Topology: Professional Edition (DEFAULT BASELINE)
+## 3. Governance Standards Hierarchy (Including DDS v1.0)
 
-The **Professional Edition (5 Containers)** is the **DEFAULT PRODUCTION DEPLOYMENT** for SMRITI Retail OS across 95% of customer environments. It cleanly separates business logic execution from background processing and container responsibilities:
+Every layer and operational aspect derives its engineering authority from a dedicated governance standard:
+- **SPC (Platform Constitution):** Supreme architectural governance framework (`8732cb77`).
+- **PRIG (Reference Implementation Guide):** Canonical repo layout, coding rules, & OpenTelemetry standards.
+- **PCMM (Platform Capability Maturity Model):** L1 Foundation $\rightarrow$ L2 Operational $\rightarrow$ L3 Integrated $\rightarrow$ L4 Enterprise $\rightarrow$ L5 Ecosystem.
+- **DDS (Deployment Development Standard):** Governs Docker container contracts, readiness checks, volume mappings, and scaling rules.
+- **KDS (Kernel Development Standard):** Governs Level 3 Shared Business Kernels.
+- **SDS (Service Development Standard):** Governs Level 2 Shared Platform Services.
+- **RDS (Registry Development Standard):** Governs Level 5 Universal Registries.
+- **BDS (Business Studio Standard):** Governs Level 6 Business Capability Studios.
+- **NDS (Network Development Standard):** Governs Level 7 SMN Network Protocols.
+- **IDS (Integration Development Standard):** Governs REST APIs, GraphQL, Webhooks, OAuth, & external connectors.
+
+---
+
+## 4. Platform Deployment Topology: Professional Edition (DEFAULT BASELINE)
+
+The **Professional Edition (5 Containers)** is the **DEFAULT PRODUCTION DEPLOYMENT** for SMRITI Retail OS across 95% of customer environments:
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
  │ SMRITI PROFESSIONAL EDITION (DEFAULT 5-CONTAINER DOCKER TOPOLOGY)      │
  ├────────────────────────────────────────────────────────────────────────┤
- │ 1. smriti-web    ── Next.js Single Page UI, PWA & Mobile Web Layout    │
- │ 2. smriti-api    ── Stateless API: Platform OS, Boot Manager, SPD,     │
- │                     SDK/SLK/STK/SAK Kernels, Registries, All Studios    │
- │ 3. smriti-db     ── PostgreSQL Master Database                         │
- │ 4. smriti-redis  ── Cache, Queue, Pub/Sub, Sessions, Distributed Lock  │
- │ 5. smriti-worker  ── Background Worker: Scheduler, Automation, AI Jobs,│
- │                     Reports, PDF, WhatsApp, SMS, Email, Stock Sync     │
+ │ 1. smriti-db     ── PostgreSQL Master Database & Migrations            │
+ │ 2. smriti-redis  ── Cache, Queue, Pub/Sub, Sessions, & Distributed Lock│
+ │ 3. smriti-api    ── Stateless API: OS, Boot Manager, SPD Doctor, Kernels│
+ │ 4. smriti-worker ── Async Worker (Consumers) + Redis Leader Scheduler  │
+ │ 5. smriti-web    ── Next.js Single Page UI, PWA & Mobile Web Layout    │
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Container Responsibility Principle
+---
 
-| Container Name | Primary Responsibility | Stateless / Stateful | Scaling Strategy |
+## 5. Container Readiness Contracts & Health Check Standards (DDS v1.0)
+
+During container boot, every container MUST pass its mandatory **Readiness Check** before subsequent containers are started:
+
+| Boot Order | Container Name | Container Readiness Contract | Scaling Strategy |
 |---|---|---|---|
-| **`smriti-web`** | User Interface Rendering (Next.js/PWA) | Stateless | Horizontal Auto-Scale |
-| **`smriti-api`** | Business Logic, Kernels, Registries & OS | Stateless | Horizontal Auto-Scale |
-| **`smriti-db`** | Persistent Primary Data (PostgreSQL) | Stateful | Master-Replica Failover |
-| **`smriti-redis`** | Cache, Message Queue, Distributed Lock | Stateful | Redis Sentinel / Cluster |
-| **`smriti-worker`**| Asynchronous Jobs & Cron Scheduler | Stateless | Horizontal Worker Scale |
+| **1** | **`smriti-db`** | PostgreSQL accepts connections & schema migrations complete | Primary / Replica Failover |
+| **2** | **`smriti-redis`** | Redis PING succeeds & queue namespace initialized | Sentinel / Redis Cluster |
+| **3** | **`smriti-api`** | SPC loaded, manifests verified, SPD passed, `/health` = READY | Horizontal Stateless Auto-Scale |
+| **4** | **`smriti-worker`**| Redis Queue connected & Scheduler Leader elected via lock | Horizontal Worker Auto-Scale |
+| **5** | **`smriti-web`** | API reachability verified & Next.js assets loaded | Horizontal UI Auto-Scale |
 
-### Sequential Container Boot & Health Orchestration
+### Worker Scheduler Leader Election Architecture
 
-```text
- ┌────────────────────────────────────────────────────────────────────────┐
- │ SEQUENTIAL CONTAINER BOOT & HEALTH ORCHESTRATION                       │
- ├────────────────────────────────────────────────────────────────────────┤
- │ 1. smriti-db ──► 2. smriti-redis ──► 3. smriti-api (SPD Doctor Check)  │
- │              ──► 4. smriti-worker ──► 5. smriti-web (Expose Traffic)   │
- └────────────────────────────────────────────────────────────────────────┘
-```
-
-### Platform Deployment Editions Index
-
-| Edition Name | Default Status | Container Count | Deployment Scope |
-|---|---|---|---|
-| **Community Edition** | Optional | 3 Containers | `smriti-web`, `smriti-api`, `smriti-db` (Demos / Small Shops) |
-| **Professional Edition**| **DEFAULT (✅)** | **5 Containers** | **`smriti-web`, `smriti-api`, `smriti-db`, `smriti-redis`, `smriti-worker`** |
-| **Enterprise Edition** | Optional | 12–15 Containers| Professional + `gateway`, `search`, `smn`, `otel`, `prometheus`, `grafana`, `ai` |
+To enable horizontal worker scaling without duplicate cron execution:
+- **Queue Worker Mode (Multi-Instance):** Any number of `smriti-worker` instances process queued jobs in parallel (WhatsApp, SMS, Email, AI, PDF, Stock Sync).
+- **Scheduler Mode (Leader-Elected):** Exactly **ONE** worker instance acquires a Redis distributed lock (`smriti:scheduler:leader_lock`) to execute cron maintenance, retention, and backup tasks.
 
 ---
 
-## 4. Standardized Manifest Schema v1.0 (`smriti.manifest.v1`)
-
-Every deployable layer artifact MUST expose a standardized, checksum-verified, digitally signed, and auditable manifest following the `smriti.manifest.v1` schema with support for inheritance (`extends`), Scoped Dependencies, Capabilities, Startup Phase Enums (`00-core` to `50-connector`), Compatibility Profiles, Lock Files (`platform.lock.yaml`), and CI/CD Build Provenance:
-
-```yaml
-# SMRITI Platform Baseline Manifest v1.0
-manifest:
-  id: "urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
-  schema: "smriti.manifest.v1"
-  type: "platform"
-  extends: "smriti.enterprise.base.v1"
-  lifecycle:
-    state: "active" # Lifecycle State Machine: experimental -> active -> deprecated -> archived -> revoked
-
-identity:
-  name: "SMRITI Digital Commerce Platform OS"
-  vendor: "SmritiSys"
-  namespace: "smritibooks.platform.os"
-
-metadata:
-  version: "4.2.0"
-  issued: "2026-08-04T12:30:00Z"
-  deployment_edition: "Professional" # Default Edition
-
-build:
-  generated_by: "SmritiSys CI/CD Governance Pipeline v1.0"
-  pipeline: "release-main-v4.2"
-  commit: "a4fce7d3b2"
-  build_number: "4201"
-  validator: "SPD Validator v1.0"
-
-integrity:
-  algorithm: "SHA256"
-  checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-  dependency_graph_hash: "7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a"
-
-signature:
-  algorithm: "Ed25519"
-  key_id: "smriti-root-2026"
-  timestamp: "2026-08-04T12:30:05Z"
-  signature_bytes: "9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e"
-  certificate:
-    issuer: "SmritiSys Enterprise Certificate Authority"
-    serial: "2026-ROOT-001"
-
-trust:
-  level: "Root" # Trust Levels: Root | Enterprise | Partner | Community
-  policy: "strict"
-  revocation:
-    method: "CRL" # Methods: CRL | OCSP | Local | Bundle
-  trust_cache:
-    ttl: "300s"
-
-startup:
-  phase: "00-core" # Enums: 00-core | 10-registry | 20-service | 30-kernel | 40-studio | 50-connector
-  priority: 100 # Priority Range: 100 (Highest - Core) to 900 (Connectors)
-
-compatibility:
-  profile: "enterprise" # Profiles: community | enterprise | cloud | edge
-
-features:
-  ai: true
-  marketplace: true
-  telemetry: true
-
-capabilities:
-  provides:
-    - "platform-os"
-    - "digital-commerce-kernel-host"
-  requires:
-    - "relational-database"
-    - "redis-cache-queue"
-    - "opentelemetry-collector"
-
-dependencies:
-  required:
-    standards:
-      KDS: { version: "1.1.0", checksum: "a1b2c3...", policy: "same-major" }
-      SDS: { version: "1.0.0", checksum: "d4e5f6...", policy: "same-major" }
-      IDS: { version: "1.0.0", checksum: "7a8b9c...", policy: "same-major" }
-      BDS: { version: "1.0.0", checksum: "0e1f2a...", policy: "same-major" }
-      RDS: { version: "1.0.0", checksum: "3b4c5d...", policy: "same-major" }
-      NDS: { version: "1.0.0", checksum: "6e7f8a...", policy: "same-major" }
-    kernels:
-      SDK: { version: "1.0.0", checksum: "9b8a7c...", policy: "compatible-minor", trust_level: "Enterprise" }
-      SLK: { version: "1.0.0", checksum: "5d4c3b...", policy: "compatible-minor", trust_level: "Enterprise" }
-      STK: { version: "1.0.0", checksum: "2a1f0e...", policy: "compatible-minor", trust_level: "Enterprise" }
-      SAK: { version: "2.1.0", checksum: "fa7dff...", policy: "compatible-minor", trust_level: "Enterprise" }
-  optional:
-    services:
-      - "SAI-AI-Engine"
-```
-
----
-
-## 5. Governed Lifecycle State Machine
-
-Components transition through an explicit, governed **Lifecycle State Machine**:
-
-```text
- ┌────────────────────────────────────────────────────────────────────────┐
- │ GOVERNED LIFECYCLE STATE MACHINE                                       │
- ├────────────────────────────────────────────────────────────────────────┤
- │ experimental ──► active ──► deprecated ──► archived ──► revoked       │
- └────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 6. Deterministic Boot Manager Runtime Architecture
-
-The platform startup orchestrator cleanly decomposes into 11 specialized runtime components:
-
-```text
- ┌────────────────────────────────────────────────────────────────────────┐
- │ DETERMINISTIC BOOT MANAGER RUNTIME ARCHITECTURE                        │
- ├────────────────────────────────────────────────────────────────────────┤
- │ BOOT MANAGER -> Manifest Loader -> Manifest Inheritance Resolver      │
- │              -> Integrity Verifier (SHA256 & Dependency Graph Hash)    │
- │              -> Trust Manager (Ed25519 & Revocation)                   │
- │              -> Capability Resolver -> Dependency Resolver             │
- │              -> Compatibility Engine -> Startup Scheduler (Phase/Prior)│
- │              -> Component Loader -> SPD Platform Doctor Check          │
- │              -> Health & Telemetry Verification -> READY               │
- └────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 7. Deterministic Boot Failure Policy
+## 6. Deterministic Platform Boot Failure Policy
 
 | Boot Failure Severity | Governance Definition | Runtime System Behavior | Failure Examples |
 |---|---|---|---|
-| **Critical** | Core constitutional, key revocation, or kernel failure | **Abort Startup Immediately** | SPC missing, key revoked, signature invalid, graph hash mismatch |
+| **Critical** | Core constitutional, key revocation, or kernel failure | **Abort Startup Immediately** | SPC missing, key revoked, signature invalid, container check failed |
 | **Major** | Non-core studio or connector failure | **Start in Restricted / Read-Only Mode** | Optional studio missing, secondary connector offline |
 | **Minor** | Operational service degradation | **Continue Startup with Logged Warnings**| Telemetry collector unreached, non-critical cache miss |
 | **Info** | Non-blocking metric or doc gap | **Log Diagnostic Note Only** | Documentation link mismatch, non-semantic version note |
 
 ---
 
-## 8. Governance Authority Precedence Hierarchy
+## 7. Governance Authority Precedence Hierarchy
 
 1. **SPC (Platform Constitution):** Supreme architectural authority.
 2. **PRIG (Reference Implementation Guide):** Canonical implementation & coding standard.
-3. **Layer Governance Standards:** KDS, SDS, IDS, RDS, BDS, NDS.
+3. **Layer Governance Standards:** KDS, SDS, IDS, RDS, BDS, NDS, DDS.
 4. **Kernel Specifications:** Domain kernel design specifications.
 5. **Service Specifications:** Level 2 shared platform service specifications.
 6. **Studio Specifications:** Level 6 business capability studio specifications.
@@ -250,22 +126,21 @@ The platform startup orchestrator cleanly decomposes into 11 specialized runtime
 
 ---
 
-## 9. Shared Platform Service: SPD Platform Doctor Service
+## 8. Shared Platform Service: SPD Platform Doctor Service
 
 Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** acts as the platform's self-healing diagnostic engine:
 - **Manifest & Lock File Audit:** Validates `platform.manifest.yaml` and `platform.lock.yaml`.
 - **SHA256 & Dependency Graph Hash Verification:** Asserts payload and resolved graph hashes.
 - **Ed25519 Signature & Revocation Audit:** Verifies signatures, checks `key_id` against CRL/OCSP revocation sources.
-- **Container Responsibility & Stateless API Audit:** Asserts `smriti-api` statelessness and validates `smriti-worker` scheduler ownership.
-- **Sequential Boot Health Check:** Verifies container boot sequence (`db` $\rightarrow$ `redis` $\rightarrow$ `api` $\rightarrow$ `worker` $\rightarrow$ `web`).
-- **Compatibility Profile Verification:** Asserts environment profile (`enterprise`, `community`, `cloud`, `edge`).
+- **Container Readiness & DDS Audit:** Asserts container readiness contracts (`db` $\rightarrow$ `redis` $\rightarrow$ `api` $\rightarrow$ `worker` $\rightarrow$ `web`).
+- **Scheduler Leader Election Audit:** Verifies single-leader lock ownership (`smriti:scheduler:leader_lock`).
 - **Platform Health Report:** Generates an enterprise-ready certification report (`100% READY FOR PRODUCTION`).
 
 ---
 
-## 10. Baseline Structural Freeze & ADR Policy
+## 9. Baseline Structural Freeze & ADR Policy
 
-1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Professional Edition Deployment Topology (5 Containers), Container Responsibility Principle, Sequential Container Boot Order, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
+1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Professional Edition Deployment Topology (5 Containers), Container Readiness Contracts (DDS v1.0), Leader-Elected Worker Scheduler, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
 2. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
    - Introduction of a new Level 3 Shared Business Kernel or Level 2 Shared Service.
    - Breaking API changes to an existing public service facade (`KernelName.Service`).
