@@ -41,6 +41,26 @@ export interface OrderApprovedPayload {
   approvedAt: string;
 }
 
+/**
+ * PurchaseOrderRequested.v1
+ * Published by: inventory.reorder workspace (InventoryStudio)
+ * Consumed by:  PurchaseOrderRequestListener → PurchaseCommandFacade.createDraftPO()
+ *
+ * Sprint 5 — Inventory→Purchase event bridge.
+ * Payload is intentionally rich so Analytics, AI, and Notifications
+ * can also consume it without a schema change.
+ */
+export interface PurchaseOrderRequestedPayload {
+  skuId:        string;
+  warehouseId:  string;
+  suggestedQty: number;
+  reorderPoint: number;
+  availableQty: number;
+  requestedBy:  string;   // ctx.userId
+  source:       "InventoryStudio";
+  requestedAt:  string;   // ISO 8601
+}
+
 type EventListener<T = any> = (event: DomainEventEnvelope<T>) => void | Promise<void>;
 
 import logger from "../../core/logging/logger.js";

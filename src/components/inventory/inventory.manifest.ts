@@ -3,7 +3,7 @@
  * Module       : SXP v1.0 — Inventory Studio Manifest (co-located)
  * Standard     : SXP Constitution v1.0 / WNG-005 / SWEF v1.0
  * Author       : Jawahar Ramkripal Mallah
- * Version      : 2.0.0  (Sprint 4 — Kernel wired, all workflows complete)
+ * Version      : 2.1.0  (Sprint 5 — Inventory→Purchase event bridge)
  * Created      : 2026-08-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
@@ -19,11 +19,15 @@
  *   write_off_stock → StockLedgerService.applyMovement({ type:'out' })
  *   reserve_stock   → ReservationService.reserve()
  *   scan_item       → apiFetchV1 read-only barcode lookup
- *   inventory_inquiry (NEW) → barcode → stock + timeline (read-only, SIMPLE+)
+ *   inventory_inquiry → barcode → stock + timeline (read-only, SIMPLE+)
  *
- * New workspaces:
+ * Sprint 5 event bridge:
+ *   raise_reorder_po → DomainEventBus.publish("PurchaseOrderRequested.v1")
+ *                    → PurchaseOrderRequestListener → PurchaseCommandFacade.createDraftPO()
+ *
+ * Workspaces:
  *   inventory.count   — Physical Stock Count (HYBRID+)
- *   inventory.reorder — Reorder Suggestions (SIMPLE+)
+ *   inventory.reorder — Reorder Suggestions (SIMPLE+) [Sprint 5: event bridge active]
  *
  * Pattern: Every mutating action:
  *   1. Fetches current ledger entry from API
@@ -42,8 +46,10 @@ import { DashboardRegistry } from "../../kernel/upr/dashboard/DashboardRegistry.
 import { StockLedgerService } from "../../product-foundation/inventory/stock-ledger/application/stockLedgerService.js";
 import { ReservationService } from "../../product-foundation/inventory/reservation/application/reservationService.js";
 import { StockTransferService } from "../../product-foundation/inventory/stock-transfer/application/stockTransferService.js";
-import { apiFetchV1 } from "../../lib/apiFetchV1.js";
-import type { StockLedgerEntry } from "../../product-foundation/inventory/stock-ledger/domain/stockLedger.js";
+import { apiFetchV1 }                                  from "../../lib/apiFetchV1.js";
+import type { StockLedgerEntry }                        from "../../product-foundation/inventory/stock-ledger/domain/stockLedger.js";
+import { DomainEventBus }                               from "../../domains/events/DomainEventBus.js";
+import type { PurchaseOrderRequestedPayload }           from "../../domains/events/DomainEventBus.js";
 
 // ── Kernel service singletons ─────────────────────────────────────────────────
 
@@ -328,6 +334,55 @@ const INVENTORY_ACTIONS: WorkspaceActionDef[] = [
       };
     },
   },
+
+  // ── Raise Reorder PO — Sprint 5 Inventory→Purchase event bridge ───────────
+  // Publishes PurchaseOrderRequested.v1 to DomainEventBus.
+  // Consumed by: PurchaseOrderRequestListener → PurchaseCommandFacade.createDraftPO()
+  // This action contains ZERO purchase business logic — it only publishes an event.
+  {
+    id: "raise_reorder_po",
+    label: "Raise Purchase Order",
+    icon: "📦",
+    shortcut: "Ctrl+Alt+P",
+    adaptiveVisibility: ["SIMPLE", "HYBRID", "ADVANCED"],
+    canExecute: () => true,
+    async execute(ctx) {
+      const p = ctx.payload as {
+        skuId:        string;
+        warehouseId:  string;
+        suggestedQty: number;
+        reorderPoint: number;
+        availableQty: number;
+      };
+
+      if (!p.skuId?.trim())       return { success: false, message: "SKU is required." };
+      if (!(p.suggestedQty > 0))  return { success: false, message: "Suggested quantity must be > 0." };
+      if (!p.warehouseId?.trim()) return { success: false, message: "Warehouse is required." };
+
+      const eventPayload: PurchaseOrderRequestedPayload = {
+        skuId:        p.skuId,
+        warehouseId:  p.warehouseId,
+        suggestedQty: p.suggestedQty,
+        reorderPoint: p.reorderPoint ?? 0,
+        availableQty: p.availableQty ?? 0,
+        requestedBy:  ctx.userId,
+        source:       "InventoryStudio",
+        requestedAt:  new Date().toISOString(),
+      };
+
+      DomainEventBus.publish<PurchaseOrderRequestedPayload>(
+        "PurchaseOrderRequested.v1",
+        eventPayload,
+        "smriti-default",
+      );
+
+      publishSuccess("raise_reorder_po", ctx.workspaceId, eventPayload);
+      return {
+        success: true,
+        message: `Reorder request raised for ${p.skuId} — qty ${p.suggestedQty}. Purchase Studio notified.`,
+      };
+    },
+  },
 ];
 
 // ── Inventory Workspaces ──────────────────────────────────────────────────────
@@ -394,7 +449,8 @@ const INVENTORY_WORKSPACES: WorkspaceManifest[] = [
     widgets: [],
     shortcuts: { F8: "scan_item" },
   },
-  // Sprint 4: Reorder Suggestions — raises PO via EventBus (no direct navigation)
+  // Sprint 5: Reorder Suggestions — raise_reorder_po publishes PurchaseOrderRequested.v1
+  //           PurchaseOrderRequestListener receives → PurchaseCommandFacade.createDraftPO()
   {
     id: "inventory.reorder",
     title: "What to Order",
@@ -404,8 +460,9 @@ const INVENTORY_WORKSPACES: WorkspaceManifest[] = [
     defaultLayout: "scroll",
     zone: "operator",
     mobileEnabled: true,
-    actions: [],
-    widgets: [],
+    actions: ["raise_reorder_po"],
+    widgets: ["w_low_stock_alerts"],
+    shortcuts: { "Ctrl+Alt+P": "raise_reorder_po" },
   },
 ];
 
