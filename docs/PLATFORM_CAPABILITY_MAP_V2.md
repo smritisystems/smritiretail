@@ -5,16 +5,16 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 3.0.0
+  Version      : 3.1.0
   Created      : 2026-08-04
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal Architecture Capability Map
 -->
 
-# SMRITI Retail OS v3.0 Platform Capability Map & Architectural Index
+# SMRITI Retail OS v3.1 Platform Capability Map & Architectural Index
 
-**Status:** FROZEN — Enterprise Digital Commerce Platform Capability Map v3.0 (2026-08-04)
+**Status:** FROZEN — Enterprise Digital Commerce Platform Capability Map v3.1 (2026-08-04)
 **Classification:** Complete Architectural Index & Platform Topology
 
 ---
@@ -23,12 +23,12 @@
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
- │ SMRITI DIGITAL COMMERCE PLATFORM OS V3.0 ARCHITECTURE                  │
+ │ SMRITI DIGITAL COMMERCE PLATFORM OS V3.1 ARCHITECTURE                  │
  ├────────────────────────────────────────────────────────────────────────┤
  │ Level 1: Platform OS & UX (SXP v1.0, SEEF v1.0, SEDS v1.0, WNG)       │
- │ Level 2: Shared Platform Kernels (Inventory, SDK, SBPK, SIK, SPPK)     │
+ │ Level 2: Shared Platform Kernels (Inventory, SDK, SBPK, SIK, SPPK, SNK)│
  │ Level 3: Universal Registries (UFR, UWR, URR, USR, UPRT)               │
- │ Level 4: Enterprise Master Data Hub (MDH v3.0 Master Platform)         │
+ │ Level 4: Master Data Platform (MDP v3.1, RDH, MDGC Governance)         │
  │ Level 5: Enterprise Business Studios (12 Certified Studios)            │
  │ Level 6: External Integration Connectors (Statutory, Tally, Devices)   │
  └────────────────────────────────────────────────────────────────────────┘
@@ -45,6 +45,7 @@
 | **SBPK Printing Kernel v1.0** | 1D/2D Barcode generation, ESC/POS Thermal, ZPL, PDF/A | ✅ Certified (`20608f11`) |
 | **SIK Integration Kernel v1.0**| Statutory GSTN sync, Tally XML, WhatsApp, Scales, Shopify | ✅ Certified (`0f788354`) |
 | **SPPK Pricing Kernel v1.0** | Price lists, BOGO, Mix & Match, Happy Hours, Coupons | ✅ Certified (`9a2cddef`) |
+| **SNK Node Kernel v1.0** | Node identity, version reconciliation, multi-site sync | ✅ Certified (`c296bf4a`) |
 | **Universal Form Registry (UFR)**| Metadata-driven dynamic form layouts & field controls | ✅ Certified |
 | **Universal Workflow Registry (UWR)**| Entity state machines & role-based transition locks | ✅ Certified |
 | **Universal Report Registry (URR)**| Analytical query execution, PDF/Excel/CSV exports | ✅ Certified |
@@ -53,12 +54,21 @@
 
 ---
 
-## 3. Certified Enterprise Business Studios Index
+## 3. Master Data Platform (MDP v3.1) & Reference Data Hub
+
+| MDP Domain / Hub | Scope | Managed Master / Reference Entities | Status |
+|---|---|---|---|
+| **Master Data Platform (MDP v3.1)**| Master Platform | 7 Master Domains (Product, Customer, Supplier, WH, Finance, Org, Security) | ✅ Certified (`c296bf4a`) |
+| **Reference Data Hub (RDH)** | Reference Hub | GST Rates, HSN/SAC, UOM Ratios, Countries, States, Cities, Payment Terms | ✅ Certified (`c296bf4a`) |
+| **Master Data Governance (MDGC)**| Data Quality | Deduplication, Survivorship Merge, Reference Integrity Guards | ✅ Certified (`c296bf4a`) |
+
+---
+
+## 4. Certified Enterprise Business Studios Index
 
 | Business Studio Domain | Workspaces | Key Business Scenarios | Status |
 |---|---|---|---|
-| **Master Data Hub (MDH v3.0)**| Platform Hub | Single source for Product, Brand, Supplier, Customer | ✅ Certified (`2b85a2a0`) |
-| **Product / PIM Studio** | 13 Workspaces | 4-Level Identity, Health Score, 16-Tab Product 360 | ✅ Certified (`894ae924`) |
+| **Product / PIM Studio** | 13 Workspaces | MDP Domain Client, 4-Level Identity, Health Score, 16-Tab 360 | ✅ Certified (`894ae924`) |
 | **Inventory Studio** | 10 Workspaces | Stock ledgers, bin management, cycle counts | ✅ Certified |
 | **Purchase Studio** | 6 Workspaces | Procurement, PO approvals, 3-way match | ✅ Certified (`b406880f`) |
 | **Sales Studio** | 8 Workspaces | Order-to-Cash, tax invoices, customer credit | ✅ Certified (`aaa02cd1`) |
@@ -73,6 +83,6 @@
 
 ---
 
-## 4. Platform Freeze & Evolution Directives
+## 5. Platform Freeze & Evolution Directives
 
-> **Directive:** Platform OS v1.x, SXP, SEEF, SEDS, Master Data Hub (MDH v3.0), and shared kernels remain strictly frozen. Business capability development MUST consume these capabilities as generic facade clients.
+> **Directive:** Platform OS v1.x, SXP, SEEF, SEDS, Master Data Platform (MDP v3.1), RDH, MDGC, and shared kernels (Inventory, SDK, SBPK, SIK, SPPK, SNK) remain strictly frozen. Business capability development MUST consume these capabilities as generic facade clients.
