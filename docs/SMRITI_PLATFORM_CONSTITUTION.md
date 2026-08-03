@@ -48,9 +48,9 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ---
 
-## 3. Uniform Manifest Naming & Checksum Integrity Schema
+## 3. Uniform Manifest Naming & Checksum/Signature Schema
 
-Every layer artifact MUST expose a standardized, checksum-verified manifest:
+Every layer artifact MUST expose a standardized, checksum-verified, and digitally signed manifest:
 - `platform.manifest.yaml` (Top-Level Platform OS Manifest)
 - `service.manifest.yaml` (Level 2 Shared Service Manifests)
 - `kernel.manifest.yaml` (Level 3 Shared Kernel Manifests)
@@ -59,44 +59,50 @@ Every layer artifact MUST expose a standardized, checksum-verified manifest:
 - `connector.manifest.yaml` (Level 7 SMN Connector Manifests)
 - `industrypack.manifest.yaml` (Industry Extension Pack Manifests)
 
-### Top-Level Manifest Integrity Schema (`platform.manifest.yaml`)
+### Top-Level Manifest & Digital Signature Schema (`platform.manifest.yaml`)
 
 ```yaml
 # SMRITI Platform Baseline Manifest v1.0
 platform:
   constitution_version: "1.0.0"
   platform_os_version: "4.2.0"
-  sha256_checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  integrity:
+    algorithm: "SHA256"
+    checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  signature:
+    algorithm: "Ed25519"
+    signed_by: "SmritiSys Enterprise Authority"
+    signature_bytes: "9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e"
 
 standards:
-  KDS: { version: "1.1.0", sha256_checksum: "a1b2c3..." }
-  SDS: { version: "1.0.0", sha256_checksum: "d4e5f6..." }
-  IDS: { version: "1.0.0", sha256_checksum: "7a8b9c..." }
-  BDS: { version: "1.0.0", sha256_checksum: "0e1f2a..." }
-  RDS: { version: "1.0.0", sha256_checksum: "3b4c5d..." }
-  NDS: { version: "1.0.0", sha256_checksum: "6e7f8a..." }
+  KDS: { version: "1.1.0", checksum: "a1b2c3...", policy: "same-major" }
+  SDS: { version: "1.0.0", checksum: "d4e5f6...", policy: "same-major" }
+  IDS: { version: "1.0.0", checksum: "7a8b9c...", policy: "same-major" }
+  BDS: { version: "1.0.0", checksum: "0e1f2a...", policy: "same-major" }
+  RDS: { version: "1.0.0", checksum: "3b4c5d...", policy: "same-major" }
+  NDS: { version: "1.0.0", checksum: "6e7f8a...", policy: "same-major" }
 
 kernels:
-  SDK: { version: "1.0.0", sha256_checksum: "9b8a7c..." }
-  SLK: { version: "1.0.0", sha256_checksum: "5d4c3b..." }
-  STK: { version: "1.0.0", sha256_checksum: "2a1f0e..." }
-  SAK: { version: "2.1.0", sha256_checksum: "fa7dff..." }
+  SDK: { version: "1.0.0", checksum: "9b8a7c...", policy: "compatible-minor" }
+  SLK: { version: "1.0.0", checksum: "5d4c3b...", policy: "compatible-minor" }
+  STK: { version: "1.0.0", checksum: "2a1f0e...", policy: "compatible-minor" }
+  SAK: { version: "2.1.0", checksum: "fa7dff...", policy: "compatible-minor" }
 ```
 
 ---
 
-## 4. Platform Semantic Compatibility Matrix Rules
+## 4. Policy-Driven Declarative Compatibility Engine Rules
 
-During startup initialization, **SPD Platform Doctor** enforces explicit version compatibility rules:
+During startup initialization, **SPD Platform Doctor** evaluates declarative compatibility policies rather than hardcoded logic:
 
-| Component Type | Compatibility Rule | Boot Violation Severity |
-|---|---|---|
-| **SPC Constitution** | Exact major/minor match required | **Critical** (Abort Boot) |
-| **KDS/SDS/IDS Standards**| Same major version (`1.x.x`) | **Critical** (Abort Boot) |
-| **Shared Business Kernels**| Compatible minor version (`^2.1.0`) | **Critical** (Abort Boot) |
-| **Business Studios** | Compatible with declared Kernel APIs | **Major** (Restricted Mode) |
-| **Industry Packs** | Declared compatible kernel range | **Major** (Restricted Mode) |
-| **External Connectors** | SIK/SMN API facade compatibility | **Minor** (Logged Warning) |
+| Component Category | Policy Rule | Compatibility Policy Behavior | Boot Violation Severity |
+|---|---|---|---|
+| **SPC Constitution** | `policy: exact` | Exact major/minor version match required | **Critical** (Abort Boot) |
+| **KDS/SDS/IDS Standards**| `policy: same-major` | Same major version required (`1.x.x`) | **Critical** (Abort Boot) |
+| **Shared Business Kernels**| `policy: compatible-minor`| Compatible minor version required (`^2.1.0`)| **Critical** (Abort Boot) |
+| **Business Studios** | `policy: declared-api` | Compatible with declared Kernel APIs | **Major** (Restricted Mode) |
+| **Industry Packs** | `policy: declared-range`| Compatible with declared kernel range | **Major** (Restricted Mode) |
+| **External Connectors** | `policy: warning` | SIK/SMN API facade compatibility | **Minor** (Logged Warning) |
 
 ---
 
@@ -104,7 +110,7 @@ During startup initialization, **SPD Platform Doctor** enforces explicit version
 
 | Boot Failure Severity | Governance Definition | Runtime System Behavior | Failure Examples |
 |---|---|---|---|
-| **Critical** | Core constitutional, checksum, or kernel failure | **Abort Startup Immediately** | SPC missing, checksum mismatch, dependency version violation |
+| **Critical** | Core constitutional, checksum/signature, or kernel failure | **Abort Startup Immediately** | SPC missing, signature invalid, SHA256 mismatch, version violation |
 | **Major** | Non-core studio or connector failure | **Start in Restricted / Read-Only Mode** | Optional studio missing, secondary connector offline |
 | **Minor** | Operational service degradation | **Continue Startup with Logged Warnings**| Telemetry collector unreached, non-critical cache miss |
 | **Info** | Non-blocking metric or doc gap | **Log Diagnostic Note Only** | Documentation link mismatch, non-semantic version note |
@@ -128,7 +134,8 @@ During startup initialization, **SPD Platform Doctor** enforces explicit version
 
 Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** acts as the platform's self-healing diagnostic engine:
 - **Checksum Integrity Audit:** Asserts SHA256 checksums across all manifests before loading.
-- **Compatibility Matrix Scan:** Validates version rules per Component Type (Exact vs Minor).
+- **Ed25519 Digital Signature Verification:** Authenticates manifest signatures issued by SmritiSys Enterprise Authority.
+- **Declarative Compatibility Matrix Scan:** Evaluates policy rules per Component Category (`exact`, `same-major`, `compatible-minor`, `declared-api`, `warning`).
 - **Dependency Graph Audit:** Validates `platform.manifest.yaml` & `kernel.manifest.yaml`.
 - **License & ABAC Verification:** Validates tenant edition licenses and security RBAC/ABAC rules.
 - **Database & Schema Audit:** Asserts schema migration integrity across all kernels.
