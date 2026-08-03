@@ -19,7 +19,7 @@
 
 ---
 
-## 1. Platform v4.2 Architectural 7-Level Topology
+## 1. Platform v4.2 Architectural 7-Level Topology & Default Deployment
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
@@ -34,6 +34,9 @@
  │ Level 5: Universal Registries (UFR, UWR, URR, USR, UPRT, ULR, UEDF)     │
  │ Level 6: Enterprise Business Studios (13 Certified Business Studios)   │
  │ Level 7: Network & Connectors (SMN Network Protocol, SIK Connectors)   │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ DEFAULT DEPLOYMENT: Professional Edition (5 Docker Containers)         │
+ │ • smriti-web | smriti-api | smriti-db | smriti-redis | smriti-worker   │
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -43,10 +46,10 @@
 
 | Component / Standard | Acronym | Governance Scope & Architectural Role | Status |
 |---|---|---|---|
-| **Platform Constitution** | **SPC v1.0**| Phase Enums, Compatibility Profiles, Lock Files | ✅ Certified (`61bc1156`) |
-| **Reference Implementation**|**PRIG v1.0**| Canonical Repo Layout & Coding Guidelines | ✅ Certified (`61bc1156`) |
-| **Platform Doctor Service** |**SPD v1.0**| Level 2 Diagnostics, Lock File & Graph Hash Scan | ✅ Certified (`61bc1156`) |
-| **Platform Maturity Model** | **PCMM v1.0**| L1 Foundation -> L2 Oper -> L3 Integ -> L4 Ent -> L5 Ecosys | ✅ L4 Enterprise (`61bc1156`) |
+| **Platform Constitution** | **SPC v1.0**| Professional Edition Default (5-Container Topology)| ✅ Certified (`f70402d4`) |
+| **Reference Implementation**|**PRIG v1.0**| Canonical Repo Layout & Coding Guidelines | ✅ Certified (`f70402d4`) |
+| **Platform Doctor Service** |**SPD v1.0**| Level 2 Diagnostics & 5-Container Topology Audit | ✅ Certified (`f70402d4`) |
+| **Platform Maturity Model** | **PCMM v1.0**| L1 Foundation -> L2 Oper -> L3 Integ -> L4 Ent -> L5 Ecosys | ✅ L4 Enterprise (`f70402d4`) |
 | **Kernel Standard** | **KDS v1.1**| 15 Sections, 15 Principles, Dual Checklist, ADRs | ✅ Certified (`e07acb20`) |
 | **Integration Standard** | **IDS v1.0**| REST, GraphQL, Webhooks, OAuth, Connectors Standard | ✅ Certified (`b4afa62a`) |
 | **Service Standard** | **SDS v1.0**| Level 2 Shared Platform Services Standard | ✅ Certified (`e07acb20`) |
@@ -84,4 +87,4 @@
 
 ## 4. Platform Structural Freeze Directive
 
-> **Directive:** Platform OS v4.2, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), and Network & Connectors (Level 7) are **OFFICIALLY FROZEN**. No additional architectural layers will be introduced. Business capability development MUST consume these capabilities as generic facade clients.
+> **Directive:** Platform OS v4.2, Professional Edition Default Deployment (5 Containers), Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), and Network & Connectors (Level 7) are **OFFICIALLY FROZEN**. No additional architectural layers will be introduced. Business capability development MUST consume these capabilities as generic facade clients.
