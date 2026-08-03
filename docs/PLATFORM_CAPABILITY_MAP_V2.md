@@ -28,7 +28,7 @@
  │ Level 1: Platform Operating System (SXP, SEEF, SEDS, WNG, USR)         │
  │ Level 2: Shared Platform Services (SEB, SES, SNP, SWA, SAS, STS, SAI)  │
  │ Level 3: Shared Business Kernels (SDK, SBPK, SPPK, SIK, SNK, STK, SLK, │
- │          SAK Asset Kernel)                                             │
+ │          SAK Asset Kernel v1.1 Facade)                                 │
  │ Level 4: Master Data Platform (MDP v3.1, Reference Master Hub, MDGC)   │
  │ Level 5: Universal Registries (UFR, UWR, URR, USR, UPRT, ULR, UEDF)     │
  │ Level 6: Enterprise Business Studios (13 Certified Business Studios)   │
@@ -51,7 +51,7 @@
 | **Level 2: Shared Service** | **SAI** | AI demand forecasting, recommendations, document OCR | ✅ Certified (`1fd7d3a2`) |
 | **Level 3: Shared Kernel**  | **STK** | Universal GST, HSN validation, and tax rule engine | ✅ Certified (`d5da7922`) |
 | **Level 3: Shared Kernel**  | **SLK** | Immutable Stock, Customer, Supplier, & Financial Ledger | ✅ Certified (`d5da7922`) |
-| **Level 3: Shared Kernel**  | **SAK** | Fixed asset lifecycle, depreciation, & warranty engine | ✅ Certified (`3aba9c2f`) |
+| **Level 3: Shared Kernel**  | **SAK** | Fixed asset API facade, 10-state lifecycle, & identity | ✅ Certified (`9f92c5af`) |
 | **Level 3: Shared Kernel**  | **SNK** | Node identity, version reconciliation, & vector clock sync | ✅ Certified (`c296bf4a`) |
 | **Level 7: Network Protocol**| **SMN**| Node discovery, remote encrypted backup, deployment manager | ✅ Certified (`d5da7922`) |
 
