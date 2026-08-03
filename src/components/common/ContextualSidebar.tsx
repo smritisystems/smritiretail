@@ -115,7 +115,7 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
       <div className="p-3 border-b border-theme-divider flex items-center justify-between">
         {!collapsed && (
           <div className="flex items-center gap-2 overflow-hidden">
-            <span className="w-2 h-2 rounded-full bg-[#0a6ed1] shrink-0" />
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "var(--c-seef-accent)" }} />
             <span className="seds-text-overline text-theme-heading truncate">
               {activeDomain} Domain
             </span>
@@ -134,9 +134,14 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
       <div className="p-2 border-b border-theme-divider">
         <button
           onClick={onReturnToLaunchpad}
-          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg seds-text-button bg-[#0a6ed1]/10 text-[#0a6ed1] dark:text-[#6fa8dc] border border-[#0a6ed1]/30 hover:bg-[#0a6ed1]/20 transition-all ${
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg seds-text-button border transition-all ${
             collapsed ? "justify-center px-0" : ""
           }`}
+          style={{
+            background: "rgba(var(--c-seef-accent-rgb, 10 110 209) / 0.10)",
+            color: "var(--c-seef-accent)",
+            borderColor: "rgba(var(--c-seef-accent-rgb, 10 110 209) / 0.30)",
+          }}
           title="Return to SMRITI Launchpad"
         >
           <Grid size={18} className="shrink-0" />
@@ -159,9 +164,10 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
               }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg seds-text-small font-medium transition-all ${
                 isActive
-                  ? "bg-[#0a6ed1] text-white font-bold shadow-xs"
+                  ? "text-white font-bold shadow-xs"
                   : "text-theme-muted hover:text-theme-heading hover:bg-theme-surface-2"
               } ${collapsed ? "justify-center px-0" : ""}`}
+              style={isActive ? { background: "var(--c-seef-accent)" } : {}}
               title={collapsed ? item.title : undefined}
             >
               <Icon size={18} className="shrink-0" />
@@ -169,7 +175,10 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
                 <div className="flex-1 flex items-center justify-between truncate">
                   <span className="truncate">{item.title}</span>
                   {item.badge && (
-                    <span className="px-1.5 py-0.2 seds-text-overline rounded bg-[#0a6ed1]/20 text-[#0a6ed1] dark:text-[#6fa8dc]">
+                    <span
+            className="px-1.5 py-0.2 seds-text-overline rounded"
+            style={{ background: "rgba(var(--c-seef-accent-rgb, 10 110 209) / 0.20)", color: "var(--c-seef-accent)" }}
+          >
                       {item.badge}
                     </span>
                   )}

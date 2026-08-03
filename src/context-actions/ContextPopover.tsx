@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -114,9 +114,9 @@ export const ContextPopover: React.FC<ContextPopoverProps> = ({ onClose }) => {
         aria-label="Adaptive Context Action Menu"
       >
         {/* Context Information & Quick Header */}
-        <div className="px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/60 border-b border-theme-divider flex items-center justify-between">
+        <div className="px-3.5 py-2.5 bg-theme-surface-2 border-b border-theme-divider flex items-center justify-between">
           <div className="overflow-hidden">
-            <div className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 uppercase tracking-wider truncate">
+            <div className="text-[11px] font-semibold text-theme-primary uppercase tracking-wider truncate">
               {state.context.type} Operations
             </div>
             <div className="text-[9px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
@@ -128,7 +128,7 @@ export const ContextPopover: React.FC<ContextPopoverProps> = ({ onClose }) => {
           {/* Density Toggle Button */}
           <button
             onClick={() => setDensity(isComfortable ? "compact" : "comfortable")}
-            className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition"
+            className="p-1 rounded hover:bg-theme-surface-3 text-theme-muted hover:text-theme-primary transition"
             title="Toggle compact/comfortable density"
           >
             <SlidersHorizontal size={12} />
@@ -145,7 +145,7 @@ export const ContextPopover: React.FC<ContextPopoverProps> = ({ onClose }) => {
               placeholder="Search actions..."
               value={state.searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/80 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-slate-400"
+              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg pl-8 pr-3 py-1.5 text-xs text-theme-primary focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-theme-muted"
             />
           </div>
         </div>
@@ -169,7 +169,7 @@ export const ContextPopover: React.FC<ContextPopoverProps> = ({ onClose }) => {
                       ? "bg-blue-500 text-white"
                       : isRecommended
                       ? "bg-amber-500/5 hover:bg-amber-500/10"
-                      : "hover:bg-slate-100 dark:hover:bg-slate-800/60"
+                       : "hover:bg-theme-surface-2"
                   }`}
                   role="menuitem"
                   aria-disabled={typeof action.disabled === "function" ? action.disabled(state.context!) : !!action.disabled}
@@ -184,7 +184,7 @@ export const ContextPopover: React.FC<ContextPopoverProps> = ({ onClose }) => {
                           ? "text-white"
                           : isRecommended
                           ? "text-amber-500 animate-pulse"
-                          : "text-slate-400 dark:text-slate-500 group-hover:text-slate-600"
+                           : "text-theme-muted group-hover:text-theme-primary"
                       }`}
                     >
                       {action.icon}
@@ -196,8 +196,8 @@ export const ContextPopover: React.FC<ContextPopoverProps> = ({ onClose }) => {
                             isSelected
                               ? "text-white"
                               : isRecommended
-                              ? "text-amber-800 dark:text-amber-300"
-                              : "text-slate-700 dark:text-slate-200"
+                           ? "text-amber-800"
+                           : "text-theme-primary"
                           }`}
                         >
                           {action.label}
@@ -209,7 +209,7 @@ export const ContextPopover: React.FC<ContextPopoverProps> = ({ onClose }) => {
                       {isComfortable && action.description && (
                         <span
                           className={`text-[9px] truncate ${
-                            isSelected ? "text-blue-100" : "text-slate-400 dark:text-slate-500"
+                             isSelected ? "text-blue-100" : "text-theme-muted"
                           }`}
                         >
                           {action.description}
@@ -222,7 +222,7 @@ export const ContextPopover: React.FC<ContextPopoverProps> = ({ onClose }) => {
                   <div className="flex items-center gap-1 ml-2 flex-shrink-0">
                     {/* Render shortcut indicator */}
                     {action.shortcut && !isSelected && (
-                      <span className="text-[9px] font-mono border border-slate-200 dark:border-slate-800 rounded px-1 py-0.5 bg-slate-50 dark:bg-slate-900/80 text-slate-400">
+                      <span className="text-[9px] font-mono border border-theme-divider rounded px-1 py-0.5 bg-theme-surface-2 text-theme-muted">
                         {action.shortcut}
                       </span>
                     )}
@@ -238,12 +238,12 @@ export const ContextPopover: React.FC<ContextPopoverProps> = ({ onClose }) => {
                           e.stopPropagation();
                           toggleFavorite(action.id);
                         }}
-                        className={`p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition ${
+                        className={`p-1 rounded hover:bg-theme-surface-2 transition ${
                           isFav
                             ? "text-yellow-500"
                             : isSelected
                             ? "text-blue-200 hover:text-white"
-                            : "text-slate-300 dark:text-slate-600 hover:text-slate-500"
+                            : "text-theme-muted hover:text-theme-primary"
                         }`}
                         title="Add to Favorites"
                       >
@@ -254,12 +254,14 @@ export const ContextPopover: React.FC<ContextPopoverProps> = ({ onClose }) => {
                           e.stopPropagation();
                           togglePin(action.id);
                         }}
-                        className={`p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition ${
+                        className={`p-1 rounded hover:bg-theme-surface-2 transition ${
                           isPin
                             ? "text-blue-400"
                             : isSelected
                             ? "text-blue-200 hover:text-white"
-                            : "text-slate-300 dark:text-slate-600 hover:text-slate-500"
+                            : isSelected
+                            ? "text-blue-200 hover:text-white"
+                            : "text-theme-muted hover:text-theme-primary"
                         }`}
                         title="Pin this operation"
                       >
@@ -272,7 +274,7 @@ export const ContextPopover: React.FC<ContextPopoverProps> = ({ onClose }) => {
             })
           ) : (
             <div className="px-4 py-6 text-center text-slate-400 text-xs flex flex-col items-center gap-1">
-              <Keyboard size={16} className="text-slate-300 dark:text-slate-700" />
+              <Keyboard size={16} className="text-theme-muted" />
               <span>No applicable actions matching query.</span>
             </div>
           )}

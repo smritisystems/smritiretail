@@ -127,7 +127,7 @@ export const SUNEFNavigationBar: React.FC = () => {
 
         {/* Interactive History Dropdown Menu */}
         {showHistoryDropdown && (
-          <div className="absolute top-9 left-0 w-64 bg-[#1e293b] border border-slate-700 rounded-xl shadow-2xl z-50 p-2 text-xs font-sans text-slate-200">
+          <div className="absolute top-9 left-0 w-64 bg-theme-surface-2 border border-theme-divider rounded-xl shadow-2xl z-50 p-2 text-xs font-sans text-theme-primary">
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1 border-b border-slate-700 flex justify-between">
               <span>Navigation History (NHE)</span>
               <span>{historyStackData.items.length} Workspaces</span>
