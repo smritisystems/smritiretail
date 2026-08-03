@@ -5,8 +5,9 @@
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  */
 
-import { IAdapter, AdapterHealth } from "./types.ts";
+import { IAdapter, AdapterHealth, AdapterStatistics } from "./types.ts";
 import { EvidenceGraphContainer } from "./EvidenceGraph.ts";
+import { PersistentCacheSchema } from "./EvidenceCacheManager.ts";
 import { FastAPIAdapter } from "./FastAPIAdapter.ts";
 import { SQLAlchemyAdapter } from "./SQLAlchemyAdapter.ts";
 import { ReactAdapter } from "./ReactAdapter.ts";
@@ -101,6 +102,37 @@ export class AdapterRegistry {
         throughputFilesPerSec
       });
     }
+  }
+
+  public executeIncremental(
+    changedFileContentsMap: Map<string, string>,
+    cached: PersistentCacheSchema,
+    changes: { added: string[]; modified: string[]; deleted: string[]; unchanged: string[] },
+    evidenceGraph: EvidenceGraphContainer
+  ): void {
+    // 1. Rehydrate unchanged evidence from persistent cache
+    for (const file of changes.unchanged) {
+      const entry = cached.files[file];
+      if (entry && entry.evidenceItems) {
+        for (const item of entry.evidenceItems) {
+          const moduleId = this.inferModuleId(item.file);
+          evidenceGraph.addEvidence(moduleId, item);
+          if (item.category === "api") evidenceGraph.addDiscoveredRoute(item.file);
+          if (item.category === "database") evidenceGraph.addDiscoveredModel(item.file);
+          if (item.category === "testing") evidenceGraph.addDiscoveredTest(item.file);
+        }
+      }
+    }
+
+    // 2. Execute active adapters strictly on added and modified files
+    const targetsToProcess = new Map<string, string>();
+    for (const file of [...changes.added, ...changes.modified]) {
+      if (changedFileContentsMap.has(file)) {
+        targetsToProcess.set(file, changedFileContentsMap.get(file)!);
+      }
+    }
+
+    this.executeAll(targetsToProcess, evidenceGraph);
   }
 
   private inferModuleId(filePath: string): string {

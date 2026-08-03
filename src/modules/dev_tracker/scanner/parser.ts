@@ -62,6 +62,7 @@ export function getFilesRecursively(dir: string, extensions: string[] = [".ts", 
 
 import { defaultAdapterRegistry } from "./adapters/AdapterRegistry.ts";
 import { EvidenceGraphContainer } from "./adapters/EvidenceGraph.ts";
+import { EvidenceCacheManager } from "./adapters/EvidenceCacheManager.ts";
 
 export interface ParsedCodebase {
   filesList: string[];
@@ -197,9 +198,25 @@ export function parseCodebase(): ParsedCodebase {
     }
   }
 
-  // Execute Pluggable Adapter Registry Pipeline (SDS v2.3 / SADS v1.0)
+  // Execute Pluggable Adapter Registry Pipeline (SDS v2.5 / SADS v1.0 Incremental Engine)
   const evidenceGraph = new EvidenceGraphContainer();
-  defaultAdapterRegistry.executeAll(fileContentsMap, evidenceGraph);
+  const cacheManager = new EvidenceCacheManager();
+  const cached = cacheManager.loadCache();
+
+  const activeAdaptersObj: Record<string, string> = {};
+  defaultAdapterRegistry.getAdapters().forEach(a => { activeAdaptersObj[a.id] = a.version; });
+
+  if (cached) {
+    const changes = cacheManager.detectFileChanges(fileContentsMap, cached);
+    console.log(`[SDIC Cache] Incremental Scan: ${changes.modified.length} modified, ${changes.added.length} added, ${changes.deleted.length} deleted, ${changes.unchanged.length} unchanged.`);
+    defaultAdapterRegistry.executeIncremental(fileContentsMap, cached, changes, evidenceGraph);
+  } else {
+    console.log("[SDIC Scanner] Performing Full Workspace Scan...");
+    defaultAdapterRegistry.executeAll(fileContentsMap, evidenceGraph);
+  }
+
+  // Save updated persistent SHA-256 evidence cache
+  cacheManager.saveCache(fileContentsMap, evidenceGraph, activeAdaptersObj);
 
   return {
     filesList: allFiles.map(f => path.relative(rootDir, f).replace(/\\/g, "/")),
