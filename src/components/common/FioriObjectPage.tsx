@@ -13,11 +13,18 @@
 import React, { useState } from "react";
 import { ArrowLeft, Save, Trash2, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { useSEEF } from "../../layout_engine/SEEFContext.tsx";
+import { FeatureKey, adaptiveWorkspaceStore } from "../../layout_engine/adaptive_workspace_store.js";
 
 export interface ObjectPageTab {
   id: string;
   label: string;
   content: React.ReactNode;
+  /**
+   * SXP v1.0 — AdaptiveVisibilityRegistry gate.
+   * If set, this tab is auto-hidden below its canRender() threshold.
+   * Studios MUST NOT write if(mode==='ADVANCED') guards — set featureKey instead.
+   */
+  featureKey?: FeatureKey;
 }
 
 export interface ObjectPageMetric {
@@ -54,7 +61,16 @@ export const FioriObjectPage: React.FC<FioriObjectPageProps> = ({
   const [activeTabId, setActiveTabId] = useState<string>(tabs[0]?.id || "");
   const { config } = useSEEF();
 
-  const activeTabContent = tabs.find((t) => t.id === activeTabId)?.content;
+  // SXP v1.0 — Filter tabs via AdaptiveVisibilityRegistry (no inline mode checks)
+  const visibleTabs = tabs.filter(
+    (t) => !t.featureKey || adaptiveWorkspaceStore.canRender(t.featureKey)
+  );
+  // If current active tab was filtered out, default to first visible tab
+  const resolvedTabId = visibleTabs.find((t) => t.id === activeTabId)
+    ? activeTabId
+    : (visibleTabs[0]?.id ?? "");
+
+  const activeTabContent = visibleTabs.find((t) => t.id === resolvedTabId)?.content;
 
   const badgeColorMap = {
     success: { color: "var(--c-seef-success)", bg: "rgba(24,128,56,0.10)", border: "rgba(24,128,56,0.25)" },
@@ -252,8 +268,8 @@ export const FioriObjectPage: React.FC<FioriObjectPageProps> = ({
         overflowX: "auto",
         flexShrink: 0,
       }}>
-        {tabs.map((tab) => {
-          const active = activeTabId === tab.id;
+        {visibleTabs.map((tab) => {
+          const active = resolvedTabId === tab.id;
           return (
             <button
               key={tab.id}

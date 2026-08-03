@@ -1,14 +1,34 @@
 /**
  * Project      : SMRITI Application Platform (SMAP) v1.0
  * Module       : Universal Platform Registry (UPR) — Dashboard Registry (UDR-001)
- * Standard     : SMAP Constitution v1.0 — Rule SAP-018 (Metadata First) & UDR Standard v1.0
+ * Standard     : SMAP Constitution v1.0 / SXP v1.0 Extension
+ * Version      : 2.0.0 (SXP v1.0 Widget Engine extension)
  * Author       : Jawahar Ramkripal Mallah
  * License      : Proprietary Commercial Software
  */
 
 import { PlatformContext } from "../../context/PlatformContext.js";
+import { WorkspaceMode } from "../../../layout_engine/adaptive_workspace_store.js";
 
-export type WidgetType = "kpi_card" | "line_chart" | "bar_chart" | "pie_chart" | "table_summary";
+/**
+ * SXP v1.0 extended WidgetType.
+ * Plugin-registered types are added here via ExperiencePlugin.registerWidgetTypes().
+ * Existing types preserved intact.
+ */
+export type WidgetType =
+  // Legacy UDR types (preserved)
+  | "kpi_card" | "line_chart" | "bar_chart" | "pie_chart" | "table_summary"
+  // SXP v1.0 shared widget components (Phase 2)
+  | "summary_card" | "trend_card" | "action_card"
+  | "alert_card"   | "timeline_card" | "progress_card";
+
+/** Widget groups drive dashboard section rendering */
+export type WidgetGroup =
+  | "health"       // Stock health, availability, reservations
+  | "alerts"       // Expiry, reorder, lock violations
+  | "operations"   // Incoming, outgoing, transfers
+  | "planning"     // Reorder suggestions, demand forecast
+  | "insights";    // GMROI, Sell-Through, KPIs
 
 export interface DashboardWidget {
   id: string;             // Widget ID (e.g. "w_today_sales", "w_stock_alerts", "w_top_skus")
@@ -18,7 +38,11 @@ export interface DashboardWidget {
   entityId: string;       // Data source entity ID
   permissionId?: string;
   refreshIntervalMs?: number;
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
+  /** SXP v1.0: Modes in which this widget is rendered. Undefined = all modes. */
+  adaptiveVisibility?: WorkspaceMode[];
+  /** SXP v1.0: Groups this widget into a dashboard section */
+  widgetGroup?: WidgetGroup;
 }
 
 export interface DashboardDefinition {
