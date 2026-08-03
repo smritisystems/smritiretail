@@ -167,7 +167,7 @@ export interface ScanHistoryEntry {
   documentation: number;
 }
 
-import { EvidenceItem, ModuleEvidence, AdapterStatus, ScannerFingerprint, ScannerHealth, ArchitectureCoverage, ScanDiff } from "../scanner/adapters/types.ts";
+import { EvidenceItem, ModuleEvidence, AdapterStatus, ScannerFingerprint, ScannerHealth, ArchitectureCoverage, ScanDiff, ImpactAnalysisResult } from "../scanner/adapters/types.ts";
 
 export interface ScanResult {
   timestamp: string;
@@ -181,4 +181,5 @@ export interface ScanResult {
   scannerHealth: ScannerHealth;
   architectureCoverage: ArchitectureCoverage;
   scanDiff?: ScanDiff;
+  impactAnalysis?: ImpactAnalysisResult;
 }

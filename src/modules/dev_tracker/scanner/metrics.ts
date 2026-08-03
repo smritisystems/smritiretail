@@ -14,6 +14,7 @@
 import { ParsedCodebase } from "./parser.ts";
 import { ModuleStatus, CodeHealth, GitInfo, RiskAnalysis, ReleaseScores, ScanResult, ScanHistoryEntry } from "../models/interfaces.ts";
 import { defaultAdapterRegistry } from "./adapters/AdapterRegistry.ts";
+import { ModuleImpact, ImpactAnalysisResult, ScanDiff } from "./adapters/types.ts";
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
@@ -548,10 +549,57 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
     removedModels: []
   };
 
+  // SDS v2.7 Impact Analysis & Regression Severity Engine
+  const changedFiles = gitInfo.pendingFiles || [];
+  const impactedModules: ModuleImpact[] = [];
+  const regressionWarnings: string[] = [];
+
+  if (dhi < 70) {
+    regressionWarnings.push("Development Health Index (DHI) is below minimum release baseline (70%).");
+  }
+  if (parsed.todosCount > 50) {
+    regressionWarnings.push(`High TODO Debt count detected (${parsed.todosCount} TODO items across workspace).`);
+  }
+
+  const affectedModsSet = new Set<string>();
+  for (const f of changedFiles) {
+    const rel = f.toLowerCase().replace(/\\/g, "/");
+    if (rel.includes("pos") || rel.includes("billing")) affectedModsSet.add("pos");
+    if (rel.includes("item") || rel.includes("barcode")) affectedModsSet.add("item-master");
+    if (rel.includes("crm") || rel.includes("customer")) affectedModsSet.add("crm");
+    if (rel.includes("sales")) affectedModsSet.add("sales");
+    if (rel.includes("purchase")) affectedModsSet.add("purchase");
+  }
+
+  for (const modId of affectedModsSet) {
+    const mod = modules.find(m => m.id === modId);
+    impactedModules.push({
+      moduleId: modId,
+      moduleName: mod?.name || modId,
+      impactLevel: "MEDIUM",
+      affectedFiles: changedFiles.filter(f => f.toLowerCase().includes(modId)),
+      riskFactor: "Modified during active development sprint"
+    });
+  }
+
+  let overallRisk: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "CLEAN" = "CLEAN";
+  if (regressionWarnings.length > 1) overallRisk = "CRITICAL";
+  else if (regressionWarnings.length === 1) overallRisk = "HIGH";
+  else if (changedFiles.length > 10) overallRisk = "MEDIUM";
+  else if (changedFiles.length > 0) overallRisk = "LOW";
+
+  const impactAnalysis: ImpactAnalysisResult = {
+    overallRisk,
+    affectedModuleCount: impactedModules.length,
+    changedFileCount: changedFiles.length,
+    impactedModules,
+    regressionWarnings
+  };
+
   const fingerprint: ScannerFingerprint = {
-    version: "2.6.0",
+    version: "2.7.0",
     build: new Date().toISOString().split("T")[0].replace(/-/g, "."),
-    gitCommit: gitInfo.lastCommitHash || "2e69caf9",
+    gitCommit: gitInfo.lastCommitHash || "bc068815",
     rulesHash: "SHA256:e07acb20-sgs-v1.0",
     adapters: [
       { name: "FastAPI Adapter", status: "active" },
@@ -604,6 +652,7 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
     fingerprint,
     scannerHealth,
     architectureCoverage,
-    scanDiff
+    scanDiff,
+    impactAnalysis
   };
 }

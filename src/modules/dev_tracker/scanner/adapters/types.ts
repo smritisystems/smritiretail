@@ -36,6 +36,22 @@ export interface PipelineTimings {
   totalMs: number;
 }
 
+export interface ModuleImpact {
+  moduleId: string;
+  moduleName: string;
+  impactLevel: "HIGH" | "MEDIUM" | "LOW";
+  affectedFiles: string[];
+  riskFactor: string;
+}
+
+export interface ImpactAnalysisResult {
+  overallRisk: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "CLEAN";
+  affectedModuleCount: number;
+  changedFileCount: number;
+  impactedModules: ModuleImpact[];
+  regressionWarnings: string[];
+}
+
 export interface ScanDiff {
   previousTimestamp?: string;
   dhiDelta: number;
