@@ -5,16 +5,16 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 2.0.0
+  Version      : 2.1.0
   Created      : 2026-08-04
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal Architecture Capability Map
 -->
 
-# SMRITI Retail OS v2.0 Platform Capability Map & Architectural Index
+# SMRITI Retail OS v2.1 Platform Capability Map & Architectural Index
 
-**Status:** FROZEN — Enterprise Digital Commerce Platform Capability Map v2.0 (2026-08-04)
+**Status:** FROZEN — Enterprise Digital Commerce Platform Capability Map v2.1 (2026-08-04)
 **Classification:** Complete Architectural Index & Platform Topology
 
 ---
@@ -23,13 +23,14 @@
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
- │ SMRITI DIGITAL COMMERCE PLATFORM OS V2.0 ARCHITECTURE                  │
+ │ SMRITI DIGITAL COMMERCE PLATFORM OS V2.1 ARCHITECTURE                  │
  ├────────────────────────────────────────────────────────────────────────┤
  │ Level 1: Platform OS & UX (SXP v1.0, SEEF v1.0, SEDS v1.0, WNG)       │
  │ Level 2: Shared Platform Kernels (Inventory, SDK, SBPK, SIK, SPPK)     │
  │ Level 3: Universal Registries (UFR, UWR, URR, USR, UPRT)               │
- │ Level 4: Enterprise Business Studios (12 Certified Studios)            │
- │ Level 5: External Integration Connectors (Statutory, Tally, Devices)   │
+ │ Level 4: Enterprise Master Data Hub (Product Studio v2.1 PIM Platform) │
+ │ Level 5: Enterprise Business Studios (11 Certified Studios)            │
+ │ Level 6: External Integration Connectors (Statutory, Tally, Devices)   │
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -56,7 +57,7 @@
 
 | Business Studio Domain | Workspaces | Key Business Scenarios | Status |
 |---|---|---|---|
-| **Product / PIM Studio** | 11 Workspaces | Single Source of Truth, Health Score, 16-Tab Product 360 | ✅ Certified (`d950dfea`) |
+| **Product Master Data Hub** | 13 Workspaces | Master Data Hub, Identity Service, Catalog Publisher | ✅ Certified (`894ae924`) |
 | **Inventory Studio** | 10 Workspaces | Stock ledgers, bin management, cycle counts | ✅ Certified |
 | **Purchase Studio** | 6 Workspaces | Procurement, PO approvals, 3-way match | ✅ Certified (`b406880f`) |
 | **Sales Studio** | 8 Workspaces | Order-to-Cash, tax invoices, customer credit | ✅ Certified (`aaa02cd1`) |
@@ -73,4 +74,4 @@
 
 ## 4. Platform Freeze & Evolution Directives
 
-> **Directive:** Platform OS v1.x, SXP, SEEF, SEDS, and shared kernels (Inventory, SDK, SBPK, SIK, SPPK) remain strictly frozen. Business capability development MUST consume these capabilities as generic facade clients.
+> **Directive:** Platform OS v1.x, SXP, SEEF, SEDS, Product Master Data Hub, and shared kernels remain strictly frozen. Business capability development MUST consume these capabilities as generic facade clients.
