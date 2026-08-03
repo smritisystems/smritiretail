@@ -28,7 +28,7 @@
  │ Level 1: Platform Operating System (SXP, SEEF, SEDS, WNG, USR)         │
  │ Level 2: Shared Platform Services (SEB, SES, SNP, SWA, SAS, STS, SAI)  │
  │ Level 3: Shared Business Kernels (SDK, SBPK, SPPK, SIK, SNK, STK, SLK, │
- │          SAK Asset Kernel v2.1 Baseline)                               │
+ │          SAK Asset Kernel v2.1 KDS Baseline)                           │
  │ Level 4: Master Data Platform (MDP v3.1, Reference Master Hub, MDGC)   │
  │ Level 5: Universal Registries (UFR, UWR, URR, USR, UPRT, ULR, UEDF)     │
  │ Level 6: Enterprise Business Studios (13 Certified Business Studios)   │
@@ -42,6 +42,7 @@
 
 | Layer & Component | Acronym | Architectural Scope & Role | Status |
 |---|---|---|---|
+| **Kernel Development Standard**| **KDS v1.0**| 14-Section Kernel Structure & 10 Constitutional Principles | ✅ Certified (`c1435335`) |
 | **Level 2: Shared Service** | **SEB** | Asynchronous event bus (`product.updated`, `inventory.received`) | ✅ Certified (`a6f5880c`) |
 | **Level 2: Shared Service** | **SES** | Unified zero-latency search across products, barcodes, invoices | ✅ Certified (`a6f5880c`) |
 | **Level 2: Shared Service** | **SNP** | Multi-channel dispatcher (WhatsApp, SMS, Email, Push Alerts) | ✅ Certified (`a6f5880c`) |
@@ -51,7 +52,7 @@
 | **Level 2: Shared Service** | **SAI** | AI demand forecasting, recommendations, document OCR | ✅ Certified (`1fd7d3a2`) |
 | **Level 3: Shared Kernel**  | **STK** | Universal GST, HSN validation, and tax rule engine | ✅ Certified (`d5da7922`) |
 | **Level 3: Shared Kernel**  | **SLK** | Immutable Stock, Customer, Supplier, & Financial Ledger | ✅ Certified (`d5da7922`) |
-| **Level 3: Shared Kernel**  | **SAK** | Dual Lifecycle Engine & Categorized Platform Contracts | ✅ Certified (`fa7dff8c`) |
+| **Level 3: Shared Kernel**  | **SAK** | KDS v1.0 Compliant Engine, 10 Principles, Dual Lifecycle | ✅ Certified (`17b10ecf`) |
 | **Level 3: Shared Kernel**  | **SNK** | Node identity, version reconciliation, & vector clock sync | ✅ Certified (`c296bf4a`) |
 | **Level 7: Network Protocol**| **SMN**| Node discovery, remote encrypted backup, deployment manager | ✅ Certified (`d5da7922`) |
 
