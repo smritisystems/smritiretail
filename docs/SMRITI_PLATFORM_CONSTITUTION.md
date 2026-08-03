@@ -54,7 +54,7 @@ Every layer and operational aspect derives its engineering authority from a dedi
 - **SPC (Platform Constitution):** Supreme architectural governance framework (`8732cb77`).
 - **PRIG (Reference Implementation Guide):** Canonical repo layout, coding rules, & OpenTelemetry standards.
 - **PCMM (Platform Capability Maturity Model):** L1 Foundation $\rightarrow$ L2 Operational $\rightarrow$ L3 Integrated $\rightarrow$ L4 Enterprise $\rightarrow$ L5 Ecosystem.
-- **DDS (Deployment Development Standard):** Governs Docker container contracts, readiness checks, volume mappings, and scaling rules.
+- **DDS (Deployment Development Standard):** Governs Docker container contracts, readiness/health levels, graceful shutdown, and distributed leader election.
 - **KDS (Kernel Development Standard):** Governs Level 3 Shared Business Kernels.
 - **SDS (Service Development Standard):** Governs Level 2 Shared Platform Services.
 - **RDS (Registry Development Standard):** Governs Level 5 Universal Registries.
@@ -75,34 +75,47 @@ The **Professional Edition (5 Containers)** is the **DEFAULT PRODUCTION DEPLOYME
  │ 1. smriti-db     ── PostgreSQL Master Database & Migrations            │
  │ 2. smriti-redis  ── Cache, Queue, Pub/Sub, Sessions, & Distributed Lock│
  │ 3. smriti-api    ── Stateless API: OS, Boot Manager, SPD Doctor, Kernels│
- │ 4. smriti-worker ── Async Worker (Consumers) + Redis Leader Scheduler  │
+ │ 4. smriti-worker ── Async Worker + Distributed Leader Scheduler        │
  │ 5. smriti-web    ── Next.js Single Page UI, PWA & Mobile Web Layout    │
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 5. Container Readiness Contracts & Health Check Standards (DDS v1.0)
+## 5. Container Health Levels & Graceful Shutdown Contracts (DDS v1.0)
 
-During container boot, every container MUST pass its mandatory **Readiness Check** before subsequent containers are started:
+### A. Health State Levels
+Containers expose detailed `/health` status reports adhering to 6 canonical **Health Levels**:
+- **`STARTING`:** Container initializing; readiness check in progress.
+- **`READY`:** Fully functional; accepting production traffic.
+- **`DEGRADED`:** Partial capability degradation (e.g. Redis cache miss fallback to DB); traffic accepted with warning.
+- **`READONLY`:** Storage or database restriction mode; read transactions permitted; write transactions blocked.
+- **`STOPPING`:** Graceful shutdown sequence initiated; draining active jobs.
+- **`FAILED`:** Unrecoverable error; triggers container restart / failover.
 
-| Boot Order | Container Name | Container Readiness Contract | Scaling Strategy |
-|---|---|---|---|
-| **1** | **`smriti-db`** | PostgreSQL accepts connections & schema migrations complete | Primary / Replica Failover |
-| **2** | **`smriti-redis`** | Redis PING succeeds & queue namespace initialized | Sentinel / Redis Cluster |
-| **3** | **`smriti-api`** | SPC loaded, manifests verified, SPD passed, `/health` = READY | Horizontal Stateless Auto-Scale |
-| **4** | **`smriti-worker`**| Redis Queue connected & Scheduler Leader elected via lock | Horizontal Worker Auto-Scale |
-| **5** | **`smriti-web`** | API reachability verified & Next.js assets loaded | Horizontal UI Auto-Scale |
+### B. Graceful Shutdown Order (Reverse Boot Order)
+When a platform shutdown signal (`SIGTERM` / `SIGINT`) is received, containers execute **Graceful Shutdown** in reverse order to prevent data loss or corrupted transactions:
 
-### Worker Scheduler Leader Election Architecture
+```text
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │ DETERMINISTIC GRACEFUL SHUTDOWN ORDER (REVERSE BOOT ORDER)             │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ 1. smriti-web    ── Stop accepting new HTTP/PWA traffic                │
+ │ 2. smriti-worker ── Finish in-flight jobs, release scheduler lock, exit│
+ │ 3. smriti-api    ── Complete active API requests, flush logs, exit    │
+ │ 4. smriti-redis  ── Flush pending queues, save RDB snapshot, exit      │
+ │ 5. smriti-db     ── Close connection pools, execute final WAL, exit    │
+ └────────────────────────────────────────────────────────────────────────┘
+```
 
+### C. Distributed Leader Election Architecture
 To enable horizontal worker scaling without duplicate cron execution:
-- **Queue Worker Mode (Multi-Instance):** Any number of `smriti-worker` instances process queued jobs in parallel (WhatsApp, SMS, Email, AI, PDF, Stock Sync).
-- **Scheduler Mode (Leader-Elected):** Exactly **ONE** worker instance acquires a Redis distributed lock (`smriti:scheduler:leader_lock`) to execute cron maintenance, retention, and backup tasks.
+- **Queue Worker Mode (Multi-Instance):** Any number of `smriti-worker` instances process queued jobs in parallel.
+- **Scheduler Mode (Distributed Leader Lock):** Exactly **ONE** worker instance acquires an implementation-agnostic distributed leader lock (Redis Lock, Postgres Advisory Lock, or Kubernetes Lease) to execute scheduled tasks.
 
 ---
 
-## 6. Deterministic Platform Boot Failure Policy
+## 6. Deterministic Boot Failure Policy
 
 | Boot Failure Severity | Governance Definition | Runtime System Behavior | Failure Examples |
 |---|---|---|---|
@@ -132,15 +145,16 @@ Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagno
 - **Manifest & Lock File Audit:** Validates `platform.manifest.yaml` and `platform.lock.yaml`.
 - **SHA256 & Dependency Graph Hash Verification:** Asserts payload and resolved graph hashes.
 - **Ed25519 Signature & Revocation Audit:** Verifies signatures, checks `key_id` against CRL/OCSP revocation sources.
-- **Container Readiness & DDS Audit:** Asserts container readiness contracts (`db` $\rightarrow$ `redis` $\rightarrow$ `api` $\rightarrow$ `worker` $\rightarrow$ `web`).
-- **Scheduler Leader Election Audit:** Verifies single-leader lock ownership (`smriti:scheduler:leader_lock`).
+- **Health Level Audit:** Asserts health states (`STARTING`, `READY`, `DEGRADED`, `READONLY`, `STOPPING`, `FAILED`).
+- **Graceful Shutdown Audit:** Verifies reverse shutdown handling (`web` $\rightarrow$ `worker` $\rightarrow$ `api` $\rightarrow$ `redis` $\rightarrow$ `db`).
+- **Distributed Leader Lock Audit:** Verifies single-leader lock ownership across worker nodes.
 - **Platform Health Report:** Generates an enterprise-ready certification report (`100% READY FOR PRODUCTION`).
 
 ---
 
 ## 9. Baseline Structural Freeze & ADR Policy
 
-1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Professional Edition Deployment Topology (5 Containers), Container Readiness Contracts (DDS v1.0), Leader-Elected Worker Scheduler, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
+1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Professional Edition Deployment Topology (5 Containers), Graceful Shutdown Order, Health Levels, Distributed Leader Election, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
 2. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
    - Introduction of a new Level 3 Shared Business Kernel or Level 2 Shared Service.
    - Breaking API changes to an existing public service facade (`KernelName.Service`).
