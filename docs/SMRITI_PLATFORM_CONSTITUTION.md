@@ -35,7 +35,8 @@ All platform capabilities MUST be categorized into exactly one of the following 
  │ SMRITI DIGITAL COMMERCE PLATFORM OS ARCHITECTURAL TOPOLOGY             │
  ├────────────────────────────────────────────────────────────────────────┤
  │ Level 1: Platform Operating System (SXP, SEEF, SEDS, WNG, USR)         │
- │ Level 2: Shared Platform Services (SEB, SES, SNP, SWA, SAS, STS, SAI)  │
+ │ Level 2: Shared Platform Services (SEB, SES, SNP, SWA, SAS, STS, SAI,  │
+ │          SPD Platform Doctor Service)                                  │
  │ Level 3: Shared Business Kernels (SDK, SBPK, SPPK, SIK, SNK, STK, SLK, │
  │          SAK Asset Kernel)                                             │
  │ Level 4: Master Data Platform (MDP v3.1, Reference Master Hub, MDGC)   │
@@ -47,7 +48,24 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ---
 
-## 3. Platform Capability Maturity Model (PCMM v1.0 Implementation Maturity)
+## 3. Governance Authority Precedence Hierarchy
+
+In the event of any ambiguity, conflict, or contradiction across documentation or implementation code, the following strict **Authority Precedence Hierarchy** prevails:
+
+1. **SPC (Platform Constitution):** Supreme architectural authority.
+2. **PRIG (Reference Implementation Guide):** Canonical implementation & coding standard.
+3. **Layer Governance Standards:** KDS, SDS, IDS, RDS, BDS, NDS.
+4. **Kernel Specifications:** Domain kernel design specifications.
+5. **Service Specifications:** Level 2 shared platform service specifications.
+6. **Studio Specifications:** Level 6 business capability studio specifications.
+7. **Industry Packs:** Industry extension packs.
+8. **Implementation Code:** Executable codebase.
+
+> **Governance Directive:** If two documents conflict, the higher-ranked document prevails unless explicitly superseded by an approved Architecture Decision Record (ADR).
+
+---
+
+## 4. Platform Capability Maturity Model (PCMM v1.0)
 
 PCMM distinguishes **Designed Target Architecture** from **Audited Runtime Implementation Maturity**:
 
@@ -61,25 +79,42 @@ PCMM distinguishes **Designed Target Architecture** from **Audited Runtime Imple
 
 ---
 
-## 4. Automated Platform Startup Governance Order
+## 5. Automated Platform Initialization & Validation Sequence
 
-At application boot, the platform executes sequential **Automated Layer Validation**:
+At application startup, the platform cleanly separates **Loading Phase** from **Validation Phase**:
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
- │ AUTOMATED PLATFORM STARTUP GOVERNANCE ORDER                            │
+ │ AUTOMATED PLATFORM INITIALIZATION & VALIDATION SEQUENCE                │
  ├────────────────────────────────────────────────────────────────────────┤
  │ BOOT -> Load Constitution (SPC) -> Load Standards (KDS/SDS/RDS/BDS/NDS/IDS)
- │       -> Validate Registries (L5) -> Validate Services (L2)           │
- │       -> Validate Kernels (L3 Manifests) -> Validate Studios (L6)      │
- │       -> Validate Connectors (L7) -> Dependency & Compatibility Check │
- │       -> OpenTelemetry Health Check -> READY                           │
+ │       -> Load Registries (L5) -> Load Services (L2)                    │
+ │       -> Load Kernels (L3 Manifests) -> Load Studios (L6)              │
+ │       -> Load Connectors (L7) -> Validate Dependencies                 │
+ │       -> Validate Contracts & Compatibility -> SPD Platform Doctor Check
+ │       -> OpenTelemetry Runtime Health Check -> READY                   │
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 5. Platform Reference Implementation Guide (PRIG v1.0) & Certification Suite
+## 6. Shared Platform Service: SPD Platform Doctor Service
 
-- **PRIG Implementation Guidelines:** Defines canonical repository layout (`src/kernel/`, `src/services/`, `src/studios/`), coding conventions, dependency injection rules, database migration protocols, and OpenTelemetry tracing standards.
-- **Automated Certification Suite:** Evaluates overall platform compliance (`SPC`, `KDS`, `IDS`, `SDS`, `RDS`, `BDS`, `NDS`) generating an enterprise validation report (`ENTERPRISE VERIFIED`).
+Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** acts as the platform's self-healing diagnostic engine:
+- **Architecture Validation:** Asserts 7-layer boundary isolation.
+- **Dependency & Manifest Scan:** Validates `kernel.manifest.yaml` dependency graphs.
+- **License & ABAC Verification:** Validates tenant edition licenses and security RBAC/ABAC rules.
+- **Database & Schema Audit:** Asserts schema migration integrity across all kernels.
+- **Platform Health Report:** Generates an enterprise-ready certification report (`100% READY FOR PRODUCTION`).
+
+---
+
+## 7. Baseline Structural Freeze & ADR Policy
+
+1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
+2. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
+   - Introduction of a new Level 3 Shared Business Kernel or Level 2 Shared Service.
+   - Breaking API changes to an existing public service facade (`KernelName.Service`).
+   - Modification of cross-kernel transaction boundaries.
+   - Alteration of USR security ABAC policies or data isolation models.
+3. **Semantic Evolution Policy:** Routine bug fixes and non-breaking feature extensions use minor version increments (`v4.2.x`). Structural changes require a major version bump and an approved ADR.
