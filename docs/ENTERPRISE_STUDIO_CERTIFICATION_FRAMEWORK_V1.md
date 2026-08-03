@@ -40,12 +40,9 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
 
 ## 2. Platform Version Governance Policy
 
-### Platform OS v1.x (Frozen Operating System & Shared Kernels)
-- **Status:** Immutable Execution Environment.
-- **Shared Kernels:** Inventory Kernel v1.0, SDK v1.0 (Document), SBPK v1.0 (Printing), SIK v1.0 (Integration), SPPK v1.0 (Pricing & Promotion), Notification Kernel v1.0, Payment Kernel v1.0.
-- **Allowed Changes:** Critical security patches, bug fixes, performance optimizations.
-- **Forbidden Changes:** Breaking API changes, custom uncertified UI engine extensions, direct platform token modifications.
-- **Major Versioning:** Platform OS structural evolution requires an approved Architecture Decision Record (ADR) and a major version increment (e.g., Platform OS v2.0).
+### Platform OS v4.2 (Structural Freeze Governance Directive)
+- **Status:** Immutable Execution Environment (Strictly Frozen Architecture).
+- **Rule:** **No new architectural layers after v4.2.** All future capabilities MUST be implemented as Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data domains (Level 4), Universal Registries (Level 5), Business Studios (Level 6), or Network Connectors (Level 7).
 
 ---
 
@@ -67,6 +64,9 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
  │ SDK Kernel   │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ SIK Kernel   │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ SPPK Kernel  │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ STK Kernel   │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ SLK Kernel   │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ SAK Kernel   │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ CRM          │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ Accounting   │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ Warehouse    │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
@@ -74,11 +74,6 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
  │ Pricing/Promo│     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ Replenish    │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ Omnichannel │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ Asset Mgmt   │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  └──────────────┴────────────┴───────────┴──────────┴──────────┴─────────────┴────────────┴───────────┘
 ```
-
----
-
-## 4. Platform Architectural Maturity Statement
-
-With Product Studio & PIM Engine v1.0 certified, all core master data, shared kernels, universal registries, and business capability studios across the SMRITI Digital Commerce Platform ecosystem are 100% 6-Dimensionally Certified under Platform OS v1.x.
