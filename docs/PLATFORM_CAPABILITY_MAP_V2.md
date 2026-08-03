@@ -5,46 +5,49 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 4.0.0
+  Version      : 4.1.0
   Created      : 2026-08-04
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal Architecture Capability Map
 -->
 
-# SMRITI Digital Commerce Platform OS v4.0 Capability Map & Topology
+# SMRITI Digital Commerce Platform OS v4.1 Capability Map & Topology
 
-**Status:** FROZEN — Enterprise Digital Commerce Platform Topology v4.0 (2026-08-04)
+**Status:** FROZEN — Enterprise Digital Commerce Platform Topology v4.1 (2026-08-04)
 **Classification:** Complete Architectural Index & Platform Topology
 
 ---
 
-## 1. Platform v4.0 Architectural Topology
+## 1. Platform v4.1 Architectural 7-Level Topology
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
- │ SMRITI DIGITAL COMMERCE PLATFORM OS V4.0 ARCHITECTURE                  │
+ │ SMRITI DIGITAL COMMERCE PLATFORM OS V4.1 ARCHITECTURE                  │
  ├────────────────────────────────────────────────────────────────────────┤
- │ Level 1: Platform OS & UX (SXP v1.0, SEEF v1.0, SEDS v1.0, WNG)       │
- │ Level 2: Shared Platform Kernels (Inventory, SDK, SBPK, SIK, SPPK, SNK)│
- │ Level 3: Enterprise Services Layer (SEB, SES, SNP, SWA, AI Services)  │
+ │ Level 1: Platform Operating System (SXP, SEEF, SEDS, WNG, USR)         │
+ │ Level 2: Platform Enterprise Services (SEB, SES, SNP, SWA, SAS, STS, SAI)│
+ │ Level 3: Shared Platform Kernels (SDK, SBPK, SPPK, SIK, SNK, Inventory)│
  │ Level 4: Master Data Platform (MDP v3.1, RDH, MDGC Governance)         │
- │ Level 5: Universal Registries (UFR, UWR, URR, USR, UPRT)               │
- │ Level 6: Enterprise Business Studios (12 Certified Studios)            │
- │ Level 7: External Integration Connectors (Statutory, Tally, Devices)   │
+ │ Level 5: Universal Registries (UFR, UWR, URR, USR, UPRT, UEDF)         │
+ │ Level 6: Enterprise Business Studios (12 Certified Business Studios)   │
+ │ Level 7: SMN Network & External Connectors (SMN Hub, Tally, Devices)   │
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Enterprise Services Layer (ESL v4.0) Index
+## 2. Enterprise Services Layer (Level 2 Services) Index
 
-| Enterprise Service | Architectural Role | Status |
-|---|---|---|
-| **SEB — SMRITI Event Bus** | Asynchronous event bus (`product.updated`, `inventory.received`) | ✅ Certified (`a6f5880c`) |
-| **SES — SMRITI Search** | Global unified search engine across all master & transaction data | ✅ Certified (`a6f5880c`) |
-| **SNP — SMRITI Notifications**| Multi-channel dispatcher (WhatsApp, SMS, Email, Push Alerts) | ✅ Certified (`a6f5880c`) |
-| **SWA — SMRITI Automation** | Low-code workflow automation & event trigger rules | ✅ Certified (`a6f5880c`) |
+| Enterprise Service | Service Acronym | Architectural Role | Status |
+|---|---|---|---|
+| **SMRITI Event Bus** | **SEB** | Asynchronous event bus (`product.updated`, `inventory.received`) | ✅ Certified (`1fd7d3a2`) |
+| **SMRITI Enterprise Search**| **SES** | Unified zero-latency search across products, barcodes, invoices | ✅ Certified (`1fd7d3a2`) |
+| **SMRITI Notification** | **SNP** | Multi-channel dispatcher (WhatsApp, SMS, Email, Push Alerts) | ✅ Certified (`1fd7d3a2`) |
+| **SMRITI Workflow Automation**| **SWA** | Low-code rule automation & trigger workflows | ✅ Certified (`1fd7d3a2`) |
+| **SMRITI Audit Service** | **SAS** | Enterprise audit trail log for every record change & approval | ✅ Certified (`1fd7d3a2`) |
+| **SMRITI Task Scheduler** | **STS** | Recurring background jobs, night backups, message queues | ✅ Certified (`1fd7d3a2`) |
+| **SMRITI AI Platform** | **SAI** | AI demand forecasting, recommendations, document OCR | ✅ Certified (`1fd7d3a2`) |
 
 ---
 
@@ -70,4 +73,4 @@
 
 ## 4. Platform Freeze Directive
 
-> **Directive:** Platform OS v1.x, SXP, SEEF, SEDS, Shared Kernels, Enterprise Services Layer (ESL v4.0), and Master Data Platform (MDP v3.1) remain strictly frozen. Business capability development MUST consume these capabilities as generic facade clients.
+> **Directive:** Platform OS v1.x, SXP, SEEF, SEDS, Shared Kernels, Enterprise Services Layer (ESL v4.1), Master Data Platform (MDP v3.1), and SMN Network Layer remain strictly frozen. Business capability development MUST consume these capabilities as generic facade clients.
