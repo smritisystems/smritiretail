@@ -50,7 +50,7 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ## 3. Standardized Lock File Schema v1.0 (`smriti.lock.v1`)
 
-Every release build MUST generate an immutable, self-describing `smriti.lock.v1` snapshot capturing platform build fingerprints, per-module cryptographic signatures, compatibility baselines, and integrity hashes:
+Every release build MUST generate an immutable, self-describing `smriti.lock.v1` snapshot capturing platform build fingerprints, immutable container image digests, database migration locks, per-module cryptographic signatures, compatibility baselines, and integrity hashes:
 
 ```yaml
 # SMRITI Platform Immutable Lock File v1.0
@@ -68,13 +68,18 @@ platform_build:
     frontend: "e2aa9921"
     docs: "83013a75"
 
+database:
+  migration:
+    current: "2026_08_04_001_core_schema"
+    required: "2026_08_04_001_core_schema"
+    hash: "sha256:fa7dff2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c"
+
 integrity:
   constitution_hash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   manifest_hash: "sha256:7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a"
   api_facade_hash: "sha256:2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3f"
   registry_hash: "sha256:9b8a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b"
   dependency_graph_hash: "sha256:5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c"
-  database_schema_hash: "sha256:fa7dff2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c"
   ui_tokens_hash: "sha256:0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f"
 
 compatibility:
@@ -84,11 +89,26 @@ compatibility:
   minimum_worker: "4.2.0"
 
 containers:
-  - "smriti-web"
-  - "smriti-api"
-  - "smriti-db"
-  - "smriti-redis"
-  - "smriti-worker"
+  smriti-web:
+    image: "ghcr.io/smritisys/smriti-web"
+    tag: "4.2.0"
+    digest: "sha256:a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
+  smriti-api:
+    image: "ghcr.io/smritisys/smriti-api"
+    tag: "4.2.0"
+    digest: "sha256:b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3"
+  smriti-db:
+    image: "ghcr.io/smritisys/smriti-db"
+    tag: "16-alpine"
+    digest: "sha256:c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4"
+  smriti-redis:
+    image: "ghcr.io/smritisys/smriti-redis"
+    tag: "7-alpine"
+    digest: "sha256:d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5"
+  smriti-worker:
+    image: "ghcr.io/smritisys/smriti-worker"
+    tag: "4.2.0"
+    digest: "sha256:e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6"
 
 standards:
   KDS: "1.1.0"
@@ -124,13 +144,13 @@ Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagno
 
 | Drift Dimension | Evaluated Scope | Governance Action on Violation |
 |---|---|---|
-| **1. Container Drift** | Unauthorized/missing Docker containers | Critical Boot Failure (Abort) |
+| **1. Container Drift** | Container image tag/digest mismatch | Critical Boot Failure (Abort) |
 | **2. Manifest Drift** | Unsigned/modified manifest files | Critical Boot Failure (Abort) |
 | **3. API Drift** | Unauthorized facade signature changes | Critical Boot Failure (Abort) |
 | **4. Dependency Drift** | Resolved graph mismatch against lock file | Critical Boot Failure (Abort) |
 | **5. Registry Drift** | Unapproved UPR registry modifications | Critical Boot Failure (Abort) |
 | **6. Security Drift** | Key ID revocation or certificate drift | Critical Boot Failure (Abort) |
-| **7. DB Schema Drift** | Uncommitted/manual database migrations | Major Warning (Restricted Mode)|
+| **7. DB Schema Drift** | DB migration version mismatch | Major Warning (Restricted Mode)|
 | **8. Config Drift** | Environment variable mismatch | Minor Warning (Log Note) |
 | **9. Feature Flag Drift**| Unapproved runtime toggle state | Minor Warning (Log Note) |
 | **10. UI Token Drift** | Unauthorized CSS design token edits | Minor Warning (Log Note) |
