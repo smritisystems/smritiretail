@@ -167,11 +167,9 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
       mobileComplete = content.includes("sm:") || content.includes("md:") || content.includes("hidden lg:flex");
     }
 
-    // 2. Backend (FastAPI Python / Express Node)
-    const serverContent = parsed.fileContentsMap.get("server.ts") || "";
+    // 2. Backend (FastAPI Python Architecture)
     const pyApiFiles = parsed.filesList.filter(f => f.startsWith("backend/app/api/"));
-    const backendStarted = map.routeKeywords.some(rt => serverContent.includes(rt)) ||
-                           parsed.routesInServer.some(srvRt => map.routeKeywords.some(rt => srvRt.includes(rt) || rt.includes(srvRt))) ||
+    const backendStarted = parsed.routesInServer.some(srvRt => map.routeKeywords.some(rt => srvRt.includes(rt) || rt.includes(srvRt))) ||
                            pyApiFiles.some(f => map.routeKeywords.some(rt => f.toLowerCase().includes(rt.replace("/api/", "").replace("/v1/", ""))));
     let backendComplete = false;
     let apiComplete = false;
@@ -181,7 +179,7 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
     let authenticationComplete = false;
     let authorizationComplete = false;
 
-    // Check if routes are registered in server.ts or parsed FastAPI routesInServer
+    // Check if routes are registered in parsed FastAPI routesInServer
     const registeredRoutes = map.routeKeywords.filter(rt => 
       parsed.routesInServer.some(srvRt => srvRt.includes(rt) || rt.includes(srvRt)) ||
       pyApiFiles.some(f => f.toLowerCase().includes(rt.replace("/api/", "").replace("/v1/", "")))
@@ -189,7 +187,7 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
     apiComplete = registeredRoutes.length > 0;
     
     if (apiComplete || backendStarted) {
-      backendComplete = true; // server route or FastAPI module implementation exists
+      backendComplete = true;
       businessLogicComplete = true;
       validationComplete = true;
       securityComplete = true;
@@ -197,7 +195,7 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
       authorizationComplete = true;
     }
 
-    // 3. Database (PostgreSQL SQLAlchemy models or legacy schema)
+    // 3. Database (PostgreSQL SQLAlchemy models)
     const databaseComplete = map.tableKeywords.length === 0 || map.tableKeywords.some(tbl => 
       parsed.tablesInDb.includes(tbl) || 
       parsed.filesList.some(f => f.startsWith("backend/app/models/") && f.toLowerCase().includes(tbl.replace("_", "")))
@@ -219,7 +217,7 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
     const documentationComplete = !!docFile;
 
     // Quality metrics & QA Complete
-    const qaComplete = unitTestsComplete && !serverContent.includes("TODO");
+    const qaComplete = unitTestsComplete;
     const performanceComplete = frontendFile ? (parsed.fileContentsMap.get(frontendFile) || "").includes("debounce") || (parsed.fileContentsMap.get(frontendFile) || "").includes("useMemo") : false;
     const productionReady = frontendComplete && backendComplete && databaseComplete && unitTestsComplete && documentationComplete;
 

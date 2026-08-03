@@ -1,6 +1,6 @@
 # SMRITI Feature & Capabilities Matrix
 
-*Generated: 2026-08-03T20:44:00.729Z*
+*Generated: 2026-08-03T20:47:44.721Z*
 
 | Module | UI | Logic | DB | API | Auth | Reports | Print | Barcode | AI |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |

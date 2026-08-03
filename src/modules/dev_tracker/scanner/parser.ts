@@ -146,16 +146,7 @@ export function parseCodebase(): ParsedCodebase {
         }
       }
 
-      // 4. Parse server.ts routes and FastAPI backend routes
-      if (relPath === "server.ts") {
-        const routeRegex = /app\.(get|post|put|delete)\(\s*["'](\/api\/.*?)["']/g;
-        let match;
-        while ((match = routeRegex.exec(content)) !== null) {
-          if (!routesInServer.includes(match[2])) {
-            routesInServer.push(match[2]);
-          }
-        }
-      }
+      // 4. Parse FastAPI backend routes
       if (relPath.startsWith("backend/app/api/") && relPath.endsWith(".py")) {
         const pyRouteRegex = /@router\.(get|post|put|delete|patch)\(\s*["'](\/.*?)["']/g;
         let match;
@@ -175,7 +166,7 @@ export function parseCodebase(): ParsedCodebase {
       }
 
       // 5. Parse frontend fetched routes
-      if (relPath.startsWith("src/") && (relPath.endsWith(".tsx") || relPath.endsWith(".ts")) && relPath !== "server.ts") {
+      if (relPath.startsWith("src/") && (relPath.endsWith(".tsx") || relPath.endsWith(".ts"))) {
         const fetchRegex = /fetch\(\s*["'](\/api\/.*?)["']/g;
         let match;
         while ((match = fetchRegex.exec(content)) !== null) {
@@ -185,17 +176,7 @@ export function parseCodebase(): ParsedCodebase {
         }
       }
 
-      // 6. Parse Database tables from schema.sql, server.ts, and SQLAlchemy models
-      if (relPath === "src/db/schema.sql" || relPath === "server.ts") {
-        const tableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/gi;
-        let match;
-        while ((match = tableRegex.exec(content)) !== null) {
-          const tableName = match[1].toLowerCase();
-          if (!tablesInDb.includes(tableName)) {
-            tablesInDb.push(tableName);
-          }
-        }
-      }
+      // 6. Parse Database tables from SQLAlchemy models
       if (relPath.startsWith("backend/app/models/") && relPath.endsWith(".py")) {
         const modelRegex = /__tablename__\s*=\s*["'](\w+)["']/g;
         let match;

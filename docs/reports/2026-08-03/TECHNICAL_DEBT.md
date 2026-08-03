@@ -1,11 +1,11 @@
 # Technical Debt Audit Report
 
-*Generated: 2026-08-03T20:44:00.729Z*
+*Generated: 2026-08-03T20:47:44.721Z*
 
 ### Code Complexity Deductions
-- **Total TODO Comments:** 29
-- **Total FIXME Comments:** 11
-- **Total HACK Comments:** 11
+- **Total TODO Comments:** 31
+- **Total FIXME Comments:** 12
+- **Total HACK Comments:** 12
 
 ### Large Components (> 500 lines)
 - ⚠️ `src/components/AboutSmritiTab.tsx (1069 lines)`
