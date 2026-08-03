@@ -36,6 +36,23 @@ export interface PipelineTimings {
   totalMs: number;
 }
 
+export interface FitnessRuleResult {
+  ruleId: string;
+  ruleName: string;
+  category: "COUPLING" | "LAYERING" | "CYCLIC" | "GOVERNANCE";
+  status: "PASS" | "FAIL" | "WARN";
+  detail: string;
+}
+
+export interface ArchitectureFitnessData {
+  fanIn: number;
+  fanOut: number;
+  instabilityScore: number;
+  passedRulesCount: number;
+  failedRulesCount: number;
+  rules: FitnessRuleResult[];
+}
+
 export interface ModuleDependency {
   sourceModule: string;
   targetModule: string;
