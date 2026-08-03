@@ -72,20 +72,21 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
  │ Merchandising│     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ Pricing/Promo│     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ Replenish    │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
- │ Omnichannel │     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
+ │ Omnichannel │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ HR & Work    │     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
  └──────────────┴────────────┴───────────┴──────────┴──────────┴─────────────┴────────────┴───────────┘
 ```
 
 ---
 
-## 4. Next Milestone Target: Omnichannel Commerce Studio v1.0
+## 4. Next Milestone Target: HR & Workforce Studio v1.0
 
-Omnichannel Commerce Studio v1.0 will execute certification under the exact 6-dimensional framework across 8 workspaces:
-1. Omnichannel Dashboard & Order Pipeline
-2. Marketplace Integrations (Amazon, Flipkart, OpenCart)
-3. Web Store & Mobile App Orders
-4. WhatsApp Commerce & Conversational Billing
-5. Click & Collect (BOPIS — Buy Online Pick Up In Store)
-6. Ship from Store & Local Courier Routing
-7. Omnichannel Returns & Cross-Channel Refunds
-8. Omnichannel Analytics & Channel Performance
+HR & Workforce Studio v1.0 will execute certification under the exact 6-dimensional framework across 8 workspaces:
+1. Workforce Dashboard & Store Attendance
+2. Employee Master & Role Allocation
+3. Time & Attendance (Biometric/App Clock-In)
+4. Shift Scheduling & Roster Management
+5. Sales Commission & Incentive Engine
+6. Payroll & Statutory Compliance (PF/ESI)
+7. Employee Performance & Sales Targets
+8. HR Reports & Analytics
