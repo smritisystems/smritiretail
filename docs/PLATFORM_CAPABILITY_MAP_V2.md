@@ -5,49 +5,53 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 4.1.0
+  Version      : 4.2.0
   Created      : 2026-08-04
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal Architecture Capability Map
 -->
 
-# SMRITI Digital Commerce Platform OS v4.1 Capability Map & Topology
+# SMRITI Digital Commerce Platform OS v4.2 Capability Map & Topology
 
-**Status:** FROZEN — Enterprise Digital Commerce Platform Topology v4.1 (2026-08-04)
+**Status:** FROZEN — Enterprise Digital Commerce Platform Topology v4.2 (2026-08-04)
 **Classification:** Complete Architectural Index & Platform Topology
 
 ---
 
-## 1. Platform v4.1 Architectural 7-Level Topology
+## 1. Platform v4.2 Architectural 7-Level Topology
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
- │ SMRITI DIGITAL COMMERCE PLATFORM OS V4.1 ARCHITECTURE                  │
+ │ SMRITI DIGITAL COMMERCE PLATFORM OS V4.2 ARCHITECTURE                  │
  ├────────────────────────────────────────────────────────────────────────┤
  │ Level 1: Platform Operating System (SXP, SEEF, SEDS, WNG, USR)         │
- │ Level 2: Platform Enterprise Services (SEB, SES, SNP, SWA, SAS, STS, SAI)│
- │ Level 3: Shared Platform Kernels (SDK, SBPK, SPPK, SIK, SNK, Inventory)│
- │ Level 4: Master Data Platform (MDP v3.1, RDH, MDGC Governance)         │
- │ Level 5: Universal Registries (UFR, UWR, URR, USR, UPRT, UEDF)         │
+ │ Level 2: Shared Platform Services (SEB, SES, SNP, SWA, SAS, STS, SAI)  │
+ │ Level 3: Shared Business Kernels (SDK, SBPK, SPPK, SIK, SNK, STK, SLK) │
+ │ Level 4: Master Data Platform (MDP v3.1, Reference Master Hub, MDGC)   │
+ │ Level 5: Universal Registries (UFR, UWR, URR, USR, UPRT, ULR, UEDF)     │
  │ Level 6: Enterprise Business Studios (12 Certified Business Studios)   │
- │ Level 7: SMN Network & External Connectors (SMN Hub, Tally, Devices)   │
+ │ Level 7: Network & Connectors (SMN Network Protocol, SIK Connectors)   │
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Enterprise Services Layer (Level 2 Services) Index
+## 2. Shared Platform Services & Business Kernels Index
 
-| Enterprise Service | Service Acronym | Architectural Role | Status |
+| Layer & Component | Acronym | Architectural Scope & Role | Status |
 |---|---|---|---|
-| **SMRITI Event Bus** | **SEB** | Asynchronous event bus (`product.updated`, `inventory.received`) | ✅ Certified (`1fd7d3a2`) |
-| **SMRITI Enterprise Search**| **SES** | Unified zero-latency search across products, barcodes, invoices | ✅ Certified (`1fd7d3a2`) |
-| **SMRITI Notification** | **SNP** | Multi-channel dispatcher (WhatsApp, SMS, Email, Push Alerts) | ✅ Certified (`1fd7d3a2`) |
-| **SMRITI Workflow Automation**| **SWA** | Low-code rule automation & trigger workflows | ✅ Certified (`1fd7d3a2`) |
-| **SMRITI Audit Service** | **SAS** | Enterprise audit trail log for every record change & approval | ✅ Certified (`1fd7d3a2`) |
-| **SMRITI Task Scheduler** | **STS** | Recurring background jobs, night backups, message queues | ✅ Certified (`1fd7d3a2`) |
-| **SMRITI AI Platform** | **SAI** | AI demand forecasting, recommendations, document OCR | ✅ Certified (`1fd7d3a2`) |
+| **Level 2: Shared Service** | **SEB** | Asynchronous event bus (`product.updated`, `inventory.received`) | ✅ Certified (`a6f5880c`) |
+| **Level 2: Shared Service** | **SES** | Unified zero-latency search across products, barcodes, invoices | ✅ Certified (`a6f5880c`) |
+| **Level 2: Shared Service** | **SNP** | Multi-channel dispatcher (WhatsApp, SMS, Email, Push Alerts) | ✅ Certified (`a6f5880c`) |
+| **Level 2: Shared Service** | **SWA** | Low-code rule automation & trigger workflows | ✅ Certified (`a6f5880c`) |
+| **Level 2: Shared Service** | **SAS** | Enterprise audit trail log for every record change & approval | ✅ Certified (`1fd7d3a2`) |
+| **Level 2: Shared Service** | **STS** | Recurring background jobs, night backups, message queues | ✅ Certified (`1fd7d3a2`) |
+| **Level 2: Shared Service** | **SAI** | AI demand forecasting, recommendations, document OCR | ✅ Certified (`1fd7d3a2`) |
+| **Level 3: Shared Kernel**  | **STK** | Universal GST, HSN validation, and tax rule engine | ✅ Certified (`d5da7922`) |
+| **Level 3: Shared Kernel**  | **SLK** | Immutable Stock, Customer, Supplier, & Financial Ledger | ✅ Certified (`d5da7922`) |
+| **Level 3: Shared Kernel**  | **SNK** | Node identity, version reconciliation, & vector clock sync | ✅ Certified (`c296bf4a`) |
+| **Level 7: Network Protocol**| **SMN**| Node discovery, remote encrypted backup, deployment manager | ✅ Certified (`d5da7922`) |
 
 ---
 
@@ -71,6 +75,6 @@
 
 ---
 
-## 4. Platform Freeze Directive
+## 4. Platform Structural Freeze Directive
 
-> **Directive:** Platform OS v1.x, SXP, SEEF, SEDS, Shared Kernels, Enterprise Services Layer (ESL v4.1), Master Data Platform (MDP v3.1), and SMN Network Layer remain strictly frozen. Business capability development MUST consume these capabilities as generic facade clients.
+> **Directive:** Platform OS v4.2, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), and Network & Connectors (Level 7) are **OFFICIALLY FROZEN**. No additional architectural layers will be introduced. Business capability development MUST consume these capabilities as generic facade clients.
