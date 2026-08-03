@@ -46,11 +46,11 @@
 
 | Component / Standard | Acronym | Governance Scope & Architectural Role | Status |
 |---|---|---|---|
-| **Platform Constitution** | **SPC v1.0**| Supreme Platform Architecture Constitution | ✅ Certified (`4552277b`) |
+| **Platform Constitution** | **SPC v1.0**| Supreme Platform Architecture Constitution | ✅ Certified (`4eae35a7`) |
 | **Reference Implementation**|**PRIG v1.0**| Developer Cookbook, Repo Layout & Mandatory Interfaces | ✅ Certified (`83013a75`) |
-| **Deployment Standard** | **DDS v1.0**| DDS v1.0 Frozen Baseline & Recovery State Model | ✅ Certified (`4552277b`) |
-| **Platform Doctor Service** |**SPD v1.0**| Mandatory Binary Certification Gates & Score Matrix | ✅ Certified (`4552277b`) |
-| **Platform Maturity Model** | **PCMM v1.0**| L1 Foundation -> L2 Oper -> L3 Integ -> L4 Ent -> L5 Ecosys | ✅ L4 Enterprise (`4552277b`) |
+| **Deployment Standard** | **DDS v1.0**| DDS v1.0 Frozen Baseline & Recovery State Model | ✅ Certified (`4eae35a7`) |
+| **Platform Doctor Service** |**SPD v1.0**| Binary Certification Gates & Architecture Drift Engine | ✅ Certified (`4eae35a7`) |
+| **Platform Maturity Model** | **PCMM v1.0**| L1 Foundation -> L2 Oper -> L3 Integ -> L4 Ent -> L5 Ecosys | ✅ L4 Enterprise (`4eae35a7`) |
 | **Kernel Standard** | **KDS v1.1**| 15 Sections, 15 Principles, Dual Checklist, ADRs | ✅ Certified (`e07acb20`) |
 | **Integration Standard** | **IDS v1.0**| REST, GraphQL, Webhooks, OAuth, Connectors Standard | ✅ Certified (`b4afa62a`) |
 | **Service Standard** | **SDS v1.0**| Level 2 Shared Platform Services Standard | ✅ Certified (`e07acb20`) |
