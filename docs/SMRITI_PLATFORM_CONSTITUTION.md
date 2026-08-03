@@ -48,142 +48,95 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ---
 
-## 3. Governance Standards Hierarchy (FROZEN GOVERNANCE STACK)
+## 3. Standardized Lock File Specification (`platform.lock.yaml`)
 
-Every layer and operational aspect derives its engineering authority from a dedicated governance standard:
-- **SPC (Platform Constitution):** Supreme architectural governance framework (`a6500275`).
-- **PRIG (Reference Implementation Guide):** Canonical repo layout, developer cookbook, & mandatory interface standards (`83013a75`).
-- **PCMM (Platform Capability Maturity Model):** L1 Foundation $\rightarrow$ L2 Operational $\rightarrow$ L3 Integrated $\rightarrow$ L4 Enterprise $\rightarrow$ L5 Ecosystem.
-- **DDS (Deployment Development Standard):** Governs Docker container contracts, readiness/health levels, graceful shutdown, and distributed leader election.
-- **KDS (Kernel Development Standard):** Governs Level 3 Shared Business Kernels.
-- **SDS (Service Development Standard):** Governs Level 2 Shared Platform Services.
-- **RDS (Registry Development Standard):** Governs Level 5 Universal Registries.
-- **BDS (Business Studio Standard):** Governs Level 6 Business Capability Studios.
-- **NDS (Network Development Standard):** Governs Level 7 SMN Network Protocols.
-- **IDS (Integration Development Standard):** Governs REST APIs, GraphQL, Webhooks, OAuth, & external connectors.
+Every release build MUST generate an immutable, checksum-verified `platform.lock.yaml` snapshot during CI/CD to prevent runtime graph, schema, or configuration drift:
 
----
+```yaml
+# SMRITI Platform Immutable Lock File v1.0
+platform_lock:
+  version: "4.2.0"
+  generated_at: "2026-08-04T12:00:00Z"
+  builder: "SmritiSys CI/CD Governance Pipeline v1.0"
 
-## 4. Platform Deployment Topology: Professional Edition (DEFAULT BASELINE)
+integrity:
+  constitution_hash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  manifest_hash: "sha256:7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a"
+  api_facade_hash: "sha256:2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3f"
+  registry_hash: "sha256:9b8a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b"
+  dependency_graph_hash: "sha256:5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c"
+  database_schema_hash: "sha256:fa7dff2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c"
+  ui_tokens_hash: "sha256:0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f"
 
-The **Professional Edition (5 Containers)** is the **DEFAULT PRODUCTION DEPLOYMENT** for SMRITI Retail OS across 95% of customer environments:
+containers:
+  - "smriti-web"
+  - "smriti-api"
+  - "smriti-db"
+  - "smriti-redis"
+  - "smriti-worker"
 
-```text
- ┌────────────────────────────────────────────────────────────────────────┐
- │ SMRITI PROFESSIONAL EDITION (DEFAULT 5-CONTAINER DOCKER TOPOLOGY)      │
- ├────────────────────────────────────────────────────────────────────────┤
- │ 1. smriti-db     ── PostgreSQL Master Database & Migrations            │
- │ 2. smriti-redis  ── Cache, Queue, Pub/Sub, Sessions, & Distributed Lock│
- │ 3. smriti-api    ── Stateless API: OS, Boot Manager, SPD Doctor, Kernels│
- │ 4. smriti-worker ── Async Worker + Distributed Leader Scheduler        │
- │ 5. smriti-web    ── Next.js Single Page UI, PWA & Mobile Web Layout    │
- └────────────────────────────────────────────────────────────────────────┘
+standards:
+  KDS: "1.1.0"
+  DDS: "1.0.0"
+  IDS: "1.0.0"
+  SDS: "1.0.0"
+  RDS: "1.0.0"
+  BDS: "1.0.0"
+  NDS: "1.0.0"
+
+kernels:
+  SDK: { version: "1.0.0", hash: "sha256:9b8a7c..." }
+  STK: { version: "1.0.0", hash: "sha256:2a1f0e..." }
+  SLK: { version: "1.0.0", hash: "sha256:5d4c3b..." }
+  SAK: { version: "2.1.0", hash: "sha256:fa7dff..." }
 ```
 
 ---
 
-## 5. Container Health Levels & Graceful Shutdown Contracts (DDS v1.0)
+## 4. SPD Comprehensive 11-Dimensional Architecture Drift Detection Engine
 
-### A. Health State Levels & Recovery Pipeline
-Containers expose detailed `/health` status reports adhering to canonical **Health Levels**:
-- **`STARTING`:** Container initializing; readiness check in progress.
-- **`READY`:** Fully functional; accepting production traffic.
-- **`DEGRADED`:** Partial capability degradation (e.g. Redis cache miss fallback to DB); traffic accepted with warning.
-- **`READONLY`:** Storage or database restriction mode; read transactions permitted; write transactions blocked.
-- **`RECOVERING`:** Container replaying WAL/events or rebuilding cache.
-- **`SYNCING`:** Multi-site node synchronizing state before becoming `READY`.
-- **`MAINTENANCE`:** Intentionally unavailable for upgrades or administration.
-- **`STOPPING`:** Graceful shutdown sequence initiated; draining active jobs.
-- **`FAILED`:** Unrecoverable error; triggers automated recovery path (`FAILED` $\rightarrow$ `RECOVERING` $\rightarrow$ `STARTING` $\rightarrow$ `READY`).
+Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** continuously compares runtime state against `platform.lock.yaml` across 11 canonical drift dimensions:
 
-### B. Graceful Shutdown Order (Reverse Boot Order)
-When a platform shutdown signal (`SIGTERM` / `SIGINT`) is received, containers execute **Graceful Shutdown** in reverse order to prevent data loss or corrupted transactions:
-
-```text
- ┌────────────────────────────────────────────────────────────────────────┐
- │ DETERMINISTIC GRACEFUL SHUTDOWN ORDER (REVERSE BOOT ORDER)             │
- ├────────────────────────────────────────────────────────────────────────┤
- │ 1. smriti-web    ── Stop accepting new HTTP/PWA traffic                │
- │ 2. smriti-worker ── Finish in-flight jobs, release scheduler lock, exit│
- │ 3. smriti-api    ── Complete active API requests, flush logs, exit    │
- │ 4. smriti-redis  ── Flush pending queues, save RDB snapshot, exit      │
- │ 5. smriti-db     ── Close connection pools, execute final WAL, exit    │
- └────────────────────────────────────────────────────────────────────────┘
-```
-
-### C. Distributed Leader Election Architecture
-To enable horizontal worker scaling without duplicate cron execution:
-- **Queue Worker Mode (Multi-Instance):** Any number of `smriti-worker` instances process queued jobs in parallel.
-- **Scheduler Mode (Distributed Leader Lock):** Exactly **ONE** worker instance acquires an implementation-agnostic distributed leader lock (Redis Lock, Postgres Advisory Lock, or Kubernetes Lease) to execute scheduled tasks.
-
----
-
-## 6. SPD Architecture Compliance, Mandatory Binary Gates & Drift Detection
-
-Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** evaluates total runtime governance compliance producing a weighted **Architecture Compliance Score (100%)**, enforcing **Strict Mandatory Binary Certification Gates**, and executing continuous **Architecture Drift Detection**:
-
-### A. Mandatory Binary Certification Gates
-| Compliance Category | Weight | Mandatory Binary Gate | Pass Threshold |
-|---|---|---|---|
-| **Constitution Compliance** | **20%** | Gate 1: 7-Layer Topology & Precedence | 100% (PASS Required) |
-| **Manifest Validation** | **15%** | Gate 2: Schema & Checksum Verification | 100% (PASS Required) |
-| **Security & Trust** | **15%** | Gate 3: Signature & Revocation Audit | 100% (PASS Required) |
-| **Standards Compliance** | **15%** | Gate 4: KDS, DDS, & PRIG Code Layout | 100% (PASS Required) |
-| **Deployment Compliance**| **10%** | Gate 5: Container Readiness Contracts | 100% (PASS Required) |
-| **Dependency Integrity** | **15%** | Graph resolution & `dependency_graph_hash` | 100% |
-| **Health & Observability**| **10%** | Health levels & OpenTelemetry export | 100% |
-
-### B. SPD Architecture Drift Detection Engine
-SPD compares the active runtime state against the frozen constitutional baseline:
-- **Container Drift:** Asserts zero unauthorized container modifications.
-- **Manifest Drift:** Validates manifest hashes against `platform.lock.yaml`.
-- **API Drift:** Detects unapproved facade API signature alterations.
-- **Dependency Drift:** Verifies resolved dependency graph match.
-- **Registry Drift:** Audits UPR registry definitions.
-- **Security Drift:** Verifies Ed25519 key IDs and CRL status.
+| Drift Dimension | Evaluated Scope | Governance Action on Violation |
+|---|---|---|
+| **1. Container Drift** | Unauthorized/missing Docker containers | Critical Boot Failure (Abort) |
+| **2. Manifest Drift** | Unsigned/modified manifest files | Critical Boot Failure (Abort) |
+| **3. API Drift** | Unauthorized facade signature changes | Critical Boot Failure (Abort) |
+| **4. Dependency Drift** | Resolved graph mismatch against lock file | Critical Boot Failure (Abort) |
+| **5. Registry Drift** | Unapproved UPR registry modifications | Critical Boot Failure (Abort) |
+| **6. Security Drift** | Key ID revocation or certificate drift | Critical Boot Failure (Abort) |
+| **7. DB Schema Drift** | Uncommitted/manual database migrations | Major Warning (Restricted Mode)|
+| **8. Config Drift** | Environment variable mismatch | Minor Warning (Log Note) |
+| **9. Feature Flag Drift**| Unapproved runtime toggle state | Minor Warning (Log Note) |
+| **10. UI Token Drift** | Unauthorized CSS design token edits | Minor Warning (Log Note) |
+| **11. License/Policy Drift**| Tenant edition / ABAC policy drift | Major Warning (Restricted Mode)|
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
  │ SMRITI PLATFORM COMPLIANCE & DRIFT REPORT                             │
  ├────────────────────────────────────────────────────────────────────────┤
- │ Overall Compliance Score : 100.0%                                      │
- │ Mandatory Binary Gates   : 5/5 PASSED                                  │
- │ Architecture Drift       : NO ARCHITECTURE DRIFT DETECTED              │
- │ Certification Status    : ENTERPRISE CERTIFIED (PRODUCTION READY)     │
+ │ MANDATORY BINARY GATES: 5/5 PASSED                                     │
+ │ 11-DIMENSIONAL DRIFT AUDIT: NO ARCHITECTURE DRIFT DETECTED             │
+ │ CERTIFICATION STATUS    : ENTERPRISE CERTIFIED (PRODUCTION READY)     │
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 7. Deterministic Boot Failure Policy
+## 5. Platform Versioning & Semantic Freeze Governance
 
-| Boot Failure Severity | Governance Definition | Runtime System Behavior | Failure Examples |
-|---|---|---|---|
-| **Critical** | Core constitutional, key revocation, or kernel failure | **Abort Startup Immediately** | SPC missing, key revoked, signature invalid, container check failed |
-| **Major** | Non-core studio or connector failure | **Start in Restricted / Read-Only Mode** | Optional studio missing, secondary connector offline |
-| **Minor** | Operational service degradation | **Continue Startup with Logged Warnings**| Telemetry collector unreached, non-critical cache miss |
-| **Info** | Non-blocking metric or doc gap | **Log Diagnostic Note Only** | Documentation link mismatch, non-semantic version note |
+Platform evolution adheres to strict semantic boundaries:
+- **Patch (`v4.2.x`):** Documentation, bug fixes, performance tuning, non-breaking diagnostic rules.
+- **Minor (`v4.3.0`):** New Level 2 Services, Level 3 Kernels, Level 5 Registries, Level 6 Studios, or Level 7 Connectors.
+- **Major (`v5.0.0`):** Requires approved ADR for breaking changes to manifest schemas, boot lifecycle, deployment topology, trust model, container architecture, governance standards, or 7-layer topology.
 
 ---
 
-## 8. Governance Authority Precedence Hierarchy
-
-1. **SPC (Platform Constitution):** Supreme architectural authority.
-2. **PRIG (Reference Implementation Guide):** Canonical implementation & coding standard.
-3. **Layer Governance Standards:** KDS, SDS, IDS, RDS, BDS, NDS, DDS.
-4. **Kernel Specifications:** Domain kernel design specifications.
-5. **Service Specifications:** Level 2 shared platform service specifications.
-6. **Studio Specifications:** Level 6 business capability studio specifications.
-7. **Industry Packs:** Industry extension packs.
-8. **Implementation Code:** Executable codebase.
-
----
-
-## 9. Baseline Structural Freeze & ADR Policy
+## 6. Baseline Structural Freeze & ADR Policy
 
 1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Professional Edition Deployment Topology (5 Containers), Graceful Shutdown Order, Health Levels, Distributed Leader Election, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
 2. **Platform Foundation Freeze Rule:** The SMRITI Digital Commerce Platform Foundation (SPC, PRIG, DDS, KDS, SDS, IDS, RDS, BDS, NDS, manifest schemas, boot lifecycle, and deployment topology) is frozen under Platform OS v4.2. Future enhancements should primarily occur within Shared Services, Shared Business Kernels, Registries, Business Studios, or deployment implementations. Changes to the foundation require an approved ADR and a major Platform OS version increment.
-3. **DDS v1.0 Freeze Directive:** Deployment Development Standard v1.0 is the canonical deployment specification for SMRITI Digital Commerce Platform OS v4.2. Non-breaking operational clarifications may be added in patch releases. Changes affecting container topology, deployment lifecycle, readiness contracts, health semantics, or orchestration behavior require a DDS major version increment and an approved ADR.
+3. **DDS v1.0 Freeze Directive:** Deployment Development Standard v1.0 is the canonical deployment specification for SMRITI Digital Commerce Platform OS v4.2. Non-breaking operational clarifications may be added in patch releases. Changes affecting container topology, deployment lifecycle, readiness contracts, health semantics, or orchestration behavior require a DDS major version increment and an approved Architecture Decision Record (ADR).
 4. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
    - Introduction of a new Level 3 Shared Business Kernel or Level 2 Shared Service.
    - Breaking API changes to an existing public service facade (`KernelName.Service`).
