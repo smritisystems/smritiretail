@@ -15,7 +15,13 @@ echo "[smriti-worker] Connecting to Redis Broker at ${REDIS_HOST:-smriti-redis}:
 mkdir -p /tmp/smriti-worker
 echo "READY" > /tmp/smriti-worker/status
 
-trap 'echo "[smriti-worker] Gracefully draining jobs during shutdown..."; echo "STOPPING" > /tmp/smriti-worker/status; exit 0' SIGTERM SIGINT
+cleanup() {
+  echo "[smriti-worker] Gracefully draining jobs during shutdown..."
+  echo "STOPPING" > /tmp/smriti-worker/status
+  exit 0
+}
+
+trap cleanup TERM INT
 
 echo "[smriti-worker] Worker process active. Listening for queue tasks..."
 
