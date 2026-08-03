@@ -28,8 +28,8 @@
  │ Level 1: Platform Operating System (SXP, SEEF, SEDS, WNG, USR)         │
  │ Level 2: Shared Platform Services (SEB, SES, SNP, SWA, SAS, STS, SAI,  │
  │          SPD Platform Doctor Service)                                  │
- │ Level 3: Shared Business Kernels (SDK, SBPK, SPPK, SIK, SNK, STK, SLK, │
- │          SAK Asset Kernel)                                             │
+ │ Level 3: Shared Business Kernels (SDK, SBPK, SP contest Engine, SNK,   │
+ │          STK, SLK, SAK Asset Kernel)                                   │
  │ Level 4: Master Data Platform (MDP v3.1, Reference Master Hub, MDGC)   │
  │ Level 5: Universal Registries (UFR, UWR, URR, USR, UPRT, ULR, UEDF)     │
  │ Level 6: Enterprise Business Studios (13 Certified Business Studios)   │
@@ -43,10 +43,10 @@
 
 | Component / Standard | Acronym | Governance Scope & Architectural Role | Status |
 |---|---|---|---|
-| **Platform Constitution** | **SPC v1.0**| Manifest Schema v1.0, Trust Chain, Key Rotation | ✅ Certified (`06a028af`) |
-| **Reference Implementation**|**PRIG v1.0**| Canonical Repo Layout & Coding Guidelines | ✅ Certified (`06a028af`) |
-| **Platform Doctor Service** |**SPD v1.0**| Level 2 Self-Diagnostics & Architecture Audit | ✅ Certified (`06a028af`) |
-| **Platform Maturity Model** | **PCMM v1.0**| L1 Foundation -> L2 Oper -> L3 Integ -> L4 Ent -> L5 Ecosys | ✅ L4 Enterprise (`06a028af`) |
+| **Platform Constitution** | **SPC v1.0**| Manifest Schema v1.0, Trust Levels, Revocation & Cache | ✅ Certified (`79473833`) |
+| **Reference Implementation**|**PRIG v1.0**| Canonical Repo Layout & Coding Guidelines | ✅ Certified (`79473833`) |
+| **Platform Doctor Service** |**SPD v1.0**| Level 2 Self-Diagnostics & Key Revocation Audit | ✅ Certified (`79473833`) |
+| **Platform Maturity Model** | **PCMM v1.0**| L1 Foundation -> L2 Oper -> L3 Integ -> L4 Ent -> L5 Ecosys | ✅ L4 Enterprise (`79473833`) |
 | **Kernel Standard** | **KDS v1.1**| 15 Sections, 15 Principles, Dual Checklist, ADRs | ✅ Certified (`e07acb20`) |
 | **Integration Standard** | **IDS v1.0**| REST, GraphQL, Webhooks, OAuth, Connectors Standard | ✅ Certified (`b4afa62a`) |
 | **Service Standard** | **SDS v1.0**| Level 2 Shared Platform Services Standard | ✅ Certified (`e07acb20`) |
