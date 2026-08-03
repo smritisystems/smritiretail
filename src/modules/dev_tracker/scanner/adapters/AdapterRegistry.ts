@@ -80,7 +80,7 @@ export class AdapterRegistry {
             if (item.category === "database") {
               evidenceGraph.addDiscoveredModel(item.file);
             }
-            if (item.category === "testing") {
+            if ((item.category as string) === "testing" || (item.category as string) === "tests") {
               evidenceGraph.addDiscoveredTest(item.file);
             }
           }
@@ -119,7 +119,7 @@ export class AdapterRegistry {
           evidenceGraph.addEvidence(moduleId, item);
           if (item.category === "api") evidenceGraph.addDiscoveredRoute(item.file);
           if (item.category === "database") evidenceGraph.addDiscoveredModel(item.file);
-          if (item.category === "testing") evidenceGraph.addDiscoveredTest(item.file);
+          if ((item.category as string) === "testing" || (item.category as string) === "tests") evidenceGraph.addDiscoveredTest(item.file);
         }
       }
     }

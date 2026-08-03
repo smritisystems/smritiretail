@@ -62,6 +62,8 @@ export interface ScannerHealth {
   modelsDiscovered: number;
   testsDiscovered: number;
   durationMs: number;
+  adapterStats?: AdapterStatistics[];
+  pipelineTimings?: PipelineTimings;
 }
 
 export interface ArchitectureCoverage {
@@ -167,7 +169,7 @@ export interface ScanHistoryEntry {
   documentation: number;
 }
 
-import { ScanDiff, ImpactAnalysisResult, DependencyGraphResult, ArchitectureFitnessData, ASTAnalysisResult } from "../scanner/adapters/types.ts";
+import { ScanDiff, ImpactAnalysisResult, DependencyGraphResult, ArchitectureFitnessData, ASTAnalysisResult, AdapterStatistics, PipelineTimings } from "../scanner/adapters/types.ts";
 
 export interface ScanResult {
   timestamp: string;

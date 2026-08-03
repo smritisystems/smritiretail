@@ -10,6 +10,7 @@ import { EvidenceItem } from "../../models/interfaces.ts";
 export type AdapterCategory = 
   | "frontend" 
   | "backend" 
+  | "api"
   | "database" 
   | "testing" 
   | "documentation" 
@@ -138,9 +139,16 @@ export interface ScannerHealth {
 }
 
 export interface AdapterHealth {
-  status: "healthy" | "degraded" | "failing";
-  lastCheck: string;
-  errorCount: number;
+  adapterId?: string;
+  version?: string;
+  status?: "healthy" | "degraded" | "failing";
+  lastCheck?: string;
+  errorCount?: number;
+  filesProcessed?: number;
+  evidenceExtracted?: number;
+  warnings?: number;
+  errors?: number;
+  durationMs?: number;
   message?: string;
 }
 
