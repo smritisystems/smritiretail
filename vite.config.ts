@@ -73,6 +73,17 @@ export default defineConfig({
     "process.env": {},
     "process.browser": true,
     "process.version": '"v20.0.0"',
+    // Ensure Buffer is defined as a global at build time so vendor chunks
+    // (e.g. qrcode, jspdf, pg) that reference Buffer directly never get
+    // ReferenceError: Buffer is not defined at runtime.
+    "Buffer": "globalThis.Buffer",
+  },
+
+  optimizeDeps: {
+    // Force Vite to pre-bundle `buffer` so it is resolved synchronously
+    // before any module-graph code executes — eliminates the race condition
+    // between the deferred polyfill.ts module and vendor chunk loading.
+    include: ["buffer"],
   },
 
   server: {
@@ -128,12 +139,58 @@ export default defineConfig({
     chunkSizeWarningLimit: 1600,
     rollupOptions: {
       output: {
-        banner: "if (typeof globalThis !== 'undefined') { globalThis.global = globalThis.global || globalThis; }",
+        banner: [
+          // ── Global polyfills injected at the top of every output chunk ──────────
+          // This banner runs before any module-level code in the chunk executes.
+          // /buffer.min.js (loaded via a sync <script> in index.html) has already
+          // set window.Buffer = BufferModule.Buffer. We copy it to globalThis here
+          // so that vendor libraries that reference bare `Buffer` (replaced by Vite's
+          // define: { Buffer: "globalThis.Buffer" }) always find it defined.
+          "if (typeof globalThis !== 'undefined') {",
+          "  globalThis.global = globalThis.global || globalThis;",
+          "  if (typeof globalThis.Buffer === 'undefined') {",
+          "    var _wb = (typeof window !== 'undefined' && window.Buffer) || null;",
+          "    if (_wb) globalThis.Buffer = _wb;",
+          "  }",
+          "}"
+        ].join(" "),
         manualChunks: manualChunksHandler
       }
     }
   },
   plugins: [
+    // Inject Buffer polyfill at the top of every module entry so it is
+    // guaranteed to be defined before any vendor library code runs.
+    {
+      name: "smriti-buffer-inject",
+      transformIndexHtml: {
+        order: "pre",
+        handler() {
+          return [
+            {
+              tag: "script",
+              attrs: { type: "text/javascript" },
+              children: [
+                "(function(){",
+                "  var _b = (typeof window !== 'undefined' && window.Buffer) || (typeof globalThis !== 'undefined' && globalThis.Buffer);",
+                "  if (!_b) {",
+                "    try {",
+                "      var bm = window.BufferModule || (typeof BufferModule !== 'undefined' ? BufferModule : null);",
+                "      _b = bm && bm.Buffer ? bm.Buffer : null;",
+                "    } catch(e) {}",
+                "  }",
+                "  if (_b) {",
+                "    if (typeof window !== 'undefined') window.Buffer = _b;",
+                "    if (typeof globalThis !== 'undefined') globalThis.Buffer = _b;",
+                "  }",
+                "})();"
+              ].join("\n"),
+              injectTo: "head-prepend",
+            },
+          ];
+        },
+      },
+    },
     react(),
     tailwindcss(),
     visualizer({
