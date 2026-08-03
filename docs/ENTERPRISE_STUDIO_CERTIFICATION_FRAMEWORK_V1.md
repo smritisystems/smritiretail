@@ -63,21 +63,21 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
  │ Sales        │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ POS          │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ SBPK Kernel  │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
- │ CRM          │     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
- │ Accounting   │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
+ │ CRM          │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ Accounting   │     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
  └──────────────┴────────────┴───────────┴──────────┴──────────┴─────────────┴────────────┴───────────┘
 ```
 
 ---
 
-## 4. Next Certification Target: CRM Studio v1.0
+## 4. Next Certification Target: Accounting Studio v1.0
 
-CRM Studio v1.0 will execute certification under the exact 6-dimensional framework across 8 workspaces:
-1. Customer Dashboard
-2. Lead Management
-3. Opportunity Pipeline
-4. Activities & Follow-ups
-5. Customer 360 Object Page
-6. Loyalty & Membership
-7. Campaigns
-8. CRM Reports & Analytics
+Accounting Studio v1.0 will execute certification under the exact 6-dimensional framework across 8 workspaces:
+1. Financial Dashboard
+2. General Ledger & Vouchers
+3. Accounts Payable (AP Integration with Purchase Studio)
+4. Accounts Receivable (AR Integration with Sales Studio)
+5. Bank & Cash Reconciliation
+6. GST & Tax Returns (GSTR-1, GSTR-3B, GSTR-2B ITC Matching)
+7. Financial Statements (Trial Balance, P&L, Balance Sheet)
+8. Accounting Reports & Analytics
