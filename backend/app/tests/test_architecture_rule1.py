@@ -1,25 +1,4 @@
 """
-Author & Creator:
-Jawahar Ramkripal Mallah
-
-Founder:
-SmritiSys
-AITDL Networks
-
-Role:
-Chief Systems Architect
-
-Web:
-smritisys.com | smritibooks.com | aitdl.com
-
-Email:
-jawahar.mallah@gmail.com
-
-Copyright © 2026 SmritiSys.
-All Rights Reserved.
-"""
-
-﻿"""
 test_architecture_rule1.py
 RC2 Platform Rule #1 Architectural Guard
 
@@ -110,39 +89,15 @@ def test_no_direct_product_stock_mutations():
     Asserts that no service file directly mutates `products.stock` outside
     the Inventory State reconciliation pipeline.
 
-    If this test fails, a Rule #1 violation has been introduced. Fix it by:
-    1. Removing the direct product.stock assignment.
-    2. Ensuring the service inserts a StockMovement record with the correct
-       movement_type. The trigger updates products.stock automatically.
-    3. If the file must be temporarily exempt, add it to ALLOWLIST above with
-       a clear reason and a PR reference.
+    If this test fails:
+      1. Inspect the reported file and line number.
+      2. If it is a real mutation, refactor to delegate to
+         `trg_inventory_state_reconciliation`.
+      3. If it is a legitimate false positive (e.g. a comment or test helper),
+         add it to ALLOWLIST above with a clear justification.
     """
     violations = _scan_services()
-
-    if violations:
-        report_lines = [
-            "",
-            "=" * 65,
-            "RC2 RULE #1 VIOLATION -- Direct product.stock mutation detected",
-            "=" * 65,
-            "",
-            "Rule: products.stock may ONLY be modified by trigger",
-            "      trg_inventory_state_reconciliation via stock_movements INSERT.",
-            "",
-            f"Found {len(violations)} violation(s):",
-            "",
-        ]
-        for filepath, lineno, line in violations:
-            report_lines.append(f"  {filepath}:{lineno}")
-            report_lines.append(f"    {line.strip()}")
-            report_lines.append("")
-
-        report_lines += [
-            "Fix: Remove the direct assignment. Insert a StockMovement record",
-            "     with the correct movement_type. The trigger handles the rest.",
-            "",
-            "Allowlist exceptions are in ALLOWLIST at the top of this file.",
-            "=" * 65,
-        ]
-
-        pytest.fail("\n".join(report_lines))
+    assert not violations, (
+        f"RC2 Platform Rule #1 Violation: {len(violations)} unapproved direct stock mutation(s) found:\n"
+        + "\n".join(f"  {path}:{line} -> {content}" for path, line, content in violations)
+    )
