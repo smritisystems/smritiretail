@@ -3,7 +3,7 @@
  * Module       : SXP v1.0 — POS Studio Manifest (co-located)
  * Standard     : SXP Constitution v1.0 / WNG-005 / SWEF v1.0
  * Author       : Jawahar Ramkripal Mallah
- * Version      : 1.1.0  (SXP-CS-010 — offline sale handler)
+ * Version      : 1.2.0  (SXP-CS-007 — Return/Exchange scanner_action wizard)
  * Created      : 2026-08-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
@@ -21,6 +21,8 @@ import { DashboardRegistry } from "../../kernel/upr/dashboard/DashboardRegistry.
 // SXP-CS-010 — Offline sale sync handler
 import { OfflineExperienceManager } from "../../layout_engine/OfflineExperienceManager.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
+// SXP-CS-007 — Return/Exchange wizard execution
+import { executePOSReturn } from "./POSReturnWizard.js";
 
 // ── POS Actions ───────────────────────────────────────────────────────────────
 
@@ -65,7 +67,14 @@ const POS_ACTIONS: WorkspaceActionDef[] = [
     shortcut: "F12",
     adaptiveVisibility: ["HYBRID", "ADVANCED"],
     canExecute: () => true,
+    // SXP-CS-007: wizard state is injected by AdvancedBillingEngine via
+    // getOperationDef(). When invoked directly (e.g. keyboard shortcut),
+    // this execute() is called after OperationWizard completes Step 3.
     async execute(ctx) {
+      // ctx.payload is set by AdvancedBillingEngine's handleReturnConfirm
+      if (ctx.payload) {
+        return executePOSReturn(ctx.payload as Parameters<typeof executePOSReturn>[0], ctx.workspaceId);
+      }
       return { success: true, message: `Return initiated by ${ctx.userId}` };
     },
   },

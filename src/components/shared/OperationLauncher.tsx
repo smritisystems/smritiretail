@@ -114,7 +114,7 @@ interface OperationWizardProps {
   onClose(): void;
 }
 
-const OperationWizard: React.FC<OperationWizardProps> = ({ operation, onClose }) => {
+export const OperationWizard: React.FC<OperationWizardProps> = ({ operation, onClose }) => {
   const [stepIndex, setStepIndex] = useState(0);
   const [executing, setExecuting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message?: string } | null>(null);

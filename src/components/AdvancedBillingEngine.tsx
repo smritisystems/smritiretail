@@ -5,7 +5,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.3.0  (SXP-CS-002 — scanner zone + POS timeline adapter + offline handler)
+ * Version      : 5.4.0  (SXP-CS-007 — Return/Exchange wizard wired)
  * Created      : 2026-07-10
  * Modified     : 2026-07-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -29,6 +29,9 @@ import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 // SXP v1.0 — POS Studio manifest (side-effect import: auto-registers actions + workspaces)
 import "./pos/pos.manifest.js";
 import { useSmritiExperience } from "../context/SmritiExperienceContext.js";
+// SXP-CS-007 — Return/Exchange scanner_action wizard (3-step, SWEF P-007)
+import { buildReturnExchangeWizard } from "./pos/POSReturnWizard.js";
+import { OperationDef, OperationWizard } from "./shared/OperationLauncher.js";
 
 // Types for Advanced Billing
 export interface AdvancedCustomer {
@@ -349,11 +352,23 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
   // Active edit item-level discount modal
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
 
+  // SXP-CS-007 — Return/Exchange wizard state
+  const [returnWizardDef, setReturnWizardDef] = useState<OperationDef | null>(null);
+
+  const openReturnWizard = () => {
+    setReturnWizardDef(
+      buildReturnExchangeWizard(
+        "pos.billing",
+        activeShift?.id ?? "default",
+        customer.name || "Cashier",
+      )
+    );
+  };
+
   // Keyboard shortcuts register via KeyboardEngine
   useTerminalShortcuts({
-    "ESC": () => {
-      onClose();
-    }
+    "ESC": () => { onClose(); },
+    "F12": () => { openReturnWizard(); },
   });
 
   // Synchronize activeCart with internal editable itemDetailsList
@@ -1710,6 +1725,14 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* SXP-CS-007 — Return/Exchange wizard overlay (scanner_action, ≤3 steps) */}
+      {returnWizardDef && (
+        <OperationWizard
+          operation={returnWizardDef}
+          onClose={() => setReturnWizardDef(null)}
+        />
       )}
     </div>
   );

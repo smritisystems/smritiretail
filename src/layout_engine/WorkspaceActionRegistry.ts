@@ -33,6 +33,8 @@ export interface ActionExecutionContext {
   userId: string;
   workspaceId: string;
   mode: WorkspaceMode;
+  /** Optional — wizard-driven actions use this to pass collected state to execute() */
+  payload?: unknown;
 }
 
 /**
