@@ -22,5 +22,12 @@
 		"no-console": ["warn"],
 		"no-extra-boolean-cast": ["off"],
 		"no-control-regex": ["off"],
+		"no-restricted-syntax": [
+			"warn",
+			{
+				"selector": "JSXAttribute[name.name='className'] Literal[value=/\\bdark:/]",
+				"message": "SEEF-TRP2: Tailwind 'dark:' variants bypass the SEEF theme engine. Use semantic tokens (bg-theme-surface-*, text-theme-primary, text-theme-muted, var(--c-seef-accent)) instead. See docs/adr/SEEF-TRP2.md."
+			}
+		],
 	"root": true
 }
