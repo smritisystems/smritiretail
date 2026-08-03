@@ -50,7 +50,7 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ## 3. Standardized Manifest Schema v1.0 (`smriti.manifest.v1`)
 
-Every deployable layer artifact MUST expose a standardized, checksum-verified, digitally signed, and auditable manifest following the `smriti.manifest.v1` schema with support for inheritance (`extends`), Scoped Dependencies, Capabilities, Startup Priority, and CI/CD Build Provenance:
+Every deployable layer artifact MUST expose a standardized, checksum-verified, digitally signed, and auditable manifest following the `smriti.manifest.v1` schema with support for inheritance (`extends`), Scoped Dependencies, Capabilities, Startup Phase Enums (`00-core` to `50-connector`), Compatibility Profiles, Lock Files (`platform.lock.yaml`), and CI/CD Build Provenance:
 
 ```yaml
 # SMRITI Platform Baseline Manifest v1.0
@@ -76,10 +76,12 @@ build:
   pipeline: "release-main-v4.2"
   commit: "a4fce7d3b2"
   build_number: "4201"
+  validator: "SPD Validator v1.0"
 
 integrity:
   algorithm: "SHA256"
   checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  dependency_graph_hash: "7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a"
 
 signature:
   algorithm: "Ed25519"
@@ -99,8 +101,11 @@ trust:
     ttl: "300s"
 
 startup:
-  phase: "platform"
-  priority: 100 # Priority Range: 100 (Highest - Platform) to 900 (Connectors)
+  phase: "00-core" # Enums: 00-core | 10-registry | 20-service | 30-kernel | 40-studio | 50-connector
+  priority: 100 # Priority Range: 100 (Highest - Core) to 900 (Connectors)
+
+compatibility:
+  profile: "enterprise" # Profiles: community | enterprise | cloud | edge
 
 features:
   ai: true
@@ -147,56 +152,41 @@ Components transition through an explicit, governed **Lifecycle State Machine**:
  │ experimental ──► active ──► deprecated ──► archived ──► revoked       │
  └────────────────────────────────────────────────────────────────────────┘
 ```
-- **`experimental`:** Staged preview feature; logs warning; non-blocking.
-- **`active`:** Production baseline component; full execution allowed.
-- **`deprecated`:** Legacy component; logs migration warning; active execution allowed.
-- **`archived`:** Read-only mode only; new creation transactions blocked.
-- **`revoked`:** Cryptographically blocked; triggers immediate **Critical Boot Failure**.
 
 ---
 
-## 5. Deterministic Platform Initialization Pipeline
+## 5. Deterministic Boot Manager Runtime Architecture
 
-Platform boot follows an immutable 17-step deterministic validation pipeline:
+The platform startup orchestrator cleanly decomposes into 11 specialized runtime components:
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
- │ DETERMINISTIC PLATFORM INITIALIZATION PIPELINE                         │
+ │ DETERMINISTIC BOOT MANAGER RUNTIME ARCHITECTURE                        │
  ├────────────────────────────────────────────────────────────────────────┤
- │ BOOT ──► Load SPC ──► Validate platform.manifest.yaml ──► Verify SHA256│
- │      ──► Verify Ed25519 ──► Resolve key_id ──► Check Trust Cache       │
- │      ──► Check Revocation Source (CRL/OCSP) ──► Validate Standards     │
- │      ──► Resolve Dependencies & Capabilities ──► Load Registries (L5)  │
- │      ──► Load Services (L2) ──► Load Kernels (L3) ──► Load Studios (L6)│
- │      ──► Load Connectors (L7) ──► Evaluate Compatibility Policies   │
- │      ──► Run SPD Diagnostics ──► OpenTelemetry Health Check ──► READY │
+ │ BOOT MANAGER -> Manifest Loader -> Manifest Inheritance Resolver      │
+ │              -> Integrity Verifier (SHA256 & Dependency Graph Hash)    │
+ │              -> Trust Manager (Ed25519 & Revocation)                   │
+ │              -> Capability Resolver -> Dependency Resolver             │
+ │              -> Compatibility Engine -> Startup Scheduler (Phase/Prior)│
+ │              -> Component Loader -> SPD Platform Doctor Check          │
+ │              -> Health & Telemetry Verification -> READY               │
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 6. Trust Chains, Revocation & Key Rotation Hierarchy
-
-The platform enforces a 4-tier cryptographic trust hierarchy with active revocation inspection:
-- **`Root`:** Signs Platform OS, Constitution, and Standard specs (`smriti-root-2026`).
-- **`Enterprise`:** Signs Level 3 Shared Business Kernels & Level 2 Services (`smriti-enterprise-2026`).
-- **`Partner`:** Signs certified Business Capability Studios & Universal Registries.
-- **`Community`:** Signs third-party marketplace extension packs and connectors.
-
----
-
-## 7. Deterministic Boot Failure Policy
+## 6. Deterministic Boot Failure Policy
 
 | Boot Failure Severity | Governance Definition | Runtime System Behavior | Failure Examples |
 |---|---|---|---|
-| **Critical** | Core constitutional, key revocation, or kernel failure | **Abort Startup Immediately** | SPC missing, key revoked, signature invalid, checksum mismatch |
+| **Critical** | Core constitutional, key revocation, or kernel failure | **Abort Startup Immediately** | SPC missing, key revoked, signature invalid, graph hash mismatch |
 | **Major** | Non-core studio or connector failure | **Start in Restricted / Read-Only Mode** | Optional studio missing, secondary connector offline |
 | **Minor** | Operational service degradation | **Continue Startup with Logged Warnings**| Telemetry collector unreached, non-critical cache miss |
 | **Info** | Non-blocking metric or doc gap | **Log Diagnostic Note Only** | Documentation link mismatch, non-semantic version note |
 
 ---
 
-## 8. Governance Authority Precedence Hierarchy
+## 7. Governance Authority Precedence Hierarchy
 
 1. **SPC (Platform Constitution):** Supreme architectural authority.
 2. **PRIG (Reference Implementation Guide):** Canonical implementation & coding standard.
@@ -209,21 +199,19 @@ The platform enforces a 4-tier cryptographic trust hierarchy with active revocat
 
 ---
 
-## 9. Shared Platform Service: SPD Platform Doctor Service
+## 8. Shared Platform Service: SPD Platform Doctor Service
 
 Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** acts as the platform's self-healing diagnostic engine:
-- **Manifest Schema Audit:** Validates `schema: "smriti.manifest.v1"`.
-- **SHA256 Checksum Verification:** Asserts payload hash integrity.
-- **Ed25519 Signature & Key Revocation Audit:** Verifies signatures, checks `key_id` against CRL/OCSP revocation sources.
-- **Runtime Trust Cache Enforcement:** Caches verified signatures in memory with `ttl: "300s"`.
-- **Capabilities & Scoped Dependencies Resolver:** Validates `provides`, `requires` (`relational-database`), and `required`/`optional` dependency graphs.
-- **Lifecycle & Priority Validator:** Asserts lifecycle transitions (`experimental` $\rightarrow$ `active` $\rightarrow$ `deprecated` $\rightarrow$ `archived` $\rightarrow$ `revoked`) and startup `priority` (100–900).
-- **CI/CD Build Provenance Audit:** Validates build metadata (`generated_by`, `pipeline`, `commit`, `build_number`).
+- **Manifest & Lock File Audit:** Validates `platform.manifest.yaml` and `platform.lock.yaml`.
+- **SHA256 & Dependency Graph Hash Verification:** Asserts payload and resolved graph hashes.
+- **Ed25519 Signature & Revocation Audit:** Verifies signatures, checks `key_id` against CRL/OCSP revocation sources.
+- **Startup Phase & Priority Orchestration:** Schedules initialization from `00-core` to `50-connector`.
+- **Compatibility Profile Verification:** Asserts environment profile (`enterprise`, `community`, `cloud`, `edge`).
 - **Platform Health Report:** Generates an enterprise-ready certification report (`100% READY FOR PRODUCTION`).
 
 ---
 
-## 10. Baseline Structural Freeze & ADR Policy
+## 9. Baseline Structural Freeze & ADR Policy
 
 1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
 2. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
