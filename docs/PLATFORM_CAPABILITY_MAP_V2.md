@@ -43,10 +43,10 @@
 
 | Component / Standard | Acronym | Governance Scope & Architectural Role | Status |
 |---|---|---|---|
-| **Platform Constitution** | **SPC v1.0**| Inherited Manifests, Priority, Lifecycle States | ✅ Certified (`d247547e`) |
-| **Reference Implementation**|**PRIG v1.0**| Canonical Repo Layout & Coding Guidelines | ✅ Certified (`d247547e`) |
-| **Platform Doctor Service** |**SPD v1.0**| Level 2 Diagnostics, Provenance Audit & Priority | ✅ Certified (`d247547e`) |
-| **Platform Maturity Model** | **PCMM v1.0**| L1 Foundation -> L2 Oper -> L3 Integ -> L4 Ent -> L5 Ecosys | ✅ L4 Enterprise (`d247547e`) |
+| **Platform Constitution** | **SPC v1.0**| Phase Enums, Compatibility Profiles, Lock Files | ✅ Certified (`61bc1156`) |
+| **Reference Implementation**|**PRIG v1.0**| Canonical Repo Layout & Coding Guidelines | ✅ Certified (`61bc1156`) |
+| **Platform Doctor Service** |**SPD v1.0**| Level 2 Diagnostics, Lock File & Graph Hash Scan | ✅ Certified (`61bc1156`) |
+| **Platform Maturity Model** | **PCMM v1.0**| L1 Foundation -> L2 Oper -> L3 Integ -> L4 Ent -> L5 Ecosys | ✅ L4 Enterprise (`61bc1156`) |
 | **Kernel Standard** | **KDS v1.1**| 15 Sections, 15 Principles, Dual Checklist, ADRs | ✅ Certified (`e07acb20`) |
 | **Integration Standard** | **IDS v1.0**| REST, GraphQL, Webhooks, OAuth, Connectors Standard | ✅ Certified (`b4afa62a`) |
 | **Service Standard** | **SDS v1.0**| Level 2 Shared Platform Services Standard | ✅ Certified (`e07acb20`) |
