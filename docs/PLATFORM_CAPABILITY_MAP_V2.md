@@ -56,7 +56,7 @@
 
 | Business Studio Domain | Workspaces | Key Business Scenarios | Status |
 |---|---|---|---|
-| **Product / PIM Studio** | 11 Workspaces | 16-Tab Product 360, 9 product types, Industry Packs | ✅ Certified (`8502f2dc`) |
+| **Product / PIM Studio** | 11 Workspaces | Single Source of Truth, Health Score, 16-Tab Product 360 | ✅ Certified (`d950dfea`) |
 | **Inventory Studio** | 10 Workspaces | Stock ledgers, bin management, cycle counts | ✅ Certified |
 | **Purchase Studio** | 6 Workspaces | Procurement, PO approvals, 3-way match | ✅ Certified (`b406880f`) |
 | **Sales Studio** | 8 Workspaces | Order-to-Cash, tax invoices, customer credit | ✅ Certified (`aaa02cd1`) |
