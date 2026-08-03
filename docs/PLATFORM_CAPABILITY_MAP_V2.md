@@ -27,10 +27,11 @@
  ├────────────────────────────────────────────────────────────────────────┤
  │ Level 1: Platform Operating System (SXP, SEEF, SEDS, WNG, USR)         │
  │ Level 2: Shared Platform Services (SEB, SES, SNP, SWA, SAS, STS, SAI)  │
- │ Level 3: Shared Business Kernels (SDK, SBPK, SPPK, SIK, SNK, STK, SLK) │
+ │ Level 3: Shared Business Kernels (SDK, SBPK, SPPK, SIK, SNK, STK, SLK, │
+ │          SAK Asset Kernel)                                             │
  │ Level 4: Master Data Platform (MDP v3.1, Reference Master Hub, MDGC)   │
  │ Level 5: Universal Registries (UFR, UWR, URR, USR, UPRT, ULR, UEDF)     │
- │ Level 6: Enterprise Business Studios (12 Certified Business Studios)   │
+ │ Level 6: Enterprise Business Studios (13 Certified Business Studios)   │
  │ Level 7: Network & Connectors (SMN Network Protocol, SIK Connectors)   │
  └────────────────────────────────────────────────────────────────────────┘
 ```
@@ -50,6 +51,7 @@
 | **Level 2: Shared Service** | **SAI** | AI demand forecasting, recommendations, document OCR | ✅ Certified (`1fd7d3a2`) |
 | **Level 3: Shared Kernel**  | **STK** | Universal GST, HSN validation, and tax rule engine | ✅ Certified (`d5da7922`) |
 | **Level 3: Shared Kernel**  | **SLK** | Immutable Stock, Customer, Supplier, & Financial Ledger | ✅ Certified (`d5da7922`) |
+| **Level 3: Shared Kernel**  | **SAK** | Fixed asset lifecycle, depreciation, & warranty engine | ✅ Certified (`3aba9c2f`) |
 | **Level 3: Shared Kernel**  | **SNK** | Node identity, version reconciliation, & vector clock sync | ✅ Certified (`c296bf4a`) |
 | **Level 7: Network Protocol**| **SMN**| Node discovery, remote encrypted backup, deployment manager | ✅ Certified (`d5da7922`) |
 
@@ -72,6 +74,7 @@
 | **Pricing & Promo Studio**| 8 Workspaces | Store price lists, BOGO, happy hour rules | ✅ Certified (`d8e41bc9`) |
 | **Replenishment Studio**| 8 Workspaces | Demand forecast, min/max reorder, ABC analysis| ✅ Certified (`f2da0df9`) |
 | **Omnichannel Studio** | 8 Workspaces | Marketplace sync, click & collect, ship-from-store| ✅ Certified (`d18789de`) |
+| **Asset Management Studio**| 10 Workspaces | Asset 360, depreciation, AMC, physical audit | ✅ Certified (`94811768`) |
 
 ---
 
