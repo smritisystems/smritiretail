@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -389,3 +389,197 @@ async def get_product_image(filename: str):
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="Image not found")
     return FileResponse(filepath, media_type="image/webp")
+
+
+# ============================================================================
+# INVENTORY KERNEL v1.0.0 FACADE REST ENDPOINTS
+# ============================================================================
+
+from ...services.inventory.facades import InventoryCommandFacade, InventoryQueryFacade
+
+@router.get("/kernel/available/{product_id}")
+async def get_kernel_available_stock(
+    product_id: str,
+    location_id: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Get Derived ATP stock (ATP = On Hand - Reserved - Locked) from InventoryQueryFacade."""
+    query_facade = InventoryQueryFacade(db, tenant_ctx)
+    atp = await query_facade.get_available(product_id, location_id)
+    return {"product_id": product_id, "location_id": location_id, "available_to_promise": atp}
+
+
+@router.get("/kernel/location-balance/{product_id}")
+async def get_kernel_location_balance(
+    product_id: str,
+    location_id: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Get Physical On-Hand Stock from InventoryQueryFacade ILGE balance engine."""
+    query_facade = InventoryQueryFacade(db, tenant_ctx)
+    balance = await query_facade.get_location_balance(product_id, location_id)
+    return {"product_id": product_id, "location_id": location_id, "on_hand": balance}
+
+
+@router.get("/kernel/timeline")
+async def get_kernel_timeline(
+    product_id: str | None = Query(None),
+    location_id: str | None = Query(None),
+    batch_no: str | None = Query(None),
+    serial_no: str | None = Query(None),
+    movement_type: str | None = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Get unified inventory timeline event stream from TimelineEngine."""
+    query_facade = InventoryQueryFacade(db, tenant_ctx)
+    events = await query_facade.get_timeline(
+        product_id=product_id,
+        location_id=location_id,
+        batch_no=batch_no,
+        serial_no=serial_no,
+        movement_type=movement_type,
+        skip=skip,
+        limit=limit,
+    )
+    return {"events": events, "count": len(events)}
+
+
+@router.post("/kernel/movements", status_code=201)
+async def execute_kernel_movement(
+    payload: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Execute atomic inventory transaction through ITEX / InventoryCommandFacade."""
+    transaction_id = payload.get("transaction_id")
+    if not transaction_id:
+        raise HTTPException(status_code=400, detail="transaction_id is required")
+    from_location_id = payload.get("from_location_id")
+    to_location_id = payload.get("to_location_id")
+    items = payload.get("items", [])
+    movement_type = payload.get("movement_type", "TRANSFER")
+    reference_doc_type = payload.get("reference_doc_type")
+    reference_doc_id = payload.get("reference_doc_id")
+    idempotency_key = payload.get("idempotency_key")
+
+    command_facade = InventoryCommandFacade(db, tenant_ctx)
+    return await command_facade.move_inventory(
+        transaction_id=transaction_id,
+        from_location_id=from_location_id,
+        to_location_id=to_location_id,
+        items=items,
+        movement_type=movement_type,
+        reference_doc_type=reference_doc_type,
+        reference_doc_id=reference_doc_id,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/kernel/locks", status_code=201)
+async def acquire_kernel_lock(
+    payload: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Acquire operational stock lock via InventoryCommandFacade."""
+    lock_type = payload.get("lock_type")
+    lock_scope = payload.get("lock_scope")
+    target_id = payload.get("target_id")
+    reason = payload.get("reason", "Operational Hold")
+    product_id = payload.get("product_id")
+    location_id = payload.get("location_id")
+    locked_qty = payload.get("locked_qty", 0)
+
+    if not lock_type or not lock_scope or not target_id:
+        raise HTTPException(status_code=400, detail="lock_type, lock_scope, and target_id are required")
+
+    from decimal import Decimal
+    command_facade = InventoryCommandFacade(db, tenant_ctx)
+    lock_rec = await command_facade.acquire_lock(
+        lock_type=lock_type,
+        lock_scope=lock_scope,
+        target_id=target_id,
+        reason=reason,
+        location_id=location_id,
+        product_id=product_id,
+        locked_qty=Decimal(str(locked_qty)),
+    )
+    return {
+        "lock_id": lock_rec.id,
+        "lock_code": lock_rec.lock_code,
+        "status": lock_rec.status,
+        "lock_type": lock_rec.lock_type,
+        "lock_scope": lock_rec.lock_scope,
+        "target_id": lock_rec.target_id,
+        "locked_qty": float(lock_rec.locked_qty),
+    }
+
+
+@router.post("/kernel/locks/{lock_id}/release")
+async def release_kernel_lock(
+    lock_id: str,
+    payload: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """Release active stock lock via InventoryCommandFacade."""
+    reason = payload.get("reason", "Normal Release")
+    command_facade = InventoryCommandFacade(db, tenant_ctx)
+    released_rec = await command_facade.release_lock(
+        lock_id=lock_id,
+        released_by=current_user.id,
+        reason=reason,
+    )
+    return {
+        "lock_id": released_rec.id,
+        "lock_code": released_rec.lock_code,
+        "status": released_rec.status,
+        "released_at": released_rec.released_at.isoformat() if released_rec.released_at else None,
+    }
+
+
+@router.get("/kernel/locks/{product_id}")
+async def get_active_kernel_locks(
+    product_id: str,
+    location_id: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Get active stock locks and total locked quantity for a product."""
+    query_facade = InventoryQueryFacade(db, tenant_ctx)
+    locks = await query_facade.get_active_locks(product_id=product_id, location_id=location_id)
+    return {"product_id": product_id, "locks": locks, "count": len(locks)}
+
+
+@router.post("/kernel/checkpoints", status_code=201)
+async def create_kernel_checkpoint(
+    payload: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """Create certified inventory recovery point checkpoint."""
+    checkpoint_name = payload.get("checkpoint_name")
+    if not checkpoint_name:
+        raise HTTPException(status_code=400, detail="checkpoint_name is required")
+    description = payload.get("description")
+
+    command_facade = InventoryCommandFacade(db, tenant_ctx)
+    cp = await command_facade.create_checkpoint(
+        checkpoint_name=checkpoint_name,
+        created_by=current_user.id,
+        description=description,
+    )
+    return {
+        "checkpoint_id": cp.id,
+        "checkpoint_code": cp.checkpoint_code,
+        "checkpoint_timestamp": cp.checkpoint_timestamp.isoformat(),
+        "total_sku_count": cp.total_sku_count,
+        "total_ledger_entries": cp.total_ledger_entries,
+    }
