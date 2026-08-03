@@ -108,14 +108,54 @@ Any AI-generated content shows "Advisory only — no automatic action taken." `i
 | SXP-CS-004 | ✅ Done | 6 POS actions in `WorkspaceActionRegistry` |
 | SXP-CS-005 | ✅ Done | POS dashboard widgets registered in `DashboardRegistry` |
 | SXP-CS-006 | ✅ Done | "New Bill", "Checkout", "Return / Exchange" — no ERP codes |
-| SXP-CS-007 | N/A | POS uses wizard mode; Return/Exchange steps pending Sprint 1 |
+| SXP-CS-007 | ✅ Done | `POSReturnWizard.tsx` — 3-step scanner_action (Scan Bill → Select Items → Confirm) — `a86e1d0` |
 | SXP-CS-008 | ✅ Done | `zone: "scanner"` declared in `pos.billing` manifest |
-| SXP-CS-009 | ✅ Done | `POSTimelineAdapter` implemented in `WorkspaceTimeline.tsx` — committed `49febc1` |
-| SXP-CS-010 | ✅ Done | `OfflineExperienceManager.registerHandler('sale')` in `pos.manifest.ts` — committed `49febc1` |
+| SXP-CS-009 | ✅ Done | `POSTimelineAdapter` implemented + wired to `/api/v1/pos/bills/{id}/timeline` — `49febc1` |
+| SXP-CS-010 | ✅ Done | `OfflineExperienceManager.registerHandler('sale')` in `pos.manifest.ts` — `49febc1` |
 | SXP-CS-011 | N/A | No AI features in POS Studio v1 |
 | SXP-CS-012 | ✅ Done | `npx tsc --noEmit` — 0 errors |
 
-**POS Studio Certification: CONDITIONALLY APPROVED** (CS-007 N/A — Return/Exchange sprint 1)
+**POS Studio Certification: APPROVED** ✔️ (all mandatory gates passed)
+
+---
+
+### Sales Studio
+| Gate | Status | Notes |
+|---|---|---|
+| SXP-CS-001 | ✅ Done | `sales.manifest.ts` auto-registers on import — `c75a29f` |
+| SXP-CS-002 | N/A | No full-screen terminal; workspaces use `WorkspaceShell` |
+| SXP-CS-003 | ✅ Done | No `mode ===` comparisons in manifest or workspace files |
+| SXP-CS-004 | ✅ Done | 6 actions registered: New Order, Confirm, Invoice, Payment, Return, Ledger |
+| SXP-CS-005 | ✅ Done | 6 dashboard widgets in `DashboardRegistry` (`dash.sales_overview`) |
+| SXP-CS-006 | ✅ Done | "New Order", "Create Invoice", "Record Payment" — no ERP codes |
+| SXP-CS-007 | ⚠️ Partial | Return wizard pending — will re-use `POSReturnWizard` pattern in Sprint 2 |
+| SXP-CS-008 | ✅ Done | `zone` declared per workspace in `SALES_WORKSPACES` array |
+| SXP-CS-009 | ✅ Done | `SalesTimelineAdapter` already in `WorkspaceTimeline.tsx` |
+| SXP-CS-010 | ✅ Done | `OfflineExperienceManager.registerHandler('custom')` for sales orders |
+| SXP-CS-011 | N/A | No AI features in Sales Studio v1 |
+| SXP-CS-012 | ✅ Done | `npx tsc --noEmit` — 0 errors |
+
+**Sales Studio Certification: CONDITIONALLY APPROVED** (CS-007 Return wizard — Sprint 2)
+
+---
+
+### Purchase Studio
+| Gate | Status | Notes |
+|---|---|---|
+| SXP-CS-001 | ✅ Done | `purchase.manifest.ts` auto-registers on import — `c75a29f` |
+| SXP-CS-002 | N/A | No full-screen terminal; workspaces use `WorkspaceShell` |
+| SXP-CS-003 | ✅ Done | No `mode ===` comparisons in manifest or workspace files |
+| SXP-CS-004 | ✅ Done | 6 actions registered: Raise Order, Receive Goods, Record Bill, Make Payment, Return, Payables |
+| SXP-CS-005 | ✅ Done | 7 dashboard widgets in `DashboardRegistry` (`dash.purchase_overview`) |
+| SXP-CS-006 | ✅ Done | "Raise Order", "Receive Goods", "Return to Supplier" — no ERP codes |
+| SXP-CS-007 | N/A | No scanner_action flow in Purchase Studio v1 |
+| SXP-CS-008 | ✅ Done | `zone` declared per workspace in `PURCHASE_WORKSPACES` array |
+| SXP-CS-009 | ✅ Done | `PurchaseTimelineAdapter` already in `WorkspaceTimeline.tsx` |
+| SXP-CS-010 | ✅ Done | `OfflineExperienceManager.registerHandler('stock_receipt')` for GRNs |
+| SXP-CS-011 | N/A | No AI features in Purchase Studio v1 |
+| SXP-CS-012 | ✅ Done | `npx tsc --noEmit` — 0 errors |
+
+**Purchase Studio Certification: CONDITIONALLY APPROVED** (CS-007 N/A — no scanner flow in v1)
 
 ---
 
@@ -123,10 +163,10 @@ Any AI-generated content shows "Advisory only — no automatic action taken." `i
 
 | Studio | Mandatory Gates | Status |
 |---|---|---|
-| Inventory Studio | CS-001–008, CS-012 | ✅ 11/12 passed (CS-010 advisory) |
-| POS Studio | CS-001–008, CS-012 | ✅ 12/12 passed (CS-007 N/A) — **CONDITIONALLY APPROVED** |
-| Sales Studio | CS-001–012 | ❌ Not started |
-| Purchase Studio | CS-001–012 | ❌ Not started |
+| Inventory Studio | CS-001–008, CS-012 | ✅ 11/12 passed — **CONDITIONALLY APPROVED** |
+| POS Studio | CS-001–012 | ✅ 12/12 passed — **APPROVED** ✔️ |
+| Sales Studio | CS-001–012 | ✅ 11/12 passed — **CONDITIONALLY APPROVED** (CS-007 Sprint 2) |
+| Purchase Studio | CS-001–012 | ✅ 12/12 passed — **CONDITIONALLY APPROVED** (CS-007 N/A) |
 
 ---
 
