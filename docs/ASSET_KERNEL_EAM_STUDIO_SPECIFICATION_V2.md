@@ -15,13 +15,26 @@
 # SMRITI Asset Kernel (SAK v2.1) & Enterprise Asset Management Studio Specification (EAM v2.1 Baseline)
 
 **Status:** FROZEN — Enterprise Asset Management Baseline Specification v2.1 (2026-08-04)
-**Scope:** Categorized 13 Platform Contracts, Dual Lifecycle Baseline, & SAK v2.2 Future Roadmap
+**Scope:** KDS v1.0 Compliance, 10 SAK Principles, Categorized Contracts, & SAK v2.2 Roadmap
 
 ---
 
-## 1. Categorized SAK v2.1 Platform Contracts
+## 1. 10 SAK Architectural Principles (KDS v1.0 Compliant)
 
-SAK v2.1 formally categorizes its 13 explicit platform contracts into **Shared Platform Services (Level 2)** and **Shared Business Kernels (Level 3)**:
+1. **SAK Domain Ownership:** SAK exclusively owns all fixed asset business logic. No Business Studio or UI component may modify asset tables directly.
+2. **Mandatory Service Facade:** All asset operations MUST execute through `SAK.AssetService`.
+3. **Immutable Asset Identity:** `asset_uuid` is 100% immutable once issued.
+4. **Dual Lifecycle State/Status Separation:** Primary lifecycle state is an immutable state machine; operational sub-status is concurrent.
+5. **Delegated Financial Ledger Postings:** Capitalization, depreciation, and disposal GL postings MUST delegate to `SLK Ledger Kernel`.
+6. **Delegated Tax Calculations:** Input tax credit (ITC) and GST asset disposal write-offs MUST delegate to `STK Tax Kernel`.
+7. **Delegated Document Lifecycle:** Asset acquisition, transfer, and disposal document approvals MUST delegate to `SDK Document Kernel`.
+8. **Multi-Channel Notification Alerts:** Maintenance reminders and warranty expiry alerts MUST delegate to `SNP Notification Platform`.
+9. **Event-Driven Communication:** All asset state changes MUST publish asynchronous events over `SEB Event Bus`.
+10. **Strict Versioning Policy:** SAK v2.1 is locked as the production baseline. New capabilities (Relationships, IoT, GIS) are strictly reserved for SAK v2.2.
+
+---
+
+## 2. Categorized SAK v2.1 Platform Contracts
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
@@ -36,7 +49,7 @@ SAK v2.1 formally categorizes its 13 explicit platform contracts into **Shared P
  │ • STS (Scheduler)  ── Runs recurring monthly depreciation & maintenance│
  │ • SAI (AI Engine)  ── Executes predictive maintenance & useful-life ML │
  ├────────────────────────────────────────────────────────────────────────┤
- │ SHARED BUSINESS KERNELS (LEVEL 3):                                     │
+ │ SHARED BUSINESS KERNELS (LEVEL 3):                                    │
  │ • SDK (Document)   ── Enforces document state machine for PO, GRN, Move│
  │ • SLK (Ledger)     ── Posts capitalization, depreciation, disposal GLs │
  │ • STK (Tax)        ── Calculates GST ITC & tax write-off adjustments     │
@@ -48,10 +61,10 @@ SAK v2.1 formally categorizes its 13 explicit platform contracts into **Shared P
 
 ---
 
-## 2. SAK v2.2 Future Evolution Roadmap (Reserved Features)
+## 3. SAK v2.2 Reserved Capabilities Roadmap
 
-The baseline for **SAK v2.1** is officially locked and frozen (`aba00260`). Future asset extensions are reserved for **SAK v2.2**:
-- **SAK.RelationshipService:** Hierarchy tree contracts (`Parent`, `Child`, `Accessory`, `Replacement`, `Component`, `Spare`, `Bundle`).
-- **IoT Telemetry & Condition Monitoring:** Real-time sensor alerts (vibration, temperature, runtime hours).
-- **GIS Location Services:** Spatial GPS asset tracking for fleet vehicles and field equipment.
-- **Digital Twin Simulation:** Equipment wear-and-tear simulation models.
+Future asset platform extensions are formally reserved for **SAK v2.2**:
+- **`SAK.RelationshipService`:** Hierarchy tree contracts (`CreateRelationship`, `RemoveRelationship`, `GetParent`, `GetChildren`, `FindDependencies`, `MoveHierarchy`).
+- **IoT Telemetry Engine:** Equipment sensor streaming & predictive alerts.
+- **GIS Location Tracking:** Spatial GPS coordinate mapping.
+- **Digital Twin Engine:** Equipment wear-and-tear simulation models.
