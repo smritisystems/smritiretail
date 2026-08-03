@@ -40,16 +40,12 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
 
 ## 2. Platform Version Governance Policy
 
-### Platform OS v1.x (Frozen Operating System)
+### Platform OS v1.x (Frozen Operating System & Shared Kernels)
 - **Status:** Immutable Execution Environment.
+- **Shared Kernels:** Inventory Kernel v1.0, SXP v1.0, SEEF v1.0, SEDS, WNG Navigation, **SBPK v1.0 (Printing Kernel)**.
 - **Allowed Changes:** Critical security patches, bug fixes, performance optimizations.
 - **Forbidden Changes:** Breaking API changes, custom uncertified UI engine extensions, direct platform token modifications.
 - **Major Versioning:** Platform OS structural evolution requires an approved Architecture Decision Record (ADR) and a major version increment (e.g., Platform OS v2.0).
-
-### Business Studios (Independent Capability Layer)
-- **Status:** Independent Business Modules.
-- **Allowed Changes:** Feature expansion, workflow additions, report definitions, UPR metadata registrations.
-- **Governance Requirement:** Every studio version MUST earn full 6-dimensional certification without modifying Platform OS v1.x primitives.
 
 ---
 
@@ -66,6 +62,7 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
  │ Purchase     │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ Sales        │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ POS          │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ SBPK Kernel  │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ CRM          │     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
  │ Accounting   │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
  └──────────────┴────────────┴───────────┴──────────┴──────────┴─────────────┴────────────┴───────────┘
@@ -75,9 +72,12 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
 
 ## 4. Next Certification Target: CRM Studio v1.0
 
-CRM Studio v1.0 will execute certification under the exact 6-dimensional framework:
-
-1. **Operations Scenarios:** Customer 360 engagement, lead tracking, interaction log, loyalty tier promotion, targeted SMS/WhatsApp campaign management.
-2. **Financial & Loyalty:** Loyalty point earning/redemption ledger, customer lifetime value (LTV) calculation, credit balance management.
-3. **Analytics & Performance:** Campaign ROI, customer churn risk analysis, purchase frequency profiling.
-4. **Reliability & Integration:** Synchronization with Sales Studio, POS Studio, and Universal Report Registry.
+CRM Studio v1.0 will execute certification under the exact 6-dimensional framework across 8 workspaces:
+1. Customer Dashboard
+2. Lead Management
+3. Opportunity Pipeline
+4. Activities & Follow-ups
+5. Customer 360 Object Page
+6. Loyalty & Membership
+7. Campaigns
+8. CRM Reports & Analytics
