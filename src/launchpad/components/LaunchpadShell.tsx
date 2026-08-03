@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Module       : Digital Business Desktop Composition Shell (Zones A-H Engine)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * Version      : 5.4.0
  */
 
@@ -43,7 +43,7 @@ export const LaunchpadShell: React.FC<LaunchpadShellProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-theme-base text-theme-body p-6 md:p-8 font-sans selection:bg-[#0a6ed1] selection:text-white">
+    <div className="w-full h-full overflow-y-auto bg-theme-base text-theme-body p-6 md:p-8 font-sans selection:bg-[var(--c-seef-accent)] selection:text-white">
       <div className="max-w-7xl mx-auto space-y-6 pb-12">
         {/* Zone A: Shell Header */}
         <Header

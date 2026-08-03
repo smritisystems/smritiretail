@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
- * Module       : Zone E — Application Grid Component (WNG-002 & Rule AI-001 Compliant)
+ * Module       : Zone E â€” Application Grid Component (WNG-002 & Rule AI-001 Compliant)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * Version      : 5.4.0
  */
 
@@ -118,7 +118,7 @@ export const ApplicationGrid: React.FC<ApplicationGridProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3 bg-theme-surface-1 border border-theme-divider p-2 rounded-lg shadow-xs">
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
           <span className="text-xs font-mono text-theme-muted px-2 flex items-center gap-1.5">
-            <Grid className="w-3.5 h-3.5 text-[#0a6ed1]" /> Domains:
+            <Grid className="w-3.5 h-3.5 text-[var(--c-seef-accent)]" /> Domains:
           </span>
           <div className="flex items-center gap-1 bg-theme-surface-2 p-1 rounded-md border border-theme-divider">
             {categories.map((cat) => (
@@ -127,7 +127,7 @@ export const ApplicationGrid: React.FC<ApplicationGridProps> = ({
                 onClick={() => setSelectedCategory(cat)}
                 className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
                   selectedCategory === cat
-                    ? "bg-[#0a6ed1] text-white shadow-xs"
+                    ? "bg-[var(--c-seef-accent)] text-white shadow-xs"
                     : "text-theme-muted hover:bg-theme-surface-hover hover:text-theme-heading"
                 }`}
               >
@@ -155,7 +155,7 @@ export const ApplicationGrid: React.FC<ApplicationGridProps> = ({
             <div key={catName} className="space-y-3">
               <div className="flex items-center justify-between border-b border-theme-divider pb-2">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-theme-muted flex items-center gap-2">
-                  <span className="w-1.5 h-3.5 bg-[#0a6ed1] rounded-xs" />
+                  <span className="w-1.5 h-3.5 bg-[var(--c-seef-accent)] rounded-xs" />
                   {catName === "Operations" && "Operations & POS Transactions"}
                   {catName === "Masters" && "Master Data & Registry Hub"}
                   {catName === "Analytics" && "Analytics, Ledger & Reports"}
@@ -177,24 +177,24 @@ export const ApplicationGrid: React.FC<ApplicationGridProps> = ({
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.15, delay: idx * 0.02 }}
                       onClick={() => onSelectTab(tile.targetTab)}
-                      className="group relative cursor-pointer bg-theme-surface-1 hover:bg-theme-surface-2 border border-theme-divider hover:border-[#0a6ed1] rounded-lg p-4 transition-all duration-200 shadow-xs hover:shadow-md flex flex-col justify-between"
+                      className="group relative cursor-pointer bg-theme-surface-1 hover:bg-theme-surface-2 border border-theme-divider hover:border-[var(--c-seef-accent)] rounded-lg p-4 transition-all duration-200 shadow-xs hover:shadow-md flex flex-col justify-between"
                     >
                       <div>
                         <div className="flex items-start justify-between mb-3">
-                          <div className="w-9 h-9 rounded-md bg-theme-surface-2 border border-theme-divider flex items-center justify-center text-[#0a6ed1] dark:text-[#6fa8dc] group-hover:scale-105 transition-transform duration-200">
+                          <div className="w-9 h-9 rounded-md bg-theme-surface-2 border border-theme-divider flex items-center justify-center text-[var(--c-seef-accent)] group-hover:scale-105 transition-transform duration-200">
                             <Icon className="w-5 h-5" />
                           </div>
                           {tile.badge && (
-                            <span className="px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase rounded bg-[#0a6ed1]/15 text-[#0a6ed1] dark:text-[#6fa8dc] border border-[#0a6ed1]/30">
+                            <span className="px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase rounded bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)] border border-[var(--c-seef-accent)]/30">
                               {tile.badge}
                             </span>
                           )}
                         </div>
 
                         <div>
-                          <h4 className="text-sm font-bold text-theme-heading group-hover:text-[#0a6ed1] dark:group-hover:text-[#6fa8dc] transition-colors flex items-center justify-between">
+                          <h4 className="text-sm font-bold text-theme-heading group-hover:text-[var(--c-seef-accent)] transition-colors flex items-center justify-between">
                             {tile.title}
-                            <ChevronRight className="w-4 h-4 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-[#0a6ed1]" />
+                            <ChevronRight className="w-4 h-4 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-[var(--c-seef-accent)]" />
                           </h4>
                           <p className="text-xs text-theme-muted mt-1 line-clamp-2 leading-relaxed">
                             {tile.subtitle}
