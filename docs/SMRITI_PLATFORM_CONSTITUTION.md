@@ -48,19 +48,25 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ---
 
-## 3. Standardized Manifest Layout v1.0 (`platform.manifest.yaml`)
+## 3. Standardized Manifest Schema v1.0 (`smriti.manifest.v1`)
 
-Every deployable layer artifact MUST expose a standardized, checksum-verified, digitally signed, and auditable manifest:
+Every deployable layer artifact MUST expose a standardized, checksum-verified, digitally signed, and auditable manifest following the `smriti.manifest.v1` schema:
 
 ```yaml
 # SMRITI Platform Baseline Manifest v1.0
 manifest:
   id: "urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
-  schema_version: "1.0.0"
+  schema: "smriti.manifest.v1"
   type: "platform"
+  lifecycle:
+    state: "active" # States: active | deprecated | archived | revoked | experimental
+
+identity:
+  name: "SMRITI Digital Commerce Platform OS"
+  vendor: "SmritiSys"
+  namespace: "smritibooks.platform.os"
 
 metadata:
-  name: "SMRITI Digital Commerce Platform OS"
   version: "4.2.0"
   issued: "2026-08-04T12:30:00Z"
 
@@ -80,53 +86,67 @@ signature:
 trust:
   level: "Root" # Trust Levels: Root | Enterprise | Partner | Community
   policy: "strict"
+  revocation:
+    method: "CRL" # Methods: CRL | OCSP | Local | Bundle
+  trust_cache:
+    ttl: "300s"
 
-standards:
-  KDS: { version: "1.1.0", checksum: "a1b2c3...", policy: "same-major" }
-  SDS: { version: "1.0.0", checksum: "d4e5f6...", policy: "same-major" }
-  IDS: { version: "1.0.0", checksum: "7a8b9c...", policy: "same-major" }
-  BDS: { version: "1.0.0", checksum: "0e1f2a...", policy: "same-major" }
-  RDS: { version: "1.0.0", checksum: "3b4c5d...", policy: "same-major" }
-  NDS: { version: "1.0.0", checksum: "6e7f8a...", policy: "same-major" }
+capabilities:
+  provides:
+    - "platform-os"
+    - "digital-commerce-kernel-host"
+  requires:
+    - "post-postgresql"
+    - "opentelemetry-collector"
 
-kernels:
-  SDK: { version: "1.0.0", checksum: "9b8a7c...", policy: "compatible-minor", trust_level: "Enterprise" }
-  SLK: { version: "1.0.0", checksum: "5d4c3b...", policy: "compatible-minor", trust_level: "Enterprise" }
-  STK: { version: "1.0.0", checksum: "2a1f0e...", policy: "compatible-minor", trust_level: "Enterprise" }
-  SAK: { version: "2.1.0", checksum: "fa7dff...", policy: "compatible-minor", trust_level: "Enterprise" }
+dependencies:
+  standards:
+    KDS: { version: "1.1.0", checksum: "a1b2c3...", policy: "same-major" }
+    SDS: { version: "1.0.0", checksum: "d4e5f6...", policy: "same-major" }
+    IDS: { version: "1.0.0", checksum: "7a8b9c...", policy: "same-major" }
+    BDS: { version: "1.0.0", checksum: "0e1f2a...", policy: "same-major" }
+    RDS: { version: "1.0.0", checksum: "3b4c5d...", policy: "same-major" }
+    NDS: { version: "1.0.0", checksum: "6e7f8a...", policy: "same-major" }
+  kernels:
+    SDK: { version: "1.0.0", checksum: "9b8a7c...", policy: "compatible-minor", trust_level: "Enterprise" }
+    SLK: { version: "1.0.0", checksum: "5d4c3b...", policy: "compatible-minor", trust_level: "Enterprise" }
+    STK: { version: "1.0.0", checksum: "2a1f0e...", policy: "compatible-minor", trust_level: "Enterprise" }
+    SAK: { version: "2.1.0", checksum: "fa7dff...", policy: "compatible-minor", trust_level: "Enterprise" }
 ```
 
 ---
 
-## 4. Trust Level Hierarchy & Key Revocation Governance
+## 4. Deterministic Platform Initialization Pipeline
 
-The platform enforces a 4-tier cryptographic trust hierarchy with active key revocation checks:
+Platform boot follows an immutable 17-step deterministic validation pipeline:
+
+```text
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │ DETERMINISTIC PLATFORM INITIALIZATION PIPELINE                         │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ BOOT ──► Load SPC ──► Validate platform.manifest.yaml ──► Verify SHA256│
+ │      ──► Verify Ed25519 ──► Resolve key_id ──► Check Trust Cache       │
+ │      ──► Check Revocation Source (CRL/OCSP) ──► Validate Standards     │
+ │      ──► Resolve Dependencies & Capabilities ──► Load Registries (L5)  │
+ │      ──► Load Services (L2) ──► Load Kernels (L3) ──► Load Studios (L6)│
+ │      ──► Load Connectors (L7) ──► Evaluate Compatibility Policies   │
+ │      ──► Run SPD Diagnostics ──► OpenTelemetry Health Check ──► READY │
+ └────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 5. Trust Chains, Revocation & Key Rotation Hierarchy
+
+The platform enforces a 4-tier cryptographic trust hierarchy with active revocation inspection:
 - **`Root`:** Signs Platform OS, Constitution, and Standard specs (`smriti-root-2026`).
 - **`Enterprise`:** Signs Level 3 Shared Business Kernels & Level 2 Services (`smriti-enterprise-2026`).
 - **`Partner`:** Signs certified Business Capability Studios & Universal Registries.
 - **`Community`:** Signs third-party marketplace extension packs and connectors.
 
-> **Key Revocation Directive:** SPD Platform Doctor MUST query the runtime Trust Store before verifying signature bytes. If a `key_id` is marked revoked, startup aborts immediately with a **Critical Boot Failure**.
-
 ---
 
-## 5. Policy Vocabulary Matrix
-
-| Policy Vocabulary Term | Evaluation Rule | Boot Severity on Violation |
-|---|---|---|
-| **`exact`** | Exact major/minor version match required | **Critical** (Abort Boot) |
-| **`same-major`** | Same major version required (`1.x.x`) | **Critical** (Abort Boot) |
-| **`compatible-minor`** | Compatible minor version required (`^2.1.0`) | **Critical** (Abort Boot) |
-| **`declared-api`** | Compatible with declared Kernel APIs | **Major** (Restricted Mode) |
-| **`declared-range`** | Compatible with declared kernel range | **Major** (Restricted Mode) |
-| **`optional`** | Optional capability; skip if uninstalled | **Info** (Log Note) |
-| **`experimental`** | Experimental feature flag; log warning | **Minor** (Logged Warning) |
-| **`deprecated`** | Deprecated capability; schedule migration | **Minor** (Logged Warning) |
-| **`warning`** | Non-critical facade compatibility | **Minor** (Logged Warning) |
-
----
-
-## 6. Deterministic Platform Boot Failure Policy
+## 6. Deterministic Boot Failure Policy
 
 | Boot Failure Severity | Governance Definition | Runtime System Behavior | Failure Examples |
 |---|---|---|---|
@@ -153,13 +173,12 @@ The platform enforces a 4-tier cryptographic trust hierarchy with active key rev
 ## 8. Shared Platform Service: SPD Platform Doctor Service
 
 Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** acts as the platform's self-healing diagnostic engine:
-- **Manifest UUID & Metadata Audit:** Asserts manifest `id`, `schema_version`, and issue timestamp.
-- **SHA256 Checksum Verification:** Asserts manifest payload hash integrity.
-- **Ed25519 Certificate & Key Revocation Audit:** Verifies signature bytes and checks `key_id` against the Trust Store CRL (Certificate Revocation List).
-- **Runtime Trust Cache:** Caches verified signatures in memory for zero-latency re-validation.
-- **Declarative Compatibility Matrix Scan:** Evaluates policy rules per Component Category (`exact`, `same-major`, `compatible-minor`, `declared-api`, `optional`, `experimental`, `deprecated`).
-- **License & ABAC Verification:** Validates tenant edition licenses and security RBAC/ABAC rules.
-- **Database & Schema Audit:** Asserts schema migration integrity across all kernels.
+- **Manifest Schema Audit:** Validates `schema: "smriti.manifest.v1"`.
+- **SHA256 Checksum Verification:** Asserts payload hash integrity.
+- **Ed25519 Signature & Key Revocation Audit:** Verifies signatures, checks `key_id` against CRL/OCSP revocation sources.
+- **Runtime Trust Cache Enforcement:** Caches verified signatures in memory with `ttl: "300s"`.
+- **Capabilities & Dependencies Resolver:** Validates `provides` and `requires` contract graphs.
+- **Declarative Compatibility Matrix Scan:** Evaluates policy rules per Component Category.
 - **Platform Health Report:** Generates an enterprise-ready certification report (`100% READY FOR PRODUCTION`).
 
 ---
