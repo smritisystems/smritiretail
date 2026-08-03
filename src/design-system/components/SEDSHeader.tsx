@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Business OS
  * Component    : SEDSHeader (SMRITI Shell Bar Equivalent)
  * Author       : Jawahar Ramkripal Mallah
@@ -36,7 +36,7 @@ export const SEDSHeader: React.FC<SEDSHeaderProps> = ({
   isDarkMode = true,
 }) => {
   return (
-    <header className="w-full bg-[#11141c] border-b border-theme-divider/80 px-4 md:px-6 py-2.5 flex items-center justify-between gap-4 font-sans select-none z-30">
+    <header className="w-full bg-theme-surface-1 border-b border-theme-divider/80 px-4 md:px-6 py-2.5 flex items-center justify-between gap-4 font-sans select-none z-30">
       {/* Brand Identity & Version */}
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-lg text-sm tracking-tighter">
