@@ -48,19 +48,21 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ---
 
-## 3. Manifest Schema v1.0 & Trust Hierarchy
+## 3. Standardized Manifest Layout v1.0 (`platform.manifest.yaml`)
 
-Every deployable artifact MUST expose a standardized `*.manifest.yaml` featuring explicit manifest schema versioning, trust levels, key rotation IDs, and cryptographic signatures:
+Every deployable layer artifact MUST expose a standardized, checksum-verified, digitally signed, and auditable manifest:
 
 ```yaml
 # SMRITI Platform Baseline Manifest v1.0
 manifest:
+  id: "urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
   schema_version: "1.0.0"
   type: "platform"
 
-platform:
-  constitution_version: "1.0.0"
-  platform_os_version: "4.2.0"
+metadata:
+  name: "SMRITI Digital Commerce Platform OS"
+  version: "4.2.0"
+  issued: "2026-08-04T12:30:00Z"
 
 integrity:
   algorithm: "SHA256"
@@ -68,12 +70,15 @@ integrity:
 
 signature:
   algorithm: "Ed25519"
-  signer: "SmritiSys Enterprise Authority"
   key_id: "smriti-root-2026"
+  timestamp: "2026-08-04T12:30:05Z"
   signature_bytes: "9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e"
+  certificate:
+    issuer: "SmritiSys Enterprise Certificate Authority"
+    serial: "2026-ROOT-001"
 
 trust:
-  level: "Root" # Trust Levels: Root | Trusted | Vendor | External
+  level: "Root" # Trust Levels: Root | Enterprise | Partner | Community
   policy: "strict"
 
 standards:
@@ -85,17 +90,27 @@ standards:
   NDS: { version: "1.0.0", checksum: "6e7f8a...", policy: "same-major" }
 
 kernels:
-  SDK: { version: "1.0.0", checksum: "9b8a7c...", policy: "compatible-minor", trust_level: "Trusted" }
-  SLK: { version: "1.0.0", checksum: "5d4c3b...", policy: "compatible-minor", trust_level: "Trusted" }
-  STK: { version: "1.0.0", checksum: "2a1f0e...", policy: "compatible-minor", trust_level: "Trusted" }
-  SAK: { version: "2.1.0", checksum: "fa7dff...", policy: "compatible-minor", trust_level: "Trusted" }
+  SDK: { version: "1.0.0", checksum: "9b8a7c...", policy: "compatible-minor", trust_level: "Enterprise" }
+  SLK: { version: "1.0.0", checksum: "5d4c3b...", policy: "compatible-minor", trust_level: "Enterprise" }
+  STK: { version: "1.0.0", checksum: "2a1f0e...", policy: "compatible-minor", trust_level: "Enterprise" }
+  SAK: { version: "2.1.0", checksum: "fa7dff...", policy: "compatible-minor", trust_level: "Enterprise" }
 ```
 
 ---
 
-## 4. Policy Vocabulary & Compatibility Engine Rules
+## 4. Trust Level Hierarchy & Key Revocation Governance
 
-**SPD Platform Doctor** evaluates policy rules using a comprehensive policy vocabulary:
+The platform enforces a 4-tier cryptographic trust hierarchy with active key revocation checks:
+- **`Root`:** Signs Platform OS, Constitution, and Standard specs (`smriti-root-2026`).
+- **`Enterprise`:** Signs Level 3 Shared Business Kernels & Level 2 Services (`smriti-enterprise-2026`).
+- **`Partner`:** Signs certified Business Capability Studios & Universal Registries.
+- **`Community`:** Signs third-party marketplace extension packs and connectors.
+
+> **Key Revocation Directive:** SPD Platform Doctor MUST query the runtime Trust Store before verifying signature bytes. If a `key_id` is marked revoked, startup aborts immediately with a **Critical Boot Failure**.
+
+---
+
+## 5. Policy Vocabulary Matrix
 
 | Policy Vocabulary Term | Evaluation Rule | Boot Severity on Violation |
 |---|---|---|
@@ -111,21 +126,11 @@ kernels:
 
 ---
 
-## 5. Trust Chains & Ed25519 Key Rotation Hierarchy
-
-The platform enforces a 4-tier cryptographic key rotation hierarchy:
-- **Root Authority Key (`smriti-root-2026`):** Signs Platform OS & Constitution manifests.
-- **Enterprise Key (`smriti-enterprise-2026`):** Signs Shared Business Kernels & Level 2 Services.
-- **Trusted Partner Key (`smriti-partner-*`):** Signs Business Capability Studios & Registries.
-- **Vendor Key (`smriti-vendor-*`):** Signs Marketplace & Industry Extension Packs.
-
----
-
 ## 6. Deterministic Platform Boot Failure Policy
 
 | Boot Failure Severity | Governance Definition | Runtime System Behavior | Failure Examples |
 |---|---|---|---|
-| **Critical** | Core constitutional, checksum/signature, or kernel failure | **Abort Startup Immediately** | SPC missing, signature invalid, SHA256 mismatch, version violation |
+| **Critical** | Core constitutional, key revocation, or kernel failure | **Abort Startup Immediately** | SPC missing, key revoked, signature invalid, checksum mismatch |
 | **Major** | Non-core studio or connector failure | **Start in Restricted / Read-Only Mode** | Optional studio missing, secondary connector offline |
 | **Minor** | Operational service degradation | **Continue Startup with Logged Warnings**| Telemetry collector unreached, non-critical cache miss |
 | **Info** | Non-blocking metric or doc gap | **Log Diagnostic Note Only** | Documentation link mismatch, non-semantic version note |
@@ -148,11 +153,11 @@ The platform enforces a 4-tier cryptographic key rotation hierarchy:
 ## 8. Shared Platform Service: SPD Platform Doctor Service
 
 Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** acts as the platform's self-healing diagnostic engine:
-- **Manifest Schema Audit:** Validates `schema_version: "1.0.0"`.
+- **Manifest UUID & Metadata Audit:** Asserts manifest `id`, `schema_version`, and issue timestamp.
 - **SHA256 Checksum Verification:** Asserts manifest payload hash integrity.
-- **Ed25519 Key Rotation Verification:** Authenticates manifest signatures against public key store (`key_id`).
-- **Trust Chain Enforcement:** Validates Root, Trusted, Vendor, and External trust levels.
-- **Policy Engine Evaluation:** Evaluates policy vocabulary (`exact`, `same-major`, `compatible-minor`, `declared-api`, `optional`, `experimental`, `deprecated`).
+- **Ed25519 Certificate & Key Revocation Audit:** Verifies signature bytes and checks `key_id` against the Trust Store CRL (Certificate Revocation List).
+- **Runtime Trust Cache:** Caches verified signatures in memory for zero-latency re-validation.
+- **Declarative Compatibility Matrix Scan:** Evaluates policy rules per Component Category (`exact`, `same-major`, `compatible-minor`, `declared-api`, `optional`, `experimental`, `deprecated`).
 - **License & ABAC Verification:** Validates tenant edition licenses and security RBAC/ABAC rules.
 - **Database & Schema Audit:** Asserts schema migration integrity across all kernels.
 - **Platform Health Report:** Generates an enterprise-ready certification report (`100% READY FOR PRODUCTION`).
