@@ -42,7 +42,7 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
 
 ### Platform OS v1.x (Frozen Operating System & Shared Kernels)
 - **Status:** Immutable Execution Environment.
-- **Shared Kernels:** Inventory Kernel v1.0, SXP v1.0, SEEF v1.0, SEDS, WNG Navigation, **SBPK v1.0 (Printing)**, **SDK v1.0 (Document)**, Notification Kernel v1.0, Payment Kernel v1.0.
+- **Shared Kernels:** Inventory Kernel v1.0, SXP v1.0, SEEF v1.0, SEDS, WNG Navigation, **SBPK v1.0 (Printing)**, **SDK v1.0 (Document)**, **SIK v1.0 (Integration)**, Notification Kernel v1.0, Payment Kernel v1.0.
 - **Allowed Changes:** Critical security patches, bug fixes, performance optimizations.
 - **Forbidden Changes:** Breaking API changes, custom uncertified UI engine extensions, direct platform token modifications.
 - **Major Versioning:** Platform OS structural evolution requires an approved Architecture Decision Record (ADR) and a major version increment (e.g., Platform OS v2.0).
@@ -63,25 +63,28 @@ Every SMRITI Business Studio MUST be certified across six explicit, measurable g
  │ Sales        │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ POS          │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ SBPK Kernel  │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ SDK Kernel   │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ SIK Kernel   │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ CRM          │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ Accounting   │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
  │ Warehouse    │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
- │ SDK Kernel   │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
- │ Merchandising│     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
- │ HR Studio    │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
+ │ Merchandising│     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ Pricing/Promo│     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
+ │ Replenish    │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
+ │ Omnichannel │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
  └──────────────┴────────────┴───────────┴──────────┴──────────┴─────────────┴────────────┴───────────┘
 ```
 
 ---
 
-## 4. Next Milestone Target: Merchandising & Assortment Studio v1.0
+## 4. Next Milestone Target: Pricing & Promotion Studio v1.0
 
-Merchandising Studio v1.0 will execute certification under the exact 6-dimensional framework across 8 workspaces:
-1. Merchandising Dashboard & Seasonality Trends
-2. Assortment Planning & Store Grouping
-3. Buying Plans & Vendor Catalogs
-4. Seasonal Collections & Markdown Planning
-5. Promotional Pricing & Discount Rules
-6. Item Lifecycle & Discontinuation Management
-7. Retail Margin & Mark-Up Analysis
-8. Merchandising Reports & Analytics
+Pricing & Promotion Studio v1.0 will execute certification under the exact 6-dimensional framework across 8 workspaces:
+1. Pricing & Promotions Dashboard
+2. Multi-Store & Regional Price Lists
+3. Discount & Markdown Policy Engine
+4. Mix & Match / Bundle Offers (Buy X Get Y)
+5. Coupon & Promo Code Registry
+6. Happy Hour & Flash Sale Scheduler
+7. Tiered Loyalty Promotions
+8. Promotional Analytics & Margin Audit
