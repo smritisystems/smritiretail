@@ -1,9 +1,9 @@
-/**
- * Project      : SMRITI Retail OS v6.5 — Platform Architecture Constitution
+﻿/**
+ * Project      : SMRITI Retail OS v6.5 â€” Platform Architecture Constitution
  * Module       : UniversalPersonWorkspace (Universal Person 360 Studio Component v2.0)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com and AITDL.com. All Rights Reserved.
  * Version      : 2.0.0
  */
 
@@ -41,7 +41,7 @@ export const UniversalPersonWorkspace: React.FC<Props> = ({ personId = "ID-1001"
       {/* Identity Header Banner */}
       <div className="p-6 bg-gradient-to-r from-theme-surface-2 via-theme-surface-3 to-theme-surface-2 border border-theme-divider rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-[#0a6ed1]/10 border border-[#0a6ed1]/30 flex items-center justify-center text-[#0a6ed1] shadow-md">
+          <div className="w-16 h-16 rounded-2xl bg-[var(--c-seef-accent)]/10 border border-[var(--c-seef-accent)]/30 flex items-center justify-center text-[var(--c-seef-accent)] shadow-md">
             <User className="w-8 h-8" />
           </div>
           <div>
@@ -55,7 +55,7 @@ export const UniversalPersonWorkspace: React.FC<Props> = ({ personId = "ID-1001"
               </span>
             </div>
             <p className="text-xs text-theme-muted font-mono mt-0.5">
-              Code: <strong>{identity.identityCode}</strong> • Ingestion: <strong>{identity.ingestionSource}</strong> • Auth: <strong>{identity.userId ? `User Account Linked [${identity.userId}]` : "No Login Account (Optional Auth)"}</strong>
+              Code: <strong>{identity.identityCode}</strong> â€¢ Ingestion: <strong>{identity.ingestionSource}</strong> â€¢ Auth: <strong>{identity.userId ? `User Account Linked [${identity.userId}]` : "No Login Account (Optional Auth)"}</strong>
             </p>
           </div>
         </div>
@@ -78,7 +78,7 @@ export const UniversalPersonWorkspace: React.FC<Props> = ({ personId = "ID-1001"
             onClick={() => setActiveTab(t)}
             className={`py-3 px-6 text-xs font-bold capitalize transition-colors cursor-pointer border-b-2 ${
               activeTab === t
-                ? "border-[#0a6ed1] text-[#0a6ed1]"
+                ? "border-[var(--c-seef-accent)] text-[var(--c-seef-accent)]"
                 : "border-transparent text-theme-muted hover:text-theme-heading"
             }`}
           >
@@ -111,7 +111,7 @@ export const UniversalPersonWorkspace: React.FC<Props> = ({ personId = "ID-1001"
               {identity.workAssignments.map((wa) => (
                 <div key={wa.id} className="p-2 bg-theme-surface-1 rounded border border-theme-divider">
                   <div className="font-bold text-theme-heading">{wa.locationName} ({wa.locationType})</div>
-                  <div className="text-[10px] text-theme-muted">Effective: {wa.effectiveFrom} • Primary: {wa.isPrimary ? "Yes" : "No"}</div>
+                  <div className="text-[10px] text-theme-muted">Effective: {wa.effectiveFrom} â€¢ Primary: {wa.isPrimary ? "Yes" : "No"}</div>
                 </div>
               ))}
             </div>

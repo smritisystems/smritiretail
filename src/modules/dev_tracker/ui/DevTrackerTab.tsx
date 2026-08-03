@@ -195,7 +195,7 @@ export const DevTrackerTab: React.FC = () => {
               </svg>
               <div className="absolute flex flex-col items-center">
                 <span className="text-3xl font-bold font-display text-white">{data.releaseScores.dhi}%</span>
-                <span className="text-[10px] font-mono font-bold bg-[#2563EB]/15 text-blue-400 px-2 py-0.5 rounded border border-[#2563EB]/25 mt-1">Grade {data.releaseScores.grade}</span>
+                <span className="text-[10px] font-mono font-bold bg-[var(--c-seef-accent)]/15 text-blue-400 px-2 py-0.5 rounded border border-[var(--c-seef-accent)]/25 mt-1">Grade {data.releaseScores.grade}</span>
               </div>
             </div>
           </div>
@@ -280,7 +280,7 @@ export const DevTrackerTab: React.FC = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                   activeTab === tab.id 
-                    ? "bg-[#2563EB]/15 text-blue-400 font-bold border border-[#2563EB]/30" 
+                    ? "bg-[var(--c-seef-accent)]/15 text-blue-400 font-bold border border-[var(--c-seef-accent)]/30" 
                     : "text-theme-muted hover:text-theme-body"
                 }`}
               >
@@ -297,7 +297,7 @@ export const DevTrackerTab: React.FC = () => {
               {activeTab === "overview" && (
                 <div className="space-y-6">
                   {/* AI Suggestions / Recommendations Panel */}
-                  <div className="bg-gradient-to-r from-blue-900/30 via-indigo-900/25 to-theme-surface-1 border border-[#2563EB]/20 rounded-xl p-6 shadow-sm">
+                  <div className="bg-gradient-to-r from-blue-900/30 via-indigo-900/25 to-theme-surface-1 border border-[var(--c-seef-accent)]/20 rounded-xl p-6 shadow-sm">
                     <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-white mb-4 flex items-center gap-1.5">
                       <Sparkles size={14} className="text-blue-400" /> AI Steering Intelligence Suggestions
                     </h3>
@@ -305,7 +305,7 @@ export const DevTrackerTab: React.FC = () => {
                       {data.modules.slice(0, 3).map((m, idx) => (
                         <div key={idx} className="bg-theme-surface-2/60 border border-theme-divider/70 p-4 rounded-lg flex items-start justify-between gap-4">
                           <div>
-                            <span className="px-2 py-0.5 bg-[#2563EB]/10 border border-[#2563EB]/20 text-[9px] font-mono text-blue-400 font-bold rounded uppercase">
+                            <span className="px-2 py-0.5 bg-[var(--c-seef-accent)]/10 border border-[var(--c-seef-accent)]/20 text-[9px] font-mono text-blue-400 font-bold rounded uppercase">
                               {m.name} module
                             </span>
                             <p className="text-xs text-theme-muted mt-2 leading-relaxed">

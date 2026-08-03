@@ -1,9 +1,9 @@
-/**
- * Project      : SMRITI Retail OS v6.5 — Platform Architecture Constitution
+﻿/**
+ * Project      : SMRITI Retail OS v6.5 â€” Platform Architecture Constitution
  * Module       : PivotBuilder (Universal Drag-and-Drop Pivot Builder Component v3.1)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com and AITDL.com. All Rights Reserved.
  * Version      : 3.1.0
  */
 
@@ -42,19 +42,19 @@ export const PivotBuilder: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-theme-divider pb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-[#0a6ed1]/10 text-[#0a6ed1] border border-[#0a6ed1]/30 rounded-xl">
+          <div className="p-2.5 bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)] border border-[var(--c-seef-accent)]/30 rounded-xl">
             <Table className="w-6 h-6" />
           </div>
           <div>
             <h3 className="text-base font-bold text-theme-heading">SUPAE Universal Pivot Builder v3.1</h3>
-            <p className="text-xs text-theme-muted font-mono">Drag-and-Drop Multidimensional Pivot Matrix • 100% SUNEF Drillable</p>
+            <p className="text-xs text-theme-muted font-mono">Drag-and-Drop Multidimensional Pivot Matrix â€¢ 100% SUNEF Drillable</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={runQuery}
-            className="px-4 py-2 bg-[#0a6ed1] hover:bg-[#085caf] text-white rounded-xl text-xs font-bold font-mono flex items-center gap-2 cursor-pointer shadow-md transition-colors"
+            className="px-4 py-2 bg-[var(--c-seef-accent)] hover:bg-[var(--c-seef-accent)]/90 text-white rounded-xl text-xs font-bold font-mono flex items-center gap-2 cursor-pointer shadow-md transition-colors"
           >
             <Play className="w-4 h-4" />
             <span>Execute Pivot</span>
@@ -70,7 +70,7 @@ export const PivotBuilder: React.FC = () => {
           <select
             value={selectedRow}
             onChange={(e) => setSelectedRow(e.target.value)}
-            className="w-full p-2.5 bg-theme-surface-3 border border-theme-divider rounded-lg text-xs font-bold text-theme-heading focus:outline-none focus:border-[#0a6ed1]"
+            className="w-full p-2.5 bg-theme-surface-3 border border-theme-divider rounded-lg text-xs font-bold text-theme-heading focus:outline-none focus:border-[var(--c-seef-accent)]"
           >
             {Object.keys(DIMENSION_REGISTRY).map((k) => (
               <option key={k} value={k}>{DIMENSION_REGISTRY[k].label}</option>
@@ -84,7 +84,7 @@ export const PivotBuilder: React.FC = () => {
           <select
             value={selectedCol}
             onChange={(e) => setSelectedCol(e.target.value)}
-            className="w-full p-2.5 bg-theme-surface-3 border border-theme-divider rounded-lg text-xs font-bold text-theme-heading focus:outline-none focus:border-[#0a6ed1]"
+            className="w-full p-2.5 bg-theme-surface-3 border border-theme-divider rounded-lg text-xs font-bold text-theme-heading focus:outline-none focus:border-[var(--c-seef-accent)]"
           >
             {Object.keys(DIMENSION_REGISTRY).map((k) => (
               <option key={k} value={k}>{DIMENSION_REGISTRY[k].label}</option>
@@ -98,7 +98,7 @@ export const PivotBuilder: React.FC = () => {
           <select
             value={selectedMeasure}
             onChange={(e) => setSelectedMeasure(e.target.value)}
-            className="w-full p-2.5 bg-theme-surface-3 border border-theme-divider rounded-lg text-xs font-bold text-theme-heading focus:outline-none focus:border-[#0a6ed1]"
+            className="w-full p-2.5 bg-theme-surface-3 border border-theme-divider rounded-lg text-xs font-bold text-theme-heading focus:outline-none focus:border-[var(--c-seef-accent)]"
           >
             {Object.keys(MEASURE_REGISTRY).map((k) => (
               <option key={k} value={k}>{MEASURE_REGISTRY[k].label}</option>
@@ -110,7 +110,7 @@ export const PivotBuilder: React.FC = () => {
       {/* Pivot Matrix Table */}
       <div className="border border-theme-divider rounded-xl overflow-hidden shadow-xs">
         <div className="p-3 bg-theme-surface-3 border-b border-theme-divider flex justify-between items-center text-xs font-mono">
-          <span className="text-theme-muted">Executed in <strong>{executionTime}ms</strong> • 100% SUNEF Drillable Matrix</span>
+          <span className="text-theme-muted">Executed in <strong>{executionTime}ms</strong> â€¢ 100% SUNEF Drillable Matrix</span>
           <span className="text-emerald-400 font-bold flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5" />
             <span>AI Aggregation Engine Active</span>
@@ -143,7 +143,7 @@ export const PivotBuilder: React.FC = () => {
                         title: `${row.Brand} ${row.Size}`
                       }}
                     >
-                      <span>Drill Cell →</span>
+                      <span>Drill Cell â†’</span>
                     </DrillableLink>
                   </td>
                 </tr>
