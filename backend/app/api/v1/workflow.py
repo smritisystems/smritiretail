@@ -1,14 +1,16 @@
-﻿"""
-Project      : SMRITI Retail OS
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.21.0
-Created      : 2026-07-15
-Modified     : 2026-07-15
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+"""
+Project         : SMRITI Retail OS
+Organization    : SmritiSys
+Author          : Jawahar Ramkripal Mallah
+Designation     : Chief Systems Architect & Creator
+Email           : support@smritibooks.com
+Websites        : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version         : 3.21.0
+Created         : 2026-07-15
+Modified        : 2026-08-04
+Copyright       : © SMRITIBooks.com. All Rights Reserved.
+License         : Proprietary Commercial Software
+Classification  : Internal
 
 Core Workflow API — AD-3 resolution.
 Workflow is a cross-module concern and must NOT live in sales.py or purchase.py.
@@ -186,7 +188,7 @@ async def workflow_action(
             q = res.scalars().first()
             if not q:
                 raise HTTPException(status_code=404, detail="Quotation not found")
-            prev_status = q.status
+            prev_status = str(q.status) if q.status is not None else None
 
             if action == "submit":
                 q = await SalesService(db, tenant_ctx).submit_sales_quotation(doc_id)

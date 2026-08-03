@@ -1,14 +1,16 @@
 """
-Project      : SMRITI Retail OS
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.9.0
-Created      : 2026-07-11
-Modified     : 2026-07-18
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+Project         : SMRITI Retail OS
+Organization    : SmritiSys
+Author          : Jawahar Ramkripal Mallah
+Designation     : Chief Systems Architect & Creator
+Email           : support@smritibooks.com
+Websites        : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version         : 3.9.0
+Created         : 2026-07-11
+Modified        : 2026-08-04
+Copyright       : © SMRITIBooks.com. All Rights Reserved.
+License         : Proprietary Commercial Software
+Classification  : Internal
 """
 
 import asyncio
@@ -327,7 +329,7 @@ async def test_concurrent_duplicate_barcode_returns_400_not_500(db_session, db_e
     app.dependency_overrides[get_db] = _fresh_get_db
 
     async def post_product(tag: str):
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:  # type: ignore[arg-type]
             payload = {
                 "id": f"prod-race-{tag}-{suffix}",
                 "code": f"CODE-RACE-{tag}-{suffix}",

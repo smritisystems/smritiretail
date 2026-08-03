@@ -1,15 +1,16 @@
 """
-Project      : SMRITI Retail OS
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 5.1.3
-Created      : 2026-07-11
-Modified     : 2026-07-21
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
-Classification: Internal
+Project         : SMRITI Retail OS
+Organization    : SmritiSys
+Author          : Jawahar Ramkripal Mallah
+Designation     : Chief Systems Architect & Creator
+Email           : support@smritibooks.com
+Websites        : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version         : 5.1.3
+Created         : 2026-07-11
+Modified        : 2026-08-04
+Copyright       : © SMRITIBooks.com. All Rights Reserved.
+License         : Proprietary Commercial Software
+Classification  : Internal
 """
 
 import uuid
@@ -267,7 +268,7 @@ class SalesService:
             .options(selectinload(SalesInvoice.items), selectinload(SalesInvoice.payments))
             .where(SalesInvoice.id == invoice.id)
         )
-        return result.scalars().first()
+        return result.scalars().one()
 
     # ── Invoice CANCEL (DELETE) ─────────────────────────────────────
 
@@ -437,7 +438,7 @@ class SalesService:
             .options(selectinload(SalesOrder.items))
             .where(SalesOrder.id == so.id)
         )
-        return result.scalars().first()
+        return result.scalars().one()
 
     # ── Order DELETE ────────────────────────────────────────────────
 
@@ -520,7 +521,7 @@ class SalesService:
             .options(selectinload(SalesReturn.items))
             .where(SalesReturn.id == sr.id)
         )
-        return result.scalars().first()
+        return result.scalars().one()
 
     # ── Return DELETE ───────────────────────────────────────────────
 

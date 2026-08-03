@@ -1,15 +1,16 @@
 """
-Project      : SMRITI Retail OS
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 5.2.0
-Created      : 2026-07-21
-Modified     : 2026-07-21
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
-Classification: Internal Architecture Standard
+Project         : SMRITI Retail OS
+Organization    : SmritiSys
+Author          : Jawahar Ramkripal Mallah
+Designation     : Chief Systems Architect & Creator
+Email           : support@smritibooks.com
+Websites        : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version         : 5.2.0
+Created         : 2026-07-21
+Modified        : 2026-08-04
+Copyright       : © SMRITIBooks.com. All Rights Reserved.
+License         : Proprietary Commercial Software
+Classification  : Internal Architecture Standard
 """
 
 import uuid
@@ -57,7 +58,7 @@ async def override_db(db_session):
         app.dependency_overrides.pop(get_current_user, None)
 
 
-async def _setup_tenant_and_user(db_session, suffix: str, company_id: str = None):
+async def _setup_tenant_and_user(db_session, suffix: str, company_id: Optional[str] = None):
     comp_id = company_id or f"comp-{suffix}"
     comp = Company(id=comp_id, name=f"Company {suffix}", gst_number="27ABCDE1234F1Z5", is_active=True)
     br = Branch(id=f"br-{suffix}", company_id=comp.id, name=f"Branch {suffix}", code=f"BR-{suffix}", is_active=True)

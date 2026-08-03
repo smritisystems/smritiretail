@@ -1,15 +1,16 @@
 """
-Project      : SMRITI Retail OS
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.18.0
-Created      : 2026-07-14
-Modified     : 2026-07-14
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
-Classification: Internal
+Project         : SMRITI Retail OS
+Organization    : SmritiSys
+Author          : Jawahar Ramkripal Mallah
+Designation     : Chief Systems Architect & Creator
+Email           : support@smritibooks.com
+Websites        : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version         : 3.18.0
+Created         : 2026-07-14
+Modified        : 2026-08-04
+Copyright       : © SMRITIBooks.com. All Rights Reserved.
+License         : Proprietary Commercial Software
+Classification  : Internal
 """
 
 import uuid
@@ -1371,7 +1372,7 @@ async def test_workflow_submit_and_reject_sales_quotation(db_session):
         assert reject_resp.json()["status"] == "Rejected"
 
 
-async def test_workflow_cancel_sales_quotation(db_session):
+async def test_customer_credit_limit_exceeded(db_session):
     """Test creating a sales invoice for a customer who has exceeded their credit limit."""
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, f"cred-{s}")

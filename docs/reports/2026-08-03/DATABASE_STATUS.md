@@ -1,6 +1,6 @@
 # Database Schema & Entities Registry
 
-*Generated: 2026-08-03T22:40:49.119Z*
+*Generated: 2026-08-03T22:54:42.783Z*
 
 ### Table Schema Completeness
 

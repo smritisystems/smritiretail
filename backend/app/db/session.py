@@ -1,22 +1,16 @@
 """
-Author & Creator:
-Jawahar Ramkripal Mallah
-
-Founder:
-SmritiSys
-AITDL Networks
-
-Role:
-Chief Systems Architect
-
-Web:
-smritisys.com | smritibooks.com | aitdl.com
-
-Email:
-jawahar.mallah@gmail.com
-
-Copyright © 2026 SmritiSys.
-All Rights Reserved.
+Project         : SMRITI Retail OS
+Organization    : SmritiSys
+Author          : Jawahar Ramkripal Mallah
+Designation     : Chief Systems Architect & Creator
+Email           : support@smritibooks.com
+Websites        : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version         : 3.32.0
+Created         : 2026-07-11
+Modified        : 2026-08-04
+Copyright       : © SMRITIBooks.com. All Rights Reserved.
+License         : Proprietary Commercial Software
+Classification  : Internal
 """
 
 from contextvars import ContextVar
@@ -42,6 +36,7 @@ async_session = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False
 )
+AsyncSessionLocal = async_session
 
 # Context variable to hold active request-scoped TenantContext
 active_tenant_ctx: ContextVar = ContextVar("active_tenant_ctx", default=None)

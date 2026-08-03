@@ -1,24 +1,18 @@
+"""
+Project         : SMRITI Retail OS
+Organization    : SmritiSys
+Author          : Jawahar Ramkripal Mallah
+Designation     : Chief Systems Architect & Creator
+Email           : support@smritibooks.com
+Websites        : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version         : 3.32.0
+Created         : 2026-07-11
+Modified        : 2026-08-04
+Copyright       : © SMRITIBooks.com. All Rights Reserved.
+License         : Proprietary Commercial Software
+Classification  : Internal
+"""
 from __future__ import annotations
-"""
-Author & Creator:
-Jawahar Ramkripal Mallah
-
-Founder:
-SmritiSys
-AITDL Networks
-
-Role:
-Chief Systems Architect
-
-Web:
-smritisys.com | smritibooks.com | aitdl.com
-
-Email:
-jawahar.mallah@gmail.com
-
-Copyright © 2026 SmritiSys.
-All Rights Reserved.
-"""
 
 from datetime import datetime, date, timezone
 from decimal import Decimal
@@ -267,7 +261,7 @@ class ReceivablesService:
 
         invoice_reconciliations = []
         for invoice in invoices:
-            inv_recon = await self.reconcile_invoice(invoice.id)
+            inv_recon = await self.reconcile_invoice(str(invoice.id))
             invoice_reconciliations.append(inv_recon)
 
         return {
@@ -299,7 +293,7 @@ class ReceivablesService:
             invoice_stmt = invoice_stmt.where(SalesInvoice.branch_id == self.tenant_ctx.branch_id)
         invoices = (await self.db.execute(invoice_stmt)).scalars().all()
 
-        buckets = {"current": [], "days_1_30": [], "days_31_60": [], "days_61_90": [], "over_90_days": []}
+        buckets: Dict[str, List[Any]] = {"current": [], "days_1_30": [], "days_31_60": [], "days_61_90": [], "over_90_days": []}
         today = datetime.now(timezone.utc).date()
         items = []
 

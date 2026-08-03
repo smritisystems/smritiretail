@@ -1,22 +1,16 @@
 """
-Author & Creator:
-Jawahar Ramkripal Mallah
-
-Founder:
-SmritiSys
-AITDL Networks
-
-Role:
-Chief Systems Architect
-
-Web:
-smritisys.com | smritibooks.com | aitdl.com
-
-Email:
-jawahar.mallah@gmail.com
-
-Copyright © 2026 SmritiSys.
-All Rights Reserved.
+Project         : SMRITI Retail OS
+Organization    : SmritiSys
+Author          : Jawahar Ramkripal Mallah
+Designation     : Chief Systems Architect & Creator
+Email           : support@smritibooks.com
+Websites        : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version         : 3.32.0
+Created         : 2026-07-11
+Modified        : 2026-08-04
+Copyright       : © SMRITIBooks.com. All Rights Reserved.
+License         : Proprietary Commercial Software
+Classification  : Internal
 """
 
 import uuid
@@ -54,7 +48,7 @@ async def _make_ar_customer(db_session, suffix: str, tenant_ctx: TenantContext):
         )
     )
     return await crm_serv.create_customer(
-        CustomerCreate(
+        CustomerCreate(  # type: ignore[call-arg]
             id=f"cust-ar-{suffix}",
             customer_group_id=f"cg-ar-{suffix}",
             name="AR Customer",
@@ -66,7 +60,7 @@ async def _make_ar_customer(db_session, suffix: str, tenant_ctx: TenantContext):
 async def _make_ar_product(db_session, suffix: str, tenant_ctx: TenantContext):
     inv_serv = InventoryService(db_session, tenant_ctx)
     return await inv_serv.create_product(
-        ProductCreate(
+        ProductCreate(  # type: ignore[call-arg]
             id=f"prod-ar-{suffix}",
             code=f"ARPRD{suffix}",
             name="AR Product",
