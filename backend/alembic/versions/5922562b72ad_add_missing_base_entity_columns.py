@@ -33,8 +33,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def get_all_base_entity_tablenames() -> list:
     from app.db.base import BaseEntity
-    # Trigger model imports so subclasses are populated
-    from app.main import app
+    # Import model modules directly to register subclasses cleanly without instantiating FastAPI web routes
+    import app.models.crm
+    import app.models.inventory
+    import app.models.sales
+    import app.models.purchase
+    import app.models.tenant
+    import app.models.auth
+    import app.models.pos
     return [m.__tablename__ for m in BaseEntity.__subclasses__() if hasattr(m, '__tablename__')]
 
 
