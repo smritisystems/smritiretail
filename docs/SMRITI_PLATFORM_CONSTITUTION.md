@@ -48,16 +48,25 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ---
 
-## 3. Standardized Lock File Specification (`platform.lock.yaml`)
+## 3. Standardized Lock File Schema v1.0 (`smriti.lock.v1`)
 
-Every release build MUST generate an immutable, checksum-verified `platform.lock.yaml` snapshot during CI/CD to prevent runtime graph, schema, or configuration drift:
+Every release build MUST generate an immutable, self-describing `smriti.lock.v1` snapshot capturing platform build fingerprints, per-module cryptographic signatures, compatibility baselines, and integrity hashes:
 
 ```yaml
 # SMRITI Platform Immutable Lock File v1.0
-platform_lock:
-  version: "4.2.0"
-  generated_at: "2026-08-04T12:00:00Z"
-  builder: "SmritiSys CI/CD Governance Pipeline v1.0"
+lock:
+  schema: "smriti.lock.v1"
+  version: "1.0.0"
+
+platform_build:
+  platform_version: "4.2.0"
+  build_number: "20260804.001"
+  built_by: "SmritiSys CI/CD Governance Pipeline v1.0"
+  build_time: "2026-08-04T12:00:00Z"
+  git_commit:
+    backend: "d815dc42"
+    frontend: "e2aa9921"
+    docs: "83013a75"
 
 integrity:
   constitution_hash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -67,6 +76,12 @@ integrity:
   dependency_graph_hash: "sha256:5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c"
   database_schema_hash: "sha256:fa7dff2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c"
   ui_tokens_hash: "sha256:0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f"
+
+compatibility:
+  minimum_api: "4.2.0"
+  minimum_database: "2026.08"
+  minimum_frontend: "4.2.0"
+  minimum_worker: "4.2.0"
 
 containers:
   - "smriti-web"
@@ -84,16 +99,26 @@ standards:
   BDS: "1.0.0"
   NDS: "1.0.0"
 
-kernels:
-  SDK: { version: "1.0.0", hash: "sha256:9b8a7c..." }
-  STK: { version: "1.0.0", hash: "sha256:2a1f0e..." }
-  SLK: { version: "1.0.0", hash: "sha256:5d4c3b..." }
-  SAK: { version: "2.1.0", hash: "sha256:fa7dff..." }
+modules:
+  kernels:
+    SDK: { version: "1.0.0", hash: "sha256:9b8a7c...", status: "active" }
+    STK: { version: "1.0.0", hash: "sha256:2a1f0e...", status: "active" }
+    SLK: { version: "1.0.0", hash: "sha256:5d4c3b...", status: "active" }
+    SAK: { version: "2.1.0", hash: "sha256:fa7dff...", status: "active" }
+  studios:
+    pim: { version: "1.0.0", hash: "sha256:894ae9...", status: "active" }
+    purchase: { version: "1.0.0", hash: "sha256:b40688...", status: "active" }
+    sales: { version: "1.0.0", hash: "sha256:aaa02c...", status: "active" }
+    pos: { version: "1.0.0", hash: "sha256:c09fa1...", status: "active" }
+    crm: { version: "1.0.0", hash: "sha256:e64d3f...", status: "active" }
+    accounting: { version: "1.0.0", hash: "sha256:906dc4...", status: "active" }
+    warehouse: { version: "1.0.0", hash: "sha256:e6e1d4...", status: "active" }
+    asset: { version: "1.0.0", hash: "sha256:948117...", status: "active" }
 ```
 
 ---
 
-## 4. SPD Comprehensive 11-Dimensional Architecture Drift Detection Engine
+## 4. SPD 11-Dimensional Architecture Drift Detection Engine
 
 Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** continuously compares runtime state against `platform.lock.yaml` across 11 canonical drift dimensions:
 
@@ -123,19 +148,38 @@ Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagno
 
 ---
 
-## 5. Platform Versioning & Semantic Freeze Governance
+## 5. Platform Versioning & Governance Layer Freeze Classification
 
-Platform evolution adheres to strict semantic boundaries:
+Platform architecture components are categorized into 6 governance layers with explicit change boundaries:
+
+```text
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │ PLATFORM GOVERNANCE LAYER FREEZE CLASSIFICATION                       │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ Layer A: Platform Constitution (SPC, PRIG, PCMM, ADRs) ── MAJOR ONLY  │
+ │ Layer B: Governance Standards (KDS, DDS, IDS, SDS, RDS, BDS, NDS)     │
+ │          ── MAJOR ONLY                                                 │
+ │ Layer C: Platform Runtime (Boot, Manifest SDK, Health, SPD Engine)    │
+ │          ── MINOR ALLOWED                                              │
+ │ Layer D: Shared Platform Services (SEB, SES, SNP, SWA, SAS, STS, SAI)  │
+ │          ── CONTINUOUS EVOLUTION                                       │
+ │ Layer E: Shared Business Kernels (SDK, STK, SLK, SPPK, SBPK, SIK, SAK) │
+ │          ── CONTINUOUS EVOLUTION                                       │
+ │ Layer F: Business Capability Studios (13 Enterprise Studios)           │
+ │          ── CONTINUOUS EVOLUTION                                       │
+ └────────────────────────────────────────────────────────────────────────┘
+```
+
 - **Patch (`v4.2.x`):** Documentation, bug fixes, performance tuning, non-breaking diagnostic rules.
 - **Minor (`v4.3.0`):** New Level 2 Services, Level 3 Kernels, Level 5 Registries, Level 6 Studios, or Level 7 Connectors.
-- **Major (`v5.0.0`):** Requires approved ADR for breaking changes to manifest schemas, boot lifecycle, deployment topology, trust model, container architecture, governance standards, or 7-layer topology.
+- **Major (`v5.0.0`):** Requires approved ADR for breaking changes to manifest/lock schemas, boot lifecycle, deployment topology, trust model, container architecture, governance standards, or 7-layer topology.
 
 ---
 
 ## 6. Baseline Structural Freeze & ADR Policy
 
 1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Professional Edition Deployment Topology (5 Containers), Graceful Shutdown Order, Health Levels, Distributed Leader Election, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
-2. **Platform Foundation Freeze Rule:** The SMRITI Digital Commerce Platform Foundation (SPC, PRIG, DDS, KDS, SDS, IDS, RDS, BDS, NDS, manifest schemas, boot lifecycle, and deployment topology) is frozen under Platform OS v4.2. Future enhancements should primarily occur within Shared Services, Shared Business Kernels, Registries, Business Studios, or deployment implementations. Changes to the foundation require an approved ADR and a major Platform OS version increment.
+2. **Platform Foundation Freeze Rule:** The SMRITI Digital Commerce Platform Foundation (SPC, PRIG, DDS, KDS, SDS, IDS, RDS, BDS, NDS, manifest/lock schemas, boot lifecycle, and deployment topology) is frozen under Platform OS v4.2. Future enhancements should primarily occur within Shared Services, Shared Business Kernels, Registries, Business Studios, or deployment implementations. Changes to the foundation require an approved ADR and a major Platform OS version increment.
 3. **DDS v1.0 Freeze Directive:** Deployment Development Standard v1.0 is the canonical deployment specification for SMRITI Digital Commerce Platform OS v4.2. Non-breaking operational clarifications may be added in patch releases. Changes affecting container topology, deployment lifecycle, readiness contracts, health semantics, or orchestration behavior require a DDS major version increment and an approved Architecture Decision Record (ADR).
 4. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
    - Introduction of a new Level 3 Shared Business Kernel or Level 2 Shared Service.
