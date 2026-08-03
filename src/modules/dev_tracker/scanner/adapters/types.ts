@@ -36,6 +36,19 @@ export interface PipelineTimings {
   totalMs: number;
 }
 
+export interface ModuleDependency {
+  sourceModule: string;
+  targetModule: string;
+  dependencyType: "API_FETCH" | "IMPORT_REFERENCE" | "SCHEMA_RELATION";
+  couplingStrength: "HIGH" | "MEDIUM" | "LOW";
+}
+
+export interface DependencyGraphResult {
+  totalCouplings: number;
+  dependencies: ModuleDependency[];
+  mermaidGraph: string;
+}
+
 export interface ModuleImpact {
   moduleId: string;
   moduleName: string;

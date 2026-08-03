@@ -68,16 +68,18 @@ export function writeReports(res: ScanResult): void {
     fs.writeFileSync(historyFilePath, JSON.stringify(history, null, 2), "utf8");
   }
 
-  // 3. Generate and write the 18 reports (SDS v2.7)
+  // 3. Generate and write the 19 reports (SDS v2.8)
   const scannerHealthContent = templates.generateScannerHealthReport(res);
   const scanDiffContent = templates.generateScanDiffReport(res);
   const impactAnalysisContent = templates.generateImpactAnalysisReport(res);
+  const dependencyGraphContent = templates.generateDependencyGraphReport(res);
 
   const reportsList = [
     { name: "DEVELOPMENT_STATUS.md", content: templates.generateDevelopmentStatus(res) },
     { name: "SCANNER_HEALTH.md", content: scannerHealthContent },
     { name: "SCAN_DIFF.md", content: scanDiffContent },
     { name: "IMPACT_ANALYSIS.md", content: impactAnalysisContent },
+    { name: "DEPENDENCY_GRAPH.md", content: dependencyGraphContent },
     { name: "EXECUTIVE_SUMMARY.md", content: templates.generateExecutiveSummary(res) },
     { name: "MODULE_PROGRESS.md", content: templates.generateModuleProgress(res) },
     { name: "FEATURE_MATRIX.md", content: templates.generateFeatureMatrix(res) },
@@ -100,7 +102,7 @@ export function writeReports(res: ScanResult): void {
     fs.writeFileSync(reportPath, report.content, "utf8");
   }
 
-  // Also write master DEVELOPMENT_STATUS.md, SCANNER_HEALTH.md, SCAN_DIFF.md, and IMPACT_ANALYSIS.md to the workspace root
+  // Also write master DEVELOPMENT_STATUS.md, SCANNER_HEALTH.md, SCAN_DIFF.md, IMPACT_ANALYSIS.md, and DEPENDENCY_GRAPH.md to workspace root
   const rootDevStatusPath = path.join(rootDir, "DEVELOPMENT_STATUS.md");
   fs.writeFileSync(rootDevStatusPath, templates.generateDevelopmentStatus(res), "utf8");
 
@@ -112,4 +114,7 @@ export function writeReports(res: ScanResult): void {
 
   const rootImpactPath = path.join(rootDir, "IMPACT_ANALYSIS.md");
   fs.writeFileSync(rootImpactPath, impactAnalysisContent, "utf8");
+
+  const rootDepPath = path.join(rootDir, "DEPENDENCY_GRAPH.md");
+  fs.writeFileSync(rootDepPath, dependencyGraphContent, "utf8");
 }
