@@ -29,6 +29,9 @@ import {
   Save, AlertOctagon, Info, ChevronDown, ChevronUp, Layers, UploadCloud, Trash2,
   Boxes, ExternalLink, Sparkles, Sliders, Filter, RefreshCw, Check
 } from "lucide-react";
+// SXP v1.0 — WorkspaceTimeline for product movement history
+import { WorkspaceTimeline, InventoryTimelineAdapter } from "./shared/WorkspaceTimeline.js";
+import { useSmritiExperience } from "../context/SmritiExperienceContext.js";
 
 export type ItemFormMode = "quick" | "advanced";
 
@@ -81,6 +84,8 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   currentUser
 }) => {
   const isReadOnly = currentUser?.role === "Report User";
+  // SXP v1.0 — adaptive visibility for timeline and cost layers
+  const { canRender } = useSmritiExperience();
   const [viewMode, setViewMode] = useState<ItemMasterViewMode>("registry");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [activeFilter, setActiveFilter] = useState<ContextFilterState>({ type: "ALL", value: "ALL" });
@@ -374,6 +379,27 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                 </div>
               ) : (
                 <div className="p-4 text-center text-theme-muted text-xs italic">Select a product row to inspect details.</div>
+              )}
+
+              {/* SXP v1.0 — Stock Movement Timeline (HYBRID+ only via canRender) */}
+              {selectedProduct && canRender("raw_ledger") && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.07em",
+                    color: "var(--c-text-muted, #64748b)",
+                    marginBottom: 8,
+                  }}>
+                    Stock Movement History
+                  </div>
+                  <WorkspaceTimeline
+                    adapter={InventoryTimelineAdapter}
+                    entityId={selectedProduct.id}
+                    limit={5}
+                  />
+                </div>
               )}
             </div>
           </div>

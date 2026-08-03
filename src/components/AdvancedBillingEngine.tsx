@@ -5,7 +5,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.1.0  (SEEF Phase 6 — Density + Animation Cascade)
+ * Version      : 5.2.0  (SXP v1.0 — POS Studio manifest + WorkspaceShell zone)
  * Created      : 2026-07-10
  * Modified     : 2026-07-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -26,6 +26,9 @@ import { UniversalSearchModal } from "./terminal/UniversalSearchModal";
 import { STRE, TaxContext } from "../sdk";
 // SEEF Phase 6 — surgical cascade integration (POS grid untouched)
 import { useSEEF } from "../layout_engine/SEEFContext.tsx";
+// SXP v1.0 — POS Studio manifest (side-effect import: auto-registers actions + workspaces)
+import "./pos/pos.manifest.js";
+import { useSmritiExperience } from "../context/SmritiExperienceContext.js";
 
 // Types for Advanced Billing
 export interface AdvancedCustomer {
@@ -191,6 +194,10 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
   const posRowPadding = seefConfig.density === "compact" ? "py-1.5" : seefConfig.density === "spacious" ? "py-3" : "py-2";
   // Gate motion/react transitions on SEEF animation config (respects reducedMotion user preference)
   const motionProps = (seefConfig.animationPolicy === "none" || seefConfig.reducedMotion) ? {} : { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } };
+
+  // SXP v1.0 — zone-aware animation suppression (SWEF P-007: scanner zone = zero animations during active billing)
+  // This is advisory — existing motionProps already handles animation gating from SEEF config
+  const { mode: workspaceMode } = useSmritiExperience();
 
   // Local Cart State when cart prop is empty
   const [localCart, setLocalCart] = useState<{ product: Product; quantity: number }[]>([
