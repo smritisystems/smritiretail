@@ -68,12 +68,13 @@ export function writeReports(res: ScanResult): void {
     fs.writeFileSync(historyFilePath, JSON.stringify(history, null, 2), "utf8");
   }
 
-  // 3. Generate and write the 20 reports (SDS v2.9)
+  // 3. Generate and write the 21 reports (SDS v3.0)
   const scannerHealthContent = templates.generateScannerHealthReport(res);
   const scanDiffContent = templates.generateScanDiffReport(res);
   const impactAnalysisContent = templates.generateImpactAnalysisReport(res);
   const dependencyGraphContent = templates.generateDependencyGraphReport(res);
   const fitnessRulesContent = templates.generateFitnessRulesReport(res);
+  const semanticAstContent = templates.generateSemanticAstReport(res);
 
   const reportsList = [
     { name: "DEVELOPMENT_STATUS.md", content: templates.generateDevelopmentStatus(res) },
@@ -82,6 +83,7 @@ export function writeReports(res: ScanResult): void {
     { name: "IMPACT_ANALYSIS.md", content: impactAnalysisContent },
     { name: "DEPENDENCY_GRAPH.md", content: dependencyGraphContent },
     { name: "FITNESS_RULES.md", content: fitnessRulesContent },
+    { name: "SEMANTIC_AST.md", content: semanticAstContent },
     { name: "EXECUTIVE_SUMMARY.md", content: templates.generateExecutiveSummary(res) },
     { name: "MODULE_PROGRESS.md", content: templates.generateModuleProgress(res) },
     { name: "FEATURE_MATRIX.md", content: templates.generateFeatureMatrix(res) },
@@ -104,7 +106,7 @@ export function writeReports(res: ScanResult): void {
     fs.writeFileSync(reportPath, report.content, "utf8");
   }
 
-  // Also write master DEVELOPMENT_STATUS.md, SCANNER_HEALTH.md, SCAN_DIFF.md, IMPACT_ANALYSIS.md, DEPENDENCY_GRAPH.md, and FITNESS_RULES.md to workspace root
+  // Also write master DEVELOPMENT_STATUS.md, SCANNER_HEALTH.md, SCAN_DIFF.md, IMPACT_ANALYSIS.md, DEPENDENCY_GRAPH.md, FITNESS_RULES.md, and SEMANTIC_AST.md to workspace root
   const rootDevStatusPath = path.join(rootDir, "DEVELOPMENT_STATUS.md");
   fs.writeFileSync(rootDevStatusPath, templates.generateDevelopmentStatus(res), "utf8");
 
@@ -122,4 +124,7 @@ export function writeReports(res: ScanResult): void {
 
   const rootFitnessPath = path.join(rootDir, "FITNESS_RULES.md");
   fs.writeFileSync(rootFitnessPath, fitnessRulesContent, "utf8");
+
+  const rootAstPath = path.join(rootDir, "SEMANTIC_AST.md");
+  fs.writeFileSync(rootAstPath, semanticAstContent, "utf8");
 }

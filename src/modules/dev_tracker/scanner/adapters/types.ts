@@ -36,6 +36,22 @@ export interface PipelineTimings {
   totalMs: number;
 }
 
+export interface WorkerThreadStats {
+  workerId: number;
+  cpuCore: number;
+  filesProcessed: number;
+  durationMs: number;
+  status: "ACTIVE" | "IDLE" | "COMPLETED";
+}
+
+export interface ASTAnalysisResult {
+  executionMode: "MULTI_CORE_WORKER_THREADS" | "SINGLE_THREAD_SCHEDULER";
+  activeWorkerCount: number;
+  astNodesParsed: number;
+  symbolReferencesResolved: number;
+  workerStats: WorkerThreadStats[];
+}
+
 export interface FitnessRuleResult {
   ruleId: string;
   ruleName: string;
