@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS v5.0
  * Module       : Browser-First Barcode Label Engine & Audit Capture (v4.0 Standard)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com and AITDL.com. All Rights Reserved.
  * Version      : 5.6.0
  */
 
@@ -78,7 +78,7 @@ export const BarcodePrintDialog: React.FC<BarcodePrintDialogProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={`Label Print Manager: ${product.name}`}
-      subtitle={`SKU: ${product.sku || product.barcode || "N/A"} | MRP: ₹${product.mrp || product.price || 0}`}
+      subtitle={`SKU: ${product.sku || product.barcode || "N/A"} | MRP: â‚¹${product.mrp || product.price || 0}`}
       icon={Printer}
       maxWidthClass="max-w-xl"
       footerActions={
@@ -101,7 +101,7 @@ export const BarcodePrintDialog: React.FC<BarcodePrintDialogProps> = ({
 
           <button
             onClick={() => handleExecutePrint(outputFormat)}
-            className="px-4 py-2 text-xs font-bold bg-[#0a6ed1] text-white rounded-lg hover:bg-[#085caf] flex items-center gap-1.5 shadow-xs cursor-pointer"
+            className="px-4 py-2 text-xs font-bold bg-[var(--c-seef-accent)] text-white rounded-lg hover:bg-[var(--c-seef-accent)]/90 flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
             <Printer className="w-4 h-4" /> Generate {printCount} Labels ({outputFormat})
           </button>
@@ -110,7 +110,7 @@ export const BarcodePrintDialog: React.FC<BarcodePrintDialogProps> = ({
     >
       <div className="space-y-5 select-none">
         {/* Label Thermal Preview Card */}
-        <div className="p-4 bg-white border-2 border-dashed border-[#0a6ed1] rounded-xl flex flex-col items-center justify-center space-y-1 shadow-md text-theme-heading font-sans">
+        <div className="p-4 bg-white border-2 border-dashed border-[var(--c-seef-accent)] rounded-xl flex flex-col items-center justify-center space-y-1 shadow-md text-theme-heading font-sans">
           {showStoreName && (
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-theme-body">
               SMRITI RETAIL OS STORE
@@ -126,7 +126,7 @@ export const BarcodePrintDialog: React.FC<BarcodePrintDialogProps> = ({
           <div className="flex items-center justify-between w-48 text-[10px] font-mono text-theme-heading">
             <span>{product.barcode || product.sku || "8901234567890"}</span>
             {showPrice && (
-              <span className="font-extrabold text-theme-heading">₹{(product.mrp || product.price || 0).toFixed(2)}</span>
+              <span className="font-extrabold text-theme-heading">â‚¹{(product.mrp || product.price || 0).toFixed(2)}</span>
             )}
           </div>
         </div>
@@ -163,7 +163,7 @@ export const BarcodePrintDialog: React.FC<BarcodePrintDialogProps> = ({
             <select
               value={outputFormat}
               onChange={(e) => setOutputFormat(e.target.value as any)}
-              className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading font-bold text-[#0a6ed1]"
+              className="w-full p-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-mono text-theme-heading font-bold text-[var(--c-seef-accent)]"
             >
               <option value="PDF">PDF Sticker Sheet (Browser Native Stream)</option>
               <option value="ZPL">ZPL Raw Stream (Zebra Industrial)</option>
@@ -192,10 +192,10 @@ export const BarcodePrintDialog: React.FC<BarcodePrintDialogProps> = ({
         {/* QZ Status Indicator */}
         <div className="p-2.5 rounded-lg bg-theme-surface-2 border border-theme-divider flex items-center justify-between text-xs font-mono">
           <span className="flex items-center gap-1.5 text-theme-muted">
-            <Cpu className="w-4 h-4 text-[#0a6ed1]" /> Hardware Direct Print (QZ Tray):
+            <Cpu className="w-4 h-4 text-[var(--c-seef-accent)]" /> Hardware Direct Print (QZ Tray):
           </span>
           <span className={`font-bold ${isQzAvailable ? "text-emerald-500" : "text-amber-500"}`}>
-            {isQzAvailable ? "✓ Available & Connected" : "Not Detected (Browser Output Active)"}
+            {isQzAvailable ? "âœ“ Available & Connected" : "Not Detected (Browser Output Active)"}
           </span>
         </div>
 
@@ -206,7 +206,7 @@ export const BarcodePrintDialog: React.FC<BarcodePrintDialogProps> = ({
               type="checkbox"
               checked={showPrice}
               onChange={(e) => setShowPrice(e.target.checked)}
-              className="rounded text-[#0a6ed1]"
+              className="rounded text-[var(--c-seef-accent)]"
             />
             <span>Include MRP Price tag</span>
           </label>
@@ -216,7 +216,7 @@ export const BarcodePrintDialog: React.FC<BarcodePrintDialogProps> = ({
               type="checkbox"
               checked={showStoreName}
               onChange={(e) => setShowStoreName(e.target.checked)}
-              className="rounded text-[#0a6ed1]"
+              className="rounded text-[var(--c-seef-accent)]"
             />
             <span>Include Store Header</span>
           </label>

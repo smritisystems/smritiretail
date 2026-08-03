@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS v5.0
  * Module       : Item Master Floating Batch Action Toolbar
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com and AITDL.com. All Rights Reserved.
  * Version      : 5.6.0
  */
 
@@ -34,7 +34,7 @@ export const ItemMasterBatchBar: React.FC<ItemMasterBatchBarProps> = ({
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-theme-surface-2 text-white backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl border border-theme-divider flex items-center gap-4 text-xs font-mono select-none animate-in fade-in slide-in-from-bottom-4 duration-200">
       {/* Selected Counter */}
       <div className="flex items-center gap-2 pr-3 border-r border-theme-divider font-bold">
-        <CheckSquare className="w-4 h-4 text-[#0a6ed1]" />
+        <CheckSquare className="w-4 h-4 text-[var(--c-seef-accent)]" />
         <span>{selectedProducts.length} SKU{selectedProducts.length > 1 ? "s" : ""} Selected</span>
       </div>
 
@@ -56,7 +56,7 @@ export const ItemMasterBatchBar: React.FC<ItemMasterBatchBarProps> = ({
 
         <button
           onClick={onPrintLabels}
-          className="px-3 py-1.5 bg-[#0a6ed1] hover:bg-[#085caf] font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer text-white shadow-xs"
+          className="px-3 py-1.5 bg-[var(--c-seef-accent)] hover:bg-[var(--c-seef-accent)]/90 font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer text-white shadow-xs"
         >
           <Printer className="w-3.5 h-3.5" /> Print Barcode Labels ({selectedProducts.length})
         </button>

@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Module       : Product Master Operational Action Bar (SLGP-001 v2.0)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * Version      : 5.4.0
  */
 
@@ -79,7 +79,7 @@ export const ItemMasterToolbar: React.FC<ItemMasterToolbarProps> = ({
               onClick={() => onModeChange(v.id)}
               className={`px-3 py-1.5 text-xs font-bold rounded-lg border flex items-center gap-2 transition-all cursor-pointer ${
                 isActive
-                  ? "bg-[#0a6ed1] text-white border-[#0a6ed1] shadow-xs"
+                  ? "bg-[var(--c-seef-accent)] text-white border-[var(--c-seef-accent)] shadow-xs"
                   : "bg-theme-surface-2 text-theme-muted border-theme-divider hover:text-theme-heading hover:bg-theme-surface-hover"
               }`}
             >
@@ -100,12 +100,12 @@ export const ItemMasterToolbar: React.FC<ItemMasterToolbarProps> = ({
               hasActiveFilter
                 ? "bg-amber-500/10 text-amber-400 border-amber-500/40 shadow-xs"
                 : isFilterDrawerOpen
-                ? "bg-[#0a6ed1]/10 text-[#0a6ed1] border-[#0a6ed1]/40"
+                ? "bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)] border-[var(--c-seef-accent)]/40"
                 : "bg-theme-surface-2 text-theme-muted border-theme-divider hover:text-theme-heading hover:bg-theme-surface-hover"
             }`}
             title="Toggle Filter Drawer"
           >
-            <Filter className="w-3.5 h-3.5 text-[#0a6ed1]" />
+            <Filter className="w-3.5 h-3.5 text-[var(--c-seef-accent)]" />
             <span>Filters</span>
             {hasActiveFilter && (
               <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-black text-[10px] font-extrabold">
@@ -123,7 +123,7 @@ export const ItemMasterToolbar: React.FC<ItemMasterToolbarProps> = ({
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search SKU, Name, Barcode..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading placeholder:text-theme-muted focus:outline-none focus:border-[#0a6ed1]"
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading placeholder:text-theme-muted focus:outline-none focus:border-[var(--c-seef-accent)]"
           />
         </div>
 
@@ -138,7 +138,7 @@ export const ItemMasterToolbar: React.FC<ItemMasterToolbarProps> = ({
           className="px-3 py-1.5 text-xs font-bold rounded-lg bg-theme-surface-2 border border-theme-divider text-theme-heading hover:bg-theme-surface-hover flex items-center gap-1.5 transition-colors cursor-pointer"
           title="Print Barcode Labels"
         >
-          <Printer className="w-3.5 h-3.5 text-[#0a6ed1]" />
+          <Printer className="w-3.5 h-3.5 text-[var(--c-seef-accent)]" />
           <span className="hidden sm:inline">Labels</span>
         </button>
 
@@ -167,7 +167,7 @@ export const ItemMasterToolbar: React.FC<ItemMasterToolbarProps> = ({
         {!isReadOnly && (
           <button
             onClick={onNewProduct}
-            className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-[#0a6ed1] text-white hover:bg-[#085caf] flex items-center gap-1.5 shadow-xs cursor-pointer"
+            className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-[var(--c-seef-accent)] text-white hover:bg-[var(--c-seef-accent)]/90 flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>New SKU</span>

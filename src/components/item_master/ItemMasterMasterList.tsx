@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Module       : Product Master List Panel (Pattern C Left Master Panel with Multi-Select Checkboxes)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * Version      : 5.6.0
  */
 
@@ -39,7 +39,7 @@ export const ItemMasterMasterList: React.FC<ItemMasterMasterListProps> = ({
             type="checkbox"
             checked={isAllChecked}
             onChange={onToggleSelectAll}
-            className="rounded text-[#0a6ed1]"
+            className="rounded text-[var(--c-seef-accent)]"
           />
           <span>Select All ({checkedProductIds.length}/{products.length})</span>
         </label>
@@ -67,9 +67,9 @@ export const ItemMasterMasterList: React.FC<ItemMasterMasterListProps> = ({
                 onClick={() => onSelectProduct(p)}
                 className={`p-3 rounded-lg border text-left cursor-pointer transition-all ${
                   isSelected
-                    ? "bg-theme-surface-2 border-[#0a6ed1] shadow-xs"
+                    ? "bg-theme-surface-2 border-[var(--c-seef-accent)] shadow-xs"
                     : isChecked
-                    ? "bg-[#0a6ed1]/10 border-[#0a6ed1]/40"
+                    ? "bg-[var(--c-seef-accent)]/10 border-[var(--c-seef-accent)]/40"
                     : "bg-theme-surface-1 border-theme-divider hover:border-theme-muted hover:bg-theme-surface-hover"
                 }`}
               >
@@ -81,10 +81,10 @@ export const ItemMasterMasterList: React.FC<ItemMasterMasterListProps> = ({
                       checked={isChecked}
                       onClick={(e) => onToggleCheckProduct(p.id, e)}
                       onChange={() => {}}
-                      className="rounded text-[#0a6ed1] cursor-pointer"
+                      className="rounded text-[var(--c-seef-accent)] cursor-pointer"
                     />
 
-                    <div className="p-1.5 rounded bg-theme-surface-2 border border-theme-divider text-[#0a6ed1]">
+                    <div className="p-1.5 rounded bg-theme-surface-2 border border-theme-divider text-[var(--c-seef-accent)]">
                       <Package className="w-4 h-4" />
                     </div>
                     <div>
@@ -97,13 +97,13 @@ export const ItemMasterMasterList: React.FC<ItemMasterMasterListProps> = ({
                       </p>
                     </div>
                   </div>
-                  <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? "text-[#0a6ed1] translate-x-0.5" : "text-theme-muted"}`} />
+                  <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? "text-[var(--c-seef-accent)] translate-x-0.5" : "text-theme-muted"}`} />
                 </div>
 
                 {/* Footer Metrics Row */}
                 <div className="mt-2.5 pt-2 border-t border-theme-divider/50 flex items-center justify-between text-[11px] font-mono">
                   <span className="text-emerald-500 font-bold">
-                    ₹{(p.mrp || p.price || 0).toLocaleString("en-IN")}
+                    â‚¹{(p.mrp || p.price || 0).toLocaleString("en-IN")}
                   </span>
 
                   <span className={`px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1 ${

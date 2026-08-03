@@ -1,9 +1,9 @@
-/**
- * Project      : SMRITI Retail OS v6.5 — Workspace Experience Platform
+﻿/**
+ * Project      : SMRITI Retail OS v6.5 â€” Workspace Experience Platform
  * Module       : Item Master Studio (12-Tab Item 360 Workspace & SEDSObjectPage Pattern)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com and AITDL.com. All Rights Reserved.
  * Version      : 6.5.0
  */
 
@@ -82,7 +82,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
   const metrics: ObjectPageMetric[] = [
     { label: "SKU / Barcode", value: formData.barcode || formData.sku || "N/A" },
     { label: "Physical Stock", value: `${formData.stock_qty ?? formData.qty ?? 0} ${formData.uom || "Pcs"}`, highlight: true },
-    { label: "MRP / Retailing Price", value: `₹${mrp.toLocaleString("en-IN")}` },
+    { label: "MRP / Retailing Price", value: `â‚¹${mrp.toLocaleString("en-IN")}` },
     { label: "Margin %", value: `${marginPercent}%`, highlight: parseFloat(marginPercent) > 20 },
   ];
 
@@ -99,7 +99,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
               {aiSuggestions.map((sug, i) => (
                 <div key={i} className="p-3 bg-theme-surface-2/80 border border-theme-divider rounded-lg font-mono text-[11px] text-theme-heading flex items-start gap-2">
-                  <ChevronRight className="w-3.5 h-3.5 text-[#0a6ed1] flex-shrink-0 mt-0.5" />
+                  <ChevronRight className="w-3.5 h-3.5 text-[var(--c-seef-accent)] flex-shrink-0 mt-0.5" />
                   <span>{sug}</span>
                 </div>
               ))}
@@ -109,7 +109,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-3 font-mono">
               <h5 className="font-bold text-theme-heading font-display text-sm flex items-center gap-2 mb-2">
-                <Package className="w-4 h-4 text-[#0a6ed1]" /> Identity &amp; Tax Profile
+                <Package className="w-4 h-4 text-[var(--c-seef-accent)]" /> Identity &amp; Tax Profile
               </h5>
               {[
                 ["Item Code", formData.code || formData.sku || "N/A"],
@@ -124,7 +124,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
               ].map(([k, v]) => (
                 <div key={k as string} className="flex justify-between text-xs border-b border-theme-divider/40 pb-1.5">
                   <span className="text-theme-muted">{k}</span>
-                  <span className="font-bold text-theme-heading">{v || "—"}</span>
+                  <span className="font-bold text-theme-heading">{v || "â€”"}</span>
                 </div>
               ))}
             </div>
@@ -134,10 +134,10 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                 <DollarSign className="w-4 h-4 text-emerald-400" /> Commercial &amp; Margins
               </h5>
               {[
-                ["MRP Price", `₹${mrp.toLocaleString("en-IN")}`],
-                ["Retail Sale Price", `₹${salePrice.toLocaleString("en-IN")}`],
-                ["Purchase Cost", `₹${purchaseCost.toLocaleString("en-IN")}`],
-                ["Gross Margin", `₹${(salePrice - purchaseCost).toLocaleString("en-IN")}`],
+                ["MRP Price", `â‚¹${mrp.toLocaleString("en-IN")}`],
+                ["Retail Sale Price", `â‚¹${salePrice.toLocaleString("en-IN")}`],
+                ["Purchase Cost", `â‚¹${purchaseCost.toLocaleString("en-IN")}`],
+                ["Gross Margin", `â‚¹${(salePrice - purchaseCost).toLocaleString("en-IN")}`],
                 ["Margin %", `${marginPercent}%`],
                 ["Markup %", `${markupPercent}%`],
                 ["Current Stock Qty", `${formData.stock_qty ?? formData.qty ?? 0} ${formData.uom || "Pcs"}`],
@@ -145,7 +145,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
               ].map(([k, v]) => (
                 <div key={k as string} className="flex justify-between text-xs border-b border-theme-divider/40 pb-1.5">
                   <span className="text-theme-muted">{k}</span>
-                  <span className="font-bold text-theme-heading">{v || "—"}</span>
+                  <span className="font-bold text-theme-heading">{v || "â€”"}</span>
                 </div>
               ))}
             </div>
@@ -177,10 +177,10 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
           </div>
 
           <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Wholesale Price</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.price || 0) * 0.9).toFixed(2)}</strong></div>
-            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Dealer Price</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.price || 0) * 0.85).toFixed(2)}</strong></div>
-            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Distributor Price</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.price || 0) * 0.8).toFixed(2)}</strong></div>
-            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Landed Cost</span><strong className="text-sm font-bold text-theme-heading">₹{((purchaseCost) * 1.05).toFixed(2)}</strong></div>
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Wholesale Price</span><strong className="text-sm font-bold text-theme-heading">â‚¹{((formData.price || 0) * 0.9).toFixed(2)}</strong></div>
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Dealer Price</span><strong className="text-sm font-bold text-theme-heading">â‚¹{((formData.price || 0) * 0.85).toFixed(2)}</strong></div>
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Distributor Price</span><strong className="text-sm font-bold text-theme-heading">â‚¹{((formData.price || 0) * 0.8).toFixed(2)}</strong></div>
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Landed Cost</span><strong className="text-sm font-bold text-theme-heading">â‚¹{((purchaseCost) * 1.05).toFixed(2)}</strong></div>
           </div>
         </div>
       )
@@ -191,7 +191,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
       content: (
         <div className="space-y-5 max-w-5xl font-mono text-xs">
           <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2">
-            <Truck className="w-5 h-5 text-[#0a6ed1]" /> Multi-Location Stock &amp; Warehouse Bin Locations
+            <Truck className="w-5 h-5 text-[var(--c-seef-accent)]" /> Multi-Location Stock &amp; Warehouse Bin Locations
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-1">
@@ -208,7 +208,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
             </div>
             <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-1">
               <span className="text-theme-muted text-[10px] uppercase font-bold block">Preferred Warehouse</span>
-              <strong className="text-sm font-bold text-[#0a6ed1]">Central WH-01</strong>
+              <strong className="text-sm font-bold text-[var(--c-seef-accent)]">Central WH-01</strong>
             </div>
           </div>
 
@@ -250,7 +250,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                   <td className="p-2 text-right text-theme-muted">150 Pcs</td>
                   <td className="p-2 text-right text-emerald-400 font-bold">90 Pcs</td>
                   <td className="p-2 text-right text-indigo-400 font-bold">60 Pcs</td>
-                  <td className="p-2 text-right font-bold text-theme-heading">₹{(parseFloat(String(formData.mrp || "100")) * 60).toLocaleString('en-IN')}</td>
+                  <td className="p-2 text-right font-bold text-theme-heading">â‚¹{(parseFloat(String(formData.mrp || "100")) * 60).toLocaleString('en-IN')}</td>
                   <td className="p-2 text-right text-amber-400 font-bold">14 Days</td>
                 </tr>
                 <tr className="hover:bg-theme-surface-1">
@@ -259,7 +259,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                   <td className="p-2 text-right text-theme-muted">200 Pcs</td>
                   <td className="p-2 text-right text-emerald-400 font-bold">140 Pcs</td>
                   <td className="p-2 text-right text-indigo-400 font-bold">60 Pcs</td>
-                  <td className="p-2 text-right font-bold text-theme-heading">₹{(parseFloat(String(formData.mrp || "100")) * 60).toLocaleString('en-IN')}</td>
+                  <td className="p-2 text-right font-bold text-theme-heading">â‚¹{(parseFloat(String(formData.mrp || "100")) * 60).toLocaleString('en-IN')}</td>
 
                   <td className="p-2 text-right text-emerald-400 font-bold">8 Days</td>
                 </tr>
@@ -280,10 +280,10 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
       label: "Suppliers & Procurement",
       content: (
         <div className="space-y-4 max-w-5xl font-mono text-xs">
-          <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><Building2 className="w-5 h-5 text-[#0a6ed1]" /> Preferred Vendors &amp; Purchase History</h4>
+          <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><Building2 className="w-5 h-5 text-[var(--c-seef-accent)]" /> Preferred Vendors &amp; Purchase History</h4>
           <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
             <div className="flex items-center justify-between"><strong className="font-sans text-theme-heading text-xs">TechCorp Distributors (VND-1002)</strong><span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px] font-bold border border-emerald-500/30">Primary Vendor</span></div>
-            <p className="text-theme-muted text-xs">Lead Time: 3 Days | MOQ: 10 Pcs | Last Purchase Rate: ₹{(purchaseCost || 60).toFixed(2)} | Date: 2026-07-20</p>
+            <p className="text-theme-muted text-xs">Lead Time: 3 Days | MOQ: 10 Pcs | Last Purchase Rate: â‚¹{(purchaseCost || 60).toFixed(2)} | Date: 2026-07-20</p>
           </div>
         </div>
       )
@@ -298,7 +298,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
       label: "Analytics & Velocity",
       content: (
         <div className="space-y-5 max-w-5xl font-mono text-xs">
-          <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><BarChart2 className="w-5 h-5 text-[#0a6ed1]" /> Sales Velocity &amp; Inventory Turnover</h4>
+          <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><BarChart2 className="w-5 h-5 text-[var(--c-seef-accent)]" /> Sales Velocity &amp; Inventory Turnover</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-1"><span className="text-theme-muted text-[10px] uppercase font-bold block">Velocity Status</span><strong className="text-lg font-bold text-emerald-400">Fast Moving (ABC-Class A)</strong></div>
             <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-1"><span className="text-theme-muted text-[10px] uppercase font-bold block">30-Day Sales Volume</span><strong className="text-lg font-bold text-theme-heading">142 Pcs</strong></div>

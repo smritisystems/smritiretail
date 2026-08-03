@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Module       : Multi-UOM & Packaging Unit Matrix (SLGP-001 v2.0)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * Version      : 5.4.0
  */
 
@@ -56,7 +56,7 @@ export const ItemMasterUomMatrix: React.FC<ItemMasterUomMatrixProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h4 className="text-sm font-bold text-theme-heading flex items-center gap-2">
-            <Layers className="w-4 h-4 text-[#0a6ed1]" /> Multi-UOM & Packaging Matrix
+            <Layers className="w-4 h-4 text-[var(--c-seef-accent)]" /> Multi-UOM & Packaging Matrix
           </h4>
           <p className="text-xs text-theme-muted">
             Define secondary packaging units (e.g., Box, Carton, Case) and unit conversion rates relative to base unit ({baseUom || "Pcs"}).
@@ -67,7 +67,7 @@ export const ItemMasterUomMatrix: React.FC<ItemMasterUomMatrixProps> = ({
           <button
             type="button"
             onClick={handleAdd}
-            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-theme-surface-2 border border-theme-divider text-[#0a6ed1] hover:bg-theme-surface-hover flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-theme-surface-2 border border-theme-divider text-[var(--c-seef-accent)] hover:bg-theme-surface-hover flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" /> Add Packaging UOM
           </button>
@@ -108,7 +108,7 @@ export const ItemMasterUomMatrix: React.FC<ItemMasterUomMatrixProps> = ({
 
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1">
-                  <span className="text-theme-muted font-mono">Pack MRP ₹</span>
+                  <span className="text-theme-muted font-mono">Pack MRP â‚¹</span>
                   <input
                     type="number"
                     value={c.mrp}

@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS v5.0
  * Module       : SMRITI Label Print Ledger Audit Log Tab (Section 5.6 Compliance)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com and AITDL.com. All Rights Reserved.
  * Version      : 5.6.0
  */
 
@@ -97,7 +97,7 @@ export const ItemMasterPrintHistoryTab: React.FC<ItemMasterPrintHistoryTabProps>
         </div>
         <div>
           <span className="text-theme-muted block">Print Jobs Captured</span>
-          <strong className="text-lg text-[#0a6ed1] font-bold">{ledgerEntries.length} Jobs</strong>
+          <strong className="text-lg text-[var(--c-seef-accent)] font-bold">{ledgerEntries.length} Jobs</strong>
         </div>
         <div>
           <span className="text-theme-muted block">Last Printed By</span>
@@ -167,7 +167,7 @@ export const ItemMasterPrintHistoryTab: React.FC<ItemMasterPrintHistoryTabProps>
             ) : (
               filteredEntries.map((e) => (
                 <tr key={e.print_job_id} className="hover:bg-theme-surface-hover transition-colors">
-                  <td className="p-3 font-bold text-[#0a6ed1]">{e.print_job_id}</td>
+                  <td className="p-3 font-bold text-[var(--c-seef-accent)]">{e.print_job_id}</td>
                   <td className="p-3 text-theme-muted">{e.timestamp}</td>
                   <td className="p-3 text-theme-heading font-sans font-bold">{e.user_name}</td>
                   <td className="p-3">
@@ -181,7 +181,7 @@ export const ItemMasterPrintHistoryTab: React.FC<ItemMasterPrintHistoryTabProps>
                     {e.printer_name} ({e.output_type})
                   </td>
                   <td className="p-3 text-amber-400 font-sans italic">
-                    {e.reprint_reason || "—"}
+                    {e.reprint_reason || "â€”"}
                   </td>
                   <td className="p-3 text-right">
                     <span className="inline-flex items-center gap-1 font-bold text-emerald-500">

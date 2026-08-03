@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Component    : ProductBrandComboStudio (Class12Combo Matrix Engine)
  * Author       : Jawahar Ramkripal Mallah
@@ -422,7 +422,7 @@ export const ProductBrandComboStudio: React.FC<ProductBrandComboStudioProps> = (
       </div>
 
       {/* Footer Toolbar */}
-      <div className="bg-[#121824] border-t border-theme-divider px-6 py-3 flex items-center justify-between">
+      <div className="bg-theme-surface-1 border-t border-theme-divider px-6 py-3 flex items-center justify-between">
         <button
           type="button"
           onClick={handleClear}
