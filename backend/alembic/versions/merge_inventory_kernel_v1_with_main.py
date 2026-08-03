@@ -5,7 +5,7 @@ Merges:
   - merge_rc2_inventory_kernel  (existing main head)
   - v1000_inventory_kernel_v1   (new Inventory Kernel tables)
 
-Revision ID: merge_inventory_kernel_v1_with_main
+Revision ID: merge_inv_kernel_v1_main
 Revises: merge_rc2_inventory_kernel, v1000_inventory_kernel_v1
 Create Date: 2026-08-03
 
@@ -18,7 +18,7 @@ License      : Proprietary Commercial Software
 from alembic import op
 import sqlalchemy as sa
 
-revision = 'merge_inventory_kernel_v1_with_main'
+revision = 'merge_inv_kernel_v1_main'
 down_revision = ('merge_rc2_inventory_kernel', 'v1000_inventory_kernel_v1')
 branch_labels = None
 depends_on = None

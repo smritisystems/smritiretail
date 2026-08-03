@@ -1,15 +1,15 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
  * Module       : SAP Fiori Enterprise Slim Header (WNG-002 Compliant)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * Version      : 5.1.0 (SEEF Phase 8 — Token Upgrade)
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Version      : 5.2.0 (SEEF Phase 9 â€” Full Token Compliance, no hardcoded hex)
  */
 
 import React from "react";
-import { Search, Bell, Sparkles, User, HelpCircle, Shield, Sun, Moon, Palette } from "lucide-react";
+import { Search, Bell, HelpCircle, Palette } from "lucide-react";
 import { useSEEF } from "../../layout_engine/SEEFContext.tsx";
 import { SEEFTheme } from "../../layout_engine/SEEFTypes.ts";
 import { SUNEFNavigationBar } from "../../navigation/SUNEFNavigationBar.tsx";
@@ -37,19 +37,49 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
     updateSEEF({ theme: newTheme });
   };
 
+  // Derive light vs dark mode for readable foreground colors
+  const isLight = activeTheme === "enterprise" || activeTheme === "light" || activeTheme === "minimal";
+
   return (
-    <header className="h-12 bg-[#354a5e] border-b border-white/10 px-4 flex items-center justify-between text-xs select-none z-30 shadow-md">
+    <header
+      className="h-12 border-b px-4 flex items-center justify-between text-xs select-none z-30 shadow-md transition-colors duration-300"
+      style={{
+        background: "var(--c-seef-brand)",
+        borderColor: isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.10)",
+        color: "var(--c-theme-body)",
+      }}
+    >
       {/* 1. SMRITI Brand & Waffle Matrix App Launcher */}
       <div className="flex items-center gap-3">
-        <div className="grid grid-cols-3 gap-[3px] w-4 h-4 opacity-90 cursor-pointer hover:opacity-100 transition-opacity" title="SMRITI Launchpad Matrix">
+        <div
+          className="grid grid-cols-3 gap-[3px] w-4 h-4 opacity-90 cursor-pointer hover:opacity-100 transition-opacity"
+          title="SMRITI Launchpad Matrix"
+        >
           {Array.from({ length: 9 }).map((_, i) => (
-            <div key={i} className="w-[4px] h-[4px] rounded-[1px] bg-white" />
+            <div
+              key={i}
+              className="w-[4px] h-[4px] rounded-[1px]"
+              style={{ background: "var(--c-theme-body)" }}
+            />
           ))}
         </div>
-        <span className="seds-text-title text-white flex items-center gap-2">
-          SMRITI <span className="text-[#6fa8dc] font-mono text-xs">Retail OS</span>
+        <span className="seds-text-title flex items-center gap-2" style={{ color: "var(--c-theme-body)" }}>
+          SMRITI{" "}
+          <span
+            className="font-mono text-xs"
+            style={{ color: "var(--c-seef-info)" }}
+          >
+            Retail OS
+          </span>
         </span>
-        <span className="px-2 py-0.5 rounded bg-white/12 text-white border border-white/10 seds-text-overline hidden sm:inline-block">
+        <span
+          className="px-2 py-0.5 rounded seds-text-overline hidden sm:inline-block"
+          style={{
+            background: isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.12)",
+            border: `1px solid ${isLight ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.10)"}`,
+            color: "var(--c-theme-body)",
+          }}
+        >
           v5.3 Enterprise
         </span>
         {/* SUNE In-App Control Bar (Back, Forward, Refresh, Home) */}
@@ -60,13 +90,27 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
       <div className="flex-1 max-w-md mx-4">
         <button
           onClick={onOpenGlobalSearch}
-          className="w-full flex items-center justify-between bg-[#243343] border border-white/15 hover:border-white/30 rounded-xl px-3 py-1.5 text-blue-200/60 hover:text-white transition-all seds-text-small"
+          className="w-full flex items-center justify-between rounded-xl px-3 py-1.5 transition-all seds-text-small"
+          style={{
+            background: "var(--c-theme-surface-2)",
+            border: `1px solid ${isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.15)"}`,
+            color: "var(--c-theme-muted)",
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = "var(--c-theme-body)")}
+          onMouseLeave={e => (e.currentTarget.style.color = "var(--c-theme-muted)")}
         >
           <div className="flex items-center gap-2">
-            <Search size={14} className="text-blue-200/60" />
+            <Search size={14} style={{ color: "var(--c-theme-muted)" }} />
             <span className="seds-text-small">Search applications, SKU, customers...</span>
           </div>
-          <kbd className="px-1.5 py-0.2 seds-text-overline rounded bg-white/10 border border-white/15 text-blue-200/80">
+          <kbd
+            className="px-1.5 seds-text-overline rounded"
+            style={{
+              background: isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.10)",
+              border: `1px solid ${isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.15)"}`,
+              color: "var(--c-theme-muted)",
+            }}
+          >
             Ctrl+K
           </kbd>
         </button>
@@ -74,25 +118,37 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
 
       {/* 3. Right Enterprise Actions & User Profile */}
       <div className="flex items-center gap-2">
-        {/* SAP Fiori Interactive Theme Switcher */}
-        <div className="flex items-center gap-1 bg-white/10 border border-white/15 rounded-lg p-1">
-          <Palette size={14} className="text-[#6fa8dc] ml-1 shrink-0" />
+        {/* SEEF Theme Switcher */}
+        <div
+          className="flex items-center gap-1 rounded-lg p-1"
+          style={{
+            background: isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.10)",
+            border: `1px solid ${isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.15)"}`,
+          }}
+        >
+          <Palette size={14} className="ml-1 shrink-0" style={{ color: "var(--c-seef-info)" }} />
           <select
             value={activeTheme}
             onChange={(e) => handleThemeChange(e.target.value as SEEFTheme)}
-            className="bg-transparent text-white seds-text-caption font-semibold focus:outline-none cursor-pointer pr-1"
-            title="Switch SAP Fiori Theme"
+            className="bg-transparent seds-text-caption font-semibold focus:outline-none cursor-pointer pr-1"
+            style={{ color: "var(--c-theme-body)" }}
+            title="Switch Theme"
           >
-            <option value="dark" className="bg-[#1c222b] text-white">🌙 Quartz Dark</option>
-            <option value="enterprise" className="bg-white text-[#1d2d3e]">☀️ Horizon Light (Fiori)</option>
-            <option value="corporate" className="bg-[#0f1d2a] text-white">🏢 Corporate Navy</option>
+            <option value="dark"          className="bg-[#1c222b] text-white">ðŸŒ™ Quartz Dark</option>
+            <option value="enterprise"    className="bg-white text-[#1d2d3e]">â˜€ï¸ Horizon Light (Fiori)</option>
+            <option value="light"         className="bg-white text-[#1d2d3e]">ðŸŒ¤ï¸ Light</option>
+            <option value="corporate"     className="bg-[#0f1d2a] text-white">ðŸ¢ Corporate Navy</option>
+            <option value="high-contrast" className="bg-black text-white">âš¡ High Contrast</option>
           </select>
         </div>
 
         {/* Help Portal */}
         <button
           onClick={onOpenHelp}
-          className="p-1.5 rounded-lg text-blue-200/80 hover:text-white hover:bg-white/10 transition-colors"
+          className="p-1.5 rounded-lg transition-colors"
+          style={{ color: "var(--c-theme-muted)" }}
+          onMouseEnter={e => (e.currentTarget.style.color = "var(--c-theme-body)")}
+          onMouseLeave={e => (e.currentTarget.style.color = "var(--c-theme-muted)")}
           title="SMRITI Documentation & Help"
         >
           <HelpCircle size={16} />
@@ -101,7 +157,10 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
         {/* Notifications Trigger */}
         <button
           onClick={onOpenNotifications}
-          className="p-1.5 rounded-lg text-blue-200/80 hover:text-white hover:bg-white/10 transition-colors relative"
+          className="p-1.5 rounded-lg transition-colors relative"
+          style={{ color: "var(--c-theme-muted)" }}
+          onMouseEnter={e => (e.currentTarget.style.color = "var(--c-theme-body)")}
+          onMouseLeave={e => (e.currentTarget.style.color = "var(--c-theme-muted)")}
           title="Notifications"
         >
           <Bell size={16} />
@@ -109,15 +168,30 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
         </button>
 
         {/* User Profile Pill */}
-        <div className="flex items-center gap-2 pl-2 border-l border-white/15">
-          <div className="w-7 h-7 rounded-full bg-[#1a73e8] border border-white/20 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+        <div
+          className="flex items-center gap-2 pl-2"
+          style={{ borderLeft: `1px solid ${isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.15)"}` }}
+        >
+          <div
+            className="w-7 h-7 rounded-full border text-white flex items-center justify-center font-bold text-xs shadow-sm"
+            style={{
+              background: "var(--c-seef-accent)",
+              borderColor: isLight ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.20)",
+            }}
+          >
             {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "U"}
           </div>
           <div className="hidden md:flex flex-col text-left">
-            <span className="font-bold text-white text-xs leading-tight">
+            <span
+              className="font-bold text-xs leading-tight"
+              style={{ color: "var(--c-theme-body)" }}
+            >
               {currentUser?.name || "Cashier"}
             </span>
-            <span className="text-[10px] text-[#6fa8dc] font-mono leading-tight">
+            <span
+              className="text-[10px] font-mono leading-tight"
+              style={{ color: "var(--c-seef-info)" }}
+            >
               {currentUser?.role || "Staff"}
             </span>
           </div>

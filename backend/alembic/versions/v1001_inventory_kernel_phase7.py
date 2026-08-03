@@ -1,7 +1,7 @@
 """add_inventory_kernel_phase7_tables
 
 Revision ID: v1001_inventory_kernel_phase7
-Revises: merge_inventory_kernel_v1_with_main
+Revises: merge_inv_kernel_v1_main
 Create Date: 2026-08-03 03:35:00.000000
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'v1001_inventory_kernel_phase7'
-down_revision = 'merge_inventory_kernel_v1_with_main'
+down_revision = 'merge_inv_kernel_v1_main'
 branch_labels = None
 depends_on = None
 

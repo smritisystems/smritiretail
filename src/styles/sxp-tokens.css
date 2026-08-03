@@ -141,38 +141,64 @@
   --sxp-z-tooltip:  1500;
 }
 
-/* ── Light Mode override ─────────────────────────────────────────────────── */
-@media (prefers-color-scheme: light) {
-  :root {
-    --sxp-surface-1:        #F5F7FA;
-    --sxp-surface-2:        #FFFFFF;
-    --sxp-surface-3:        #FFFFFF;
-    --sxp-surface-hover:    #EEF2F8;
-    --sxp-surface-active:   #E3EAF5;
-    --sxp-skeleton-base:    #F0F3F8;
-    --sxp-skeleton-shimmer: #E7ECF3;
-    --sxp-brand:            #4f46e5;
-    --sxp-brand-hover:      #4338ca;
-    --sxp-brand-muted:      rgba(79, 70, 229, 0.08);
-    --sxp-brand-border:     rgba(79, 70, 229, 0.2);
-    --sxp-text-primary:     #1e293b;
-    --sxp-text-secondary:   #475569;
-    --sxp-text-muted:       #94a3b8;
-    --sxp-text-inverse:     #ffffff;
-    --sxp-text-brand:       #4f46e5;
-    --sxp-border:           rgba(0, 0, 0, 0.08);
-    --sxp-border-strong:    rgba(0, 0, 0, 0.15);
-    --sxp-border-brand:     rgba(79, 70, 229, 0.3);
-    --sxp-shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.08);
-    --sxp-shadow-md:  0 4px 12px rgba(0, 0, 0, 0.10);
-    --sxp-shadow-lg:  0 12px 32px rgba(0, 0, 0, 0.12);
-    --sxp-shadow-xl:  0 24px 64px rgba(0, 0, 0, 0.16);
-    --sxp-success:    #059669;
-    --sxp-warning:    #d97706;
-    --sxp-danger:     #dc2626;
-    --sxp-info:       #2563eb;
-  }
+/* ── Light Mode override — responds to SEEF theme switcher, not OS preference ── */
+[data-seef-theme="enterprise"],
+[data-seef-theme="light"],
+[data-seef-theme="minimal"] {
+  --sxp-surface-1:        #F5F7FA;
+  --sxp-surface-2:        #FFFFFF;
+  --sxp-surface-3:        #FFFFFF;
+  --sxp-surface-hover:    #EEF2F8;
+  --sxp-surface-active:   #E3EAF5;
+  --sxp-skeleton-base:    #F0F3F8;
+  --sxp-skeleton-shimmer: #E7ECF3;
+  --sxp-brand:            #4f46e5;
+  --sxp-brand-hover:      #4338ca;
+  --sxp-brand-muted:      rgba(79, 70, 229, 0.08);
+  --sxp-brand-border:     rgba(79, 70, 229, 0.2);
+  --sxp-text-primary:     #1e293b;
+  --sxp-text-secondary:   #475569;
+  --sxp-text-muted:       #94a3b8;
+  --sxp-text-inverse:     #ffffff;
+  --sxp-text-brand:       #4f46e5;
+  --sxp-border:           rgba(0, 0, 0, 0.08);
+  --sxp-border-strong:    rgba(0, 0, 0, 0.15);
+  --sxp-border-brand:     rgba(79, 70, 229, 0.3);
+  --sxp-shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.08);
+  --sxp-shadow-md:  0 4px 12px rgba(0, 0, 0, 0.10);
+  --sxp-shadow-lg:  0 12px 32px rgba(0, 0, 0, 0.12);
+  --sxp-shadow-xl:  0 24px 64px rgba(0, 0, 0, 0.16);
+  --sxp-success:    #059669;
+  --sxp-warning:    #d97706;
+  --sxp-danger:     #dc2626;
+  --sxp-info:       #2563eb;
+  /* Shadows lighter for light backgrounds */
+  --sxp-shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.08);
+  --sxp-shadow-md:  0 4px 12px rgba(0, 0, 0, 0.10);
+  --sxp-shadow-lg:  0 12px 32px rgba(0, 0, 0, 0.12);
+  --sxp-shadow-xl:  0 24px 64px rgba(0, 0, 0, 0.16);
 }
+
+/* ── High Contrast override ─────────────────────────────────────────────── */
+[data-seef-theme="high-contrast"] {
+  --sxp-surface-1:        #000000;
+  --sxp-surface-2:        #000000;
+  --sxp-surface-3:        #1a1a1a;
+  --sxp-surface-hover:    #222222;
+  --sxp-surface-active:   #333333;
+  --sxp-text-primary:     #ffffff;
+  --sxp-text-secondary:   #eeeeee;
+  --sxp-text-muted:       #cccccc;
+  --sxp-border:           rgba(255, 255, 255, 0.5);
+  --sxp-border-strong:    rgba(255, 255, 255, 0.9);
+  --sxp-brand:            #ffff00;
+  --sxp-text-brand:       #ffff00;
+  --sxp-success:          #00ff41;
+  --sxp-warning:          #ffff00;
+  --sxp-danger:           #ff6b6b;
+  --sxp-info:             #74b9ff;
+}
+
 
 /* ── Base reset (applied to SXP shell root) ─────────────────────────────── */
 .sxp-root {

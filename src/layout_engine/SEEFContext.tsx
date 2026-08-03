@@ -89,9 +89,21 @@ function applyConfigToDOM(config: SEEFConfig): void {
   // Theme — activates correct color palette in CSS
   html.setAttribute("data-seef-theme", config.theme);
 
-  // Legacy theme compatibility for imported theme files
-  const legacyTheme = config.theme === "enterprise" ? "fiori-lite" : config.theme;
+  // Legacy data-theme bridge — maps SEEFTheme → legacy [data-theme="X"] selectors
+  // in smriti-theme-*.css (SDS v1.0 token namespace).
+  const SEEF_TO_LEGACY_THEME: Record<string, string> = {
+    "dark":          "dark",
+    "light":         "light",
+    "enterprise":    "fiori-lite",
+    "fiori-light":   "fiori-lite",
+    "high-contrast": "high-contrast",
+    "corporate":     "dark",   // closest SDS v1.0 token set
+    "minimal":       "light",  // closest SDS v1.0 token set
+    "custom":        "dark",
+  };
+  const legacyTheme = SEEF_TO_LEGACY_THEME[config.theme] ?? "dark";
   html.setAttribute("data-theme", legacyTheme);
+
 
   // Density — activates spacing/typography scale overrides
   html.setAttribute("data-seef-density", config.density);
