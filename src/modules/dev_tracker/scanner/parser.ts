@@ -60,6 +60,9 @@ export function getFilesRecursively(dir: string, extensions: string[] = [".ts", 
   return results;
 }
 
+import { defaultAdapterRegistry } from "./adapters/AdapterRegistry.ts";
+import { EvidenceGraphContainer } from "./adapters/EvidenceGraph.ts";
+
 export interface ParsedCodebase {
   filesList: string[];
   todosCount: number;
@@ -73,6 +76,7 @@ export interface ParsedCodebase {
   docFiles: string[];
   fileContentsMap: Map<string, string>;
   componentImports: Map<string, string[]>;
+  evidenceGraph: EvidenceGraphContainer;
 }
 
 export function parseCodebase(): ParsedCodebase {
@@ -193,6 +197,10 @@ export function parseCodebase(): ParsedCodebase {
     }
   }
 
+  // Execute Pluggable Adapter Registry Pipeline (SDS v2.3 / SADS v1.0)
+  const evidenceGraph = new EvidenceGraphContainer();
+  defaultAdapterRegistry.executeAll(fileContentsMap, evidenceGraph);
+
   return {
     filesList: allFiles.map(f => path.relative(rootDir, f).replace(/\\/g, "/")),
     todosCount,
@@ -205,6 +213,7 @@ export function parseCodebase(): ParsedCodebase {
     testFiles,
     docFiles,
     fileContentsMap,
-    componentImports
+    componentImports,
+    evidenceGraph
   };
 }

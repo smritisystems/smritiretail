@@ -222,40 +222,61 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
     const performanceComplete = frontendFile ? (parsed.fileContentsMap.get(frontendFile) || "").includes("debounce") || (parsed.fileContentsMap.get(frontendFile) || "").includes("useMemo") : false;
     const productionReady = frontendComplete && backendComplete && databaseComplete && unitTestsComplete && documentationComplete;
 
-    // Build Structured Evidence Object (SGS v1.0 / SDS v2.2)
-    const evidenceFrontend: EvidenceItem[] = frontendFile ? [{
-      id: `EV-FE-${m.id}`,
-      category: "frontend",
-      file: frontendFile,
-      symbol: map.frontendKeyword,
-      confidence: "100% Verified"
-    }] : [];
+    // Build Structured Evidence Object from Evidence Graph (SDS v2.3 / SADS v1.0)
+    const graphEvidence = parsed.evidenceGraph ? parsed.evidenceGraph.getEvidenceForModule(m.id) : [];
 
-    const matchedPyFiles = pyApiFiles.filter(f => map.routeKeywords.some(rt => f.toLowerCase().includes(rt.replace("/api/", "").replace("/v1/", ""))));
-    const evidenceApi: EvidenceItem[] = matchedPyFiles.map((f, idx) => ({
-      id: `EV-API-${m.id}-${idx}`,
-      category: "api",
-      file: f,
-      symbol: `@router (${map.routeKeywords.join(", ")})`,
-      confidence: "100% Verified"
+    const evidenceFrontend: EvidenceItem[] = graphEvidence.filter(e => e.category === "frontend");
+    if (evidenceFrontend.length === 0 && frontendFile) {
+      evidenceFrontend.push({
+        id: `EV-FE-${m.id}`,
+        category: "frontend",
+        file: frontendFile,
+        symbol: map.frontendKeyword,
+        confidence: "100% Verified"
+      });
+    }
+
+    const evidenceApi: EvidenceItem[] = graphEvidence.filter(e => e.category === "api");
+    if (evidenceApi.length === 0) {
+      const matchedPyFiles = pyApiFiles.filter(f => map.routeKeywords.some(rt => f.toLowerCase().includes(rt.replace("/api/", "").replace("/v1/", ""))));
+      matchedPyFiles.forEach((f, idx) => {
+        evidenceApi.push({
+          id: `EV-API-${m.id}-${idx}`,
+          category: "api",
+          file: f,
+          symbol: `@router (${map.routeKeywords.join(", ")})`,
+          confidence: "100% Verified"
+        });
+      });
+    }
+
+    const evidenceDb: EvidenceItem[] = graphEvidence.filter(e => e.category === "database");
+    if (evidenceDb.length === 0) {
+      const matchedModelFiles = parsed.filesList.filter(f => f.startsWith("backend/app/models/") && map.tableKeywords.some(tbl => f.toLowerCase().includes(tbl.replace("_", ""))));
+      matchedModelFiles.forEach((f, idx) => {
+        evidenceDb.push({
+          id: `EV-DB-${m.id}-${idx}`,
+          category: "database",
+          file: f,
+          symbol: `SQLAlchemy table (${map.tableKeywords.join(", ")})`,
+          confidence: "100% Verified"
+        });
+      });
+    }
+
+    const evidenceTests: EvidenceItem[] = graphEvidence.filter(e => e.category === "testing").map(e => ({
+      ...e,
+      category: "tests" as const
     }));
-
-    const matchedModelFiles = parsed.filesList.filter(f => f.startsWith("backend/app/models/") && map.tableKeywords.some(tbl => f.toLowerCase().includes(tbl.replace("_", ""))));
-    const evidenceDb: EvidenceItem[] = matchedModelFiles.map((f, idx) => ({
-      id: `EV-DB-${m.id}-${idx}`,
-      category: "database",
-      file: f,
-      symbol: `SQLAlchemy table (${map.tableKeywords.join(", ")})`,
-      confidence: "100% Verified"
-    }));
-
-    const evidenceTests: EvidenceItem[] = testFile ? [{
-      id: `EV-TST-${m.id}`,
-      category: "tests",
-      file: testFile,
-      symbol: `Test suite`,
-      confidence: "100% Verified"
-    }] : [];
+    if (evidenceTests.length === 0 && testFile) {
+      evidenceTests.push({
+        id: `EV-TST-${m.id}`,
+        category: "tests",
+        file: testFile,
+        symbol: `Test suite`,
+        confidence: "100% Verified"
+      });
+    }
 
     const evidenceDocs: EvidenceItem[] = docFile ? [{
       id: `EV-DOC-${m.id}`,
