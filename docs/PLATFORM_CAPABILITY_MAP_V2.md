@@ -46,11 +46,11 @@
 
 | Component / Standard | Acronym | Governance Scope & Architectural Role | Status |
 |---|---|---|---|
-| **Platform Constitution** | **SPC v1.0**| Supreme Platform Architecture Constitution | ✅ Certified (`bd7ca709`) |
-| **Deployment Standard** | **DDS v1.0**| Container Readiness Contracts & Leader Election | ✅ Certified (`bd7ca709`) |
-| **Reference Implementation**|**PRIG v1.0**| Canonical Repo Layout & Coding Guidelines | ✅ Certified (`bd7ca709`) |
-| **Platform Doctor Service** |**SPD v1.0**| Level 2 Diagnostics & Readiness Contracts Audit | ✅ Certified (`bd7ca709`) |
-| **Platform Maturity Model** | **PCMM v1.0**| L1 Foundation -> L2 Oper -> L3 Integ -> L4 Ent -> L5 Ecosys | ✅ L4 Enterprise (`bd7ca709`) |
+| **Platform Constitution** | **SPC v1.0**| Supreme Platform Architecture Constitution | ✅ Certified (`02de5396`) |
+| **Deployment Standard** | **DDS v1.0**| Readiness, Graceful Shutdown & Health Levels | ✅ Certified (`02de5396`) |
+| **Reference Implementation**|**PRIG v1.0**| Canonical Repo Layout & Coding Guidelines | ✅ Certified (`02de5396`) |
+| **Platform Doctor Service** |**SPD v1.0**| Level 2 Diagnostics & Readiness Contracts Audit | ✅ Certified (`02de5396`) |
+| **Platform Maturity Model** | **PCMM v1.0**| L1 Foundation -> L2 Oper -> L3 Integ -> L4 Ent -> L5 Ecosys | ✅ L4 Enterprise (`02de5396`) |
 | **Kernel Standard** | **KDS v1.1**| 15 Sections, 15 Principles, Dual Checklist, ADRs | ✅ Certified (`e07acb20`) |
 | **Integration Standard** | **IDS v1.0**| REST, GraphQL, Webhooks, OAuth, Connectors Standard | ✅ Certified (`b4afa62a`) |
 | **Service Standard** | **SDS v1.0**| Level 2 Shared Platform Services Standard | ✅ Certified (`e07acb20`) |
@@ -88,4 +88,4 @@
 
 ## 4. Platform Structural Freeze Directive
 
-> **Directive:** Platform OS v4.2, Professional Edition Default Deployment (5 Containers), Container Readiness Contracts (DDS v1.0), Leader-Elected Worker Scheduler, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), and Network & Connectors (Level 7) are **OFFICIALLY FROZEN**. No additional architectural layers will be introduced. Business capability development MUST consume these capabilities as generic facade clients.
+> **Directive:** Platform OS v4.2, Professional Edition Default Deployment (5 Containers), Graceful Shutdown Order, Health Levels, Distributed Leader Election, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), and Network & Connectors (Level 7) are **OFFICIALLY FROZEN**. No additional architectural layers will be introduced. Business capability development MUST consume these capabilities as generic facade clients.
