@@ -48,10 +48,10 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ---
 
-## 3. Governance Standards Hierarchy (Including DDS v1.0)
+## 3. Governance Standards Hierarchy (FROZEN GOVERNANCE STACK)
 
 Every layer and operational aspect derives its engineering authority from a dedicated governance standard:
-- **SPC (Platform Constitution):** Supreme architectural governance framework (`02de5396`).
+- **SPC (Platform Constitution):** Supreme architectural governance framework (`a6500275`).
 - **PRIG (Reference Implementation Guide):** Canonical repo layout, coding rules, & OpenTelemetry standards.
 - **PCMM (Platform Capability Maturity Model):** L1 Foundation $\rightarrow$ L2 Operational $\rightarrow$ L3 Integrated $\rightarrow$ L4 Enterprise $\rightarrow$ L5 Ecosystem.
 - **DDS (Deployment Development Standard):** Governs Docker container contracts, readiness/health levels, graceful shutdown, and distributed leader election.
@@ -118,7 +118,33 @@ To enable horizontal worker scaling without duplicate cron execution:
 
 ---
 
-## 6. Deterministic Boot Failure Policy
+## 6. SPD Architecture Compliance Score Matrix
+
+Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** evaluates total runtime governance compliance producing a single, weighted **Architecture Compliance Score**:
+
+| Compliance Category | Weight | Evaluated Governance Scope | Pass Threshold |
+|---|---|---|---|
+| **Constitution Compliance** | **20%** | SPC 7-layer topology, structural freeze, & precedence order | 100% |
+| **Manifest Validation** | **15%** | `smriti.manifest.v1` schema, inheritance, & checksum integrity | 100% |
+| **Standards Compliance** | **15%** | KDS, SDS, IDS, RDS, BDS, NDS, & DDS specification adherence | 100% |
+| **Dependency Integrity** | **15%** | Resolved capability graphs & `dependency_graph_hash` verification | 100% |
+| **Security & Trust** | **15%** | Ed25519 signature bytes, key revocation (CRL/OCSP), & USR ABAC | 100% |
+| **Health & Observability**| **10%** | Health levels (`STARTING`..`FAILED`) & OpenTelemetry exports | 100% |
+| **Deployment Compliance**| **10%** | Container readiness contracts, graceful shutdown, & leader locks | 100% |
+
+```text
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │ SMRITI PLATFORM COMPLIANCE REPORT                                      │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ Overall Compliance Score : 100.0%                                      │
+ │ Status                  : PASS                                         │
+ │ Certification Status    : ENTERPRISE CERTIFIED (PRODUCTION READY)     │
+ └────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 7. Deterministic Boot Failure Policy
 
 | Boot Failure Severity | Governance Definition | Runtime System Behavior | Failure Examples |
 |---|---|---|---|
@@ -129,7 +155,7 @@ To enable horizontal worker scaling without duplicate cron execution:
 
 ---
 
-## 7. Governance Authority Precedence Hierarchy
+## 8. Governance Authority Precedence Hierarchy
 
 1. **SPC (Platform Constitution):** Supreme architectural authority.
 2. **PRIG (Reference Implementation Guide):** Canonical implementation & coding standard.
@@ -142,26 +168,14 @@ To enable horizontal worker scaling without duplicate cron execution:
 
 ---
 
-## 8. Shared Platform Service: SPD Platform Doctor Service
-
-Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** acts as the platform's self-healing diagnostic engine:
-- **Manifest & Lock File Audit:** Validates `platform.manifest.yaml` and `platform.lock.yaml`.
-- **SHA256 & Dependency Graph Hash Verification:** Asserts payload and resolved graph hashes.
-- **Ed25519 Signature & Revocation Audit:** Verifies signatures, checks `key_id` against CRL/OCSP revocation sources.
-- **Health Level Audit:** Asserts health states (`STARTING`, `READY`, `DEGRADED`, `READONLY`, `RECOVERING`, `SYNCING`, `MAINTENANCE`, `STOPPING`, `FAILED`).
-- **Graceful Shutdown Audit:** Verifies reverse shutdown handling (`web` $\rightarrow$ `worker` $\rightarrow$ `api` $\rightarrow$ `redis` $\rightarrow$ `db`).
-- **Distributed Leader Lock Audit:** Verifies single-leader lock ownership across worker nodes.
-- **Platform Health Report:** Generates an enterprise-ready certification report (`100% READY FOR PRODUCTION`).
-
----
-
 ## 9. Baseline Structural Freeze & ADR Policy
 
 1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Professional Edition Deployment Topology (5 Containers), Graceful Shutdown Order, Health Levels, Distributed Leader Election, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
-2. **DDS v1.0 Freeze Directive:** Deployment Development Standard v1.0 is the canonical deployment specification for SMRITI Digital Commerce Platform OS v4.2. Non-breaking operational clarifications may be added in patch releases. Changes affecting container topology, deployment lifecycle, readiness contracts, health semantics, or orchestration behavior require a DDS major version increment and an approved Architecture Decision Record (ADR).
-3. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
+2. **Platform Foundation Freeze Rule:** The SMRITI Digital Commerce Platform Foundation (SPC, PRIG, DDS, KDS, SDS, IDS, RDS, BDS, NDS, manifest schemas, boot lifecycle, and deployment topology) is frozen under Platform OS v4.2. Future enhancements should primarily occur within Shared Services, Shared Business Kernels, Registries, Business Studios, or deployment implementations. Changes to the foundation require an approved ADR and a major Platform OS version increment.
+3. **DDS v1.0 Freeze Directive:** Deployment Development Standard v1.0 is the canonical deployment specification for SMRITI Digital Commerce Platform OS v4.2. Non-breaking operational clarifications may be added in patch releases. Changes affecting container topology, deployment lifecycle, readiness contracts, health semantics, or orchestration behavior require a DDS major version increment and an approved ADR.
+4. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
    - Introduction of a new Level 3 Shared Business Kernel or Level 2 Shared Service.
    - Breaking API changes to an existing public service facade (`KernelName.Service`).
    - Modification of cross-kernel transaction boundaries.
    - Alteration of USR security ABAC policies or data isolation models.
-4. **Semantic Evolution Policy:** Routine bug fixes and non-breaking feature extensions use minor version increments (`v4.2.x`). Structural changes require a major version bump and an approved ADR.
+5. **Semantic Evolution Policy:** Routine bug fixes and non-breaking feature extensions use minor version increments (`v4.2.x`). Structural changes require a major version bump and an approved ADR.
