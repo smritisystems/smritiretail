@@ -16,14 +16,50 @@ export type AdapterCategory =
   | "configuration" 
   | "security";
 
-export interface AdapterHealth {
+export interface AdapterStatistics {
   adapterId: string;
-  version: string;
+  adapterName: string;
+  category: AdapterCategory;
+  durationMs: number;
   filesProcessed: number;
-  evidenceExtracted: number;
+  evidenceProduced: number;
   warnings: number;
   errors: number;
+  throughputFilesPerSec: number;
+}
+
+export interface PipelineTimings {
+  discoveryMs: number;
+  adapterExecutionMs: number;
+  metricsComputationMs: number;
+  markdownGenerationMs: number;
+  totalMs: number;
+}
+
+export interface AdapterStatus {
+  name: string;
+  status: "active" | "disabled" | "failed";
+}
+
+export interface ScannerFingerprint {
+  version: string;
+  build: string;
+  gitCommit: string;
+  rulesHash: string;
+  adapters: AdapterStatus[];
+}
+
+export interface ScannerHealth {
+  filesScanned: number;
+  filesSkipped: number;
+  pythonFiles: number;
+  tsFiles: number;
+  routesDiscovered: number;
+  modelsDiscovered: number;
+  testsDiscovered: number;
   durationMs: number;
+  adapterStats: AdapterStatistics[];
+  pipelineTimings: PipelineTimings;
 }
 
 export interface IAdapter {

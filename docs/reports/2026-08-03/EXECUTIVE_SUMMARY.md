@@ -1,7 +1,7 @@
 # Executive Summary: SMRITI Development Intelligence Center
 
 
-*Scan Timestamp: 2026-08-03T20:56:00.184Z*
+*Scan Timestamp: 2026-08-03T21:00:52.744Z*
 
 *Release Target: v3.16.0*
 
@@ -23,7 +23,7 @@
 
 ## Git Metadata
 - **Branch:** `main`
-- **Total Commit Count:** 973
+- **Total Commit Count:** 974
 - **Last Commit Author:** Jawahar Ramkripal Mallah
-- **Last Commit Hash:** `5a61a523`
-- **Last Commit Message:** "feat(scanner): deploy SDS v2.2 / SGS v1.0 governance framework with fingerprint, evidence categories, and architecture coverage"
+- **Last Commit Hash:** `143830d8`
+- **Last Commit Message:** "feat(scanner): deploy SDS v2.3 / SADS v1.0 pluggable Adapter Registry architecture and Evidence Graph IR"

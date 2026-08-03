@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -68,9 +68,12 @@ export function writeReports(res: ScanResult): void {
     fs.writeFileSync(historyFilePath, JSON.stringify(history, null, 2), "utf8");
   }
 
-  // 3. Generate and write the 15 reports
+  // 3. Generate and write the 16 reports (SDS v2.4)
+  const scannerHealthContent = templates.generateScannerHealthReport(res);
+
   const reportsList = [
     { name: "DEVELOPMENT_STATUS.md", content: templates.generateDevelopmentStatus(res) },
+    { name: "SCANNER_HEALTH.md", content: scannerHealthContent },
     { name: "EXECUTIVE_SUMMARY.md", content: templates.generateExecutiveSummary(res) },
     { name: "MODULE_PROGRESS.md", content: templates.generateModuleProgress(res) },
     { name: "FEATURE_MATRIX.md", content: templates.generateFeatureMatrix(res) },
@@ -93,7 +96,10 @@ export function writeReports(res: ScanResult): void {
     fs.writeFileSync(reportPath, report.content, "utf8");
   }
 
-  // Also write the master DEVELOPMENT_STATUS.md to the workspace root for direct access
+  // Also write master DEVELOPMENT_STATUS.md and SCANNER_HEALTH.md to the workspace root
   const rootDevStatusPath = path.join(rootDir, "DEVELOPMENT_STATUS.md");
   fs.writeFileSync(rootDevStatusPath, templates.generateDevelopmentStatus(res), "utf8");
+
+  const rootScannerHealthPath = path.join(rootDir, "SCANNER_HEALTH.md");
+  fs.writeFileSync(rootScannerHealthPath, scannerHealthContent, "utf8");
 }

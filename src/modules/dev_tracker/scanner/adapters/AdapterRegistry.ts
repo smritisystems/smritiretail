@@ -49,15 +49,27 @@ export class AdapterRegistry {
     return Array.from(this.adapters.values()).map(a => a.healthCheck());
   }
 
+  private adapterStatsMap: Map<string, AdapterStatistics> = new Map();
+
+  public getAdapterStatistics(): AdapterStatistics[] {
+    return Array.from(this.adapterStatsMap.values());
+  }
+
   public executeAll(fileContentsMap: Map<string, string>, evidenceGraph: EvidenceGraphContainer): void {
     const activeAdapters = this.getAdapters().sort((a, b) => b.priority - a.priority);
 
-    for (const [filePath, content] of fileContentsMap.entries()) {
-      for (const adapter of activeAdapters) {
+    for (const adapter of activeAdapters) {
+      const adapterStart = Date.now();
+      let filesProcessed = 0;
+      let evidenceProduced = 0;
+
+      for (const [filePath, content] of fileContentsMap.entries()) {
         if (adapter.canHandle(filePath)) {
+          filesProcessed++;
           const items = adapter.extract(filePath, content);
+          evidenceProduced += items.length;
+
           for (const item of items) {
-            // Attribute evidence item to module based on file path keyword match
             const moduleId = this.inferModuleId(item.file);
             evidenceGraph.addEvidence(moduleId, item);
 
@@ -73,6 +85,21 @@ export class AdapterRegistry {
           }
         }
       }
+
+      const durationMs = Date.now() - adapterStart;
+      const throughputFilesPerSec = durationMs > 0 ? Math.round((filesProcessed / (durationMs / 1000))) : filesProcessed * 1000;
+
+      this.adapterStatsMap.set(adapter.id, {
+        adapterId: adapter.id,
+        adapterName: adapter.name,
+        category: adapter.category,
+        durationMs,
+        filesProcessed,
+        evidenceProduced,
+        warnings: 0,
+        errors: 0,
+        throughputFilesPerSec
+      });
     }
   }
 
