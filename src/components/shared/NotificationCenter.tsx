@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Module       : SXP v1.0 â€” NotificationCenter (SWEF P-009)
  * Standard     : SXP Constitution v1.0 / SWEF v1.0
@@ -41,15 +41,15 @@ export interface Notification {
   action?: { label: string; onClick(): void };
 }
 
-// â”€â”€ Category metadata â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ————————————————————————————————————————————————————————————————————————————————————————————
 
 const CATEGORY_META: Record<NotificationCategory, { icon: string; label: string }> = {
-  stock:    { icon: "ðŸ“¦", label: "Stock" },
-  order:    { icon: "ðŸ›’", label: "Orders" },
-  payment:  { icon: "ðŸ’³", label: "Payments" },
-  system:   { icon: "âš™ï¸", label: "System" },
-  approval: { icon: "âœ…", label: "Approvals" },
-  ai:       { icon: "ðŸ¤–", label: "AI Advisory" },
+  stock:    { icon: "📦", label: "Stock" },
+  order:    { icon: "🛒", label: "Orders" },
+  payment:  { icon: "💳", label: "Payments" },
+  system:   { icon: "⚙️", label: "System" },
+  approval: { icon: "✅", label: "Approvals" },
+  ai:       { icon: "🤖", label: "AI Advisory" },
 };
 
 const SEVERITY_COLORS = {
@@ -159,7 +159,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
                 Mark all read
               </button>
             )}
-            <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-theme-muted)", fontSize: 20 }}>Ã—</button>
+            <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-theme-muted)", fontSize: 20 }}>×</button>
           </div>
         </div>
 
@@ -220,7 +220,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
                         {!notif.isRead && (
                           <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.badge, display: "inline-block", marginTop: 3 }} />
                         )}
-                        <button onClick={() => dismiss(notif.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-theme-muted)", fontSize: 16, lineHeight: 1, padding: 0 }}>Ã—</button>
+                        <button onClick={() => dismiss(notif.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-theme-muted)", fontSize: 16, lineHeight: 1, padding: 0 }}>×</button>
                       </div>
                     </div>
                     {notif.message && (
@@ -228,7 +228,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
                     )}
                     {notif.isAdvisoryOnly && (
                       <div style={{ fontSize: 10, color: "var(--c-theme-muted)", marginTop: 4, fontStyle: "italic" }}>
-                        ðŸ¤– Advisory only â€” no automatic action taken
+                        🤖 Advisory only — no automatic action taken
                       </div>
                     )}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>

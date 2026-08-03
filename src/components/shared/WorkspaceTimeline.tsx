@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Module       : SXP v1.0 â€” WorkspaceTimeline Engine (SWEF P-005)
  * Standard     : SXP Constitution v1.0 / SWEF v1.0 â€” Certification Gate SXP-CS-005
@@ -41,17 +41,13 @@ export interface TimelineAdapter {
   getEntries(entityId: string, limit?: number): Promise<TimelineEntry[]>;
 }
 
-// â”€â”€ Built-in Adapter Stubs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Inventory Studio wires real data to these adapters in Phase 3.
-
 export const InventoryTimelineAdapter: TimelineAdapter = {
   id: "inventory",
   async getEntries(entityId, limit = 10) {
-    // Placeholder â€” replaced by real API call in InventoryDashboardWorkspace
     return ([
-      { id: "1", label: "Purchase Receipt", description: "25 units received", timestamp: new Date().toISOString(), status: "completed" as const, icon: "ðŸ“¦" },
-      { id: "2", label: "Transferred Out", description: "10 units to Branch 2", timestamp: new Date(Date.now() - 3600000).toISOString(), status: "completed" as const, icon: "ðŸšš" },
-      { id: "3", label: "Reserved", description: "5 units reserved for Order #1042", timestamp: new Date(Date.now() - 7200000).toISOString(), status: "active" as const, icon: "ðŸ”’" },
+      { id: "1", label: "Purchase Receipt", description: "25 units received", timestamp: new Date().toISOString(), status: "completed" as const, icon: "📦" },
+      { id: "2", label: "Transferred Out", description: "10 units to Branch 2", timestamp: new Date(Date.now() - 3600000).toISOString(), status: "completed" as const, icon: "🚚" },
+      { id: "3", label: "Reserved", description: "5 units reserved for Order #1042", timestamp: new Date(Date.now() - 7200000).toISOString(), status: "active" as const, icon: "🔒" },
     ] satisfies TimelineEntry[]).slice(0, limit);
   },
 };
@@ -60,9 +56,9 @@ export const SalesTimelineAdapter: TimelineAdapter = {
   id: "sales",
   async getEntries(_entityId, limit = 10) {
     return ([
-      { id: "1", label: "Quotation Sent", timestamp: new Date().toISOString(), status: "completed" as const, icon: "ðŸ“„" },
-      { id: "2", label: "Order Confirmed", timestamp: new Date(Date.now() - 3600000).toISOString(), status: "completed" as const, icon: "âœ…" },
-      { id: "3", label: "Invoice Generated", timestamp: new Date(Date.now() - 7200000).toISOString(), status: "active" as const, icon: "ðŸ§¾" },
+      { id: "1", label: "Quotation Sent", timestamp: new Date().toISOString(), status: "completed" as const, icon: "📄" },
+      { id: "2", label: "Order Confirmed", timestamp: new Date(Date.now() - 3600000).toISOString(), status: "completed" as const, icon: "✅" },
+      { id: "3", label: "Invoice Generated", timestamp: new Date(Date.now() - 7200000).toISOString(), status: "active" as const, icon: "🧾" },
     ] satisfies TimelineEntry[]).slice(0, limit);
   },
 };
@@ -71,8 +67,8 @@ export const PurchaseTimelineAdapter: TimelineAdapter = {
   id: "purchase",
   async getEntries(_entityId, limit = 10) {
     return ([
-      { id: "1", label: "Purchase Order Raised", timestamp: new Date().toISOString(), status: "completed" as const, icon: "ðŸ“‹" },
-      { id: "2", label: "Goods Receipt", timestamp: new Date(Date.now() - 3600000).toISOString(), status: "active" as const, icon: "ðŸ­" },
+      { id: "1", label: "Purchase Order Raised", timestamp: new Date().toISOString(), status: "completed" as const, icon: "📋" },
+      { id: "2", label: "Goods Receipt", timestamp: new Date(Date.now() - 3600000).toISOString(), status: "active" as const, icon: "🏭" },
     ] satisfies TimelineEntry[]).slice(0, limit);
   },
 };
@@ -81,18 +77,11 @@ export const WorkflowTimelineAdapter: TimelineAdapter = {
   id: "workflow",
   async getEntries(_entityId, limit = 10) {
     return ([
-      { id: "1", label: "Submitted for Approval", timestamp: new Date().toISOString(), status: "completed" as const, icon: "ðŸ“¤" },
-      { id: "2", label: "Under Review", timestamp: new Date(Date.now() - 1800000).toISOString(), status: "active" as const, icon: "ðŸ‘" },
+      { id: "1", label: "Submitted for Approval", timestamp: new Date().toISOString(), status: "completed" as const, icon: "📤" },
+      { id: "2", label: "Under Review", timestamp: new Date(Date.now() - 1800000).toISOString(), status: "active" as const, icon: "👍" },
     ] satisfies TimelineEntry[]).slice(0, limit);
   },
 };
-
-/**
- * POSTimelineAdapter â€” SXP-CS-009 (POS Studio timeline gate)
- * Shows bill-lifecycle events for a given bill ID.
- * Sprint 1: wired to /api/v1/pos/bills/{entityId}/timeline with stub fallback.
- * Plain language only â€” "Payment Collected" not "BILLING_PAYMENT_ENTRY"
- */
 
 interface POSTimelineAPIEntry {
   id: string;
@@ -103,10 +92,10 @@ interface POSTimelineAPIEntry {
 }
 
 const POS_STUB_ENTRIES = (entityId: string): TimelineEntry[] => [
-  { id: `${entityId}-1`, label: "New Bill Started", description: "Billing session opened at POS counter", timestamp: new Date(Date.now() - 600000).toISOString(), status: "completed", icon: "ðŸ§¾" },
-  { id: `${entityId}-2`, label: "Items Scanned", description: "6 line items added to bill", timestamp: new Date(Date.now() - 300000).toISOString(), status: "completed", icon: "ðŸ“·" },
-  { id: `${entityId}-3`, label: "Payment Collected", description: "â‚¹3,450 received â€” UPI", timestamp: new Date(Date.now() - 60000).toISOString(), status: "completed", icon: "âœ…" },
-  { id: `${entityId}-4`, label: "Bill Printed", description: "Tax Invoice #SI-2026-00842 printed", timestamp: new Date().toISOString(), status: "active", icon: "ðŸ–¨ï¸" },
+  { id: `${entityId}-1`, label: "New Bill Started", description: "Billing session opened at POS counter", timestamp: new Date(Date.now() - 600000).toISOString(), status: "completed", icon: "🧾" },
+  { id: `${entityId}-2`, label: "Items Scanned", description: "6 line items added to bill", timestamp: new Date(Date.now() - 300000).toISOString(), status: "completed", icon: "📷" },
+  { id: `${entityId}-3`, label: "Payment Collected", description: "₹3,450 received — UPI", timestamp: new Date(Date.now() - 60000).toISOString(), status: "completed", icon: "✅" },
+  { id: `${entityId}-4`, label: "Bill Printed", description: "Tax Invoice #SI-2026-00842 printed", timestamp: new Date().toISOString(), status: "active", icon: "🖨️" },
 ];
 
 export const POSTimelineAdapter: TimelineAdapter = {

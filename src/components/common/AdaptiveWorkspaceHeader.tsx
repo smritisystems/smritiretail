@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
  * Module       : SAP Fiori Enterprise Slim Header (WNG-002 Compliant)
@@ -134,11 +134,11 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
             style={{ color: "var(--c-theme-body)" }}
             title="Switch Theme"
           >
-            <option value="dark"          className="bg-[#1c222b] text-white">ðŸŒ™ Quartz Dark</option>
-            <option value="enterprise"    className="bg-white text-[#1d2d3e]">â˜€ï¸ Horizon Light (Fiori)</option>
-            <option value="light"         className="bg-white text-[#1d2d3e]">ðŸŒ¤ï¸ Light</option>
-            <option value="corporate"     className="bg-[#0f1d2a] text-white">ðŸ¢ Corporate Navy</option>
-            <option value="high-contrast" className="bg-black text-white">âš¡ High Contrast</option>
+            <option value="dark"          className="bg-[#1c222b] text-white">Quartz Dark</option>
+            <option value="enterprise"    className="bg-white text-[#1d2d3e]">Horizon Light (Fiori)</option>
+            <option value="light"         className="bg-white text-[#1d2d3e]">Light</option>
+            <option value="corporate"     className="bg-[#0f1d2a] text-white">Corporate Navy</option>
+            <option value="high-contrast" className="bg-black text-white">High Contrast</option>
           </select>
         </div>
 
