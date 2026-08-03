@@ -12,47 +12,73 @@
   Classification: Internal Quality & Governance Directive
 -->
 
-# SMRITI Enterprise Business Studio Certification Framework v1.0
+# SMRITI Enterprise Business Studio Certification Framework & Platform Version Policy v1.0
 
 **Status:** FROZEN — Enterprise Studio Governance Framework v1.0 (2026-08-04)
-**Scope:** Uniform Certification Pattern for All SMRITI Business Capabilities
+**Scope:** Uniform 6-Dimensional Certification Pattern, Platform Version Policy, & Platform Maturity Matrix
 
 ---
 
-## 1. Universal Business Certification Pattern
+## 1. Universal 6-Dimensional Certification Pattern
 
-Every SMRITI Business Studio MUST follow the exact 6-dimensional governance and certification model established during the Purchase Studio v1.0 milestone:
+Every SMRITI Business Studio MUST be certified across six explicit, measurable governance dimensions prior to release signoff:
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
- │ SMRITI ENTERPRISE BUSINESS STUDIO CERTIFICATION PATTERN                │
+ │ SMRITI 6-DIMENSIONAL BUSINESS STUDIO CERTIFICATION PATTERN             │
  ├────────────────────────────────────────────────────────────────────────┤
- │ Dimension 1: Platform Operating System Freeze Compliance Directive     │
- │ Dimension 2: 15–20 Explicit Business Scenario Acceptance Specifications │
- │ Dimension 3: Measurable Operational KPI & Performance Baselines        │
- │ Dimension 4: Failure Recovery & Fault Tolerance Matrix                │
- │ Dimension 5: Domain 360 Object Page Schema (Header + Tab Array)       │
- │ Dimension 6: Production Readiness Matrix & Risk Register               │
+ │ Dimension 1: Business Workflow Certification (End-to-end scenarios)     │
+ │ Dimension 2: Technical Certification (Build, TypeScript, Unit Tests)   │
+ │ Dimension 3: UX & Theme Certification (SEEF Tokens, SEDS, No FOUC)     │
+ │ Dimension 4: Security & Governance (USR RBAC, UWR Auth, Audit Log)     │
+ │ Dimension 5: Reliability & Recovery (Offline Replay, Concurrency Locks) │
+ │ Dimension 6: Production Readiness (Smoke tests, UAT, Performance KPIs) │
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Business Capability Certification Roadmap
+## 2. Platform Version Governance Policy
 
-All SMRITI business capability domains execute certification under this uniform framework:
+### Platform OS v1.x (Frozen Operating System)
+- **Status:** Immutable Execution Environment.
+- **Allowed Changes:** Critical security patches, bug fixes, performance optimizations.
+- **Forbidden Changes:** Breaking API changes, custom uncertified UI engine extensions, direct platform token modifications.
+- **Major Versioning:** Platform OS structural evolution requires an approved Architecture Decision Record (ADR) and a major version increment (e.g., Platform OS v2.0).
 
-| Business Domain | Target Milestone | Certification Focus | Status |
-|---|---|---|---|
-| **Inventory** | **Inventory Kernel v1.0** | Immutable ledger, stock locks, bin allocation, journal audit | ✅ Certified |
-| **Purchase** | **Purchase Studio v1.0** | 20 Procurement scenarios, 3-way match, supplier 360, PO approvals queue | ✅ Certified |
-| **Sales** | **Sales Studio v1.0** | Order-to-Cash, tax invoices, dispatch, credit limits, Customer 360 | 🎯 Next Milestone |
-| **POS** | **POS Studio v1.0** | High-speed checkout, barcode scanning, shift close, return wizard | ⏳ Scheduled |
-| **CRM** | **CRM Studio v1.0** | Customer loyalty, leads, interactions, campaign tracking | ⏳ Scheduled |
-| **Accounting** | **Accounting Studio v1.0**| General ledger, financial vouchers, GST filing, GSTR-2B reconciliation | ⏳ Scheduled |
+### Business Studios (Independent Capability Layer)
+- **Status:** Independent Business Modules.
+- **Allowed Changes:** Feature expansion, workflow additions, report definitions, UPR metadata registrations.
+- **Governance Requirement:** Every studio version MUST earn full 6-dimensional certification without modifying Platform OS v1.x primitives.
 
 ---
 
-## 3. Platform Evolution Rule
+## 3. Platform Certification & Maturity Dashboard
 
-> **Governance Directive:** SXP, SEEF, SEDS, Adaptive Workspace Framework, and Inventory Kernel v1.0 remain strictly frozen. Business capability teams MUST build studios using the Universal Business Certification Framework without extending platform primitives.
+```text
+ ┌────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ SMRITI RETAIL OS — PLATFORM CERTIFICATION & MATURITY DASHBOARD                                     │
+ ├──────────────┬────────────┬───────────┬──────────┬──────────┬─────────────┬────────────┬───────────┤
+ │ Studio /     │ Dimension 1│Dimension 2│Dimension 3│Dimension 4│Dimension 5 │Dimension 6 │ Overall   │
+ │ Capability   │ Workflow   │ Technical │ UX/SEEF  │ Security │ Reliability │ Production │ Status    │
+ ├──────────────┼────────────┼───────────┼──────────┼──────────┼─────────────┼────────────┼───────────┤
+ │ Inventory    │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ Purchase     │     ✅     │    ✅     │    ✅    │    ✅    │     ✅      │     ✅     │ CERTIFIED │
+ │ Sales        │     🎯     │    🎯     │    🎯    │    🎯    │     🎯      │     🎯     │ NEXT      │
+ │ POS          │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
+ │ CRM          │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
+ │ Accounting   │     ⏳     │    ⏳     │    ⏳    │    ⏳    │     ⏳      │     ⏳     │ SCHEDULED │
+ └──────────────┴────────────┴───────────┴──────────┴──────────┴─────────────┴────────────┴───────────┘
+```
+
+---
+
+## 4. Next Certification Target: Sales Studio v1.0
+
+Sales Studio v1.0 will execute certification under the exact 6-dimensional framework:
+
+1. **Operations Scenarios:** Quote $\rightarrow$ Sales Order $\rightarrow$ Tax Invoice, Partial Delivery, Back Orders, Sales Returns, Credit Notes.
+2. **Financial & Tax:** Payment Collection, Multi-payment splits, Credit Limit Validation, GST Outward Tax Calculation.
+3. **Operational:** Barcode Billing, Serial Number Tracking, Batch Sales, Home Delivery Routing.
+4. **Reliability:** Offline Billing Replay, Concurrent Stock Reservation Protection.
+5. **Customer 360 Object Page:** Overview, Orders, Deliveries, Invoices, Payments, Credit Balance, Price Lists, Scorecard, Audit Log.
