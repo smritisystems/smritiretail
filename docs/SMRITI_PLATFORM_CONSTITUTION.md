@@ -47,48 +47,39 @@ All platform capabilities MUST be categorized into exactly one of the following 
 
 ---
 
-## 3. Governance Standards Hierarchy (Including IDS & PCMM)
+## 3. Platform Capability Maturity Model (PCMM v1.0 Implementation Maturity)
 
-Every layer in the platform hierarchy derives its engineering authority from a dedicated governance standard:
-- **SPC (Platform Constitution):** Supreme architectural governance framework (`026eb550`).
-- **PCMM (Platform Capability Maturity Model):** L1 Foundation $\rightarrow$ L2 Operational $\rightarrow$ L3 Integrated $\rightarrow$ L4 Enterprise $\rightarrow$ L5 Ecosystem.
-- **KDS (Kernel Development Standard):** Governs Level 3 Shared Business Kernels.
-- **SDS (Service Development Standard):** Governs Level 2 Shared Platform Services.
-- **RDS (Registry Development Standard):** Governs Level 5 Universal Registries.
-- **BDS (Business Studio Standard):** Governs Level 6 Business Capability Studios.
-- **NDS (Network Development Standard):** Governs Level 7 SMN Network Protocols.
-- **IDS (Integration Development Standard):** Governs REST APIs, GraphQL, Webhooks, OAuth, & external connectors.
+PCMM distinguishes **Designed Target Architecture** from **Audited Runtime Implementation Maturity**:
 
----
-
-## 4. Platform Capability Maturity Model (PCMM v1.0)
-
-| PCMM Maturity Level | Level Name | Architectural Scope & Operational Readiness | Status |
+| PCMM Maturity Level | Level Name | Objective Implementation & Runtime Verification Scope | Platform Status |
 |---|---|---|---|
-| **L1** | **Foundation** | 7-Level Topology, Platform OS v4.2 & Standards frozen | ✅ Certified |
-| **L2** | **Operational** | Core Level 3 Kernels (SDK, SLK, STK, SAK) & Level 2 Services active | ✅ Certified |
-| **L3** | **Integrated** | All 13 Business Studios certified & SEB Event Bus integrated | ✅ Certified |
-| **L4** | **Enterprise** | Multi-node SMN replication, HA, and OpenTelemetry monitoring | ✅ Certified |
-| **L5** | **Ecosystem** | Extension Marketplace, Partner SDKs, & Developer Tooling | 🎯 Next Phase |
+| **L1** | **Foundation** | 7-Level Topology, Platform OS v4.2 & Standards frozen | ✅ Certified (Designed) |
+| **L2** | **Operational** | Core Level 3 Kernels (SDK, SLK, STK, SAK) & Services active | ✅ Certified (Implemented) |
+| **L3** | **Integrated** | All 13 Business Studios certified & SEB Event Bus integrated | ✅ Certified (Verified) |
+| **L4** | **Enterprise** | Multi-node SMN replication, HA, & OpenTelemetry live | ✅ Certified (Verified) |
+| **L5** | **Ecosystem** | Extension Marketplace, Partner SDKs, & Developer Tooling | 🎯 Next Phase Target |
 
 ---
 
-## 5. Automated Runtime Governance Engine (`kernel.manifest.yaml`)
+## 4. Automated Platform Startup Governance Order
 
-At application startup, SMRITI Digital Commerce Platform OS automatically executes **Runtime Architecture Governance**:
-1. Parses and loads every Level 3 `kernel.manifest.yaml`.
-2. Validates inter-kernel dependency trees and version compatibility matrix.
-3. Verifies API contract compatibility and rejects uncertified or incompatible plugins.
-4. Asserts OpenTelemetry health endpoints (`/health`) and metrics endpoints (`/metrics`).
+At application boot, the platform executes sequential **Automated Layer Validation**:
+
+```text
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │ AUTOMATED PLATFORM STARTUP GOVERNANCE ORDER                            │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ BOOT -> Load Constitution (SPC) -> Load Standards (KDS/SDS/RDS/BDS/NDS/IDS)
+ │       -> Validate Registries (L5) -> Validate Services (L2)           │
+ │       -> Validate Kernels (L3 Manifests) -> Validate Studios (L6)      │
+ │       -> Validate Connectors (L7) -> Dependency & Compatibility Check │
+ │       -> OpenTelemetry Health Check -> READY                           │
+ └────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 6. Baseline Structural Freeze & ADR Policy
+## 5. Platform Reference Implementation Guide (PRIG v1.0) & Certification Suite
 
-1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
-2. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
-   - Introduction of a new Level 3 Shared Business Kernel or Level 2 Shared Service.
-   - Breaking API changes to an existing public service facade (`KernelName.Service`).
-   - Modification of cross-kernel transaction boundaries.
-   - Alteration of USR security ABAC policies or data isolation models.
-3. **Semantic Evolution Policy:** Routine bug fixes and non-breaking feature extensions use minor version increments (`v4.2.x`). Structural changes require a major version bump and an approved ADR.
+- **PRIG Implementation Guidelines:** Defines canonical repository layout (`src/kernel/`, `src/services/`, `src/studios/`), coding conventions, dependency injection rules, database migration protocols, and OpenTelemetry tracing standards.
+- **Automated Certification Suite:** Evaluates overall platform compliance (`SPC`, `KDS`, `IDS`, `SDS`, `RDS`, `BDS`, `NDS`) generating an enterprise validation report (`ENTERPRISE VERIFIED`).
