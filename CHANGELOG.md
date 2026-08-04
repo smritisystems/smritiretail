@@ -34,6 +34,10 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - Migrated JWT authentication engine from legacy `python-jose` to `PyJWT` (`pyjwt[crypto]>=2.13.0`), achieving **0 known vulnerabilities** in `pip-audit`.
 - Updated FastAPI/Starlette dependencies (`fastapi>=0.115.11`, `starlette>=0.47.2`, `python-multipart>=0.0.20`).
 
+### Fixed
+- Exported `AsyncSessionLocal` in `backend/app/db/session.py` and resolved MyPy type errors across backend services.
+
+
 
 ### Added
 - **SRUX-001 to SRUX-012 Responsive UX Foundation**:

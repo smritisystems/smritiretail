@@ -1,0 +1,8 @@
+/* SMRITI Shadow Tokens */
+:root {
+  --smriti-shadow-xs: var(--sds-shadow-xs);
+  --smriti-shadow-sm: var(--sds-shadow-sm);
+  --smriti-shadow-md: var(--sds-shadow-md);
+  --smriti-shadow-lg: var(--sds-shadow-lg);
+  --smriti-shadow-floating: var(--smriti-shadow-lg);
+}

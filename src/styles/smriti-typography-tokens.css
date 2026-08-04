@@ -1,0 +1,16 @@
+/* SMRITI Typography Tokens */
+:root {
+  --smriti-font-family: var(--sds-font-family);
+  --smriti-font-mono: var(--sds-font-mono);
+
+  --smriti-heading-2xl: var(--sds-font-size-2xl);
+  --smriti-heading-xl: var(--sds-font-size-xl);
+  --smriti-heading-lg: var(--sds-font-size-lg);
+  --smriti-body-md: var(--sds-font-size-md);
+  --smriti-body-sm: var(--sds-font-size-sm);
+  --smriti-caption: var(--sds-font-size-2xs);
+
+  --smriti-font-weight-regular: var(--sds-font-weight-regular);
+  --smriti-font-weight-medium: var(--sds-font-weight-medium);
+  --smriti-font-weight-semibold: var(--sds-font-weight-semibold);
+}

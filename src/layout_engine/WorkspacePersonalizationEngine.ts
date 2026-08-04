@@ -88,6 +88,11 @@ class WorkspacePersonalizationEngineService {
     this.save();
   }
 
+  public clearDashboardLayout(workspaceId: string): void {
+    delete this.state.dashboardLayouts[workspaceId];
+    this.save();
+  }
+
   // ── Pinned Actions ─────────────────────────────────────────────────────────
 
   public pinAction(actionId: string): void {

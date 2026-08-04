@@ -3,22 +3,49 @@
 */
 
 [data-theme="dark"] {
-  --sds-color-primary: #388bfd;
-  --sds-color-primary-hover: #58a6ff;
-  --sds-color-primary-active: #1f6beb;
-  --sds-color-primary-light: #1c2d42;
+  /* Real Dark Mode — deep, high-contrast chrome with elevated soft cards */
+  --sds-color-primary: #2f6df6;          /* vivid, deep blue */
+  --sds-color-primary-hover: #4d8eff;
+  --sds-color-primary-active: #1f4ed8;
+  --sds-color-primary-light: #152033;
 
-  --sds-color-surface: #161b22;
-  --sds-color-surface-hover: #21262d;
-  --sds-color-background: #0d1117;
-  --sds-color-background-alt: #161b22;
+  /* Background / surface hierarchy — very dark base */
+  --sds-color-background: #03080b;      /* almost black app chrome */
+  --sds-color-background-alt: #07121a;  /* page background */
+  --sds-color-surface: #0b1318;         /* card / panel background */
+  --sds-color-surface-hover: #0f1a22;   /* hover surface for subtle elevation */
 
-  --sds-color-text-main: #c9d1d9;
-  --sds-color-text-secondary: #8b949e;
-  --sds-color-text-muted: #6e7681;
-  --sds-color-text-inverse: #0d1117;
+  /* Text tones for legibility on dark surfaces */
+  --sds-color-text-main: #e9f0fb;       /* primary readable text */
+  --sds-color-text-secondary: #9db0c6;  /* secondary labels */
+  --sds-color-text-muted: #7a8896;      /* muted helper text */
+  --sds-color-text-inverse: #03080b;
 
-  --sds-color-border: #30363d;
-  --sds-color-border-subtle: #21262d;
-  --sds-color-border-focus: #58a6ff;
+  /* Borders and focus */
+  --sds-color-border: rgba(255,255,255,0.04);      /* soft borders */
+  --sds-color-border-subtle: rgba(255,255,255,0.02);
+  --sds-color-border-focus: #4d8eff;               /* visible, pleasant focus */
+
+  /* Status accents */
+  --c-seef-success: #1fc27a;
+  --c-seef-warning: #ffb020;
+  --c-seef-error: #ff5c6c;
+  --c-seef-accent: var(--sds-color-primary);
+
+  /* Component-level overrides for strong dark-card look */
+  --smriti-card-bg: linear-gradient(180deg, rgba(255,255,255,0.012), rgba(255,255,255,0.006));
+  --smriti-card-border: rgba(255,255,255,0.03);
+  --smriti-card-radius: 14px;
+  --smriti-card-shadow: 0 10px 30px rgba(2,8,20,0.7), inset 0 1px 0 rgba(255,255,255,0.01);
+
+  --workspace-toolbar-bg: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.006));
+  --workspace-bottom-nav-bg: linear-gradient(180deg, rgba(255,255,255,0.018), rgba(255,255,255,0.006));
+
+  /* Buttons: prominent filled primary with subtle gradient */
+  --smriti-button-primary-bg: linear-gradient(180deg, var(--sds-color-primary), var(--sds-color-primary-active));
+  --smriti-button-primary-fg: #ffffff;
+
+  /* Table / form surface separation */
+  --sds-color-surface-2: rgba(255,255,255,0.02);
+  --sds-color-surface-3: rgba(255,255,255,0.015);
 }

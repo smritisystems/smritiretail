@@ -25,9 +25,9 @@ interface AlertCardProps {
 }
 
 const SEVERITY_STYLES: Record<AlertSeverity, { icon: string; bg: string; border: string; color: string }> = {
-  info:     { icon: "ℹ️", bg: "rgba(99,102,241,0.08)",  border: "rgba(99,102,241,0.25)",  color: "#818cf8" },
-  warning:  { icon: "⚠️", bg: "rgba(245,158,11,0.08)",  border: "rgba(245,158,11,0.25)",  color: "#f59e0b" },
-  critical: { icon: "🚨", bg: "rgba(239,68,68,0.10)",   border: "rgba(239,68,68,0.30)",   color: "#ef4444" },
+  info:     { icon: "ℹ️", bg: "var(--smriti-widget-status-info-bg)",  border: "var(--smriti-widget-status-info-fg)",  color: "var(--smriti-widget-status-info-fg)" },
+  warning:  { icon: "⚠️", bg: "var(--smriti-widget-status-warning-bg)",  border: "var(--smriti-widget-status-warning-fg)",  color: "var(--smriti-widget-status-warning-fg)" },
+  critical: { icon: "🚨", bg: "var(--smriti-widget-status-danger-bg)",   border: "var(--smriti-widget-status-danger-fg)",   color: "var(--smriti-widget-status-danger-fg)" },
 };
 
 const _AlertCardComponent: React.FC<AlertCardProps> = ({ alerts, maxVisible = 5, onDismiss }) => {

@@ -1,0 +1,9 @@
+/* SMRITI Mobile Tokens */
+:root {
+  --smriti-mobile-header-height: 56px;
+  --smriti-mobile-bottom-nav-height: 62px;
+  --smriti-mobile-card-gap: 16px;
+  --smriti-mobile-touch-target: 52px;
+  --smriti-mobile-safe-area: env(safe-area-inset-bottom, 16px);
+  --smriti-mobile-font-scale: 1.05;
+}

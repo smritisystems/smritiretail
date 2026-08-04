@@ -43,7 +43,21 @@ def get_modified_files():
         subprocess.run(["git", "fetch", "origin", base_ref])
         return run_command(["git", "diff", "--name-only", f"origin/{base_ref}"])
     
-    # Fallback to local HEAD vs parent commit
+    # If running in GitHub Actions push event context
+    before_sha = os.environ.get("BEFORE_SHA") or os.environ.get("GITHUB_BEFORE")
+    if before_sha and before_sha != "0000000000000000000000000000000000000000":
+        diffs = run_command(["git", "diff", "--name-only", f"{before_sha}..HEAD"])
+        if diffs:
+            return diffs
+
+    # Fallback: compare across recent commit window (up to HEAD~5) to capture multi-commit push context
+    try:
+        diff_files = run_command(["git", "diff", "--name-only", "HEAD~5"])
+        if diff_files:
+            return diff_files
+    except Exception:
+        pass
+
     return run_command(["git", "diff", "--name-only", "HEAD~1"])
 
 def check_uadhp_headers(files):

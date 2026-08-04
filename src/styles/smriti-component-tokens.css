@@ -1,0 +1,125 @@
+/*
+ * SMRITI Component Token Layer (SCTL v1.0)
+ * ============================================
+ * This file defines component- and interaction-scoped tokens that sit above
+ * the brand and semantic color layers. Components should consume these tokens
+ * instead of raw semantic or generic color tokens directly.
+ *
+ * Layers:
+ * 1. Brand Layer      -> --smriti-brand-*
+ * 2. Semantic Layer   -> --smriti-color-*
+ * 3. Component Layer  -> --smriti-*-bg / --smriti-*-fg / --smriti-*-border
+ *
+ * The intent is to allow visual redesign by changing component tokens only.
+ */
+
+:root {
+  /* ── Core Brand Tokens ───────────────────────────────────────────── */
+  --smriti-brand-primary:       var(--smriti-color-primary);
+  --smriti-brand-secondary:     var(--smriti-color-secondary);
+  --smriti-brand-accent:        var(--smriti-color-accent);
+  --smriti-brand-neutral:       var(--smriti-color-neutral);
+
+  /* ── Workspace Tokens ───────────────────────────────────────────── */
+  --smriti-workspace-bg:                 var(--smriti-color-background);
+  --smriti-workspace-surface:            var(--smriti-color-surface);
+  --smriti-workspace-surface-alt:        var(--smriti-color-surface-alt);
+  --smriti-workspace-border:             var(--smriti-color-border);
+  --smriti-workspace-card-bg:            var(--smriti-card-bg);
+  --smriti-workspace-card-border:        var(--smriti-card-border);
+  --smriti-workspace-card-hover-bg:      var(--smriti-state-hover-bg);
+  --smriti-workspace-card-selected-border: var(--smriti-color-primary);
+  --smriti-workspace-toolbar-bg:         var(--workspace-toolbar-bg);
+  --smriti-workspace-sidebar-bg:         var(--workspace-sidebar-bg);
+  --smriti-workspace-sidebar-border:     var(--workspace-sidebar-border);
+  --smriti-workspace-drop-zone-bg:       var(--smriti-state-drop-target-bg);
+
+  /* ── Component Colors ───────────────────────────────────────────── */
+  --smriti-card-bg:                 var(--smriti-color-surface);
+  --smriti-card-border:             var(--smriti-card-border, rgba(255,255,255,0.03));
+  --smriti-card-radius:             var(--smriti-card-radius, 14px);
+  --smriti-card-shadow:             var(--smriti-card-shadow, 0 8px 24px rgba(2,8,20,0.6));
+  --smriti-card-title-fg:           var(--smriti-color-text-secondary);
+  --smriti-card-body-fg:            var(--smriti-color-text-primary);
+  --smriti-card-muted-fg:           var(--smriti-color-text-secondary);
+  --smriti-card-accent-bg:          var(--smriti-color-accent-muted);
+  --smriti-card-accent-fg:          var(--smriti-color-accent);
+
+  --smriti-button-primary-bg:       var(--smriti-brand-primary);
+  --smriti-button-primary-fg:       var(--smriti-color-text-inverse);
+  --smriti-button-secondary-bg:     var(--smriti-card-bg);
+  --smriti-button-secondary-border: var(--smriti-card-border);
+  --smriti-button-secondary-fg:     var(--smriti-color-text-primary);
+  --smriti-button-disabled-bg:      var(--smriti-color-surface-muted);
+  --smriti-button-disabled-fg:      var(--smriti-color-disabled);
+
+  --smriti-input-bg:                var(--smriti-card-bg);
+  --smriti-input-border:            var(--smriti-card-border);
+  --smriti-input-fg:                var(--smriti-color-text-primary);
+  --smriti-input-placeholder:       var(--smriti-color-text-secondary);
+  --smriti-input-focus-border:      var(--smriti-color-primary);
+
+  --smriti-table-header-bg:         var(--smriti-color-surface-alt);
+  --smriti-table-header-fg:         var(--smriti-color-text-secondary);
+  --smriti-table-row-hover-bg:      var(--smriti-state-hover-bg);
+  --smriti-table-border:            var(--smriti-color-border);
+
+  --smriti-toolbar-bg:              var(--workspace-toolbar-bg);
+  --smriti-toolbar-border:          var(--workspace-toolbar-border);
+  --smriti-bottom-nav-bg:           var(--workspace-bottom-nav-bg);
+  --smriti-bottom-nav-radius:       18px;
+  --smriti-bottom-nav-shadow:       0 10px 24px rgba(2,8,20,0.6);
+
+  /* ── Widget Status Tokens ───────────────────────────────────────── */
+  --smriti-widget-status-success-bg: var(--smriti-color-success-muted);
+  --smriti-widget-status-success-fg: var(--smriti-color-success);
+  --smriti-widget-status-warning-bg: var(--smriti-color-warning-muted);
+  --smriti-widget-status-warning-fg: var(--smriti-color-warning);
+  --smriti-widget-status-danger-bg:  var(--smriti-color-danger-muted);
+  --smriti-widget-status-danger-fg:  var(--smriti-color-danger);
+  --smriti-widget-status-info-bg:    var(--smriti-color-info-muted);
+  --smriti-widget-status-info-fg:    var(--smriti-color-info);
+  --smriti-widget-status-disabled-bg: var(--smriti-color-surface-muted);
+  --smriti-widget-status-disabled-fg: var(--smriti-color-disabled);
+
+  /* ── Interaction State Tokens ───────────────────────────────────── */
+  --smriti-state-hover-bg:          var(--c-theme-surface-hover);
+  --smriti-state-selected-bg:       var(--smriti-color-surface-alt);
+  --smriti-state-focus-ring:        0 0 0 2px var(--smriti-color-primary), 0 0 0 4px rgba(26, 115, 232, 0.18);
+  --smriti-state-disabled-text:     var(--smriti-color-disabled);
+  --smriti-state-disabled-bg:       var(--smriti-color-surface-muted);
+  --smriti-state-loading-bg:        var(--smriti-color-surface-muted);
+  --smriti-state-drop-target-bg:    var(--smriti-color-accent-muted);
+  --smriti-state-dragging-border:   var(--smriti-color-primary);
+  --smriti-state-error-outline:     var(--smriti-color-danger);
+
+  /* ── Mobile Tokens ──────────────────────────────────────────────── */
+  --smriti-mobile-header-height:     56px;
+  --smriti-mobile-bottom-nav-height: 62px;
+  --smriti-mobile-card-gap:          16px;
+  --smriti-mobile-touch-target:      52px;
+  --smriti-mobile-safe-area:         env(safe-area-inset-bottom, 16px);
+
+  /* ── Shadow / Radius / Typography Tokens ───────────────────────── */
+  --smriti-shadow-xs:               var(--sds-shadow-xs);
+  --smriti-shadow-sm:               var(--sds-shadow-sm);
+  --smriti-shadow-md:               var(--sds-shadow-md);
+  --smriti-shadow-lg:               var(--sds-shadow-lg);
+  --smriti-shadow-floating:         var(--sds-shadow-lg);
+
+  --smriti-radius-sm:               var(--sds-radius-sm);
+  --smriti-radius-md:               var(--sds-radius-md);
+  --smriti-radius-lg:               var(--sds-radius-lg);
+  --smriti-radius-xl:               var(--sds-radius-xl);
+
+  --smriti-font-size-heading-xl:     var(--sds-font-size-2xl);
+  --smriti-font-size-heading-lg:     var(--sds-font-size-xl);
+  --smriti-font-size-heading-md:     var(--sds-font-size-lg);
+  --smriti-font-size-body-lg:        var(--sds-font-size-md);
+  --smriti-font-size-body-md:        var(--sds-font-size-sm);
+  --smriti-font-size-body-sm:        var(--sds-font-size-xs);
+  --smriti-font-size-caption:        var(--sds-font-size-2xs);
+  --smriti-font-weight-regular:     var(--sds-font-weight-regular);
+  --smriti-font-weight-medium:      var(--sds-font-weight-medium);
+  --smriti-font-weight-semibold:    var(--sds-font-weight-semibold);
+}

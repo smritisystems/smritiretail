@@ -19,24 +19,24 @@ const _SummaryCardComponent: React.FC<SummaryCardProps> = ({
   <div style={{
     padding: "var(--sxp-widget-padding, 20px)",
     borderRadius: "var(--sxp-widget-radius, 10px)",
-    border: "1px solid var(--c-theme-divider)",
-    background: accent ? "rgba(99,102,241,0.08)" : "var(--c-theme-surface-2)",
+    border: "1px solid var(--smriti-color-border)",
+    background: accent ? "var(--smriti-color-accent-muted)" : "var(--smriti-color-surface)",
     display: "flex",
     flexDirection: "column",
     gap: 8,
     minHeight: 110,
   }}>
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-      <span style={{ fontSize: 11, color: "var(--c-theme-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{title}</span>
+      <span style={{ fontSize: 11, color: "var(--smriti-color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{title}</span>
       {icon && <span style={{ fontSize: 18, opacity: 0.7 }}>{icon}</span>}
     </div>
     <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-      <span style={{ fontSize: 28, fontWeight: 700, color: accent ? "var(--c-seef-accent)" : "var(--c-theme-body)", fontFamily: "var(--font-mono, monospace)" }}>
+      <span style={{ fontSize: 28, fontWeight: 700, color: accent ? "var(--smriti-color-accent)" : "var(--smriti-color-text-primary)", fontFamily: "var(--font-mono, monospace)" }}>
         {value}
       </span>
-      {unit && <span style={{ fontSize: 13, color: "var(--c-theme-muted)" }}>{unit}</span>}
+      {unit && <span style={{ fontSize: 13, color: "var(--smriti-color-text-secondary)" }}>{unit}</span>}
     </div>
-    {subtitle && <div style={{ fontSize: 12, color: "var(--c-theme-muted)" }}>{subtitle}</div>}
+    {subtitle && <div style={{ fontSize: 12, color: "var(--smriti-color-text-secondary)" }}>{subtitle}</div>}
   </div>
 );
 

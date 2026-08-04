@@ -24,6 +24,9 @@ import { AlertCard, AlertSeverity } from "../shared/widgets/AlertCard.js";
 import { TimelineCard } from "../shared/widgets/TimelineCard.js";
 import { TrendCard } from "../shared/widgets/TrendCard.js";
 import { InventoryTimelineAdapter } from "../shared/WorkspaceTimeline.js";
+import { AdaptiveWorkspaceGrid } from "../common/AdaptiveWorkspaceGrid.tsx";
+import { WorkspaceLayoutSelector } from "../common/WorkspaceLayoutSelector.tsx";
+import { DashboardWidget } from "../../kernel/upr/dashboard/DashboardRegistry.js";
 import { INVENTORY_WORKSPACE_IDS } from "./inventory.manifest.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 // Sprint 3 â€” skeleton loaders replace bare loading text
@@ -83,7 +86,7 @@ export const InventoryDashboardWorkspace: React.FC = () => {
   const [alertsLoading, setAlertsLoading] = useState(true);
 
   const metadata = WorkspaceRegistry.get(INVENTORY_WORKSPACE_IDS.DASHBOARD)!;
-  const widgetsByGroup = WidgetEngine.getWidgetsByGroup("dash.inventory_overview", mode);
+  const dashboardWidgets = WidgetEngine.getVisibleWidgets("dash.inventory_overview", mode);
 
   // â”€â”€ Fetch KPI data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
@@ -124,9 +127,9 @@ export const InventoryDashboardWorkspace: React.FC = () => {
         style={{
           padding: "4px 10px",
           borderRadius: 6,
-          border: "1px solid var(--c-theme-divider)",
-          background: "var(--c-theme-surface-2)",
-          color: "var(--c-theme-body)",
+          border: "1px solid var(--smriti-color-border)",
+          background: "var(--smriti-color-surface)",
+          color: "var(--smriti-color-text-primary)",
           fontSize: 12,
         }}
       >
@@ -139,9 +142,9 @@ export const InventoryDashboardWorkspace: React.FC = () => {
         style={{
           padding: "4px 10px",
           borderRadius: 6,
-          border: "1px solid var(--c-theme-divider)",
-          background: "var(--c-theme-surface-2)",
-          color: "var(--c-theme-body)",
+          border: "1px solid var(--smriti-color-border)",
+          background: "var(--smriti-color-surface)",
+          color: "var(--smriti-color-text-primary)",
           fontSize: 12,
         }}
       >
@@ -153,46 +156,66 @@ export const InventoryDashboardWorkspace: React.FC = () => {
     </div>
   );
 
-  const dashboardBody = (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--sxp-widget-gap, 16px)", padding: 16 }}>
-
-      {/* â”€â”€ Health Group â”€â”€ */}
-      <section aria-label="Stock Health">
-        <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--c-theme-muted)", marginBottom: 12 }}>
-          Today's Stock
-        </h3>
-        {kpiLoading ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "var(--sxp-widget-gap, 16px))" }}>
-            {[0, 1, 2, 3].map((i) => <SkeletonCard key={i} withIcon withTrend={i === 0} />)}
-          </div>
-        ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "var(--sxp-widget-gap, 16px)" }}>
-          <SummaryCard
-            title="Total Stock Value"
-            value={kpi.stock_value_formatted}
-            subtitle="Across all locations"
-            icon="ðŸ’°"
-            accent
-          />
-          {canRender("reservations") && (
+  const renderWidget = (widget: DashboardWidget) => {
+    switch (widget.type) {
+      case "summary_card":
+        if (widget.id === "w_total_stock_value") {
+          return (
+            <SummaryCard
+              title="Total Stock Value"
+              value={kpi.stock_value_formatted}
+              subtitle="Across all locations"
+              icon="💠"
+              accent
+            />
+          );
+        }
+        if (widget.id === "w_reservation_status") {
+          return (
             <SummaryCard
               title="Active Reservations"
               value={kpi.active_reservations}
               unit="items"
-              subtitle="Locked for orders"
-              icon="ðŸ”’"
+              subtitle="Reserved for orders"
+              icon="📌"
             />
-          )}
-          {canRender("reservations") && (
-            <KPIProgressCard
-              title="Stock Health Score"
-              current={kpi.health_score}
-              target={100}
-              unit="%"
-              direction="high_is_good"
-              icon="â¤ï¸"
-            />
-          )}
+          );
+        }
+        return (
+          <SummaryCard
+            title={widget.title}
+            value="N/A"
+          />
+        );
+      case "progress_card":
+        return (
+          <KPIProgressCard
+            title="Stock Health Score"
+            current={kpi.health_score}
+            target={100}
+            unit="%"
+            direction="high_is_good"
+            icon="❤️"
+          />
+        );
+      case "alert_card":
+        return (
+          <AlertCard
+            alerts={alerts}
+            onDismiss={(id) => setAlerts((a) => a.filter((x) => x.id !== id))}
+          />
+        );
+      case "timeline_card":
+        return (
+          <TimelineCard
+            title="Stock Movement Timeline"
+            adapter={InventoryTimelineAdapter}
+            entityId="all"
+            limit={8}
+          />
+        );
+      case "trend_card":
+        return (
           <TrendCard
             title="Units Moved (7 Days)"
             data={kpi.units_moved_7d}
@@ -200,45 +223,33 @@ export const InventoryDashboardWorkspace: React.FC = () => {
             positive={kpi.units_moved_positive}
             changeLabel={kpi.units_moved_change_pct}
           />
-        </div>
-        )}
-      </section>
+        );
+      default:
+        return (
+          <div style={{ padding: 16, color: "var(--smriti-color-text-secondary)", fontSize: 13 }}>
+            Widget type {widget.type} is not yet supported by this dashboard.
+          </div>
+        );
+    }
+  };
 
-      {/* â”€â”€ Alerts Group â”€â”€ */}
-      {alertsLoading
-        ? <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{[0,1,2].map((i) => <SkeletonRow key={i} cols={3} />)}</div>
-        : (widgetsByGroup.get("alerts")?.length ?? 0) > 0 && (
-          <section aria-label="Stock Alerts">
-            <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--c-theme-muted)", marginBottom: 12 }}>
-              Alerts
-            </h3>
-            <AlertCard
-              alerts={alerts}
-              onDismiss={(id) => setAlerts((a) => a.filter((x) => x.id !== id))}
-            />
-          </section>
-        )}
+  const dashboardBody = (
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--sxp-widget-gap, 16px)", padding: 16 }}>
+      <WorkspaceLayoutSelector workspaceId={metadata.id} />
 
-      {/* â”€â”€ Operations / Timeline Group â”€â”€ */}
-      <section aria-label="Recent Stock Movements">
-        <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--c-theme-muted)", marginBottom: 12 }}>
-          Recent Movements
-        </h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "var(--sxp-widget-gap, 16px)" }}>
-          <TimelineCard
-            title="Stock Movement Timeline"
-            adapter={InventoryTimelineAdapter}
-            entityId="all"
-            limit={8}
-          />
+      {dashboardWidgets.length === 0 ? (
+        <div style={{ padding: 24, color: "var(--smriti-color-text-secondary)", textAlign: "center" }}>
+          No dashboard widgets are configured for this workspace.
         </div>
-      </section>
+      ) : (
+        <AdaptiveWorkspaceGrid
+          workspaceId={metadata.id}
+          widgets={dashboardWidgets}
+          renderWidget={(widget) => renderWidget(widget)}
+        />
+      )}
     </div>
   );
-
-  if (!metadata) {
-    return <div style={{ padding: 32, color: "var(--c-theme-muted)" }}>Inventory workspace not registered. Import inventory.manifest.ts.</div>;
-  }
 
   return (
     <WorkspaceShell

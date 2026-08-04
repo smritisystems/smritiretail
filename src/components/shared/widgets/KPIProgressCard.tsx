@@ -25,14 +25,14 @@ const _KPIProgressCardComponent: React.FC<KPIProgressCardProps> = ({
     <div style={{
       padding: "var(--sxp-widget-padding, 20px)",
       borderRadius: "var(--sxp-widget-radius, 10px)",
-      border: "1px solid var(--c-theme-divider)",
-      background: "var(--c-theme-surface-2)",
+      border: "1px solid var(--smriti-color-border)",
+      background: "var(--smriti-color-surface)",
       display: "flex",
       flexDirection: "column",
       gap: 10,
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: 11, color: "var(--c-theme-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{title}</span>
+        <span style={{ fontSize: 11, color: "var(--smriti-color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{title}</span>
         {icon && <span style={{ fontSize: 18, opacity: 0.7 }}>{icon}</span>}
       </div>
 
@@ -40,13 +40,13 @@ const _KPIProgressCardComponent: React.FC<KPIProgressCardProps> = ({
         <span style={{ fontSize: 22, fontWeight: 700, color: barColor, fontFamily: "var(--font-mono, monospace)" }}>
           {current}{unit}
         </span>
-        <span style={{ fontSize: 12, color: "var(--c-theme-muted)" }}>
+        <span style={{ fontSize: 12, color: "var(--smriti-color-text-secondary)" }}>
           of {target}{unit}
         </span>
       </div>
 
       {/* Progress bar */}
-      <div style={{ height: 6, borderRadius: 3, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+      <div style={{ height: 6, borderRadius: 3, background: "var(--smriti-color-neutral-muted)", overflow: "hidden" }}>
         <div style={{
           height: "100%",
           width: `${pct}%`,
@@ -56,7 +56,7 @@ const _KPIProgressCardComponent: React.FC<KPIProgressCardProps> = ({
         }} />
       </div>
 
-      <div style={{ fontSize: 11, color: "var(--c-theme-muted)", display: "flex", justifyContent: "space-between" }}>
+      <div style={{ fontSize: 11, color: "var(--smriti-color-text-secondary)", display: "flex", justifyContent: "space-between" }}>
         <span>{pct}% achieved</span>
         <span style={{ color: barColor }}>{goodPct >= 70 ? "On Track" : goodPct >= 40 ? "Needs Attention" : "At Risk"}</span>
       </div>

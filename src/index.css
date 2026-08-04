@@ -32,8 +32,17 @@
  */
 
 @import './styles/smriti-tokens.css';
+@import './styles/smriti-brand-tokens.css';
+@import './styles/smriti-typography-tokens.css';
+@import './styles/smriti-spacing-tokens.css';
+@import './styles/smriti-radius-tokens.css';
+@import './styles/smriti-shadow-tokens.css';
+@import './styles/smriti-zindex-tokens.css';
+@import './styles/smriti-mobile-tokens.css';
 @import './styles/sxp-tokens.css';
 @import './styles/smriti-semantic-tokens.css';
+@import './styles/smriti-component-tokens.css';
+@import './styles/smriti-motion-tokens.css';
 @import './styles/motion-tokens.css';
 @import './styles/smriti-theme-light.css';
 @import './styles/smriti-theme-fiori-lite.css';

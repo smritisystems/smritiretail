@@ -17,6 +17,43 @@
 
 /* ─── Shell & Navigation ─────────────────────────────────────── */
 :root {
+  /* ── SMRITI Color System — semantic role aliases ───────────────────────────────────────── */
+  /*
+    Use these tokens in components instead of raw colors or element-specific
+    palette values. This preserves the SMRITI brand and enforces the rule:
+      No hardcoded hex values in components.
+      No inline colors.
+      No random gradients.
+    Components should prefer these roles:
+      Primary, Secondary, Success, Warning, Danger, Info,
+      Surface, Background, Border, Text, Neutral.
+  */
+  --smriti-color-primary:           var(--c-seef-accent);
+  --smriti-color-secondary:         var(--c-seef-brand);
+  --smriti-color-success:           var(--c-seef-success);
+  --smriti-color-warning:           var(--c-seef-warning);
+  --smriti-color-danger:            var(--c-seef-error);
+  --smriti-color-info:              var(--c-seef-info);
+  --smriti-color-accent:            var(--c-seef-accent);
+  --smriti-color-accent-muted:      rgba(26, 115, 232, 0.12);
+  --smriti-color-success-muted:     rgba(24, 128, 56, 0.12);
+  --smriti-color-warning-muted:     rgba(242, 153, 0, 0.12);
+  --smriti-color-danger-muted:      rgba(187, 0, 0, 0.12);
+  --smriti-color-info-muted:        rgba(8, 84, 160, 0.12);
+  --smriti-color-neutral-muted:     rgba(137, 145, 154, 0.18);
+
+  --smriti-color-background:        var(--c-theme-base);
+  --smriti-color-surface:           var(--c-theme-surface-2);
+  --smriti-color-surface-muted:     var(--c-theme-surface-1);
+  --smriti-color-surface-alt:       var(--c-theme-surface-3);
+  --smriti-color-border:            var(--c-theme-divider);
+  --smriti-color-text-primary:      var(--c-theme-body);
+  --smriti-color-text-secondary:    var(--c-theme-muted);
+  --smriti-color-text-inverse:      var(--c-theme-primary);
+  --smriti-color-neutral:           var(--c-seef-neutral);
+  --smriti-color-disabled:          rgba(137, 145, 154, 0.45);
+  --smriti-color-border-strong:     var(--c-theme-divider);
+
   --workspace-header-bg:         var(--c-theme-surface-2);
   --workspace-header-border:     var(--c-theme-divider);
   --workspace-toolbar-bg:        var(--c-theme-surface-2);
