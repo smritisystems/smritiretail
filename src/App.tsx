@@ -507,7 +507,13 @@ const AppContent: React.FC = () => {
     const resolvedTab = normalizeTab(
       isSetupCompleted && tab === "company-setup" ? "launchpad" : tab,
     ) || "dashboard";
-    setActiveTab(resolvedTab);
+
+    if (SUNEFKernel.isReady()) {
+      SUNEFKernel.navigateWorkspace(resolvedTab, resolvedTab);
+    } else {
+      setActiveTab(resolvedTab);
+    }
+
     addToRecentlyUsed(resolvedTab);
   };
 
@@ -584,12 +590,24 @@ const AppContent: React.FC = () => {
     });
   };
 
+  const initialHistorySynced = useRef(false);
+
   useEffect(() => {
-    SUNEFKernel.initialize((t) => setActiveWorkspace(t), addNotification);
+    SUNEFKernel.initialize(setActiveTab, addNotification);
     registerAllDefaultActions((n: any) => {
       addNotification(n.title, n.message, n.type === "alert" || n.type === "error" ? "error" : "success");
     });
   }, []);
+
+  useEffect(() => {
+    if (initialHistorySynced.current) return;
+    if (!isSetupCompleted) return;
+    if (!SUNEFKernel.isReady()) return;
+    if (activeTab && activeTab !== "dashboard") {
+      SUNEFKernel.navigateWorkspace(activeTab, activeTab);
+    }
+    initialHistorySynced.current = true;
+  }, [activeTab, isSetupCompleted]);
 
   // Fetch initial system state
   const fetchSystemState = async () => {
@@ -1024,7 +1042,7 @@ const AppContent: React.FC = () => {
       {/* SMRITI Layout Manager Shell */}
       <LayoutManager 
         activeTab={activeTab} 
-        onTabSelect={setActiveTab}
+        onTabSelect={setActiveWorkspace}
         currentUser={currentUser}
         onLogout={handleLogout}
       >

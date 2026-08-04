@@ -29,6 +29,17 @@ The architecture docs provide guidance for enterprise-grade design, governance, 
 
 ## Key Documents
 
+- `SMRITI_EXPERIENCE_PLATFORM_ARCHITECTURE_v1.0.md` — SMRITI Experience Platform product architecture and SEP / SDEF master UX constitution
+- `SMRITI_UX_ARCHITECTURE_v3.0.md` — SMRITI UX architecture and dual experience framework specification
+- `SMRITI_DESIGN_SYSTEM_SPECIFICATION_V1.md` — SMRITI Design System governance and token architecture
+- `SMRITI_DESIGN_STUDIO_SPECIFICATION.md` — SMRITI Design Studio preview, validation, and comparison studio
+- `SMRITI_THEME_ENGINE_SPECIFICATION.md` — SMRITI theme engine runtime and token orchestration
+- `SMRITI_ACCESSIBILITY_STANDARD.md` — SMRITI accessibility rules and certification standard
+- `SMRITI_DESIGN_LANGUAGE_GUIDE.md` — SMRITI visual language philosophy and design rules
+- `SMRITI_COMPONENT_LIBRARY.md` — SMRITI shared UI component contracts and library
+- `SMRITI_RESPONSIVE_RULEBOOK.md` — SMRITI responsive UX rules and business-driven breakpoints
+- `SMRITI_UX_GOVERNANCE.md` — SMRITI UX governance, scoring, and release gate framework
+- `SMRITI_PURCHASE_ORDER_BLUEPRINT_V2.md` — SMRITI Purchase Order v2.0 UX blueprint
 - `SMRITI_BUSINESS_OS_V2_SPECIFICATION.md` — SMRITI Business OS v2.0 Enterprise Architecture Baseline Specification (Frozen)
 - `RC2_EXECUTION_CONTRACT_v1.0.md` — RC2 delivery governance, capability sequencing, business document lifecycle, and exit criteria
 - `PLATFORM_ADAPTER_RULES.md` — platform adapter and PAL guidance
@@ -47,6 +58,21 @@ The architecture docs provide guidance for enterprise-grade design, governance, 
 - `PRODUCT_IDENTITY_ENGINE_TEST_PLAN.md` — testing strategy and acceptance criteria
 - `PRODUCT_IDENTITY_ENGINE_MIGRATION.md` — migration strategy for legacy SKUs and barcodes
 - `PRODUCT_IDENTITY_ENGINE_ROADMAP.md` — phased product roadmap for PIE
+
+## Experience Runtime & UX Governance
+
+- `SMRITI_EXPERIENCE_PLATFORM_ARCHITECTURE_v1.0.md`
+- `SMRITI_UX_ARCHITECTURE_v3.0.md`
+- `SPK_Experience_Runtime_Mapping.md`
+- `SMRITI_ARCHITECTURE_DEPENDENCY_MAP.md`
+- `SMRITI_DESIGN_STUDIO_SPECIFICATION.md`
+- `SMRITI_DESIGN_SYSTEM_SPECIFICATION_V1.md`
+- `SMRITI_DESIGN_LANGUAGE_GUIDE.md`
+- `SMRITI_COMPONENT_LIBRARY.md`
+- `SMRITI_RESPONSIVE_RULEBOOK.md`
+- `SMRITI_THEME_ENGINE_SPECIFICATION.md`
+- `SMRITI_ACCESSIBILITY_STANDARD.md`
+- `SMRITI_UX_GOVERNANCE.md`
 
 ## Architecture Decision Records (ADR)
 

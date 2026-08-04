@@ -20,10 +20,17 @@ import { checkCreditStatus } from "../services/customerPolicyEngine.ts";
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { useTerminalShortcuts } from "./terminal/KeyboardEngine";
 import { SMRITIGrid } from "./terminal/SMRITIGrid";
-import { StandardDocumentToolbar } from "./terminal/StandardDocumentToolbar";
 import { RightDrawerHost } from "./terminal/RightDrawerHost";
 import { UniversalSearchModal } from "./terminal/UniversalSearchModal";
 import { STRE, TaxContext } from "../sdk";
+import { POSReferenceHeader } from "./pos/POSReferenceHeader";
+import { POSReferenceSidebar } from "./pos/POSReferenceSidebar";
+import { POSCustomerCard } from "./pos/POSCustomerCard";
+import { POSBillingCard } from "./pos/POSBillingCard";
+import { POSTaxSummary } from "./pos/POSTaxSummary";
+import { POSBillSummary } from "./pos/POSBillSummary";
+import { POSReferenceActionBar } from "./pos/POSReferenceActionBar";
+import "../styles/pos-reference-tokens.css";
 // SEEF Phase 6 â€” surgical cascade integration (POS grid untouched)
 import { useSEEF } from "../layout_engine/SEEFContext.tsx";
 // SXP v1.0 â€” POS Studio manifest (side-effect import: auto-registers actions + workspaces)
@@ -791,205 +798,114 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       data-sxp-workspace="pos.billing"
       data-sxp-mode={workspaceMode}
     >
-      {/* SMRITI RETAIL TERMINAL HEADER BAR (TOP CONTROL ROW) - POS Reference */}
-      <div className="w-full px-4 flex items-center justify-between text-xs font-mono" style={{ height: 56, background: 'var(--workspace-toolbar-bg)', backdropFilter: 'blur(6px)', boxShadow: '0 8px 24px rgba(2,8,20,0.45)' }}>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <span className="text-theme-muted font-bold">Bill Type:</span>
-            <span className="bg-blue-600/30 text-blue-300 px-2 py-0.5 rounded border border-blue-500/40 font-bold uppercase">Tax Invoice</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-theme-muted font-bold">Type:</span>
-            <span className="bg-emerald-600/30 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/40 font-bold">{paymentMode === "Single" ? primaryPaymentMethod.toUpperCase() : "SPLIT"}</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-theme-muted font-bold">Customer:</span>
-            <button
-              onClick={() => {
-                setTempCustomer(customer);
-                setIsCustomerModalOpen(true);
-              }}
-              className="text-amber-300 hover:text-amber-200 font-bold underline cursor-pointer flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
-              title="Click to Edit Customer & B2B GSTIN Details"
-            >
-              <span className="material-symbols-outlined text-xs">person_add</span>
-              <span>{customer.name} ({customer.type === "Registered" ? customer.gstin || "B2B" : "B2C"})</span>
-            </button>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-theme-muted font-bold">Sales Staff:</span>
-            <span className="text-theme-heading">{SALESPERSONS.find(s => s.id === globalSalespersonId)?.name || "Counter Clerk"}</span>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <div className="text-theme-muted text-sm">{activeProfile?.name || "LANE-01"} • {activeShift?.id || "SHIFT-01"}</div>
-          <button 
-            onClick={onClose}
-            className="text-theme-muted hover:text-theme-heading p-2 rounded-full hover:bg-theme-surface-hover transition-colors"
-            title="Close"
-            style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <span className="material-symbols-outlined text-lg">close</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Standardized Operational Toolbar with Drawer Triggers */}
-      <StandardDocumentToolbar
-        onNew={handleClearLocalCart}
-        onSearchClick={() => setIsSearchOpen(true)}
-        onToggleDrawer={(id) => setActiveDrawerId(prev => prev === id ? null : id)}
-        activeDrawerId={activeDrawerId}
-        canCheckout={activeCart.length > 0}
-        onCheckout={handleFinalCheckout}
+      <POSReferenceHeader
+        billType="Tax Invoice"
+        paymentModeLabel={paymentMode === "Single" ? primaryPaymentMethod : "Split"}
+        activeProfileName={activeProfile?.name || "LANE-01"}
+        activeShiftId={activeShift?.id}
+        searchValue={scanInput}
+        onSearchChange={setScanInput}
+        onSearchSubmit={handleScanSubmit}
+        onClose={onClose}
       />
 
       {/* Workspace Body */}
       {!showInvoicePreview ? (
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-          
-          {/* LEFT COLUMN: SMRITI RETAIL TERMINAL DETAIL SECTION (SMRITI ITEM GRID - 75% WIDTH) */}
-          <div className="flex-1 flex flex-col overflow-hidden border-r border-theme-divider p-4 space-y-3">
-            {/* Quick Barcode Scanner / SKU Search Bar */}
-            <form onSubmit={handleScanSubmit} className="flex items-center gap-3 bg-theme-surface-2 p-2.5 rounded-lg border border-theme-divider">
-              <span className="material-symbols-outlined text-blue-400 text-xl">qr_code_scanner</span>
-              <input
-                type="text"
-                value={scanInput}
-                onChange={(e) => setScanInput(e.target.value)}
-                placeholder="Scan barcode or type SKU / Item Name (e.g. 8901234567890, Shirt, Denim, Belt) & press Enter..."
-                className="flex-1 bg-theme-surface-2 border border-theme-divider rounded px-3 py-1.5 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-blue-500"
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col xl:flex-row overflow-hidden">
+            <div className="hidden xl:block xl:w-[280px] p-4">
+              <POSReferenceSidebar
+                actions={[
+                  { id: "new_bill", label: "New Bill", icon: "receipt_long", onClick: handleClearLocalCart, active: true },
+                  { id: "hold_bill", label: "Hold", icon: "pause_circle", onClick: () => { handleClearLocalCart(); onNotification("Held", "Bill put on hold (placeholder)", "success"); }, active: false },
+                  { id: "checkout", label: "Checkout", icon: "check_circle", onClick: handleFinalCheckout, active: false },
+                  { id: "returns", label: "Return", icon: "undo", onClick: openReturnWizard, active: false }
+                ]}
               />
-              <button
-                type="submit"
-                className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1 font-mono cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-sm">add_shopping_cart</span>
-                Add Item
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsSearchOpen(true)}
-                className="bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1 font-mono border border-theme-divider cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-sm">search</span>
-                Catalog (Ctrl+K)
-              </button>
-            </form>
-
-            {/* Quick Catalog Chips Bar for Instant 1-Click Item Additions */}
-            <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1 text-[11px] font-mono">
-              <span className="text-theme-muted font-bold flex items-center gap-1 shrink-0">
-                <span className="material-symbols-outlined text-xs text-emerald-400">add_circle</span>
-                Quick Add Items:
-              </span>
-              {DEMO_TAX_PRODUCTS.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => handleAddToCart(p, 1)}
-                  className="bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading hover:text-theme-heading px-2.5 py-1 rounded border border-theme-divider hover:border-theme-divider font-semibold transition-all shrink-0 flex items-center gap-1 cursor-pointer"
-                >
-                  <span>+ {p.name.split(" ")[0]}</span>
-                  <span className="text-emerald-400 font-bold">â‚¹{p.price}</span>
-                </button>
-              ))}
             </div>
 
-            {/* SMRITI High-Speed Item Details Grid */}
-            <div className="flex-1 overflow-hidden">
-              <SMRITIGrid
-                cart={activeCart}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemoveItem={handleRemoveItem}
-              />
+            <div className="flex-1 p-4 overflow-hidden space-y-4">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] h-full">
+                <div className="space-y-4">
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,22rem)]">
+                    <POSCustomerCard
+                      customer={customer}
+                      matchedCustomerName={matchedCustomer?.name || null}
+                      onEdit={() => {
+                        setTempCustomer(customer);
+                        setIsCustomerModalOpen(true);
+                      }}
+                    />
+                    <POSBillingCard
+                      paymentMode={paymentMode}
+                      primaryPaymentMethod={primaryPaymentMethod}
+                      loyaltyPoints={openingLoyaltyPoints}
+                      billDiscount={totals.totalBillDiscounts}
+                    />
+                  </div>
+
+                  <div className="pos-reference-card bg-theme-surface-2/95 border border-theme-divider/60 p-4 space-y-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.25em] text-theme-muted font-semibold">Quick Actions</p>
+                        <h3 className="mt-2 text-base font-bold text-theme-heading">Cart Controls</h3>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsSearchOpen(true)}
+                          className="rounded-full px-4 py-3 bg-theme-surface-1 border border-theme-divider text-sm font-semibold text-theme-body hover:bg-theme-surface-3 transition"
+                        >
+                          Catalog
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddToCart(DEMO_TAX_PRODUCTS[0], 1)}
+                          className="rounded-full px-4 py-3 bg-theme-surface-1 border border-theme-divider text-sm font-semibold text-theme-body hover:bg-theme-surface-3 transition"
+                        >
+                          Quick Add
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="overflow-hidden rounded-[24px] border border-theme-divider bg-theme-surface-1 shadow-sm">
+                      <SMRITIGrid
+                        cart={activeCart}
+                        onUpdateQuantity={handleUpdateQuantity}
+                        onRemoveItem={handleRemoveItem}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <POSTaxSummary
+                    isInterstate={totals.isInterstate}
+                    cgstTotal={totals.cgstTotal}
+                    sgstTotal={totals.sgstTotal}
+                    igstTotal={totals.igstTotal}
+                    tcsAmount={totals.tcsAmount}
+                  />
+                  <POSBillSummary
+                    grossAmount={totals.grossAmount}
+                    discounts={totals.totalBillDiscounts}
+                    gstAmount={totals.totalGstTax}
+                    tcsAmount={totals.tcsAmount}
+                    roundOff={totals.roundOff}
+                    grandTotal={totals.grandTotal}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* RIGHT COLUMN: SMRITI RETAIL TERMINAL FOOTER NET VALUES BREAKDOWN (25% WIDTH) */}
-          <div className="w-full lg:w-80 bg-theme-surface-1 border-l border-theme-divider flex flex-col p-4 space-y-4 font-mono">
-            <div className="border-b border-theme-divider pb-2 flex items-center justify-between">
-              <h4 className="font-bold text-theme-heading text-xs uppercase tracking-wide font-display">Net Values Sheet</h4>
-              <span className="text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 font-bold">GST Live</span>
-            </div>
-
-            <div className="flex-1 space-y-2.5 text-xs overflow-y-auto custom-scrollbar">
-              <div className="flex justify-between text-theme-muted">
-                <span>Gross Sales:</span>
-                <span className="font-bold text-theme-heading">â‚¹{(Number(totals.grossAmount) || 0).toFixed(2)}</span>
-              </div>
-
-              {(totals.itemDiscountsTotal || 0) > 0 && (
-                <div className="flex justify-between text-amber-400">
-                  <span>Item Discounts:</span>
-                  <span className="font-bold">-â‚¹{(Number(totals.itemDiscountsTotal) || 0).toFixed(2)}</span>
-                </div>
-              )}
-
-              {(totals.totalBillDiscounts || 0) > 0 && (
-                <div className="flex justify-between text-amber-400">
-                  <span>Bill Discounts & Promo:</span>
-                  <span className="font-bold">-â‚¹{(Number(totals.totalBillDiscounts) || 0).toFixed(2)}</span>
-                </div>
-              )}
-
-              <div className="flex justify-between text-theme-body border-t border-theme-divider pt-2 font-bold">
-                <span>Taxable Base Value:</span>
-                <span className="text-white">â‚¹{(Number(totals.totalTaxableAmount) || 0).toFixed(2)}</span>
-              </div>
-
-              {!totals.isInterstate ? (
-                <>
-                  <div className="flex justify-between text-theme-muted pl-2 text-[11px]">
-                    <span>Sales Tax (CGST):</span>
-                    <span className="text-blue-400 font-bold">â‚¹{(Number(totals.cgstTotal) || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-theme-muted pl-2 text-[11px]">
-                    <span>Sales Tax (SGST):</span>
-                    <span className="text-blue-400 font-bold">â‚¹{(Number(totals.sgstTotal) || 0).toFixed(2)}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-between text-theme-muted pl-2 text-[11px]">
-                  <span>Sales Tax (IGST):</span>
-                  <span className="text-blue-400 font-bold">â‚¹{(Number(totals.igstTotal) || 0).toFixed(2)}</span>
-                </div>
-              )}
-
-              {(totals.tcsAmount || 0) > 0 && (
-                <div className="flex justify-between text-purple-400 pl-2 text-[11px]">
-                  <span>Statutory TCS:</span>
-                  <span className="font-bold">+â‚¹{(Number(totals.tcsAmount) || 0).toFixed(2)}</span>
-                </div>
-              )}
-
-              <div className="flex justify-between text-theme-muted border-t border-theme-divider pt-2 text-[11px]">
-                <span>Round Off:</span>
-                <span className="text-theme-body font-bold">{(totals.roundOff || 0) >= 0 ? `+â‚¹${(Number(totals.roundOff) || 0).toFixed(2)}` : `-â‚¹${Math.abs(Number(totals.roundOff) || 0).toFixed(2)}`}</span>
-              </div>
-
-              <div className="bg-emerald-950/60 border border-emerald-500/50 p-3.5 rounded-xl space-y-1 text-center mt-3 shadow-lg">
-                <span className="text-[10px] text-emerald-400 uppercase tracking-widest font-bold">Net Amount Payable</span>
-                <p className="text-2xl font-bold text-emerald-300 font-mono">
-                  â‚¹{(Number(totals.grandTotal) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={handleFinalCheckout}
-              disabled={cart.length === 0}
-              className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider font-display transition-all flex items-center justify-center gap-2 ${
-                cart.length > 0
-                  ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 cursor-pointer"
-                  : "bg-theme-surface-2 text-theme-muted cursor-not-allowed border border-theme-divider"
-              }`}
-            >
-              <span className="material-symbols-outlined text-base">task_alt</span>
-              Register & Print Invoice (F4)
-            </button>
-          </div>
-
+          <POSReferenceActionBar
+            onMenu={() => onNotification("Menu", "Menu opened", "success")}
+            onHold={() => { handleClearLocalCart(); onNotification("Held", "Bill put on hold (placeholder)", "success"); }}
+            onSave={() => onNotification("Saved", "Bill saved (placeholder)", "success")}
+            onPreview={() => setShowInvoicePreview(true)}
+            onPay={handleFinalCheckout}
+          />
         </div>
       ) : (
           /* SECTION 4: INTERACTIVE PRINT TEMPLATE VIEWER */

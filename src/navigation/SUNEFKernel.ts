@@ -170,6 +170,55 @@ export class SUNEFKernel {
     return curr?.breadcrumb || ["Home", "Dashboard"];
   }
 
+  public static isReady(): boolean {
+    return this.activeTabSetter !== null;
+  }
+
+  public static async navigateWorkspace(workspace: string, title?: string): Promise<void> {
+    if (!workspace) return;
+
+    const targetTab = workspace;
+    if (this.activeTabSetter) {
+      this.activeTabSetter(targetTab);
+    }
+
+    WorkspaceLifecycleManager.openWorkspace(targetTab, title || targetTab);
+
+    if (!this.isNavigatingInternal) {
+      if (this.historyIndex < this.historyStack.length - 1) {
+        this.historyStack = this.historyStack.slice(0, this.historyIndex + 1);
+      }
+
+      const newState: NavigationHistory = {
+        id: `nav-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        module: targetTab,
+        workspace: targetTab,
+        title: title || targetTab,
+        route: `/${targetTab}`,
+        breadcrumb: [targetTab, title || targetTab],
+        state: {
+          selectedTab: getPreservedTab(targetTab)
+        },
+        timestamp: Date.now()
+      };
+      this.historyStack.push(newState);
+      this.historyIndex = this.historyStack.length - 1;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent("sunef_entity_opened", {
+        detail: {
+          entity: title || targetTab,
+          id: undefined,
+          preservedTab: getPreservedTab(targetTab),
+          canGoBack: this.canGoBack(),
+          canGoForward: this.canGoForward(),
+          breadcrumb: this.getCurrentBreadcrumb()
+        }
+      })
+    );
+  }
+
   public static getPinnedModules(): string[] {
     return [...this.pinnedModules];
   }
@@ -182,9 +231,22 @@ export class SUNEFKernel {
     if (this.activeTabSetter) {
       this.activeTabSetter(targetState.workspace);
     }
+    WorkspaceLifecycleManager.openWorkspace(targetState.workspace, targetState.title, targetState.module);
     if (targetState.state?.selectedTab) {
       setPreservedTab(targetState.workspace, targetState.state.selectedTab);
     }
+    window.dispatchEvent(
+      new CustomEvent("sunef_entity_opened", {
+        detail: {
+          entity: targetState.title || targetState.workspace,
+          id: targetState.recordId,
+          preservedTab: getPreservedTab(targetState.workspace),
+          canGoBack: this.canGoBack(),
+          canGoForward: this.canGoForward(),
+          breadcrumb: this.getCurrentBreadcrumb()
+        }
+      })
+    );
     this.notificationHandler?.("SUNE Jump", `Jumped to ${targetState.title || targetState.workspace}`, "success");
     this.isNavigatingInternal = false;
   }
@@ -197,9 +259,22 @@ export class SUNEFKernel {
     if (this.activeTabSetter) {
       this.activeTabSetter(targetState.workspace);
     }
+    WorkspaceLifecycleManager.openWorkspace(targetState.workspace, targetState.title, targetState.module);
     if (targetState.state?.selectedTab) {
       setPreservedTab(targetState.workspace, targetState.state.selectedTab);
     }
+    window.dispatchEvent(
+      new CustomEvent("sunef_entity_opened", {
+        detail: {
+          entity: targetState.title || targetState.workspace,
+          id: targetState.recordId,
+          preservedTab: getPreservedTab(targetState.workspace),
+          canGoBack: this.canGoBack(),
+          canGoForward: this.canGoForward(),
+          breadcrumb: this.getCurrentBreadcrumb()
+        }
+      })
+    );
     this.notificationHandler?.("SUNE Navigation", `Navigated back to ${targetState.title || targetState.workspace}`, "success");
     this.isNavigatingInternal = false;
   }
@@ -212,9 +287,22 @@ export class SUNEFKernel {
     if (this.activeTabSetter) {
       this.activeTabSetter(targetState.workspace);
     }
+    WorkspaceLifecycleManager.openWorkspace(targetState.workspace, targetState.title, targetState.module);
     if (targetState.state?.selectedTab) {
       setPreservedTab(targetState.workspace, targetState.state.selectedTab);
     }
+    window.dispatchEvent(
+      new CustomEvent("sunef_entity_opened", {
+        detail: {
+          entity: targetState.title || targetState.workspace,
+          id: targetState.recordId,
+          preservedTab: getPreservedTab(targetState.workspace),
+          canGoBack: this.canGoBack(),
+          canGoForward: this.canGoForward(),
+          breadcrumb: this.getCurrentBreadcrumb()
+        }
+      })
+    );
     this.notificationHandler?.("SUNE Navigation", `Navigated forward to ${targetState.title || targetState.workspace}`, "success");
     this.isNavigatingInternal = false;
   }
@@ -239,6 +327,7 @@ export class SUNEFKernel {
     if (this.activeTabSetter) {
       this.activeTabSetter("dashboard");
     }
+    WorkspaceLifecycleManager.openWorkspace("dashboard", "Home Dashboard");
     this.historyStack.push({
       id: `nav-home-${Date.now()}`,
       module: "Launchpad",

@@ -1,0 +1,49 @@
+/* POS Reference Tokens - Light and Dark overrides specific to SMRITI_POS_REFERENCE_v1 */
+:root {
+  --smriti-pos-surface-0: #ffffff; /* page background */
+  --smriti-pos-surface-1: #fafafa; /* subtle cards */
+  --smriti-pos-surface-2: #f3f4f6; /* card surfaces */
+  --smriti-pos-surface-3: #e6e7ea; /* elevated surfaces */
+  --smriti-pos-surface-4: #dfe1e6; /* highest elevation */
+
+  --smriti-pos-card-padding: 16px;
+  --smriti-pos-card-radius: 10px;
+  --smriti-pos-elevation-sm: 0 6px 18px rgba(16,24,40,0.06);
+  --smriti-pos-elevation-md: 0 12px 30px rgba(16,24,40,0.08);
+
+  --smriti-pos-cta: #0b6efd; /* primary blue */
+  --smriti-pos-cta-text: #ffffff;
+  --smriti-pos-muted: #6b7280;
+  --smriti-pos-separator: rgba(15,23,42,0.06);
+}
+
+[data-theme="dark"] {
+  --smriti-pos-surface-0: #0b0f14; /* page background */
+  --smriti-pos-surface-1: #0f1720; /* subtle cards */
+  --smriti-pos-surface-2: #111421; /* card surfaces */
+  --smriti-pos-surface-3: #121622; /* elevated surfaces */
+  --smriti-pos-surface-4: #14202a; /* highest elevation */
+
+  --smriti-pos-card-padding: 16px;
+  --smriti-pos-card-radius: 10px;
+  --smriti-pos-elevation-sm: 0 8px 24px rgba(2,6,23,0.6);
+  --smriti-pos-elevation-md: 0 14px 40px rgba(2,6,23,0.7);
+
+  --smriti-pos-cta: #3b82f6;
+  --smriti-pos-cta-text: #0b1220;
+  --smriti-pos-muted: #9aa4b2;
+  --smriti-pos-separator: rgba(255,255,255,0.04);
+}
+
+/* Component token aliases for easier use in POS components */
+.pos-reference-card {
+  background: var(--smriti-pos-surface-2);
+  padding: var(--smriti-pos-card-padding);
+  border-radius: var(--smriti-pos-card-radius);
+  box-shadow: var(--smriti-pos-elevation-sm);
+}
+
+.pos-reference-card--elevated { box-shadow: var(--smriti-pos-elevation-md); }
+.pos-reference-cta { background: var(--smriti-pos-cta); color: var(--smriti-pos-cta-text); border-radius: 8px; padding: 10px 14px; }
+.pos-reference-muted { color: var(--smriti-pos-muted); }
+.pos-reference-separator { border-bottom: 1px solid var(--smriti-pos-separator); }

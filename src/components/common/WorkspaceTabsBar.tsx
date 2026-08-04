@@ -39,8 +39,7 @@ export const WorkspaceTabsBar: React.FC = () => {
   }, []);
 
   const handleSelectTab = (ws: ManagedWorkspace) => {
-    WorkspaceLifecycleManager.activateWorkspace(ws.workspaceId);
-    SUNEFKernel.open({ type: ws.title, mode: "Workspace" });
+    SUNEFKernel.navigateWorkspace(ws.workspaceId, ws.title);
     syncState();
   };
 
