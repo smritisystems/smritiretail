@@ -1607,6 +1607,108 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               <span className="font-semibold text-theme-heading italic">{amountInWords}</span>
             </div>
           </div>
+          
+          {/* ----- WORKFLOW PANEL ----- */}
+          <div className="pt-2 border-t border-theme-divider">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-1.5 text-indigo-600 font-bold text-xs uppercase tracking-wide">
+                <Layers className="w-3.5 h-3.5" />
+                <span>Workflow</span>
+              </div>
+              <div className="text-[10px] text-theme-muted font-mono">Status</div>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex flex-col space-y-1">
+                <div className="flex items-center justify-between">
+                  <div className="text-[12px] font-bold text-theme-heading">Draft</div>
+                  <div className="text-[11px] text-theme-muted">{new Date().toLocaleDateString()}</div>
+                </div>
+                <div className="w-full bg-theme-surface-2 border border-theme-divider rounded-full h-2 overflow-hidden">
+                  <div className="bg-amber-500 h-2" style={{ width: '25%' }} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await (await import("../../lib/apiFetch.ts")).apiFetchV1(`/workflow/PurchaseOrder/${poNumber}/submit`, { method: "POST" });
+                      if (onNotification) onNotification("Workflow", "Submitted for approval.", "success");
+                      setStatus("POSTED");
+                    } catch (e: any) {
+                      if (onNotification) onNotification("Workflow Error", e.message || "Failed to submit.", "error");
+                    }
+                  }}
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold text-xs"
+                >
+                  Submit for Approval
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await (await import("../../lib/apiFetch.ts")).apiFetchV1(`/workflow/PurchaseOrder/${poNumber}/approve`, { method: "POST" });
+                      if (onNotification) onNotification("Workflow", "Approved successfully.", "success");
+                      setStatus("APPROVED");
+                    } catch (e: any) {
+                      if (onNotification) onNotification("Workflow Error", e.message || "Failed to approve.", "error");
+                    }
+                  }}
+                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold text-xs"
+                >
+                  Approve
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ----- COMPACT ACTIONS PANEL ----- */}
+          <div className="pt-3 border-t border-theme-divider">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[10px] font-mono text-theme-muted uppercase tracking-wider">Actions</div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setStatus("POSTED");
+                  if (onNotification) onNotification("Action", "Submitted and posted.", "success");
+                }}
+                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold"
+              >
+                Submit for Approval
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  handlePrint();
+                }}
+                className="px-3 py-1 bg-theme-surface-2 border border-theme-divider text-theme-body rounded-md text-xs font-bold"
+              >
+                Print / Download
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await (await import("../../lib/apiFetch.ts")).apiFetchV1(`/workflow/PurchaseOrder/${poNumber}/cancel`, { method: "POST" });
+                    if (onNotification) onNotification("Workflow", "Order cancelled.", "success");
+                    setStatus("CANCELLED");
+                  } catch (e: any) {
+                    if (onNotification) onNotification("Workflow Error", e.message || "Cancel failed.", "error");
+                  }
+                }}
+                className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-md text-xs font-bold"
+              >
+                Cancel PO
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
