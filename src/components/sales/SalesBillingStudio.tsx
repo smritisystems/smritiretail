@@ -55,6 +55,7 @@ import { SPK } from "../../kernel/SPK.js";
 import { IItemService } from "../../kernel/public/IItemService.js";
 import { ICustomerService } from "../../kernel/public/ICustomerService.js";
 import { CreateSalesInvoiceCommand } from "../../kernel/commands/CreateSalesInvoiceCommand.js";
+import { WorkspaceFormActions } from "../../components/workspace/WorkspaceFormActions.tsx";
 
 export interface LineItem {
   id: string;
@@ -413,26 +414,9 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
   return (
     <div className="w-full bg-theme-surface-2 font-sans text-theme-heading p-2.5 sm:p-3 space-y-3">
       {/* ================= SINGLE HORIZONTAL TOOLBAR (55px HERO COMPRESSION) ================= */}
-      <div className="bg-theme-surface-2 border border-theme-divider rounded-xl px-4 py-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
-        {/* Left Title & Branch Badge */}
-        <div className="flex items-center space-x-2">
-          <span className="text-[11px] font-bold text-theme-muted uppercase tracking-wider">SALES /</span>
-          <h1 className="text-base font-extrabold text-theme-heading tracking-tight">Sales Billing Studio</h1>
-          <span className="px-2 py-0.2 text-[9px] font-extrabold uppercase rounded bg-emerald-100 text-emerald-700 border border-emerald-300">
-            DRAFT
-          </span>
-          <span className="px-2 py-0.2 text-[9px] font-extrabold uppercase rounded bg-blue-50 text-blue-700 border border-blue-200 flex items-center space-x-1">
-            <Building2 className="w-2.5 h-2.5 mr-0.5" />
-            <span>{selectedBranch}</span>
-          </span>
-          <span className="flex items-center text-[10px] text-emerald-600 font-bold ml-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1 animate-pulse"></span>
-            Online
-          </span>
-        </div>
-
-        {/* Right Actions & SWMF Pop-Out Button */}
-        <div className="flex items-center space-x-2 text-xs">
+      <WorkspaceFormActions
+        className="w-full"
+        secondaryActions={
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-theme-muted" />
             <input
@@ -442,58 +426,62 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
               className="pl-7 pr-2.5 py-1 bg-theme-surface-2 border border-theme-divider rounded-md text-xs font-semibold text-theme-body focus:outline-none focus:border-blue-500 w-40"
             />
           </div>
+        }
+        primaryActions={
+          <>
+            <button
+              onClick={handleHoldBill}
+              className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center"
+            >
+              <PauseCircle className="w-3.5 h-3.5 mr-1 text-amber-600" />
+              Hold (F6)
+            </button>
 
-          <button
-            onClick={handleHoldBill}
-            className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center"
-          >
-            <PauseCircle className="w-3.5 h-3.5 mr-1 text-amber-600" />
-            Hold (F6)
-          </button>
+            <button
+              onClick={() => setIsRecallModalOpen(true)}
+              className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center relative"
+            >
+              <PlayCircle className="w-3.5 h-3.5 mr-1 text-indigo-600" />
+              Recall (F7)
+              {heldBills.length > 0 && (
+                <span className="ml-1 bg-indigo-600 text-white font-mono text-[9px] px-1 rounded-full font-bold">
+                  {heldBills.length}
+                </span>
+              )}
+            </button>
 
-          <button
-            onClick={() => setIsRecallModalOpen(true)}
-            className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center relative"
-          >
-            <PlayCircle className="w-3.5 h-3.5 mr-1 text-indigo-600" />
-            Recall (F7)
-            {heldBills.length > 0 && (
-              <span className="ml-1 bg-indigo-600 text-white font-mono text-[9px] px-1 rounded-full font-bold">
-                {heldBills.length}
-              </span>
-            )}
-          </button>
+            <button
+              onClick={() => setIsDiscountModalOpen(true)}
+              className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center"
+            >
+              <Percent className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+              Discount (F8)
+            </button>
 
-          <button
-            onClick={() => setIsDiscountModalOpen(true)}
-            className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center"
-          >
-            <Percent className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-            Discount (F8)
-          </button>
+            <button
+              onClick={() => setIsPaymentModalOpen(true)}
+              className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold shadow-xs cursor-pointer flex items-center"
+            >
+              <CreditCard className="w-3.5 h-3.5 mr-1" />
+              Pay (F4)
+            </button>
 
-          <button
-            onClick={() => setIsPaymentModalOpen(true)}
-            className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold shadow-xs cursor-pointer flex items-center"
-          >
-            <CreditCard className="w-3.5 h-3.5 mr-1" />
-            Pay (F4)
-          </button>
-
-          <button
-            onClick={() => WindowManager.openTabStandalone("sales", "SMRITI Sales Billing Studio")}
-            className="p-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-muted rounded-md cursor-pointer"
-            title="Pop-out Standalone Window (SWMF)"
-          >
-            <ExternalLink className="w-3.5 h-3.5 text-indigo-600" />
-          </button>
-
-          <div className="pl-2 border-l border-theme-divider text-right">
-            <span className="text-[10px] text-theme-muted font-bold block uppercase">Invoice No.</span>
-            <span className="font-mono font-extrabold text-blue-600 text-xs">{invoiceNo}</span>
+            <button
+              onClick={() => WindowManager.openTabStandalone("sales", "SMRITI Sales Billing Studio")}
+              className="p-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-muted rounded-md cursor-pointer"
+              title="Pop-out Standalone Window (SWMF)"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-indigo-600" />
+            </button>
+          </>
+        }
+        extraMeta={
+          <div>
+            <div className="text-[10px] text-theme-muted font-bold uppercase tracking-wider">Invoice No.</div>
+            <div className="font-mono font-extrabold text-blue-600 text-xs">{invoiceNo}</div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* ================= 2-COLUMN MASTER FORM (CUSTOMER INFO + INVOICE DETAILS) ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
