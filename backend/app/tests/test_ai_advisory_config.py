@@ -56,3 +56,20 @@ def test_valid_admin_ai_activation():
     assert config.api_key_configured is True
     assert config.obscured_key == "AIza****7890"
     assert engine.is_ai_active() is True
+
+
+def test_openrouter_provider_is_supported():
+    engine = AiAdvisoryConfigEngine()
+
+    config = engine.update_config(
+        user_id="USR-ADMIN",
+        user_rbac_permissions=["AI_ADMIN"],
+        ai_enabled=True,
+        provider=AiProvider.OPENROUTER,
+        api_key="openrouter-key",
+        model_name="openai/gpt-4o-mini",
+    )
+
+    assert config.provider == AiProvider.OPENROUTER
+    assert config.model_name == "openai/gpt-4o-mini"
+    assert config.api_key_configured is True

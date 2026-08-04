@@ -48,7 +48,6 @@ import {
 import { useWorkspace } from "../contexts/WorkspaceContext.tsx";
 import { useLayoutEngine } from "../layout_engine/layout_store.tsx";
 import { useShortcuts } from "../contexts/ShortcutContext.tsx";
-import { AdaptiveWorkspaceHeader } from "./common/AdaptiveWorkspaceHeader.tsx";
 import { SEEFAdminConfigurator } from "../layout_engine/SEEFAdminConfigurator.tsx";
 
 interface WorkspaceToolbarProps {
@@ -149,13 +148,6 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
         <h2 className="text-xs font-display font-semibold text-theme-body tracking-wide">
           {title}
         </h2>
-        
-        {/* Adaptive Workspace Mode Switcher (Simple / Hybrid / Advanced) */}
-        {!isFloating && (
-          <div className="ml-3">
-            <AdaptiveWorkspaceHeader />
-          </div>
-        )}
       </div>
 
       {/* Control Actions Panel */}

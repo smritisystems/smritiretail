@@ -10,7 +10,7 @@ import { WorkspacePreferences } from "../core/WorkspacePreferences.ts";
 import { ExperienceEngine } from "../core/ExperienceEngine.ts";
 import { AutosaveEngine } from "../core/AutosaveEngine.ts";
 import { attachKeyboardShortcuts } from "../keyboard/KeyboardShortcuts.ts";
-import { DocumentHeader } from "./DocumentHeader.tsx";
+// Header is provided by Workspace Kernel (WorkspaceShell) via WorkspaceEventBus
 import { DocumentFooter } from "./DocumentFooter.tsx";
 import { DocumentSidebar } from "./DocumentSidebar.tsx";
 import { DocumentPanels } from "./DocumentPanels.tsx";
@@ -141,23 +141,8 @@ export const DocumentStudio: React.FC<DocumentStudioProps> = ({
 
   return (
     <div className="w-full bg-theme-surface-1 min-h-[92vh] flex flex-col font-sans text-theme-primary border border-theme-divider rounded-2xl overflow-hidden shadow-2xl">
-      
-      {/* 1. DOCUMENT HEADER BAR */}
-      <DocumentHeader
-        title={meta.title}
-        documentNo={documentNo}
-        status={status}
-        mode={mode}
-        onModeChange={handleModeChange}
-        onBack={handleAttemptBack}
-        onSaveDraft={onSaveDraft}
-        onSave={onSave}
-        onPost={onPost}
-        onPrint={onPrint}
-        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-      />
 
-      {/* 2. MAIN WORKSPACE CONTENT */}
+      {/* 2. MAIN WORKSPACE CONTENT (Header is rendered by Workspace Kernel) */}
       <div className="p-6 flex-1 overflow-y-auto space-y-6">
         <LayoutEngine
           sidebar={

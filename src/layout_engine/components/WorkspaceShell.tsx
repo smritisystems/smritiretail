@@ -28,6 +28,7 @@
  */
 
 import React, { useRef, useEffect, useState } from "react";
+import WorkspaceKernelHeader from "./WorkspaceKernelHeader.tsx";
 import { WorkspaceMetadata } from "../../layout_engine/WorkspaceRegistry.js";
 import { WorkspaceNavigationEngine, Crumb } from "../../layout_engine/WorkspaceNavigationEngine.js";
 import { WorkspaceActionRegistry } from "../../layout_engine/WorkspaceActionRegistry.js";
@@ -143,75 +144,8 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
         color: "var(--c-theme-body)",
       }}
     >
-      {/* â”€â”€ Region 1: Header â”€â”€ */}
-      <header
-        className="sxp-header"
-        style={{
-          height: "var(--sxp-header-height, 48px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 16px",
-          borderBottom: "1px solid var(--smriti-workspace-header-border, var(--c-theme-divider))",
-          flexShrink: 0,
-          background: "var(--smriti-workspace-header-bg, var(--c-theme-surface-2))",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em" }}>
-            {metadata.title}
-          </span>
-          <span
-            style={{
-              fontSize: 10,
-              padding: "2px 6px",
-              borderRadius: 4,
-              background: "rgba(99,102,241,0.15)",
-              color: "var(--c-seef-accent)",
-              border: "1px solid rgba(99,102,241,0.25)",
-              fontWeight: 500,
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
-            }}
-          >
-            {mode}
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {filterStrip && (
-            <button
-              onClick={() => setFilterOpen((o) => !o)}
-              style={{
-                padding: "4px 10px",
-                borderRadius: 6,
-                border: "1px solid var(--c-theme-divider)",
-                background: filterOpen ? "rgba(99,102,241,0.15)" : "transparent",
-                color: "var(--c-theme-muted)",
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              {filterOpen ? "Hide Filters" : "Filters"}
-            </button>
-          )}
-          {inspector && (
-            <button
-              onClick={() => setInspectorOpen((o) => !o)}
-              style={{
-                padding: "4px 10px",
-                borderRadius: 6,
-                border: "1px solid var(--c-theme-divider)",
-                background: inspectorOpen ? "rgba(99,102,241,0.15)" : "transparent",
-                color: "var(--c-theme-muted)",
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              Details
-            </button>
-          )}
-        </div>
-      </header>
+      {/* Kernel-managed unified header */}
+      <WorkspaceKernelHeader initialTitle={metadata.title} />
 
       {/* â”€â”€ Region 2: Breadcrumb Bar â”€â”€ */}
       <nav

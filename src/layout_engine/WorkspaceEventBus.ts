@@ -29,6 +29,7 @@ export type WorkspaceEventType =
   | "OfflineStateChanged"
   | "CommandPaletteOpened"
   | "HealthReport"
+  | "HeaderUpdate"
   | "CardOpened"
   | "CardStateChanged"
   | "LayoutSaved";

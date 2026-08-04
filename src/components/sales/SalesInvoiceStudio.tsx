@@ -4,7 +4,8 @@
  * Dedicated Document Workspace for Creating/Editing ONE Invoice
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { WorkspaceEventBus } from "../../layout_engine/WorkspaceEventBus.js";
 import { DocumentStudio } from "../../framework/sawf/components/DocumentStudio.tsx";
 import { ItemGridRow } from "../../framework/sawf/components/DocumentItemsGrid.tsx";
 import { Customer, Product, SalesInvoice } from "../../types.ts";
@@ -34,6 +35,20 @@ export const SalesInvoiceStudio: React.FC<SalesInvoiceStudioProps> = ({
   const [status, setStatus] = useState<"Draft" | "Submitted" | "Approved" | "Cancelled">(
     initialInvoice?.status || "Draft"
   );
+
+  // Publish header metadata to Workspace Kernel
+  useEffect(() => {
+    WorkspaceEventBus.publish("HeaderUpdate", {
+      title: "Sales Invoice",
+      documentNo: initialInvoice?.invoiceNo,
+      status,
+      posFocus: false,
+    }, "sales.invoice");
+    return () => {
+      // clear header when unmounting
+      WorkspaceEventBus.publish("HeaderUpdate", { title: undefined, documentNo: undefined, status: undefined }, "sales.invoice");
+    };
+  }, [initialInvoice?.invoiceNo, status]);
 
   // Form Header & Metadata Fields
   const [invoiceDate, setInvoiceDate] = useState<string>(

@@ -151,6 +151,11 @@ class WorkspaceActionRegistryService {
   public clearAll(): void {
     this.actions.clear();
   }
+
+  /** Unregister a single action by id */
+  public unregister(id: string): void {
+    this.actions.delete(id.toLowerCase());
+  }
 }
 
 export const WorkspaceActionRegistry = new WorkspaceActionRegistryService();
