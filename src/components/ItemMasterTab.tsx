@@ -14,6 +14,7 @@ import { Product } from "../types.js";
 import { WindowManager } from "../sdk/index.js";
 import { ItemMasterToolbar, ItemMasterViewMode } from "./item_master/ItemMasterToolbar.tsx";
 import { ItemMasterContextSidebar, ContextFilterState } from "./item_master/ItemMasterContextSidebar.tsx";
+import { ItemMasterStudioContextPanel, ItemMasterStudioConsole } from "./item_master/ItemMasterStudioPanels.tsx";
 import { BarcodePrintDialog } from "./item_master/BarcodePrintDialog.tsx";
 import { AttributeManagerSection } from "./AttributeManagerSection.tsx";
 import { VariantTemplateSection } from "./VariantTemplateSection.tsx";
@@ -86,7 +87,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   const isReadOnly = currentUser?.role === "Report User";
   // SXP v1.0 â€” adaptive visibility for timeline and cost layers
   const { canRender } = useSmritiExperience();
-  const [viewMode, setViewMode] = useState<ItemMasterViewMode>("registry");
+  const [viewMode, setViewMode] = useState<ItemMasterViewMode>("overview");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [activeFilter, setActiveFilter] = useState<ContextFilterState>({ type: "ALL", value: "ALL" });
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
@@ -213,6 +214,186 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
 
   const renderWorkspaceContent = () => {
     switch (viewMode) {
+      case "overview":
+      case "registry":
+        return (
+          <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-3">
+            <div className="space-y-3">
+              <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
+                <div className="flex items-center justify-between border-b border-theme-divider pb-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Item Master Studio</p>
+                    <h2 className="text-sm font-extrabold text-theme-heading">Overview & Quick Actions</h2>
+                  </div>
+                  <div className="px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-extrabold uppercase">
+                    {products.length} Items
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                  <div className="rounded-lg border border-theme-divider bg-theme-surface-2 p-2">
+                    <div className="text-theme-muted">Catalog Coverage</div>
+                    <div className="font-extrabold text-theme-heading">{filteredProducts.length} visible</div>
+                  </div>
+                  <div className="rounded-lg border border-theme-divider bg-theme-surface-2 p-2">
+                    <div className="text-theme-muted">Low Stock</div>
+                    <div className="font-extrabold text-amber-600">{inventoryTotals.lowStockCount} items</div>
+                  </div>
+                  <div className="rounded-lg border border-theme-divider bg-theme-surface-2 p-2">
+                    <div className="text-theme-muted">Inventory Value</div>
+                    <div className="font-extrabold text-emerald-600">₹ {inventoryTotals.totalValuation.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
+                <div className="flex items-center justify-between border-b border-theme-divider pb-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Workspace Flow</p>
+                    <h3 className="text-sm font-extrabold text-theme-heading">Create, review, validate, and publish</h3>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-lg border border-theme-divider p-2">
+                    <div className="font-bold text-theme-heading">Quick Item</div>
+                    <div className="text-theme-muted">Create a single SKU in under a minute.</div>
+                  </div>
+                  <div className="rounded-lg border border-theme-divider p-2">
+                    <div className="font-bold text-theme-heading">Spreadsheet</div>
+                    <div className="text-theme-muted">Bulk import, paste, and mass update thousands of rows.</div>
+                  </div>
+                  <div className="rounded-lg border border-theme-divider p-2">
+                    <div className="font-bold text-theme-heading">Item Studio</div>
+                    <div className="text-theme-muted">Manage images, pricing, variants, docs, and workflow in one place.</div>
+                  </div>
+                  <div className="rounded-lg border border-theme-divider p-2">
+                    <div className="font-bold text-theme-heading">AI Assistant</div>
+                    <div className="text-theme-muted">Auto-suggest HSN, GST, category, brand, and duplicates.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-theme-divider pb-2">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Priority Signals</p>
+                  <h3 className="text-sm font-extrabold text-theme-heading">What needs attention</h3>
+                </div>
+              </div>
+              <div className="space-y-2 text-xs">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-2">
+                  <div className="font-bold text-amber-800">{inventoryTotals.lowStockCount} low-stock items</div>
+                  <div className="text-amber-700">Replenishment should be reviewed before the next cycle.</div>
+                </div>
+                <div className="rounded-lg border border-red-200 bg-red-50 p-2">
+                  <div className="font-bold text-red-700">Duplicate review</div>
+                  <div className="text-red-600">Live duplicate detection is now a first-class studio capability.</div>
+                </div>
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-2">
+                  <div className="font-bold text-indigo-700">Bulk validation</div>
+                  <div className="text-indigo-600">The studio will surface missing GST, HSN, barcode, and category issues.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case "explorer":
+        return (
+          <div className="grid grid-cols-1 xl:grid-cols-[0.8fr_1.2fr] gap-3">
+            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-3">
+              <div className="border-b border-theme-divider pb-2">
+                <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Explorer</p>
+                <h3 className="text-sm font-extrabold text-theme-heading">Search, filter, and discover items</h3>
+              </div>
+              <div className="rounded-lg border border-theme-divider p-2">
+                <div className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Search</div>
+                <div className="mt-2 flex items-center gap-2 rounded-lg border border-theme-divider px-2 py-1.5 bg-theme-surface-2">
+                  <Search className="w-3.5 h-3.5 text-theme-muted" />
+                  <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search SKU, name, barcode, category"
+                    className="w-full bg-transparent text-xs text-theme-heading outline-none"
+                  />
+                </div>
+              </div>
+              <div className="rounded-lg border border-theme-divider p-2">
+                <div className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Filters</div>
+                <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+                  <button onClick={() => setActiveFilter({ type: "ALL", value: "ALL" })} className={`rounded-full px-2.5 py-1 font-bold ${activeFilter.type === "ALL" ? "bg-blue-600 text-white" : "bg-theme-surface-2 text-theme-body border border-theme-divider"}`}>
+                    All
+                  </button>
+                  <button onClick={() => setActiveFilter({ type: "LOW_STOCK", value: "LOW_STOCK" })} className={`rounded-full px-2.5 py-1 font-bold ${activeFilter.type === "LOW_STOCK" ? "bg-amber-600 text-white" : "bg-theme-surface-2 text-theme-body border border-theme-divider"}`}>
+                    Low Stock
+                  </button>
+                  {categories.slice(0, 4).map((category) => (
+                    <button
+                      key={category}
+                      onClick={() => setActiveFilter({ type: "CATEGORY", value: category })}
+                      className={`rounded-full px-2.5 py-1 font-bold ${activeFilter.type === "CATEGORY" && activeFilter.value === category ? "bg-indigo-600 text-white" : "bg-theme-surface-2 text-theme-body border border-theme-divider"}`}
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-lg border border-theme-divider p-2">
+                <div className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Favorites & Recent</div>
+                <div className="mt-2 space-y-1 text-xs text-theme-muted">
+                  <div className="rounded border border-theme-divider px-2 py-1">Recent: {filteredProducts[0]?.name || "No recent items"}</div>
+                  <div className="rounded border border-theme-divider px-2 py-1">Favorites: {brands[0] || "Standard brand"}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
+              <div className="flex items-center justify-between border-b border-theme-divider pb-2">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Catalog Explorer</p>
+                  <h3 className="text-sm font-extrabold text-theme-heading">{filteredProducts.length} matching items</h3>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {filteredProducts.slice(0, 8).map((product) => (
+                  <button
+                    key={product.id}
+                    onClick={() => setSelectedProduct(product)}
+                    className={`rounded-lg border p-2 text-left transition-colors ${selectedProduct?.id === product.id ? "border-blue-500 bg-blue-50/70" : "border-theme-divider bg-theme-surface-2 hover:bg-theme-surface-hover"}`}
+                  >
+                    <div className="font-bold text-theme-heading text-xs">{product.name}</div>
+                    <div className="mt-1 text-[10px] text-theme-muted">{product.code || product.sku}</div>
+                    <div className="mt-1 flex items-center justify-between text-[10px] text-theme-muted">
+                      <span>{product.category || "General"}</span>
+                      <span>₹ {product.price}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      case "create":
+        return (
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
+            <div className="border-b border-theme-divider pb-2">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Create</p>
+              <h3 className="text-sm font-extrabold text-theme-heading">Create via quick, advanced, clone, or import flows</h3>
+            </div>
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+              {[
+                { title: "Quick Item", body: "Fast entry for retail teams and floor operations." },
+                { title: "Advanced Item", body: "Full product information and governance fields." },
+                { title: "Clone Item", body: "Replicate an existing SKU with controlled edits." },
+                { title: "Import Item", body: "Bulk onboarding from Excel, CSV, or ERP queues." },
+              ].map((item) => (
+                <div key={item.title} className="rounded-lg border border-theme-divider p-2">
+                  <div className="font-bold text-theme-heading">{item.title}</div>
+                  <div className="mt-1 text-theme-muted">{item.body}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
       case "excel-grid":
         return (
           <ExcelGridEntrySection
@@ -220,6 +401,186 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
             onRefreshProducts={onRefreshProducts}
             onNotification={onNotification}
           />
+        );
+      case "item-studio":
+        return (
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
+            <div className="border-b border-theme-divider pb-2">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Item Studio</p>
+              <h3 className="text-sm font-extrabold text-theme-heading">Object-page style product detail experience</h3>
+            </div>
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
+              {[
+                "Overview",
+                "General",
+                "Pricing",
+                "Purchase",
+                "Sales",
+                "Inventory",
+                "Images",
+                "Documents",
+                "Tax",
+                "Workflow",
+                "History"
+              ].map((section) => (
+                <div key={section} className="rounded-lg border border-theme-divider p-2">{section}</div>
+              ))}
+            </div>
+          </div>
+        );
+      case "pricing":
+        return (
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
+            <div className="border-b border-theme-divider pb-2">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Pricing</p>
+              <h3 className="text-sm font-extrabold text-theme-heading">MRP, retail, wholesale, distributor, marketplace, and margin controls</h3>
+            </div>
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              {[
+                { title: "MRP", body: "Base list price" },
+                { title: "Retail", body: "Store price" },
+                { title: "Wholesale", body: "Bulk distributor pricing" },
+                { title: "Online", body: "Marketplace pricing" },
+                { title: "Offers", body: "Promotions and discounts" },
+                { title: "Margins", body: "Profit guardrails" },
+              ].map((item) => (
+                <div key={item.title} className="rounded-lg border border-theme-divider p-2">
+                  <div className="font-bold text-theme-heading">{item.title}</div>
+                  <div className="mt-1 text-theme-muted">{item.body}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      case "inventory":
+        return (
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
+            <div className="border-b border-theme-divider pb-2">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Inventory</p>
+              <h3 className="text-sm font-extrabold text-theme-heading">Opening stock, reorder rules, location, batch, and ledger readiness</h3>
+            </div>
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              {[
+                { title: "Opening", body: "Initial balances" },
+                { title: "Reorder", body: "Min max controls" },
+                { title: "Locations", body: "Warehouses and bins" },
+                { title: "Batches", body: "Expiry and serial handling" },
+              ].map((item) => (
+                <div key={item.title} className="rounded-lg border border-theme-divider p-2">
+                  <div className="font-bold text-theme-heading">{item.title}</div>
+                  <div className="mt-1 text-theme-muted">{item.body}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      case "purchase":
+        return (
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
+            <div className="border-b border-theme-divider pb-2">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Purchase</p>
+              <h3 className="text-sm font-extrabold text-theme-heading">Supplier, buying rate, MOQ, lead time, and vendor history</h3>
+            </div>
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              {[
+                { title: "Preferred Supplier", body: "Primary vendor linkage" },
+                { title: "Buying Rate", body: "Cost price" },
+                { title: "MOQ", body: "Purchase quantity" },
+                { title: "Lead Time", body: "Supply planning" },
+              ].map((item) => (
+                <div key={item.title} className="rounded-lg border border-theme-divider p-2">
+                  <div className="font-bold text-theme-heading">{item.title}</div>
+                  <div className="mt-1 text-theme-muted">{item.body}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      case "sales":
+        return (
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
+            <div className="border-b border-theme-divider pb-2">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Sales</p>
+              <h3 className="text-sm font-extrabold text-theme-heading">Top customer, sales trends, ABC analysis, margins, and returns</h3>
+            </div>
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              {[
+                { title: "Top Customer", body: "High-value buyers" },
+                { title: "Sales Trend", body: "Demand pattern" },
+                { title: "ABC Analysis", body: "Segmentation" },
+                { title: "Returns", body: "Return behavior" },
+              ].map((item) => (
+                <div key={item.title} className="rounded-lg border border-theme-divider p-2">
+                  <div className="font-bold text-theme-heading">{item.title}</div>
+                  <div className="mt-1 text-theme-muted">{item.body}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      case "ai":
+        return (
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
+            <div className="border-b border-theme-divider pb-2">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">AI Assistant</p>
+              <h3 className="text-sm font-extrabold text-theme-heading">Category, HSN, GST, description, duplicate detection, and barcode suggestions</h3>
+            </div>
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              {[
+                { title: "Suggest Category", body: "Contextual classification" },
+                { title: "Suggest HSN", body: "Tax code assistance" },
+                { title: "Suggest GST", body: "Rate guidance" },
+                { title: "Duplicate Detection", body: "Live match and merge guidance" },
+              ].map((item) => (
+                <div key={item.title} className="rounded-lg border border-theme-divider p-2">
+                  <div className="font-bold text-theme-heading">{item.title}</div>
+                  <div className="mt-1 text-theme-muted">{item.body}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      case "reports":
+        return (
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
+            <div className="border-b border-theme-divider pb-2">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Reports</p>
+              <h3 className="text-sm font-extrabold text-theme-heading">Operational analytics for missing images, HSN gaps, margin issues, and dead stock</h3>
+            </div>
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              {[
+                { title: "Missing Images", body: "Catalog hygiene" },
+                { title: "Negative Margin", body: "Profitability alerts" },
+                { title: "Duplicate Barcode", body: "Data quality" },
+                { title: "Dead Stock", body: "Slow movers" },
+              ].map((item) => (
+                <div key={item.title} className="rounded-lg border border-theme-divider p-2">
+                  <div className="font-bold text-theme-heading">{item.title}</div>
+                  <div className="mt-1 text-theme-muted">{item.body}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      case "audit":
+        return (
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
+            <div className="border-b border-theme-divider pb-2">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Audit</p>
+              <h3 className="text-sm font-extrabold text-theme-heading">Create, update, delete, merge, price change, stock change, and approval history</h3>
+            </div>
+            <div className="mt-3 text-xs text-theme-muted">The audit layer will surface lifecycle events and governance actions for each product.</div>
+          </div>
+        );
+      case "settings":
+        return (
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
+            <div className="border-b border-theme-divider pb-2">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Settings</p>
+              <h3 className="text-sm font-extrabold text-theme-heading">SKU formula, barcode formula, mandatory fields, approval rules, and business class</h3>
+            </div>
+            <div className="mt-3 text-xs text-theme-muted">Product governance configurations are controlled centrally from this domain.</div>
+          </div>
         );
       case "attributes":
         return <AttributeManagerSection onNotification={onNotification} />;
@@ -485,7 +846,18 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
         />
       )}
 
-      {renderWorkspaceContent()}
+      <div className="flex flex-col xl:flex-row gap-3">
+        <div className="flex-1 min-w-0">
+          {renderWorkspaceContent()}
+        </div>
+        <ItemMasterStudioContextPanel
+          product={selectedProduct}
+          lowStockCount={inventoryTotals.lowStockCount}
+          inventorySummary={inventoryTotals}
+        />
+      </div>
+
+      <ItemMasterStudioConsole messages={["Draft saved", `${inventoryTotals.lowStockCount} validation alerts`, "Barcode generated"]} />
 
       {/* ================= NEW ITEM CREATION MODAL ================= */}
       {isModalOpen && (

@@ -41,8 +41,8 @@ export interface SmritiSpreadsheetStudioProps<TRow = Record<string, any>> {
 }
 
 export function SmritiSpreadsheetStudio<TRow extends Record<string, any>>({
-  title = "SMRITI Spreadsheet Studio",
-  subtitle = "Live Excel Workspace â€” Real-time database grid editing, formulas, clipboard engine, and AI assistant",
+  title = "SMRITI Item Master Studio",
+  subtitle = "Live Excel workspace inside the Item Master Studio — bulk editing, validation, and AI assistance",
   columns,
   initialData = [],
   onSaveData,

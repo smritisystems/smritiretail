@@ -29,6 +29,7 @@ import { TaxInvoicePrintPage } from "./print_engine/TaxInvoicePrintPage.tsx";
 // SEEF — must be the outermost provider so CSS data-attributes are written
 // to <html> before any child component renders (prevents theme flash).
 import { SEEFProvider } from "./layout_engine/SEEFContext.tsx";
+import { SmritiExperienceProvider } from "./context/SmritiExperienceContext.tsx";
 // SWSDK v1.0 / SPF PlatformBootstrap — 12-stage platform boot sequence (Rule SWSDK-001)
 import { PlatformBootstrap } from "./platform/spf/bootstrap/PlatformBootstrap.ts";
 
@@ -60,7 +61,9 @@ const isInvoicePrint =
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <SEEFProvider>
-        {isInvoicePrint ? <TaxInvoicePrintPage /> : <App />}
+        <SmritiExperienceProvider>
+          {isInvoicePrint ? <TaxInvoicePrintPage /> : <App />}
+        </SmritiExperienceProvider>
       </SEEFProvider>
     </React.StrictMode>
   );

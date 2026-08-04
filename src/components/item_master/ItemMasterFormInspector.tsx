@@ -7,7 +7,7 @@
  * Version      : 6.5.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { SEEFObjectPage, ObjectPageTab, ObjectPageMetric } from "../common/FioriObjectPage.tsx";
 import {
   Package, Tag, DollarSign, Percent, Barcode, ShieldAlert, Layers, Grid, History,
@@ -34,7 +34,18 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
   onOpenBarcodeDialog,
   isReadOnly = false
 }) => {
-  if (!product) {
+  const [formData, setFormData] = useState<Product | null>(product ? { ...product } : null);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [uomConversions, setUomConversions] = useState<UomConversion[]>([]);
+
+  useEffect(() => {
+    setFormData(product ? { ...product } : null);
+    setUomConversions([]);
+  }, [product]);
+
+  const activeProduct = formData ?? product;
+
+  if (!activeProduct) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center p-12 text-center text-theme-muted font-mono border-2 border-dashed border-theme-divider rounded-xl select-none">
         <Package className="w-12 h-12 mb-3 text-theme-muted" />
@@ -44,44 +55,41 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
     );
   }
 
-  const [formData, setFormData] = useState<Product>({ ...product });
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [uomConversions, setUomConversions] = useState<UomConversion[]>([]);
-
-  useEffect(() => {
-    setFormData({ ...product });
-  }, [product]);
-
   // Pricing Matrix Calculations
-  const mrp = formData.mrp || formData.price || 0;
-  const salePrice = formData.price || 0;
-  const purchaseCost = formData.purchase_price || formData.costPrice || 0;
+  const mrp = activeProduct.mrp || activeProduct.price || 0;
+  const salePrice = activeProduct.price || 0;
+  const purchaseCost = activeProduct.purchase_price || activeProduct.costPrice || 0;
   const marginPercent = mrp > 0 ? (((mrp - purchaseCost) / mrp) * 100).toFixed(1) : "0.0";
   const markupPercent = purchaseCost > 0 ? (((salePrice - purchaseCost) / purchaseCost) * 100).toFixed(1) : "0.0";
 
   // AI Suggestions & Nudges
   const aiSuggestions = [
     salePrice < purchaseCost ? "CRITICAL: Sale price is lower than purchase cost!" : "Margin is healthy at " + marginPercent + "%",
-    (formData.stock_qty ?? formData.qty ?? 0) < (formData.min_stock_level || 5) ? "Low Stock Alert: Reorder point reached" : "Optimal Stock Level maintained",
+    (activeProduct.stock_qty ?? activeProduct.qty ?? 0) < (activeProduct.min_stock_level || 5) ? "Low Stock Alert: Reorder point reached" : "Optimal Stock Level maintained",
     "Suggested Price Optimization: Retail market rate supports +3.5% margin adjustment",
   ];
 
   const handleFieldChange = (field: keyof Product, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      if (!prev) return prev;
+      return { ...prev, [field]: value };
+    });
   };
 
   const handleSave = async () => {
+    if (!activeProduct) return;
+
     setIsSaving(true);
     try {
-      await onSaveProduct({ ...formData });
+      await onSaveProduct({ ...activeProduct });
     } finally {
       setIsSaving(false);
     }
   };
 
   const metrics: ObjectPageMetric[] = [
-    { label: "SKU / Barcode", value: formData.barcode || formData.sku || "N/A" },
-    { label: "Physical Stock", value: `${formData.stock_qty ?? formData.qty ?? 0} ${formData.uom || "Pcs"}`, highlight: true },
+    { label: "SKU / Barcode", value: activeProduct.barcode || activeProduct.sku || "N/A" },
+    { label: "Physical Stock", value: `${activeProduct.stock_qty ?? activeProduct.qty ?? 0} ${activeProduct.uom || "Pcs"}`, highlight: true },
     { label: "MRP / Retailing Price", value: `₹${mrp.toLocaleString("en-IN")}` },
     { label: "Margin %", value: `${marginPercent}%`, highlight: parseFloat(marginPercent) > 20 },
   ];
@@ -112,15 +120,15 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                 <Package className="w-4 h-4 text-[var(--c-seef-accent)]" /> Identity &amp; Tax Profile
               </h5>
               {[
-                ["Item Code", formData.code || formData.sku || "N/A"],
-                ["Item Name", formData.name],
-                ["Barcode", formData.barcode || "N/A"],
-                ["Category", formData.category || "General"],
-                ["Sub-Category", formData.subCategory || formData.sub_category || "Standard"],
-                ["Brand", formData.brand || "Smriti Standard"],
-                ["HSN / SAC Code", formData.hsn_code || formData.hsnCode || "8471"],
-                ["GST Rate", `${formData.gst_rate || formData.gstPercentage || 18}%`],
-                ["Unit of Measure (UOM)", formData.uom || "Pcs"],
+                ["Item Code", activeProduct.code || activeProduct.sku || "N/A"],
+                ["Item Name", activeProduct.name],
+                ["Barcode", activeProduct.barcode || "N/A"],
+                ["Category", activeProduct.category || "General"],
+                ["Sub-Category", activeProduct.subCategory || activeProduct.sub_category || "Standard"],
+                ["Brand", activeProduct.brand || "Smriti Standard"],
+                ["HSN / SAC Code", activeProduct.hsn_code || activeProduct.hsnCode || "8471"],
+                ["GST Rate", `${activeProduct.gst_rate || activeProduct.gstPercentage || 18}%`],
+                ["Unit of Measure (UOM)", activeProduct.uom || "Pcs"],
               ].map(([k, v]) => (
                 <div key={k as string} className="flex justify-between text-xs border-b border-theme-divider/40 pb-1.5">
                   <span className="text-theme-muted">{k}</span>
@@ -140,8 +148,8 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                 ["Gross Margin", `₹${(salePrice - purchaseCost).toLocaleString("en-IN")}`],
                 ["Margin %", `${marginPercent}%`],
                 ["Markup %", `${markupPercent}%`],
-                ["Current Stock Qty", `${formData.stock_qty ?? formData.qty ?? 0} ${formData.uom || "Pcs"}`],
-                ["Min Reorder Level", `${formData.min_stock_level || 5} Pcs`],
+                ["Current Stock Qty", `${activeProduct.stock_qty ?? activeProduct.qty ?? 0} ${activeProduct.uom || "Pcs"}`],
+                ["Min Reorder Level", `${activeProduct.min_stock_level || 5} Pcs`],
               ].map(([k, v]) => (
                 <div key={k as string} className="flex justify-between text-xs border-b border-theme-divider/40 pb-1.5">
                   <span className="text-theme-muted">{k}</span>
@@ -164,22 +172,22 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
               <span className="text-theme-muted text-[10px] uppercase font-bold block">Maximum Retail Price (MRP)</span>
-              <input type="number" step="0.01" value={formData.mrp || 0} onChange={(e) => handleFieldChange("mrp", parseFloat(e.target.value))} className="w-full p-2 bg-theme-surface-1 border border-theme-divider rounded text-theme-heading font-bold text-base" />
+              <input type="number" step="0.01" value={activeProduct.mrp || 0} onChange={(e) => handleFieldChange("mrp", parseFloat(e.target.value))} className="w-full p-2 bg-theme-surface-1 border border-theme-divider rounded text-theme-heading font-bold text-base" />
             </div>
             <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
               <span className="text-theme-muted text-[10px] uppercase font-bold block">Retail Selling Price</span>
-              <input type="number" step="0.01" value={formData.price || 0} onChange={(e) => handleFieldChange("price", parseFloat(e.target.value))} className="w-full p-2 bg-theme-surface-1 border border-theme-divider rounded text-emerald-400 font-bold text-base" />
+              <input type="number" step="0.01" value={activeProduct.price || 0} onChange={(e) => handleFieldChange("price", parseFloat(e.target.value))} className="w-full p-2 bg-theme-surface-1 border border-theme-divider rounded text-emerald-400 font-bold text-base" />
             </div>
             <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
               <span className="text-theme-muted text-[10px] uppercase font-bold block">Purchase Cost / Rate</span>
-              <input type="number" step="0.01" value={formData.purchase_price || formData.costPrice || 0} onChange={(e) => handleFieldChange("purchase_price", parseFloat(e.target.value))} className="w-full p-2 bg-theme-surface-1 border border-theme-divider rounded text-purple-400 font-bold text-base" />
+              <input type="number" step="0.01" value={activeProduct.purchase_price || activeProduct.costPrice || 0} onChange={(e) => handleFieldChange("purchase_price", parseFloat(e.target.value))} className="w-full p-2 bg-theme-surface-1 border border-theme-divider rounded text-purple-400 font-bold text-base" />
             </div>
           </div>
 
           <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Wholesale Price</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.price || 0) * 0.9).toFixed(2)}</strong></div>
-            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Dealer Price</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.price || 0) * 0.85).toFixed(2)}</strong></div>
-            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Distributor Price</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.price || 0) * 0.8).toFixed(2)}</strong></div>
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Wholesale Price</span><strong className="text-sm font-bold text-theme-heading">₹{((activeProduct.price || 0) * 0.9).toFixed(2)}</strong></div>
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Dealer Price</span><strong className="text-sm font-bold text-theme-heading">₹{((activeProduct.price || 0) * 0.85).toFixed(2)}</strong></div>
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Distributor Price</span><strong className="text-sm font-bold text-theme-heading">₹{((activeProduct.price || 0) * 0.8).toFixed(2)}</strong></div>
             <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Landed Cost</span><strong className="text-sm font-bold text-theme-heading">₹{((purchaseCost) * 1.05).toFixed(2)}</strong></div>
           </div>
         </div>
@@ -196,11 +204,11 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-1">
               <span className="text-theme-muted text-[10px] uppercase font-bold block">Current Stock Qty</span>
-              <strong className="text-xl font-bold text-emerald-400">{formData.stock_qty ?? formData.qty ?? 0} {formData.uom || "Pcs"}</strong>
+              <strong className="text-xl font-bold text-emerald-400">{activeProduct.stock_qty ?? activeProduct.qty ?? 0} {activeProduct.uom || "Pcs"}</strong>
             </div>
             <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-1">
               <span className="text-theme-muted text-[10px] uppercase font-bold block">Min Reorder Level</span>
-              <strong className="text-xl font-bold text-amber-400">{formData.min_stock_level || 5} Pcs</strong>
+              <strong className="text-xl font-bold text-amber-400">{activeProduct.min_stock_level || 5} Pcs</strong>
             </div>
             <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-1">
               <span className="text-theme-muted text-[10px] uppercase font-bold block">Max Stock Limit</span>
@@ -212,7 +220,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
             </div>
           </div>
 
-          <ItemMasterUomMatrix baseUom={formData.uom || "Pcs"} conversions={uomConversions} onChange={setUomConversions} isReadOnly={isReadOnly} />
+          <ItemMasterUomMatrix baseUom={activeProduct.uom || "Pcs"} conversions={uomConversions} onChange={setUomConversions} isReadOnly={isReadOnly} />
         </div>
       )
     },
@@ -250,7 +258,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                   <td className="p-2 text-right text-theme-muted">150 Pcs</td>
                   <td className="p-2 text-right text-emerald-400 font-bold">90 Pcs</td>
                   <td className="p-2 text-right text-indigo-400 font-bold">60 Pcs</td>
-                  <td className="p-2 text-right font-bold text-theme-heading">₹{(parseFloat(String(formData.mrp || "100")) * 60).toLocaleString('en-IN')}</td>
+                  <td className="p-2 text-right font-bold text-theme-heading">₹{(parseFloat(String(activeProduct.mrp || "100")) * 60).toLocaleString('en-IN')}</td>
                   <td className="p-2 text-right text-amber-400 font-bold">14 Days</td>
                 </tr>
                 <tr className="hover:bg-theme-surface-1">
@@ -259,7 +267,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                   <td className="p-2 text-right text-theme-muted">200 Pcs</td>
                   <td className="p-2 text-right text-emerald-400 font-bold">140 Pcs</td>
                   <td className="p-2 text-right text-indigo-400 font-bold">60 Pcs</td>
-                  <td className="p-2 text-right font-bold text-theme-heading">₹{(parseFloat(String(formData.mrp || "100")) * 60).toLocaleString('en-IN')}</td>
+                  <td className="p-2 text-right font-bold text-theme-heading">₹{(parseFloat(String(activeProduct.mrp || "100")) * 60).toLocaleString('en-IN')}</td>
 
                   <td className="p-2 text-right text-emerald-400 font-bold">8 Days</td>
                 </tr>
@@ -273,7 +281,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
     {
       id: "variants",
       label: "Variant Matrix",
-      content: <ItemMasterVariantTable product={formData} onOpenBarcodeDialog={onOpenBarcodeDialog} isReadOnly={isReadOnly} />
+      content: <ItemMasterVariantTable product={activeProduct} onOpenBarcodeDialog={onOpenBarcodeDialog} isReadOnly={isReadOnly} />
     },
     {
       id: "suppliers",
@@ -291,7 +299,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
     {
       id: "barcode",
       label: "Barcode & Labels",
-      content: <ItemMasterPrintHistoryTab product={formData} />
+      content: <ItemMasterPrintHistoryTab product={activeProduct} />
     },
     {
       id: "analytics",
@@ -312,16 +320,16 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
   return (
     <div className="flex flex-col h-full bg-theme-base p-6">
       <SEEFObjectPage
-        title={formData.name}
-        subtitle={`SKU: ${formData.sku || formData.code || "N/A"} | Category: ${formData.category || "General"} | Brand: ${formData.brand || "Smriti"}`}
+        title={activeProduct.name}
+        subtitle={`SKU: ${activeProduct.sku || activeProduct.code || "N/A"} | Category: ${activeProduct.category || "General"} | Brand: ${activeProduct.brand || "Smriti"}`}
         badgeStatus={{
-          label: (formData.stock_qty ?? formData.qty ?? 0) > 0 ? "In Stock" : "Out of Stock",
-          type: (formData.stock_qty ?? formData.qty ?? 0) > 0 ? "success" : "error"
+          label: (activeProduct.stock_qty ?? activeProduct.qty ?? 0) > 0 ? "In Stock" : "Out of Stock",
+          type: (activeProduct.stock_qty ?? activeProduct.qty ?? 0) > 0 ? "success" : "error"
         }}
         metrics={metrics}
         tabs={tabs}
         onSave={!isReadOnly ? handleSave : undefined}
-        onDelete={!isReadOnly ? () => onDeleteProduct(formData.id) : undefined}
+        onDelete={!isReadOnly ? () => onDeleteProduct(activeProduct.id) : undefined}
         isSaving={isSaving}
       />
     </div>

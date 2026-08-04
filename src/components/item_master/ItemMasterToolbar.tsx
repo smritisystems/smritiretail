@@ -19,10 +19,24 @@ import {
   RefreshCw,
   Printer,
   Search,
-  Filter
+  Filter,
+  Sparkles,
+  ShoppingCart,
+  Warehouse,
+  BadgeDollarSign,
+  TrendingUp,
+  ClipboardList,
+  Boxes,
+  ScanLine,
+  FileText,
+  Compass,
+  PanelRightOpen,
+  TerminalSquare,
+  Workflow,
+  SlidersHorizontal
 } from "lucide-react";
 
-export type ItemMasterViewMode = "registry" | "excel-grid" | "attributes" | "templates" | "bulk" | "analytics";
+export type ItemMasterViewMode = "overview" | "explorer" | "create" | "excel-grid" | "item-studio" | "variants" | "pricing" | "inventory" | "purchase" | "sales" | "barcode" | "images" | "documents" | "workflow" | "ai" | "reports" | "audit" | "settings" | "attributes" | "templates" | "bulk" | "analytics" | "registry";
 
 interface ItemMasterToolbarProps {
   activeMode: ItemMasterViewMode;
@@ -58,16 +72,97 @@ export const ItemMasterToolbar: React.FC<ItemMasterToolbarProps> = ({
   activeFilterLabel
 }) => {
   const views: { id: ItemMasterViewMode; label: string; icon: React.ElementType }[] = [
-    { id: "registry", label: "Master Registry", icon: Package },
-    { id: "excel-grid", label: "Spreadsheet Studio", icon: FileSpreadsheet },
-    { id: "attributes", label: "Dynamic Attributes", icon: Layers },
-    { id: "templates", label: "Variant Templates", icon: FolderKanban },
-    { id: "bulk", label: "Bulk Import", icon: UploadCloud },
-    { id: "analytics", label: "SKU Analytics", icon: BarChart3 }
+    { id: "overview", label: "Overview", icon: Package },
+    { id: "explorer", label: "Explorer", icon: Search },
+    { id: "create", label: "Create", icon: Plus },
+    { id: "excel-grid", label: "Spreadsheet", icon: FileSpreadsheet },
+    { id: "item-studio", label: "Item Studio", icon: FileText },
+    { id: "variants", label: "Variants", icon: FolderKanban },
+    { id: "pricing", label: "Pricing", icon: BadgeDollarSign },
+    { id: "inventory", label: "Inventory", icon: Boxes },
+    { id: "purchase", label: "Purchase", icon: ShoppingCart },
+    { id: "sales", label: "Sales", icon: TrendingUp },
+    { id: "barcode", label: "Barcode", icon: ScanLine },
+    { id: "images", label: "Images", icon: Package },
+    { id: "documents", label: "Documents", icon: ClipboardList },
+    { id: "workflow", label: "Workflow", icon: Layers },
+    { id: "ai", label: "AI", icon: Sparkles },
+    { id: "reports", label: "Reports", icon: BarChart3 },
+    { id: "audit", label: "Audit", icon: FileText },
+    { id: "settings", label: "Settings", icon: Warehouse },
+    { id: "bulk", label: "Bulk Ops", icon: UploadCloud }
+  ];
+
+  const studioLayers = [
+    {
+      key: "explorer",
+      label: "Explorer",
+      icon: Compass,
+      description: "Search, filters, saved views",
+      modes: ["explorer", "overview", "create"],
+    },
+    {
+      key: "workspace",
+      label: "Workspace",
+      icon: SlidersHorizontal,
+      description: "Spreadsheet, variants, gallery",
+      modes: ["excel-grid", "item-studio", "variants", "analytics", "templates"],
+    },
+    {
+      key: "context",
+      label: "Context",
+      icon: PanelRightOpen,
+      description: "Selected item, lifecycle, AI",
+      modes: ["pricing", "inventory", "purchase", "sales", "ai", "reports", "audit", "settings"],
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      icon: Workflow,
+      description: "Create, approve, duplicate, bulk",
+      modes: ["create", "bulk", "barcode", "workflow"],
+    },
+    {
+      key: "console",
+      label: "Console",
+      icon: TerminalSquare,
+      description: "Validation, jobs, notifications",
+      modes: ["reports", "audit", "settings"],
+    },
   ];
 
   return (
-    <div className="w-full flex flex-col md:flex-row md:items-center justify-between gap-3 select-none">
+    <div className="w-full flex flex-col gap-3 select-none">
+      <div className="flex flex-col gap-2 rounded-xl border border-theme-divider bg-theme-surface-2 p-2">
+        <div className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.24em] text-theme-muted">
+          <Compass className="w-3.5 h-3.5" />
+          <span>Studio Layers</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {studioLayers.map((layer) => {
+            const Icon = layer.icon;
+            const isActive = layer.modes.includes(activeMode);
+            return (
+              <button
+                key={layer.key}
+                onClick={() => onModeChange(layer.modes[0] as ItemMasterViewMode)}
+                className={`rounded-lg border px-2.5 py-1.5 text-left transition-all ${
+                  isActive
+                    ? "border-[var(--c-seef-accent)] bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)]"
+                    : "border-theme-divider bg-theme-surface-1 text-theme-heading hover:bg-theme-surface-hover"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 text-[11px] font-bold">
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{layer.label}</span>
+                </div>
+                <div className="mt-1 text-[10px] text-theme-muted">{layer.description}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* 1. View Mode Switcher Strip */}
       <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
         {views.map((v) => {
