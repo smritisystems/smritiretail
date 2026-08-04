@@ -94,7 +94,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
   const isLaunchpad = activeTab === "launchpad";
 
   return (
-    <div className="h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex flex-col overflow-hidden bg-theme-base text-theme-body font-sans antialiased select-none relative pb-[env(safe-area-inset-bottom)]">
+    <div className="h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex flex-col overflow-hidden bg-theme-base text-theme-body font-sans antialiased select-none relative pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       {/* 1. SAP Fiori Slim Header (Only rendered in operational workspaces, not Launchpad) */}
       {!isLaunchpad && (
         <AdaptiveWorkspaceHeader

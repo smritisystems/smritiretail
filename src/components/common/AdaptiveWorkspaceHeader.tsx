@@ -42,7 +42,7 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
 
   return (
     <header
-      className="h-12 border-b px-4 flex items-center justify-between text-xs select-none z-30 shadow-md transition-colors duration-300"
+      className="h-12 border-b px-4 flex flex-wrap items-center justify-between text-xs select-none z-30 shadow-md transition-colors duration-300"
       style={{
         background: "var(--c-seef-brand)",
         borderColor: isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.10)",
@@ -87,10 +87,11 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
       </div>
 
       {/* 2. Center Global Search Input Trigger (Ctrl+K) */}
-      <div className="flex-1 max-w-md mx-4">
+      <div className="flex-1 max-w-md mx-4 min-w-0">
         <button
+          type="button"
           onClick={onOpenGlobalSearch}
-          className="w-full flex items-center justify-between rounded-xl px-3 py-1.5 transition-all seds-text-small"
+          className="w-full min-w-0 flex items-center justify-between rounded-xl px-3 py-1.5 transition-all seds-text-small"
           style={{
             background: "var(--c-theme-surface-2)",
             border: `1px solid ${isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.15)"}`,
@@ -117,7 +118,7 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
       </div>
 
       {/* 3. Right Enterprise Actions & User Profile */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-shrink-0">
         {/* SEEF Theme Switcher */}
         <div
           className="flex items-center gap-1 rounded-lg p-1"
@@ -144,6 +145,7 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
 
         {/* Help Portal */}
         <button
+          type="button"
           onClick={onOpenHelp}
           className="p-1.5 rounded-lg transition-colors"
           style={{ color: "var(--c-theme-muted)" }}
@@ -156,6 +158,7 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
 
         {/* Notifications Trigger */}
         <button
+          type="button"
           onClick={onOpenNotifications}
           className="p-1.5 rounded-lg transition-colors relative"
           style={{ color: "var(--c-theme-muted)" }}
