@@ -13,7 +13,9 @@ export const WorkspaceActionBar: React.FC<WorkspaceActionBarProps> = ({ actions,
         display: 'flex',
         gap: 'var(--smriti-space-sm,8px)',
         alignItems: 'center',
-        paddingTop: 'var(--smriti-space-sm,8px)'
+        paddingTop: 'var(--smriti-space-sm,8px)',
+        background: 'var(--smriti-workspace-actionbar-bg, transparent)',
+        color: 'var(--c-theme-body)'
       }}
     >
       {actions}

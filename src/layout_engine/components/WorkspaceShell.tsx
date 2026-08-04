@@ -139,7 +139,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
         flexDirection: "column",
         height: "100%",
         overflow: "hidden",
-        background: "var(--c-theme-surface-2)",
+        background: "var(--smriti-workspace-shell-bg, var(--c-theme-surface-1))",
         color: "var(--c-theme-body)",
       }}
     >
@@ -152,9 +152,9 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           alignItems: "center",
           justifyContent: "space-between",
           padding: "0 16px",
-          borderBottom: "1px solid var(--c-theme-divider)",
+          borderBottom: "1px solid var(--smriti-workspace-header-border, var(--c-theme-divider))",
           flexShrink: 0,
-          background: "var(--c-theme-surface-2)",
+          background: "var(--smriti-workspace-header-bg, var(--c-theme-surface-2))",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -225,8 +225,9 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           gap: 6,
           fontSize: 12,
           color: "var(--c-theme-muted)",
-          borderBottom: "1px solid var(--c-theme-divider)",
+          borderBottom: "1px solid var(--smriti-workspace-toolbar-border, var(--c-theme-divider))",
           flexShrink: 0,
+          background: "var(--smriti-workspace-toolbar-bg, var(--c-theme-surface-2))",
         }}
       >
         {breadcrumbs.map((crumb, i) => (
@@ -321,9 +322,9 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           style={{
             minHeight: "var(--sxp-filter-strip-height, 44px)",
             padding: "8px 16px",
-            borderBottom: "1px solid var(--c-theme-divider)",
+            borderBottom: "1px solid var(--smriti-workspace-toolbar-border, var(--c-theme-divider))",
             flexShrink: 0,
-            background: "var(--c-theme-surface-2)",
+            background: "var(--smriti-workspace-toolbar-bg, var(--c-theme-surface-2))",
           }}
         >
           {filterStrip}
@@ -353,7 +354,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               borderLeft: "1px solid var(--c-theme-divider)",
               overflow: "auto",
               flexShrink: 0,
-              background: "var(--c-theme-surface-2)",
+              background: "var(--smriti-workspace-panel-bg, var(--c-theme-surface-2))",
             }}
           >
             {inspector}
@@ -413,9 +414,9 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           gap: 16,
           fontSize: 11,
           color: "var(--c-theme-muted)",
-          borderTop: "1px solid var(--c-theme-divider)",
+          borderTop: "1px solid var(--smriti-workspace-toolbar-border, var(--c-theme-divider))",
           flexShrink: 0,
-          background: "var(--c-theme-surface-2)",
+          background: "var(--smriti-workspace-toolbar-bg, var(--c-theme-surface-2))",
         }}
       >
         <span>{metadata.title}</span>

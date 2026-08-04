@@ -17,6 +17,9 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({ title, subtitl
         justifyContent: 'space-between',
         gap: 'var(--smriti-space-md,16px)',
         padding: 'var(--smriti-space-sm,8px) 0',
+        background: 'var(--smriti-workspace-header-bg, var(--c-theme-surface-1))',
+        color: 'var(--c-theme-body)',
+        borderBottom: '1px solid var(--smriti-workspace-header-border, var(--c-theme-divider))',
       }}
     >
       <div className="smriti-workspace-header__titles">
