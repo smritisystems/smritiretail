@@ -78,7 +78,7 @@ export const BarcodePrintDialog: React.FC<BarcodePrintDialogProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={`Label Print Manager: ${product.name}`}
-      subtitle={`SKU: ${product.sku || product.barcode || "N/A"} | MRP: â‚¹${product.mrp || product.price || 0}`}
+      subtitle={`SKU: ${product.sku || product.barcode || "N/A"} | MRP: ₹${product.mrp || product.price || 0}`}
       icon={Printer}
       maxWidthClass="max-w-xl"
       footerActions={
@@ -126,7 +126,7 @@ export const BarcodePrintDialog: React.FC<BarcodePrintDialogProps> = ({
           <div className="flex items-center justify-between w-48 text-[10px] font-mono text-theme-heading">
             <span>{product.barcode || product.sku || "8901234567890"}</span>
             {showPrice && (
-              <span className="font-extrabold text-theme-heading">â‚¹{(product.mrp || product.price || 0).toFixed(2)}</span>
+              <span className="font-extrabold text-theme-heading">₹{(product.mrp || product.price || 0).toFixed(2)}</span>
             )}
           </div>
         </div>

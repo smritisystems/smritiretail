@@ -1009,7 +1009,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 
                     <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/40 text-left">
                       <span className="text-[10px] font-mono text-theme-muted block">AGGREGATE VALUE BOUGHT</span>
-                      <span className="text-lg font-bold text-emerald-500 dark:text-emerald-400 font-mono mt-1 block">â‚¹{supplierDetails.summary.totalValue}</span>
+                      <span className="text-lg font-bold text-emerald-500 dark:text-emerald-400 font-mono mt-1 block">₹{supplierDetails.summary.totalValue}</span>
                       <span className="text-[9px] text-emerald-500 mt-1 block">Fully Confirmed contracts value</span>
                     </div>
 
@@ -1474,7 +1474,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                         <tr key={row.size} className="hover:bg-theme-surface-3/20">
                           <td className="px-3 py-2.5 font-sans font-bold text-theme-body">{row.size}</td>
                           <td className="px-3 py-2.5 text-right text-theme-body">{row.orderedQty}</td>
-                          <td className="px-3 py-2.5 text-right text-emerald-400">â‚¹{row.orderedValue}</td>
+                          <td className="px-3 py-2.5 text-right text-emerald-400">₹{row.orderedValue}</td>
                           <td className="px-3 py-2.5 text-right text-theme-muted">{row.poCount}</td>
                         </tr>
                       ))}

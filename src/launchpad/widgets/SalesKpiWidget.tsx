@@ -23,7 +23,7 @@ export const SalesKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> = ({ 
           <span>Sales Today</span>
           <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
         </div>
-        <div className="text-lg font-bold text-theme-heading font-mono">â‚¹48,920.00</div>
+        <div className="text-lg font-bold text-theme-heading font-mono">₹48,920.00</div>
         <div className="text-[10px] text-emerald-500 font-medium mt-1">â†‘ +14.2% vs yesterday</div>
       </div>
 
@@ -36,7 +36,7 @@ export const SalesKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> = ({ 
           <ShoppingBag className="w-3.5 h-3.5 text-[var(--c-seef-accent)]" />
         </div>
         <div className="text-lg font-bold text-theme-heading font-mono">142 Invoices</div>
-        <div className="text-[10px] text-theme-muted mt-1">Avg Bill: â‚¹344.50</div>
+        <div className="text-[10px] text-theme-muted mt-1">Avg Bill: ₹344.50</div>
       </div>
 
       <div
@@ -47,7 +47,7 @@ export const SalesKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> = ({ 
           <span>Cash Drawer</span>
           <CreditCard className="w-3.5 h-3.5 text-amber-500" />
         </div>
-        <div className="text-lg font-bold text-theme-heading font-mono">â‚¹18,450.00</div>
+        <div className="text-lg font-bold text-theme-heading font-mono">₹18,450.00</div>
         <div className="text-[10px] text-theme-muted mt-1">Shift Active</div>
       </div>
 

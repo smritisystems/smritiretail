@@ -281,8 +281,8 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                       <th className="py-1.5 px-2">SKU / Code *</th>
                       <th className="py-1.5 px-2">Product Name *</th>
                       <th className="py-1.5 px-2">Category</th>
-                      <th className="py-1.5 px-2 text-right">MRP (â‚¹)</th>
-                      <th className="py-1.5 px-2 text-right font-extrabold">Price (â‚¹)</th>
+                      <th className="py-1.5 px-2 text-right">MRP (₹)</th>
+                      <th className="py-1.5 px-2 text-right font-extrabold">Price (₹)</th>
                       <th className="py-1.5 px-2 text-right">Stock Qty</th>
                       <th className="py-1.5 px-2 text-center">Status</th>
                     </tr>
@@ -305,8 +305,8 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                           <td className="py-1 px-2 font-mono font-bold text-theme-heading">{prod.code || prod.sku}</td>
                           <td className="py-1 px-2 font-semibold text-theme-heading">{prod.name}</td>
                           <td className="py-1 px-2 text-theme-muted">{prod.category || "General"}</td>
-                          <td className="py-1 px-2 text-right font-mono text-theme-muted">â‚¹ {prod.mrp || prod.price}</td>
-                          <td className="py-1 px-2 text-right font-mono font-bold text-blue-700">â‚¹ {prod.price}</td>
+                          <td className="py-1 px-2 text-right font-mono text-theme-muted">₹ {prod.mrp || prod.price}</td>
+                          <td className="py-1 px-2 text-right font-mono font-bold text-blue-700">₹ {prod.price}</td>
                           <td className="py-1 px-2 text-right font-mono font-bold text-theme-heading">{qty} {prod.unit || "Pcs"}</td>
                           <td className="py-1 px-2 text-center">
                             {isLow ? (
@@ -347,7 +347,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                 <div className="flex items-center justify-between pt-1 border-t border-theme-divider">
                   <span className="font-bold text-theme-heading">Total Inventory Valuation</span>
                   <span className="font-mono font-black text-emerald-600 text-sm">
-                    â‚¹ {inventoryTotals.totalValuation.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    ₹ {inventoryTotals.totalValuation.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>
@@ -369,11 +369,11 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                     </div>
                     <div>
                       <span className="text-theme-muted uppercase text-[9px] block">Buying Rate</span>
-                      <span className="font-mono font-bold text-theme-body">â‚¹ {selectedProduct.purchasePrice || 60}</span>
+                      <span className="font-mono font-bold text-theme-body">₹ {selectedProduct.purchasePrice || 60}</span>
                     </div>
                     <div>
                       <span className="text-theme-muted uppercase text-[9px] block">Retail Selling Price</span>
-                      <span className="font-mono font-bold text-blue-700">â‚¹ {selectedProduct.price}</span>
+                      <span className="font-mono font-bold text-blue-700">₹ {selectedProduct.price}</span>
                     </div>
                   </div>
                 </div>
@@ -562,7 +562,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">MRP (â‚¹)</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">MRP (₹)</label>
                   <input
                     type="number"
                     value={formData.mrp}
@@ -571,7 +571,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Selling Price (â‚¹) *</label>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Selling Price (₹) *</label>
                   <input
                     type="number"
                     required

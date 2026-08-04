@@ -240,7 +240,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
       gst_number: "27ABCDE1234F1Z5", pan_number: "ABCDE1234F",
       tan_number: "MUMB12345F", cin_number: "U72200MH2010PTC123456",
       gst_type: "Regular", place_of_supply: "Maharashtra",
-      balance: "â‚¹1,20,000", outstanding_balance: 120000,
+      balance: "₹1,20,000", outstanding_balance: 120000,
       credit_limit: 500000, credit_days: 30, opening_balance: 25000,
       payment_terms: "Net 30 Days", status: "Approved",
       city: "Mumbai", state: "Maharashtra",
@@ -273,7 +273,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
         { id: "d2", doc_type: "FSSAI License", doc_number: "10019022001234", expiry_date: "2026-08-15", status: "Expiring Soon", file_name: "fssai_license.pdf" }
       ],
       communication_logs: [
-        { id: "l1", timestamp: "2026-07-28 14:30", type: "PO Sent", summary: "Dispatched PO-2026-0089 for â‚¹1,20,000", user: "System" }
+        { id: "l1", timestamp: "2026-07-28 14:30", type: "PO Sent", summary: "Dispatched PO-2026-0089 for ₹1,20,000", user: "System" }
       ],
       created_at: "2026-01-15", created_by: "Jawahar Mallah"
     },
@@ -285,7 +285,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
       mobile: "+91 98333 99887", email: "anita@globalsupplies.com",
       gst_number: "27XYZPQ9876G1Z3", pan_number: "XYZPQ9876G",
       gst_type: "Regular", place_of_supply: "Maharashtra",
-      balance: "â‚¹0", outstanding_balance: 0,
+      balance: "₹0", outstanding_balance: 0,
       credit_limit: 300000, credit_days: 15,
       payment_terms: "Net 15 Days", status: "Approved",
       city: "Pune", state: "Maharashtra",
@@ -399,7 +399,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
       onNotification?.("Payment Amount Required", "Enter an amount greater than zero.", "error");
       return;
     }
-    onNotification?.("Payment Recorded", `${paymentMode} payment of â‚¹${Number(paymentAmount).toLocaleString("en-IN")} recorded for ${selectedSupplier.name}.`, "success");
+    onNotification?.("Payment Recorded", `${paymentMode} payment of ₹${Number(paymentAmount).toLocaleString("en-IN")} recorded for ${selectedSupplier.name}.`, "success");
     setIsPaymentOpen(false);
   };
 
@@ -426,7 +426,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
           mobile: s.mobile || "N/A", email: s.email || "N/A",
           gst_number: s.gst_number || "N/A", pan_number: s.pan_number || "N/A",
           gst_type: s.gst_type || "Regular", place_of_supply: s.place_of_supply || "Maharashtra",
-          balance: `â‚¹${(s.outstanding_balance || 0).toLocaleString("en-IN")}`,
+          balance: `₹${(s.outstanding_balance || 0).toLocaleString("en-IN")}`,
           outstanding_balance: s.outstanding_balance || 0,
           credit_limit: s.credit_profile?.credit_limit || 200000,
           credit_days: s.credit_profile?.credit_days || 30,
@@ -532,7 +532,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
       gst_type: formData.gst_type, place_of_supply: formData.place_of_supply,
       address: formData.address || `${formData.billing_building} ${formData.billing_street}`.trim(),
       city: formData.city, state: formData.state, pincode: formData.pincode,
-      balance: "â‚¹0", outstanding_balance: 0,
+      balance: "₹0", outstanding_balance: 0,
       credit_limit: parseFloat(formData.credit_limit) || 200000,
       credit_days: parseInt(formData.credit_days) || 30,
       opening_balance: parseFloat(formData.opening_balance) || 0,
@@ -710,7 +710,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
         <div className="flex items-center gap-4 bg-theme-surface-3 px-4 py-2 rounded-xl border border-theme-divider">
           <div className="text-right">
             <div className="text-[10px] font-mono text-theme-muted uppercase font-bold">Total Payables</div>
-            <div className="text-sm font-bold text-rose-400 font-mono">â‚¹{totalOutstanding.toLocaleString("en-IN")}</div>
+            <div className="text-sm font-bold text-rose-400 font-mono">₹{totalOutstanding.toLocaleString("en-IN")}</div>
           </div>
           <div className="w-px h-8 bg-theme-divider" />
           <div className="text-right">
@@ -780,8 +780,8 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">{primarySupplier.status}</span>
                   </div>
                 </div>
-                <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl"><p className="text-xs text-theme-muted">Outstanding</p><p className="text-2xl font-bold text-rose-400 font-mono mt-2">{primarySupplier.balance || "â‚¹0"}</p></div>
-                <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl"><p className="text-xs text-theme-muted">Credit limit</p><p className="text-2xl font-bold text-theme-heading font-mono mt-2">â‚¹{(primarySupplier.credit_limit || 0).toLocaleString("en-IN")}</p></div>
+                <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl"><p className="text-xs text-theme-muted">Outstanding</p><p className="text-2xl font-bold text-rose-400 font-mono mt-2">{primarySupplier.balance || "₹0"}</p></div>
+                <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl"><p className="text-xs text-theme-muted">Credit limit</p><p className="text-2xl font-bold text-theme-heading font-mono mt-2">₹{(primarySupplier.credit_limit || 0).toLocaleString("en-IN")}</p></div>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -792,7 +792,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
-                {[{ label: "Pending PO", value: "3" }, { label: "Pending Bills", value: "2" }, { label: "Overdue", value: "â‚¹5,000" }, { label: "Last Payment", value: "â‚¹10,000" }].map(item => <div key={item.label} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl"><p className="text-[10px] uppercase tracking-wider text-theme-muted font-mono">{item.label}</p><p className="text-lg font-bold text-theme-heading font-mono mt-2">{item.value}</p></div>)}
+                {[{ label: "Pending PO", value: "3" }, { label: "Pending Bills", value: "2" }, { label: "Overdue", value: "₹5,000" }, { label: "Last Payment", value: "₹10,000" }].map(item => <div key={item.label} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl"><p className="text-[10px] uppercase tracking-wider text-theme-muted font-mono">{item.label}</p><p className="text-lg font-bold text-theme-heading font-mono mt-2">{item.value}</p></div>)}
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -867,7 +867,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                           <span className="block text-[10px] text-theme-muted">{v.mobile}</span>
                         </td>
                         <td className={`px-4 py-3 text-right font-bold ${v.outstanding_balance?"text-rose-400":"text-emerald-400"}`}>
-                          {v.balance||"â‚¹0"}
+                          {v.balance||"₹0"}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <button onClick={() => { setSelectedSupplier(v); setStudioTab("overview"); }}
@@ -888,7 +888,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {[
                 {l:"Total Vendors",v:suppliers.length,c:"text-[var(--c-seef-accent)]",icon:<Building2 className="w-5 h-5"/>},
-                {l:"Total Payables",v:`â‚¹${totalOutstanding.toLocaleString("en-IN")}`,c:"text-rose-400",icon:<DollarSign className="w-5 h-5"/>},
+                {l:"Total Payables",v:`₹${totalOutstanding.toLocaleString("en-IN")}`,c:"text-rose-400",icon:<DollarSign className="w-5 h-5"/>},
                 {l:"MSME Vendors",v:suppliers.filter(s=>s.msme_category==="Micro"||s.msme_category==="Small").length,c:"text-amber-400",icon:<Award className="w-5 h-5"/>},
                 {l:"TDS Applicable",v:suppliers.filter(s=>s.is_tds_applicable).length,c:"text-purple-400",icon:<Percent className="w-5 h-5"/>},
                 {l:"Preferred Vendors",v:suppliers.filter(s=>s.is_preferred).length,c:"text-emerald-400",icon:<Star className="w-5 h-5"/>},
@@ -921,7 +921,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                         <td className="px-4 py-3"><span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded font-bold text-[10px] border border-amber-500/30">{s.msme_category}</span></td>
                         <td className="px-4 py-3 text-theme-muted">{s.msme_number||"N/A"}</td>
                         <td className="px-4 py-3 text-emerald-400 font-bold">45 Days</td>
-                        <td className="px-4 py-3 text-right text-rose-400 font-bold">{s.balance||"â‚¹0"}</td>
+                        <td className="px-4 py-3 text-right text-rose-400 font-bold">{s.balance||"₹0"}</td>
                       </tr>
                     ))}
                     {suppliers.filter(s=>s.msme_category==="Micro"||s.msme_category==="Small").length===0&&(
@@ -1010,7 +1010,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
           <motion.div initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="w-full max-w-md bg-theme-surface-1 border border-theme-divider rounded-2xl shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-theme-divider"><div><p className="text-[10px] uppercase tracking-wider text-emerald-400 font-mono font-bold">Quick payment</p><h3 className="text-base font-bold text-theme-heading mt-1">{selectedSupplier.name}</h3></div><button onClick={() => setIsPaymentOpen(false)} className="p-1.5 text-theme-muted hover:text-theme-heading cursor-pointer"><X className="w-5 h-5" /></button></div>
             <div className="p-5 space-y-4">
-              <div className="p-3 bg-theme-surface-2 rounded-lg flex items-center justify-between"><span className="text-xs text-theme-muted">Outstanding</span><strong className="text-rose-400 font-mono">{selectedSupplier.balance || "â‚¹0"}</strong></div>
+              <div className="p-3 bg-theme-surface-2 rounded-lg flex items-center justify-between"><span className="text-xs text-theme-muted">Outstanding</span><strong className="text-rose-400 font-mono">{selectedSupplier.balance || "₹0"}</strong></div>
               <div><label className={lbl}>Amount</label><input autoFocus type="number" min="1" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="Enter amount" className={inpMono} /></div>
               <div><label className={lbl}>Mode</label><div className="grid grid-cols-4 gap-2">{(["Cash", "UPI", "Bank", "Cheque"] as const).map(mode => <button key={mode} type="button" onClick={() => setPaymentMode(mode)} className={`px-2 py-2 rounded-lg text-xs font-bold border cursor-pointer ${paymentMode === mode ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/40" : "text-theme-muted border-theme-divider"}`}>{mode}</button>)}</div></div>
               <div><label className={lbl}>Reference</label><input value={paymentReference} onChange={e => setPaymentReference(e.target.value)} placeholder="Optional UTR / receipt number" className={inpMono} /></div>
@@ -1661,11 +1661,11 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     <SectionPanel sectionKey="finance" title="Credit & Finance" icon={<DollarSign className="w-4 h-4"/>}>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <label className={lbl}>Opening Balance (â‚¹)</label>
+                          <label className={lbl}>Opening Balance (₹)</label>
                           <input type="number" step="0.01" placeholder="0.00" value={formData.opening_balance} onChange={e=>set("opening_balance",e.target.value)} className={inpMono}/>
                         </div>
                         <div>
-                          <label className={lbl}>Credit Limit (â‚¹)</label>
+                          <label className={lbl}>Credit Limit (₹)</label>
                           <input type="number" step="1000" min="0" placeholder="200000" value={formData.credit_limit} onChange={e=>set("credit_limit",e.target.value)} className={inpMono}/>
                         </div>
                         <div>
@@ -1855,8 +1855,8 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                      {l:"Total Outstanding",v:selectedSupplier.balance||"â‚¹0",c:"text-rose-400"},
-                      {l:"Credit Limit / Days",v:`â‚¹${selectedSupplier.credit_limit?.toLocaleString("en-IN")} / ${selectedSupplier.credit_days}d`,c:"text-theme-heading"},
+                      {l:"Total Outstanding",v:selectedSupplier.balance||"₹0",c:"text-rose-400"},
+                      {l:"Credit Limit / Days",v:`₹${selectedSupplier.credit_limit?.toLocaleString("en-IN")} / ${selectedSupplier.credit_days}d`,c:"text-theme-heading"},
                       {l:"MSME Category",v:selectedSupplier.msme_category||"Non-MSME",c:"text-amber-400"},
                       {l:"Vendor Rating",v:`${selectedSupplier.scorecard_rating||92.0}/100`,c:"text-emerald-400"}
                     ].map(k=>(
@@ -1896,7 +1896,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     {title:"Identity",icon:<Building2 className="w-4 h-4"/>,fields:[["Code",selectedSupplier.code],["Name",selectedSupplier.name],["Legal Name",selectedSupplier.legal_name],["Type",selectedSupplier.supplier_type_id],["Group",selectedSupplier.group]]},
                     {title:"GST & Tax",icon:<ShieldCheck className="w-4 h-4"/>,fields:[["GSTIN",selectedSupplier.gst_number],["PAN",selectedSupplier.pan_number],["TAN",selectedSupplier.tan_number],["CIN",selectedSupplier.cin_number],["GST Type",selectedSupplier.gst_type],["TDS Section",selectedSupplier.tds_section],["TDS Rate",selectedSupplier.tds_rate?`${(selectedSupplier.tds_rate*100).toFixed(2)}%`:"N/A"]]},
                     {title:"MSME & Compliance",icon:<Award className="w-4 h-4"/>,fields:[["MSME Category",selectedSupplier.msme_category],["Udyam No.",selectedSupplier.msme_number],["FSSAI License",selectedSupplier.fssai_license_no],["FSSAI Expiry",selectedSupplier.fssai_expiry],["Drug License",selectedSupplier.drug_license_no],["IEC Code",selectedSupplier.iec_code]]},
-                    {title:"Financial",icon:<DollarSign className="w-4 h-4"/>,fields:[["Credit Limit",`â‚¹${selectedSupplier.credit_limit?.toLocaleString("en-IN")||"0"}`],["Credit Days",`${selectedSupplier.credit_days||0} Days`],["Payment Terms",selectedSupplier.payment_terms],["Outstanding",selectedSupplier.balance]]},
+                    {title:"Financial",icon:<DollarSign className="w-4 h-4"/>,fields:[["Credit Limit",`₹${selectedSupplier.credit_limit?.toLocaleString("en-IN")||"0"}`],["Credit Days",`${selectedSupplier.credit_days||0} Days`],["Payment Terms",selectedSupplier.payment_terms],["Outstanding",selectedSupplier.balance]]},
                     {title:"Purchase Defaults",icon:<PackageCheck className="w-4 h-4"/>,fields:[["Currency",selectedSupplier.currency],["Warehouse",selectedSupplier.warehouse],["Lead Time",`${selectedSupplier.lead_time_days||0}d`],["Min Qty",String(selectedSupplier.min_order_qty||0)],["Preferred",selectedSupplier.is_preferred?"Yes":"No"]]},
                     {title:"Logistics",icon:<Truck className="w-4 h-4"/>,fields:[["Transporter",selectedSupplier.transport_name],["Freight Terms",selectedSupplier.freight_terms],["E-Way Bill",selectedSupplier.eway_bill_applicable?"Required":"N/A"]]},
                     {title:"Labels",icon:<Tag className="w-4 h-4"/>,fields:[["Template",selectedSupplier.default_label_template],["Barcode",selectedSupplier.default_barcode_type]]}
@@ -2064,7 +2064,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     <table className="w-full text-xs font-mono">
                       <thead><tr className="border-b border-theme-divider bg-theme-surface-3 text-[10px] uppercase text-theme-muted"><th className="px-4 py-3">PO No.</th><th className="px-4 py-3">Date</th><th className="px-4 py-3">Items</th><th className="px-4 py-3 text-right">Amount</th><th className="px-4 py-3">Status</th></tr></thead>
                       <tbody className="divide-y divide-theme-divider">
-                        {[{po:"PO-2026-0089",date:"2026-07-28",items:12,amt:"â‚¹1,20,000",st:"Delivered"},{po:"PO-2026-0045",date:"2026-06-10",items:5,amt:"â‚¹45,500",st:"Delivered"}].map(r=>(
+                        {[{po:"PO-2026-0089",date:"2026-07-28",items:12,amt:"₹1,20,000",st:"Delivered"},{po:"PO-2026-0045",date:"2026-06-10",items:5,amt:"₹45,500",st:"Delivered"}].map(r=>(
                           <tr key={r.po} className="hover:bg-theme-surface-hover"><td className="px-4 py-3 font-bold text-[var(--c-seef-accent)]">{r.po}</td><td className="px-4 py-3 text-theme-muted">{r.date}</td><td className="px-4 py-3">{r.items}</td><td className="px-4 py-3 text-right font-bold">{r.amt}</td><td className="px-4 py-3"><span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px] font-bold border border-emerald-500/30">{r.st}</span></td></tr>
                         ))}
                       </tbody>
@@ -2081,7 +2081,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     <table className="w-full text-xs font-mono">
                       <thead><tr className="border-b border-theme-divider bg-theme-surface-3 text-[10px] uppercase text-theme-muted"><th className="px-4 py-3">GRN No.</th><th className="px-4 py-3">Date</th><th className="px-4 py-3">PO Ref</th><th className="px-4 py-3 text-right">Value</th><th className="px-4 py-3">QC</th></tr></thead>
                       <tbody className="divide-y divide-theme-divider">
-                        {[{grn:"GRN-2026-0052",date:"2026-07-30",po:"PO-2026-0089",val:"â‚¹1,20,000",qc:"Accepted"}].map(r=>(
+                        {[{grn:"GRN-2026-0052",date:"2026-07-30",po:"PO-2026-0089",val:"₹1,20,000",qc:"Accepted"}].map(r=>(
                           <tr key={r.grn} className="hover:bg-theme-surface-hover"><td className="px-4 py-3 font-bold text-emerald-400">{r.grn}</td><td className="px-4 py-3 text-theme-muted">{r.date}</td><td className="px-4 py-3 text-[var(--c-seef-accent)]">{r.po}</td><td className="px-4 py-3 text-right font-bold">{r.val}</td><td className="px-4 py-3"><span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px] font-bold border border-emerald-500/30">{r.qc}</span></td></tr>
                         ))}
                       </tbody>
@@ -2098,7 +2098,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     <table className="w-full text-xs font-mono">
                       <thead><tr className="border-b border-theme-divider bg-theme-surface-3 text-[10px] uppercase text-theme-muted"><th className="px-4 py-3">Invoice No.</th><th className="px-4 py-3">Date</th><th className="px-4 py-3">Due Date</th><th className="px-4 py-3 text-right">Amount</th><th className="px-4 py-3">Status</th></tr></thead>
                       <tbody className="divide-y divide-theme-divider">
-                        {[{inv:"INV-TC-2026-089",date:"2026-07-28",due:"2026-08-27",amt:"â‚¹1,41,600",st:"Pending"},{inv:"INV-TC-2026-045",date:"2026-06-10",due:"2026-07-10",amt:"â‚¹53,690",st:"Paid"}].map(r=>(
+                        {[{inv:"INV-TC-2026-089",date:"2026-07-28",due:"2026-08-27",amt:"₹1,41,600",st:"Pending"},{inv:"INV-TC-2026-045",date:"2026-06-10",due:"2026-07-10",amt:"₹53,690",st:"Paid"}].map(r=>(
                           <tr key={r.inv} className="hover:bg-theme-surface-hover"><td className="px-4 py-3 font-bold text-purple-400">{r.inv}</td><td className="px-4 py-3 text-theme-muted">{r.date}</td><td className="px-4 py-3 text-theme-muted">{r.due}</td><td className="px-4 py-3 text-right font-bold">{r.amt}</td><td className="px-4 py-3"><span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${r.st==="Paid"?"bg-emerald-500/10 text-emerald-400 border-emerald-500/30":"bg-amber-500/10 text-amber-400 border-amber-500/30"}`}>{r.st}</span></td></tr>
                         ))}
                       </tbody>
@@ -2115,7 +2115,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     <table className="w-full text-xs font-mono">
                       <thead><tr className="border-b border-theme-divider bg-theme-surface-3 text-[10px] uppercase text-theme-muted"><th className="px-4 py-3">Payment Ref</th><th className="px-4 py-3">Date</th><th className="px-4 py-3">Mode</th><th className="px-4 py-3 text-right">Amount</th><th className="px-4 py-3">Invoice</th></tr></thead>
                       <tbody className="divide-y divide-theme-divider">
-                        {[{ref:"PAY-2026-0044",date:"2026-07-10",mode:"NEFT",amt:"â‚¹53,690",inv:"INV-TC-2026-045"}].map(r=>(
+                        {[{ref:"PAY-2026-0044",date:"2026-07-10",mode:"NEFT",amt:"₹53,690",inv:"INV-TC-2026-045"}].map(r=>(
                           <tr key={r.ref} className="hover:bg-theme-surface-hover"><td className="px-4 py-3 font-bold text-emerald-400">{r.ref}</td><td className="px-4 py-3 text-theme-muted">{r.date}</td><td className="px-4 py-3"><span className="px-2 py-0.5 bg-theme-surface-3 rounded text-[10px] font-bold">{r.mode}</span></td><td className="px-4 py-3 text-right font-bold">{r.amt}</td><td className="px-4 py-3 text-[var(--c-seef-accent)]">{r.inv}</td></tr>
                         ))}
                       </tbody>

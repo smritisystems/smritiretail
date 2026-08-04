@@ -108,7 +108,7 @@ export const ItemMasterUomMatrix: React.FC<ItemMasterUomMatrixProps> = ({
 
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1">
-                  <span className="text-theme-muted font-mono">Pack MRP â‚¹</span>
+                  <span className="text-theme-muted font-mono">Pack MRP ₹</span>
                   <input
                     type="number"
                     value={c.mrp}

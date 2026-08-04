@@ -113,7 +113,7 @@ export const DocumentItemsGrid: React.FC<DocumentItemsGridProps> = ({
               <option value="">-- Add Product to Item Grid --</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} ({p.code}) - â‚¹{p.mrp}
+                  {p.name} ({p.code}) - ₹{p.mrp}
                 </option>
               ))}
             </select>
@@ -154,7 +154,7 @@ export const DocumentItemsGrid: React.FC<DocumentItemsGridProps> = ({
               <th className="px-4 py-3">Barcode / Code</th>
               <th className="px-4 py-3">Item Description</th>
               <th className="px-4 py-3 text-right">Qty</th>
-              <th className="px-4 py-3 text-right">Rate (â‚¹)</th>
+              <th className="px-4 py-3 text-right">Rate (₹)</th>
               <th className="px-4 py-3 text-right">Disc %</th>
               <th className="px-4 py-3 text-right">GST %</th>
               <th className="px-4 py-3 text-right font-bold text-emerald-400">Line Amount</th>
@@ -219,7 +219,7 @@ export const DocumentItemsGrid: React.FC<DocumentItemsGridProps> = ({
                     </td>
                     <td className="px-4 py-2 text-right font-mono text-amber-400">{row.gstRate}%</td>
                     <td className="px-4 py-2 text-right font-mono font-bold text-emerald-400">
-                      â‚¹{Math.round(row.totalAmount).toLocaleString("en-IN")}
+                      ₹{Math.round(row.totalAmount).toLocaleString("en-IN")}
                     </td>
                     <td className="px-4 py-2 text-center">
                       <div className="flex items-center justify-center space-x-1">

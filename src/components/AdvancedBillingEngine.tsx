@@ -84,9 +84,9 @@ interface AdvancedBillingEngineProps {
 
 // Dummy databases for demonstration and real matching
 const COUPONS_DB = [
-  { code: "SMRITI10", type: "percent" as const, value: 10, minPurchase: 1000, desc: "10% Off on minimum purchase of â‚¹1,000" },
-  { code: "SAVE500", type: "flat" as const, value: 500, minPurchase: 3000, desc: "Flat â‚¹500 Off on minimum purchase of â‚¹3,000" },
-  { code: "FESTIVE25", type: "percent" as const, value: 25, minPurchase: 2000, desc: "25% Festive Discount on minimum purchase of â‚¹2,000" }
+  { code: "SMRITI10", type: "percent" as const, value: 10, minPurchase: 1000, desc: "10% Off on minimum purchase of ₹1,000" },
+  { code: "SAVE500", type: "flat" as const, value: 500, minPurchase: 3000, desc: "Flat ₹500 Off on minimum purchase of ₹3,000" },
+  { code: "FESTIVE25", type: "percent" as const, value: 25, minPurchase: 2000, desc: "25% Festive Discount on minimum purchase of ₹2,000" }
 ];
 
 const GIFT_CARDS_DB: Record<string, number> = {
@@ -520,7 +520,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       }
     }
 
-    // Loyalty Points discount (1 Point = â‚¹1)
+    // Loyalty Points discount (1 Point = ₹1)
     const loyaltyValue = Math.min(loyaltyRedeemPoints, subTotalAfterItemDiscounts - promoValue - billDiscVal - couponDiscountValue, openingLoyaltyPoints);
 
     const totalBillDiscounts = promoValue + billDiscVal + couponDiscountValue + loyaltyValue;
@@ -596,7 +596,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     const balancePayable = Math.max(0, finalGrandTotal - finalGiftCardValue);
 
     // Points earned on current bill
-    const loyaltyPointsEarned = Math.floor(finalGrandTotal / 100); // 1 point per â‚¹100
+    const loyaltyPointsEarned = Math.floor(finalGrandTotal / 100); // 1 point per ₹100
 
     return {
       grossAmount,
@@ -643,7 +643,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     if (bal !== undefined) {
       setGiftCardBalance(bal);
       setGiftCardRedemption(Math.min(bal, totals.grandTotal));
-      onNotification("Gift Card Verified", `Card has available balance of â‚¹${bal}`, "success");
+      onNotification("Gift Card Verified", `Card has available balance of ₹${bal}`, "success");
     } else {
       onNotification("Invalid Card", "The entered Gift Card number was not found.", "error");
     }
@@ -675,7 +675,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     if (cart.length === 0 || !activeShift) return;
 
     if (paymentMode === "Split" && Math.abs(splitUnderpaid) > 1) {
-      onNotification("Payment Mismatch", `Split payment allocation mismatch by â‚¹${splitUnderpaid.toFixed(2)}. Please balance details.`, "error");
+      onNotification("Payment Mismatch", `Split payment allocation mismatch by ₹${splitUnderpaid.toFixed(2)}. Please balance details.`, "error");
       return;
     }
 
@@ -970,7 +970,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                     const invoiceNo = finalizedInvoice?.invoiceNo || "N/A";
                     const grandTotal = totals.grandTotal || 0;
                     const customerName = customer.name || "Customer";
-                    const messageText = `Hello ${customerName},\n\nThank you for shopping with SMRITI Retail! Your digital receipt has been generated.\n\n*Invoice No:* ${invoiceNo}\n*Amount Paid:* â‚¹${grandTotal}\n*Store:* SMRITI Main Flagship Store\n\nHope to see you again soon!`;
+                    const messageText = `Hello ${customerName},\n\nThank you for shopping with SMRITI Retail! Your digital receipt has been generated.\n\n*Invoice No:* ${invoiceNo}\n*Amount Paid:* ₹${grandTotal}\n*Store:* SMRITI Main Flagship Store\n\nHope to see you again soon!`;
                     const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(messageText)}`;
                     window.open(waUrl, "_blank");
                     onNotification("WhatsApp Routed", `Secure invoice link dispatched to customer WhatsApp profile: ${customer.mobile || "+91 9999999999"}`, "success");
@@ -1078,11 +1078,11 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                           </td>
                           <td className="py-2 px-1 text-right font-mono">{item.hsnCode}</td>
                           <td className="py-2 px-1 text-right font-mono">{item.quantity}</td>
-                          <td className="py-2 px-1 text-right font-mono">â‚¹{item.product.price}</td>
-                          <td className="py-2 px-1 text-right font-mono text-rose-600">â‚¹{item.totalLineDiscount.toFixed(2)}</td>
-                          <td className="py-2 px-1 text-right font-mono">â‚¹{item.taxableValue.toFixed(2)}</td>
+                          <td className="py-2 px-1 text-right font-mono">₹{item.product.price}</td>
+                          <td className="py-2 px-1 text-right font-mono text-rose-600">₹{item.totalLineDiscount.toFixed(2)}</td>
+                          <td className="py-2 px-1 text-right font-mono">₹{item.taxableValue.toFixed(2)}</td>
                           <td className="py-2 px-1 text-right font-mono">{item.gstRate}%</td>
-                          <td className="py-2 px-1 text-right font-mono">â‚¹{item.totalLineFinal.toFixed(2)}</td>
+                          <td className="py-2 px-1 text-right font-mono">₹{item.totalLineFinal.toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1121,18 +1121,18 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                             {totals.items.map((item, idx) => (
                               <tr key={idx} className="text-gray-700">
                                 <td>{item.hsnCode}</td>
-                                <td className="text-right">â‚¹{item.taxableValue.toFixed(2)}</td>
+                                <td className="text-right">₹{item.taxableValue.toFixed(2)}</td>
                                 {!totals.isInterstate ? (
                                   <>
                                     <td className="text-right">{(item.gstRate / 2).toFixed(1)}%</td>
-                                    <td className="text-right">â‚¹{item.cgst.toFixed(2)}</td>
+                                    <td className="text-right">₹{item.cgst.toFixed(2)}</td>
                                     <td className="text-right">{(item.gstRate / 2).toFixed(1)}%</td>
-                                    <td className="text-right">â‚¹{item.sgst.toFixed(2)}</td>
+                                    <td className="text-right">₹{item.sgst.toFixed(2)}</td>
                                   </>
                                 ) : (
                                   <>
                                     <td className="text-right">{item.gstRate}%</td>
-                                    <td className="text-right">â‚¹{item.igst.toFixed(2)}</td>
+                                    <td className="text-right">₹{item.igst.toFixed(2)}</td>
                                   </>
                                 )}
                               </tr>
@@ -1153,49 +1153,49 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                     <div className="col-span-5 space-y-2">
                       <div className="flex justify-between text-gray-600">
                         <span>Gross Amount:</span>
-                        <span className="font-mono">â‚¹{totals.grossAmount.toFixed(2)}</span>
+                        <span className="font-mono">₹{totals.grossAmount.toFixed(2)}</span>
                       </div>
                       {totals.itemDiscountsTotal > 0 && (
                         <div className="flex justify-between text-rose-600">
                           <span>Less Item Discounts:</span>
-                          <span className="font-mono">-â‚¹{totals.itemDiscountsTotal.toFixed(2)}</span>
+                          <span className="font-mono">-₹{totals.itemDiscountsTotal.toFixed(2)}</span>
                         </div>
                       )}
                       {totals.totalBillDiscounts > 0 && (
                         <div className="flex justify-between text-rose-600">
                           <span>Less Bill Offers/Points:</span>
-                          <span className="font-mono">-â‚¹{totals.totalBillDiscounts.toFixed(2)}</span>
+                          <span className="font-mono">-₹{totals.totalBillDiscounts.toFixed(2)}</span>
                         </div>
                       )}
                       <div className="flex justify-between text-gray-600 border-t border-gray-100 pt-1">
                         <span>Net Taxable Base:</span>
-                        <span className="font-mono">â‚¹{totals.totalTaxableAmount.toFixed(2)}</span>
+                        <span className="font-mono">₹{totals.totalTaxableAmount.toFixed(2)}</span>
                       </div>
                       {!totals.isInterstate ? (
                         <>
                           <div className="flex justify-between text-gray-600">
                             <span>Add CGST:</span>
-                            <span className="font-mono">â‚¹{totals.cgstTotal.toFixed(2)}</span>
+                            <span className="font-mono">₹{totals.cgstTotal.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between text-gray-600">
                             <span>Add SGST:</span>
-                            <span className="font-mono">â‚¹{totals.sgstTotal.toFixed(2)}</span>
+                            <span className="font-mono">₹{totals.sgstTotal.toFixed(2)}</span>
                           </div>
                         </>
                       ) : (
                         <div className="flex justify-between text-gray-600">
                           <span>Add IGST:</span>
-                          <span className="font-mono">â‚¹{totals.igstTotal.toFixed(2)}</span>
+                          <span className="font-mono">₹{totals.igstTotal.toFixed(2)}</span>
                         </div>
                       )}
                       <div className="flex justify-between text-gray-500">
                         <span>Round Off:</span>
-                        <span className="font-mono">{totals.roundOff >= 0 ? "+" : ""}â‚¹{totals.roundOff.toFixed(2)}</span>
+                        <span className="font-mono">{totals.roundOff >= 0 ? "+" : ""}₹{totals.roundOff.toFixed(2)}</span>
                       </div>
 
                       <div className="flex justify-between text-gray-900 border-t border-b border-gray-300 py-2.5 font-bold text-xs bg-gray-50 px-2 rounded">
                         <span>GRAND TOTAL (INR):</span>
-                        <span className="font-mono text-sm">â‚¹{totals.grandTotal}</span>
+                        <span className="font-mono text-sm">₹{totals.grandTotal}</span>
                       </div>
 
                       {/* Payment mode details split */}
@@ -1204,7 +1204,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                         {paymentMode === "Single" ? (
                           <div className="flex justify-between text-gray-800 font-mono">
                             <span>{primaryPaymentMethod}:</span>
-                            <span>â‚¹{totals.grandTotal}</span>
+                            <span>₹{totals.grandTotal}</span>
                           </div>
                         ) : (
                           Object.entries(splitAmounts).map(([m, val]) => {
@@ -1212,7 +1212,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                             return (
                               <div key={m} className="flex justify-between text-gray-800 font-mono">
                                 <span>{m}:</span>
-                                <span>â‚¹{val.toFixed(2)}</span>
+                                <span>₹{val.toFixed(2)}</span>
                               </div>
                             );
                           })
@@ -1270,7 +1270,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                           <tr key={idx}>
                             <td>{item.product.name.slice(0, 16)}</td>
                             <td className="text-right">{item.quantity}</td>
-                            <td className="text-right">â‚¹{item.totalLineFinal.toFixed(0)}</td>
+                            <td className="text-right">₹{item.totalLineFinal.toFixed(0)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1280,11 +1280,11 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                   <div className="py-2 text-right space-y-1 text-[9px]">
                     <div className="flex justify-between">
                       <span>Gross total:</span>
-                      <span>â‚¹{totals.grossAmount.toFixed(0)}</span>
+                      <span>₹{totals.grossAmount.toFixed(0)}</span>
                     </div>
                     <div className="flex justify-between font-bold text-xs">
                       <span>Grand Total:</span>
-                      <span>â‚¹{totals.grandTotal}</span>
+                      <span>₹{totals.grandTotal}</span>
                     </div>
                   </div>
 
@@ -1313,7 +1313,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                     {totals.items.map((item, idx) => (
                       <div key={idx} className="flex justify-between text-[8px]">
                         <span>{item.product.name.slice(0, 12)} x{item.quantity}</span>
-                        <span>â‚¹{item.totalLineFinal.toFixed(0)}</span>
+                        <span>₹{item.totalLineFinal.toFixed(0)}</span>
                       </div>
                     ))}
                   </div>
@@ -1321,7 +1321,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                   <div className="py-1.5 text-right font-bold text-[10px]">
                     <div className="flex justify-between">
                       <span>TOTAL:</span>
-                      <span>â‚¹{totals.grandTotal}</span>
+                      <span>₹{totals.grandTotal}</span>
                     </div>
                   </div>
 
@@ -1359,7 +1359,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Flat Discount (â‚¹ Amount per unit)</label>
+                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Flat Discount (₹ Amount per unit)</label>
                     <input
                       type="number"
                       value={itemDetailsList[editingItemIdx]?.discounts.flat}
@@ -1371,7 +1371,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Promotional Discount (â‚¹)</label>
+                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Promotional Discount (₹)</label>
                     <input
                       type="number"
                       value={itemDetailsList[editingItemIdx]?.discounts.promo}
@@ -1383,7 +1383,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Associate/Salesperson Discount (â‚¹)</label>
+                    <label className="block text-[10px] text-gray-400 font-mono uppercase mb-1">Associate/Salesperson Discount (₹)</label>
                     <input
                       type="number"
                       value={itemDetailsList[editingItemIdx]?.discounts.salesperson}
@@ -1414,13 +1414,13 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
         <div className="flex items-center space-x-6">
           <div>Total Items: <span className="text-white font-bold">{cart.length}</span></div>
           <div>Total Qty: <span className="text-white font-bold">{totals.totalQty || 0}</span></div>
-          <div>Sales Value: <span className="text-white font-bold">â‚¹{(Number(totals.grossAmount) || 0).toFixed(2)}</span></div>
-          <div>Item Disc: <span className="text-amber-400 font-bold">â‚¹{(Number(totals.itemDiscountsTotal) || 0).toFixed(2)}</span></div>
-          <div>Bill Disc: <span className="text-amber-400 font-bold">â‚¹{(Number(totals.totalBillDiscounts) || 0).toFixed(2)}</span></div>
-          <div>Total Tax: <span className="text-blue-400 font-bold">â‚¹{(Number(totals.totalGstTax) || 0).toFixed(2)}</span></div>
+          <div>Sales Value: <span className="text-white font-bold">₹{(Number(totals.grossAmount) || 0).toFixed(2)}</span></div>
+          <div>Item Disc: <span className="text-amber-400 font-bold">₹{(Number(totals.itemDiscountsTotal) || 0).toFixed(2)}</span></div>
+          <div>Bill Disc: <span className="text-amber-400 font-bold">₹{(Number(totals.totalBillDiscounts) || 0).toFixed(2)}</span></div>
+          <div>Total Tax: <span className="text-blue-400 font-bold">₹{(Number(totals.totalGstTax) || 0).toFixed(2)}</span></div>
         </div>
         <div className="bg-emerald-600/20 px-3 py-1 rounded border border-emerald-500/40 text-emerald-300 font-bold text-sm">
-          Net Amount: â‚¹{(Number(totals.grandTotal) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+          Net Amount: ₹{(Number(totals.grandTotal) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
         </div>
       </footer>
 
