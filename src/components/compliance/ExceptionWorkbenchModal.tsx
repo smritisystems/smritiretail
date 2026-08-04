@@ -64,8 +64,8 @@ const MOCK_EXCEPTIONS: ComplianceException[] = [
     severity: "WARNING",
     category: "EWAY_BILL",
     errorCode: "EWAY_THRESHOLD_EXCEEDED",
-    title: "Consignment Exceeds â‚¹50,000 Threshold",
-    description: "Interstate B2B invoice total is â‚¹1,24,500. Statutory E-Way bill is required prior to dispatch.",
+    title: "Consignment Exceeds ₹50,000 Threshold",
+    description: "Interstate B2B invoice total is ₹1,24,500. Statutory E-Way bill is required prior to dispatch.",
     suggestedFix: "Generate E-Way Bill or provide vehicle number & transporter ID.",
     fieldRef: "eway_bill_no",
     currentValue: "PENDING"

@@ -82,7 +82,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
   const metrics: ObjectPageMetric[] = [
     { label: "SKU / Barcode", value: formData.barcode || formData.sku || "N/A" },
     { label: "Physical Stock", value: `${formData.stock_qty ?? formData.qty ?? 0} ${formData.uom || "Pcs"}`, highlight: true },
-    { label: "MRP / Retailing Price", value: `â‚¹${mrp.toLocaleString("en-IN")}` },
+    { label: "MRP / Retailing Price", value: `₹${mrp.toLocaleString("en-IN")}` },
     { label: "Margin %", value: `${marginPercent}%`, highlight: parseFloat(marginPercent) > 20 },
   ];
 
@@ -134,10 +134,10 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                 <DollarSign className="w-4 h-4 text-emerald-400" /> Commercial &amp; Margins
               </h5>
               {[
-                ["MRP Price", `â‚¹${mrp.toLocaleString("en-IN")}`],
-                ["Retail Sale Price", `â‚¹${salePrice.toLocaleString("en-IN")}`],
-                ["Purchase Cost", `â‚¹${purchaseCost.toLocaleString("en-IN")}`],
-                ["Gross Margin", `â‚¹${(salePrice - purchaseCost).toLocaleString("en-IN")}`],
+                ["MRP Price", `₹${mrp.toLocaleString("en-IN")}`],
+                ["Retail Sale Price", `₹${salePrice.toLocaleString("en-IN")}`],
+                ["Purchase Cost", `₹${purchaseCost.toLocaleString("en-IN")}`],
+                ["Gross Margin", `₹${(salePrice - purchaseCost).toLocaleString("en-IN")}`],
                 ["Margin %", `${marginPercent}%`],
                 ["Markup %", `${markupPercent}%`],
                 ["Current Stock Qty", `${formData.stock_qty ?? formData.qty ?? 0} ${formData.uom || "Pcs"}`],
@@ -177,10 +177,10 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
           </div>
 
           <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Wholesale Price</span><strong className="text-sm font-bold text-theme-heading">â‚¹{((formData.price || 0) * 0.9).toFixed(2)}</strong></div>
-            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Dealer Price</span><strong className="text-sm font-bold text-theme-heading">â‚¹{((formData.price || 0) * 0.85).toFixed(2)}</strong></div>
-            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Distributor Price</span><strong className="text-sm font-bold text-theme-heading">â‚¹{((formData.price || 0) * 0.8).toFixed(2)}</strong></div>
-            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Landed Cost</span><strong className="text-sm font-bold text-theme-heading">â‚¹{((purchaseCost) * 1.05).toFixed(2)}</strong></div>
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Wholesale Price</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.price || 0) * 0.9).toFixed(2)}</strong></div>
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Dealer Price</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.price || 0) * 0.85).toFixed(2)}</strong></div>
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Distributor Price</span><strong className="text-sm font-bold text-theme-heading">₹{((formData.price || 0) * 0.8).toFixed(2)}</strong></div>
+            <div><span className="text-theme-muted text-[10px] uppercase block font-bold">Landed Cost</span><strong className="text-sm font-bold text-theme-heading">₹{((purchaseCost) * 1.05).toFixed(2)}</strong></div>
           </div>
         </div>
       )
@@ -250,7 +250,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                   <td className="p-2 text-right text-theme-muted">150 Pcs</td>
                   <td className="p-2 text-right text-emerald-400 font-bold">90 Pcs</td>
                   <td className="p-2 text-right text-indigo-400 font-bold">60 Pcs</td>
-                  <td className="p-2 text-right font-bold text-theme-heading">â‚¹{(parseFloat(String(formData.mrp || "100")) * 60).toLocaleString('en-IN')}</td>
+                  <td className="p-2 text-right font-bold text-theme-heading">₹{(parseFloat(String(formData.mrp || "100")) * 60).toLocaleString('en-IN')}</td>
                   <td className="p-2 text-right text-amber-400 font-bold">14 Days</td>
                 </tr>
                 <tr className="hover:bg-theme-surface-1">
@@ -259,7 +259,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                   <td className="p-2 text-right text-theme-muted">200 Pcs</td>
                   <td className="p-2 text-right text-emerald-400 font-bold">140 Pcs</td>
                   <td className="p-2 text-right text-indigo-400 font-bold">60 Pcs</td>
-                  <td className="p-2 text-right font-bold text-theme-heading">â‚¹{(parseFloat(String(formData.mrp || "100")) * 60).toLocaleString('en-IN')}</td>
+                  <td className="p-2 text-right font-bold text-theme-heading">₹{(parseFloat(String(formData.mrp || "100")) * 60).toLocaleString('en-IN')}</td>
 
                   <td className="p-2 text-right text-emerald-400 font-bold">8 Days</td>
                 </tr>
@@ -283,7 +283,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
           <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><Building2 className="w-5 h-5 text-[var(--c-seef-accent)]" /> Preferred Vendors &amp; Purchase History</h4>
           <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
             <div className="flex items-center justify-between"><strong className="font-sans text-theme-heading text-xs">TechCorp Distributors (VND-1002)</strong><span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px] font-bold border border-emerald-500/30">Primary Vendor</span></div>
-            <p className="text-theme-muted text-xs">Lead Time: 3 Days | MOQ: 10 Pcs | Last Purchase Rate: â‚¹{(purchaseCost || 60).toFixed(2)} | Date: 2026-07-20</p>
+            <p className="text-theme-muted text-xs">Lead Time: 3 Days | MOQ: 10 Pcs | Last Purchase Rate: ₹{(purchaseCost || 60).toFixed(2)} | Date: 2026-07-20</p>
           </div>
         </div>
       )

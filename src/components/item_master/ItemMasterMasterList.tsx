@@ -103,7 +103,7 @@ export const ItemMasterMasterList: React.FC<ItemMasterMasterListProps> = ({
                 {/* Footer Metrics Row */}
                 <div className="mt-2.5 pt-2 border-t border-theme-divider/50 flex items-center justify-between text-[11px] font-mono">
                   <span className="text-emerald-500 font-bold">
-                    â‚¹{(p.mrp || p.price || 0).toLocaleString("en-IN")}
+                    ₹{(p.mrp || p.price || 0).toLocaleString("en-IN")}
                   </span>
 
                   <span className={`px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1 ${

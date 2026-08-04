@@ -1144,7 +1144,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
                 <div className="bg-theme-surface-1 p-3.5 rounded-2xl border border-theme-divider shadow-md">
                   <span className="text-[9px] text-theme-muted font-mono font-bold uppercase tracking-wider block">Revenue Today</span>
-                  <span className="text-lg font-bold font-display text-emerald-400 mt-1 block">â‚¹{totalSalesOrdered.toLocaleString("en-IN")}</span>
+                  <span className="text-lg font-bold font-display text-emerald-400 mt-1 block">₹{totalSalesOrdered.toLocaleString("en-IN")}</span>
                   <span className="text-[10px] text-theme-muted mt-0.5 block">+12.4% vs yesterday</span>
                 </div>
 
@@ -1162,7 +1162,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
                 <div className="bg-theme-surface-1 p-3.5 rounded-2xl border border-theme-divider shadow-md">
                   <span className="text-[9px] text-theme-muted font-mono font-bold uppercase tracking-wider block">Collection</span>
-                  <span className="text-lg font-bold font-display text-emerald-400 mt-1 block">â‚¹{Math.round(totalSalesOrdered * 0.85).toLocaleString("en-IN")}</span>
+                  <span className="text-lg font-bold font-display text-emerald-400 mt-1 block">₹{Math.round(totalSalesOrdered * 0.85).toLocaleString("en-IN")}</span>
                   <span className="text-[10px] text-theme-muted mt-0.5 block">85% Cleared</span>
                 </div>
 
@@ -1209,13 +1209,13 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-center justify-between">
                         <div>
                           <span className="font-bold text-theme-body">Tax Invoice INV-000145 Created</span>
-                          <span className="text-theme-muted block text-[11px]">Customer: Apex Retailers Ltd â€¢ Amount: â‚¹1,25,000</span>
+                          <span className="text-theme-muted block text-[11px]">Customer: Apex Retailers Ltd â€¢ Amount: ₹1,25,000</span>
                         </div>
                         <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 text-[10px] font-bold">APPROVED</span>
                       </div>
                       <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-center justify-between">
                         <div>
-                          <span className="font-bold text-theme-body">Payment â‚¹85,000 Received via UPI</span>
+                          <span className="font-bold text-theme-body">Payment ₹85,000 Received via UPI</span>
                           <span className="text-theme-muted block text-[11px]">Customer: City Footwear Mart â€¢ Ref: UPI-2026-9912</span>
                         </div>
                         <span className="px-2 py-0.5 rounded bg-blue-950 text-blue-400 text-[10px] font-bold">SETTLED</span>
@@ -1243,7 +1243,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                             <th className="pb-2">SKU Code</th>
                             <th className="pb-2">Product Description</th>
                             <th className="pb-2 text-right">Units Sold</th>
-                            <th className="pb-2 text-right">Total Revenue (â‚¹)</th>
+                            <th className="pb-2 text-right">Total Revenue (₹)</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-theme-divider/50">
@@ -1252,7 +1252,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                               <td className="py-2.5 font-bold text-indigo-400">{p.barcode || `SKU-${idx + 101}`}</td>
                               <td className="py-2.5 font-semibold text-theme-body">{p.name}</td>
                               <td className="py-2.5 text-right text-indigo-300 font-bold">{(idx + 1) * 45} Pcs</td>
-                              <td className="py-2.5 text-right text-emerald-400 font-bold">â‚¹{((idx + 1) * 45 * p.price).toLocaleString("en-IN")}</td>
+                              <td className="py-2.5 text-right text-emerald-400 font-bold">₹{((idx + 1) * 45 * p.price).toLocaleString("en-IN")}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1298,7 +1298,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                             <span className="font-bold text-theme-body block">{c.name}</span>
                             <span className="text-[10px] text-theme-muted">{c.mobile}</span>
                           </div>
-                          <span className="font-bold text-emerald-400">â‚¹{(idx + 1) * 85000}</span>
+                          <span className="font-bold text-emerald-400">₹{(idx + 1) * 85000}</span>
                         </div>
                       ))}
                     </div>
@@ -1312,7 +1312,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                     </h3>
                     <div className="space-y-2 text-xs font-mono">
                       <div className="p-2.5 bg-rose-950/40 border border-rose-500/40 rounded-xl text-rose-300">
-                        â€¢ Customer "Metro Garments" exceeded â‚¹2,00,000 credit limit.
+                        â€¢ Customer "Metro Garments" exceeded ₹2,00,000 credit limit.
                       </div>
                       <div className="p-2.5 bg-amber-950/40 border border-amber-500/40 rounded-xl text-amber-300">
                         â€¢ Low Stock Alert: SKU-104 (Cotton Shirt Blue L) below reorder point.
@@ -1551,7 +1551,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                             <option value="">-- Choose Article Variant --</option>
                             {products.map(p => (
                               <option key={p.id} value={p.id}>
-                                {p.name} ({p.color || "N/A"} - Size {p.size || "N/A"}) - Ã¢â€šÂ¹{p.price} [SMR-Barcode: {p.barcode}]
+                                {p.name} ({p.color || "N/A"} - Size {p.size || "N/A"}) - ₹{p.price} [SMR-Barcode: {p.barcode}]
                               </option>
                             ))}
                           </select>
@@ -1641,7 +1641,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                               {matrixVariants.map(variant => (
                                 <div key={variant.id} className="bg-theme-surface-2 p-2 rounded border border-theme-divider/60 flex flex-col items-center">
                                   <span className="text-[10px] font-mono text-theme-muted">Size {variant.size || "OS"}</span>
-                                  <span className="text-xs font-semibold text-theme-body mt-0.5">Ã¢â€šÂ¹{variant.price}</span>
+                                  <span className="text-xs font-semibold text-theme-body mt-0.5">₹{variant.price}</span>
                                   <span className="text-[9px] text-emerald-400 mt-0.5">Stock: {variant.stock}</span>
                                   <input
                                     type="number"
@@ -1708,8 +1708,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                             <th className="px-4 py-2.5 text-right">Qty</th>
                             <th className="px-4 py-2.5 text-right">Price</th>
                             <th className="px-4 py-2.5 text-right">GST %</th>
-                            <th className="px-4 py-2.5 text-right">Tax (Ã¢â€šÂ¹)</th>
-                            <th className="px-4 py-2.5 text-right">Total (Ã¢â€šÂ¹)</th>
+                            <th className="px-4 py-2.5 text-right">Tax (₹)</th>
+                            <th className="px-4 py-2.5 text-right">Total (₹)</th>
                             <th className="px-4 py-2.5 text-center">Action</th>
                           </tr>
                         </thead>
@@ -1751,16 +1751,16 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                   {item.quantity}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono">
-                                  Ã¢â€šÂ¹{item.price.toLocaleString("en-IN")}
+                                  ₹{item.price.toLocaleString("en-IN")}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-amber-400">
                                   {taxRate}%
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-theme-muted">
-                                  Ã¢â€šÂ¹{Math.round(taxAmount).toLocaleString("en-IN")}
+                                  ₹{Math.round(taxAmount).toLocaleString("en-IN")}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-emerald-400 font-semibold">
-                                  Ã¢â€šÂ¹{Math.round(lineTotal).toLocaleString("en-IN")}
+                                  ₹{Math.round(lineTotal).toLocaleString("en-IN")}
                                 </td>
                                 <td className="px-4 py-2 text-center">
                                   <button
@@ -1784,13 +1784,13 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         </div>
                         <div className="space-y-1 text-right w-full sm:w-auto">
                           <div>
-                            Base Net Total: <span className="font-mono text-theme-body">Ã¢â€šÂ¹{editorItems.reduce((acc, item) => acc + (item.quantity * item.price), 0).toLocaleString("en-IN")}</span>
+                            Base Net Total: <span className="font-mono text-theme-body">₹{editorItems.reduce((acc, item) => acc + (item.quantity * item.price), 0).toLocaleString("en-IN")}</span>
                           </div>
                           <div>
-                            Taxes Consolidated: <span className="font-mono text-theme-body">Ã¢â€šÂ¹{editorItems.reduce((acc, item) => acc + ((item.quantity * item.price * (item.taxRate || 18)) / 100), 0).toFixed(1)}</span>
+                            Taxes Consolidated: <span className="font-mono text-theme-body">₹{editorItems.reduce((acc, item) => acc + ((item.quantity * item.price * (item.taxRate || 18)) / 100), 0).toFixed(1)}</span>
                           </div>
                           <div className="text-sm font-bold text-emerald-400">
-                            Grand Quotation Total: Ã¢â€šÂ¹{editorItems.reduce((acc, item) => acc + (item.quantity * item.price * (1 + (item.taxRate || 18) / 100)), 0).toLocaleString("en-IN")}
+                            Grand Quotation Total: ₹{editorItems.reduce((acc, item) => acc + (item.quantity * item.price * (1 + (item.taxRate || 18) / 100)), 0).toLocaleString("en-IN")}
                           </div>
                         </div>
                       </div>
@@ -1887,7 +1887,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         const cust = customers.find(c => c.id === si.customerId);
                         return (
                           <option key={si.id} value={si.id}>
-                            {si.invoiceNo} - {cust?.name || "Walk-In"} (Ã¢â€šÂ¹{si.grandTotal})
+                            {si.invoiceNo} - {cust?.name || "Walk-In"} (₹{si.grandTotal})
                           </option>
                         );
                       })}
@@ -2008,7 +2008,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                   {item.maxQty} units
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono">
-                                  Ã¢â€šÂ¹{item.price.toLocaleString("en-IN")}
+                                  ₹{item.price.toLocaleString("en-IN")}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-amber-400">
                                   {item.gstRate}%
@@ -2030,10 +2030,10 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                   />
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-theme-muted">
-                                  Ã¢â€šÂ¹{Math.round(taxAmount).toLocaleString("en-IN")}
+                                  ₹{Math.round(taxAmount).toLocaleString("en-IN")}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-rose-400 font-semibold">
-                                  Ã¢â€šÂ¹{Math.round(lineTotal).toLocaleString("en-IN")}
+                                  ₹{Math.round(lineTotal).toLocaleString("en-IN")}
                                 </td>
                               </tr>
                             );
@@ -2048,7 +2048,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         </div>
                         <div className="space-y-1 text-right w-full sm:w-auto">
                           <div className="text-sm font-bold text-rose-400">
-                            Total Credit Note Value: Ã¢â€šÂ¹{returnItems.reduce((acc, item) => acc + (item.quantity * item.price * (1 + item.gstRate / 100)), 0).toLocaleString("en-IN")}
+                            Total Credit Note Value: ₹{returnItems.reduce((acc, item) => acc + (item.quantity * item.price * (1 + item.gstRate / 100)), 0).toLocaleString("en-IN")}
                           </div>
                         </div>
                       </div>
@@ -2626,7 +2626,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                 </span>
                               </td>
                               <td className="px-4 py-2 text-right font-mono text-theme-body font-semibold">
-                                Ã¢â€šÂ¹{row.outstanding.toLocaleString("en-IN")}
+                                ₹{row.outstanding.toLocaleString("en-IN")}
                               </td>
                               <td className="px-4 py-2 text-center">
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
@@ -3129,10 +3129,10 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                 </div>
                               </td>
                               <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
-                                Ã¢â€šÂ¹{(c.creditLimit || 50000).toLocaleString("en-IN")}
+                                ₹{(c.creditLimit || 50000).toLocaleString("en-IN")}
                               </td>
                               <td className={`px-5 ${densityPadding} text-right font-mono font-semibold ${c.outstanding > 0 ? "text-amber-400" : "text-emerald-400"}`}>
-                                Ã¢â€šÂ¹{c.outstanding.toLocaleString("en-IN")}
+                                ₹{c.outstanding.toLocaleString("en-IN")}
                               </td>
                               <td className={`px-5 ${densityPadding} text-center`}>
                                 <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
@@ -3210,12 +3210,12 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       <div>
                         <div className="font-semibold text-theme-body">{line.name}</div>
                         <div className="text-[10px] text-theme-muted font-mono mt-0.5">
-                          {line.color || "N/A"} / {line.size || "N/A"} Ã¢â‚¬Â¢ Qty {line.quantity}
+                          {line.color || "N/A"} / {line.size || "N/A"} ₹ Qty {line.quantity}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-theme-body">Ã¢â€šÂ¹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
-                        <div className="text-[9px] text-theme-muted mt-0.5 font-mono">Ã¢â€šÂ¹{line.price} + {line.taxRate}% GST</div>
+                        <div className="font-semibold text-theme-body">₹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
+                        <div className="text-[9px] text-theme-muted mt-0.5 font-mono">₹{line.price} + {line.taxRate}% GST</div>
                       </div>
                     </div>
                   ))}
@@ -3226,11 +3226,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-2">
                 <div className="flex justify-between items-center text-xs text-theme-muted">
                   <span>Consolidated Taxes (GST)</span>
-                  <span className="font-mono text-theme-body">Ã¢â€šÂ¹{selectedQuotation.taxTotal.toLocaleString("en-IN")}</span>
+                  <span className="font-mono text-theme-body">₹{selectedQuotation.taxTotal.toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-bold text-theme-body pt-2 border-t border-theme-divider/60">
                   <span>Grand Ledger Total</span>
-                  <span className="text-emerald-400 font-mono text-sm">Ã¢â€šÂ¹{selectedQuotation.grandTotal.toLocaleString("en-IN")}</span>
+                  <span className="text-emerald-400 font-mono text-sm">₹{selectedQuotation.grandTotal.toLocaleString("en-IN")}</span>
                 </div>
               </div>
 
@@ -3341,12 +3341,12 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       <div>
                         <div className="font-semibold text-theme-body">{line.name}</div>
                         <div className="text-[10px] text-theme-muted font-mono mt-0.5">
-                          {line.color || "N/A"} / {line.size || "N/A"} Ã¢â‚¬Â¢ Qty {line.quantity}
+                          {line.color || "N/A"} / {line.size || "N/A"} ₹ Qty {line.quantity}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-theme-body">Ã¢â€šÂ¹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
-                        <div className="text-[9px] text-theme-muted mt-0.5 font-mono">Ã¢â€šÂ¹{line.price} + {line.taxRate}% GST</div>
+                        <div className="font-semibold text-theme-body">₹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
+                        <div className="text-[9px] text-theme-muted mt-0.5 font-mono">₹{line.price} + {line.taxRate}% GST</div>
                       </div>
                     </div>
                   ))}
@@ -3357,11 +3357,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-2">
                 <div className="flex justify-between items-center text-xs text-theme-muted">
                   <span>Consolidated Taxes (GST)</span>
-                  <span className="font-mono text-theme-body">Ã¢â€šÂ¹{selectedOrder.taxTotal.toLocaleString("en-IN")}</span>
+                  <span className="font-mono text-theme-body">₹{selectedOrder.taxTotal.toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-bold text-theme-body pt-2 border-t border-theme-divider/60">
                   <span>Grand Booking Value</span>
-                  <span className="text-emerald-400 font-mono text-sm">Ã¢â€šÂ¹{selectedOrder.grandTotal.toLocaleString("en-IN")}</span>
+                  <span className="text-emerald-400 font-mono text-sm">₹{selectedOrder.grandTotal.toLocaleString("en-IN")}</span>
                 </div>
               </div>
 
@@ -3455,11 +3455,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       <div>
                         <div className="font-semibold text-theme-body">{line.name}</div>
                         <div className="text-[10px] text-theme-muted font-mono mt-0.5">
-                          Qty {line.quantity} Ã— Ã¢â€šÂ¹{line.price}
+                          Qty {line.quantity} Ã— ₹{line.price}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-theme-body">Ã¢â€šÂ¹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
+                        <div className="font-semibold text-theme-body">₹{Math.round(line.totalAmount).toLocaleString("en-IN")}</div>
                         <div className="text-[9px] text-theme-muted mt-0.5 font-mono">GST {line.gstRate}%</div>
                       </div>
                     </div>
@@ -3470,15 +3470,15 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider space-y-2">
                 <div className="flex justify-between items-center text-xs text-theme-muted">
                   <span>GST Total</span>
-                  <span className="font-mono text-theme-body">Ã¢â€šÂ¹{selectedInvoice.taxTotal.toLocaleString("en-IN")}</span>
+                  <span className="font-mono text-theme-body">₹{selectedInvoice.taxTotal.toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs text-theme-muted">
                   <span>Subtotal</span>
-                  <span className="font-mono text-theme-body">Ã¢â€šÂ¹{(selectedInvoice.grandTotal - selectedInvoice.taxTotal).toLocaleString("en-IN")}</span>
+                  <span className="font-mono text-theme-body">₹{(selectedInvoice.grandTotal - selectedInvoice.taxTotal).toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-bold text-theme-body pt-2 border-t border-theme-divider/60">
                   <span>Total Payable</span>
-                  <span className="text-emerald-400 font-mono text-sm">Ã¢â€šÂ¹{selectedInvoice.grandTotal.toLocaleString("en-IN")}</span>
+                  <span className="text-emerald-400 font-mono text-sm">₹{selectedInvoice.grandTotal.toLocaleString("en-IN")}</span>
                 </div>
               </div>
 

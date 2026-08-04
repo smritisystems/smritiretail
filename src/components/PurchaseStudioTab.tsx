@@ -662,7 +662,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         method: "POST",
         body: JSON.stringify({ amount })
       });
-      onNotification("Payment Settled", `Registered payment of Ã¢â€šÂ¹${amount} against ${payModalPO.orderNo}.`, "success");
+      onNotification("Payment Settled", `Registered payment of ₹${amount} against ${payModalPO.orderNo}.`, "success");
       setPayModalPO(null);
       setPayAmount("");
       fetchOutstandingReport();
@@ -1009,7 +1009,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 
                     <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider/40 text-left">
                       <span className="text-[10px] font-mono text-theme-muted block">AGGREGATE VALUE BOUGHT</span>
-                      <span className="text-lg font-bold text-emerald-500 dark:text-emerald-400 font-mono mt-1 block">â‚¹{supplierDetails.summary.totalValue}</span>
+                      <span className="text-lg font-bold text-emerald-500 dark:text-emerald-400 font-mono mt-1 block">₹{supplierDetails.summary.totalValue}</span>
                       <span className="text-[9px] text-emerald-500 mt-1 block">Fully Confirmed contracts value</span>
                     </div>
 
@@ -1248,7 +1248,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                             <span className="text-theme-body text-xs font-semibold">{s.preferredSupplierName}</span>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <span className="font-mono text-theme-primary">Ã¢â€šÂ¹{s.lastPurchaseRate}</span>
+                            <span className="font-mono text-theme-primary">₹{s.lastPurchaseRate}</span>
                             <span className="block text-[8px] text-theme-muted font-mono truncate">{s.rateSource}</span>
                           </td>
                         </tr>
@@ -1333,7 +1333,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                         </div>
                         <div className="flex items-center justify-between text-[10px] text-theme-muted mt-2 font-mono">
                           <span>{po.supplierName}</span>
-                          <span>Value: Ã¢â€šÂ¹{po.grandTotal}</span>
+                          <span>Value: ₹{po.grandTotal}</span>
                         </div>
                         <span className="block text-[8px] text-theme-muted font-mono mt-1.5">Expected: {new Date(po.expectedDeliveryDate).toLocaleDateString()}</span>
                       </div>
@@ -1474,7 +1474,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                         <tr key={row.size} className="hover:bg-theme-surface-3/20">
                           <td className="px-3 py-2.5 font-sans font-bold text-theme-body">{row.size}</td>
                           <td className="px-3 py-2.5 text-right text-theme-body">{row.orderedQty}</td>
-                          <td className="px-3 py-2.5 text-right text-emerald-400">â‚¹{row.orderedValue}</td>
+                          <td className="px-3 py-2.5 text-right text-emerald-400">₹{row.orderedValue}</td>
                           <td className="px-3 py-2.5 text-right text-theme-muted">{row.poCount}</td>
                         </tr>
                       ))}
@@ -1520,7 +1520,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                         {outstandingReport.map(r => (
                           <tr key={r.supplierId} className="hover:bg-theme-surface-3/20">
                             <td className="px-3 py-2.5 font-sans font-bold text-theme-body text-xs">{r.name}</td>
-                            <td className="px-3 py-2.5 text-right text-rose-400 font-bold">Ã¢â€šÂ¹{r.totalOwed}</td>
+                            <td className="px-3 py-2.5 text-right text-rose-400 font-bold">₹{r.totalOwed}</td>
                             <td className="px-3 py-2.5 text-theme-muted">
                               {r.oldestOrderDate === "-" ? "-" : new Date(r.oldestOrderDate).toLocaleDateString()}
                             </td>
@@ -1585,7 +1585,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                           <tr key={item.productId} className="hover:bg-theme-surface-3/20">
                             <td className="px-3 py-2.5 font-sans font-semibold text-theme-body">
                               {item.name}
-                              <span className="block text-[9px] text-theme-muted mt-0.5">{item.color || "N/A"} Ã¢â‚¬Â¢ {item.size || "OS"}</span>
+                              <span className="block text-[9px] text-theme-muted mt-0.5">{item.color || "N/A"} ₹ {item.size || "OS"}</span>
                             </td>
                             <td className="px-3 py-2.5 text-right text-theme-body">{item.totalOrdered}</td>
                             <td className="px-3 py-2.5 text-right text-emerald-400">{item.totalReceived}</td>
@@ -1652,7 +1652,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                         <tr key={item.productId} className="hover:bg-theme-surface-3/20">
                           <td className="px-4 py-2.5 font-semibold text-theme-body">
                             {item.name}
-                            <span className="block text-[9px] text-theme-muted font-mono">{item.color || "N/A"} Ã¢â‚¬Â¢ Size: {item.size || "OS"}</span>
+                            <span className="block text-[9px] text-theme-muted font-mono">{item.color || "N/A"} ₹ Size: {item.size || "OS"}</span>
                           </td>
                           <td className="px-4 py-2.5 text-right font-mono text-theme-muted">{item.quantity} units</td>
                           <td className="px-4 py-2.5 text-right">
@@ -1721,20 +1721,20 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                 </div>
                 <div className="flex justify-between">
                   <span>Grand Total:</span>
-                  <span className="font-mono text-emerald-400">Ã¢â€šÂ¹{payModalPO.grandTotal}</span>
+                  <span className="font-mono text-emerald-400">₹{payModalPO.grandTotal}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Paid Balance already:</span>
-                  <span className="font-mono text-theme-muted">Ã¢â€šÂ¹{payModalPO.paidAmount || 0}</span>
+                  <span className="font-mono text-theme-muted">₹{payModalPO.paidAmount || 0}</span>
                 </div>
                 <div className="border-t border-theme-divider/40 my-2 pt-2 flex justify-between font-bold text-theme-body">
                   <span>Remaining Outstanding:</span>
-                  <span className="font-mono text-rose-400">Ã¢â€šÂ¹{payModalPO.grandTotal - (payModalPO.paidAmount || 0)}</span>
+                  <span className="font-mono text-rose-400">₹{payModalPO.grandTotal - (payModalPO.paidAmount || 0)}</span>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-mono text-theme-muted block">PAYMENT SETTLEMENT AMOUNT (Ã¢â€šÂ¹)</label>
+                <label className="text-[10px] font-mono text-theme-muted block">PAYMENT SETTLEMENT AMOUNT (₹)</label>
                 <input
                   type="number"
                   min="1"

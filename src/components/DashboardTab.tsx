@@ -86,7 +86,7 @@ const TrendSalesTooltip = ({ active, payload, label }: any) => {
               {isForecastPoint ? "Projected Revenue" : "Revenue"}
             </span>
             <span className={`font-mono font-bold ${isForecastPoint ? "text-amber-400" : "text-emerald-400"}`}>
-              â‚¹{Number(displayRevenue).toLocaleString("en-IN")}
+              ₹{Number(displayRevenue).toLocaleString("en-IN")}
             </span>
           </div>
           <div className="flex justify-between items-center">
@@ -101,12 +101,12 @@ const TrendSalesTooltip = ({ active, payload, label }: any) => {
           <div className="border-t border-theme-divider/50 my-1.5 pt-1.5 space-y-1 text-[11px] font-mono text-theme-muted">
             <div className="flex justify-between">
               <span>{isForecastPoint ? "Proj. Avg / Invoice:" : "Avg / Invoice:"}</span>
-              <span className="text-theme-body font-semibold">â‚¹{avgRevenue.toLocaleString("en-IN")}</span>
+              <span className="text-theme-body font-semibold">₹{avgRevenue.toLocaleString("en-IN")}</span>
             </div>
             <div className="flex justify-between">
               <span>{isForecastPoint ? "Est. Proj. Profit (72%):" : "Est. Profit (72%):"}</span>
               <span className={`${isForecastPoint ? "text-amber-500/90" : "text-emerald-500/90"} font-semibold`}>
-                â‚¹{estMargin.toLocaleString("en-IN")}
+                ₹{estMargin.toLocaleString("en-IN")}
               </span>
             </div>
           </div>
@@ -181,7 +181,7 @@ const DistributorStockTooltip = ({ active, payload, label }: any) => {
             </div>
             <div className="flex justify-between">
               <span>Capital Locked:</span>
-              <span className="text-amber-400 font-semibold">â‚¹{Number(data.capitalLocked).toLocaleString("en-IN")}</span>
+              <span className="text-amber-400 font-semibold">₹{Number(data.capitalLocked).toLocaleString("en-IN")}</span>
             </div>
           </div>
         </div>
@@ -219,7 +219,7 @@ const SalesGrowthTooltip = ({ active, payload, label }: any) => {
           <div className="flex justify-between items-center">
             <span className="text-theme-muted">Gross Sales:</span>
             <span className="font-mono font-bold text-theme-body">
-              â‚¹{Number(data.sales).toLocaleString("en-IN")}
+              ₹{Number(data.sales).toLocaleString("en-IN")}
             </span>
           </div>
           <div className="flex justify-between items-center">
@@ -231,7 +231,7 @@ const SalesGrowthTooltip = ({ active, payload, label }: any) => {
           <div className="flex justify-between items-center text-[10px] text-theme-muted pt-1 border-t border-theme-divider/50 font-mono">
             <span>Avg Ticket Size:</span>
             <span className="text-theme-body">
-              â‚¹{Math.round(data.sales / data.transactions).toLocaleString("en-IN")}
+              ₹{Math.round(data.sales / data.transactions).toLocaleString("en-IN")}
             </span>
           </div>
         </div>
@@ -1027,13 +1027,13 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               <div>
                 <div className="text-[10px] text-theme-muted uppercase font-mono tracking-wider">Total 7D Revenue</div>
                 <div className="text-base font-bold text-theme-body font-mono mt-0.5">
-                  â‚¹{salesGrowth7Days.reduce((sum, d) => sum + d.sales, 0).toLocaleString("en-IN")}
+                  ₹{salesGrowth7Days.reduce((sum, d) => sum + d.sales, 0).toLocaleString("en-IN")}
                 </div>
               </div>
               <div>
                 <div className="text-[10px] text-theme-muted uppercase font-mono tracking-wider">Daily Average</div>
                 <div className="text-base font-bold text-emerald-400 font-mono mt-0.5">
-                  â‚¹{Math.round(salesGrowth7Days.reduce((sum, d) => sum + d.sales, 0) / 7).toLocaleString("en-IN")}
+                  ₹{Math.round(salesGrowth7Days.reduce((sum, d) => sum + d.sales, 0) / 7).toLocaleString("en-IN")}
                 </div>
               </div>
               <div>
@@ -1081,7 +1081,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                     stroke="#8892a4"
                     fontSize={11}
                     tickLine={false}
-                    tickFormatter={(val) => `â‚¹${(val / 1000).toFixed(0)}k`}
+                    tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}k`}
                   />
                   <Tooltip content={<SalesGrowthTooltip />} />
                   <Area
@@ -1252,13 +1252,13 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                                 key={slot}
                                 onClick={() => setSelectedCell({ day, slot })}
                                 className={`h-11 rounded-lg transition-all flex flex-col justify-center items-center text-center cursor-pointer select-none relative focus:outline-none focus:ring-2 focus:ring-[var(--c-seef-accent)] ${cellBg}`}
-                                title={`${day} ${slot}: ${val.count} bills, â‚¹${val.revenue.toLocaleString()}`}
+                                title={`${day} ${slot}: ${val.count} bills, ₹${val.revenue.toLocaleString()}`}
                               >
                                 <span className="text-[11px] font-bold tracking-tight font-mono">
                                   {val.count}
                                 </span>
                                 <span className="text-[8px] font-mono opacity-80 uppercase tracking-wider">
-                                  â‚¹{(val.revenue / 1000).toFixed(0)}k
+                                  ₹{(val.revenue / 1000).toFixed(0)}k
                                 </span>
                                 {isSelected && (
                                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-500 border border-white rounded-full"></span>
@@ -1325,7 +1325,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                       </div>
                       <div className="text-right">
                         <div className="text-[10px] text-theme-muted font-mono uppercase">Est. Revenue</div>
-                        <div className="text-xs font-bold font-mono text-emerald-400">â‚¹{info.revenue.toLocaleString()}</div>
+                        <div className="text-xs font-bold font-mono text-emerald-400">₹{info.revenue.toLocaleString()}</div>
                       </div>
                     </div>
                   </div>
@@ -1432,7 +1432,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                     yAxisId="left"
                     stroke="#8892a4" 
                     fontSize={11} 
-                    tickFormatter={(val) => `â‚¹${val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val}`}
+                    tickFormatter={(val) => `₹${val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val}`}
                   />
                   <YAxis 
                     yAxisId="right"
@@ -1497,7 +1497,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 </span>
               </div>
               <span>
-                Total revenue today: <span className="text-emerald-400 font-bold">â‚¹{dailyRevenue.toLocaleString("en-IN")}</span>
+                Total revenue today: <span className="text-emerald-400 font-bold">₹{dailyRevenue.toLocaleString("en-IN")}</span>
               </span>
             </div>
           </div>

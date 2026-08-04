@@ -214,7 +214,7 @@ export const ItemSelectStep: React.FC<ItemSelectStepProps> = ({ state, onChange 
             <span style={{ fontSize: 13, fontWeight: 500 }}>{li.name}</span>
             {li.unitPrice > 0 && (
               <span style={{ fontSize: 12, color: "var(--c-theme-muted)", marginLeft: "auto" }}>
-                â‚¹{li.unitPrice.toLocaleString("en-IN")} Ã— {li.qty}
+                ₹{li.unitPrice.toLocaleString("en-IN")} Ã— {li.qty}
               </span>
             )}
           </label>
@@ -273,7 +273,7 @@ export const ItemSelectStep: React.FC<ItemSelectStepProps> = ({ state, onChange 
           justifyContent: "space-between",
         }}>
           <span>Total Refund</span>
-          <span>â‚¹{state.totalRefund.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+          <span>₹{state.totalRefund.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
         </div>
       )}
     </div>
@@ -327,7 +327,7 @@ export const ConfirmReturnStep: React.FC<ConfirmReturnStepProps> = ({ state }) =
           justifyContent: "space-between",
         }}>
           <span>Refund Amount</span>
-          <span>â‚¹{state.totalRefund.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+          <span>₹{state.totalRefund.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
         </div>
       )}
       <p style={{ fontSize: 11, color: "var(--c-theme-muted)", margin: 0 }}>
@@ -459,7 +459,7 @@ export async function executePOSReturn(
     });
     if (res.ok) {
       WorkspaceEventBus.publish("ActionExecuted", { action: "pos.return", result: "success" }, workspaceId);
-      return { success: true, message: `Return processed â€” â‚¹${state.totalRefund.toLocaleString("en-IN")} refund issued` };
+      return { success: true, message: `Return processed â€” ₹${state.totalRefund.toLocaleString("en-IN")} refund issued` };
     }
     throw new Error(`HTTP ${res.status}`);
   } catch {

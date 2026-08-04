@@ -47,7 +47,7 @@ export const InventoryKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> =
           <span>Stock Valuation</span>
           <RefreshCw className="w-3.5 h-3.5 text-indigo-500" />
         </div>
-        <div className="text-lg font-bold text-theme-heading font-mono">â‚¹14,80,450</div>
+        <div className="text-lg font-bold text-theme-heading font-mono">₹14,80,450</div>
         <div className="text-[10px] text-theme-muted mt-1">FIFO Cost Basis</div>
       </div>
 
