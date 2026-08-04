@@ -51,6 +51,7 @@ import {
 import { Product } from "../../types.js";
 import { PrintingService, PrintDocument } from "../../core/printing/index.js";
 import { BUSINESS_DOMAIN_PROFILES, BusinessDomain } from "../../domain/BusinessDomainProfiles.ts";
+import { WorkspaceFormActions } from "../workspace/WorkspaceFormActions.tsx";
 
 export type PurchaseDocumentType = "PO" | "PINV" | "GRN" | "RETURN";
 export type AddItemMode =
@@ -797,53 +798,62 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
         </div>
 
         {/* Right Actions & Studio Config Button */}
-        <div className="flex items-center space-x-2 text-xs">
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-theme-muted" />
-            <input
-              type="text"
-              placeholder="Search (F2)"
-              onClick={() => setShowItemPickerModal(true)}
-              className="pl-7 pr-2.5 py-1 bg-theme-surface-2 border border-theme-divider rounded-md text-xs font-semibold text-theme-body focus:outline-none focus:border-blue-500 w-36"
-            />
-          </div>
-          <button
-            onClick={() => {
-              setStatus("DRAFT");
-              if (onNotification) onNotification("Draft Saved", `${docTitle} draft saved`, "success");
-            }}
-            className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs"
-          >
-            Save Draft (F9)
-          </button>
-          <button
-            onClick={() => {
-              setStatus("POSTED");
-              if (onNotification) onNotification("Submitted", `${docTitle} submitted & posted!`, "success");
-            }}
-            className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold shadow-xs cursor-pointer"
-          >
-            Submit (F10)
-          </button>
-          <button
-            onClick={handlePrint}
-            className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-body rounded-md font-bold flex items-center cursor-pointer"
-          >
-            <Printer className="w-3.5 h-3.5 mr-1" />
-            Print
-          </button>
-          <button
-            onClick={() => setShowConfigModal(true)}
-            className="p-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-muted rounded-md cursor-pointer"
-            title="Procurement Studio Configuration"
-          >
-            <Sliders className="w-3.5 h-3.5 text-indigo-600" />
-          </button>
-          <div className="pl-2 border-l border-theme-divider text-right">
-            <span className="text-[10px] text-theme-muted font-bold block uppercase">PO No.</span>
-            <span className="font-mono font-extrabold text-blue-600 text-xs">{poNumber}</span>
-          </div>
-        </div>
+        <WorkspaceFormActions
+          className="w-full"
+          secondaryActions={
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-theme-muted" />
+              <input
+                type="text"
+                placeholder="Search (F2)"
+                onClick={() => setShowItemPickerModal(true)}
+                className="pl-7 pr-2.5 py-1 bg-theme-surface-2 border border-theme-divider rounded-md text-xs font-semibold text-theme-body focus:outline-none focus:border-blue-500 w-36"
+              />
+            </div>
+          }
+          primaryActions={
+            <>
+              <button
+                onClick={() => {
+                  setStatus("DRAFT");
+                  if (onNotification) onNotification("Draft Saved", `${docTitle} draft saved`, "success");
+                }}
+                className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs"
+              >
+                Save Draft (F9)
+              </button>
+              <button
+                onClick={() => {
+                  setStatus("POSTED");
+                  if (onNotification) onNotification("Submitted", `${docTitle} submitted & posted!`, "success");
+                }}
+                className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold shadow-xs cursor-pointer"
+              >
+                Submit (F10)
+              </button>
+              <button
+                onClick={handlePrint}
+                className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-body rounded-md font-bold flex items-center cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5 mr-1" />
+                Print
+              </button>
+              <button
+                onClick={() => setShowConfigModal(true)}
+                className="p-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-muted rounded-md cursor-pointer"
+                title="Procurement Studio Configuration"
+              >
+                <Sliders className="w-3.5 h-3.5 text-indigo-600" />
+              </button>
+            </>
+          }
+          extraMeta={
+            <div>
+              <div className="text-[10px] font-bold text-theme-muted uppercase">PO No.</div>
+              <div className="font-mono font-extrabold text-blue-600 text-xs">{poNumber}</div>
+            </div>
+          }
+        />
       </div>
 
       {/* ================= 2-COLUMN MASTER FORM (SUPPLIER INFO + DOCUMENT DETAILS) ================= */}
