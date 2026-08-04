@@ -16,7 +16,8 @@ export const LayoutInspectorOverlay: React.FC = () => {
   const [isEnabled, setIsEnabled] = useState(false);
   const bounds = useLayoutBounds();
 
-  if (!import.meta.env.DEV) return null;
+  const isDev = (import.meta as any)?.env?.DEV;
+  if (!isDev) return null;
 
   if (!isEnabled) {
     return (
