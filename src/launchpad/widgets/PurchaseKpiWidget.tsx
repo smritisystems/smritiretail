@@ -23,7 +23,7 @@ export const PurchaseKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> = 
           <span>Purchases Today</span>
           <Briefcase className="w-3.5 h-3.5 text-purple-500" />
         </div>
-        <div className="text-lg font-bold text-theme-heading font-mono">â‚¹24,500</div>
+        <div className="text-lg font-bold text-theme-heading font-mono">₹24,500</div>
         <div className="text-[10px] text-theme-muted mt-1">2 Approved POs</div>
       </div>
 

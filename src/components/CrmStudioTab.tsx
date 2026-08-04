@@ -174,7 +174,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
         <div className="flex items-center gap-4 bg-theme-surface-3 px-4 py-2 rounded-xl border border-theme-divider">
           <div className="text-right font-mono">
             <div className="text-[10px] text-theme-muted uppercase font-bold">Total Pipeline Value</div>
-            <div className="text-sm font-bold text-emerald-400">â‚¹{totalPipelineValue.toLocaleString("en-IN")}</div>
+            <div className="text-sm font-bold text-emerald-400">₹{totalPipelineValue.toLocaleString("en-IN")}</div>
           </div>
           <div className="w-px h-8 bg-theme-divider" />
           <div className="text-right font-mono">
@@ -225,7 +225,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
               <div className="grid grid-cols-1 md:grid-cols-4 gap-5 font-mono">
                 {[
                   { l: "Total Leads", v: leads.length, c: "text-[var(--c-seef-accent)]", sub: "+12% vs last month" },
-                  { l: "Pipeline Value", v: `â‚¹${totalPipelineValue.toLocaleString("en-IN")}`, c: "text-emerald-400", sub: "Weighted forecast" },
+                  { l: "Pipeline Value", v: `₹${totalPipelineValue.toLocaleString("en-IN")}`, c: "text-emerald-400", sub: "Weighted forecast" },
                   { l: "Conversion Rate", v: "24.5%", c: "text-purple-400", sub: "Lead to Customer" },
                   { l: "Hot Prospects", v: hotLeadsCount, c: "text-amber-400", sub: "High buying intent" },
                 ].map((k) => (
@@ -306,7 +306,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-emerald-400">
-                          â‚¹{l.value.toLocaleString("en-IN")}
+                          ₹{l.value.toLocaleString("en-IN")}
                         </td>
                         <td className="px-4 py-3">
                           <span className="px-2 py-0.5 bg-purple-500/10 text-purple-400 border border-purple-500/30 rounded text-[10px] font-bold">
@@ -351,13 +351,13 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
                           {stageLeads.length} Deals
                         </span>
                       </div>
-                      <div className="text-[10px] text-emerald-400 font-bold mb-3">Total: â‚¹{stageVal.toLocaleString("en-IN")}</div>
+                      <div className="text-[10px] text-emerald-400 font-bold mb-3">Total: ₹{stageVal.toLocaleString("en-IN")}</div>
                       <div className="space-y-3 flex-1 overflow-y-auto pr-1">
                         {stageLeads.map((ld) => (
                           <div key={ld.id} className="p-3 bg-theme-surface-1 border border-theme-divider rounded-xl space-y-2 hover:border-[var(--c-seef-accent)] transition-all">
                             <div className="flex items-center justify-between font-sans">
                               <span className="font-bold text-theme-heading text-xs truncate">{ld.name}</span>
-                              <span className="text-[10px] font-mono text-emerald-400 font-bold">â‚¹{(ld.value / 1000).toFixed(0)}k</span>
+                              <span className="text-[10px] font-mono text-emerald-400 font-bold">₹{(ld.value / 1000).toFixed(0)}k</span>
                             </div>
                             {ld.company && <div className="text-[10px] text-theme-muted font-mono">{ld.company}</div>}
                             <div className="flex items-center justify-between text-[9px] text-theme-muted pt-1 border-t border-theme-divider/40">
@@ -459,7 +459,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
                   <input type="tel" required placeholder="9820012345" value={newLeadPhone} onChange={(e) => setNewLeadPhone(e.target.value)} className="w-full p-2.5 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading" />
                 </div>
                 <div>
-                  <label className="block text-theme-muted font-bold mb-1 uppercase text-[10px]">Estimated Value (â‚¹)</label>
+                  <label className="block text-theme-muted font-bold mb-1 uppercase text-[10px]">Estimated Value (₹)</label>
                   <input type="number" value={newLeadValue} onChange={(e) => setNewLeadValue(e.target.value)} className="w-full p-2.5 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading" />
                 </div>
               </div>

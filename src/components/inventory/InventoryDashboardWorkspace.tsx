@@ -34,7 +34,7 @@ import { SkeletonCard, SkeletonRow } from "../shared/SkeletonLoader.js";
 
 // â”€â”€ Fallback mock data (used when API is unavailable) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-const FALLBACK_STOCK_VALUE = "â‚¹24,87,450";
+const FALLBACK_STOCK_VALUE = "₹24,87,450";
 const FALLBACK_HEALTH = { current: 78, target: 100 };
 const FALLBACK_TREND = [
   { label: "Mon", value: 420 }, { label: "Tue", value: 380 }, { label: "Wed", value: 510 },

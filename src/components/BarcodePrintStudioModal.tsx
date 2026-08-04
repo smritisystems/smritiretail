@@ -285,12 +285,12 @@ export const BarcodePrintStudioModal: React.FC<BarcodePrintStudioModalProps> = (
                       {sampleItem.name}
                     </span>
                     <span className="text-[10px] font-bold">
-                      â‚¹{Number(sampleItem.price || 0).toFixed(2)}
+                      ₹{Number(sampleItem.price || 0).toFixed(2)}
                     </span>
                   </div>
 
                   <div className="text-[9px] font-mono text-gray-600">
-                    SKU: {sampleItem.code} {sampleItem.mrp ? `| MRP: â‚¹${sampleItem.mrp}` : ""}
+                    SKU: {sampleItem.code} {sampleItem.mrp ? `| MRP: ₹${sampleItem.mrp}` : ""}
                   </div>
 
                   <div className="flex flex-col items-center mt-1">

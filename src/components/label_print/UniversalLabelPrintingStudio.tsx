@@ -775,8 +775,8 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                       <th className="px-4 py-3">SKU Code</th>
                       <th className="px-4 py-3">Barcode</th>
                       <th className="px-4 py-3">Color / Size</th>
-                      <th className="px-4 py-3 text-right">MRP (â‚¹)</th>
-                      <th className="px-4 py-3 text-right">Price (â‚¹)</th>
+                      <th className="px-4 py-3 text-right">MRP (₹)</th>
+                      <th className="px-4 py-3 text-right">Price (₹)</th>
                       <th className="px-4 py-3 text-right">Stock</th>
                       <th className="px-4 py-3 text-right">Print Copies</th>
                     </tr>
@@ -802,8 +802,8 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                           <td className="px-4 py-3 font-mono text-theme-muted">{p.code || "N/A"}</td>
                           <td className="px-4 py-3 font-mono text-indigo-400 font-bold">{p.barcode || p.code || "123456789"}</td>
                           <td className="px-4 py-3 font-mono text-theme-muted">{p.color || "N/A"} / {p.size || "OS"}</td>
-                          <td className="px-4 py-3 font-mono text-right text-theme-muted">â‚¹{(p.mrp || p.price || 0).toLocaleString("en-IN")}</td>
-                          <td className="px-4 py-3 font-mono text-right font-bold text-emerald-400">â‚¹{(p.price || 0).toLocaleString("en-IN")}</td>
+                          <td className="px-4 py-3 font-mono text-right text-theme-muted">₹{(p.mrp || p.price || 0).toLocaleString("en-IN")}</td>
+                          <td className="px-4 py-3 font-mono text-right font-bold text-emerald-400">₹{(p.price || 0).toLocaleString("en-IN")}</td>
                           <td className="px-4 py-3 font-mono text-right text-theme-muted">{p.stock || 0}</td>
                           <td className="px-4 py-3 text-right">
                             <input
@@ -986,11 +986,11 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                       {selectedItemsList[0]?.name || "Sample Article"}
                     </span>
                     <span className="font-mono text-[10px] bg-black text-white px-1.5 py-0.5 rounded">
-                      â‚¹{selectedItemsList[0]?.price || 999}
+                      ₹{selectedItemsList[0]?.price || 999}
                     </span>
                   </div>
                   <div className="text-[10px] text-gray-700 font-mono">
-                    SKU: {selectedItemsList[0]?.code || "SMR-1001"} | MRP: â‚¹{selectedItemsList[0]?.mrp || 1299}
+                    SKU: {selectedItemsList[0]?.code || "SMR-1001"} | MRP: ₹{selectedItemsList[0]?.mrp || 1299}
                   </div>
                   <div className="my-1 flex flex-col items-center">
                     <div className="w-full h-8 bg-black flex items-center justify-between px-2 text-white font-mono text-[8px]">

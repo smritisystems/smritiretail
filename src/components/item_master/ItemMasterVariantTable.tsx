@@ -129,8 +129,8 @@ export const ItemMasterVariantTable: React.FC<ItemMasterVariantTableProps> = ({
               <th className="p-3">Variant SKU</th>
               <th className="p-3">Barcode</th>
               <th className="p-3">On-Hand Stock</th>
-              <th className="p-3">MRP (â‚¹)</th>
-              <th className="p-3">Cost Price (â‚¹)</th>
+              <th className="p-3">MRP (₹)</th>
+              <th className="p-3">Cost Price (₹)</th>
               <th className="p-3">Status</th>
               <th className="p-3 text-right">Actions</th>
             </tr>
@@ -161,8 +161,8 @@ export const ItemMasterVariantTable: React.FC<ItemMasterVariantTableProps> = ({
                       }`}
                     />
                   </td>
-                  <td className="p-3 text-emerald-500 font-bold">â‚¹{v.mrp.toFixed(2)}</td>
-                  <td className="p-3 text-theme-muted">â‚¹{v.cost_price.toFixed(2)}</td>
+                  <td className="p-3 text-emerald-500 font-bold">₹{v.mrp.toFixed(2)}</td>
+                  <td className="p-3 text-theme-muted">₹{v.cost_price.toFixed(2)}</td>
                   <td className="p-3">
                     <button
                       onClick={() => handleToggleStatus(v.id)}

@@ -23,7 +23,7 @@ export const FinanceKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> = (
           <span>Net Cash Balance</span>
           <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
         </div>
-        <div className="text-lg font-bold text-theme-heading font-mono">â‚¹2,14,000</div>
+        <div className="text-lg font-bold text-theme-heading font-mono">₹2,14,000</div>
         <div className="text-[10px] text-emerald-500 mt-1">Bank & Cash In Hand</div>
       </div>
 
@@ -35,7 +35,7 @@ export const FinanceKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> = (
           <span>Accounts Receivable</span>
           <ArrowDownLeft className="w-3.5 h-3.5 text-sky-500" />
         </div>
-        <div className="text-lg font-bold text-theme-heading font-mono">â‚¹38,200</div>
+        <div className="text-lg font-bold text-theme-heading font-mono">₹38,200</div>
         <div className="text-[10px] text-theme-muted mt-1">Customer Outstandings</div>
       </div>
 
@@ -47,7 +47,7 @@ export const FinanceKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> = (
           <span>Accounts Payable</span>
           <ArrowUpRight className="w-3.5 h-3.5 text-amber-500" />
         </div>
-        <div className="text-lg font-bold text-theme-heading font-mono">â‚¹52,100</div>
+        <div className="text-lg font-bold text-theme-heading font-mono">₹52,100</div>
         <div className="text-[10px] text-theme-muted mt-1">Vendor Bills Due</div>
       </div>
 
@@ -59,7 +59,7 @@ export const FinanceKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> = (
           <span>GST Liability (Est.)</span>
           <ShieldAlert className="w-3.5 h-3.5 text-indigo-500" />
         </div>
-        <div className="text-lg font-bold text-theme-heading font-mono">â‚¹8,820</div>
+        <div className="text-lg font-bold text-theme-heading font-mono">₹8,820</div>
         <div className="text-[10px] text-indigo-500 mt-1">GSTR-3B Current Period</div>
       </div>
     </div>

@@ -135,7 +135,7 @@ export const MyWork: React.FC = () => {
               </div>
 
               <div className="text-xs font-mono text-theme-body flex items-center gap-3">
-                {item.amount && <span className="text-emerald-400 font-bold">Amount: â‚¹ {item.amount.toLocaleString("en-IN")}</span>}
+                {item.amount && <span className="text-emerald-400 font-bold">Amount: ₹ {item.amount.toLocaleString("en-IN")}</span>}
                 <span className="flex items-center gap-1 text-theme-muted">
                   <Clock className="w-3.5 h-3.5" /> SLA Due: {new Date(item.slaDueDate).toLocaleDateString()}
                 </span>
