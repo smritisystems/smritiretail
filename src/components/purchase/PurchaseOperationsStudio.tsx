@@ -772,7 +772,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
   return (
     <div className="w-full bg-theme-surface-2 font-sans text-theme-heading p-2.5 sm:p-3 space-y-3">
       {/* ================= SINGLE HORIZONTAL TOOLBAR ================= */}
-      <div className="bg-white border border-theme-divider rounded-xl px-4 py-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
+      <div className="bg-theme-surface-2 border border-theme-divider rounded-xl px-4 py-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
         {/* Left Title & Industry Badge */}
         <div className="flex items-center space-x-2">
           <span className="text-[11px] font-bold text-theme-muted uppercase tracking-wider">PURCHASE /</span>
@@ -849,7 +849,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
       {/* ================= 2-COLUMN MASTER FORM (SUPPLIER INFO + DOCUMENT DETAILS) ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* ----- SUPPLIER INFORMATION (7 COLUMNS) ----- */}
-        <div className="lg:col-span-7 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+        <div className="lg:col-span-7 bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
           <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <Building2 className="w-3.5 h-3.5" />
@@ -902,7 +902,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
         </div>
 
         {/* ----- DOCUMENT DETAILS (5 COLUMNS) ----- */}
-        <div className="lg:col-span-5 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+        <div className="lg:col-span-5 bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
           <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <FileText className="w-3.5 h-3.5" />
@@ -935,7 +935,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
       </div>
 
       {/* ================= QUICK FILTER PILLS & TEMPORARY PRODUCT APPROVAL BAR ================= */}
-      <div className="bg-white border border-theme-divider rounded-xl p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs">
+      <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs">
         {/* Filter Counters */}
         <div className="flex items-center space-x-1.5">
           <span className="text-[10px] font-bold text-theme-muted uppercase mr-1">Product Filters:</span>
@@ -988,7 +988,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
       </div>
 
       {/* ================= ITEMS DATA TABLE CARD ================= */}
-      <div className="bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+      <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-theme-divider pb-1.5">
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">

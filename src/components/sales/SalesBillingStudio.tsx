@@ -413,7 +413,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
   return (
     <div className="w-full bg-theme-surface-2 font-sans text-theme-heading p-2.5 sm:p-3 space-y-3">
       {/* ================= SINGLE HORIZONTAL TOOLBAR (55px HERO COMPRESSION) ================= */}
-      <div className="bg-white border border-theme-divider rounded-xl px-4 py-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
+      <div className="bg-theme-surface-2 border border-theme-divider rounded-xl px-4 py-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
         {/* Left Title & Branch Badge */}
         <div className="flex items-center space-x-2">
           <span className="text-[11px] font-bold text-theme-muted uppercase tracking-wider">SALES /</span>
@@ -498,7 +498,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
       {/* ================= 2-COLUMN MASTER FORM (CUSTOMER INFO + INVOICE DETAILS) ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* ----- CUSTOMER INFORMATION (7 COLUMNS) ----- */}
-        <div className="lg:col-span-7 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+        <div className="lg:col-span-7 bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
           <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <User className="w-3.5 h-3.5" />
@@ -560,7 +560,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
         </div>
 
         {/* ----- INVOICE DETAILS (5 COLUMNS) ----- */}
-        <div className="lg:col-span-5 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+        <div className="lg:col-span-5 bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
           <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <FileText className="w-3.5 h-3.5" />
@@ -595,7 +595,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
       </div>
 
       {/* ================= LINE ITEMS DATA TABLE CARD (SUPG COMPACT) ================= */}
-      <div className="bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+      <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-theme-divider pb-1.5">
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
