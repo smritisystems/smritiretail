@@ -5,6 +5,7 @@
 
 import React from "react";
 import { ArrowLeft, Save, Printer, CheckCircle2, X, Command } from "lucide-react";
+import { WorkspaceFormActions } from "../../../components/workspace/WorkspaceFormActions.tsx";
 import { SAWFExperienceMode, SAWFWorkspaceProfile } from "../types/sawf.ts";
 
 interface DocumentHeaderProps {
@@ -103,36 +104,76 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({
           </button>
         )}
 
-        {/* Header Action Buttons */}
-        {onSaveDraft && (
-          <button
-            type="button"
-            onClick={onSaveDraft}
-            className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded-xl font-semibold transition cursor-pointer"
-          >
-            Save Draft
-          </button>
-        )}
-        {onSave && (
-          <button
-            type="button"
-            onClick={onSave}
-            className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition flex items-center space-x-1.5 cursor-pointer"
-          >
-            <Save size={14} />
-            <span>Save</span>
-          </button>
-        )}
-        {onPost && (
-          <button
-            type="button"
-            onClick={onPost}
-            className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg transition flex items-center space-x-1.5 cursor-pointer"
-          >
-            <CheckCircle2 size={14} />
-            <span>Post Invoice</span>
-          </button>
-        )}
+        <WorkspaceFormActions
+          secondaryActions={
+            <>
+              <div className="flex items-center bg-theme-surface-2 border border-theme-divider rounded-xl p-1">
+                <span className="px-2 text-[10px] font-mono text-theme-muted uppercase hidden sm:inline">Mode:</span>
+                {(["simple", "standard", "enterprise"] as any[]).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => onModeChange(m as any)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition capitalize cursor-pointer ${
+                      mode === m ? "bg-indigo-600 text-white shadow-md" : "text-theme-muted hover:text-theme-primary"
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+
+              {onOpenCommandPalette && (
+                <button
+                  type="button"
+                  onClick={onOpenCommandPalette}
+                  className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer"
+                  title="Command Palette (Ctrl+K)"
+                >
+                  <Command size={14} className="text-indigo-400" />
+                  <span className="hidden sm:inline">Commands</span>
+                  <span className="font-mono text-[9px] bg-theme-surface-2 px-1 rounded text-theme-muted">Ctrl+K</span>
+                </button>
+              )}
+            </>
+          }
+          primaryActions={
+            <>
+              {onSaveDraft && (
+                <button
+                  type="button"
+                  onClick={onSaveDraft}
+                  className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded-xl font-semibold transition cursor-pointer"
+                >
+                  Save Draft
+                </button>
+              )}
+
+              {onSave && (
+                <button
+                  type="button"
+                  onClick={onSave}
+                  className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <Save size={14} />
+                  <span>Save</span>
+                </button>
+              )}
+
+              {onPost && (
+                <button
+                  type="button"
+                  onClick={onPost}
+                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg transition flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 size={14} />
+                  <span>Post Invoice</span>
+                </button>
+              )}
+            </>
+          }
+          extraMeta={documentNo ? <div className="text-right text-xs font-mono text-theme-muted">{documentNo}</div> : undefined}
+        />
       </div>
     </div>
   );
