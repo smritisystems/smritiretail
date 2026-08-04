@@ -1,4 +1,5 @@
 import React from 'react';
+import { createSurfaceStyle } from '../../design/visualGovernance';
 
 export type WorkspaceActionBarProps = {
   actions?: React.ReactNode;
@@ -14,8 +15,11 @@ export const WorkspaceActionBar: React.FC<WorkspaceActionBarProps> = ({ actions,
         gap: 'var(--smriti-space-sm,8px)',
         alignItems: 'center',
         paddingTop: 'var(--smriti-space-sm,8px)',
+        ...createSurfaceStyle('workspace'),
         background: 'var(--smriti-workspace-actionbar-bg, transparent)',
-        color: 'var(--c-theme-body)'
+        border: 'none',
+        boxShadow: 'none',
+        borderRadius: 0,
       }}
     >
       {actions}
