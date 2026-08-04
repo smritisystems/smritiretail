@@ -112,6 +112,28 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
   const [activeDomain, setActiveDomain] = useState<string>("ALL");
   const [lastWorkspacePerDomain, setLastWorkspacePerDomain] = useState<Record<string, string>>({});
 
+  // Detect small viewport (mobile) to optionally hide bottom navigation
+  const [isMobileView, setIsMobileView] = useState<boolean>(() => {
+    try {
+      if (typeof window === "undefined" || !window.matchMedia) return false;
+      return window.matchMedia('(max-width: 640px)').matches;
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 640px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobileView(e.matches);
+    if (mq.addEventListener) mq.addEventListener('change', handler as any);
+    else mq.addListener(handler as any);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', handler as any);
+      else mq.removeListener(handler as any);
+    };
+  }, []);
+
   // UPR Metadata-Driven Navigation Facade (Rule SAP-018, SAP-020, WNG-005)
   const sidebarDef = SPK.navigation.getSidebar(activeDomain);
   const registeredDomains = sidebarDef.allDomains;
@@ -572,6 +594,8 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
 
   // 3. RENDER BOTTOM DOCK NAVIGATION (Optimized for Mobile / Touch / Tablet)
   const renderBottomNav = () => {
+    // Hide bottom navigation on small/mobile view per UX request
+    if (isMobileView) return null;
     // Show 4 core items + a More button
     const coreItems = [
       { id: "dashboard", label: "Dashboard", icon: "dashboard" },

@@ -791,8 +791,8 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       data-sxp-workspace="pos.billing"
       data-sxp-mode={workspaceMode}
     >
-      {/* SMRITI RETAIL TERMINAL HEADER BAR (TOP CONTROL ROW) */}
-      <div className="px-4 py-2 bg-theme-surface-1 border-b border-theme-divider flex items-center justify-between text-xs font-mono">
+      {/* SMRITI RETAIL TERMINAL HEADER BAR (TOP CONTROL ROW) - POS Reference */}
+      <div className="w-full px-4 flex items-center justify-between text-xs font-mono" style={{ height: 56, background: 'var(--workspace-toolbar-bg)', backdropFilter: 'blur(6px)', boxShadow: '0 8px 24px rgba(2,8,20,0.45)' }}>
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <span className="text-theme-muted font-bold">Bill Type:</span>
@@ -823,11 +823,12 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
         </div>
 
         <div className="flex items-center space-x-3">
-          <span className="text-theme-muted">Shift: <strong className="text-white">{activeShift?.id || "SHIFT-01"}</strong></span>
-          <span className="text-theme-muted">Desk: <strong className="text-white">{activeProfile?.name || "LANE-01"}</strong></span>
+          <div className="text-theme-muted text-sm">{activeProfile?.name || "LANE-01"} • {activeShift?.id || "SHIFT-01"}</div>
           <button 
             onClick={onClose}
-            className="text-theme-muted hover:text-theme-heading p-1 rounded hover:bg-theme-surface-hover transition-colors"
+            className="text-theme-muted hover:text-theme-heading p-2 rounded-full hover:bg-theme-surface-hover transition-colors"
+            title="Close"
+            style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
@@ -1079,6 +1080,19 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
               </div>
             </div>
 
+
+          {/* Floating Bottom Action Bar - POS Reference */}
+          {!showInvoicePreview && (
+            <div style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: 18, zIndex: 60 }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--smriti-bottom-nav-bg)', padding: '10px 14px', borderRadius: '20px', boxShadow: 'var(--smriti-bottom-nav-shadow)' }}>
+                <button onClick={() => { onNotification('Menu', 'Menu opened', 'success'); }} className="px-3 py-2 rounded-md text-sm text-theme-muted">☰</button>
+                <button onClick={() => { handleClearLocalCart(); onNotification('Held', 'Bill put on hold (placeholder)', 'success'); }} className="px-3 py-2 rounded-md text-sm bg-theme-surface-2 hover:bg-theme-surface-hover">Hold</button>
+                <button onClick={() => { onNotification('Saved', 'Bill saved (placeholder)', 'success'); }} className="px-3 py-2 rounded-md text-sm bg-theme-surface-2 hover:bg-theme-surface-hover">Save</button>
+                <button onClick={() => setShowInvoicePreview(true)} className="px-3 py-2 rounded-md text-sm bg-theme-surface-2 hover:bg-theme-surface-hover">Preview</button>
+                <button onClick={handleFinalCheckout} className="px-4 py-2 rounded-xl text-sm font-bold text-white" style={{ background: 'var(--sds-color-primary)' }}>Pay</button>
+              </div>
+            </div>
+          )}
             {/* Right side live layout canvas frame */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-8 flex justify-center bg-theme-surface-3">
               

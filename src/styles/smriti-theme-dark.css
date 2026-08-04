@@ -3,49 +3,66 @@
 */
 
 [data-theme="dark"] {
-  /* Real Dark Mode — deep, high-contrast chrome with elevated soft cards */
-  --sds-color-primary: #2f6df6;          /* vivid, deep blue */
-  --sds-color-primary-hover: #4d8eff;
-  --sds-color-primary-active: #1f4ed8;
-  --sds-color-primary-light: #152033;
+  /* Real Dark Mode — redesigned surfaces for clear hierarchy */
+  --sds-color-primary: #2e6ef6;          /* single strong blue accent for interactions */
+  --sds-color-primary-hover: #4b8dff;
+  --sds-color-primary-active: #1748d6;
 
-  /* Background / surface hierarchy — very dark base */
-  --sds-color-background: #03080b;      /* almost black app chrome */
-  --sds-color-background-alt: #07121a;  /* page background */
-  --sds-color-surface: #0b1318;         /* card / panel background */
-  --sds-color-surface-hover: #0f1a22;   /* hover surface for subtle elevation */
+  /* Surface hierarchy (deliberately stepped; not gradients of white) */
+  --sds-color-background: #05070a;       /* Surface 0 - deep charcoal app background */
+  --sds-color-background-alt: #0b1116;   /* Surface 1 - workspace canvas */
+  --sds-color-surface: #0f1720;          /* Surface 2 - cards / panels */
+  --sds-color-surface-3: #111823;        /* Surface 3 - inputs, tables */
+  --sds-color-surface-4: #162028;        /* Surface 4 - floating UI, dialogs */
 
-  /* Text tones for legibility on dark surfaces */
-  --sds-color-text-main: #e9f0fb;       /* primary readable text */
-  --sds-color-text-secondary: #9db0c6;  /* secondary labels */
-  --sds-color-text-muted: #7a8896;      /* muted helper text */
-  --sds-color-text-inverse: #03080b;
+  /* Text tones tuned for hierarchy */
+  --sds-color-text-main: #eaf3ff;        /* primary readable text */
+  --sds-color-text-secondary: #9fb5c8;   /* secondary labels */
+  --sds-color-text-muted: #7b8896;       /* muted helper text */
 
-  /* Borders and focus */
-  --sds-color-border: rgba(255,255,255,0.04);      /* soft borders */
-  --sds-color-border-subtle: rgba(255,255,255,0.02);
-  --sds-color-border-focus: #4d8eff;               /* visible, pleasant focus */
+  /* Borders and focus (use extremely subtle borders; prefer elevation) */
+  --sds-color-border: rgba(255,255,255,0.03);
+  --sds-color-border-subtle: rgba(255,255,255,0.015);
+  --sds-color-border-focus: rgba(78,141,255,0.9);
 
   /* Status accents */
-  --c-seef-success: #1fc27a;
+  --c-seef-success: #14b57a;
   --c-seef-warning: #ffb020;
   --c-seef-error: #ff5c6c;
   --c-seef-accent: var(--sds-color-primary);
 
-  /* Component-level overrides for strong dark-card look */
-  --smriti-card-bg: linear-gradient(180deg, rgba(255,255,255,0.012), rgba(255,255,255,0.006));
-  --smriti-card-border: rgba(255,255,255,0.03);
+  /* Component-level: use the surface tokens, not bright gradients */
+  --smriti-card-bg: var(--sds-color-surface);
+  --smriti-card-border: var(--sds-color-border-subtle);
   --smriti-card-radius: 14px;
-  --smriti-card-shadow: 0 10px 30px rgba(2,8,20,0.7), inset 0 1px 0 rgba(255,255,255,0.01);
+  --smriti-card-shadow: 0 10px 30px rgba(2,8,20,0.6);
 
-  --workspace-toolbar-bg: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.006));
-  --workspace-bottom-nav-bg: linear-gradient(180deg, rgba(255,255,255,0.018), rgba(255,255,255,0.006));
+  --workspace-toolbar-bg: rgba(255,255,255,0.02);
+  --workspace-bottom-nav-bg: rgba(255,255,255,0.02);
 
-  /* Buttons: prominent filled primary with subtle gradient */
-  --smriti-button-primary-bg: linear-gradient(180deg, var(--sds-color-primary), var(--sds-color-primary-active));
+  /* Buttons: primary kept as interaction-only accent */
+  --smriti-button-primary-bg: var(--sds-color-primary);
   --smriti-button-primary-fg: #ffffff;
 
-  /* Table / form surface separation */
-  --sds-color-surface-2: rgba(255,255,255,0.02);
-  --sds-color-surface-3: rgba(255,255,255,0.015);
+  /* Table / form surface separation (darker rows, subtle separators) */
+  --sds-color-surface-2: var(--sds-color-surface);
+  --sds-color-surface-3: var(--sds-color-surface-3);
+}
+
+/* Surface hierarchy for dark theme — use these five surfaces consistently across components */
+[data-theme="dark"] {
+  --smriti-surface-0: var(--sds-color-background);      /* App background */
+  --smriti-surface-1: var(--sds-color-background-alt);  /* Workspace / page canvas */
+  --smriti-surface-2: var(--smriti-card-bg);            /* Cards */
+  --smriti-surface-3: rgba(255,255,255,0.02);           /* Inputs & tables */
+  --smriti-surface-4: rgba(255,255,255,0.03);           /* Floating UI: dialogs, sheets */
+
+  /* Input and control sizing */
+  --smriti-input-height: 52px; /* touch target */
+  --smriti-mobile-header-height: 42px; /* reduced by ~25% */
+
+  /* Icon system */
+  --smriti-icon-size: 20px;
+  --smriti-icon-stroke: 2px;
+  --smriti-icon-opacity: 0.9;
 }

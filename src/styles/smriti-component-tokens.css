@@ -21,9 +21,9 @@
   --smriti-brand-neutral:       var(--smriti-color-neutral);
 
   /* ── Workspace Tokens ───────────────────────────────────────────── */
-  --smriti-workspace-bg:                 var(--smriti-color-background);
-  --smriti-workspace-surface:            var(--smriti-color-surface);
-  --smriti-workspace-surface-alt:        var(--smriti-color-surface-alt);
+  --smriti-workspace-bg:                 var(--smriti-surface-0, var(--smriti-color-background));
+  --smriti-workspace-surface:            var(--smriti-surface-1, var(--smriti-color-background-alt));
+  --smriti-workspace-surface-alt:        var(--smriti-surface-2, var(--smriti-card-bg));
   --smriti-workspace-border:             var(--smriti-color-border);
   --smriti-workspace-card-bg:            var(--smriti-card-bg);
   --smriti-workspace-card-border:        var(--smriti-card-border);
@@ -35,40 +35,48 @@
   --smriti-workspace-drop-zone-bg:       var(--smriti-state-drop-target-bg);
 
   /* ── Component Colors ───────────────────────────────────────────── */
-  --smriti-card-bg:                 var(--smriti-color-surface);
-  --smriti-card-border:             var(--smriti-card-border, rgba(255,255,255,0.03));
+  --smriti-card-bg:                 var(--smriti-surface-2, var(--smriti-color-surface));
+  --smriti-card-border:             transparent; /* prefer elevation over heavy outlines */
   --smriti-card-radius:             var(--smriti-card-radius, 14px);
-  --smriti-card-shadow:             var(--smriti-card-shadow, 0 8px 24px rgba(2,8,20,0.6));
-  --smriti-card-title-fg:           var(--smriti-color-text-secondary);
-  --smriti-card-body-fg:            var(--smriti-color-text-primary);
-  --smriti-card-muted-fg:           var(--smriti-color-text-secondary);
-  --smriti-card-accent-bg:          var(--smriti-color-accent-muted);
-  --smriti-card-accent-fg:          var(--smriti-color-accent);
+  --smriti-card-shadow:             0 12px 36px rgba(2,8,20,0.55); /* gentle lift */
+  --smriti-card-padding:            20px; /* more breathing room */
+  --smriti-card-header-gap:         14px;
+  --smriti-card-title-fg:           var(--smriti-text-primary);
+  --smriti-card-body-fg:            var(--smriti-text-primary);
+  --smriti-card-muted-fg:           var(--smriti-text-secondary);
+  --smriti-card-accent-bg:          transparent;
+  --smriti-card-accent-fg:          var(--smriti-brand-primary, var(--sds-color-primary));
 
-  --smriti-button-primary-bg:       var(--smriti-brand-primary);
-  --smriti-button-primary-fg:       var(--smriti-color-text-inverse);
-  --smriti-button-secondary-bg:     var(--smriti-card-bg);
-  --smriti-button-secondary-border: var(--smriti-card-border);
-  --smriti-button-secondary-fg:     var(--smriti-color-text-primary);
+  /* Buttons: primary only for interactive affordance; avoid using blue for static headings */
+  --smriti-button-primary-bg:       var(--sds-color-primary);
+  --smriti-button-primary-fg:       #ffffff;
+  --smriti-button-secondary-bg:     transparent;
+  --smriti-button-secondary-border: rgba(255,255,255,0.04);
+  --smriti-button-secondary-fg:     var(--smriti-text-primary);
   --smriti-button-disabled-bg:      var(--smriti-color-surface-muted);
   --smriti-button-disabled-fg:      var(--smriti-color-disabled);
 
-  --smriti-input-bg:                var(--smriti-card-bg);
-  --smriti-input-border:            var(--smriti-card-border);
-  --smriti-input-fg:                var(--smriti-color-text-primary);
-  --smriti-input-placeholder:       var(--smriti-color-text-secondary);
-  --smriti-input-focus-border:      var(--smriti-color-primary);
+  /* Inputs: blend into cards but remain interactive */
+  --smriti-input-bg:                var(--smriti-surface-3, rgba(255,255,255,0.02));
+  --smriti-input-border:            rgba(255,255,255,0.02);
+  --smriti-input-fg:                var(--smriti-text-primary);
+  --smriti-input-placeholder:       var(--smriti-text-label);
+  --smriti-input-focus-border:      rgba(78,141,255,0.95);
+  --smriti-input-height:            var(--smriti-input-height, 48px);
 
-  --smriti-table-header-bg:         var(--smriti-color-surface-alt);
-  --smriti-table-header-fg:         var(--smriti-color-text-secondary);
-  --smriti-table-row-hover-bg:      var(--smriti-state-hover-bg);
-  --smriti-table-border:            var(--smriti-color-border);
+  /* Tables: darker rows, subtle separators, clear selected state */
+  --smriti-table-header-bg:         var(--smriti-surface-3);
+  --smriti-table-header-fg:         var(--smriti-text-secondary);
+  --smriti-table-row-hover-bg:      rgba(255,255,255,0.02);
+  --smriti-table-separator:         rgba(255,255,255,0.025);
+  --smriti-table-row-bg:            transparent;
+  --smriti-table-row-selected-bg:   rgba(46,110,246,0.12); /* subtle blue tint for selection */
 
   --smriti-toolbar-bg:              var(--workspace-toolbar-bg);
-  --smriti-toolbar-border:          var(--workspace-toolbar-border);
+  --smriti-toolbar-border:          var(--workspace-toolbar-border, rgba(255,255,255,0.02));
   --smriti-bottom-nav-bg:           var(--workspace-bottom-nav-bg);
   --smriti-bottom-nav-radius:       18px;
-  --smriti-bottom-nav-shadow:       0 10px 24px rgba(2,8,20,0.6);
+  --smriti-bottom-nav-shadow:       0 12px 28px rgba(2,8,20,0.55);
 
   /* ── Widget Status Tokens ───────────────────────────────────────── */
   --smriti-widget-status-success-bg: var(--smriti-color-success-muted);
@@ -106,6 +114,12 @@
   --smriti-shadow-md:               var(--sds-shadow-md);
   --smriti-shadow-lg:               var(--sds-shadow-lg);
   --smriti-shadow-floating:         var(--sds-shadow-lg);
+
+  /* Typography contrast tokens */
+  --smriti-text-primary:            var(--smriti-color-text-main, #e9f0fb);
+  --smriti-text-secondary:          var(--smriti-color-text-secondary, #9db0c6);
+  --smriti-text-label:              var(--smriti-color-text-muted, #7a8896);
+  --smriti-text-disabled:           rgba(255,255,255,0.35);
 
   --smriti-radius-sm:               var(--sds-radius-sm);
   --smriti-radius-md:               var(--sds-radius-md);
