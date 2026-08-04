@@ -171,21 +171,21 @@ export const FieldExplorerTab: React.FC<FieldExplorerTabProps> = ({ fields }) =>
           {/* Sticker Preview Container */}
           <div>
             <label className="block text-xs font-semibold text-theme-muted uppercase font-display mb-2">Live print mockup render:</label>
-            <div className="bg-white rounded-lg p-5 border border-gray-300 text-gray-900 flex flex-col items-center justify-between min-h-[220px]">
+            <div className="bg-theme-surface-2 rounded-lg p-5 border border-theme-divider text-theme-heading flex flex-col items-center justify-between min-h-[220px]">
               
               {/* Header */}
-              <div className="w-full text-center border-b border-gray-300 pb-1.5">
+              <div className="w-full text-center border-b border-theme-divider pb-1.5">
                 <span className="text-[10px] font-mono tracking-widest font-bold">SMRITI RETAIL SYSTEM</span>
               </div>
 
               {/* Dynamic Metadata Fields */}
-              <div className="w-full grid grid-cols-2 gap-1 text-[10px] font-mono border-b border-gray-100 pb-2 pt-2">
+              <div className="w-full grid grid-cols-2 gap-1 text-[10px] font-mono border-b border-theme-divider pb-2 pt-2">
                 {selectedFields.map(fName => {
                   const fObj = fields.find(item => item.fieldName === fName);
                   if (!fObj) return null;
                   return (
-                    <div key={fName} className="flex justify-between border-r border-gray-100 pr-2 last:border-0 last:pl-2">
-                      <span className="text-gray-400 lowercase">{fObj.label.slice(0, 6)}:</span>
+                    <div key={fName} className="flex justify-between border-r border-theme-divider pr-2 last:border-0 last:pl-2">
+                      <span className="text-theme-muted lowercase">{fObj.label.slice(0, 6)}:</span>
                       <span className="font-bold">{fObj.sampleValue}</span>
                     </div>
                   );

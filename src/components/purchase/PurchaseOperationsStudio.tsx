@@ -812,7 +812,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               setStatus("DRAFT");
               if (onNotification) onNotification("Draft Saved", `${docTitle} draft saved`, "success");
             }}
-            className="px-2.5 py-1 bg-white hover:bg-theme-surface-2 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs"
+            className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs"
           >
             Save Draft (F9)
           </button>
@@ -1037,7 +1037,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
               {/* Multi-Mode Dropdown Menu */}
               {showAddItemsMenu && (
-                <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-theme-divider rounded-xl shadow-xl z-30 p-1 text-xs space-y-0.5">
+                <div className="absolute left-0 top-full mt-1 w-64 bg-theme-surface-2 border border-theme-divider rounded-xl shadow-xl z-30 p-1 text-xs space-y-0.5">
                   <div className="text-[10px] font-bold text-theme-muted uppercase px-2 py-1 tracking-wider border-b border-theme-divider">
                     Selection Entry Mode
                   </div>
@@ -1120,7 +1120,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   <th className="py-2 px-2 text-right">Value</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-theme-divider bg-white font-medium text-[11px]">
+              <tbody className="divide-y divide-theme-divider bg-theme-surface-2 font-medium text-[11px]">
                 {Array.from(new Set(filteredItems.map((item) => item.color || "Unspecified"))).map((color) => {
                   const colorItems = filteredItems.filter((item) => (item.color || "Unspecified") === color);
                   const totalQty = colorItems.reduce((sum, item) => sum + item.qty, 0);
@@ -1158,7 +1158,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   <th className="py-2 px-2.5 text-right font-black">Total Amount</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-theme-divider font-medium text-[11px] bg-white">
+              <tbody className="divide-y divide-theme-divider font-medium text-[11px] bg-theme-surface-2">
                 {filteredItems.map((item, idx) => {
                   const sizeQtyS = item.size === "S" ? item.qty : Math.floor(item.qty * 0.2);
                   const sizeQtyM = item.size === "M" ? item.qty : Math.floor(item.qty * 0.3);
@@ -1182,35 +1182,35 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                         <input
                           type="number"
                           defaultValue={sizeQtyS}
-                          className="w-12 text-center font-mono font-bold bg-white border border-indigo-200 rounded py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-600"
+                          className="w-12 text-center font-mono font-bold bg-theme-surface-2 border border-indigo-200 rounded py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-600"
                         />
                       </td>
                       <td className="py-1.5 px-2 text-center bg-indigo-50/30">
                         <input
                           type="number"
                           defaultValue={sizeQtyM}
-                          className="w-12 text-center font-mono font-bold bg-white border border-indigo-200 rounded py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-600"
+                          className="w-12 text-center font-mono font-bold bg-theme-surface-2 border border-indigo-200 rounded py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-600"
                         />
                       </td>
                       <td className="py-1.5 px-2 text-center bg-indigo-50/30">
                         <input
                           type="number"
                           defaultValue={sizeQtyL}
-                          className="w-12 text-center font-mono font-bold bg-white border border-indigo-200 rounded py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-600"
+                          className="w-12 text-center font-mono font-bold bg-theme-surface-2 border border-indigo-200 rounded py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-600"
                         />
                       </td>
                       <td className="py-1.5 px-2 text-center bg-indigo-50/30">
                         <input
                           type="number"
                           defaultValue={sizeQtyXL}
-                          className="w-12 text-center font-mono font-bold bg-white border border-indigo-200 rounded py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-600"
+                          className="w-12 text-center font-mono font-bold bg-theme-surface-2 border border-indigo-200 rounded py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-600"
                         />
                       </td>
                       <td className="py-1.5 px-2 text-center bg-indigo-50/30">
                         <input
                           type="number"
                           defaultValue={sizeQtyXXL}
-                          className="w-12 text-center font-mono font-bold bg-white border border-indigo-200 rounded py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-600"
+                          className="w-12 text-center font-mono font-bold bg-theme-surface-2 border border-indigo-200 rounded py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-600"
                         />
                       </td>
                       <td className="py-2 px-2 text-right font-mono font-black text-indigo-950 bg-indigo-100/50">
@@ -1320,7 +1320,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                           type="number"
                           value={item.qty}
                           onChange={(e) => handleUpdateItem(item.id, "qty", parseFloat(e.target.value) || 0)}
-                          className="w-16 bg-white border border-theme-divider rounded px-1 py-0.5 text-right font-mono font-bold text-theme-heading focus:outline-none focus:border-blue-500"
+                          className="w-16 bg-theme-surface-2 border border-theme-divider rounded px-1 py-0.5 text-right font-mono font-bold text-theme-heading focus:outline-none focus:border-blue-500"
                         />
                       </td>
 
@@ -1329,7 +1329,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                           type="number"
                           value={item.rate}
                           onChange={(e) => handleUpdateItem(item.id, "rate", parseFloat(e.target.value) || 0)}
-                          className="w-16 bg-white border border-theme-divider rounded px-1 py-0.5 text-right font-mono font-semibold text-theme-heading focus:outline-none focus:border-blue-500"
+                          className="w-16 bg-theme-surface-2 border border-theme-divider rounded px-1 py-0.5 text-right font-mono font-semibold text-theme-heading focus:outline-none focus:border-blue-500"
                         />
                       </td>
 
@@ -1338,7 +1338,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                           type="number"
                           value={item.discountPercent}
                           onChange={(e) => handleUpdateItem(item.id, "discountPercent", parseFloat(e.target.value) || 0)}
-                          className="w-12 bg-white border border-theme-divider rounded px-1 py-0.5 text-right font-mono text-theme-heading focus:outline-none focus:border-blue-500"
+                          className="w-12 bg-theme-surface-2 border border-theme-divider rounded px-1 py-0.5 text-right font-mono text-theme-heading focus:outline-none focus:border-blue-500"
                         />
                       </td>
 
@@ -1365,12 +1365,12 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
         {/* Footer Summary Bar */}
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold bg-theme-surface-2 px-3 py-1.5 border border-theme-divider rounded-lg">
           <div className="flex items-center space-x-2 text-theme-muted">
-            <button className="p-0.5 border border-theme-divider rounded bg-white"><ChevronLeft className="w-3.5 h-3.5" /></button>
+            <button className="p-0.5 border border-theme-divider rounded bg-theme-surface-2"><ChevronLeft className="w-3.5 h-3.5" /></button>
             <button className="px-2 py-0.2 bg-blue-600 text-white rounded font-bold text-[11px]">1</button>
-            <button className="px-2 py-0.2 bg-white border border-theme-divider rounded text-[11px]">2</button>
-            <button className="p-0.5 border border-theme-divider rounded bg-white"><ChevronRight className="w-3.5 h-3.5" /></button>
+            <button className="px-2 py-0.2 bg-theme-surface-2 border border-theme-divider rounded text-[11px]">2</button>
+            <button className="p-0.5 border border-theme-divider rounded bg-theme-surface-2"><ChevronRight className="w-3.5 h-3.5" /></button>
             <span className="text-theme-muted text-[11px] ml-2">Rows per page</span>
-            <select className="bg-white border border-theme-divider rounded px-1 py-0.2 text-theme-body text-[11px]">
+            <select className="bg-theme-surface-2 border border-theme-divider rounded px-1 py-0.2 text-theme-body text-[11px]">
               <option value="20">20</option>
               <option value="50">50</option>
             </select>
@@ -1399,7 +1399,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
 
       {/* ================= BOTTOM COLLAPSIBLE VISUAL PRODUCT GALLERY ================= */}
       {studioConfig.showProductGallery && (
-        <div className="bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+        <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
           <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-2 text-indigo-600 font-bold text-xs uppercase tracking-wide">
               <ImageIcon className="w-4 h-4" />
@@ -1455,7 +1455,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
       {/* ================= BOTTOM SPLIT SECTION (TAXES BREAKDOWN + RIGHT DOCKED SUMMARY CARD) ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* ----- LEFT SIDE: TABS (7 COLUMNS) ----- */}
-        <div className="lg:col-span-7 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+        <div className="lg:col-span-7 bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
           <div className="flex flex-wrap items-center space-x-3 border-b border-theme-divider pb-1.5 text-xs font-bold">
             <button
               onClick={() => setActiveBottomTab("taxes")}
@@ -1545,7 +1545,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
         </div>
 
         {/* ----- RIGHT DOCKED SUMMARY CARD (5 COLUMNS) ----- */}
-        <div className="lg:col-span-5 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+        <div className="lg:col-span-5 bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
           <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <Receipt className="w-3.5 h-3.5" />
@@ -1603,7 +1603,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
       {/* ================= ON-THE-FLY NEW ARTICLE CREATION MODAL ================= */}
       {showNewArticleModal && (
         <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl border border-theme-divider">
+          <div className="bg-theme-surface-2 rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl border border-theme-divider">
             <div className="flex items-center justify-between border-b border-theme-divider pb-3">
               <div className="flex items-center space-x-2">
                 <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
@@ -1709,7 +1709,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
       {/* ================= FASHION / FOOTWEAR VARIANT MATRIX ENTRY MODAL ================= */}
       {showVariantMatrixModal && (
         <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto p-4 sm:p-5 space-y-4 shadow-2xl border border-theme-divider">
+          <div className="bg-theme-surface-2 rounded-2xl max-w-4xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto p-4 sm:p-5 space-y-4 shadow-2xl border border-theme-divider">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-theme-divider pb-3">
               <div className="flex items-center space-x-2 min-w-0">
                 <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
@@ -1734,7 +1734,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                 <select
                   value={businessDomain}
                   onChange={(e) => handleBusinessDomainChange(e.target.value as BusinessDomain)}
-                  className="font-semibold text-theme-heading bg-white border border-theme-divider rounded px-2 py-1 w-full text-xs"
+                  className="font-semibold text-theme-heading bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 w-full text-xs"
                 >
                   {Object.keys(BUSINESS_DOMAIN_PROFILES).map((domain) => <option key={domain} value={domain}>{domain}</option>)}
                 </select>
@@ -1746,7 +1746,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   type="text"
                   value={selectedArticle.articleCode}
                   onChange={(e) => setSelectedArticle({ ...selectedArticle, articleCode: e.target.value })}
-                  className="font-mono font-bold text-theme-heading bg-white border border-theme-divider rounded px-2 py-1 w-full text-xs"
+                  className="font-mono font-bold text-theme-heading bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 w-full text-xs"
                 />
               </div>
               <div>
@@ -1755,7 +1755,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   type="text"
                   value={selectedArticle.articleName}
                   onChange={(e) => setSelectedArticle({ ...selectedArticle, articleName: e.target.value })}
-                  className="font-semibold text-theme-heading bg-white border border-theme-divider rounded px-2 py-1 w-full text-xs"
+                  className="font-semibold text-theme-heading bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 w-full text-xs"
                 />
               </div>
               <div>
@@ -1768,7 +1768,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   type="number"
                   value={selectedArticle.baseRate}
                   onChange={(e) => setSelectedArticle({ ...selectedArticle, baseRate: parseFloat(e.target.value) || 0 })}
-                  className="font-mono font-bold text-blue-700 bg-white border border-theme-divider rounded px-2 py-1 w-full text-xs"
+                  className="font-mono font-bold text-blue-700 bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 w-full text-xs"
                 />
               </div>
               <div>
@@ -1779,7 +1779,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                     setSelectedArticle({ ...selectedArticle, category: e.target.value });
                     setSelectedCategoryStatus("ITEM_MASTER");
                   }}
-                  className="font-semibold text-theme-heading bg-white border border-theme-divider rounded px-2 py-1 w-full text-xs"
+                  className="font-semibold text-theme-heading bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 w-full text-xs"
                 >
                   {availableMatrixCategories.map((category) => <option key={category} value={category}>{category}</option>)}
                 </select>
@@ -1790,7 +1790,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                     onChange={(e) => setNewMatrixCategory(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") handleCreateMissingMatrixCategory(); }}
                     placeholder="Only if missing"
-                    className="min-w-0 flex-1 rounded border border-theme-divider bg-white px-2 py-1 text-[10px] text-theme-heading"
+                    className="min-w-0 flex-1 rounded border border-theme-divider bg-theme-surface-2 px-2 py-1 text-[10px] text-theme-heading"
                   />
                   <button
                     type="button"
@@ -1810,7 +1810,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
               <div className="sm:col-span-2">
                 <span className="text-[10px] font-bold uppercase text-theme-muted">Size category</span>
-                <div className="mt-1 grid grid-cols-3 gap-1 rounded-lg bg-white p-1 border border-theme-divider">
+                <div className="mt-1 grid grid-cols-3 gap-1 rounded-lg bg-theme-surface-2 p-1 border border-theme-divider">
                   {(["apparel", "footwear", "hybrid"] as const).map((mode) => (
                     <button
                       key={mode}
@@ -1833,7 +1833,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   onChange={(e) => setNewMatrixColor(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") handleAddMatrixColor(); }}
                   placeholder="e.g. Maroon"
-                  className="mt-1 w-full rounded border border-theme-divider bg-white px-2 py-2 text-xs font-semibold normal-case text-theme-heading outline-none focus:border-indigo-500"
+                  className="mt-1 w-full rounded border border-theme-divider bg-theme-surface-2 px-2 py-2 text-xs font-semibold normal-case text-theme-heading outline-none focus:border-indigo-500"
                 />
                 <button
                   type="button"
@@ -1854,12 +1854,12 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                   onChange={(e) => setNewMatrixSize(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") handleAddMatrixSize(); }}
                   placeholder="Footwear: 26, 27, 28"
-                  className="mt-1 w-full rounded border border-theme-divider bg-white px-2 py-2 text-xs font-semibold normal-case text-theme-heading outline-none focus:border-indigo-500"
+                  className="mt-1 w-full rounded border border-theme-divider bg-theme-surface-2 px-2 py-2 text-xs font-semibold normal-case text-theme-heading outline-none focus:border-indigo-500"
                 />
                 <select
                   value={newMatrixSizeCategory}
                   onChange={(e) => setNewMatrixSizeCategory(e.target.value as "apparel" | "footwear")}
-                  className="mt-1 w-full rounded border border-theme-divider bg-white px-2 py-2 text-xs font-semibold normal-case text-theme-heading outline-none focus:border-indigo-500"
+                  className="mt-1 w-full rounded border border-theme-divider bg-theme-surface-2 px-2 py-2 text-xs font-semibold normal-case text-theme-heading outline-none focus:border-indigo-500"
                   aria-label="New size category"
                 >
                   <option value="footwear">Footwear size</option>
@@ -1916,7 +1916,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
                                 placeholder="0"
                                 onChange={(e) => handleMatrixQtyChange(color, size, parseInt(e.target.value) || 0)}
                                 className={`w-14 text-center border rounded py-1 text-xs font-mono font-bold focus:outline-none focus:border-blue-500 ${
-                                  qty > 0 ? "bg-blue-50 border-blue-400 text-blue-800" : "bg-white border-theme-divider text-theme-muted"
+                                  qty > 0 ? "bg-blue-50 border-blue-400 text-blue-800" : "bg-theme-surface-2 border-theme-divider text-theme-muted"
                                 }`}
                               />
                             </td>
@@ -1953,7 +1953,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
       {/* ================= PROCUREMENT STUDIO CONFIGURATION MODAL ================= */}
       {showConfigModal && (
         <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl border border-theme-divider">
+          <div className="bg-theme-surface-2 rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl border border-theme-divider">
             <div className="flex items-center justify-between border-b border-theme-divider pb-3">
               <div className="flex items-center space-x-2">
                 <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
@@ -2041,7 +2041,7 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
       {/* ================= ITEM PICKER MODAL (F2) ================= */}
       {showItemPickerModal && (
         <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-xl w-full p-4 space-y-3 shadow-xl border border-theme-divider">
+          <div className="bg-theme-surface-2 rounded-xl max-w-xl w-full p-4 space-y-3 shadow-xl border border-theme-divider">
             <div className="flex items-center justify-between border-b border-theme-divider pb-2">
               <h3 className="font-extrabold text-theme-heading text-xs flex items-center space-x-2">
                 <ShoppingCart className="w-3.5 h-3.5 text-blue-600" />

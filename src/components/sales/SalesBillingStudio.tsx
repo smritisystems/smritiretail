@@ -445,7 +445,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
           <button
             onClick={handleHoldBill}
-            className="px-2.5 py-1 bg-white hover:bg-theme-surface-2 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center"
+            className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center"
           >
             <PauseCircle className="w-3.5 h-3.5 mr-1 text-amber-600" />
             Hold (F6)
@@ -453,7 +453,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
           <button
             onClick={() => setIsRecallModalOpen(true)}
-            className="px-2.5 py-1 bg-white hover:bg-theme-surface-2 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center relative"
+            className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center relative"
           >
             <PlayCircle className="w-3.5 h-3.5 mr-1 text-indigo-600" />
             Recall (F7)
@@ -466,7 +466,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
           <button
             onClick={() => setIsDiscountModalOpen(true)}
-            className="px-2.5 py-1 bg-white hover:bg-theme-surface-2 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center"
+            className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-md font-bold text-theme-body cursor-pointer shadow-2xs flex items-center"
           >
             <Percent className="w-3.5 h-3.5 mr-1 text-emerald-600" />
             Discount (F8)
@@ -667,7 +667,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                         min="1"
                         value={item.qty}
                         onChange={(e) => updateQty(item.id, parseInt(e.target.value) || 1)}
-                        className="w-14 bg-white border border-theme-divider rounded px-1 py-0.5 text-right font-mono font-bold text-theme-heading focus:outline-none focus:border-blue-500"
+                        className="w-14 bg-theme-surface-2 border border-theme-divider rounded px-1 py-0.5 text-right font-mono font-bold text-theme-heading focus:outline-none focus:border-blue-500"
                       />
                     </td>
 
@@ -687,7 +687,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                             prev.map((i) => (i.id === item.id ? { ...i, discountPct: val } : i))
                           );
                         }}
-                        className="w-12 bg-white border border-theme-divider rounded px-1 py-0.5 text-right font-mono text-theme-heading focus:outline-none focus:border-blue-500"
+                        className="w-12 bg-theme-surface-2 border border-theme-divider rounded px-1 py-0.5 text-right font-mono text-theme-heading focus:outline-none focus:border-blue-500"
                       />
                     </td>
 
@@ -714,7 +714,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
       {/* ================= BOTTOM SPLIT SECTION (TAX BREAKDOWN + RIGHT DOCKED SUMMARY CARD) ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* ----- LEFT SIDE: TAX BREAKDOWN & NOTES (7 COLUMNS) ----- */}
-        <div className="lg:col-span-7 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+        <div className="lg:col-span-7 bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
           <div className="flex items-center justify-between border-b border-theme-divider pb-1.5 text-xs font-bold text-theme-body uppercase">
             <span>STRE GST TAX BREAKDOWN</span>
             <span className="text-[10px] text-emerald-600 font-mono">TG-001 Intrastate</span>
@@ -757,7 +757,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
         </div>
 
         {/* ----- RIGHT DOCKED SUMMARY CARD (5 COLUMNS) ----- */}
-        <div className="lg:col-span-5 bg-white border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
+        <div className="lg:col-span-5 bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
           <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <Receipt className="w-3.5 h-3.5" />
@@ -809,7 +809,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
       {/* ================= ITEM SEARCH / SCANNER MODAL (F2) ================= */}
       {isScannerModalOpen && (
         <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-xl w-full p-4 space-y-3 shadow-xl border border-theme-divider">
+          <div className="bg-theme-surface-2 rounded-xl max-w-xl w-full p-4 space-y-3 shadow-xl border border-theme-divider">
             <div className="flex items-center justify-between border-b border-theme-divider pb-2">
               <h3 className="font-extrabold text-theme-heading text-xs flex items-center space-x-2">
                 <Scan className="w-3.5 h-3.5 text-blue-600" />
@@ -845,7 +845,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
       {/* ================= RECALL HELD BILLS MODAL (F7) ================= */}
       {isRecallModalOpen && (
         <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full p-4 space-y-3 shadow-xl border border-theme-divider">
+          <div className="bg-theme-surface-2 rounded-xl max-w-lg w-full p-4 space-y-3 shadow-xl border border-theme-divider">
             <div className="flex items-center justify-between border-b border-theme-divider pb-2">
               <h3 className="font-extrabold text-theme-heading text-xs flex items-center space-x-2">
                 <PlayCircle className="w-3.5 h-3.5 text-indigo-600" />
@@ -882,7 +882,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
       {/* ================= BILL PAYMENT MODAL (F4 / F10) ================= */}
       {isPaymentModalOpen && (
         <div className="fixed inset-0 bg-theme-surface-2 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-theme-divider">
+          <div className="bg-theme-surface-2 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-theme-divider">
             <div className="flex items-center justify-between border-b border-theme-divider pb-3">
               <div className="flex items-center space-x-2">
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">

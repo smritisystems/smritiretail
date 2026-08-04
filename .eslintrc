@@ -29,16 +29,28 @@
 				"message": "[TGR-001] Tailwind 'dark:' variants bypass the SEEF theme engine. Use semantic tokens: bg-theme-surface-*, text-theme-primary, text-theme-muted, border-theme-divider. See SEEF-TRP2."
 			},
 			{
+				"selector": "JSXAttribute[name.name='className'] Literal[value=/\\b(bg|text|border)-(gray|slate|zinc|neutral|stone)-[0-9]{2,3}\\b/]",
+				"message": "[TGR-002] Raw neutral Tailwind color utilities are not allowed in business UI. Use semantic token classes such as bg-surface, bg-surface-elevated, text-primary, text-secondary, border-default, and border-subtle."
+			},
+			{
+				"selector": "JSXAttribute[name.name='className'] Literal[value=/\\b(bg|text|border)-(white|black)\\b/]",
+				"message": "[TGR-003] Raw neutral color utilities are banned in business UI. Use semantic token classes instead."
+			},
+			{
 				"selector": "JSXAttribute[name.name='className'] Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
-				"message": "[TGR-002] Hardcoded hex colors in className are not theme-aware. Replace with semantic tokens: var(--c-seef-accent), var(--c-theme-surface-1), etc. See SEEF-TRP2."
+				"message": "[TGR-004] Hardcoded hex colors in className are not theme-aware. Replace with semantic tokens: var(--c-seef-accent), var(--c-theme-surface-1), etc. See SEEF-TRP2."
 			},
 			{
 				"selector": "JSXAttribute[name.name='className'] Literal[value=/\\brgba?\\s*\\(/]",
-				"message": "[TGR-003] rgb()/rgba() literals in className are not theme-aware. Use semantic token vars or Tailwind opacity modifiers on token classes. See SEEF-TRP2."
+				"message": "[TGR-005] rgb()/rgba() literals in className are not theme-aware. Use semantic token vars or Tailwind opacity modifiers on token classes. See SEEF-TRP2."
 			},
 			{
 				"selector": "JSXAttribute[name.name='style'] Property[key.name=/^(color|background|backgroundColor|borderColor|fill|stroke|outlineColor)$/] Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
-				"message": "[TGR-004] Hardcoded color literal in style prop. Use var(--c-seef-*) or var(--c-theme-*) tokens instead. See SEEF-TRP2."
+				"message": "[TGR-006] Hardcoded color literal in style prop. Use var(--c-seef-*) or var(--c-theme-*) tokens instead. See SEEF-TRP2."
+			},
+			{
+				"selector": "JSXAttribute[name.name='style'] Property[key.name=/^(color|background|backgroundColor|borderColor|fill|stroke|outlineColor)$/] Literal[value=/\\brgba?\\s*\\(/]",
+				"message": "[TGR-007] rgb()/rgba() literals in style props are not theme-aware. Use semantic token vars instead."
 			}
 		],
 	"root": true
