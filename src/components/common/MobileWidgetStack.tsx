@@ -5,14 +5,15 @@
  */
 import React from "react";
 import WorkspaceCard from "../workspace/WorkspaceCard";
+import type { WorkspaceCard as WorkspaceCardType } from "../../layout_engine/WorkspaceEngine";
 import WorkspaceCardRegistry from "../../layout_engine/WorkspaceCardRegistry";
 import { useResponsiveLayout } from "../../layout_engine/responsive_manager.js";
 import { WidgetLayoutConfig } from "../../layout_engine/WorkspacePersonalizationEngine.js";
 
 interface MobileWidgetStackProps {
-  widgets: WorkspaceCard[];
+  widgets: WorkspaceCardType[];
   layout: WidgetLayoutConfig[];
-  renderWidget: (widget: WorkspaceCard, layout: WidgetLayoutConfig) => React.ReactNode;
+  renderWidget: (widget: WorkspaceCardType, layout: WidgetLayoutConfig) => React.ReactNode;
 }
 
 export const MobileWidgetStack: React.FC<MobileWidgetStackProps> = ({
@@ -43,11 +44,12 @@ export const MobileWidgetStack: React.FC<MobileWidgetStackProps> = ({
         if (!widget) return null;
 
         const inner = renderWidget
-          ? renderWidget(widget, config)
+          ? renderWidget(widget as any, config)
           : (() => {
-              const { content, cardProps } = WorkspaceCardRegistry.render(widget);
+              const { content, cardProps } = WorkspaceCardRegistry.render(widget as any);
+              const cp: any = cardProps as any;
               return (
-                <WorkspaceCard id={widget.id} title={cardProps?.title} subtitle={cardProps?.subtitle} actions={cardProps?.actions} footer={cardProps?.footer}>
+                <WorkspaceCard id={widget.id} title={cp?.title} subtitle={cp?.subtitle} actions={cp?.actions} footer={cp?.footer}>
                   {content}
                 </WorkspaceCard>
               );

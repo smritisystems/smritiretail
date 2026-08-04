@@ -28,7 +28,10 @@ export type WorkspaceEventType =
   | "SyncCompleted"
   | "OfflineStateChanged"
   | "CommandPaletteOpened"
-  | "HealthReport";
+  | "HealthReport"
+  | "CardOpened"
+  | "CardStateChanged"
+  | "LayoutSaved";
 
 export interface WorkspaceEvent<T = unknown> {
   readonly eventId: string;

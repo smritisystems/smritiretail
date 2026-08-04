@@ -8,6 +8,7 @@ import { DashboardWidget } from "../../kernel/upr/dashboard/DashboardRegistry.js
 import { useResponsiveLayout } from "../../layout_engine/responsive_manager.js";
 import { WorkspaceEngine } from "../../layout_engine/WorkspaceEngine.js";
 import WorkspaceCard from "../workspace/WorkspaceCard";
+import type { WorkspaceCard as WorkspaceCardType } from "../../layout_engine/WorkspaceEngine";
 import WorkspaceCardRegistry from "../../layout_engine/WorkspaceCardRegistry";
 import {
   WorkspacePersonalizationEngine,
@@ -18,7 +19,7 @@ import { MobileWidgetStack } from "./MobileWidgetStack.tsx";
 interface AdaptiveWorkspaceGridProps {
   workspaceId: string;
   widgets: DashboardWidget[];
-  renderWidget: (widget: WorkspaceCard, layout: WidgetLayoutConfig) => React.ReactNode;
+  renderWidget: (widget: WorkspaceCardType, layout: WidgetLayoutConfig) => React.ReactNode;
 }
 
 const buildLayout = (
@@ -100,7 +101,7 @@ export const AdaptiveWorkspaceGrid: React.FC<AdaptiveWorkspaceGridProps> = ({
 
     // If a custom renderWidget prop is provided, keep using it for mobile fallback.
     if (renderWidget) {
-      return <MobileWidgetStack widgets={mobileCards} layout={layout} renderWidget={renderWidget} />;
+      return <MobileWidgetStack widgets={mobileCards as any} layout={layout} renderWidget={renderWidget as any} />;
     }
 
     return (
@@ -108,12 +109,13 @@ export const AdaptiveWorkspaceGrid: React.FC<AdaptiveWorkspaceGridProps> = ({
         widgets={mobileCards}
         layout={layout}
         renderWidget={(widget, cfg) => {
-          const { content, cardProps } = WorkspaceCardRegistry.render(widget);
-          return (
-            <WorkspaceCard id={widget.id} title={cardProps?.title} subtitle={cardProps?.subtitle} actions={cardProps?.actions} footer={cardProps?.footer}>
-              {content}
-            </WorkspaceCard>
-          );
+            const { content, cardProps } = WorkspaceCardRegistry.render(widget as any);
+            const cp: any = cardProps as any;
+            return (
+              <WorkspaceCard id={widget.id} title={cp?.title} subtitle={cp?.subtitle} actions={cp?.actions} footer={cp?.footer}>
+                {content}
+              </WorkspaceCard>
+            );
         }}
       />
     );
@@ -156,9 +158,10 @@ export const AdaptiveWorkspaceGrid: React.FC<AdaptiveWorkspaceGridProps> = ({
               renderWidget(widget as any, config)
             ) : (
               (() => {
-                const { content, cardProps } = WorkspaceCardRegistry.render(widget);
+                const { content, cardProps } = WorkspaceCardRegistry.render(widget as any);
+                const cp: any = cardProps as any;
                 return (
-                  <WorkspaceCard id={widget.id} title={cardProps?.title} subtitle={cardProps?.subtitle} actions={cardProps?.actions} footer={cardProps?.footer}>
+                  <WorkspaceCard id={widget.id} title={cp?.title} subtitle={cp?.subtitle} actions={cp?.actions} footer={cp?.footer}>
                     {content}
                   </WorkspaceCard>
                 );

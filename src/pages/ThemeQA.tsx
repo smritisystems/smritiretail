@@ -52,7 +52,7 @@ const BottomNav: React.FC<{active?:string}> = ({active='save'}) => (
     position:'fixed',
     left:16,
     right:16,
-    bottom:16 + (typeof window !== 'undefined' ? (window['__env_safe_area_bottom'] || 0) : 0),
+    bottom:16 + (typeof window !== 'undefined' ? ((window as any)['__env_safe_area_bottom'] || 0) : 0),
     background: 'var(--smriti-bottom-nav-bg)',
     borderRadius: 'var(--smriti-bottom-nav-radius,20px)',
     boxShadow: 'var(--smriti-bottom-nav-shadow)',
