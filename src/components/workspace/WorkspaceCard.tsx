@@ -1,5 +1,4 @@
 import React from 'react';
-import { resolveDesignTheme } from '../../design';
 
 export type WorkspaceCardVariant = 'summary' | 'chart' | 'list' | 'timeline' | 'default';
 
@@ -56,8 +55,6 @@ export const WorkspaceCard: React.FC<WorkspaceCardProps> = ({
     unknown: 'var(--c-theme-body)',
   }[status];
 
-  const theme = resolveDesignTheme();
-
   return (
     <section
       id={id}
@@ -65,12 +62,12 @@ export const WorkspaceCard: React.FC<WorkspaceCardProps> = ({
       role="region"
       aria-labelledby={`${id}-title`}
       style={{
-        background: theme.surface.card,
-        color: 'var(--smriti-text-primary, var(--c-theme-body))',
+        background: 'var(--smriti-card-bg, var(--c-theme-surface-2))',
+        color: 'var(--smriti-card-foreground, var(--c-theme-body))',
         padding: 'var(--smriti-widget-padding, 16px)',
-        borderRadius: theme.radius.md,
-        boxShadow: theme.elevation.sm,
-        border: '1px solid var(--smriti-color-border, var(--c-theme-divider))'
+        borderRadius: 'var(--smriti-radius-md, 8px)',
+        boxShadow: 'var(--smriti-shadow-sm, none)',
+        border: '1px solid var(--smriti-card-border, var(--c-theme-divider))'
       }}
     >
       {/* Header: icon, title, actions */}
