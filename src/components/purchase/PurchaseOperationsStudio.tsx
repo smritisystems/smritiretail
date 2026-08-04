@@ -1674,17 +1674,6 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
               <button
                 type="button"
                 onClick={() => {
-                  setStatus("POSTED");
-                  if (onNotification) onNotification("Action", "Submitted and posted.", "success");
-                }}
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold"
-              >
-                Submit for Approval
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
                   handlePrint();
                 }}
                 className="px-3 py-1 bg-theme-surface-2 border border-theme-divider text-theme-body rounded-md text-xs font-bold"
