@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
+from ...core.config import settings
 from ...api.deps import get_db, get_current_user, get_current_user_optional, require_role
 from ...core.security import hash_password
 from ...models.auth import User, UserRole
@@ -1005,7 +1006,7 @@ async def company_setup(
         # 10. Tenant Provision Profile & System Configs
         ind_pack = getattr(business_info, "industryPack", "general_retail") or "general_retail"
         prov_profile = TenantProvisionProfile(
-            id=f"tprof-{uuid_pkg.uuid4().hex[:12]}",
+            id=f"tprof-{uuid.uuid4().hex[:12]}",
             tenant_id=tenant_id,
             setup_version="1.0.0",
             schema_version="3.1.0",
