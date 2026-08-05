@@ -119,30 +119,8 @@ def upgrade() -> None:
     )
     op.create_index('idx_fls_res_field', 'smriti_field_security_masks', ['resource', 'field_name'])
 
-    # 5. smriti_approval_matrices
-    op.create_table(
-        'smriti_approval_matrices',
-        sa.Column('id', sa.String(length=50), nullable=False),
-        sa.Column('tenant_id', sa.String(length=50), nullable=True),
-        sa.Column('role_id', sa.String(length=50), nullable=False),
-        sa.Column('domain', sa.String(length=100), nullable=False),
-        sa.Column('approval_limit_amount', sa.Numeric(precision=18, scale=4), nullable=False, server_default='0.0000'),
-        sa.Column('currency', sa.String(length=10), nullable=False, server_default='INR'),
-        sa.Column('requires_higher_approval', sa.Boolean(), nullable=False, server_default='false'),
-        sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true'),
-        sa.Column('is_deleted', sa.Boolean(), nullable=False, server_default='false'),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('NOW()')),
-        sa.Column('modified_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('NOW()')),
-        sa.Column('created_by', sa.String(length=50), nullable=True),
-        sa.Column('updated_by', sa.String(length=50), nullable=True),
-        sa.ForeignKeyConstraint(['role_id'], ['smriti_roles.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index('idx_appr_matrix_role', 'smriti_approval_matrices', ['role_id'])
-
 
 def downgrade() -> None:
-    op.drop_table('smriti_approval_matrices')
     op.drop_table('smriti_field_security_masks')
     op.drop_table('smriti_security_policies')
     op.drop_table('smriti_workspace_profiles')

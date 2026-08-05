@@ -219,18 +219,3 @@ class SMRITIFieldSecurityMask(BaseEntity):
     field_name  = Column(String(100), nullable=False, index=True)
     role_id     = Column(String(50), ForeignKey("smriti_roles.id", ondelete="CASCADE"), nullable=True, index=True)
     field_state = Column(String(50), nullable=False, default="VISIBLE")
-
-
-class SMRITIApprovalMatrix(BaseEntity):
-    """
-    Financial threshold approval matrix limits per Role and Domain.
-    """
-    __tablename__ = "smriti_approval_matrices"
-
-    role_id                  = Column(String(50), ForeignKey("smriti_roles.id", ondelete="CASCADE"), nullable=False, index=True)
-    domain                   = Column(String(100), nullable=False, index=True)  # PURCHASE, SALES, INVENTORY
-    approval_limit_amount    = Column(Numeric(18, 4), nullable=False, default=0.0)
-    currency                 = Column(String(10), nullable=False, default="INR")
-    requires_higher_approval = Column(Boolean, nullable=False, default=False)
-
-    role = relationship("SMRITIRole")

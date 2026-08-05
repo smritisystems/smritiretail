@@ -69,7 +69,6 @@ from .security import (
     SMRITIWorkspaceProfile,
     SMRITISecurityPolicy,
     SMRITIFieldSecurityMask,
-    SMRITIApprovalMatrix,
 )
 
 from .platform import DocumentNumberSeries, DocumentWorkflow, IntegrationLog
