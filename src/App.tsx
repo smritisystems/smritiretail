@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Organization : AITDL NETWORKS
  * Author       : Jawahar Ramkripal Mallah
@@ -84,7 +84,6 @@ import { ContextRenderer } from "./context-actions/ContextRenderer.tsx";
 import { registerAllDefaultActions } from "./context-actions/providers/SMRITIModuleActions.ts";
 import { PrintProvider } from "./print_engine/print_store.tsx";
 import { PrintStudioTab } from "./print_engine/PrintStudioTab.tsx";
-import { PrintHistoryTab } from "./print_engine/PrintHistoryTab.tsx";
 import { AboutSmritiTab } from "./components/AboutSmritiTab.tsx";
 import { DevTrackerTab } from "./modules/dev_tracker/ui/DevTrackerTab.tsx";
 import { AccountingSyncTab } from "./components/AccountingSyncTab.tsx";
@@ -866,7 +865,7 @@ const AppContent: React.FC = () => {
       case "barcode-printing":
         return <PrintLabelsStudio products={products} />;
       case "print-history":
-        return <PrintHistoryTab />;
+        return <PrintLabelsStudio products={products} />;
       case "about-smriti":
         return <AboutSmritiTab />;
       case "dev-tracker":

@@ -1,5 +1,14 @@
 import { PrinterCapability } from "../models/PrintDocument.js";
-import { SystemPrinterInfo } from "../../../services/label_print/PrintProviderFramework.js";
+
+export interface SystemPrinterInfo {
+  name: string;
+  driver?: string;
+  manufacturer?: string;
+  model?: string;
+  vendorId?: number;
+  productId?: number;
+  connection?: string;
+}
 
 export class PrinterCapabilityEngine {
   static fromSystemPrinter(info: SystemPrinterInfo & Record<string, any>): PrinterCapability {

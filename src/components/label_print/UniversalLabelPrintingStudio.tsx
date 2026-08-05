@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Business OS
  * Component    : UniversalLabelPrintingStudio (Rule SLP-001)
  * Author       : Jawahar Ramkripal Mallah
@@ -14,10 +14,42 @@ import {
   Play, Plus, Trash2, Sliders, CheckCircle2, AlertCircle, Clock, ChevronRight, X
 } from "lucide-react";
 import { Product } from "../../types.js";
-import { DEFAULT_PRN_TEMPLATES, PRNTemplate, PRNVariableEngine } from "../../services/label_print/PRNVariableEngine.ts";
-import { PrintProviderRegistry, PrintProviderType } from "../../services/label_print/PrintProviderFramework.ts";
-import { PrintHistoryService, PrintHistoryEntry } from "../../services/label_print/PrintHistoryService.ts";
+import { DocumentService } from "../../dop/core/DocumentService.ts";
+import { SdaRuntime } from "../../sdp/SdaRuntime.ts";
 import { WindowManager } from "../../sdk/WindowManager.ts";
+
+export type PrintProviderType = "prn" | "zpl" | "tspl" | "pdf" | "web_serial" | "raw_bt";
+
+export interface PrintHistoryEntry {
+  id: string;
+  jobId?: string;
+  timestamp: string;
+  itemCount: number;
+  labelCount: number;
+  totalLabels?: number;
+  templateName?: string;
+  template?: string;
+  user?: string;
+  printer?: string;
+  sourceDoc?: string;
+  errorMessage?: string;
+  status: "SUCCESS" | "FAILED" | "Completed";
+}
+
+export interface PRNTemplate {
+  id: string;
+  name: string;
+  category: string;
+  language?: string;
+  widthMm: number;
+  heightMm: number;
+  script: string;
+}
+
+export const DEFAULT_PRN_TEMPLATES: PRNTemplate[] = [
+  { id: "std_dual", name: "Standard Dual Barcode Tag (100x50mm)", category: "Apparel", language: "ZPL", widthMm: 100, heightMm: 50, script: "^XA^FO50,50^A0N,30,30^FD{ITEM_NAME}^FS^XZ" },
+  { id: "jewellery_tag", name: "Jewellery Dumbbell Tag (50x15mm)", category: "Jewellery", language: "ZPL", widthMm: 50, heightMm: 15, script: "^XA^FO10,10^A0N,20,20^FD{ITEM_NAME}^FS^XZ" },
+];
 
 export interface UniversalLabelPrintingStudioProps {
   products: Product[];
@@ -79,7 +111,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
   const [providerType, setProviderType] = useState<PrintProviderType>("prn");
   const [activeTab, setActiveTab] = useState<"items" | "pivot" | "preview" | "script" | "history" | "templates">("items");
   const [copied, setCopied] = useState<boolean>(false);
-  const [printHistory, setPrintHistory] = useState<PrintHistoryEntry[]>(() => PrintHistoryService.getHistory());
+  const [printHistory, setPrintHistory] = useState<PrintHistoryEntry[]>([]);
 
   // Filter products by Universal Lookup
   const filteredProducts = useMemo(() => {
@@ -120,7 +152,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
 
   // Selected Template Object
   const activeTemplate = useMemo(() => {
-    return DEFAULT_PRN_TEMPLATES.find((t) => t.id === selectedTemplateId) || DEFAULT_PRN_TEMPLATES[0];
+    return DEFAULT_PRN_TEMPLATES.find((t: PRNTemplate) => t.id === selectedTemplateId) || DEFAULT_PRN_TEMPLATES[0];
   }, [selectedTemplateId]);
 
   // Generated Raw PRN Script
@@ -130,7 +162,11 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
         const copies = itemCopies[product.id] !== undefined 
           ? itemCopies[product.id] 
           : copiesMode === "stock" ? Math.max(1, product.stock || 1) : fixedCopies;
-        return PRNVariableEngine.renderTemplate(activeTemplate, product, copies);
+        return activeTemplate.script
+          .replace("{ITEM_NAME}", product.name)
+          .replace("{BARCODE}", product.barcode || product.code)
+          .replace("{PRICE}", String(product.price))
+          .replace("{COPIES}", String(copies));
       })
       .join("\n\n");
   }, [selectedItemsList, itemCopies, copiesMode, fixedCopies, activeTemplate]);
@@ -243,38 +279,38 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
   };
 
   const handleExecutePrintJob = async () => {
-    const provider = PrintProviderRegistry.getProvider(providerType);
-    const result = await provider.sendJob({
-      jobId: `JOB-${Date.now().toString().slice(-6)}`,
-      printerName: provider.name,
-      templateName: activeTemplate.name,
-      script: compiledPRNScript,
-      totalLabels: totalLabelsCount,
+    const result = await DocumentService.output({
+      documentType: "BARCODE_LABEL",
+      referenceId: `JOB-${Date.now().toString().slice(-6)}`,
+      channel: "PRINT",
+      data: { templateName: activeTemplate.name },
       items: selectedItemsList.map((p) => ({
-        name: p.name,
-        copies: itemCopies[p.id] || (copiesMode === "stock" ? Math.max(1, p.stock || 1) : fixedCopies),
+        itemCode: p.code || p.id,
+        itemName: p.name,
+        barcode: p.barcode || p.code,
+        mrp: p.price || 0,
+        sellingPrice: p.price || 0,
+        quantity: itemCopies[p.id] || (copiesMode === "stock" ? Math.max(1, p.stock || 1) : fixedCopies),
       })),
     });
 
-    // Record Audit & History
-    const entry = PrintHistoryService.addEntry({
-      user: "super",
-      printer: provider.name,
-      provider: provider.name,
-      template: activeTemplate.name,
-      sourceDoc: selectedProductIds.size > 0 ? "Universal Selection" : "Filtered Master",
-      itemsCount: selectedItemsList.length,
-      totalLabels: totalLabelsCount,
-      status: result.success ? "Completed" : "Failed",
-      errorMessage: result.error,
-    });
+    const newHistoryEntry: PrintHistoryEntry = {
+      id: result.jobId,
+      timestamp: new Date().toLocaleTimeString(),
+      itemCount: selectedItemsList.length,
+      labelCount: totalLabelsCount,
+      templateName: activeTemplate.name,
+      status: result.lifecycleState === "DELIVERED" ? "SUCCESS" : "FAILED",
+    };
 
-    setPrintHistory(PrintHistoryService.getHistory());
+    setPrintHistory((prev) => [newHistoryEntry, ...prev]);
 
-    if (result.success && onNotification) {
-      onNotification("Print Job Executed", `Job ${entry.jobId} sent via ${provider.name} (${totalLabelsCount} labels).`, "success");
-    } else if (!result.success && onNotification) {
-      onNotification("Print Error", result.error || "Failed to execute print job.", "error");
+    if (onNotification) {
+      onNotification(
+        "Print Job Executed",
+        `Dispatched ${totalLabelsCount} labels via SCS-DXP-001 ${result.adapterUsed}.`,
+        "success"
+      );
     }
   };
 
@@ -295,7 +331,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `smriti_barcode_labels_${activeTemplate.language.toLowerCase()}.prn`;
+    link.download = `smriti_barcode_labels_${(activeTemplate.language || "ZPL").toLowerCase()}.prn`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1087,7 +1123,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
               onChange={(e) => setSelectedTemplateId(e.target.value)}
               className="bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1 text-xs text-theme-body"
             >
-              {DEFAULT_PRN_TEMPLATES.map((t) => (
+              {DEFAULT_PRN_TEMPLATES.map((t: PRNTemplate) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>

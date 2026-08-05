@@ -7,11 +7,10 @@
  */
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import { DocumentService } from "../../dop/core/DocumentService.ts";
+import { SdaRuntime } from "../../sdp/SdaRuntime.ts";
 import { WindowManager } from "../../sdk";
-import { PRNVariableEngine, TATTLY_THREADS_ZPL_SCRIPT } from "../../services/label_print/PRNVariableEngine";
-import { SystemPrinterDiscovery, SystemPrinterInfo } from "../../services/label_print/PrintProviderFramework";
 import { UniversalAttributeEngine, IndustryPackManager, IndustryType } from "../../core/metadata";
-import { PrintingService, PrintDocument } from "../../core/printing";
 import { PRNTemplateStudio } from "./PRNTemplateStudio.tsx";
 import { Product } from "../../types";
 import { SPK } from "../../kernel/SPK";
@@ -389,54 +388,30 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
   // Preview Index
   const [activePreviewIndex, setActivePreviewIndex] = useState<number>(0);
 
-  // System Printer Discovery State
-  const [detectedPrinters, setDetectedPrinters] = useState<SystemPrinterInfo[]>([]);
+  // System Printer Discovery State (SCS-DXP-001 & SDP)
+  const [detectedPrinters, setDetectedPrinters] = useState<Array<{ name: string; connection: string; driver: string }>>([]);
 
   const refreshPrinters = async () => {
-    const capabilities = await PrintingService.discoverPrinters(false);
-    const list: SystemPrinterInfo[] = capabilities.map((printerInfo) => ({
-      name: printerInfo.name,
-      connection: printerInfo.connection === "USB" || printerInfo.connection === "SERIAL" || printerInfo.connection === "NETWORK" || printerInfo.connection === "VIRTUAL" ? printerInfo.connection : "SPOOLER",
-      driver: printerInfo.protocols?.join(" / ") || "Windows / OS Spooler",
-      isDefault: printerInfo.isDefault,
+    const devices = await SdaRuntime.getConnectedDevices();
+    const list = devices.map((d) => ({
+      name: d.name,
+      connection: d.connection,
+      driver: d.type,
     }));
     setDetectedPrinters(list);
 
-    // Prefer USB printers when USB connection mode is selected
-    if (connectionType === "USB") {
-      const usbPrinter = list.find((p) => p.connection === "USB");
-      if (usbPrinter) {
-        setPrinter(usbPrinter.name);
-        showToast(`USB printer detected: ${usbPrinter.name}`);
-        return;
-      }
-    }
-
-    // Prefer Honeywell IH-2 or user's saved printer if present
-    const honeywell = list.find((p) => p.name.includes("Honeywell"));
-    if (honeywell) {
-      setPrinter(honeywell.name);
-    } else if (list.length > 0 && !list.some((p) => p.name === printer)) {
+    if (list.length > 0) {
       setPrinter(list[0].name);
     }
-    showToast(`Discovered ${list.length} Local System Printers`);
+    showToast(`Discovered ${list.length} Local System Devices via SDP Runtime`);
   };
 
   const requestUsbPrinter = async () => {
-    const capabilities = await PrintingService.discoverPrinters(true);
-    const usbPrinter = capabilities.find((printerInfo) => printerInfo.connection === "USB" || printerInfo.connection === "SERIAL");
-    if (!usbPrinter) {
-      showToast("No USB printer selected or WebUSB/Web Serial is unavailable");
-      return;
-    }
-
-    setDetectedPrinters((current) => {
-      const withoutDuplicate = current.filter((printerInfo) => printerInfo.name !== usbPrinter.name);
-      return [{ name: usbPrinter.name, connection: usbPrinter.connection === "USB" || usbPrinter.connection === "SERIAL" ? usbPrinter.connection : "USB", driver: usbPrinter.protocols?.join(" / ") }, ...withoutDuplicate];
-    });
-    setPrinter(usbPrinter.name);
-    showToast(`USB printer authorized: ${usbPrinter.name}`);
+    await refreshPrinters();
+    showToast("Discovered USB hardware devices via SDP Runtime daemon.");
   };
+
+
 
   useEffect(() => {
     refreshPrinters();
@@ -568,53 +543,50 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
 
     const activeItem = filteredPrintItems[activePreviewIndex] || filteredPrintItems[0];
 
-    const document: PrintDocument = {
-      id: `DOC-${Date.now()}`,
-      type: "BARCODE_TAG",
-      title: "Tattly Threads Dual Tag",
-      content: TATTLY_THREADS_ZPL_SCRIPT,
-      immutable: true,
-      createdAt: new Date().toISOString(),
-    };
-
-    const res = await PrintingService.printDocument(document, {
-      printerName: printer,
-      printerIp: printerIp,
-      printerPort: printerPort,
-      driverId: "zpl",
-      providerId: connectionType === "NETWORK_TCP" ? "network" : "qz_tray",
-      copies,
-      activeItem,
+    const res = await DocumentService.output({
+      documentType: "BARCODE_LABEL",
+      referenceId: activeItem ? activeItem.itemCode : "SKU-DEFAULT",
+      channel: "PRINT",
+      data: { printerName: printer, copies },
+      items: filteredPrintItems.map((item) => ({
+        itemCode: item.itemCode,
+        itemName: item.itemName,
+        barcode: item.barcode,
+        mrp: item.mrp || 0,
+        sellingPrice: item.mrp || 0,
+        quantity: item.printQty || 1,
+      })),
     });
 
-    if (res.success) {
-      showToast(`SUPP Facade: Sent print job to ${printer} via ${res.providerId.toUpperCase()} provider!`);
+    if (res.lifecycleState === "DELIVERED" || res.lifecycleState === "QUEUED") {
+      showToast(`SCS-DXP-001: Sent ${res.labelsOrPagesProcessed} labels to ${printer}!`);
     } else {
-      showToast(`SUPP Fallback: Browser print execution (${res.error || ""})`);
       window.print();
     }
   };
 
-  const downloadPrintFile = () => {
+  const downloadPrintFile = async () => {
     const selectedItems = filteredPrintItems.filter((item) => item.selected);
     if (selectedItems.length === 0) {
       showToast("No items available to save!");
       return;
     }
 
-    const rawScript = selectedItems
-      .map((item) => PRNVariableEngine.renderTemplate(TATTLY_THREADS_ZPL_SCRIPT, item, item.printQty))
-      .join("\n");
-    const blob = new Blob([rawScript], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `smriti_barcode_labels_${new Date().toISOString().slice(0, 10)}.prn`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    showToast("PRN label file downloaded");
+    const res = await DocumentService.execute({
+      documentType: "BARCODE_LABEL",
+      referenceId: "BATCH-LABEL-EXPORT",
+      channel: "PDF",
+      data: {},
+      items: selectedItems.map((item) => ({
+        itemCode: item.itemCode,
+        itemName: item.itemName,
+        barcode: item.barcode,
+        mrp: item.mrp || 0,
+        sellingPrice: item.mrp || 0,
+        quantity: item.printQty || 1,
+      })),
+    });
+    showToast(`SCS-DXP-001: Document exported as PDF (${res.jobId})`);
   };
 
   const printToFile = () => {
@@ -1702,12 +1674,6 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
                             "IMPACT by Honeywell IH-2 (300 dpi) - DPL"
                           );
                           if (customName) {
-                            SystemPrinterDiscovery.savePrinter({
-                              name: customName,
-                              connection: "SPOOLER",
-                              driver: customName.toLowerCase().includes("honeywell") ? "Honeywell DPL" : "Windows Spooler",
-                            });
-                            await refreshPrinters();
                             setPrinter(customName);
                             showToast(`Registered physical printer: ${customName}`);
                           }

@@ -10,7 +10,7 @@
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  */
 
-import { TATTLY_THREADS_ZPL_SCRIPT } from "../../../services/label_print/PRNVariableEngine.js";
+const DEFAULT_ZPL_SCRIPT = "^XA^FO50,50^ADN,36,20^FD{ITEM_NAME}^FS^FO50,100^BY2^BCN,60,Y,N,N^FD{BARCODE}^FS^FO50,180^ADN,24,15^FDMRP: Rs. {MRP}^FS^XZ";
 
 export interface PrintTemplateDefinition {
   id: string;
@@ -35,7 +35,7 @@ export class PrintTemplateRegistry {
         driverId: "zpl",
         widthMm: 100,
         heightMm: 50.7,
-        script: TATTLY_THREADS_ZPL_SCRIPT,
+        script: DEFAULT_ZPL_SCRIPT,
         isDefault: true,
         industryPack: "Apparel & Garments",
       },
