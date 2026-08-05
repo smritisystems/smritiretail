@@ -1904,6 +1904,13 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
             Print & Save PDF
           </button>
           <button
+            onClick={() => setIsImporterModalOpen(true)}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold flex items-center cursor-pointer shadow-sm transition"
+          >
+            <span className="material-symbols-outlined text-sm mr-1.5">file_upload</span>
+            Import Existing Template (DXP-UDBE)
+          </button>
+          <button
             onClick={downloadPrintFile}
             className="px-4 py-2 bg-theme-surface-2 hover:bg-theme-surface-2 text-theme-body border border-theme-divider rounded-lg text-xs font-bold flex items-center cursor-pointer transition"
           >
@@ -2224,6 +2231,16 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
           </div>
         </div>
       )}
+
+      {/* DXP-RTE-001 / DXP-UDBE-001 Importer Wizard */}
+      <RawTemplateImporterModal
+        isOpen={isImporterModalOpen}
+        onClose={() => setIsImporterModalOpen(false)}
+        onSaveTemplate={(tmpl) => {
+          showToast(`DXP-UDBE-001: Template '${tmpl.templateName}' imported and activated!`);
+          setIsImporterModalOpen(false);
+        }}
+      />
     </div>
   );
 };
