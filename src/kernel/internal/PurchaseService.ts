@@ -7,7 +7,7 @@
  */
 
 import logger from "../../core/logging/logger.js";
-import { IPurchaseService, PurchaseOrderRecord } from "../public/IPurchaseService.js";
+import { IPurchaseService, PurchaseOrderRecord, PurchaseOrderStatus } from "../public/IPurchaseService.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 import { SPK } from "../SPK.js";
 
@@ -22,7 +22,7 @@ export class PurchaseService implements IPurchaseService {
       expectedDeliveryDate: "2025-05-20",
       warehouseId: "wh-main",
       paymentTerms: "Net 30 Days",
-      status: "Approved",
+      status: "Approved" as PurchaseOrderStatus,
       totalAmount: 150000,
       totalTaxAmount: 27000,
       netPayable: 177000,
@@ -66,6 +66,11 @@ export class PurchaseService implements IPurchaseService {
     const list = await this.getAllPOs();
     const clean = poNumber.trim().toLowerCase();
     return list.find((po) => po.poNumber.toLowerCase() === clean) || null;
+  }
+
+  public async getBySupplier(supplierId: string): Promise<PurchaseOrderRecord[]> {
+    const list = await this.getAllPOs();
+    return list.filter((po) => po.supplierId === supplierId);
   }
 
   public async searchPOs(query: string, limit = 50): Promise<PurchaseOrderRecord[]> {
@@ -131,6 +136,10 @@ export class PurchaseService implements IPurchaseService {
       throw new Error(`[PurchaseService Error] Purchase Order ${poId} not found.`);
     }
 
+    if (po.status === "Cancelled") {
+      throw new Error(`[PurchaseService Error] Cannot receive goods against Cancelled PO ${poId}.`);
+    }
+
     po.lines = po.lines.map((l) => {
       const match = receivedLines.find((r) => r.itemId === l.itemId || r.itemId === l.itemCode);
       if (match) {
@@ -145,6 +154,46 @@ export class PurchaseService implements IPurchaseService {
     const updated = await this.savePO(po);
     SPK.events.emit("GRNPosted", poId, { poId, receivedLines, status: updated.status });
     return updated;
+  }
+
+  public async cancelPO(id: string, reason: string, cancelledBy?: string): Promise<PurchaseOrderRecord> {
+    if (!reason || reason.trim().length < 3) {
+      throw new Error("[PurchaseService Error] Cancellation reason is mandatory and must be at least 3 characters.");
+    }
+
+    const po = await this.getPOById(id);
+    if (!po) {
+      throw new Error(`[PurchaseService Error] Purchase Order ${id} not found.`);
+    }
+
+    // AUD-004 / GAP-4: Lifecycle Guard — only cancellable if not already received or cancelled
+    const nonCancellableStatuses: PurchaseOrderStatus[] = ["Received", "Cancelled"];
+    if (nonCancellableStatuses.includes(po.status as PurchaseOrderStatus)) {
+      throw new Error(
+        `[PurchaseService Error] Purchase Order ${po.poNumber} is in status "${po.status}" and cannot be cancelled. Only Draft, Submitted, or Approved POs may be cancelled.`
+      );
+    }
+
+    const cancelledRecord: PurchaseOrderRecord = {
+      ...po,
+      status: "Cancelled",
+      cancellationReason: reason.trim(),
+      cancelledAt: new Date().toISOString(),
+      cancelledBy: cancelledBy || "System",
+    };
+
+    try {
+      await apiFetchV1(`/purchase/orders/${id}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ reason: cancelledRecord.cancellationReason, cancelledBy: cancelledRecord.cancelledBy })
+      });
+    } catch (err) {
+      logger.warn("[PurchaseService] Backend cancel API unreachable. Updating local cache only.", err as unknown);
+    }
+
+    this.upsertLocalCache(cancelledRecord);
+    SPK.events.emit("PurchaseOrderCancelled", id, { poId: id, poNumber: po.poNumber, reason: cancelledRecord.cancellationReason });
+    return cancelledRecord;
   }
 
   private upsertLocalCache(po: PurchaseOrderRecord): void {

@@ -454,6 +454,49 @@ export class PurchaseCommandFacade {
       };
     }
   }
+
+  // ── 7. Cancel Purchase Order (AUD-004 / GAP-1 / GAP-4) ──────────────────
+
+  async cancelPO(
+    poId:        string,
+    reason:      string,
+    ctx:         PurchaseActionContext,
+  ): Promise<PurchaseFacadeResult> {
+    try {
+      const cancelled = await this.purchaseService.cancelPO(poId, reason, ctx.userId);
+      publishSuccess("cancel_order", ctx, { poId, reason });
+      return {
+        success: true,
+        data:    cancelled,
+        message: `PO ${cancelled.poNumber} cancelled. Reason: ${reason}.`,
+      };
+    } catch (err: unknown) {
+      return {
+        success: false,
+        error:   err instanceof Error ? err.message : "Cancel failed — network error",
+      };
+    }
+  }
+
+  // ── 8. Get POs by Supplier (AUD-004 / GAP-2) ────────────────────────────
+
+  async getPOsBySupplier(
+    supplierId: string,
+  ): Promise<PurchaseFacadeResult> {
+    try {
+      const records = await this.purchaseService.getBySupplier(supplierId);
+      return {
+        success: true,
+        data:    records,
+        message: `Found ${records.length} PO(s) for supplier ${supplierId}.`,
+      };
+    } catch (err: unknown) {
+      return {
+        success: false,
+        error:   err instanceof Error ? err.message : "Lookup failed",
+      };
+    }
+  }
 }
 
 // ── Singleton ─────────────────────────────────────────────────────────────────
