@@ -24,6 +24,8 @@ import {
   Sparkles
 } from "lucide-react";
 
+import { SEEFDialog } from "../common/SEEFDialog.tsx";
+
 interface UserOnboardingWizardModalProps {
   onClose: () => void;
 }
@@ -66,24 +68,46 @@ export const UserOnboardingWizardModal: React.FC<UserOnboardingWizardModalProps>
     }, 1000);
   };
 
+  const footerContent = !success ? (
+    <div className="w-full flex items-center justify-between">
+      <button
+        onClick={prevStep}
+        disabled={currentStep === 1}
+        className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-theme-surface-2 hover:bg-theme-surface-3 disabled:opacity-50 flex items-center gap-1"
+      >
+        <ChevronLeft className="w-4 h-4" /> Back
+      </button>
+
+      {currentStep < 6 ? (
+        <button
+          onClick={nextStep}
+          className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1 shadow"
+        >
+          Next <ChevronRight className="w-4 h-4" />
+        </button>
+      ) : (
+        <button
+          onClick={handleFinish}
+          disabled={isSubmitting}
+          className="px-6 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow"
+        >
+          {isSubmitting ? "Provisioning..." : "Provision User Account"}
+        </button>
+      )}
+    </div>
+  ) : undefined;
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-theme-surface-1 border border-theme-divider rounded-xl w-full max-w-4xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2/50">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-theme-text">User Onboarding Wizard</h2>
-              <p className="text-xs text-theme-muted">6-Step Enterprise SAP Fiori Onboarding Pipeline</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-theme-muted hover:text-theme-text hover:bg-theme-surface-3">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <SEEFDialog
+      open={true}
+      onClose={onClose}
+      title="User Onboarding Wizard"
+      subtitle="6-Step Enterprise SAP Fiori Onboarding Pipeline"
+      icon={Sparkles}
+      mode="centered"
+      width={896}
+      footer={footerContent}
+    >
 
         {/* Step Indicator Bar */}
         <div className="px-6 py-3 bg-theme-surface-2/20 border-b border-theme-divider grid grid-cols-6 gap-2">
@@ -337,37 +361,6 @@ export const UserOnboardingWizardModal: React.FC<UserOnboardingWizardModalProps>
             </>
           )}
         </div>
-
-        {/* Footer */}
-        {!success && (
-          <div className="px-6 py-3 border-t border-theme-divider bg-theme-surface-2/50 flex items-center justify-between">
-            <button
-              onClick={prevStep}
-              disabled={currentStep === 1}
-              className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-theme-surface-2 hover:bg-theme-surface-3 disabled:opacity-50 flex items-center gap-1"
-            >
-              <ChevronLeft className="w-4 h-4" /> Back
-            </button>
-
-            {currentStep < 6 ? (
-              <button
-                onClick={nextStep}
-                className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1 shadow"
-              >
-                Next <ChevronRight className="w-4 h-4" />
-              </button>
-            ) : (
-              <button
-                onClick={handleFinish}
-                disabled={isSubmitting}
-                className="px-6 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow"
-              >
-                {isSubmitting ? "Provisioning..." : "Provision User Account"}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+    </SEEFDialog>
   );
 };
