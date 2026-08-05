@@ -564,23 +564,73 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
       return;
     }
 
-    const newItem: PurchaseItemRow = prod
-      ? {
-          id: String(Date.now()),
-          itemCode: prod.code || prod.sku || `ITEM-${items.length + 1}`,
-          itemName: prod.name,
-          hsn: prod.hsnCode || "6404",
-          warehouse: warehouse,
-          uom: prod.unit || "Pcs",
-          qty: 1,
-          rate: prod.price || 500,
-          discountPercent: 0,
-          gstRate: prod.gstPercentage || 18,
-          taxType: "CGST_SGST",
-          articleCode: prod.code || "ART-100",
-          isTemporary: false,
-          approvalStatus: "APPROVED",
+    // AUD-004 / GAP-3 — Supplier Catalogue Rate Auto-Fill
+    // If the product has SupplierCatalogueEntry[] entries, resolve the best rate:
+    //   1. Priority 1 entry matching the current PO supplier (ideal)
+    //   2. Priority 1 entry (any preferred vendor)
+    //   3. Priority 2 entry
+    //   4. Priority 3 entry
+    //   5. Fallback: product.purchase_price or product.costPrice or product.price
+    const resolveSmartPurchaseRate = (product: Product): { rate: number; sourceLabel: string } => {
+      const catalogue = (product as any).supplierCatalogue as Array<{
+        supplierId: string; priority: 1 | 2 | 3; currentRate?: number; lastPurchaseRate?: number;
+      }> | undefined;
+
+      if (catalogue && catalogue.length > 0) {
+        // 1. Exact supplier match at any priority
+        const exactMatch = catalogue
+          .filter((e) => e.supplierId === supplierId)
+          .sort((a, b) => a.priority - b.priority)[0];
+        if (exactMatch?.currentRate) {
+          return { rate: exactMatch.currentRate, sourceLabel: `Supplier Catalogue (P${exactMatch.priority} — Current Vendor)` };
         }
+
+        // 2. Priority 1 (preferred) regardless of current supplier
+        const p1 = catalogue.find((e) => e.priority === 1);
+        if (p1?.currentRate) return { rate: p1.currentRate, sourceLabel: "Supplier Catalogue (P1 Preferred)" };
+
+        // 3. Lowest priority available
+        const lowest = [...catalogue].sort((a, b) => a.priority - b.priority)[0];
+        if (lowest?.currentRate) return { rate: lowest.currentRate, sourceLabel: `Supplier Catalogue (P${lowest.priority})` };
+      }
+
+      // 4. Fallback to stored purchase cost
+      const fallback = product.purchase_price || (product as any).costPrice || product.price || 500;
+      return { rate: fallback, sourceLabel: "Item Master Purchase Price" };
+    };
+
+    const newItem: PurchaseItemRow = prod
+      ? (() => {
+          const { rate: smartRate, sourceLabel } = resolveSmartPurchaseRate(prod);
+          if (onNotification) {
+            onNotification(
+              "Rate Auto-Filled",
+              `Purchase rate ₹${smartRate.toFixed(2)} loaded from ${sourceLabel}`,
+              "success"
+            );
+          }
+          return {
+            id: String(Date.now()),
+            itemCode: prod.code || prod.sku || `ITEM-${items.length + 1}`,
+            itemName: prod.name,
+            hsn: prod.hsnCode || prod.hsn_code || "6404",
+            warehouse: warehouse,
+            uom: prod.uom || prod.unit || "Pcs",
+            qty: 1,
+            rate: smartRate,
+            discountPercent: 0,
+            gstRate: prod.gstPercentage || prod.gst_rate || 18,
+            taxType: "CGST_SGST" as "CGST_SGST",
+            articleCode: prod.code || "ART-100",
+            color: prod.color,
+            size: prod.size,
+            brand: prod.brand,
+            category: prod.category,
+            imageUrl: prod.primaryImageUrl,
+            isTemporary: false,
+            approvalStatus: "APPROVED" as "APPROVED",
+          };
+        })()
       : {
           id: String(Date.now()),
           itemCode: `ART-10${items.length + 1}-BLK-L`,
@@ -592,19 +642,19 @@ export const PurchaseOperationsStudio: React.FC<PurchaseOperationsStudioProps> =
           rate: 750,
           discountPercent: 0,
           gstRate: 12,
-          taxType: "CGST_SGST",
+          taxType: "CGST_SGST" as "CGST_SGST",
           articleCode: `ART-10${items.length + 1}`,
           color: "Black",
           size: "L",
           style: "Polo Fit",
           isTemporary: false,
-          approvalStatus: "APPROVED",
+          approvalStatus: "APPROVED" as "APPROVED",
         };
 
     setItems((prev) => [...prev, newItem]);
     setShowItemPickerModal(false);
     setShowAddItemsMenu(false);
-    if (onNotification) onNotification("Item Added", `Added ${newItem.itemName} to purchase order`, "success");
+    if (!prod && onNotification) onNotification("Item Added", `Added ${newItem.itemName} to purchase order`, "success");
   };
 
   const handleUpdateItem = (id: string, field: keyof PurchaseItemRow, val: any) => {

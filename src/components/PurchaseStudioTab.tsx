@@ -55,6 +55,7 @@ import { WindowManager } from "../sdk/WindowManager.ts";
 import { PurchaseInvoiceRegistry } from "./purchase/PurchaseInvoiceRegistry.tsx";
 import { PurchaseInvoiceStudio } from "./purchase/PurchaseInvoiceStudio.tsx";
 import { PurchaseOperationsStudio } from "./purchase/PurchaseOperationsStudio.tsx";
+import { PurchaseAnalyticsWidget } from "./purchase/PurchaseAnalyticsWidget.tsx";
 
 interface PurchaseStudioTabProps {
   products: Product[];
@@ -1491,9 +1492,19 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         )}
 
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ SUB-TAB 5: REPORTS & REGISTERS Ã¢â€â‚¬Ã¢â€â‚¬ */}
+        {/* ── SUB-TAB 5: REPORTS & REGISTERS ── */}
         {activeSubTab === "reports" && (
           <div className="space-y-8">
+
+            {/* AUD-004 / GAP-5 — Purchase Intelligence Dashboard */}
+            <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5">
+              <PurchaseAnalyticsWidget
+                onViewPO={(poId) => {
+                  // Switch to receive tab and highlight the PO
+                  setActiveSubTab("receive");
+                }}
+              />
+            </div>
 
             <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 space-y-4">
               <div className="flex justify-between items-center border-b border-theme-divider/60 pb-3">
