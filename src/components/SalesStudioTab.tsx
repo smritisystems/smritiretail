@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
  * Author       : Jawahar Ramkripal Mallah
@@ -38,6 +38,7 @@ import { SalesInvoiceRegistry } from "./sales/SalesInvoiceRegistry.tsx";
 import { SalesBillingStudio } from "./sales/SalesBillingStudio.tsx";
 import { SalesOrderRegistry } from "./sales/SalesOrderRegistry.tsx";
 import { SalesOrderStudio } from "./sales/SalesOrderStudio.tsx";
+import { SalesAnalyticsWidget } from "./sales/SalesAnalyticsWidget.tsx";
 import { isValidMobile } from "../utils/validators.ts";
 import { useACAS } from "../context-actions/ContextProvider.tsx";
 
@@ -1140,6 +1141,15 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
           {/* 2. Dashboard View (Landing Control Center) */}
           {subView === "dashboard" && !isCreatingInvoice && !isCreatingQuotation && !isCreatingOrder && !isCreatingReturn && (
             <div className="space-y-6 animate-in fade-in duration-200">
+              {/* AUD-006 / GAP-4: Live POS & Sales Intelligence Dashboard */}
+              <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 shadow-md">
+                <SalesAnalyticsWidget
+                  onViewInvoice={(id) => {
+                    setSubView("invoices");
+                  }}
+                />
+              </div>
+
               {/* Revenue & Operational Metric Cards Stack (7 Metrics) */}
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
                 <div className="bg-theme-surface-1 p-3.5 rounded-2xl border border-theme-divider shadow-md">
