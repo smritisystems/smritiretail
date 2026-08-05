@@ -851,7 +851,6 @@ async def company_setup(
             end_date=datetime.strptime(f"{start_year + 1}-03-31", "%Y-%m-%d").date(),
             status="OPEN",
             is_active=True,
-            created_by=actor_username,
         )
         db.add(fy_record)
         await db.flush()
