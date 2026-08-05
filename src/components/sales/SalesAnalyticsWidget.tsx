@@ -5,9 +5,9 @@
  *                invoice counts, AOV, GST tax collected, top selling SKUs, payment
  *                channel distribution (UPI, Cash, Card, Credit), and live sales feed.
  *                Subscribes to live SPK.events (InvoiceCreated, InvoiceCancelled).
- * Standard     : AUD-006 / GAP-4 — POS Sales Analytics Dashboard
+ * Standard     : SEDS Standard v1.0 — Zero Legacy Slate Tokens
  * Author       : Jawahar Ramkripal Mallah & Antigravity AI
- * Version      : 1.0.0
+ * Version      : 1.1.0
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  */
 
@@ -23,7 +23,6 @@ import {
   RefreshCw,
   ChevronRight,
   BarChart3,
-  PieChart,
   Users,
   Percent,
 } from "lucide-react";
@@ -162,15 +161,15 @@ function buildSalesAnalytics(invoices: SalesInvoiceRecord[]): SalesAnalyticsData
 // ── Status Badge ──────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<string, string> = {
-  Paid:      "bg-emerald-50 text-emerald-700 border-emerald-200",
-  Credit:    "bg-amber-50 text-amber-700 border-amber-200",
-  Cancelled: "bg-red-50 text-red-700 border-red-200",
-  Refunded:  "bg-purple-50 text-purple-700 border-purple-200",
+  Paid:      "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+  Credit:    "bg-amber-500/10 text-amber-500 border-amber-500/20",
+  Cancelled: "bg-rose-500/10 text-rose-500 border-rose-500/20",
+  Refunded:  "bg-purple-500/10 text-purple-500 border-purple-500/20",
 };
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${STATUS_STYLES[status] || "bg-gray-100 text-gray-600 border-gray-200"}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${STATUS_STYLES[status] || "bg-theme-surface-2 text-theme-muted border-theme-divider"}`}>
       {status}
     </span>
   );
@@ -253,7 +252,7 @@ export const SalesAnalyticsWidget: React.FC<SalesAnalyticsWidgetProps> = ({ onVi
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-slate-400">
+      <div className="flex items-center justify-center py-16 text-theme-muted">
         <RefreshCw className="w-5 h-5 animate-spin mr-2" />
         <span className="text-sm">Loading sales analytics…</span>
       </div>
@@ -266,16 +265,16 @@ export const SalesAnalyticsWidget: React.FC<SalesAnalyticsWidgetProps> = ({ onVi
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BarChart3 className="w-5 h-5 text-emerald-600" />
-          <h2 className="font-bold text-slate-800 text-base">POS & Sales Intelligence</h2>
-          <span className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200 font-medium">AUD-006</span>
+          <h2 className="font-bold text-theme-body text-base">POS & Sales Intelligence</h2>
+          <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded-full border border-emerald-500/20 font-medium">AUD-006</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[11px] text-slate-400">
+          <span className="text-[11px] text-theme-muted">
             Last refreshed {lastRefreshed.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
           </span>
           <button
             onClick={fetchInvoices}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-slate-600 cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-theme-surface-1 border border-theme-divider rounded-lg hover:bg-theme-surface-hover transition-colors text-theme-body cursor-pointer"
           >
             <RefreshCw className="w-3 h-3" />
             Refresh
@@ -290,7 +289,7 @@ export const SalesAnalyticsWidget: React.FC<SalesAnalyticsWidgetProps> = ({ onVi
           return (
             <div
               key={card.label}
-              className="relative bg-white border border-slate-100 rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow overflow-hidden group"
+              className="relative bg-theme-surface-1 border border-theme-divider rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow overflow-hidden group"
             >
               <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${card.color} opacity-80`} />
               <div className="flex items-center justify-between mb-2">
@@ -298,8 +297,8 @@ export const SalesAnalyticsWidget: React.FC<SalesAnalyticsWidgetProps> = ({ onVi
                   <Icon className="w-3.5 h-3.5" />
                 </div>
               </div>
-              <div className="text-xl font-bold text-slate-800 leading-none">{card.value}</div>
-              <div className="text-[10px] text-slate-500 mt-1 font-medium">{card.label}</div>
+              <div className="text-xl font-bold text-theme-body leading-none">{card.value}</div>
+              <div className="text-[10px] text-theme-muted mt-1 font-medium">{card.label}</div>
             </div>
           );
         })}
@@ -309,27 +308,27 @@ export const SalesAnalyticsWidget: React.FC<SalesAnalyticsWidgetProps> = ({ onVi
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         {/* Payment Channels */}
-        <div className="bg-white border border-slate-100 rounded-xl shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-theme-surface-1 border border-theme-divider rounded-xl shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-theme-divider flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-blue-600" />
-              <h3 className="font-semibold text-sm text-slate-700">Payment Modes</h3>
+              <CreditCard className="w-4 h-4 text-blue-500" />
+              <h3 className="font-semibold text-sm text-theme-body">Payment Modes</h3>
             </div>
-            <span className="text-[10px] text-slate-400">{analytics.paymentChannels.length} channels</span>
+            <span className="text-[10px] text-theme-muted">{analytics.paymentChannels.length} channels</span>
           </div>
           <div className="p-4 space-y-3">
             {analytics.paymentChannels.length === 0 ? (
-              <div className="py-6 text-center text-slate-400 text-sm">No transactions yet</div>
+              <div className="py-6 text-center text-theme-muted text-sm">No transactions yet</div>
             ) : (
               analytics.paymentChannels.map((item) => (
                 <div key={item.channel}>
                   <div className="flex justify-between items-center text-xs mb-1">
-                    <span className="font-semibold text-slate-700">{item.channel}</span>
-                    <span className="font-mono text-slate-600 font-bold">
+                    <span className="font-semibold text-theme-body">{item.channel}</span>
+                    <span className="font-mono text-theme-muted font-bold">
                       {formatINR(item.totalAmount)} ({item.percentage}%)
                     </span>
                   </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-theme-surface-2 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all duration-500"
                       style={{ width: `${item.percentage}%` }}
@@ -342,31 +341,31 @@ export const SalesAnalyticsWidget: React.FC<SalesAnalyticsWidgetProps> = ({ onVi
         </div>
 
         {/* Top Products */}
-        <div className="bg-white border border-slate-100 rounded-xl shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-theme-surface-1 border border-theme-divider rounded-xl shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-theme-divider flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ShoppingBag className="w-4 h-4 text-emerald-600" />
-              <h3 className="font-semibold text-sm text-slate-700">Top Selling Products</h3>
+              <ShoppingBag className="w-4 h-4 text-emerald-500" />
+              <h3 className="font-semibold text-sm text-theme-body">Top Selling Products</h3>
             </div>
-            <span className="text-[10px] text-slate-400">By Revenue</span>
+            <span className="text-[10px] text-theme-muted">By Revenue</span>
           </div>
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-theme-divider">
             {analytics.topProducts.length === 0 ? (
-              <div className="py-6 text-center text-slate-400 text-sm">No products sold yet</div>
+              <div className="py-6 text-center text-theme-muted text-sm">No products sold yet</div>
             ) : (
               analytics.topProducts.map((prod, idx) => (
-                <div key={prod.itemId} className="px-4 py-2.5 hover:bg-slate-50/60 transition-colors">
+                <div key={prod.itemId} className="px-4 py-2.5 hover:bg-theme-surface-hover transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-bold flex items-center justify-center flex-shrink-0">
+                      <span className="w-4 h-4 rounded-full bg-emerald-500/10 text-emerald-500 text-[9px] font-bold flex items-center justify-center flex-shrink-0">
                         {idx + 1}
                       </span>
                       <div>
-                        <div className="text-xs font-semibold text-slate-700">{prod.itemName}</div>
-                        <div className="text-[10px] text-slate-400">{prod.totalQty} sold</div>
+                        <div className="text-xs font-semibold text-theme-body">{prod.itemName}</div>
+                        <div className="text-[10px] text-theme-muted">{prod.totalQty} sold</div>
                       </div>
                     </div>
-                    <span className="text-xs font-bold text-emerald-700 font-mono">{formatINR(prod.totalRevenue)}</span>
+                    <span className="text-xs font-bold text-emerald-500 font-mono">{formatINR(prod.totalRevenue)}</span>
                   </div>
                 </div>
               ))
@@ -375,35 +374,35 @@ export const SalesAnalyticsWidget: React.FC<SalesAnalyticsWidgetProps> = ({ onVi
         </div>
 
         {/* Recent Invoices Feed */}
-        <div className="bg-white border border-slate-100 rounded-xl shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-theme-surface-1 border border-theme-divider rounded-xl shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-theme-divider flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-indigo-600" />
-              <h3 className="font-semibold text-sm text-slate-700">Recent Invoices</h3>
+              <Receipt className="w-4 h-4 text-indigo-500" />
+              <h3 className="font-semibold text-sm text-theme-body">Recent Invoices</h3>
             </div>
-            <span className="text-[10px] text-slate-400">Last {Math.min(6, analytics.recentInvoices.length)}</span>
+            <span className="text-[10px] text-theme-muted">Last {Math.min(6, analytics.recentInvoices.length)}</span>
           </div>
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-theme-divider">
             {analytics.recentInvoices.length === 0 ? (
-              <div className="py-6 text-center text-slate-400 text-sm">No sales invoices found</div>
+              <div className="py-6 text-center text-theme-muted text-sm">No sales invoices found</div>
             ) : (
               analytics.recentInvoices.map((inv) => (
                 <div
                   key={inv.id}
                   onClick={() => onViewInvoice?.(inv.id)}
-                  className={`px-4 py-2.5 transition-colors ${onViewInvoice ? "hover:bg-slate-50/60 cursor-pointer" : ""}`}
+                  className={`px-4 py-2.5 transition-colors ${onViewInvoice ? "hover:bg-theme-surface-hover cursor-pointer" : ""}`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-xs font-semibold text-slate-700 font-mono">{inv.invoiceNumber}</div>
-                      <div className="text-[10px] text-slate-400">{inv.customerName} • {inv.paymentMode}</div>
+                      <div className="text-xs font-semibold text-theme-body font-mono">{inv.invoiceNumber}</div>
+                      <div className="text-[10px] text-theme-muted">{inv.customerName} • {inv.paymentMode}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-right">
-                        <div className="text-xs font-bold text-slate-700 font-mono">{formatINR(inv.netPayable)}</div>
+                        <div className="text-xs font-bold text-theme-body font-mono">{formatINR(inv.netPayable)}</div>
                         <StatusBadge status={inv.status} />
                       </div>
-                      {onViewInvoice && <ChevronRight className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" />}
+                      {onViewInvoice && <ChevronRight className="w-3.5 h-3.5 text-theme-muted flex-shrink-0" />}
                     </div>
                   </div>
                 </div>

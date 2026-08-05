@@ -139,7 +139,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                       : (activeProduct.status || "Active") === "Draft"
                       ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
                       : (activeProduct.status || "Active") === "Inactive"
-                      ? "bg-slate-500/10 text-slate-400 border-slate-500/30"
+                      ? "bg-theme-surface-2 text-theme-muted border-theme-divider"
                       : (activeProduct.status || "Active") === "Blocked"
                       ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
                       : "bg-purple-500/10 text-purple-400 border-purple-500/30"
@@ -372,7 +372,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
                           s.priority === 1 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
                           s.priority === 2 ? "bg-amber-500/10 text-amber-400 border-amber-500/30" :
-                          "bg-slate-500/10 text-slate-400 border-slate-500/30"
+                          "bg-theme-surface-2 text-theme-muted border-theme-divider"
                         }`}>
                           P{s.priority} {s.priority === 1 ? "★ Preferred" : ""}
                         </span>
@@ -462,7 +462,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                       <td className="p-2.5 text-right font-bold text-emerald-400">{r.promotionalPrice ? `₹${r.promotionalPrice.toFixed(2)}` : "—"}</td>
                       <td className="p-2.5 text-right font-bold text-amber-400">{r.discountPercentage ? `${r.discountPercentage}%` : "—"}</td>
                       <td className="p-2.5 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${r.isActive ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-500/10 text-slate-400"}`}>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${r.isActive ? "bg-emerald-500/10 text-emerald-400" : "bg-theme-surface-2 text-theme-muted"}`}>
                           {r.isActive ? "Active" : "Inactive"}
                         </span>
                       </td>
