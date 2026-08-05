@@ -1,14 +1,15 @@
-﻿/**
- * Project      : SMRITI Retail OS v5.0
- * Module       : Item Master Contextual Sidebar (SAP Fiori Accordion Tree Pattern)
+/**
+ * Project      : SMRITI Retail OS
+ * Module       : Item Master Dockable Filter Panel (WNG-003 compliant)
+ * Change       : v5.7 — Removed AnimatePresence/fixed-overlay. Now renders as an inline
+ *                dockable aside column. Removed duplicate studioLayers block (owned by toolbar).
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : Â© SMRITIBooks.com and AITDL.com. All Rights Reserved.
- * Version      : 5.6.0
+ * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
+ * Version      : 5.7.0
  */
 
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import {
   Package,
   Layers,
@@ -21,11 +22,12 @@ import {
   ChevronDown,
   ChevronRight,
   Filter,
-  Check,
   X,
-  RotateCcw
+  RotateCcw,
 } from "lucide-react";
 import { Product } from "../../types.js";
+// ItemMasterViewMode kept for prop compatibility — onModeChange no longer used in this panel
+import type { ItemMasterViewMode } from "./ItemMasterToolbar.tsx";
 
 export interface ContextFilterState {
   type: "ALL" | "LOW_STOCK" | "FAVORITES" | "RECENT" | "CATEGORY" | "BRAND" | "DEPARTMENT" | "SUPPLIER" | "WAREHOUSE";
@@ -42,6 +44,8 @@ interface ItemMasterContextSidebarProps {
   suppliers?: string[];
   warehouses?: string[];
   lowStockCount: number;
+  activeMode?: ItemMasterViewMode;
+  onModeChange?: (mode: ItemMasterViewMode) => void;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -56,6 +60,8 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
   suppliers = ["V-001 (Smriti Mills)", "V-002 (Royal Crafts)", "V-003 (Apex Logistics)"],
   warehouses = ["Main Store (BR-01)", "Central Warehouse (WH-01)", "Bin Area A1"],
   lowStockCount,
+  activeMode = "overview",
+  onModeChange,
   isOpen = true,
   onClose
 }) => {
@@ -65,7 +71,7 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
     brands: true,
     departments: false,
     suppliers: false,
-    warehouses: false
+    warehouses: false,
   });
 
   const toggleSection = (section: string) => {
@@ -80,26 +86,7 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex select-none font-sans">
-        {/* Backdrop Overlay */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          onClick={onClose}
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs cursor-pointer"
-        />
-
-        {/* Slide-out Filter Drawer */}
-        <motion.aside
-          initial={{ x: "-100%" }}
-          animate={{ x: 0 }}
-          exit={{ x: "-100%" }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="relative z-10 w-80 h-full bg-theme-surface-1 border-r border-theme-divider shadow-2xl flex flex-col text-xs"
-        >
+    <aside className="w-72 flex-shrink-0 bg-theme-surface-1 border border-theme-divider rounded-xl shadow-xs flex flex-col text-xs overflow-hidden select-none font-sans">
           {/* Header */}
           <div className="p-3.5 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2">
             <div className="flex items-center gap-2">
@@ -140,8 +127,9 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
             </div>
           </div>
 
-          {/* Accordion Tree Scroll Container */}
+          {/* Accordion Scroll Container */}
           <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin">
+
         {/* Quick Views */}
         <div>
           <button
@@ -341,8 +329,6 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
           )}
         </div>
       </div>
-    </motion.aside>
-  </div>
-</AnimatePresence>
-);
+    </aside>
+  );
 };

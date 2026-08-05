@@ -102,6 +102,7 @@ import { ShortcutPalette } from "./components/ShortcutPalette.tsx";
 import { WorkspaceTaskbar } from "./components/WorkspaceTaskbar.tsx";
 import { SetupWizardTab } from "./components/SetupWizard/SetupWizardTab.tsx";
 import { PasswordResetScreen } from "./components/PasswordResetScreen.tsx";
+import { resolveSetupCompletionStatus } from "./utils/setupBootstrap";
 import { PrintPreviewModal } from "./components/PrintPreviewModal.tsx";
 import { SmritiOfficialWebsite } from "./components/website/SmritiOfficialWebsite.tsx";
 import { SmritiLiveDocsPortal } from "./components/documentation/SmritiLiveDocsPortal.tsx";
@@ -433,7 +434,12 @@ const AppContent: React.FC = () => {
     }
   }, [currentUser]);
 
-  const [isSetupCompleted, setIsSetupCompleted] = useState<boolean | null>(null);
+  const [isSetupCompleted, setIsSetupCompleted] = useState<boolean | null>(() => {
+    const localCompleted = typeof localStorage !== 'undefined'
+      ? localStorage.getItem("smriti_setup_completed") === "true"
+      : false;
+    return localCompleted;
+  });
 
   const markSetupCompleted = () => {
     setIsSetupCompleted(true);
@@ -447,16 +453,19 @@ const AppContent: React.FC = () => {
   };
 
   const refreshSetupStatus = async () => {
-    const localCompleted = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_setup_completed") === "true" : false;
+    const localCompleted = typeof localStorage !== 'undefined'
+      ? localStorage.getItem("smriti_setup_completed") === "true"
+      : false;
+
     try {
       const data = await apiFetchV1("/setup-status");
       if (data && typeof data.setupCompleted === "boolean") {
-        setIsSetupCompleted(data.setupCompleted);
+        setIsSetupCompleted(resolveSetupCompletionStatus(localCompleted, data.setupCompleted));
       } else {
-        setIsSetupCompleted(localCompleted);
+        setIsSetupCompleted(resolveSetupCompletionStatus(localCompleted, null));
       }
     } catch {
-      setIsSetupCompleted(localCompleted || true);
+      setIsSetupCompleted(resolveSetupCompletionStatus(localCompleted, null));
     }
   };
 

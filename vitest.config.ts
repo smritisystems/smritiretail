@@ -20,7 +20,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
-    include: ['src/tests/**/*.test.ts'],
+    include: ['src/tests/**/*.test.ts', 'src/tests/**/*.test.tsx'],
     exclude: ['**/node_modules/**', '**/dist/**', 'src/tests/about.test.ts'],
     maxWorkers: 1,
     minWorkers: 1,

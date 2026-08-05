@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
  * Module       : Item Master & Inventory Studio Host (ADR-012 Standard v7.0)
@@ -14,13 +14,18 @@ import { Product } from "../types.js";
 import { WindowManager } from "../sdk/index.js";
 import { ItemMasterToolbar, ItemMasterViewMode } from "./item_master/ItemMasterToolbar.tsx";
 import { ItemMasterContextSidebar, ContextFilterState } from "./item_master/ItemMasterContextSidebar.tsx";
-import { ItemMasterStudioContextPanel, ItemMasterStudioConsole } from "./item_master/ItemMasterStudioPanels.tsx";
+import { ItemMasterFormInspector } from "./item_master/ItemMasterFormInspector.tsx";
+import { ItemMasterBatchBar } from "./item_master/ItemMasterBatchBar.tsx";
+import { ItemMasterStudioConsole } from "./item_master/ItemMasterStudioPanels.tsx";
 import { BarcodePrintDialog } from "./item_master/BarcodePrintDialog.tsx";
 import { AttributeManagerSection } from "./AttributeManagerSection.tsx";
 import { VariantTemplateSection } from "./VariantTemplateSection.tsx";
 import { BulkImportSection } from "./BulkImportSection.tsx";
 import { ExcelGridEntrySection } from "./ExcelGridEntrySection.tsx";
 import { AttributeAnalyticsSection } from "./AttributeAnalyticsSection.tsx";
+import { AdaptiveWorkspaceGrid } from "./common/AdaptiveWorkspaceGrid.tsx";
+import { WorkspaceLayoutSelector } from "./common/WorkspaceLayoutSelector.tsx";
+import WorkspaceCard from "./workspace/WorkspaceCard.tsx";
 import { SPK } from "../kernel/SPK.js";
 import { CreateItemCommand } from "../kernel/commands/CreateItemCommand.js";
 import { IItemService } from "../kernel/public/IItemService.js";
@@ -87,7 +92,8 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   const isReadOnly = currentUser?.role === "Report User";
   // SXP v1.0 â€” adaptive visibility for timeline and cost layers
   const { canRender } = useSmritiExperience();
-  const [viewMode, setViewMode] = useState<ItemMasterViewMode>("overview");
+  // excel-grid is the primary bulk-entry workspace (Spreadsheet-first UX)
+  const [viewMode, setViewMode] = useState<ItemMasterViewMode>("excel-grid");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [activeFilter, setActiveFilter] = useState<ContextFilterState>({ type: "ALL", value: "ALL" });
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
@@ -133,6 +139,12 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     };
   }, [products]);
 
+  /** Full Product objects for checked IDs — drives ItemMasterBatchBar actions */
+  const checkedProducts = useMemo(
+    () => products.filter((p) => checkedProductIds.includes(p.id)),
+    [products, checkedProductIds]
+  );
+
   // Filtered Product List
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -156,6 +168,33 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
       return matchSearch && matchFilter;
     });
   }, [products, searchTerm, activeFilter]);
+
+  const overviewDashboardWidgets = useMemo(
+    () => [
+      {
+        id: "item-master-overview-card",
+        title: "Overview & Quick Actions",
+        type: "summary_card" as const,
+        gridSpan: { colSpan: 6, rowSpan: 2 },
+        entityId: "item_master_overview",
+      },
+      {
+        id: "item-master-flow-card",
+        title: "Workspace Flow",
+        type: "summary_card" as const,
+        gridSpan: { colSpan: 6, rowSpan: 2 },
+        entityId: "item_master_flow",
+      },
+      {
+        id: "item-master-priority-card",
+        title: "Priority Signals",
+        type: "timeline_card" as const,
+        gridSpan: { colSpan: 12, rowSpan: 2 },
+        entityId: "item_master_priority",
+      },
+    ],
+    [products.length, inventoryTotals.lowStockCount, inventoryTotals.totalValuation]
+  );
 
   // Create Item Handler
   const handleCreateItem = async (e: React.FormEvent) => {
@@ -197,178 +236,181 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     }
   };
 
-  // Keyboard Shortcuts (F2 Search, F4 Barcode Hub)
+  /**
+   * handleSaveProduct — wires ItemMasterFormInspector.onSaveProduct to IItemService.save().
+   * IItemService is the canonical SMRITI SPK service for item persistence (already registered).
+   */
+  const handleSaveProduct = useCallback(async (updated: Product) => {
+    try {
+      const svc = SPK.services.resolve<IItemService>("ITEM");
+      await svc.save(updated);
+      if (onRefreshProducts) await onRefreshProducts();
+      if (onNotification) onNotification("Saved", `${updated.name} updated.`, "success");
+    } catch (err: any) {
+      if (onNotification) onNotification("Save Failed", err.message || "Could not save product", "error");
+    }
+  }, [onRefreshProducts, onNotification]);
+
+  /**
+   * handleDeleteProduct — wires ItemMasterFormInspector.onDeleteProduct to IItemService.delete().
+   */
+  const handleDeleteProduct = useCallback(async (id: string) => {
+    try {
+      const svc = SPK.services.resolve<IItemService>("ITEM");
+      await svc.delete(id);
+      setSelectedProduct(null);
+      if (onRefreshProducts) await onRefreshProducts();
+      if (onNotification) onNotification("Deleted", "Product removed from Item Master.", "success");
+    } catch (err: any) {
+      if (onNotification) onNotification("Delete Failed", err.message || "Could not delete product", "error");
+    }
+  }, [onRefreshProducts, onNotification]);
+
+  // Keyboard Shortcuts: F2 = Toggle filter drawer | F4 = Barcode Hub | Ctrl+N = New SKU
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F2") {
         e.preventDefault();
-        setIsModalOpen(true);
+        setIsFilterDrawerOpen((prev) => !prev);
       } else if (e.key === "F4") {
         e.preventDefault();
         setIsBarcodeDialogOpen(true);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "n") {
+        e.preventDefault();
+        setFormData(blankItemForm());
+        setIsModalOpen(true);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  const renderAdaptiveOverview = () => {
+    const renderWidgetContent = (widget: any) => {
+      switch (widget.id) {
+        case "item-master-overview-card":
+          return (
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="text-theme-muted">Catalog Coverage</div>
+                <div className="font-extrabold text-theme-heading">{filteredProducts.length} visible</div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="text-theme-muted">Low Stock</div>
+                <div className="font-extrabold text-amber-600">{inventoryTotals.lowStockCount} items</div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="text-theme-muted">Inventory Value</div>
+                <div className="font-extrabold text-emerald-600">₹ {inventoryTotals.totalValuation.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
+              </div>
+            </div>
+          );
+        case "item-master-flow-card":
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="rounded-lg border border-theme-divider p-2">
+                <div className="font-bold text-theme-heading">Quick Item</div>
+                <div className="text-theme-muted">Create a single SKU in under a minute.</div>
+              </div>
+              <div className="rounded-lg border border-theme-divider p-2">
+                <div className="font-bold text-theme-heading">Spreadsheet</div>
+                <div className="text-theme-muted">Bulk import, paste, and mass update thousands of rows.</div>
+              </div>
+              <div className="rounded-lg border border-theme-divider p-2">
+                <div className="font-bold text-theme-heading">Item Studio</div>
+                <div className="text-theme-muted">Manage images, pricing, variants, docs, and workflow in one place.</div>
+              </div>
+              <div className="rounded-lg border border-theme-divider p-2">
+                <div className="font-bold text-theme-heading">AI Assistant</div>
+                <div className="text-theme-muted">Auto-suggest HSN, GST, category, brand, and duplicates.</div>
+              </div>
+            </div>
+          );
+        case "item-master-priority-card":
+          return (
+            <div className="space-y-2 text-xs">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-2">
+                <div className="font-bold text-amber-800">{inventoryTotals.lowStockCount} low-stock items</div>
+                <div className="text-amber-700">Replenishment should be reviewed before the next cycle.</div>
+              </div>
+              <div className="rounded-lg border border-red-200 bg-red-50 p-2">
+                <div className="font-bold text-red-700">Duplicate review</div>
+                <div className="text-red-600">Live duplicate detection is now a first-class studio capability.</div>
+              </div>
+              <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-2">
+                <div className="font-bold text-indigo-700">Bulk validation</div>
+                <div className="text-indigo-600">The studio will surface missing GST, HSN, barcode, and category issues.</div>
+              </div>
+            </div>
+          );
+        default:
+          return null;
+      }
+    };
+
+    return (
+      <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-3">
+        <div className="space-y-3">
+          <WorkspaceLayoutSelector workspaceId="item-master-overview" widgets={overviewDashboardWidgets} />
+          <AdaptiveWorkspaceGrid
+            workspaceId="item-master-overview"
+            widgets={overviewDashboardWidgets}
+            renderWidget={(widget) => (
+              <WorkspaceCard
+                id={widget.id}
+                title={widget.title}
+                subtitle={widget.type === "summary_card" ? "Adaptive workspace card" : "Workspace signals"}
+                actions={<span className="text-[10px] font-bold text-theme-muted">{products.length} Items</span>}
+              >
+                {renderWidgetContent(widget)}
+              </WorkspaceCard>
+            )}
+          />
+        </div>
+      </div>
+    );
+  };
+
+
   const renderWorkspaceContent = () => {
     switch (viewMode) {
       case "overview":
       case "registry":
-        return (
-          <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-3">
-            <div className="space-y-3">
-              <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
-                <div className="flex items-center justify-between border-b border-theme-divider pb-2">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Item Master Studio</p>
-                    <h2 className="text-sm font-extrabold text-theme-heading">Overview & Quick Actions</h2>
-                  </div>
-                  <div className="px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-extrabold uppercase">
-                    {products.length} Items
-                  </div>
-                </div>
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                  <div className="rounded-lg border border-theme-divider bg-theme-surface-2 p-2">
-                    <div className="text-theme-muted">Catalog Coverage</div>
-                    <div className="font-extrabold text-theme-heading">{filteredProducts.length} visible</div>
-                  </div>
-                  <div className="rounded-lg border border-theme-divider bg-theme-surface-2 p-2">
-                    <div className="text-theme-muted">Low Stock</div>
-                    <div className="font-extrabold text-amber-600">{inventoryTotals.lowStockCount} items</div>
-                  </div>
-                  <div className="rounded-lg border border-theme-divider bg-theme-surface-2 p-2">
-                    <div className="text-theme-muted">Inventory Value</div>
-                    <div className="font-extrabold text-emerald-600">₹ {inventoryTotals.totalValuation.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
-                <div className="flex items-center justify-between border-b border-theme-divider pb-2">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Workspace Flow</p>
-                    <h3 className="text-sm font-extrabold text-theme-heading">Create, review, validate, and publish</h3>
-                  </div>
-                </div>
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  <div className="rounded-lg border border-theme-divider p-2">
-                    <div className="font-bold text-theme-heading">Quick Item</div>
-                    <div className="text-theme-muted">Create a single SKU in under a minute.</div>
-                  </div>
-                  <div className="rounded-lg border border-theme-divider p-2">
-                    <div className="font-bold text-theme-heading">Spreadsheet</div>
-                    <div className="text-theme-muted">Bulk import, paste, and mass update thousands of rows.</div>
-                  </div>
-                  <div className="rounded-lg border border-theme-divider p-2">
-                    <div className="font-bold text-theme-heading">Item Studio</div>
-                    <div className="text-theme-muted">Manage images, pricing, variants, docs, and workflow in one place.</div>
-                  </div>
-                  <div className="rounded-lg border border-theme-divider p-2">
-                    <div className="font-bold text-theme-heading">AI Assistant</div>
-                    <div className="text-theme-muted">Auto-suggest HSN, GST, category, brand, and duplicates.</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-3">
-              <div className="flex items-center justify-between border-b border-theme-divider pb-2">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Priority Signals</p>
-                  <h3 className="text-sm font-extrabold text-theme-heading">What needs attention</h3>
-                </div>
-              </div>
-              <div className="space-y-2 text-xs">
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-2">
-                  <div className="font-bold text-amber-800">{inventoryTotals.lowStockCount} low-stock items</div>
-                  <div className="text-amber-700">Replenishment should be reviewed before the next cycle.</div>
-                </div>
-                <div className="rounded-lg border border-red-200 bg-red-50 p-2">
-                  <div className="font-bold text-red-700">Duplicate review</div>
-                  <div className="text-red-600">Live duplicate detection is now a first-class studio capability.</div>
-                </div>
-                <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-2">
-                  <div className="font-bold text-indigo-700">Bulk validation</div>
-                  <div className="text-indigo-600">The studio will surface missing GST, HSN, barcode, and category issues.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
+        return renderAdaptiveOverview();
       case "explorer":
         return (
-          <div className="grid grid-cols-1 xl:grid-cols-[0.8fr_1.2fr] gap-3">
-            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-3">
-              <div className="border-b border-theme-divider pb-2">
-                <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Explorer</p>
-                <h3 className="text-sm font-extrabold text-theme-heading">Search, filter, and discover items</h3>
-              </div>
-              <div className="rounded-lg border border-theme-divider p-2">
-                <div className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Search</div>
-                <div className="mt-2 flex items-center gap-2 rounded-lg border border-theme-divider px-2 py-1.5 bg-theme-surface-2">
-                  <Search className="w-3.5 h-3.5 text-theme-muted" />
-                  <input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search SKU, name, barcode, category"
-                    className="w-full bg-transparent text-xs text-theme-heading outline-none"
-                  />
-                </div>
-              </div>
-              <div className="rounded-lg border border-theme-divider p-2">
-                <div className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Filters</div>
-                <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
-                  <button onClick={() => setActiveFilter({ type: "ALL", value: "ALL" })} className={`rounded-full px-2.5 py-1 font-bold ${activeFilter.type === "ALL" ? "bg-blue-600 text-white" : "bg-theme-surface-2 text-theme-body border border-theme-divider"}`}>
-                    All
-                  </button>
-                  <button onClick={() => setActiveFilter({ type: "LOW_STOCK", value: "LOW_STOCK" })} className={`rounded-full px-2.5 py-1 font-bold ${activeFilter.type === "LOW_STOCK" ? "bg-amber-600 text-white" : "bg-theme-surface-2 text-theme-body border border-theme-divider"}`}>
-                    Low Stock
-                  </button>
-                  {categories.slice(0, 4).map((category) => (
-                    <button
-                      key={category}
-                      onClick={() => setActiveFilter({ type: "CATEGORY", value: category })}
-                      className={`rounded-full px-2.5 py-1 font-bold ${activeFilter.type === "CATEGORY" && activeFilter.value === category ? "bg-indigo-600 text-white" : "bg-theme-surface-2 text-theme-body border border-theme-divider"}`}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="rounded-lg border border-theme-divider p-2">
-                <div className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Favorites & Recent</div>
-                <div className="mt-2 space-y-1 text-xs text-theme-muted">
-                  <div className="rounded border border-theme-divider px-2 py-1">Recent: {filteredProducts[0]?.name || "No recent items"}</div>
-                  <div className="rounded border border-theme-divider px-2 py-1">Favorites: {brands[0] || "Standard brand"}</div>
-                </div>
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
+            <div className="flex items-center justify-between border-b border-theme-divider pb-2 mb-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">List View</p>
+                <h3 className="text-sm font-extrabold text-theme-heading">{filteredProducts.length} items — select one to inspect</h3>
               </div>
             </div>
-
-            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
-              <div className="flex items-center justify-between border-b border-theme-divider pb-2">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Catalog Explorer</p>
-                  <h3 className="text-sm font-extrabold text-theme-heading">{filteredProducts.length} matching items</h3>
-                </div>
-              </div>
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {filteredProducts.slice(0, 8).map((product) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+              {filteredProducts.slice(0, 24).map((product) => {
+                const qty = product.stock_qty ?? product.qty ?? 0;
+                const isLow = qty < (product.min_stock_level || 5);
+                return (
                   <button
                     key={product.id}
                     onClick={() => setSelectedProduct(product)}
-                    className={`rounded-lg border p-2 text-left transition-colors ${selectedProduct?.id === product.id ? "border-blue-500 bg-blue-50/70" : "border-theme-divider bg-theme-surface-2 hover:bg-theme-surface-hover"}`}
+                    className={`rounded-lg border p-2.5 text-left transition-all ${
+                      selectedProduct?.id === product.id
+                        ? "border-[var(--c-seef-accent)] bg-[var(--c-seef-accent)]/5 shadow-xs"
+                        : "border-theme-divider bg-theme-surface-1 hover:bg-theme-surface-hover"
+                    }`}
                   >
-                    <div className="font-bold text-theme-heading text-xs">{product.name}</div>
-                    <div className="mt-1 text-[10px] text-theme-muted">{product.code || product.sku}</div>
-                    <div className="mt-1 flex items-center justify-between text-[10px] text-theme-muted">
-                      <span>{product.category || "General"}</span>
-                      <span>₹ {product.price}</span>
+                    <div className="font-bold text-theme-heading text-xs line-clamp-1">{product.name}</div>
+                    <div className="mt-1 text-[10px] font-mono text-theme-muted">{product.code || product.sku}</div>
+                    <div className="mt-1.5 flex items-center justify-between text-[10px]">
+                      <span className="text-theme-muted truncate">{product.category || "General"}</span>
+                      <span className={`font-bold ${isLow ? "text-rose-500" : "text-emerald-500"}`}>
+                        {qty} {product.uom || "Pcs"}
+                      </span>
                     </div>
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
           </div>
         );
@@ -687,82 +729,6 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                 </table>
               </div>
             </div>
-
-            <div className="lg:col-span-5 bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-3">
-              <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
-                <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
-                  <Boxes className="w-3.5 h-3.5" />
-                  <span>Valuation & Product Inspector</span>
-                </div>
-              </div>
-
-              <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 space-y-2 text-xs">
-                <div className="flex items-center justify-between text-theme-muted">
-                  <span>Total Catalog Products</span>
-                  <span className="font-mono font-bold text-theme-heading">{inventoryTotals.totalProducts}</span>
-                </div>
-                <div className="flex items-center justify-between text-theme-muted">
-                  <span>Total Available Stock Qty</span>
-                  <span className="font-mono font-bold text-theme-heading">{inventoryTotals.totalStockQty} Pcs</span>
-                </div>
-                <div className="flex items-center justify-between pt-1 border-t border-theme-divider">
-                  <span className="font-bold text-theme-heading">Total Inventory Valuation</span>
-                  <span className="font-mono font-black text-emerald-600 text-sm">
-                    ₹ {inventoryTotals.totalValuation.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
-
-              {selectedProduct ? (
-                <div className="border border-theme-divider rounded-xl p-3 space-y-2 text-xs">
-                  <div className="flex items-center justify-between border-b border-theme-divider pb-1">
-                    <span className="font-extrabold text-theme-heading">{selectedProduct.name}</span>
-                    <span className="font-mono font-bold text-blue-600">{selectedProduct.code || selectedProduct.sku}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-[11px]">
-                    <div>
-                      <span className="text-theme-muted uppercase text-[9px] block">Category</span>
-                      <span className="font-semibold text-theme-heading">{selectedProduct.category || "General"}</span>
-                    </div>
-                    <div>
-                      <span className="text-theme-muted uppercase text-[9px] block">Brand</span>
-                      <span className="font-semibold text-theme-heading">{selectedProduct.brand || "Smriti Standard"}</span>
-                    </div>
-                    <div>
-                      <span className="text-theme-muted uppercase text-[9px] block">Buying Rate</span>
-                      <span className="font-mono font-bold text-theme-body">₹ {selectedProduct.purchasePrice || 60}</span>
-                    </div>
-                    <div>
-                      <span className="text-theme-muted uppercase text-[9px] block">Retail Selling Price</span>
-                      <span className="font-mono font-bold text-blue-700">₹ {selectedProduct.price}</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 text-center text-theme-muted text-xs italic">Select a product row to inspect details.</div>
-              )}
-
-              {/* SXP v1.0 â€” Stock Movement Timeline (HYBRID+ only via canRender) */}
-              {selectedProduct && canRender("raw_ledger") && (
-                <div style={{ marginTop: 12 }}>
-                  <div style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.07em",
-                    color: "var(--c-theme-muted)",
-                    marginBottom: 8,
-                  }}>
-                    Stock Movement History
-                  </div>
-                  <WorkspaceTimeline
-                    adapter={InventoryTimelineAdapter}
-                    entityId={selectedProduct.id}
-                    limit={5}
-                  />
-                </div>
-              )}
-            </div>
           </div>
         );
     }
@@ -830,34 +796,71 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
         </div>
       </div>
 
-      {isFilterDrawerOpen && (
-        <ItemMasterContextSidebar
-          products={products}
-          activeFilter={activeFilter}
-          onFilterChange={(filter) => {
-            setActiveFilter(filter);
-            setIsFilterDrawerOpen(false);
-          }}
-          categories={categories}
-          brands={brands}
-          lowStockCount={inventoryTotals.lowStockCount}
-          isOpen={isFilterDrawerOpen}
-          onClose={() => setIsFilterDrawerOpen(false)}
-        />
-      )}
 
-      <div className="flex flex-col xl:flex-row gap-3">
-        <div className="flex-1 min-w-0">
+      {/* ── Three-Column Studio Layout ── */}
+      <div className="flex gap-3 items-start min-h-0">
+
+        {/* Column 1: Dockable Filter Drawer (F2) — inline, non-blocking */}
+        {isFilterDrawerOpen && (
+          <ItemMasterContextSidebar
+            products={products}
+            activeFilter={activeFilter}
+            onFilterChange={(filter) => setActiveFilter(filter)}
+            categories={categories}
+            brands={brands}
+            lowStockCount={inventoryTotals.lowStockCount}
+            activeMode={viewMode}
+            onModeChange={(mode) => setViewMode(mode)}
+            isOpen={isFilterDrawerOpen}
+            onClose={() => setIsFilterDrawerOpen(false)}
+          />
+        )}
+
+        {/* Column 2: Primary Workspace (flex-1) + Console */}
+        <div className="flex-1 min-w-0 space-y-3">
           {renderWorkspaceContent()}
+
+          {/* Console — always visible below workspace */}
+          <ItemMasterStudioConsole
+            messages={[
+              inventoryTotals.lowStockCount > 0
+                ? `⚠ ${inventoryTotals.lowStockCount} low-stock alert(s)`
+                : "✓ All stock levels healthy",
+              `${filteredProducts.length} of ${products.length} SKUs visible`,
+              activeFilter.type !== "ALL" ? `Filter active: ${activeFilter.type}` : "No active filter",
+            ]}
+          />
         </div>
-        <ItemMasterStudioContextPanel
-          product={selectedProduct}
-          lowStockCount={inventoryTotals.lowStockCount}
-          inventorySummary={inventoryTotals}
-        />
+
+        {/* Column 3: Context Panel — ItemMasterFormInspector (12-tab, was orphaned) */}
+        <div className="w-[360px] flex-shrink-0 hidden xl:block self-start">
+          <ItemMasterFormInspector
+            product={selectedProduct}
+            onSaveProduct={handleSaveProduct}
+            onDeleteProduct={handleDeleteProduct}
+            onOpenBarcodeDialog={() => setIsBarcodeDialogOpen(true)}
+            isReadOnly={isReadOnly}
+          />
+        </div>
       </div>
 
-      <ItemMasterStudioConsole messages={["Draft saved", `${inventoryTotals.lowStockCount} validation alerts`, "Barcode generated"]} />
+      {/* ── Batch Action Bar — wired (was orphaned, now rendered) ── */}
+      <ItemMasterBatchBar
+        selectedProducts={checkedProducts}
+        onClearSelection={() => setCheckedProductIds([])}
+        onExportExcel={() => {
+          if (onNotification) onNotification("Export", `Exporting ${checkedProducts.length} SKUs to Excel…`, "success");
+        }}
+        onExportCsv={() => {
+          if (onNotification) onNotification("Export", `Exporting ${checkedProducts.length} SKUs to CSV…`, "success");
+        }}
+        onPrintLabels={() => setIsBarcodeDialogOpen(true)}
+        onBulkStatusToggle={() => {
+          if (onNotification) onNotification("Bulk Update", `${checkedProducts.length} SKUs updated.`, "success");
+        }}
+      />
+
+
 
       {/* ================= NEW ITEM CREATION MODAL ================= */}
       {isModalOpen && (

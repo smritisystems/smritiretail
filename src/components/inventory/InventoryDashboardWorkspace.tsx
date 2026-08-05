@@ -235,7 +235,7 @@ export const InventoryDashboardWorkspace: React.FC = () => {
 
   const dashboardBody = (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--sxp-widget-gap, 16px)", padding: 16 }}>
-      <WorkspaceLayoutSelector workspaceId={metadata.id} />
+      <WorkspaceLayoutSelector workspaceId={metadata.id} widgets={dashboardWidgets} />
 
       {dashboardWidgets.length === 0 ? (
         <div style={{ padding: 24, color: "var(--smriti-color-text-secondary)", textAlign: "center" }}>

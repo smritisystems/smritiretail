@@ -30,6 +30,8 @@ import { ReportRegistry, ReportDefinition, ReportCategory } from "./upr/reports/
 import { PrintRegistry, PrintTemplateDefinition } from "./upr/printing/PrintRegistry.js";
 import { DashboardRegistry, DashboardDefinition } from "./upr/dashboard/DashboardRegistry.js";
 import { AIRegistry, AISkillDefinition } from "./upr/ai/AIRegistry.js";
+import { SearchRegistry } from "./upr/search/SearchRegistry.js";
+import { ISearchProvider, ISearchQuery, ISearchResult, SearchManifest, SavedViewDefinition } from "./public/ISearchService.js";
 import { posDomainService } from "../domains/pos/POSDomainService.js";
 import { salesDomainService } from "../domains/sales/SalesDomainService.js";
 import { inventoryDomainService } from "../domains/inventory/InventoryDomainService.js";
@@ -476,6 +478,18 @@ export class SMRITIPlatformKernel {
       AIRegistry.executeSkill(skillId, params, context),
     registerSkill: (skill: AISkillDefinition) => AIRegistry.registerSkill(skill),
     subscribe: (listener: () => void) => AIRegistry.subscribe(listener)
+  };
+
+  /* ── Universal Search & Filter Framework Facade (SPK.search / SUSF v1.0) ── */
+  public search = {
+    registerProvider: (provider: ISearchProvider) => SearchRegistry.registerProvider(provider),
+    getProvider: (moduleId: string) => SearchRegistry.getProvider(moduleId),
+    getManifest: (moduleId: string) => SearchRegistry.getManifest(moduleId),
+    executeSearch: <T = any>(query: ISearchQuery) => SearchRegistry.executeSearch<T>(query),
+    getSavedViews: (moduleId: string) => SearchRegistry.getSavedViews(moduleId),
+    saveView: (moduleId: string, view: SavedViewDefinition) => SearchRegistry.saveView(moduleId, view),
+    getHistory: (moduleId?: string) => SearchRegistry.getHistory(moduleId),
+    subscribe: (listener: () => void) => SearchRegistry.subscribe(listener)
   };
 
   /* ── Business Domains Facade (SPK.domains — Wave 1 Architecture) ── */

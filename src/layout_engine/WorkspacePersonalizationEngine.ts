@@ -27,6 +27,7 @@ export interface WidgetLayoutConfig {
   colSpan: number;
   rowSpan: number;
   order: number;
+  hidden?: boolean;
 }
 
 export interface FilterState {

@@ -8,7 +8,7 @@ import { act } from "react-dom/test-utils";
 import { ItemMasterToolbar } from "../components/item_master/ItemMasterToolbar.tsx";
 
 describe("ItemMasterToolbar", () => {
-  it("renders overview and explorer as first-class studio views", () => {
+  it("renders primary studio modes and triggers mode change", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -17,7 +17,7 @@ describe("ItemMasterToolbar", () => {
     act(() => {
       root.render(
         React.createElement(ItemMasterToolbar, {
-          activeMode: "overview",
+          activeMode: "excel-grid",
           onModeChange,
           searchTerm: "",
           onSearchChange: vi.fn(),
@@ -30,22 +30,17 @@ describe("ItemMasterToolbar", () => {
       );
     });
 
-    expect(container.textContent).toContain("Overview");
-    expect(container.textContent).toContain("Explorer");
-    expect(container.textContent).toContain("Create");
+    expect(container.textContent).toContain("List");
     expect(container.textContent).toContain("Spreadsheet");
-    expect(container.textContent).toContain("Pricing");
-    expect(container.textContent).toContain("Studio Layers");
-    expect(container.textContent).toContain("Workspace");
+    expect(container.textContent).toContain("Product");
+    expect(container.textContent).toContain("Variants");
+    expect(container.textContent).toContain("Import");
 
-    const explorerButton = Array.from(container.querySelectorAll("button")).find((button) =>
-      button.textContent?.includes("Explorer")
-    ) as HTMLButtonElement | undefined;
-
-    expect(explorerButton).toBeTruthy();
+    const listButton = container.querySelector("#im-mode-explorer") as HTMLButtonElement | null;
+    expect(listButton).toBeTruthy();
 
     act(() => {
-      explorerButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      listButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(onModeChange).toHaveBeenCalledWith("explorer");
