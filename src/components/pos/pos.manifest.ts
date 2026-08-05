@@ -28,10 +28,21 @@ import { executePOSReturn } from "./POSReturnWizard.js";
 
 const POS_ACTIONS: WorkspaceActionDef[] = [
   {
+    id: "pos.item_lookup",
+    label: "Item Lookup",
+    icon: "🔍",
+    shortcut: "F2",
+    adaptiveVisibility: ["SIMPLE", "HYBRID", "ADVANCED"],
+    canExecute: () => true,
+    async execute(ctx) {
+      return { success: true, message: `Item lookup opened by ${ctx.userId}` };
+    },
+  },
+  {
     id: "pos.new_bill",
     label: "New Bill",
     icon: "🧾",
-    shortcut: "F2",
+    shortcut: "F3",
     adaptiveVisibility: ["SIMPLE", "HYBRID", "ADVANCED"],
     canExecute: () => true,
     async execute(ctx) {
@@ -39,25 +50,25 @@ const POS_ACTIONS: WorkspaceActionDef[] = [
     },
   },
   {
-    id: "pos.hold_bill",
-    label: "Hold Bill",
-    icon: "⏸️",
-    shortcut: "F4",
-    adaptiveVisibility: ["HYBRID", "ADVANCED"],
-    canExecute: () => true,
-    async execute(ctx) {
-      return { success: true, message: `Bill held by ${ctx.userId}` };
-    },
-  },
-  {
     id: "pos.checkout",
     label: "Checkout",
     icon: "✅",
-    shortcut: "F8",
+    shortcut: "F4",
     adaptiveVisibility: ["SIMPLE", "HYBRID", "ADVANCED"],
     canExecute: () => true,
     async execute(ctx) {
       return { success: true, message: `Checkout completed by ${ctx.userId}` };
+    },
+  },
+  {
+    id: "pos.hold_bill",
+    label: "Hold Bill",
+    icon: "⏸️",
+    shortcut: "F6",
+    adaptiveVisibility: ["HYBRID", "ADVANCED"],
+    canExecute: () => true,
+    async execute(ctx) {
+      return { success: true, message: `Bill held by ${ctx.userId}` };
     },
   },
   {

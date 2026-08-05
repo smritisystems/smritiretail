@@ -283,10 +283,15 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
       );
   };
 
-  // Keyboard Shortcuts (F2 Search)
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Keyboard Shortcuts (SCS-UIX Lookup Rule-001: F2 = Focus Search Input | F3 = Add Customer)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F2") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (e.key === "F3" || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n")) {
         e.preventDefault();
         setShowNewCustomerModal(true);
       }
@@ -323,6 +328,7 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-theme-muted" />
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="Search Customer / Mobile (F2)"
               value={searchTerm}

@@ -164,12 +164,12 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
     onNotification("Bill Recalled", `Slot ${held.id} loaded back to terminal`, "success");
   }, [onNotification]);
 
-  // Terminal Hotkey Registration
+  // Terminal Hotkey Registration (SCS-UIX Lookup Rule-001 & Universal Keyboard Standard)
   useTerminalShortcuts({
-    "F1": () => { searchInputRef.current?.focus(); },
-    "F2": () => { handleHoldBill(); },
+    "F2": () => { searchInputRef.current?.focus(); },
+    "F3": () => { setIsCheckoutModalOpen(false); },
     "F4": () => { setIsCheckoutModalOpen(true); },
-    "F6": () => { setDiscountPercent((prev) => (prev === 0 ? 10 : 0)); },
+    "F6": () => { handleHoldBill(); },
     "F12": () => {
       if (cart.length > 0) {
         setIsCheckoutModalOpen(true);
