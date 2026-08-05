@@ -890,17 +890,36 @@ async def company_setup(
         })
 
         for idx, staff in enumerate(staff_entries):
-            username = (staff.username or "").strip()
-            if username == "super":
-                continue
-            display_name = (staff.name or username or f"user{idx + 1}").strip()
+            raw_username = (staff.username or "").strip()
+            display_name = (staff.name or raw_username or f"staffuser{idx + 1}").strip()
             role = normalize_staff_role(staff.role or "Cashier")
             email = staff.email or None
             mobile = staff.mobile or None
             assigned_branch = created_branches[0] if created_branches else None
 
+            username = raw_username
             if not username:
-                username = re.sub(r"[^a-z0-9]", "", display_name.lower()) or f"user{idx + 1}"
+                username = re.sub(r"[^a-z0-9]", "", display_name.lower()) or f"staffuser{idx + 1}"
+
+            if username == "super":
+                continue
+
+            # Check if user already exists
+            existing_usr_q = await db.execute(select(User).where(User.username == username, User.is_deleted == False))
+            existing_usr = existing_usr_q.scalars().first()
+            if existing_usr:
+                existing_usr.company_id = company_id
+                existing_usr.tenant_id = tenant_id
+                existing_usr.branch_id = assigned_branch.id if assigned_branch else None
+                created_users.append({
+                    "id": existing_usr.id,
+                    "username": existing_usr.username,
+                    "role": existing_usr.role.value if hasattr(existing_usr.role, "value") else str(existing_usr.role),
+                    "company_id": company_id,
+                    "branch_id": existing_usr.branch_id,
+                    "temp_password": "***",
+                })
+                continue
 
             temp_password = secrets.token_urlsafe(8)
             user_req = UserCreate(
@@ -913,10 +932,11 @@ async def company_setup(
                 branch_id=assigned_branch.id if assigned_branch is not None else None,
             )
             created_user = await user_service.create_user(user_req, commit=False)
+            created_user.tenant_id = tenant_id
             created_users.append({
                 "id": created_user.id,
                 "username": created_user.username,
-                "role": created_user.role.value,
+                "role": created_user.role.value if hasattr(created_user.role, "value") else str(created_user.role),
                 "company_id": created_user.company_id,
                 "branch_id": created_user.branch_id,
                 "temp_password": temp_password,
