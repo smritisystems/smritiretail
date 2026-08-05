@@ -853,19 +853,18 @@ const AppContent: React.FC = () => {
         return <DocumentSeriesTab />;
       case "approval-matrix":
         return <ApprovalMatrixTab />;
+      case "document-studio":
       case "print-labels":
       case "print-studio":
       case "label-printing":
       case "universal-label":
       case "universal-label-printer":
-        return <UniversalLabelPrintingStudio products={products} />;
       case "barcode":
       case "barcode-studio":
       case "tag-printing":
       case "barcode-printing":
-        return <PrintLabelsStudio products={products} />;
       case "print-history":
-        return <PrintLabelsStudio products={products} />;
+        return <PrintStudioTab />;
       case "about-smriti":
         return <AboutSmritiTab />;
       case "dev-tracker":
