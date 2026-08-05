@@ -1,32 +1,25 @@
 /**
  * Project      : SMRITI Retail OS
- * Component    : DocumentStudio (SCS-DXP-001 / DXP-DOC-001 Modular Architecture)
- * Description  : Modular Platform Document Studio assembling selector, toolbar, canvas,
- *                and Universal Label Designer.
+ * Component    : DocumentStudio (SCS-DXP-001 Enterprise Architecture)
+ * Description  : Modular Platform Document Studio consuming DocumentRegistry (DXP-DOC-001),
+ *                DocumentRendererRegistry (DXP-REN-001), and OutputChannelRegistry (DXP-OUT-001).
  * Author       : Jawahar Ramkripal Mallah
- * Version      : 3.0.0
+ * Version      : 4.0.0
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- *
- * DXP-DOC-001 Compliance Declaration
- * Principle    : Dynamic Document Discovery — DocumentStudio queries DocumentRegistry.listAll()
- *                to render document types dynamically without monolithic switch statements.
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { DocumentRegistry } from "../core/DocumentRegistry.ts";
+import { DocumentRendererRegistry } from "../core/DocumentRendererRegistry.ts";
+import { OutputChannelRegistry } from "../core/OutputChannelRegistry.ts";
 import { DxpDocumentType, DxpOutputChannel } from "../models/DxpTypes.ts";
-import { DocumentService } from "../core/DocumentService.ts";
-import { DocumentTypeSelector } from "./DocumentTypeSelector.tsx";
+import { DocumentExplorer } from "./DocumentExplorer.tsx";
 import { DocumentOutputToolbar } from "./DocumentOutputToolbar.tsx";
 import { DocumentPreviewCanvas } from "./DocumentPreviewCanvas.tsx";
 import { UniversalLabelPrintingStudio } from "../../components/label_print/UniversalLabelPrintingStudio.tsx";
 import { products as storeProducts } from "../../state/store.ts";
 import { usePrintEngine } from "../../print_engine/print_store.tsx";
 import { useLayoutEngine } from "../../layout_engine/layout_store.tsx";
-import { StandardInvoiceA4 } from "../../print_engine/templates/StandardInvoiceA4.tsx";
-import { ThermalReceipt80mm } from "../../print_engine/templates/ThermalReceipt80mm.tsx";
-import { GoodsReceiptNoteA4 } from "../../print_engine/templates/GoodsReceiptNoteA4.tsx";
-import { BarcodeLabel } from "../../print_engine/templates/BarcodeLabel.tsx";
 
 const MOCK_DATA = {
   invoiceNo: "INV-2026-0891",
@@ -61,47 +54,38 @@ const BARCODE_DEMO_DATA = {
 };
 
 export const DocumentStudio: React.FC = () => {
-  const { print, registerTemplate, templates } = usePrintEngine();
+  const { print } = usePrintEngine();
   const { addToRecentlyUsed } = useLayoutEngine();
   const [selectedDocType, setSelectedDocType] = useState<DxpDocumentType>("INVOICE");
   const [isLabelDesignerActive, setIsLabelDesignerActive] = useState<boolean>(false);
   const [outputStatus, setOutputStatus] = useState<string | null>(null);
 
-  useEffect(() => {
-    registerTemplate({ id: "standard-a4", name: "Standard Tax Invoice (A4)", format: "A4", component: StandardInvoiceA4 });
-    registerTemplate({ id: "grn-a4", name: "Goods Receipt Note (GRN)", format: "A4", component: GoodsReceiptNoteA4 });
-    registerTemplate({ id: "thermal-80", name: "Retail Receipt (80mm Thermal)", format: "Thermal80mm", component: ThermalReceipt80mm });
-    registerTemplate({ id: "label-50x25", name: "Product Barcode Label (50x25mm)", format: "Label", component: BarcodeLabel });
-  }, [registerTemplate]);
-
   const activeDescriptor = DocumentRegistry.getDescriptor(selectedDocType);
-
-  const getPreviewComponent = () => {
-    if (selectedDocType === "GRN") return GoodsReceiptNoteA4;
-    if (selectedDocType === "RECEIPT") return ThermalReceipt80mm;
-    if (selectedDocType === "BARCODE_LABEL" || selectedDocType === "SHELF_LABEL") return BarcodeLabel;
-    return StandardInvoiceA4;
-  };
+  const PreviewComponent = DocumentRendererRegistry.resolve(selectedDocType);
 
   const getPreviewData = () => {
     return selectedDocType === "BARCODE_LABEL" || selectedDocType === "SHELF_LABEL" ? BARCODE_DEMO_DATA : MOCK_DATA;
   };
 
-  const handleExecuteChannel = async (channel: DxpOutputChannel) => {
+  const handleExecuteChannel = async (channelId: DxpOutputChannel) => {
     try {
-      const res = await DocumentService.execute({
+      const channelPlugin = OutputChannelRegistry.get(channelId);
+      if (!channelPlugin) {
+        throw new Error(`Output channel ${channelId} not registered`);
+      }
+
+      const res = await channelPlugin.execute({
         documentType: selectedDocType,
         referenceId: getPreviewData().invoiceNo,
-        channel: channel,
+        channel: channelId,
         data: getPreviewData(),
       });
 
-      if (channel === "PRINT") {
-        const targetTemplateId = activeDescriptor.defaultTemplateId || "standard-a4";
-        print({ templateId: targetTemplateId, data: getPreviewData() });
+      if (channelId === "PRINT") {
+        print({ templateId: activeDescriptor.defaultTemplateId || "standard-a4", data: getPreviewData() });
       }
 
-      setOutputStatus(`Dispatched via ${res.channel} channel (State: ${res.lifecycleState})`);
+      setOutputStatus(`Dispatched via ${channelPlugin.title} (State: ${res.lifecycleState})`);
       setTimeout(() => setOutputStatus(null), 4000);
     } catch (err: any) {
       setOutputStatus(`Execution error: ${err.message || "Failed to process"}`);
@@ -132,8 +116,8 @@ export const DocumentStudio: React.FC = () => {
 
   return (
     <div className="flex h-full bg-theme-base font-sans overflow-hidden text-theme-body">
-      {/* Dynamic Selector Sidebar */}
-      <DocumentTypeSelector
+      {/* Decoupled Document Explorer */}
+      <DocumentExplorer
         selectedType={selectedDocType}
         onSelectType={(docType) => {
           setSelectedDocType(docType);
@@ -143,7 +127,7 @@ export const DocumentStudio: React.FC = () => {
         isLabelDesignerActive={isLabelDesignerActive}
       />
 
-      {/* Main Studio Area */}
+      {/* Main Studio Workspace */}
       <div className="flex-1 flex flex-col bg-theme-surface-2 relative">
         <DocumentOutputToolbar
           descriptor={activeDescriptor}
@@ -154,7 +138,7 @@ export const DocumentStudio: React.FC = () => {
 
         <DocumentPreviewCanvas
           descriptor={activeDescriptor}
-          previewComponent={getPreviewComponent()}
+          previewComponent={PreviewComponent}
           previewData={getPreviewData()}
         />
       </div>
