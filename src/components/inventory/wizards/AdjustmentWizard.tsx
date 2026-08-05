@@ -43,6 +43,9 @@ export interface AdjustmentPayload {
   currentQty: number;
   adjustmentQty: number;     // positive = add, negative = remove
   reason: AdjustmentReason;
+  batchNumber?: string;
+  expiryDate?: string;
+  binLocation?: string;
   notes?: string;
   warehouseId?: string;
 }
@@ -257,6 +260,39 @@ export const AdjStep2: React.FC<AdjStep2Props> = ({ payload, onChange }) => {
             <option key={key} value={key}>{label}</option>
           ))}
         </select>
+      </div>
+
+      {/* GAP-2: Batch / Lot & Expiry Tracking Fields */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--sxp-space-3, 12px)" }}>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Batch / Lot No. (Optional)</label>
+          <input
+            type="text"
+            placeholder="e.g. BATCH-2026-08"
+            value={payload.batchNumber ?? ""}
+            style={inputStyle}
+            onChange={(e) => onChange({ batchNumber: e.target.value || undefined })}
+          />
+        </div>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Expiry Date (Optional)</label>
+          <input
+            type="date"
+            value={payload.expiryDate ?? ""}
+            style={inputStyle}
+            onChange={(e) => onChange({ expiryDate: e.target.value || undefined })}
+          />
+        </div>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Bin Location (Optional)</label>
+          <input
+            type="text"
+            placeholder="e.g. BIN-A-12"
+            value={payload.binLocation ?? ""}
+            style={inputStyle}
+            onChange={(e) => onChange({ binLocation: e.target.value || undefined })}
+          />
+        </div>
       </div>
 
       <div style={fieldStyle}>

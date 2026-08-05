@@ -72,7 +72,10 @@ export class InventoryService implements IInventoryService {
     qtyChange: number,
     reason: string,
     warehouseId = "wh-main",
-    userId = "System"
+    userId = "System",
+    batchNumber?: string,
+    expiryDate?: string,
+    binLocation?: string
   ): Promise<StockAdjustmentRecord> {
     if (!reason || reason.trim().length < 3) {
       throw new Error("[InventoryService Error] Reason for stock adjustment is mandatory and must be at least 3 characters.");
@@ -107,6 +110,9 @@ export class InventoryService implements IInventoryService {
       changeQty: qtyChange,
       newQty,
       reason: reason.trim(),
+      batchNumber: batchNumber?.trim(),
+      expiryDate: expiryDate?.trim(),
+      binLocation: binLocation?.trim(),
       adjustedAt: new Date().toISOString(),
       adjustedBy: userId,
       success: true,

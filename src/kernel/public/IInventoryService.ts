@@ -26,6 +26,9 @@ export interface StockAdjustmentRecord {
   changeQty: number;
   newQty: number;
   reason: string;
+  batchNumber?: string;
+  expiryDate?: string;
+  binLocation?: string;
   adjustedAt: string;
   adjustedBy?: string;
   success: boolean;
@@ -53,14 +56,17 @@ export interface IInventoryService {
   getAvailableToPromise(productId: string, warehouseId?: string): Promise<number>;
 
   /**
-   * Adjust stock quantity (+/-) with mandatory reason code
+   * Adjust stock quantity (+/-) with mandatory reason code, batch/expiry and bin location
    */
   adjustStock(
     sku: string,
     qtyChange: number,
     reason: string,
     warehouseId?: string,
-    userId?: string
+    userId?: string,
+    batchNumber?: string,
+    expiryDate?: string,
+    binLocation?: string
   ): Promise<StockAdjustmentRecord>;
 
   /**
