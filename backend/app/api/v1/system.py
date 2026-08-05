@@ -543,6 +543,38 @@ async def reset_setup_status(
     return {"success": True, "message": "Company setup lock cleared. Onboarding wizard re-enabled."}
 
 
+class WorkspaceSwitchRequest(BaseModel):
+    companyId: str
+    branchId: Optional[str] = None
+    warehouseId: Optional[str] = None
+
+
+@router.post(
+    "/workspace/switch",
+)
+@router.post(
+    "/system/workspace/switch",
+)
+async def switch_workspace(
+    payload: WorkspaceSwitchRequest = Body(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+):
+    """
+    SCS-WSC-001 Workspace Switch Endpoint.
+    Resolves rich workspace payload returning workspace, permissions, features, policies, industryPack, and branding.
+    """
+    from app.services.workspace_resolver import resolve_workspace_context
+    user_role = current_user.role.value if current_user and getattr(current_user, "role", None) else "SYSADMIN"
+    return await resolve_workspace_context(
+        db,
+        company_id=payload.companyId,
+        branch_id=payload.branchId,
+        warehouse_id=payload.warehouseId,
+        user_role=user_role
+    )
+
+
 @router.get(
     "/doctor",
     response_model=SystemDoctorResponse,

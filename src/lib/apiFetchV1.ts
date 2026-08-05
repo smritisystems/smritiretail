@@ -36,7 +36,20 @@ export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit
     headers.set("traceparent", `00-${traceId}-${spanId}-01`);
   }
 
-  const response = await fetch(`/api/v1${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`, {
+  let path = endpoint.startsWith("/") ? endpoint : "/" + endpoint;
+  if (!path.startsWith("/api/v1") && !path.startsWith("http://") && !path.startsWith("https://")) {
+    path = `/api/v1${path}`;
+  }
+
+  const baseUrl = typeof window !== "undefined" && window.location?.origin
+    ? window.location.origin
+    : "http://localhost:8000";
+
+  const fullUrl = path.startsWith("http://") || path.startsWith("https://")
+    ? path
+    : `${baseUrl}${path}`;
+
+  const response = await fetch(fullUrl, {
     ...options,
     headers
   });
