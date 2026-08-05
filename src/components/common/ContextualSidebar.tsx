@@ -85,21 +85,30 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
   const [collapsed, setCollapsed] = useState(false);
 
   // Single Source of Truth: Derive Domain & Modules from Active Workspace Context via SPK.navigation
-  const domainDef = SPK.navigation.getDomainForWorkspace(activeTab) ||
+  const rawDomainDef = SPK.navigation.getDomainForWorkspace(activeTab) ||
     (activeDomain ? SPK.navigation.getDomain(activeDomain.toLowerCase()) : undefined) ||
     SPK.navigation.getDomain("sales");
 
-  const domainTitle = domainDef?.label || `${activeDomain || "Sales"} Domain`;
+  const domainTitle = rawDomainDef?.label || `${activeDomain || "Sales"} Domain`;
 
-  const modules: Array<{ id: string; title: string; icon: string; targetTab: string; badge?: string }> = domainDef?.modules && domainDef.modules.length > 0
-    ? domainDef.modules
-    : (domainDef?.moduleIds || []).map((id) => ({
+  // Capability-Driven Module Filtering (WNG-005 & Rule 19)
+  const availableModules = rawDomainDef?.modules && rawDomainDef.modules.length > 0
+    ? rawDomainDef.modules.filter((m) => {
+        if (!m.permission) return true;
+        const decision = SPK.security.evaluateAccess("current_user", "MANAGER", m.permission);
+        return decision.allowed;
+      })
+    : (rawDomainDef?.moduleIds || []).map((id) => ({
         id,
         title: id.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
         icon: "Package",
         targetTab: id,
         badge: undefined
       }));
+
+  const modules = availableModules.length > 0
+    ? availableModules
+    : [{ id: activeTab, title: activeTab.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()), icon: "Package", targetTab: activeTab }];
 
   return (
     <aside

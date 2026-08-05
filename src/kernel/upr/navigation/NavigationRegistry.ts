@@ -259,8 +259,19 @@ export class NavigationRegistryService {
     this.emitChange("ModuleRegistered", { domainId: payload.id });
   }
 
-  public getDomains(): ReadonlyArray<Readonly<DomainDefinition>> {
-    return Array.from(this.domains.values()).sort((a, b) => a.order - b.order);
+  public getDomains(evaluator?: (permissionCode?: string) => boolean): ReadonlyArray<Readonly<DomainDefinition>> {
+    const list = Array.from(this.domains.values()).sort((a, b) => a.order - b.order);
+    if (!evaluator) return list;
+
+    return list
+      .filter((d) => !d.permission || evaluator(d.permission))
+      .map((d) => ({
+        ...d,
+        modules: d.modules ? d.modules.filter((m) => !m.permission || evaluator(m.permission)) : d.modules,
+        moduleIds: d.modules
+          ? d.modules.filter((m) => !m.permission || evaluator(m.permission)).map((m) => m.id)
+          : d.moduleIds,
+      }));
   }
 
   public getDomain(id: string): Readonly<DomainDefinition> | undefined {
@@ -317,23 +328,37 @@ export class NavigationRegistryService {
     });
   }
 
-  public getModuleIdsForDomain(domainId: string): string[] {
+  public getModuleIdsForDomain(domainId: string, evaluator?: (permissionCode?: string) => boolean): string[] {
     if (!domainId || domainId.toUpperCase() === "ALL") {
       return [];
     }
     const def = this.domains.get(domainId.toLowerCase());
-    return def ? [...def.moduleIds] : [];
+    if (!def) return [];
+    const validModules = def.modules
+      ? def.modules.filter((m) => !evaluator || !m.permission || evaluator(m.permission))
+      : [];
+    return validModules.length > 0 ? validModules.map((m) => m.id) : [...def.moduleIds];
   }
 
-  public getSidebar(activeDomainId: string): SidebarDefinition {
+  public getSidebar(activeDomainId: string, evaluator?: (permissionCode?: string) => boolean): SidebarDefinition {
     const dom = this.getDomain(activeDomainId) || null;
-    const moduleIds = this.getModuleIdsForDomain(activeDomainId);
-    const allDomains = this.getDomains();
+    const moduleIds = this.getModuleIdsForDomain(activeDomainId, evaluator);
+    const allDomains = this.getDomains(evaluator);
+
+    const filteredDomain = dom && evaluator && dom.permission && !evaluator(dom.permission) ? null : dom;
+    if (filteredDomain && filteredDomain.modules && evaluator) {
+      const filteredModules = filteredDomain.modules.filter((m) => !m.permission || evaluator(m.permission));
+      return {
+        domain: { ...filteredDomain, modules: filteredModules, moduleIds: filteredModules.map((m) => m.id) },
+        moduleIds: filteredModules.map((m) => m.id),
+        allDomains,
+      };
+    }
 
     return {
-      domain: dom,
+      domain: filteredDomain,
       moduleIds,
-      allDomains
+      allDomains,
     };
   }
 
