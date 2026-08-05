@@ -10,6 +10,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,32 +53,53 @@ class SecurityService:
     async def get_effective_roles(self, user_id: str) -> list[SMRITIRole]:
         """
         Traverse the user's role inheritance hierarchy and resolve all effective roles.
+        Checks active SMRITIUserAssignment records first (incorporating temporal validity),
+        then SMRITIUserRole mappings, then legacy User.role enum fallback.
         """
-        # 1. Fetch direct user roles mapping
-        user_role_stmt = select(SMRITIUserRole).where(SMRITIUserRole.user_id == user_id)
-        user_roles_res = await self.db.execute(user_role_stmt)
-        direct_mappings = user_roles_res.scalars().all()
-        
-        if not direct_mappings:
-            # Fallback to legacy User.role column for backward compatibility and test suite execution
+        now = datetime.now(timezone.utc)
+
+        # 1. Fetch active SMRITIUserAssignment records with valid temporal bounds
+        from ..models.security import SMRITIUserAssignment
+        assign_stmt = select(SMRITIUserAssignment).where(
+            SMRITIUserAssignment.user_id == user_id,
+            SMRITIUserAssignment.status == "ACTIVE",
+            SMRITIUserAssignment.is_deleted == False
+        )
+        assign_res = await self.db.execute(assign_stmt)
+        active_assignments = [
+            a for a in assign_res.scalars().all()
+            if (a.valid_from is None or a.valid_from <= now) and (a.valid_to is None or a.valid_to >= now)
+        ]
+
+        resolved_role_ids = set()
+        if active_assignments:
+            resolved_role_ids = {a.role_id for a in active_assignments if a.role_id}
+
+        if not resolved_role_ids:
+            # 2. Fetch direct SMRITIUserRole mappings
+            user_role_stmt = select(SMRITIUserRole).where(SMRITIUserRole.user_id == user_id)
+            user_roles_res = await self.db.execute(user_role_stmt)
+            direct_mappings = user_roles_res.scalars().all()
+            if direct_mappings:
+                resolved_role_ids = {m.role_id for m in direct_mappings if m.role_id}
+
+        if not resolved_role_ids:
+            # 3. Fallback to legacy User.role column
             from ..models.auth import User
             user_stmt = select(User).where(User.id == user_id)
             user_res = await self.db.execute(user_stmt)
             user = user_res.scalar_one_or_none()
             if user and user.role:
                 role_val = user.role.value if hasattr(user.role, "value") else str(user.role)
-                # Find matching role in smriti_roles by code
                 role_stmt = select(SMRITIRole).where(SMRITIRole.code == role_val)
                 role_res = await self.db.execute(role_stmt)
                 role_obj = role_res.scalar_one_or_none()
                 if role_obj:
                     resolved_role_ids = {role_obj.id}
-                else:
-                    return []
-            else:
-                return []
-        else:
-            resolved_role_ids = {m.role_id for m in direct_mappings}
+
+        if not resolved_role_ids:
+            return []
+
         visited_role_ids = set()
         resolved_roles = []
 
@@ -87,7 +109,7 @@ class SecurityService:
             stmt = select(SMRITIRole).where(SMRITIRole.id.in_(to_resolve))
             res = await self.db.execute(stmt)
             roles = res.scalars().all()
-            
+
             next_to_resolve = []
             for r in roles:
                 if r.id in visited_role_ids:
@@ -98,7 +120,7 @@ class SecurityService:
                     if r.parent_role_id in visited_role_ids:
                         raise ValueError(f"Circular role inheritance detected: role '{r.code}' refers back to parent '{r.parent_role_id}'")
                     next_to_resolve.append(r.parent_role_id)
-            
+
             to_resolve = next_to_resolve
 
         return resolved_roles
