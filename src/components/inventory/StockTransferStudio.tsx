@@ -7,6 +7,7 @@
 import React, { useState } from "react";
 import { DocumentStudio } from "../../framework/sawf/components/DocumentStudio.tsx";
 import { MetadataLoader } from "../../framework/sawf/metadata/MetadataLoader.ts";
+import { DocumentService } from "../../dop/core/DocumentService.ts";
 import stockTransferMetadata from "../../metadata/stock_transfer.json";
 import { SAWFDocumentMeta } from "../../framework/sawf/types/sawf.ts";
 
@@ -39,12 +40,26 @@ export const StockTransferStudio: React.FC<StockTransferStudioProps> = ({
         products={[]}
         renderPanelContent={() => null}
         onBack={onCancel || (() => {})}
-        onSave={() => {
+        onSave={async () => {
           if (onSave) onSave(initialData || {});
+          const res = await DocumentService.output({
+            documentType: "STOCK_TRANSFER",
+            referenceId: transferNo,
+            channel: "PRINT",
+            data: { transferNo },
+            items: items.map((i) => ({
+              itemCode: String(i.code || i.id || "SKU-TRANSFER"),
+              itemName: String(i.name || "Stock Item"),
+              barcode: String(i.barcode || i.code || i.id || "8901234567890"),
+              mrp: Number(i.mrp || i.price || 0),
+              sellingPrice: Number(i.price || 0),
+              quantity: Number(i.quantity || 1),
+            })),
+          });
           if (onNotification) {
             onNotification(
               "Stock Transfer Saved",
-              "Inter-Store Stock Transfer saved successfully via SAWF v1.1.",
+              `Transfer Note ${transferNo} dispatched via SCS-DXP-001 ${res.adapterUsed}.`,
               "success"
             );
           }
