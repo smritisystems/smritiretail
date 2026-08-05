@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
  * Author       : Jawahar Ramkripal Mallah
@@ -13,6 +13,7 @@
  */
 import React, { useState, useEffect } from "react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
+import { DocumentService } from "../dop/core/DocumentService.ts";
 import { Printer, MessageCircle, Mail,
   ShoppingCart,
   Plus,
@@ -642,6 +643,47 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
     } catch (e: any) {
       onNotification("Connection Lost", e.message || "Failed to record physical goods receipt.", "error");
     }
+  };
+
+  const handlePrintPO = async (po: any) => {
+    const res = await DocumentService.output({
+      documentType: "PURCHASE_ORDER",
+      referenceId: po.orderNo || po.id,
+      channel: "PRINT",
+      data: { supplierName: po.supplierName, grandTotal: po.grandTotal },
+      items: (po.items || []).map((i: any) => ({
+        itemCode: i.code || i.productId,
+        itemName: i.name,
+        sellingPrice: i.price,
+        quantity: i.quantity,
+      })),
+    });
+    onNotification(
+      "PO Printed",
+      `Dispatched Purchase Order ${po.orderNo} to printer via SCS-DXP-001 ${res.adapterUsed}.`,
+      "success"
+    );
+  };
+
+  const handleAutoPrintGRNBarcodes = async (po: any) => {
+    const res = await DocumentService.output({
+      documentType: "BARCODE_LABEL",
+      referenceId: `GRN-${po.orderNo}`,
+      channel: "PRINT",
+      data: { supplierName: po.supplierName },
+      items: (po.items || []).map((i: any) => ({
+        itemCode: i.code || i.productId,
+        itemName: i.name,
+        barcode: i.code || i.productId,
+        sellingPrice: i.price,
+        quantity: i.receivedQuantity || i.quantity || 1,
+      })),
+    });
+    onNotification(
+      "GRN Barcodes Dispatched",
+      `Dispatched ${res.labelsOrPagesProcessed} barcode tags for arrived goods via SCS-DXP-001 ${res.adapterUsed}.`,
+      "success"
+    );
   };
 
   // Outstanding payment registration
@@ -1416,7 +1458,21 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                       </table>
                     </div>
 
-                    <div className="flex justify-end pt-2">
+                    <div className="flex items-center justify-end space-x-2 pt-2">
+                      <button
+                        onClick={() => handlePrintPO(selectedPO)}
+                        className="px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center space-x-2 cursor-pointer"
+                      >
+                        <Printer className="w-4 h-4" />
+                        <span>Print PO (SCS-DXP-001)</span>
+                      </button>
+                      <button
+                        onClick={() => handleAutoPrintGRNBarcodes(selectedPO)}
+                        className="px-4 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center space-x-2 cursor-pointer"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>Auto-Print Barcode Tags</span>
+                      </button>
                       <button
                         onClick={handleConfirmReceipt}
                         className="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center space-x-2 cursor-pointer"
