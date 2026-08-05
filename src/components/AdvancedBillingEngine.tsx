@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Organization : AITDL NETWORKS
  * Author       : Jawahar Ramkripal Mallah
@@ -18,6 +18,7 @@ import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { getCustomers, getCustomerGroups, updateCustomerOutstanding } from "../services/customerStore.ts";
 import { checkCreditStatus } from "../services/customerPolicyEngine.ts";
 import { apiFetchV1 } from "../lib/apiFetchV1";
+import { DocumentService } from "../dop/core/DocumentService.ts";
 import { useTerminalShortcuts } from "./terminal/KeyboardEngine";
 import { SMRITIGrid } from "./terminal/SMRITIGrid";
 import { RightDrawerHost } from "./terminal/RightDrawerHost";
@@ -787,8 +788,29 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    if (!finalizedInvoice) {
+      window.print();
+      return;
+    }
+    const res = await DocumentService.output({
+      documentType: "RECEIPT",
+      referenceId: finalizedInvoice.invoiceNo || `POS-${Date.now()}`,
+      channel: "PRINT",
+      data: {
+        customerName: finalizedInvoice.customer?.name || "Cash Customer",
+        salesperson: finalizedInvoice.salesperson,
+        grandTotal: finalizedInvoice.totals?.grandTotal || 0,
+        paymentMode: finalizedInvoice.payment?.mode || "Cash",
+      },
+      items: (finalizedInvoice.cart || []).map((item: any) => ({
+        itemCode: item.code || item.productId,
+        itemName: item.name,
+        sellingPrice: item.price,
+        quantity: item.quantity,
+      })),
+    });
+    onNotification("Receipt Dispatched", `POS receipt printed via SCS-DXP-001 ${res.adapterUsed}.`, "success");
   };
 
   return (
