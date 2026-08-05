@@ -861,7 +861,12 @@ async def company_setup(
         super_admin_pass = "whynothing" if dev_mode else secrets.token_urlsafe(10)
 
         # Create or update super user
-        existing_super = await db.execute(select(User).where(User.username == "super", User.is_deleted == False))
+        existing_super = await db.execute(
+            select(User).where(
+                (User.username == "super") | (User.email == "super@smritibooks.com"),
+                User.is_deleted == False
+            )
+        )
         super_user = existing_super.scalars().first()
         if not super_user:
             super_user = User(
@@ -879,6 +884,11 @@ async def company_setup(
                 status="PendingPasswordChange",
             )
             db.add(super_user)
+            await db.flush()
+        else:
+            super_user.tenant_id = tenant_id
+            super_user.company_id = company_id
+            super_user.branch_id = created_branches[0].id if created_branches else None
             await db.flush()
         created_users.append({
             "id": super_user.id,
