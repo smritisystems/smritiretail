@@ -155,16 +155,23 @@ export const LookupPicker: React.FC<LookupPickerProps> = ({
     return items.find((it) => it.code === value || it.id === value) || null;
   }, [items, value]);
 
-  // Global & local keyboard shortcuts (F2, Ctrl+F, Ctrl+N, Arrow keys, Enter, Esc)
+  // Global & local keyboard shortcuts (SCS-UIX Lookup Rule-001: F2, Ctrl+F2, Ctrl+F, Ctrl+N, Arrow keys, Enter, Esc)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (disabled) return;
 
+      const activeEl = document.activeElement;
+      const isCurrentInput = inputRef.current && (activeEl === inputRef.current || containerRef.current?.contains(activeEl));
+
+      // Rule 1 & 2 & 4: F2 on empty or text field opens lookup dialog
       if (e.key === "F2" || (e.ctrlKey && e.key.toLowerCase() === "f")) {
         e.preventDefault();
         setIsModalDiscovery(true);
         setIsOpen(true);
         setTimeout(() => inputRef.current?.focus(), 50);
+      } else if (e.key === "F3" && allowInlineCreate && isCurrentInput) {
+        e.preventDefault();
+        setShowInlineModal(true);
       } else if (e.ctrlKey && e.key.toLowerCase() === "n" && allowInlineCreate) {
         e.preventDefault();
         setShowInlineModal(true);
@@ -183,11 +190,19 @@ export const LookupPicker: React.FC<LookupPickerProps> = ({
   }, [disabled, allowInlineCreate, isOpen, showInlineModal, onCloseModal]);
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "ArrowDown") {
+    if (e.key === "F2") {
+      // SCS-UIX Lookup Rule-001: F2 always opens lookup dialog unconditionally
       e.preventDefault();
+      setIsModalDiscovery(true);
+      setIsOpen(true);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setIsOpen(true);
       setSelectedIndex((prev) => (prev + 1) % Math.max(1, filteredItems.length));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
+      setIsOpen(true);
       setSelectedIndex((prev) => (prev - 1 + filteredItems.length) % Math.max(1, filteredItems.length));
     } else if (e.key === "Enter") {
       e.preventDefault();
