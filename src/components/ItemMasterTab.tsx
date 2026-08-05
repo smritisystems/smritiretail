@@ -39,6 +39,11 @@ import {
 import { WorkspaceTimeline, InventoryTimelineAdapter } from "./shared/WorkspaceTimeline.js";
 import { useSmritiExperience } from "../context/SmritiExperienceContext.js";
 
+import { findPotentialDuplicates, validateBarcodeUniqueness } from "../utils/duplicateDetector.js";
+import { ProductStatus } from "../types.js";
+import { ItemHealthDashboard } from "./item_master/ItemHealthDashboard.tsx";
+import { CreateSimilarItemWizard } from "./item_master/CreateSimilarItemWizard.tsx";
+
 export type ItemFormMode = "quick" | "advanced";
 
 const DRAFT_KEY = "smriti_item_draft_v2";
@@ -49,6 +54,7 @@ const blankItemForm = () => ({
   barcode: `${Math.floor(8900000000000 + Math.random() * 9000000000)}`,
   name: "",
   shortName: "",
+  status: "Active" as ProductStatus,
   category: "General",
   subCategory: "",
   brand: "Smriti Standard",
@@ -101,6 +107,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   const [checkedProductIds, setCheckedProductIds] = useState<string[]>([]);
   const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState<boolean>(false);
   const [isLookupStudioOpen, setIsLookupStudioOpen] = useState<boolean>(false);
+  const [isSimilarWizardOpen, setIsSimilarWizardOpen] = useState<boolean>(false);
 
   const categories = useMemo(() => {
     return Array.from(new Set(products.map((p) => (p.category || "General")).filter(Boolean)));
@@ -205,6 +212,34 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
       return;
     }
 
+    // Phase A Validation 1: Enforce Strict Barcode Uniqueness
+    if (formData.barcode) {
+      const barcodeCheck = validateBarcodeUniqueness(formData.barcode, products);
+      if (!barcodeCheck.isUnique && barcodeCheck.conflict) {
+        if (onNotification) {
+          onNotification(
+            "Duplicate Barcode Rejected",
+            `Barcode "${formData.barcode}" is already assigned to "${barcodeCheck.conflict.product.name}" (SKU: ${barcodeCheck.conflict.product.sku || barcodeCheck.conflict.product.code}).`,
+            "error"
+          );
+        }
+        return;
+      }
+    }
+
+    // Phase A Validation 2: Fuzzy Duplicate Item Warning Check
+    const duplicates = findPotentialDuplicates(formData.name, products);
+    if (duplicates.length > 0) {
+      const topMatch = duplicates[0];
+      if (onNotification) {
+        onNotification(
+          "Similar Item Warning",
+          `Potential duplicate detected (${topMatch.score}% match with "${topMatch.product?.name}").`,
+          "error"
+        );
+      }
+    }
+
     setIsSubmitting(true);
     try {
       await SPK.commands.execute(
@@ -223,6 +258,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           gstPercentage: parseFloat(formData.gst_rate) || 18,
           barcode: formData.barcode,
           warehouse: formData.warehouse,
+          status: formData.status,
         })
       );
 
@@ -585,25 +621,13 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
         );
       case "reports":
         return (
-          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
-            <div className="border-b border-theme-divider pb-2">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Reports</p>
-              <h3 className="text-sm font-extrabold text-theme-heading">Operational analytics for missing images, HSN gaps, margin issues, and dead stock</h3>
-            </div>
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-              {[
-                { title: "Missing Images", body: "Catalog hygiene" },
-                { title: "Negative Margin", body: "Profitability alerts" },
-                { title: "Duplicate Barcode", body: "Data quality" },
-                { title: "Dead Stock", body: "Slow movers" },
-              ].map((item) => (
-                <div key={item.title} className="rounded-lg border border-theme-divider p-2">
-                  <div className="font-bold text-theme-heading">{item.title}</div>
-                  <div className="mt-1 text-theme-muted">{item.body}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <ItemHealthDashboard
+            products={products}
+            onSelectProduct={(product) => {
+              setSelectedProduct(product);
+              setViewMode("item-studio");
+            }}
+          />
         );
       case "audit":
         return (
@@ -987,6 +1011,17 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           isOpen={isBarcodeDialogOpen}
           product={selectedProduct || products[0] || null}
           onClose={() => setIsBarcodeDialogOpen(false)}
+          onNotification={onNotification}
+        />
+      )}
+
+      {/* ================= CREATE SIMILAR ITEM WIZARD ================= */}
+      {isSimilarWizardOpen && (
+        <CreateSimilarItemWizard
+          isOpen={isSimilarWizardOpen}
+          sourceProduct={selectedProduct || products[0] || null}
+          onClose={() => setIsSimilarWizardOpen(false)}
+          onRefreshProducts={onRefreshProducts}
           onNotification={onNotification}
         />
       )}

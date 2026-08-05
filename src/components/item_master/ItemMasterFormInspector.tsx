@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS v6.5 â€” Workspace Experience Platform
  * Module       : Item Master Studio (12-Tab Item 360 Workspace & SEDSObjectPage Pattern)
  * Author       : Jawahar Ramkripal Mallah
@@ -14,10 +14,11 @@ import {
   Building2, Sliders, Printer, Sparkles, ChevronRight, MapPin, Truck, FileText,
   TrendingUp, Activity, PieChart, BarChart2, Plus, Trash2, CheckCircle2, Image as ImageIcon
 } from "lucide-react";
-import { Product } from "../../types.js";
+import { Product, SupplierCatalogueEntry, PriceRule, TaggedMediaEntry, MediaTag } from "../../types.js";
 import { ItemMasterUomMatrix, UomConversion } from "./ItemMasterUomMatrix.tsx";
 import { ItemMasterVariantTable } from "./ItemMasterVariantTable.tsx";
 import { ItemMasterPrintHistoryTab } from "./ItemMasterPrintHistoryTab.tsx";
+import { ItemCompletenessWidget } from "./ItemCompletenessWidget.tsx";
 
 interface ItemMasterFormInspectorProps {
   product: Product | null;
@@ -37,10 +38,16 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
   const [formData, setFormData] = useState<Product | null>(product ? { ...product } : null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [uomConversions, setUomConversions] = useState<UomConversion[]>([]);
+  const [supplierCatalogue, setSupplierCatalogue] = useState<SupplierCatalogueEntry[]>(product?.supplierCatalogue || []);
+  const [priceRules, setPriceRules] = useState<PriceRule[]>(product?.priceRules || []);
+  const [taggedMedia, setTaggedMedia] = useState<TaggedMediaEntry[]>(product?.taggedMedia || []);
 
   useEffect(() => {
     setFormData(product ? { ...product } : null);
     setUomConversions([]);
+    setSupplierCatalogue(product?.supplierCatalogue || []);
+    setPriceRules(product?.priceRules || []);
+    setTaggedMedia(product?.taggedMedia || []);
   }, [product]);
 
   const activeProduct = formData ?? product;
@@ -100,6 +107,8 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
       label: "Overview",
       content: (
         <div className="space-y-6 max-w-5xl font-sans text-xs">
+          <ItemCompletenessWidget product={activeProduct} />
+
           <div className="p-4 bg-gradient-to-r from-purple-950/40 to-blue-950/40 border border-purple-500/30 rounded-xl space-y-2">
             <div className="flex items-center gap-2 text-purple-400 font-bold uppercase font-mono text-[11px]">
               <Sparkles className="w-4 h-4" /> AI Smart Recommendations &amp; Margin Nudges
@@ -116,12 +125,37 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-3 font-mono">
-              <h5 className="font-bold text-theme-heading font-display text-sm flex items-center gap-2 mb-2">
-                <Package className="w-4 h-4 text-[var(--c-seef-accent)]" /> Identity &amp; Tax Profile
-              </h5>
+              <div className="flex items-center justify-between mb-2">
+                <h5 className="font-bold text-theme-heading font-display text-sm flex items-center gap-2">
+                  <Package className="w-4 h-4 text-[var(--c-seef-accent)]" /> Identity &amp; Tax Profile
+                </h5>
+                <select
+                  disabled={isReadOnly}
+                  value={activeProduct.status || "Active"}
+                  onChange={(e) => handleFieldChange("status", e.target.value)}
+                  className={`px-2.5 py-1 text-xs font-bold font-mono rounded-lg border transition-all cursor-pointer ${
+                    (activeProduct.status || "Active") === "Active"
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                      : (activeProduct.status || "Active") === "Draft"
+                      ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                      : (activeProduct.status || "Active") === "Inactive"
+                      ? "bg-slate-500/10 text-slate-400 border-slate-500/30"
+                      : (activeProduct.status || "Active") === "Blocked"
+                      ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                      : "bg-purple-500/10 text-purple-400 border-purple-500/30"
+                  }`}
+                >
+                  <option value="Active">● Active</option>
+                  <option value="Draft">◐ Draft</option>
+                  <option value="Inactive">○ Inactive</option>
+                  <option value="Blocked">🚫 Blocked</option>
+                  <option value="Discontinued">✖ Discontinued</option>
+                </select>
+              </div>
               {[
                 ["Item Code", activeProduct.code || activeProduct.sku || "N/A"],
                 ["Item Name", activeProduct.name],
+                ["Lifecycle Status", activeProduct.status || "Active"],
                 ["Barcode", activeProduct.barcode || "N/A"],
                 ["Category", activeProduct.category || "General"],
                 ["Sub-Category", activeProduct.subCategory || activeProduct.sub_category || "Standard"],
@@ -132,7 +166,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
               ].map(([k, v]) => (
                 <div key={k as string} className="flex justify-between text-xs border-b border-theme-divider/40 pb-1.5">
                   <span className="text-theme-muted">{k}</span>
-                  <span className="font-bold text-theme-heading">{v || "â€”"}</span>
+                  <span className="font-bold text-theme-heading">{v || "—"}</span>
                 </div>
               ))}
             </div>
@@ -288,11 +322,230 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
       label: "Suppliers & Procurement",
       content: (
         <div className="space-y-4 max-w-5xl font-mono text-xs">
-          <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><Building2 className="w-5 h-5 text-[var(--c-seef-accent)]" /> Preferred Vendors &amp; Purchase History</h4>
-          <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
-            <div className="flex items-center justify-between"><strong className="font-sans text-theme-heading text-xs">TechCorp Distributors (VND-1002)</strong><span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px] font-bold border border-emerald-500/30">Primary Vendor</span></div>
-            <p className="text-theme-muted text-xs">Lead Time: 3 Days | MOQ: 10 Pcs | Last Purchase Rate: ₹{(purchaseCost || 60).toFixed(2)} | Date: 2026-07-20</p>
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-[var(--c-seef-accent)]" /> Supplier Catalogue
+            </h4>
+            {!isReadOnly && (
+              <button
+                onClick={() => {
+                  const newEntry: SupplierCatalogueEntry = {
+                    id: `sup-${Date.now()}`, supplierId: "", supplierName: "New Supplier",
+                    purchaseUom: "Pcs", moq: 10, currentRate: purchaseCost || 100,
+                    lastPurchaseRate: purchaseCost || 100, leadTimeDays: 3, priority: 3 as 1|2|3
+                  };
+                  setSupplierCatalogue((prev) => [...prev, newEntry]);
+                }}
+                className="px-2.5 py-1 bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)] rounded font-bold text-[10px] flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Supplier
+              </button>
+            )}
           </div>
+
+          {supplierCatalogue.length === 0 ? (
+            <div className="p-8 text-center text-theme-muted border-2 border-dashed border-theme-divider rounded-xl">
+              <Building2 className="w-8 h-8 mx-auto mb-2 text-theme-muted" />
+              <p className="font-bold text-xs">No supplier catalogue entries yet.</p>
+              <p className="text-[10px] mt-1">Click "Add Supplier" to link this SKU to a preferred vendor.</p>
+            </div>
+          ) : (
+            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden">
+              <table className="w-full text-left border-collapse text-xs font-mono">
+                <thead>
+                  <tr className="border-b border-theme-divider text-theme-muted font-bold uppercase text-[10px] bg-theme-surface-1">
+                    <th className="p-2.5">Priority</th>
+                    <th className="p-2.5">Supplier Name</th>
+                    <th className="p-2.5">Supplier Code</th>
+                    <th className="p-2.5">Purchase UOM</th>
+                    <th className="p-2.5 text-right">MOQ</th>
+                    <th className="p-2.5 text-right">Last Rate</th>
+                    <th className="p-2.5 text-right">Current Rate</th>
+                    <th className="p-2.5 text-right">Lead Time</th>
+                    {!isReadOnly && <th className="p-2.5 text-right">Remove</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-theme-divider/40">
+                  {supplierCatalogue.map((s) => (
+                    <tr key={s.id} className="hover:bg-theme-surface-1 transition-colors">
+                      <td className="p-2.5">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                          s.priority === 1 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
+                          s.priority === 2 ? "bg-amber-500/10 text-amber-400 border-amber-500/30" :
+                          "bg-slate-500/10 text-slate-400 border-slate-500/30"
+                        }`}>
+                          P{s.priority} {s.priority === 1 ? "★ Preferred" : ""}
+                        </span>
+                      </td>
+                      <td className="p-2.5 font-bold text-theme-heading">{s.supplierName}</td>
+                      <td className="p-2.5 text-theme-muted">{s.supplierItemCode || "—"}</td>
+                      <td className="p-2.5 text-theme-muted">{s.purchaseUom || "Pcs"}</td>
+                      <td className="p-2.5 text-right">{s.moq || 1}</td>
+                      <td className="p-2.5 text-right text-theme-muted">₹{(s.lastPurchaseRate || 0).toFixed(2)}</td>
+                      <td className="p-2.5 text-right font-bold text-emerald-400">₹{(s.currentRate || 0).toFixed(2)}</td>
+                      <td className="p-2.5 text-right">{s.leadTimeDays || 3}d</td>
+                      {!isReadOnly && (
+                        <td className="p-2.5 text-right">
+                          <button
+                            onClick={() => setSupplierCatalogue((prev) => prev.filter((x) => x.id !== s.id))}
+                            className="text-rose-400 hover:text-rose-300 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )
+    },
+    {
+      id: "price_rules",
+      label: "Price Rules",
+      content: (
+        <div className="space-y-4 max-w-5xl font-mono text-xs">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-purple-400" /> Promotional &amp; Tier Price Rules
+            </h4>
+            {!isReadOnly && (
+              <button
+                onClick={() => {
+                  const today = new Date().toISOString().split("T")[0];
+                  const newRule: PriceRule = {
+                    id: `pr-${Date.now()}`, name: "New Promotion", type: "Promotional",
+                    startDate: today, endDate: today, promotionalPrice: activeProduct.price || 100, isActive: true
+                  };
+                  setPriceRules((prev) => [...prev, newRule]);
+                }}
+                className="px-2.5 py-1 bg-purple-500/10 text-purple-400 rounded font-bold text-[10px] flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Rule
+              </button>
+            )}
+          </div>
+
+          {priceRules.length === 0 ? (
+            <div className="p-8 text-center text-theme-muted border-2 border-dashed border-theme-divider rounded-xl">
+              <TrendingUp className="w-8 h-8 mx-auto mb-2 text-theme-muted" />
+              <p className="font-bold text-xs">No promotional price rules configured.</p>
+              <p className="text-[10px] mt-1">Add festival, branch, or customer-group price rules here.</p>
+            </div>
+          ) : (
+            <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden">
+              <table className="w-full text-left border-collapse text-xs font-mono">
+                <thead>
+                  <tr className="border-b border-theme-divider text-theme-muted font-bold uppercase text-[10px] bg-theme-surface-1">
+                    <th className="p-2.5">Rule Name</th>
+                    <th className="p-2.5">Type</th>
+                    <th className="p-2.5">Valid From</th>
+                    <th className="p-2.5">Valid To</th>
+                    <th className="p-2.5 text-right">Promo Price</th>
+                    <th className="p-2.5 text-right">Discount %</th>
+                    <th className="p-2.5 text-center">Active</th>
+                    {!isReadOnly && <th className="p-2.5 text-right">Remove</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-theme-divider/40">
+                  {priceRules.map((r) => (
+                    <tr key={r.id} className="hover:bg-theme-surface-1 transition-colors">
+                      <td className="p-2.5 font-bold text-theme-heading">{r.name}</td>
+                      <td className="p-2.5">
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">{r.type}</span>
+                      </td>
+                      <td className="p-2.5 text-theme-muted">{r.startDate}</td>
+                      <td className="p-2.5 text-theme-muted">{r.endDate}</td>
+                      <td className="p-2.5 text-right font-bold text-emerald-400">{r.promotionalPrice ? `₹${r.promotionalPrice.toFixed(2)}` : "—"}</td>
+                      <td className="p-2.5 text-right font-bold text-amber-400">{r.discountPercentage ? `${r.discountPercentage}%` : "—"}</td>
+                      <td className="p-2.5 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${r.isActive ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-500/10 text-slate-400"}`}>
+                          {r.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      {!isReadOnly && (
+                        <td className="p-2.5 text-right">
+                          <button
+                            onClick={() => setPriceRules((prev) => prev.filter((x) => x.id !== r.id))}
+                            className="text-rose-400 hover:text-rose-300 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )
+    },
+    {
+      id: "media",
+      label: "Media Gallery",
+      content: (
+        <div className="space-y-4 max-w-5xl font-mono text-xs">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2">
+              <ImageIcon className="w-5 h-5 text-blue-400" /> Multi-Angle Tagged Image Gallery
+            </h4>
+            {!isReadOnly && (
+              <button
+                onClick={() => {
+                  const newEntry: TaggedMediaEntry = {
+                    id: `m-${Date.now()}`, url: "", tag: "Front" as MediaTag
+                  };
+                  setTaggedMedia((prev) => [...prev, newEntry]);
+                }}
+                className="px-2.5 py-1 bg-blue-500/10 text-blue-400 rounded font-bold text-[10px] flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Image
+              </button>
+            )}
+          </div>
+
+          {taggedMedia.length === 0 ? (
+            <div className="p-8 text-center text-theme-muted border-2 border-dashed border-theme-divider rounded-xl">
+              <ImageIcon className="w-8 h-8 mx-auto mb-2 text-theme-muted" />
+              <p className="font-bold text-xs">No tagged product images yet.</p>
+              <p className="text-[10px] mt-1">Add Front, Back, Packaging, Lifestyle images to improve catalog quality score.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {taggedMedia.map((m) => (
+                <div key={m.id} className="relative group rounded-xl overflow-hidden border border-theme-divider bg-theme-surface-2">
+                  {m.url ? (
+                    <img src={m.url} alt={m.tag} className="w-full h-32 object-cover" />
+                  ) : (
+                    <div className="w-full h-32 flex items-center justify-center bg-theme-surface-1">
+                      <ImageIcon className="w-8 h-8 text-theme-muted" />
+                    </div>
+                  )}
+                  <div className="absolute top-1.5 left-1.5">
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-theme-surface-1/90 text-theme-heading border border-theme-divider">{m.tag}</span>
+                  </div>
+                  {m.isPrimary && (
+                    <div className="absolute top-1.5 right-1.5">
+                      <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-500/90 text-white">Primary</span>
+                    </div>
+                  )}
+                  {!isReadOnly && (
+                    <button
+                      onClick={() => setTaggedMedia((prev) => prev.filter((x) => x.id !== m.id))}
+                      className="absolute bottom-1.5 right-1.5 p-1.5 bg-rose-500/80 rounded text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )
     },

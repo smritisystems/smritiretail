@@ -30,6 +30,45 @@ export interface ProductBatch {
   stock: number;
 }
 
+export type ProductStatus = "Draft" | "Active" | "Inactive" | "Blocked" | "Discontinued";
+
+export interface SupplierCatalogueEntry {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  supplierItemCode?: string;
+  purchaseUom?: string;
+  moq?: number;
+  lastPurchaseRate?: number;
+  currentRate?: number;
+  currency?: string;
+  leadTimeDays?: number;
+  gstPercentage?: number;
+  priority: 1 | 2 | 3;
+  isPreferred?: boolean;
+}
+
+export type MediaTag = "Front" | "Back" | "Left" | "Right" | "Top" | "Bottom" | "Open Box" | "Packaging" | "Lifestyle" | "Video";
+
+export interface TaggedMediaEntry {
+  id: string;
+  url: string;
+  tag: MediaTag;
+  caption?: string;
+  isPrimary?: boolean;
+}
+
+export interface PriceRule {
+  id: string;
+  name: string;
+  type: "Promotional" | "CustomerGroup" | "Branch" | "VIP" | "HappyHour";
+  startDate: string;
+  endDate: string;
+  promotionalPrice?: number;
+  discountPercentage?: number;
+  isActive: boolean;
+}
+
 export interface Product {
   id: string;
   code: string;
@@ -62,6 +101,11 @@ export interface Product {
   tax_rate?: number;
   uom?: string;
   warehouse?: string;
+  status?: ProductStatus; // Item Lifecycle Status (Draft | Active | Inactive | Blocked | Discontinued)
+  defaultLabelTemplate?: string;
+  supplierCatalogue?: SupplierCatalogueEntry[];
+  taggedMedia?: TaggedMediaEntry[];
+  priceRules?: PriceRule[];
   has_batch_tracking?: boolean;
   has_expiry_date?: boolean;
   has_serial_number?: boolean;
