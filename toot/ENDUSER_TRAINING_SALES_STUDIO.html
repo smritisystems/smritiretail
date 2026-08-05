@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>End-User Training — Sales Studio</title>
+  <style>
+    :root {
+      color-scheme: light;
+      color: #111827;
+      background: #f8fafc;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #eff6ff 0%, #ffffff 45%, #f8fafc 100%); color: #111827; }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .background { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+    .background svg { width: 120%; height: 120%; position: absolute; top: -10%; left: -10%; }
+    .page-shell { width: 100%; min-height: 100vh; padding: 32px 20px 60px; }
+    .panel { max-width: 1100px; margin: 0 auto; padding: 36px; background: rgba(255, 255, 255, 0.92); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 32px; box-shadow: 0 24px 64px rgba(15, 23, 42, 0.12); backdrop-filter: blur(18px); }
+    .brand { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 30px; }
+    .brand-title { display: grid; gap: 10px; }
+    .brand-title h1 { margin: 0; font-size: clamp(2rem, 3vw, 3rem); line-height: 1.05; letter-spacing: -0.03em; }
+    .brand-title p { margin: 0; color: #475569; }
+    .tag { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.92rem; }
+    .hero { display: grid; gap: 24px; margin-bottom: 24px; }
+    .hero p { max-width: 720px; color: #475569; font-size: 1.02rem; line-height: 1.8; }
+    .hero-visual { display: grid; justify-items: center; align-items: center; }
+    .hero-visual svg { width: min(100%, 420px); height: auto; }
+    .hero-visual .illustration-fill { fill: #eff6ff; }
+    .hero-visual .illustration-stroke { stroke: #2563eb; stroke-width: 2; fill: none; }
+    .hero-visual .illustration-accent { fill: #2563eb; opacity: 0.92; }
+    .content h2 { margin-top: 40px; font-size: 1.55rem; letter-spacing: -0.03em; border-bottom: 1px solid #dbeafe; padding-bottom: 10px; color: #0f172a; }
+    .content h3 { margin-top: 30px; color: #111827; }
+    .content p, .content li { color: #334155; line-height: 1.9; }
+    .content ul, .content ol { margin: 16px 0 16px 1.5rem; }
+    .content li { margin-bottom: 10px; }
+    .content table { width: 100%; border-collapse: collapse; margin-top: 18px; background: #ffffff; border: 1px solid rgba(148, 163, 184, 0.22); }
+    .content th, .content td { padding: 16px; border-bottom: 1px solid rgba(148, 163, 184, 0.18); }
+    .content th { color: #0f172a; background: #eff6ff; }
+    .content pre { margin: 20px 0; padding: 20px; background: #f8fafc; border-radius: 20px; overflow-x: auto; border: 1px solid rgba(148, 163, 184, 0.14); }
+    .content code { background: rgba(229, 231, 235, 0.8); padding: 2px 6px; border-radius: 8px; color: #0f172a; }
+    .badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: #dbeafe; color: #1d4ed8; font-size: 0.9rem; margin-top: 8px; }
+    .footer { margin-top: 32px; border-top: 1px solid rgba(148, 163, 184, 0.18); padding-top: 22px; color: #64748b; font-size: 0.95rem; }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-18px); }
+    }
+    @keyframes drift {
+      0% { transform: translateX(0px) translateY(0px) scale(1); }
+      25% { transform: translateX(20px) translateY(-10px) scale(1.04); }
+      50% { transform: translateX(0px) translateY(-20px) scale(1.08); }
+      75% { transform: translateX(-18px) translateY(-10px) scale(1.04); }
+      100% { transform: translateX(0px) translateY(0px) scale(1); }
+    }
+    .circle-animate { animation: drift 14s ease-in-out infinite; transform-origin: center; }
+    @media (max-width: 720px) {
+      .panel { padding: 24px; }
+      .brand { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="background" aria-hidden="true">
+    <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#93c5fd" stop-opacity="0.45" />
+          <stop offset="100%" stop-color="#bfdbfe" stop-opacity="0.12" />
+        </linearGradient>
+      </defs>
+      <circle class="circle-animate" cx="240" cy="140" r="120" fill="url(#glow)" />
+      <circle class="circle-animate" style="animation-delay: -4s;" cx="980" cy="190" r="140" fill="#dbeafe" opacity="0.38" />
+      <circle class="circle-animate" style="animation-delay: -8s;" cx="780" cy="630" r="180" fill="#e0f2fe" opacity="0.32" />
+      <circle cx="110" cy="680" r="90" fill="#f8fafc" opacity="0.32" />
+      <rect x="-100" y="520" width="420" height="240" rx="120" fill="#e0f2fe" opacity="0.22" />
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.8">
+        <path d="M140 540 C 220 500 310 620 420 590" stroke="#93c5fd" stroke-width="3" opacity="0.24" />
+        <path d="M460 120 L 690 180 L 820 100" stroke="#bfdbfe" stroke-width="2" opacity="0.28" />
+        <path d="M330 320 C 430 260 580 380 700 330" stroke="#dbeafe" stroke-dasharray="8 10" stroke-width="1.5" />
+        <circle cx="680" cy="120" r="6" fill="#93c5fd" opacity="0.75" />
+        <circle cx="480" cy="680" r="6" fill="#dbeafe" opacity="0.75" />
+      </g>
+    </svg>
+  </div>
+  <div class="page-shell">
+    <div class="panel">
+      <div class="brand">
+        <div class="brand-title">
+          <h1>End-User Training — Sales Studio</h1>
+          <p>Generated from docs\user_guide\ENDUSER_TRAINING_SALES_STUDIO.md. Light mode documentation with animated SVG background for SMRITI Retail OS.</p>
+        </div>
+        <span class="tag">Light theme</span>
+      </div>
+      <div class="hero">
+        <p>Enjoy a bright, modern documentation layout with subtle motion in the background and clean readability for every manual page.</p>
+        <div class="hero-visual" aria-hidden="true">
+          <svg viewBox="0 0 420 240" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="hero-tag-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#dbeafe" />
+                <stop offset="100%" stop-color="#93c5fd" stop-opacity="0.82" />
+              </linearGradient>
+            </defs>
+            <rect x="16" y="44" width="168" height="146" rx="28" class="illustration-fill" />
+            <circle cx="100" cy="92" r="30" fill="#ffffff" />
+            <circle cx="100" cy="92" r="12" class="illustration-accent" />
+            <path d="M72 132c10-12 28-12 38 0v24H72v-24Z" fill="#bfdbfe" />
+            <path d="M228 38h148a18 18 0 0 1 18 18v118a18 18 0 0 1-18 18H228a18 18 0 0 1-18-18V56a18 18 0 0 1 18-18Z" fill="#ffffff" stroke="#93c5fd" stroke-width="3" />
+            <path d="M254 88h96M254 124h68" stroke="#60a5fa" stroke-width="4" stroke-linecap="round" />
+            <path d="M324 38v-12a16 16 0 0 0-32 0v12" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" />
+            <rect x="274" y="152" width="96" height="56" rx="14" fill="url(#hero-tag-gradient)" opacity="0.92" />
+            <text x="322" y="188" text-anchor="middle" font-size="28" font-weight="700" fill="#1e3a8a">₹</text>
+            <path d="M148 220c36-20 60-60 60-104 0-14-2-28-6-40" stroke="#93c5fd" stroke-width="3" fill="none" opacity="0.8" />
+            <path d="M190 58c22 10 48 16 76 16" stroke="#bfdbfe" stroke-width="3" fill="none" opacity="0.85" />
+            <circle cx="340" cy="180" r="8" fill="#2563eb" opacity="0.9" />
+          </svg>
+        </div>
+      </div>
+      <div class="content">
+        <!--
+  Project      : SMRITI Retail OS
+  Repository   : SMRITIRetailNX
+  Organization : AITDL NETWORKS
+
+  Founders
+
+  * Pushpa Devi Jawahar Mallah
+    * Founder & Chairperson
+    * Phone: +91 9324117007
+    * Email: founder@aitdl.com
+
+  * Jawahar Ramkripal Mallah
+    * Founder, Chief Executive Officer (CEO) & Chief Software Architect
+    * Email: founder@aitdl.com
+
+  * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
+
+  * Version    : 2.1.2
+  * Created    : 2026-07-18
+  * Modified   : 2026-07-18
+  * Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+  * License    : Proprietary Commercial Software
+-->
+<h1 id="end-user-training-sales-studio">End-User Training — Sales Studio</h1>
+<h2 id="purpose">Purpose</h2>
+<p>The Sales Studio is the central commerce workspace for customer quotations, sales orders, GST invoices, sales returns, and customer ledger management. This guide helps sales staff and store managers use the Sales &amp; Commerce Studio efficiently.</p>
+<h2 id="accessing-sales-studio">Accessing Sales Studio</h2>
+<ul>
+<li>Log in to SMRITI Retail OS using your assigned credentials.</li>
+<li>Open the left navigation menu and select <strong>Sales Studio</strong> or <strong>Sales &amp; Commerce Studio</strong>.</li>
+<li>The module loads five subviews: <strong>Quotations</strong>, <strong>Sales Orders</strong>, <strong>Sales Invoices</strong>, <strong>Sales Returns</strong>, and <strong>Customers</strong>.</li>
+</ul>
+<h2 id="sales-studio-subviews">Sales Studio Subviews</h2>
+<ol>
+<li><strong>Quotations</strong>
+<ul>
+<li>Create and manage customer quotations.</li>
+<li>Save draft quotations and submit them for approval or conversion.</li>
+<li>Converted quotations become sales orders.</li>
+</ul>
+</li>
+<li><strong>Sales Orders</strong>
+<ul>
+<li>Review confirmed orders that originated from quotations.</li>
+<li>Track order status and expected revenue.</li>
+<li>Use this view to verify order details before invoicing.</li>
+</ul>
+</li>
+<li><strong>Sales Invoices</strong>
+<ul>
+<li>Generate GST commercial invoices for confirmed sales.</li>
+<li>Print or share invoices once they are registered in the ledger.</li>
+<li>Approve, cancel, or review invoice workflow actions.</li>
+</ul>
+</li>
+<li><strong>Sales Returns</strong>
+<ul>
+<li>Record customer returns and credit notes.</li>
+<li>Select the original invoice and enter return items and reasons.</li>
+<li>Manage interstate returns with GST-aware settings.</li>
+</ul>
+</li>
+<li><strong>Customers</strong>
+<ul>
+<li>Add and edit customer profiles.</li>
+<li>Import customer lists using CSV upload.</li>
+<li>Search and filter customer records by name, phone, email, group, or tags.</li>
+</ul>
+</li>
+</ol>
+<h2 id="common-sales-studio-workflows">Common Sales Studio Workflows</h2>
+<h3 id="generate-a-new-quotation">Generate a new quotation</h3>
+<ul>
+<li>Navigate to <strong>Quotations</strong>.</li>
+<li>Click <strong>Generate Quotation</strong>.</li>
+<li>Enter the customer or party name.</li>
+<li>Add line items manually or choose product variants.</li>
+<li>Set the draft workflow status and save the quotation.</li>
+<li>Use the quotation list to convert it into a sales order when the customer approves.</li>
+</ul>
+<h3 id="create-a-sales-invoice">Create a sales invoice</h3>
+<ul>
+<li>Switch to <strong>Sales Invoices</strong>.</li>
+<li>Click <strong>Generate Sales Invoice</strong>.</li>
+<li>Select the customer and add invoice items.</li>
+<li>Choose whether the sale is interstate and enter the e-way bill number when required.</li>
+<li>Save the invoice to write it into the sales ledger.</li>
+</ul>
+<h3 id="record-a-sales-return">Record a sales return</h3>
+<ul>
+<li>Open <strong>Sales Returns</strong>.</li>
+<li>Click <strong>Record Sales Return</strong>.</li>
+<li>Choose the original invoice and select returned items.</li>
+<li>Enter the return reason and invoice return status.</li>
+<li>Submit the return document into the sales ledger.</li>
+</ul>
+<h3 id="manage-customers-and-import-ledger-data">Manage customers and import ledger data</h3>
+<ul>
+<li>Use <strong>Customers</strong> to add new customer profiles.</li>
+<li>Click <strong>Add Customer</strong> for individual creation.</li>
+<li>Click <strong>Import Customers (CSV)</strong> when uploading bulk customer lists.</li>
+<li>Follow CSV guidelines: Name, Mobile, Email, GSTIN, PAN, Group, Status, Outstanding.</li>
+<li>The system validates mobile number, email format, group membership, and duplicate records before import.</li>
+</ul>
+<h2 id="search-filters-and-ledger-refresh">Search, filters, and ledger refresh</h2>
+<ul>
+<li>Use the filter panel to narrow records by customer, status, and date range.</li>
+<li>The <strong>Refresh Ledger</strong> button reloads the current subview.</li>
+<li>Search input in the Customers tab helps find customers by name, mobile, email, or tags.</li>
+<li>Reset filters and search to return to the full desk view.</li>
+</ul>
+<h2 id="important-notes-for-training">Important Notes for Training</h2>
+<ul>
+<li><strong>Read-only users</strong> may see an active banner and cannot change data. Write actions are disabled for report-only roles.</li>
+<li><strong>Workflow actions</strong> such as invoice approve or cancel are recorded in the sales workflow engine.</li>
+<li>Always confirm that the correct customer profile is selected before finalizing invoices or returns.</li>
+<li>Use the <strong>Sales Studio</strong> dashboard metrics to monitor active quotations, order conversion efficiency, and total booked revenue.</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<ul>
+<li>If the Sales Studio fails to load, refresh the browser and verify the backend service is running.</li>
+<li>If CSV import shows invalid records, correct missing or malformed mobile, email, or group values.</li>
+<li>If a new quotation or invoice does not appear, click <strong>Refresh Ledger</strong> and confirm the current subview is active.</li>
+</ul>
+<h2 id="related-training-documents">Related Training Documents</h2>
+<ul>
+<li><code>docs/user_guide/ENDUSER_TRAINING_AUTHORS.md</code></li>
+<li><code>docs/user_guide/ENDUSER_TRAINING_COMPANY_DETAILS.md</code></li>
+<li><code>docs/user_guide/USER_GUIDE.md</code></li>
+</ul>
+
+      </div>
+      <div class="footer">SMRITI Retail OS documentation generated as sleek HTML. Open the generated file for a polished reading experience.</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SMRITI Retail OS — Item Master: User Manual</title>
+  <style>
+    :root {
+      color-scheme: light;
+      color: #111827;
+      background: #f8fafc;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #eff6ff 0%, #ffffff 45%, #f8fafc 100%); color: #111827; }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .background { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+    .background svg { width: 120%; height: 120%; position: absolute; top: -10%; left: -10%; }
+    .page-shell { width: 100%; min-height: 100vh; padding: 32px 20px 60px; }
+    .panel { max-width: 1100px; margin: 0 auto; padding: 36px; background: rgba(255, 255, 255, 0.92); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 32px; box-shadow: 0 24px 64px rgba(15, 23, 42, 0.12); backdrop-filter: blur(18px); }
+    .brand { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 30px; }
+    .brand-title { display: grid; gap: 10px; }
+    .brand-title h1 { margin: 0; font-size: clamp(2rem, 3vw, 3rem); line-height: 1.05; letter-spacing: -0.03em; }
+    .brand-title p { margin: 0; color: #475569; }
+    .tag { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.92rem; }
+    .hero { display: grid; gap: 24px; margin-bottom: 24px; }
+    .hero p { max-width: 720px; color: #475569; font-size: 1.02rem; line-height: 1.8; }
+    .hero-visual { display: grid; justify-items: center; align-items: center; }
+    .hero-visual svg { width: min(100%, 420px); height: auto; }
+    .hero-visual .illustration-fill { fill: #eff6ff; }
+    .hero-visual .illustration-stroke { stroke: #2563eb; stroke-width: 2; fill: none; }
+    .hero-visual .illustration-accent { fill: #2563eb; opacity: 0.92; }
+    .content h2 { margin-top: 40px; font-size: 1.55rem; letter-spacing: -0.03em; border-bottom: 1px solid #dbeafe; padding-bottom: 10px; color: #0f172a; }
+    .content h3 { margin-top: 30px; color: #111827; }
+    .content p, .content li { color: #334155; line-height: 1.9; }
+    .content ul, .content ol { margin: 16px 0 16px 1.5rem; }
+    .content li { margin-bottom: 10px; }
+    .content table { width: 100%; border-collapse: collapse; margin-top: 18px; background: #ffffff; border: 1px solid rgba(148, 163, 184, 0.22); }
+    .content th, .content td { padding: 16px; border-bottom: 1px solid rgba(148, 163, 184, 0.18); }
+    .content th { color: #0f172a; background: #eff6ff; }
+    .content pre { margin: 20px 0; padding: 20px; background: #f8fafc; border-radius: 20px; overflow-x: auto; border: 1px solid rgba(148, 163, 184, 0.14); }
+    .content code { background: rgba(229, 231, 235, 0.8); padding: 2px 6px; border-radius: 8px; color: #0f172a; }
+    .badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: #dbeafe; color: #1d4ed8; font-size: 0.9rem; margin-top: 8px; }
+    .footer { margin-top: 32px; border-top: 1px solid rgba(148, 163, 184, 0.18); padding-top: 22px; color: #64748b; font-size: 0.95rem; }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-18px); }
+    }
+    @keyframes drift {
+      0% { transform: translateX(0px) translateY(0px) scale(1); }
+      25% { transform: translateX(20px) translateY(-10px) scale(1.04); }
+      50% { transform: translateX(0px) translateY(-20px) scale(1.08); }
+      75% { transform: translateX(-18px) translateY(-10px) scale(1.04); }
+      100% { transform: translateX(0px) translateY(0px) scale(1); }
+    }
+    .circle-animate { animation: drift 14s ease-in-out infinite; transform-origin: center; }
+    @media (max-width: 720px) {
+      .panel { padding: 24px; }
+      .brand { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="background" aria-hidden="true">
+    <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#93c5fd" stop-opacity="0.45" />
+          <stop offset="100%" stop-color="#bfdbfe" stop-opacity="0.12" />
+        </linearGradient>
+      </defs>
+      <circle class="circle-animate" cx="240" cy="140" r="120" fill="url(#glow)" />
+      <circle class="circle-animate" style="animation-delay: -4s;" cx="980" cy="190" r="140" fill="#dbeafe" opacity="0.38" />
+      <circle class="circle-animate" style="animation-delay: -8s;" cx="780" cy="630" r="180" fill="#e0f2fe" opacity="0.32" />
+      <circle cx="110" cy="680" r="90" fill="#f8fafc" opacity="0.32" />
+      <rect x="-100" y="520" width="420" height="240" rx="120" fill="#e0f2fe" opacity="0.22" />
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.8">
+        <path d="M140 540 C 220 500 310 620 420 590" stroke="#93c5fd" stroke-width="3" opacity="0.24" />
+        <path d="M460 120 L 690 180 L 820 100" stroke="#bfdbfe" stroke-width="2" opacity="0.28" />
+        <path d="M330 320 C 430 260 580 380 700 330" stroke="#dbeafe" stroke-dasharray="8 10" stroke-width="1.5" />
+        <circle cx="680" cy="120" r="6" fill="#93c5fd" opacity="0.75" />
+        <circle cx="480" cy="680" r="6" fill="#dbeafe" opacity="0.75" />
+      </g>
+    </svg>
+  </div>
+  <div class="page-shell">
+    <div class="panel">
+      <div class="brand">
+        <div class="brand-title">
+          <h1>SMRITI Retail OS — Item Master: User Manual</h1>
+          <p>Generated from docs\user_guide\ITEM_MASTER_MANUAL_v3.26.0.md. Light mode documentation with animated SVG background for SMRITI Retail OS.</p>
+        </div>
+        <span class="tag">Light theme</span>
+      </div>
+      <div class="hero">
+        <p>Enjoy a bright, modern documentation layout with subtle motion in the background and clean readability for every manual page.</p>
+        <div class="hero-visual" aria-hidden="true">
+          <svg viewBox="0 0 420 240" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="hero-tag-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#dbeafe" />
+                <stop offset="100%" stop-color="#93c5fd" stop-opacity="0.82" />
+              </linearGradient>
+            </defs>
+            <rect x="16" y="44" width="168" height="146" rx="28" class="illustration-fill" />
+            <circle cx="100" cy="92" r="30" fill="#ffffff" />
+            <circle cx="100" cy="92" r="12" class="illustration-accent" />
+            <path d="M72 132c10-12 28-12 38 0v24H72v-24Z" fill="#bfdbfe" />
+            <path d="M228 38h148a18 18 0 0 1 18 18v118a18 18 0 0 1-18 18H228a18 18 0 0 1-18-18V56a18 18 0 0 1 18-18Z" fill="#ffffff" stroke="#93c5fd" stroke-width="3" />
+            <path d="M254 88h96M254 124h68" stroke="#60a5fa" stroke-width="4" stroke-linecap="round" />
+            <path d="M324 38v-12a16 16 0 0 0-32 0v12" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" />
+            <rect x="274" y="152" width="96" height="56" rx="14" fill="url(#hero-tag-gradient)" opacity="0.92" />
+            <text x="322" y="188" text-anchor="middle" font-size="28" font-weight="700" fill="#1e3a8a">₹</text>
+            <path d="M148 220c36-20 60-60 60-104 0-14-2-28-6-40" stroke="#93c5fd" stroke-width="3" fill="none" opacity="0.8" />
+            <path d="M190 58c22 10 48 16 76 16" stroke="#bfdbfe" stroke-width="3" fill="none" opacity="0.85" />
+            <circle cx="340" cy="180" r="8" fill="#2563eb" opacity="0.9" />
+          </svg>
+        </div>
+      </div>
+      <div class="content">
+        <p><strong>Version:</strong> 3.26.0</p>
+<h2 id="1-introduction">1. Introduction</h2>
+<p>The Item Master module provides the central product catalog for SMRITI Retail OS. Use this module to create, update, and manage item records, SKU definitions, variants, pricing, and inventory attributes.</p>
+<h2 id="2-key-workflows">2. Key Workflows</h2>
+<ol>
+<li>Create new items with a unique SKU and descriptive details.</li>
+<li>Assign item categories, brands, and inventory groups.</li>
+<li>Configure pricing, tax settings, and customer price lists.</li>
+<li>Define variants for size, color, and style.</li>
+<li>Manage barcode assignment and receiving rules for purchase orders.</li>
+</ol>
+<h2 id="3-opening-the-item-master">3. Opening the Item Master</h2>
+<p>Navigate to the Item Master module from the main workspace or launchpad. The module typically appears under <strong>Inventory</strong> or <strong>Product Catalog</strong> in the application menu.</p>
+<p>Once open, the module displays a searchable item table with filters for:</p>
+<ul>
+<li>Item Code / SKU</li>
+<li>Item Name</li>
+<li>Category</li>
+<li>Brand</li>
+<li>Location / Warehouse</li>
+</ul>
+<h2 id="4-creating-a-new-item">4. Creating a New Item</h2>
+<p>To add a new item:</p>
+<ol>
+<li>Click <strong>New Item</strong> or <strong>Add Item</strong>.</li>
+<li>Enter the required fields:</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Item Code / SKU</td>
+<td>Unique identifier for the item. Use a consistent SKU scheme for variants and product families.</td>
+</tr>
+<tr>
+<td>Item Name</td>
+<td>Descriptive item name shown on invoices and reports.</td>
+</tr>
+<tr>
+<td>Category</td>
+<td>Business category used for reporting and inventory grouping.</td>
+</tr>
+<tr>
+<td>Brand</td>
+<td>Product brand or manufacturer.</td>
+</tr>
+<tr>
+<td>Unit of Measure</td>
+<td>Default unit for stock movement (e.g., pcs, box, carton).</td>
+</tr>
+<tr>
+<td>Cost Price</td>
+<td>Internal purchase cost for margin calculations.</td>
+</tr>
+<tr>
+<td>Selling Price / MRP</td>
+<td>Default retail selling price for the item.</td>
+</tr>
+<tr>
+<td>GST / Tax Code</td>
+<td>Applicable tax rate or exemption rule.</td>
+</tr>
+</tbody>
+</table>
+<ol start="3">
+<li>Click <strong>Save</strong> to register the item in the catalog.</li>
+</ol>
+<h2 id="5-managing-item-variants">5. Managing Item Variants</h2>
+<p>If the item has multiple variants such as color, size, or style, use the variant section to configure child SKUs:</p>
+<ul>
+<li>Select the variant template or attribute set.</li>
+<li>Define each child SKU with its own barcode and inventory profile.</li>
+<li>Use the variant grid to update pricing or wholesale codes in bulk.</li>
+</ul>
+<blockquote>
+<p>Note: Variants inherit most master item settings automatically, but you can override price, barcode, and stock rules per variant when needed.</p>
+</blockquote>
+<h2 id="6-price-and-tax-settings">6. Price and Tax Settings</h2>
+<p>The Item Master lets you configure pricing rules at multiple levels:</p>
+<ul>
+<li>Base selling price / MRP</li>
+<li>Cost price</li>
+<li>Customer price groups</li>
+<li>Tax and GST classification</li>
+</ul>
+<p>Use the pricing tab to set the default item price and to activate special pricing groups for wholesale or promotional sales.</p>
+<h2 id="7-barcode-and-label-management">7. Barcode and Label Management</h2>
+<p>Use the barcode section to assign one or more barcodes to the item or its variants.</p>
+<ul>
+<li>Scan or type an EAN/UPC/QR barcode.</li>
+<li>Verify the barcode is unique before saving.</li>
+<li>Print item labels from the print-label action if supported.</li>
+</ul>
+<h2 id="8-inventory-and-stock-settings">8. Inventory and Stock Settings</h2>
+<p>Configure inventory controls:</p>
+<ul>
+<li>Minimum stock level</li>
+<li>Reorder point</li>
+<li>Maximum stock level</li>
+<li>Warehouse location / bin</li>
+</ul>
+<p>These values help purchasing and stock allocation workflows stay optimized.</p>
+<h2 id="9-editing-existing-items">9. Editing Existing Items</h2>
+<p>To update an existing item:</p>
+<ol>
+<li>Search for the item using SKU or name.</li>
+<li>Select the item from the results list.</li>
+<li>Update the required fields.</li>
+<li>Click <strong>Save</strong> to preserve changes.</li>
+</ol>
+<p>Changing the item code or barcode may affect open purchase orders or sales transactions. Verify dependencies before editing core identifiers.</p>
+<h2 id="10-common-tasks">10. Common Tasks</h2>
+<h3 id="find-an-item-quickly">Find an Item Quickly</h3>
+<ul>
+<li>Use the search box with SKU, item name, or barcode.</li>
+<li>Apply filters for category, brand, or stock location.</li>
+</ul>
+<h3 id="bulk-update-prices">Bulk Update Prices</h3>
+<ul>
+<li>Use the bulk update action to change cost, selling price, or margin across selected items.</li>
+<li>Preview the change before applying it.</li>
+</ul>
+<h3 id="deactivate-an-item">Deactivate an Item</h3>
+<ul>
+<li>Set item status to <strong>Inactive</strong> when it is no longer sold.</li>
+<li>Inactive items remain in history but are excluded from new sales workflows.</li>
+</ul>
+<h2 id="11-troubleshooting">11. Troubleshooting</h2>
+<ul>
+<li><strong>Item not found:</strong> Confirm the SKU is correct and use partial search when unsure.</li>
+<li><strong>Barcode conflict:</strong> If saving fails due to duplicate barcode, remove or change the barcode and re-save.</li>
+<li><strong>Price not updating:</strong> Check whether the item is linked to a pricing group or promotion override.</li>
+</ul>
+<h2 id="12-glossary">12. Glossary</h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SKU</td>
+<td>Stock Keeping Unit, a unique item identifier.</td>
+</tr>
+<tr>
+<td>Variant</td>
+<td>A child item representing a specific combination of size, color, or style.</td>
+</tr>
+<tr>
+<td>MRP</td>
+<td>Maximum Retail Price, the default selling price for retail customers.</td>
+</tr>
+<tr>
+<td>Price Group</td>
+<td>A pricing policy that determines how the item is sold to different customer segments.</td>
+</tr>
+</tbody>
+</table>
+
+      </div>
+      <div class="footer">SMRITI Retail OS documentation generated as sleek HTML. Open the generated file for a polished reading experience.</div>
+    </div>
+  </div>
+</body>
+</html>

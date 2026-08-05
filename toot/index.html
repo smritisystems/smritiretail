@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SMRITI Retail OS Docs — Sleek Index</title>
+  <style>
+    :root { color-scheme: light; color: #0f172a; background: #f8fafc; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); color: #0f172a; }
+    .background { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+    .background svg { width: 120%; height: 120%; position: absolute; top: -10%; left: -10%; }
+    .page-shell { width: 100%; min-height: 100vh; display: grid; place-items: center; padding: 36px 24px; }
+    .panel { width: min(1100px, 100%); padding: 34px; background: rgba(255, 255, 255, 0.94); border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 36px; box-shadow: 0 30px 60px rgba(15, 23, 42, 0.12); backdrop-filter: blur(14px); }
+    .header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 32px; }
+    .header h1 { margin: 0; font-size: clamp(2.2rem, 3vw, 3rem); line-height: 1.02; letter-spacing: -0.04em; }
+    .header p { margin: 0; max-width: 720px; color: #475569; line-height: 1.75; }
+    .hero-visual { display: grid; justify-items: center; margin-top: 22px; }
+    .hero-visual svg { width: min(100%, 420px); height: auto; }
+    .tag { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.92rem; }
+    .search { margin-top: 22px; }
+    .search input { width: 100%; border: none; border-radius: 999px; padding: 16px 20px; background: #f8fafc; color: #0f172a; border: 1px solid rgba(148, 163, 184, 0.18); outline: none; font-size: 1rem; }
+    .search input::placeholder { color: #64748b; }
+    .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 32px; }
+    .card { padding: 24px; border-radius: 28px; background: #ffffff; border: 1px solid rgba(148, 163, 184, 0.18); transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease; }
+    .card:hover { transform: translateY(-6px); border-color: rgba(59, 130, 246, 0.28); box-shadow: 0 22px 50px rgba(15, 23, 42, 0.12); }
+    .card a { display: inline-block; color: #1d4ed8; font-size: 1rem; font-weight: 700; margin-bottom: 12px; }
+    .card p { margin: 0; color: #475569; }
+    .footer { margin-top: 32px; color: #64748b; font-size: 0.95rem; }
+    @media (max-width: 720px) {
+      .panel { padding: 24px; }
+      .search { margin-top: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="background" aria-hidden="true">
+    <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="bg-index" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#bfdbfe" stop-opacity="0.45" />
+          <stop offset="100%" stop-color="#f8fafc" stop-opacity="0.16" />
+        </linearGradient>
+      </defs>
+      <circle class="circle-animate" cx="260" cy="120" r="130" fill="url(#bg-index)" />
+      <circle class="circle-animate" style="animation-delay: -5s;" cx="980" cy="170" r="110" fill="#dbeafe" opacity="0.35" />
+      <circle class="circle-animate" style="animation-delay: -10s;" cx="720" cy="650" r="180" fill="#e0f2fe" opacity="0.28" />
+      <rect x="-80" y="540" width="420" height="240" rx="120" fill="#f8fafc" opacity="0.32" />
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.8">
+        <path d="M120 500 C 190 470 260 540 340 520" stroke="#bfdbfe" stroke-width="3" opacity="0.24" />
+        <path d="M590 120 L 760 180 L 900 120" stroke="#dbeafe" stroke-width="2" opacity="0.28" />
+        <path d="M250 360 C 330 320 430 390 520 360" stroke="#e0f2fe" stroke-dasharray="8 12" stroke-width="1.5" />
+        <circle cx="740" cy="110" r="5" fill="#bfdbfe" opacity="0.75" />
+        <circle cx="190" cy="680" r="5" fill="#dbeafe" opacity="0.75" />
+      </g>
+    </svg>
+  </div>
+  <div class="page-shell">
+    <div class="panel">
+      <div class="header">
+        <div>
+          <h1>SMRITI Retail OS Docs</h1>
+          <p>Access your sleek, modern documentation set for SMRITI Retail OS. Click any card to open a generated HTML manual.</p>
+        </div>
+        <span class="tag">Light theme</span>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <svg viewBox="0 0 420 220" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="index-hero-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#bfdbfe" />
+              <stop offset="100%" stop-color="#93c5fd" stop-opacity="0.9" />
+            </linearGradient>
+          </defs>
+          <rect x="24" y="24" width="136" height="136" rx="28" fill="#ffffff" stroke="#c7d2fe" stroke-width="3" />
+          <circle cx="92" cy="92" r="30" fill="#eff6ff" />
+          <circle cx="92" cy="92" r="11" fill="#2563eb" />
+          <rect x="228" y="30" width="148" height="112" rx="20" fill="#ffffff" stroke="#93c5fd" stroke-width="3" />
+          <path d="M254 72h96M254 106h52" stroke="#60a5fa" stroke-width="4" stroke-linecap="round" />
+          <path d="M320 30v-10a14 14 0 0 0-28 0v10" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" />
+          <path d="M98 174c22-18 48-46 72-48" stroke="#bfdbfe" stroke-width="3" fill="none" opacity="0.85" />
+          <circle cx="360" cy="170" r="8" fill="url(#index-hero-gradient)" opacity="0.96" />
+          <text x="360" y="176" text-anchor="middle" font-size="24" fill="#1d4ed8" font-weight="700">₹</text>
+        </svg>
+      </div>
+      <div class="search">
+        <input placeholder="Search by title or file name (static preview only)" disabled />
+      </div>
+      <div class="grid">
+        <article class="card"><a href="./CUSTOMER_AND_PRICING_GROUP_MANUAL_v3.26.0.html">SMRITI Retail OS — Customer Group & Pricing Group: User Manual</a><p>CUSTOMER_AND_PRICING_GROUP_MANUAL_v3.26.0.html</p></article>
+        <article class="card"><a href="./DOCUMENTATION_WORKFLOWS_v3.26.0.html">SMRITI Retail OS — Documentation Workflows Guide (v3.26.0)</a><p>DOCUMENTATION_WORKFLOWS_v3.26.0.html</p></article>
+        <article class="card"><a href="./ENDUSER_TRAINING_AUTHORS.html">End-User Training — Authors & Product Metadata</a><p>ENDUSER_TRAINING_AUTHORS.html</p></article>
+        <article class="card"><a href="./ENDUSER_TRAINING_COMPANY_DETAILS.html">End-User Training — Company & Demo Details</a><p>ENDUSER_TRAINING_COMPANY_DETAILS.html</p></article>
+        <article class="card"><a href="./ENDUSER_TRAINING_SALES_STUDIO.html">End-User Training — Sales Studio</a><p>ENDUSER_TRAINING_SALES_STUDIO.html</p></article>
+        <article class="card"><a href="./ITEM_MASTER_MANUAL_v3.26.0.html">SMRITI Retail OS — Item Master: User Manual</a><p>ITEM_MASTER_MANUAL_v3.26.0.html</p></article>
+        <article class="card"><a href="./Live_Documentation_Portal_Plan_v29.0.0.html">Phase 35: Live Documentation Portal & Knowledge Engine (v29.0.0) — Implementation Plan</a><p>Live_Documentation_Portal_Plan_v29.0.0.html</p></article>
+        <article class="card"><a href="./SMRITI_User_Manual_Blueprint_v3.26.0.html">SMRITI Retail OS — User Manual Blueprint (v3.26.0)</a><p>SMRITI_User_Manual_Blueprint_v3.26.0.html</p></article>
+      </div>
+      <div class="footer">Generated on Aug 5, 2026 · SMRITI Retail OS documentation hub</div>
+    </div>
+  </div>
+</body>
+</html>

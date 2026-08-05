@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SMRITI Retail OS — Customer Group & Pricing Group: User Manual</title>
+  <style>
+    :root {
+      color-scheme: light;
+      color: #111827;
+      background: #f8fafc;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #eff6ff 0%, #ffffff 45%, #f8fafc 100%); color: #111827; }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .background { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+    .background svg { width: 120%; height: 120%; position: absolute; top: -10%; left: -10%; }
+    .page-shell { width: 100%; min-height: 100vh; padding: 32px 20px 60px; }
+    .panel { max-width: 1100px; margin: 0 auto; padding: 36px; background: rgba(255, 255, 255, 0.92); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 32px; box-shadow: 0 24px 64px rgba(15, 23, 42, 0.12); backdrop-filter: blur(18px); }
+    .brand { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 30px; }
+    .brand-title { display: grid; gap: 10px; }
+    .brand-title h1 { margin: 0; font-size: clamp(2rem, 3vw, 3rem); line-height: 1.05; letter-spacing: -0.03em; }
+    .brand-title p { margin: 0; color: #475569; }
+    .tag { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.92rem; }
+    .hero { display: grid; gap: 24px; margin-bottom: 24px; }
+    .hero p { max-width: 720px; color: #475569; font-size: 1.02rem; line-height: 1.8; }
+    .hero-visual { display: grid; justify-items: center; align-items: center; }
+    .hero-visual svg { width: min(100%, 420px); height: auto; }
+    .hero-visual .illustration-fill { fill: #eff6ff; }
+    .hero-visual .illustration-stroke { stroke: #2563eb; stroke-width: 2; fill: none; }
+    .hero-visual .illustration-accent { fill: #2563eb; opacity: 0.92; }
+    .content h2 { margin-top: 40px; font-size: 1.55rem; letter-spacing: -0.03em; border-bottom: 1px solid #dbeafe; padding-bottom: 10px; color: #0f172a; }
+    .content h3 { margin-top: 30px; color: #111827; }
+    .content p, .content li { color: #334155; line-height: 1.9; }
+    .content ul, .content ol { margin: 16px 0 16px 1.5rem; }
+    .content li { margin-bottom: 10px; }
+    .content table { width: 100%; border-collapse: collapse; margin-top: 18px; background: #ffffff; border: 1px solid rgba(148, 163, 184, 0.22); }
+    .content th, .content td { padding: 16px; border-bottom: 1px solid rgba(148, 163, 184, 0.18); }
+    .content th { color: #0f172a; background: #eff6ff; }
+    .content pre { margin: 20px 0; padding: 20px; background: #f8fafc; border-radius: 20px; overflow-x: auto; border: 1px solid rgba(148, 163, 184, 0.14); }
+    .content code { background: rgba(229, 231, 235, 0.8); padding: 2px 6px; border-radius: 8px; color: #0f172a; }
+    .badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: #dbeafe; color: #1d4ed8; font-size: 0.9rem; margin-top: 8px; }
+    .footer { margin-top: 32px; border-top: 1px solid rgba(148, 163, 184, 0.18); padding-top: 22px; color: #64748b; font-size: 0.95rem; }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-18px); }
+    }
+    @keyframes drift {
+      0% { transform: translateX(0px) translateY(0px) scale(1); }
+      25% { transform: translateX(20px) translateY(-10px) scale(1.04); }
+      50% { transform: translateX(0px) translateY(-20px) scale(1.08); }
+      75% { transform: translateX(-18px) translateY(-10px) scale(1.04); }
+      100% { transform: translateX(0px) translateY(0px) scale(1); }
+    }
+    .circle-animate { animation: drift 14s ease-in-out infinite; transform-origin: center; }
+    @media (max-width: 720px) {
+      .panel { padding: 24px; }
+      .brand { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="background" aria-hidden="true">
+    <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#93c5fd" stop-opacity="0.45" />
+          <stop offset="100%" stop-color="#bfdbfe" stop-opacity="0.12" />
+        </linearGradient>
+      </defs>
+      <circle class="circle-animate" cx="240" cy="140" r="120" fill="url(#glow)" />
+      <circle class="circle-animate" style="animation-delay: -4s;" cx="980" cy="190" r="140" fill="#dbeafe" opacity="0.38" />
+      <circle class="circle-animate" style="animation-delay: -8s;" cx="780" cy="630" r="180" fill="#e0f2fe" opacity="0.32" />
+      <circle cx="110" cy="680" r="90" fill="#f8fafc" opacity="0.32" />
+      <rect x="-100" y="520" width="420" height="240" rx="120" fill="#e0f2fe" opacity="0.22" />
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.8">
+        <path d="M140 540 C 220 500 310 620 420 590" stroke="#93c5fd" stroke-width="3" opacity="0.24" />
+        <path d="M460 120 L 690 180 L 820 100" stroke="#bfdbfe" stroke-width="2" opacity="0.28" />
+        <path d="M330 320 C 430 260 580 380 700 330" stroke="#dbeafe" stroke-dasharray="8 10" stroke-width="1.5" />
+        <circle cx="680" cy="120" r="6" fill="#93c5fd" opacity="0.75" />
+        <circle cx="480" cy="680" r="6" fill="#dbeafe" opacity="0.75" />
+      </g>
+    </svg>
+  </div>
+  <div class="page-shell">
+    <div class="panel">
+      <div class="brand">
+        <div class="brand-title">
+          <h1>SMRITI Retail OS — Customer Group & Pricing Group: User Manual</h1>
+          <p>Generated from docs\user_guide\CUSTOMER_AND_PRICING_GROUP_MANUAL_v3.26.0.md. Light mode documentation with animated SVG background for SMRITI Retail OS.</p>
+        </div>
+        <span class="tag">Light theme</span>
+      </div>
+      <div class="hero">
+        <p>Enjoy a bright, modern documentation layout with subtle motion in the background and clean readability for every manual page.</p>
+        <div class="hero-visual" aria-hidden="true">
+          <svg viewBox="0 0 420 240" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="hero-tag-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#dbeafe" />
+                <stop offset="100%" stop-color="#93c5fd" stop-opacity="0.82" />
+              </linearGradient>
+            </defs>
+            <rect x="16" y="44" width="168" height="146" rx="28" class="illustration-fill" />
+            <circle cx="100" cy="92" r="30" fill="#ffffff" />
+            <circle cx="100" cy="92" r="12" class="illustration-accent" />
+            <path d="M72 132c10-12 28-12 38 0v24H72v-24Z" fill="#bfdbfe" />
+            <path d="M228 38h148a18 18 0 0 1 18 18v118a18 18 0 0 1-18 18H228a18 18 0 0 1-18-18V56a18 18 0 0 1 18-18Z" fill="#ffffff" stroke="#93c5fd" stroke-width="3" />
+            <path d="M254 88h96M254 124h68" stroke="#60a5fa" stroke-width="4" stroke-linecap="round" />
+            <path d="M324 38v-12a16 16 0 0 0-32 0v12" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" />
+            <rect x="274" y="152" width="96" height="56" rx="14" fill="url(#hero-tag-gradient)" opacity="0.92" />
+            <text x="322" y="188" text-anchor="middle" font-size="28" font-weight="700" fill="#1e3a8a">₹</text>
+            <path d="M148 220c36-20 60-60 60-104 0-14-2-28-6-40" stroke="#93c5fd" stroke-width="3" fill="none" opacity="0.8" />
+            <path d="M190 58c22 10 48 16 76 16" stroke="#bfdbfe" stroke-width="3" fill="none" opacity="0.85" />
+            <circle cx="340" cy="180" r="8" fill="#2563eb" opacity="0.9" />
+          </svg>
+        </div>
+      </div>
+      <div class="content">
+        <!--
+  Project      : SMRITI Retail OS
+  Author       : Jawahar Ramkripal Mallah
+  Designation  : Chief Systems Architect & Creator
+  Email        : support@smritibooks.com
+  Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+  Version      : 3.26.0
+  Created      : 2026-07-18
+  Modified     : 2026-07-18
+  Copyright    : © SMRITIBooks.com. All Rights Reserved.
+  License      : Proprietary Commercial Software
+  Classification: Internal
+-->
+<h1 id="smriti-retail-os-customer-group-pricing-group-user-manual">SMRITI Retail OS — Customer Group &amp; Pricing Group: User Manual</h1>
+<blockquote>
+<p><strong>Applies to:</strong> SMRITI Retail OS v3.26.0 and above
+<strong>Audience:</strong> Store Managers, System Administrators, Billing Supervisors</p>
+</blockquote>
+<hr>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#1-introduction">Introduction</a></li>
+<li><a href="#2-customer-group">Customer Group — What It Is &amp; Why It Matters</a></li>
+<li><a href="#3-pricing-group">Pricing Group — What It Is &amp; Why It Matters</a></li>
+<li><a href="#4-how-they-work-together">How Customer Group &amp; Pricing Group Work Together</a></li>
+<li><a href="#5-setting-up-customer-groups">Setting Up Customer Groups</a></li>
+<li><a href="#6-setting-up-pricing-groups">Setting Up Pricing Groups</a></li>
+<li><a href="#7-built-in-default-pricing-groups">Built-In Default Pricing Groups</a></li>
+<li><a href="#8-assigning-a-pricing-group-to-a-customer">Assigning a Pricing Group to a Customer</a></li>
+<li><a href="#9-price-engine">How the Price Engine Calculates the Effective Price</a></li>
+<li><a href="#10-rounding-rules">Rounding Rules Explained</a></li>
+<li><a href="#11-credit-limits">Credit Limit Policies via Customer Group</a></li>
+<li><a href="#12-common-business-scenarios">Common Business Scenarios</a></li>
+<li><a href="#13-frequently-asked-questions">Frequently Asked Questions</a></li>
+<li><a href="#14-glossary">Glossary</a></li>
+</ol>
+<hr>
+<h2 id="1-introduction">1. Introduction</h2>
+<p>SMRITI Retail OS uses <strong>two separate master records</strong> to manage how customers are classified and how they are priced:</p>
+<table>
+<thead>
+<tr>
+<th>Master</th>
+<th>Answers the question</th>
+<th>Used for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Customer Group</strong></td>
+<td><em>“What type of customer is this?”</em></td>
+<td>Classification, credit policy, reporting, GST rules</td>
+</tr>
+<tr>
+<td><strong>Pricing Group</strong></td>
+<td><em>“Which price list applies to this customer?”</em></td>
+<td>Discount percent, price adjustment, rounding, scheme eligibility</td>
+</tr>
+</tbody>
+</table>
+<p>Keeping them separate gives you maximum flexibility. For example:</p>
+<ul>
+<li>A <strong>Retailer</strong> (Customer Group) can be on either <strong>Retail Price</strong> or <strong>Distributor Price</strong> (Pricing Group) depending on their business relationship with you.</li>
+<li>A <strong>Corporate</strong> customer group may have members on <strong>VIP Price</strong> or <strong>Festival Price</strong> during a campaign period.</li>
+<li>Your <strong>Employee</strong> staff can be in the <strong>Staff</strong> Customer Group while on the <strong>Employee Price</strong> Pricing Group (at cost price, no GST schemes).</li>
+</ul>
+<hr>
+<h2 id="2-customer-group">2. Customer Group</h2>
+<h3 id="what-is-a-customer-group">What Is a Customer Group?</h3>
+<p>A Customer Group is a <strong>business classification label</strong> applied to a customer. It answers one question:</p>
+<blockquote>
+<p><em>“What type of business entity is this customer?”</em></p>
+</blockquote>
+<p>Customer Groups are used in:</p>
+<ul>
+<li><strong>Sales Reports</strong> — Filter and segment revenue by customer type</li>
+<li><strong>Credit Limit Policies</strong> — Set a maximum outstanding balance before sales are blocked</li>
+<li><strong>Payment Terms</strong> — Define net-30, net-60, or COD terms per group</li>
+<li><strong>Loyalty Programs</strong> — Apply loyalty tier rules by group</li>
+<li><strong>GST / Tax Rules</strong> — Route composite or exempt customers correctly</li>
+<li><strong>Marketing Campaigns</strong> — Target specific customer segments</li>
+</ul>
+<h3 id="standard-customer-groups-for-indian-retail">Standard Customer Groups for Indian Retail</h3>
+<table>
+<thead>
+<tr>
+<th>Customer Group</th>
+<th>Typical Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Retailer</strong></td>
+<td>Shops buying for resale. Standard credit terms.</td>
+</tr>
+<tr>
+<td><strong>Distributor</strong></td>
+<td>Bulk wholesale buyers. Higher credit limits.</td>
+</tr>
+<tr>
+<td><strong>Modern Trade</strong></td>
+<td>Supermarkets, chains. Volume-based pricing.</td>
+</tr>
+<tr>
+<td><strong>Corporate</strong></td>
+<td>B2B company accounts. Purchase orders and credit invoicing.</td>
+</tr>
+<tr>
+<td><strong>Government</strong></td>
+<td>Government bodies. GeM / tender-based procurement.</td>
+</tr>
+<tr>
+<td><strong>E-Commerce</strong></td>
+<td>Marketplace fulfilment. Special invoice format.</td>
+</tr>
+<tr>
+<td><strong>VIP / Loyalty</strong></td>
+<td>High-value repeat customers. Premium treatment.</td>
+</tr>
+<tr>
+<td><strong>Employee</strong></td>
+<td>Internal staff purchases. Cost-price billing.</td>
+</tr>
+<tr>
+<td><strong>Walk-in / Retail Cash</strong></td>
+<td>Counter customers without an account. No credit.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="what-customer-group-does-not-control">What Customer Group Does NOT Control</h3>
+<p>Customer Group does <strong>not</strong> determine:</p>
+<ul>
+<li>The actual selling price</li>
+<li>Which discount percentage applies</li>
+<li>Whether the price should be rounded</li>
+</ul>
+<p>That is controlled by the <strong>Pricing Group</strong>.</p>
+<hr>
+<h2 id="3-pricing-group">3. Pricing Group</h2>
+<h3 id="what-is-a-pricing-group">What Is a Pricing Group?</h3>
+<p>A Pricing Group is a <strong>commercial pricing policy</strong> applied to a customer. It answers one question:</p>
+<blockquote>
+<p><em>“Which price list and discount structure applies when I sell to this customer?”</em></p>
+</blockquote>
+<p>Pricing Groups control:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>What It Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Base Price Field</strong></td>
+<td>Which product price to start from: <code>price</code> (MRP/selling), <code>cost_price</code>, or <code>mrp</code></td>
+</tr>
+<tr>
+<td><strong>Discount %</strong></td>
+<td>Percentage automatically deducted from the base price on every line item</td>
+</tr>
+<tr>
+<td><strong>Price Adjustment</strong></td>
+<td>Fixed amount added to or subtracted from the price (for markups or markdowns)</td>
+</tr>
+<tr>
+<td><strong>Rounding Rule</strong></td>
+<td>How the final price is rounded: <code>Nearest1</code>, <code>Nearest5</code>, <code>Nearest10</code>, or exact decimal</td>
+</tr>
+<tr>
+<td><strong>Max Additional Discount %</strong></td>
+<td>How much extra discount a salesperson can give beyond the automatic group discount</td>
+</tr>
+<tr>
+<td><strong>Tax Inclusive</strong></td>
+<td>Whether GST is already embedded in the price or calculated on top</td>
+</tr>
+<tr>
+<td><strong>Scheme Eligible</strong></td>
+<td>Whether scheme offers and buy-X-get-Y promotions apply</td>
+</tr>
+<tr>
+<td><strong>Quantity Break Eligible</strong></td>
+<td>Whether tiered quantity-break pricing applies</td>
+</tr>
+<tr>
+<td><strong>Min Order Value</strong></td>
+<td>Minimum order total for this pricing group to activate</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="4-how-they-work-together">4. How They Work Together</h2>
+<pre><code>Customer Record
+    ├── customer_group_id  ──▶  Customer Group
+    │                           (What type? Credit limit? Payment terms?)
+    │
+    └── pricing_group_id  ──▶  Pricing Group
+                                (Which price? Discount? Rounding?)
+                                        │
+                                        ▼
+                                Price Engine
+                                (base price × discount × adjustment → round)
+                                        │
+                                        ▼
+                                Effective Line Price on Invoice
+</code></pre>
+<p><strong>Key rule:</strong> A customer must always have a Customer Group. A Pricing Group is <strong>optional</strong> — if none is assigned, the system uses the product’s standard selling price with no discount.</p>
+<hr>
+<h2 id="5-setting-up-customer-groups">5. Setting Up Customer Groups</h2>
+<h3 id="via-the-api-system-administrator">Via the API (System Administrator)</h3>
+<p><strong>Create a Customer Group:</strong></p>
+<pre><code class="language-http">POST /api/v1/crm/customer-groups
+Authorization: Bearer &lt;token&gt;
+Content-Type: application/json
+
+{
+  &quot;id&quot;: &quot;cg-distributor&quot;,
+  &quot;name&quot;: &quot;Distributor&quot;,
+  &quot;description&quot;: &quot;Wholesale distributor accounts&quot;,
+  &quot;credit_limit&quot;: 500000.00,
+  &quot;unlimited_credit&quot;: false,
+  &quot;auto_block_sales&quot;: true,
+  &quot;payment_terms_days&quot;: 30
+}
+</code></pre>
+<p><strong>List All Customer Groups:</strong></p>
+<pre><code class="language-http">GET /api/v1/crm/customer-groups
+</code></pre>
+<p><strong>Get a Specific Customer Group:</strong></p>
+<pre><code class="language-http">GET /api/v1/crm/customer-groups/{group_id}
+</code></pre>
+<h3 id="fields-reference">Fields Reference</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Unique identifier (e.g. <code>cg-retailer</code>)</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Display name</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>No</td>
+<td>Internal notes</td>
+</tr>
+<tr>
+<td><code>credit_limit</code></td>
+<td>decimal</td>
+<td>No</td>
+<td>Maximum outstanding balance (₹). Default 0.</td>
+</tr>
+<tr>
+<td><code>unlimited_credit</code></td>
+<td>boolean</td>
+<td>No</td>
+<td>If <code>true</code>, no credit limit check applies</td>
+</tr>
+<tr>
+<td><code>auto_block_sales</code></td>
+<td>boolean</td>
+<td>No</td>
+<td>If <code>true</code>, sales are blocked when limit is exceeded</td>
+</tr>
+<tr>
+<td><code>payment_terms_days</code></td>
+<td>integer</td>
+<td>No</td>
+<td>Net payment days (e.g. 30 for net-30)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="6-setting-up-pricing-groups">6. Setting Up Pricing Groups</h2>
+<h3 id="via-the-api-system-administrator-manager">Via the API (System Administrator / Manager)</h3>
+<p><strong>Create a Pricing Group:</strong></p>
+<pre><code class="language-http">POST /api/v1/crm/pricing-groups
+Authorization: Bearer &lt;token&gt;
+Content-Type: application/json
+
+{
+  &quot;id&quot;: &quot;pg-wholesale&quot;,
+  &quot;name&quot;: &quot;Wholesale Price&quot;,
+  &quot;description&quot;: &quot;15% off MRP for wholesale accounts&quot;,
+  &quot;base_price_field&quot;: &quot;price&quot;,
+  &quot;discount_percent&quot;: 15.00,
+  &quot;price_adjustment&quot;: 0.00,
+  &quot;rounding_rule&quot;: &quot;Nearest1&quot;,
+  &quot;max_additional_discount_percent&quot;: 5.00,
+  &quot;tax_inclusive&quot;: true,
+  &quot;scheme_eligible&quot;: true,
+  &quot;quantity_break_eligible&quot;: true,
+  &quot;min_order_value&quot;: 5000.00
+}
+</code></pre>
+<p><strong>List All Pricing Groups:</strong></p>
+<pre><code class="language-http">GET /api/v1/crm/pricing-groups
+</code></pre>
+<p><strong>Update a Pricing Group:</strong></p>
+<pre><code class="language-http">PUT /api/v1/crm/pricing-groups/{group_id}
+Content-Type: application/json
+
+{
+  &quot;discount_percent&quot;: 18.00
+}
+</code></pre>
+<p><strong>Delete (Soft-Delete) a Pricing Group:</strong></p>
+<pre><code class="language-http">DELETE /api/v1/crm/pricing-groups/{group_id}
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> Deleting a Pricing Group does not delete any customers. Their <code>pricing_group_id</code> is set to <code>NULL</code> automatically. They will then fall back to standard (no-discount) pricing until a new group is assigned.</p>
+</blockquote>
+<h3 id="pricing-group-fields-reference">Pricing Group Fields Reference</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>—</td>
+<td>Display name (must be unique per branch)</td>
+</tr>
+<tr>
+<td><code>base_price_field</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>price</code></td>
+<td>Start price: <code>price</code>, <code>mrp</code>, or <code>cost_price</code></td>
+</tr>
+<tr>
+<td><code>discount_percent</code></td>
+<td>decimal</td>
+<td>No</td>
+<td><code>0.00</code></td>
+<td>Auto-deducted discount on every line item (%)</td>
+</tr>
+<tr>
+<td><code>price_adjustment</code></td>
+<td>decimal</td>
+<td>No</td>
+<td><code>0.00</code></td>
+<td>Fixed ₹ markup (+) or markdown (−) per unit</td>
+</tr>
+<tr>
+<td><code>rounding_rule</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>Nearest1</code></td>
+<td><code>Nearest1</code>, <code>Nearest5</code>, <code>Nearest10</code>, or <code>Exact</code></td>
+</tr>
+<tr>
+<td><code>max_additional_discount_percent</code></td>
+<td>decimal</td>
+<td>No</td>
+<td><code>0.00</code></td>
+<td>Max manual discount salesperson can apply</td>
+</tr>
+<tr>
+<td><code>tax_inclusive</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>true</code></td>
+<td>Whether GST is already in the price</td>
+</tr>
+<tr>
+<td><code>scheme_eligible</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>true</code></td>
+<td>Whether promo schemes apply</td>
+</tr>
+<tr>
+<td><code>quantity_break_eligible</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Whether quantity-break tiered pricing applies</td>
+</tr>
+<tr>
+<td><code>min_order_value</code></td>
+<td>decimal</td>
+<td>No</td>
+<td><code>0.00</code></td>
+<td>Minimum cart value required (₹)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="7-built-in-default-pricing-groups">7. Built-In Default Pricing Groups</h2>
+<p>SMRITI Retail OS ships with five ready-to-use Pricing Groups for the default company/branch. These cover the most common Indian retail pricing strategies:</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Name</th>
+<th>Base Price</th>
+<th>Discount</th>
+<th>Rounding</th>
+<th>Schemes</th>
+<th>Qty Break</th>
+<th>Min Order</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pg-retail</code></td>
+<td><strong>Retail Price</strong></td>
+<td>Selling Price</td>
+<td>0%</td>
+<td>Nearest ₹1</td>
+<td>Yes</td>
+<td>No</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>pg-distributor</code></td>
+<td><strong>Distributor Price</strong></td>
+<td>Selling Price</td>
+<td>15%</td>
+<td>Nearest ₹1</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>₹5,000</td>
+</tr>
+<tr>
+<td><code>pg-vip</code></td>
+<td><strong>VIP Price</strong></td>
+<td>Selling Price</td>
+<td>10%</td>
+<td>Nearest ₹1</td>
+<td>Yes</td>
+<td>No</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>pg-employee</code></td>
+<td><strong>Employee Price</strong></td>
+<td><strong>Cost Price</strong></td>
+<td>0%</td>
+<td>Nearest ₹1</td>
+<td>No</td>
+<td>No</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>pg-festival</code></td>
+<td><strong>Festival Price</strong></td>
+<td>Selling Price</td>
+<td>20%</td>
+<td>Nearest ₹5</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>None</td>
+</tr>
+</tbody>
+</table>
+<h3 id="when-to-use-each">When to Use Each</h3>
+<p><strong>Retail Price (<code>pg-retail</code>)</strong>
+Standard counter billing at MRP / selling price. No automatic discount. Salesperson can apply up to 5% additional discount if needed. Use for walk-in customers, retail shop counter, and standard B2C sales.</p>
+<p><strong>Distributor Price (<code>pg-distributor</code>)</strong>
+15% off selling price for wholesale/distribution accounts. Quantity-break pricing applies (e.g. buy 100 units, get an additional tier discount). Minimum order ₹5,000. Use for sub-distributors and stockists.</p>
+<p><strong>VIP Price (<code>pg-vip</code>)</strong>
+10% off selling price for loyalty / high-value repeat customers. Scheme offers apply. No minimum order. Use for registered loyalty members or key accounts.</p>
+<p><strong>Employee Price (<code>pg-employee</code>)</strong>
+Based on <strong>cost price</strong> (not selling price). Zero discount on top of cost. No schemes or quantity breaks. Use exclusively for staff purchases — ensures employees pay cost price with no margin.</p>
+<p><strong>Festival Price (<code>pg-festival</code>)</strong>
+20% off selling price. Rounding to nearest ₹5 (cleaner cashier experience). Quantity breaks apply. Use during festive campaigns (Diwali, Holi, New Year) — activate by assigning customers to this group for the campaign period, then revert afterwards.</p>
+<hr>
+<h2 id="8-assigning-a-pricing-group-to-a-customer">8. Assigning a Pricing Group to a Customer</h2>
+<h3 id="when-creating-a-new-customer">When Creating a New Customer</h3>
+<pre><code class="language-http">POST /api/v1/crm/customers
+Content-Type: application/json
+
+{
+  &quot;id&quot;: &quot;cust-0001&quot;,
+  &quot;name&quot;: &quot;Amit Electronics&quot;,
+  &quot;mobile&quot;: &quot;9876543210&quot;,
+  &quot;email&quot;: &quot;amit@electronics.com&quot;,
+  &quot;customer_group_id&quot;: &quot;cg-retailer&quot;,
+  &quot;pricing_group_id&quot;: &quot;pg-distributor&quot;
+}
+</code></pre>
+<h3 id="updating-an-existing-customers-pricing-group">Updating an Existing Customer’s Pricing Group</h3>
+<pre><code class="language-http">PUT /api/v1/crm/customers/{customer_id}
+Content-Type: application/json
+
+{
+  &quot;pricing_group_id&quot;: &quot;pg-vip&quot;
+}
+</code></pre>
+<h3 id="removing-a-pricing-group-revert-to-standard-pricing">Removing a Pricing Group (Revert to Standard Pricing)</h3>
+<pre><code class="language-http">PUT /api/v1/crm/customers/{customer_id}
+Content-Type: application/json
+
+{
+  &quot;pricing_group_id&quot;: null
+}
+</code></pre>
+<hr>
+<h2 id="9-how-the-price-engine-calculates-the-effective-price">9. How the Price Engine Calculates the Effective Price</h2>
+<p>When a sales invoice or POS sale is created, SMRITI automatically resolves the customer’s pricing parameters <strong>before</strong> any line item price is calculated. The sequence is:</p>
+<h3 id="step-1-resolve-pricing-parameters">Step 1 — Resolve Pricing Parameters</h3>
+<pre><code>GET /api/v1/crm/customers/{customer_id}/resolve-pricing
+</code></pre>
+<p>The engine walks this chain:</p>
+<pre><code>Customer
+  └── Has pricing_group_id?
+        ├── YES → Load PricingGroup → return its fields
+        └── NO  → Return system defaults (0% discount, Nearest1, price field)
+</code></pre>
+<h3 id="step-2-apply-to-each-line-item">Step 2 — Apply to Each Line Item</h3>
+<p>For each product line in the invoice:</p>
+<pre><code>Base Price  =  product.{base_price_field}           e.g. product.price = ₹100
+After Disc  =  Base Price × (1 − discount% / 100)  100 × (1 − 10/100) = ₹90
+Adjusted    =  After Disc + price_adjustment        90 + 0 = ₹90
+Rounded     =  apply rounding_rule                  Nearest1 → ₹90
+GST         =  Rounded × (gst_rate / 100)           90 × 18% = ₹16.20
+Line Total  =  Rounded + GST                        90 + 16.20 = ₹106.20
+</code></pre>
+<h3 id="real-example-vip-customer-buying-2-units-of-100-product-at-18-gst">Real Example — VIP Customer buying 2 units of ₹100 product at 18% GST</h3>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Calculation</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Base Price (Selling)</td>
+<td>Product selling price</td>
+<td>₹100.00</td>
+</tr>
+<tr>
+<td>VIP discount (10%)</td>
+<td>100 × 0.90</td>
+<td>₹90.00</td>
+</tr>
+<tr>
+<td>Price Adjustment</td>
+<td>0</td>
+<td>₹90.00</td>
+</tr>
+<tr>
+<td>Rounding (Nearest1)</td>
+<td>Already whole number</td>
+<td><strong>₹90</strong></td>
+</tr>
+<tr>
+<td>Tax (18% GST × 2 units)</td>
+<td>2 × 90 × 0.18</td>
+<td>₹32.40</td>
+</tr>
+<tr>
+<td>Line Total (2 units)</td>
+<td>2 × 90 + 32.40</td>
+<td><strong>₹212.40</strong></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="10-rounding-rules-explained">10. Rounding Rules Explained</h2>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Behaviour</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Nearest1</code></td>
+<td>Round to nearest whole rupee</td>
+<td>₹89.60 → <strong>₹90</strong></td>
+</tr>
+<tr>
+<td><code>Nearest5</code></td>
+<td>Round to nearest ₹5</td>
+<td>₹87.00 → <strong>₹85</strong>, ₹88.00 → <strong>₹90</strong></td>
+</tr>
+<tr>
+<td><code>Nearest10</code></td>
+<td>Round to nearest ₹10</td>
+<td>₹84.00 → <strong>₹80</strong>, ₹86.00 → <strong>₹90</strong></td>
+</tr>
+<tr>
+<td><code>Exact</code></td>
+<td>No rounding (2 decimal places)</td>
+<td>₹89.67 → <strong>₹89.67</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>When to use each:</strong></p>
+<ul>
+<li><strong>Nearest1</strong> — Default for most retail scenarios. Clean prices, simple billing.</li>
+<li><strong>Nearest5</strong> — Festival / promotional sales. Avoids awkward pricing like ₹83 or ₹87.</li>
+<li><strong>Nearest10</strong> — Wholesale / high-value items. Simpler invoicing.</li>
+<li><strong>Exact</strong> — Technical / engineering goods, pharmacy, or when government audits require exact computation.</li>
+</ul>
+<hr>
+<h2 id="11-credit-limits-via-customer-group">11. Credit Limits via Customer Group</h2>
+<p>Credit limit enforcement is configured at the <strong>Customer Group</strong> level, not the Pricing Group level.</p>
+<h3 id="how-it-works">How It Works</h3>
+<p>When a sales invoice is submitted:</p>
+<ol>
+<li>SMRITI looks up the customer’s <code>customer_group_id</code>.</li>
+<li>Checks the customer’s current <code>outstanding</code> balance.</li>
+<li>Adds the new invoice’s grand total to the outstanding balance.</li>
+<li>Compares against the group’s <code>credit_limit</code>.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>What Happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Within limit</td>
+<td>Invoice is created normally</td>
+</tr>
+<tr>
+<td>Exceeds limit, <code>auto_block_sales = false</code></td>
+<td>Invoice created with a <strong>credit warning</strong></td>
+</tr>
+<tr>
+<td>Exceeds limit, <code>auto_block_sales = true</code></td>
+<td>Invoice is <strong>blocked</strong> with an error message</td>
+</tr>
+<tr>
+<td>Group has <code>unlimited_credit = true</code></td>
+<td>No check is performed — invoice always proceeds</td>
+</tr>
+</tbody>
+</table>
+<h3 id="recommended-credit-limit-settings">Recommended Credit Limit Settings</h3>
+<table>
+<thead>
+<tr>
+<th>Customer Group</th>
+<th>Suggested Setting</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Walk-in / Retail Cash</td>
+<td><code>unlimited_credit = true</code> (no account credit)</td>
+</tr>
+<tr>
+<td>Retailer</td>
+<td><code>credit_limit = 50000</code>, <code>auto_block_sales = false</code></td>
+</tr>
+<tr>
+<td>Distributor</td>
+<td><code>credit_limit = 500000</code>, <code>auto_block_sales = true</code></td>
+</tr>
+<tr>
+<td>Corporate</td>
+<td><code>credit_limit = 1000000</code>, <code>auto_block_sales = false</code></td>
+</tr>
+<tr>
+<td>Employee</td>
+<td><code>unlimited_credit = true</code> (deducted from salary)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="12-common-business-scenarios">12. Common Business Scenarios</h2>
+<h3 id="scenario-a-new-distributor-onboarding">Scenario A — New Distributor Onboarding</h3>
+<blockquote>
+<p>Amit Distributors is a new wholesale buyer. You want to give them 15% off and allow large credit orders.</p>
+</blockquote>
+<ol>
+<li>Ensure the <strong>Distributor</strong> Customer Group exists with <code>credit_limit = 500000</code>, <code>unlimited_credit = false</code>.</li>
+<li>Assign the customer <code>customer_group_id = cg-distributor</code>.</li>
+<li>Assign <code>pricing_group_id = pg-distributor</code> (15% auto-discount, ₹5,000 min order, quantity-break eligible).</li>
+</ol>
+<p>Result: Every sales invoice raised for Amit Distributors will automatically price at 15% below selling price, rounded to the nearest ₹1.</p>
+<hr>
+<h3 id="scenario-b-festive-campaign-diwali-sale">Scenario B — Festive Campaign (Diwali Sale)</h3>
+<blockquote>
+<p>For one month, all retail counter customers get 20% off, rounded to the nearest ₹5.</p>
+</blockquote>
+<ol>
+<li>Use the built-in <strong>Festival Price</strong> (<code>pg-festival</code>) Pricing Group.</li>
+<li>Update your regular walk-in customers’ <code>pricing_group_id</code> to <code>pg-festival</code> for the campaign period.</li>
+<li>At the end of the campaign, update them back to <code>pg-retail</code> or <code>null</code>.</li>
+</ol>
+<blockquote>
+<p><strong>Tip:</strong> You can use the bulk update API or filter by Customer Group to update all walk-in customers at once.</p>
+</blockquote>
+<hr>
+<h3 id="scenario-c-employee-purchase">Scenario C — Employee Purchase</h3>
+<blockquote>
+<p>A staff member buys goods from the store at cost price.</p>
+</blockquote>
+<ol>
+<li>Ensure the customer record has <code>customer_group_id = cg-employee</code> (with <code>unlimited_credit = true</code>).</li>
+<li>Set <code>pricing_group_id = pg-employee</code>.</li>
+<li>The price engine will use <code>cost_price</code> as the base price, apply 0% discount, and bill at cost.</li>
+</ol>
+<hr>
+<h3 id="scenario-d-revoking-a-special-price-customer-left-vip-program">Scenario D — Revoking a Special Price (Customer Left VIP Program)</h3>
+<blockquote>
+<p>A customer’s VIP membership has expired. Revert them to standard retail pricing.</p>
+</blockquote>
+<pre><code class="language-http">PUT /api/v1/crm/customers/{customer_id}
+Content-Type: application/json
+
+{ &quot;pricing_group_id&quot;: null }
+</code></pre>
+<p>The customer reverts to standard selling price immediately on the next invoice.</p>
+<hr>
+<h3 id="scenario-e-retired-pricing-group-discontinuing-a-price-list">Scenario E — Retired Pricing Group (Discontinuing a Price List)</h3>
+<blockquote>
+<p>You are discontinuing the “Festival Price” group after the campaign.</p>
+</blockquote>
+<pre><code class="language-http">DELETE /api/v1/crm/pricing-groups/pg-festival
+</code></pre>
+<p>All customers previously assigned to <code>pg-festival</code> will have <code>pricing_group_id</code> set to <code>NULL</code> automatically (ON DELETE SET NULL). They will bill at standard price until you reassign a group.</p>
+<hr>
+<h2 id="13-frequently-asked-questions">13. Frequently Asked Questions</h2>
+<p><strong>Q: Can a customer belong to more than one Pricing Group at the same time?</strong>
+A: No. Each customer has exactly one active Pricing Group (or none). If you need complex multi-tier pricing, create a new Pricing Group that combines the rules.</p>
+<p><strong>Q: Does the Pricing Group discount stack with additional discounts given at the POS?</strong>
+A: Controlled by <code>max_additional_discount_percent</code>. The salesperson can give up to that additional percent on top of the group discount. The combined effective price is shown at the billing terminal.</p>
+<p><strong>Q: Can I change a Pricing Group’s discount percent mid-month?</strong>
+A: Yes. Changes take effect <strong>immediately</strong> on the next invoice. Past invoices are unaffected — they retain the price calculated at the time of billing.</p>
+<p><strong>Q: What happens to existing invoices if I delete a Pricing Group?</strong>
+A: Existing invoices are never changed. They are historical records. Only new invoices going forward use the updated pricing.</p>
+<p><strong>Q: Can a Pricing Group be used without a Customer Group?</strong>
+A: No. Every customer must have a Customer Group. The Pricing Group is optional.</p>
+<p><strong>Q: My distributor is exempt from GST. Where do I configure that?</strong>
+A: GST exemption is configured at the Customer level (<code>gst_category = Exempt</code>) or at the Product level (<code>gst_rate = 0</code>). The Pricing Group handles pricing only, not tax configuration.</p>
+<p><strong>Q: How do I know which Pricing Group parameters will apply to a customer before I create an invoice?</strong>
+A: Use the resolve-pricing endpoint:</p>
+<pre><code class="language-http">GET /api/v1/crm/customers/{customer_id}/resolve-pricing
+</code></pre>
+<p>This returns the full set of pricing parameters that will be applied on the next invoice.</p>
+<hr>
+<h2 id="14-glossary">14. Glossary</h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Customer Group</strong></td>
+<td>A business classification label on a customer. Controls credit limits, payment terms, and reporting segments.</td>
+</tr>
+<tr>
+<td><strong>Pricing Group</strong></td>
+<td>A commercial pricing policy applied to a customer. Controls which price field, discount percent, adjustments, and rounding apply.</td>
+</tr>
+<tr>
+<td><strong>Base Price Field</strong></td>
+<td>The product field used as the starting price: <code>price</code> (selling price), <code>mrp</code> (maximum retail price), or <code>cost_price</code> (purchase cost).</td>
+</tr>
+<tr>
+<td><strong>Discount Percent</strong></td>
+<td>Automatic percentage deducted from the base price on every line item of an invoice.</td>
+</tr>
+<tr>
+<td><strong>Price Adjustment</strong></td>
+<td>A fixed rupee amount added to (+) or deducted from (-) the unit price after the percentage discount.</td>
+</tr>
+<tr>
+<td><strong>Rounding Rule</strong></td>
+<td>The method used to round the final effective price to a whole number or nearest multiple.</td>
+</tr>
+<tr>
+<td><strong>Scheme Eligible</strong></td>
+<td>Whether promotional buy-X-get-Y or seasonal scheme offers can be applied on top of the Pricing Group discount.</td>
+</tr>
+<tr>
+<td><strong>Quantity Break Eligible</strong></td>
+<td>Whether tiered volume pricing (e.g. buy 50 units = extra 5% off) applies to this customer.</td>
+</tr>
+<tr>
+<td><strong>ON DELETE SET NULL</strong></td>
+<td>Database behaviour: when a Pricing Group is deleted, all linked customers’ pricing_group_id is automatically set to NULL (no pricing group), preventing broken references.</td>
+</tr>
+<tr>
+<td><strong>Price Engine</strong></td>
+<td>The SMRITI internal calculation sequence that resolves base price to discount to adjustment to rounding to GST to line total at the time an invoice is created.</td>
+</tr>
+<tr>
+<td><strong>resolve-pricing endpoint</strong></td>
+<td>GET /api/v1/crm/customers/{id}/resolve-pricing — returns the complete set of effective pricing parameters for a customer without creating an invoice.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><em>This document is generated from SMRITI Retail OS v3.26.0 source code and verified against the live test suite.</em>
+<em>Last updated: 2026-07-18</em></p>
+
+      </div>
+      <div class="footer">SMRITI Retail OS documentation generated as sleek HTML. Open the generated file for a polished reading experience.</div>
+    </div>
+  </div>
+</body>
+</html>

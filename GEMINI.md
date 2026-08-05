@@ -17,3 +17,31 @@ Once an architecture, governance framework, audit framework, or platform specifi
 ## Traceability Rule
 
 Every implementation PR must reference at least one Audit ID (AUD-xxx) and one Finding ID (F-xxx). Changes without audit traceability should not be merged.
+
+## Rule 15 – Promote Before Create (PBC-001)
+
+If an existing platform capability satisfies at least 70% of the requirement, it must be promoted and extended rather than replaced with a new engine, registry, framework, or runtime.
+
+Decision Workflow:
+Evidence → Audit → Reuse → Extend → Promote → Merge → Rename → Create New (Last Resort)
+
+## Rule 17 – Kernel Independence (KND-001)
+
+SPK.ule and all platform kernel services must never depend on React, UI components, renderers, or DOM/browser-specific APIs. Kernel exposes strictly contracts, manifests, data, and capabilities. All presentation concerns belong to the UI layer.
+
+## Rule 18 – Discovery Compliance (DCP-001)
+
+Any module that introduces search, lookup, filtering, or record selection MUST integrate with SPK.ule. Custom procedural implementations or duplicate standalone search popups require an approved architecture decision record (ADR).
+
+## Rule 19 – Navigation Registry Authority (NRA-001)
+
+Every navigation surface (Sidebar, Launchpad, Global Search, Breadcrumbs, Favorites, Recents, Workspace Switcher, Command Palette) MUST derive its module metadata from SPK.navigation. UI components may render navigation metadata but must not redefine module identity, hierarchy, permissions, or visibility.
+
+## Rule 20 – Navigation Contract Stability (NCS-001)
+
+Public SPK.navigation APIs are Level-1 Platform Contracts. Breaking changes require an Architecture Decision Record (ADR), backward compatibility assessment, migration guidance, and version increment. Internal implementations may evolve, but public contracts must remain stable.
+
+
+
+
+

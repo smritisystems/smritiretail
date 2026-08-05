@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phase 35: Live Documentation Portal & Knowledge Engine (v29.0.0) — Implementation Plan</title>
+  <style>
+    :root {
+      color-scheme: light;
+      color: #111827;
+      background: #f8fafc;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #eff6ff 0%, #ffffff 45%, #f8fafc 100%); color: #111827; }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .background { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+    .background svg { width: 120%; height: 120%; position: absolute; top: -10%; left: -10%; }
+    .page-shell { width: 100%; min-height: 100vh; padding: 32px 20px 60px; }
+    .panel { max-width: 1100px; margin: 0 auto; padding: 36px; background: rgba(255, 255, 255, 0.92); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 32px; box-shadow: 0 24px 64px rgba(15, 23, 42, 0.12); backdrop-filter: blur(18px); }
+    .brand { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 30px; }
+    .brand-title { display: grid; gap: 10px; }
+    .brand-title h1 { margin: 0; font-size: clamp(2rem, 3vw, 3rem); line-height: 1.05; letter-spacing: -0.03em; }
+    .brand-title p { margin: 0; color: #475569; }
+    .tag { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.92rem; }
+    .hero { display: grid; gap: 24px; margin-bottom: 24px; }
+    .hero p { max-width: 720px; color: #475569; font-size: 1.02rem; line-height: 1.8; }
+    .hero-visual { display: grid; justify-items: center; align-items: center; }
+    .hero-visual svg { width: min(100%, 420px); height: auto; }
+    .hero-visual .illustration-fill { fill: #eff6ff; }
+    .hero-visual .illustration-stroke { stroke: #2563eb; stroke-width: 2; fill: none; }
+    .hero-visual .illustration-accent { fill: #2563eb; opacity: 0.92; }
+    .content h2 { margin-top: 40px; font-size: 1.55rem; letter-spacing: -0.03em; border-bottom: 1px solid #dbeafe; padding-bottom: 10px; color: #0f172a; }
+    .content h3 { margin-top: 30px; color: #111827; }
+    .content p, .content li { color: #334155; line-height: 1.9; }
+    .content ul, .content ol { margin: 16px 0 16px 1.5rem; }
+    .content li { margin-bottom: 10px; }
+    .content table { width: 100%; border-collapse: collapse; margin-top: 18px; background: #ffffff; border: 1px solid rgba(148, 163, 184, 0.22); }
+    .content th, .content td { padding: 16px; border-bottom: 1px solid rgba(148, 163, 184, 0.18); }
+    .content th { color: #0f172a; background: #eff6ff; }
+    .content pre { margin: 20px 0; padding: 20px; background: #f8fafc; border-radius: 20px; overflow-x: auto; border: 1px solid rgba(148, 163, 184, 0.14); }
+    .content code { background: rgba(229, 231, 235, 0.8); padding: 2px 6px; border-radius: 8px; color: #0f172a; }
+    .badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: #dbeafe; color: #1d4ed8; font-size: 0.9rem; margin-top: 8px; }
+    .footer { margin-top: 32px; border-top: 1px solid rgba(148, 163, 184, 0.18); padding-top: 22px; color: #64748b; font-size: 0.95rem; }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-18px); }
+    }
+    @keyframes drift {
+      0% { transform: translateX(0px) translateY(0px) scale(1); }
+      25% { transform: translateX(20px) translateY(-10px) scale(1.04); }
+      50% { transform: translateX(0px) translateY(-20px) scale(1.08); }
+      75% { transform: translateX(-18px) translateY(-10px) scale(1.04); }
+      100% { transform: translateX(0px) translateY(0px) scale(1); }
+    }
+    .circle-animate { animation: drift 14s ease-in-out infinite; transform-origin: center; }
+    @media (max-width: 720px) {
+      .panel { padding: 24px; }
+      .brand { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="background" aria-hidden="true">
+    <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#93c5fd" stop-opacity="0.45" />
+          <stop offset="100%" stop-color="#bfdbfe" stop-opacity="0.12" />
+        </linearGradient>
+      </defs>
+      <circle class="circle-animate" cx="240" cy="140" r="120" fill="url(#glow)" />
+      <circle class="circle-animate" style="animation-delay: -4s;" cx="980" cy="190" r="140" fill="#dbeafe" opacity="0.38" />
+      <circle class="circle-animate" style="animation-delay: -8s;" cx="780" cy="630" r="180" fill="#e0f2fe" opacity="0.32" />
+      <circle cx="110" cy="680" r="90" fill="#f8fafc" opacity="0.32" />
+      <rect x="-100" y="520" width="420" height="240" rx="120" fill="#e0f2fe" opacity="0.22" />
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.8">
+        <path d="M140 540 C 220 500 310 620 420 590" stroke="#93c5fd" stroke-width="3" opacity="0.24" />
+        <path d="M460 120 L 690 180 L 820 100" stroke="#bfdbfe" stroke-width="2" opacity="0.28" />
+        <path d="M330 320 C 430 260 580 380 700 330" stroke="#dbeafe" stroke-dasharray="8 10" stroke-width="1.5" />
+        <circle cx="680" cy="120" r="6" fill="#93c5fd" opacity="0.75" />
+        <circle cx="480" cy="680" r="6" fill="#dbeafe" opacity="0.75" />
+      </g>
+    </svg>
+  </div>
+  <div class="page-shell">
+    <div class="panel">
+      <div class="brand">
+        <div class="brand-title">
+          <h1>Phase 35: Live Documentation Portal & Knowledge Engine (v29.0.0) — Implementation Plan</h1>
+          <p>Generated from docs\implementation\documentation\Live_Documentation_Portal_Plan_v29.0.0.md. Light mode documentation with animated SVG background for SMRITI Retail OS.</p>
+        </div>
+        <span class="tag">Light theme</span>
+      </div>
+      <div class="hero">
+        <p>Enjoy a bright, modern documentation layout with subtle motion in the background and clean readability for every manual page.</p>
+        <div class="hero-visual" aria-hidden="true">
+          <svg viewBox="0 0 420 240" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="hero-tag-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#dbeafe" />
+                <stop offset="100%" stop-color="#93c5fd" stop-opacity="0.82" />
+              </linearGradient>
+            </defs>
+            <rect x="16" y="44" width="168" height="146" rx="28" class="illustration-fill" />
+            <circle cx="100" cy="92" r="30" fill="#ffffff" />
+            <circle cx="100" cy="92" r="12" class="illustration-accent" />
+            <path d="M72 132c10-12 28-12 38 0v24H72v-24Z" fill="#bfdbfe" />
+            <path d="M228 38h148a18 18 0 0 1 18 18v118a18 18 0 0 1-18 18H228a18 18 0 0 1-18-18V56a18 18 0 0 1 18-18Z" fill="#ffffff" stroke="#93c5fd" stroke-width="3" />
+            <path d="M254 88h96M254 124h68" stroke="#60a5fa" stroke-width="4" stroke-linecap="round" />
+            <path d="M324 38v-12a16 16 0 0 0-32 0v12" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" />
+            <rect x="274" y="152" width="96" height="56" rx="14" fill="url(#hero-tag-gradient)" opacity="0.92" />
+            <text x="322" y="188" text-anchor="middle" font-size="28" font-weight="700" fill="#1e3a8a">₹</text>
+            <path d="M148 220c36-20 60-60 60-104 0-14-2-28-6-40" stroke="#93c5fd" stroke-width="3" fill="none" opacity="0.8" />
+            <path d="M190 58c22 10 48 16 76 16" stroke="#bfdbfe" stroke-width="3" fill="none" opacity="0.85" />
+            <circle cx="340" cy="180" r="8" fill="#2563eb" opacity="0.9" />
+          </svg>
+        </div>
+      </div>
+      <div class="content">
+        <!--
+  Project      : SMRITI Retail OS
+  Author       : Jawahar Ramkripal Mallah
+  Designation  : Chief Systems Architect & Creator
+  Email        : support@smritibooks.com
+  Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+  Version      : 29.0.0
+  Created      : 2026-07-22
+  Modified     : 2026-07-22
+  Copyright    : © SMRITIBooks.com. All Rights Reserved.
+  License      : Proprietary Commercial Software
+  Classification: Implementation Plan Standard (IPGP)
+-->
+<h1 id="phase-35-live-documentation-portal-knowledge-engine-v2900-implementation-plan">Phase 35: Live Documentation Portal &amp; Knowledge Engine (v29.0.0) — Implementation Plan</h1>
+<h2 id="1-objective">1. Objective</h2>
+<p>Deliver the <strong>SMRITI Live Documentation Portal &amp; Knowledge Engine (<code>v29.0.0</code>)</strong> as a core portal in the SMRITI Digital Platform (<code>DPF-001</code>). This phase provides a versioned, searchable technical documentation portal including User Manuals, Administrator Guides, Developer References, Governance Standards, Interactive OpenAPI Sandbox, and Chronological Release Notes.</p>
+<h2 id="2-business-motivation">2. Business Motivation</h2>
+<p>Following the launch of the Official Product Website (<code>v28.0.0</code>), prospects, customers, developers, and partners require a single authoritative destination to learn how to operate, configure, integrate, and extend SMRITI Retail OS without manual support requests.</p>
+<h2 id="3-scope">3. Scope</h2>
+<ul>
+<li><strong>Versioned Documentation Reader Engine (<code>docs_engine.py</code>):</strong> Articles covering User Manuals, Admin Guides, Developer References, and Governance Standards (<code>PAR-001</code>, <code>CMP-001</code>, <code>SIP-001</code>, <code>DPF-001</code>, <code>GCR-001</code>, <code>AOP-001</code>).</li>
+<li><strong>Interactive OpenAPI Reference Engine (<code>api_reference.py</code>):</strong> Interactive endpoint schema reader and request/response parameter explorer.</li>
+<li><strong>Release Notes &amp; Changelog Engine (<code>release_notes_engine.py</code>):</strong> Version timeline from <code>v1.0.0</code> through <code>v29.0.0</code>.</li>
+<li><strong>Search Integration:</strong> Powered by <code>GlobalUnifiedSearchEngine</code> (<code>v27.0.0</code>).</li>
+<li><strong>Frontend Live Docs Application (<code>SmritiLiveDocsPortal.tsx</code>):</strong> Sidebar article tree, markdown renderer, instant search bar, and release timeline component.</li>
+</ul>
+<h2 id="4-current-state">4. Current State</h2>
+<ul>
+<li><code>v28.0.0</code> establishes the Official Product Website with links to <code>/docs</code>.</li>
+<li><code>v27.0.0</code> provides <code>GlobalUnifiedSearchEngine</code> indexing documentation content.</li>
+<li>Need dedicated backend documentation services and frontend UI.</li>
+</ul>
+<h2 id="5-gap-analysis">5. Gap Analysis</h2>
+<ul>
+<li>Need backend documentation services under <code>backend/app/core/documentation/</code>: <code>docs_engine.py</code>, <code>api_reference.py</code>, <code>release_notes_engine.py</code>.</li>
+<li>Need REST API router <code>backend/app/api/v1/documentation/docs.py</code>.</li>
+<li>Need React components in <code>src/components/documentation/</code>.</li>
+</ul>
+<h2 id="6-architecture-impact">6. Architecture Impact</h2>
+<ul>
+<li>Reuses <code>GlobalUnifiedSearchEngine</code> (<code>v27.0.0</code>) for instant search.</li>
+<li>Reuses <code>PortalRegistry</code> metadata for portal topology.</li>
+<li>Zero changes to platform foundation layers (Layers 1-7 remain 100% untouched).</li>
+</ul>
+<h2 id="7-proposed-design">7. Proposed Design</h2>
+<pre><code class="language-text">                       Live Documentation Portal (v29.0.0)
+                                        │
+    ┌───────────────────┬───────────────┴───────────────┬───────────────────┐
+    ▼                   ▼                               ▼                   ▼
+Documentation Reader  OpenAPI Reference Sandbox  Release Notes Timeline  Global Search Engine
+(User/Admin/Dev/Gov)  (Endpoint Explorer)       (v1.0.0 .. v29.0.0)     (Instant Search)
+</code></pre>
+<h2 id="8-files-created">8. Files Created</h2>
+<ul>
+<li><code>backend/app/core/documentation/docs_engine.py</code></li>
+<li><code>backend/app/core/documentation/api_reference.py</code></li>
+<li><code>backend/app/core/documentation/release_notes_engine.py</code></li>
+<li><code>backend/app/schemas/documentation.py</code></li>
+<li><code>backend/app/api/v1/documentation/docs.py</code></li>
+<li><code>src/components/documentation/SmritiLiveDocsPortal.tsx</code></li>
+<li><code>src/components/documentation/ArticleViewer.tsx</code></li>
+<li><code>src/components/documentation/ApiReferenceSandbox.tsx</code></li>
+<li><code>src/components/documentation/ReleaseNotesTimeline.tsx</code></li>
+<li><code>backend/app/tests/test_documentation_engine.py</code></li>
+<li><code>docs/implementation/documentation/Live_Documentation_Portal_Plan_v29.0.0.md</code></li>
+<li><code>docs/walkthrough/documentation/Live_Documentation_Portal_v29.0.0.md</code></li>
+</ul>
+<h2 id="9-files-modified">9. Files Modified</h2>
+<ul>
+<li><code>backend/app/core/release_manifest.py</code></li>
+<li><code>backend/app/core/master_health.py</code></li>
+<li><code>backend/app/tests/test_master_release.py</code></li>
+<li><code>backend/app/main.py</code></li>
+<li><code>docs/implementation/README.md</code></li>
+<li><code>docs/walkthrough/README.md</code></li>
+</ul>
+<h2 id="10-dependencies">10. Dependencies</h2>
+<ul>
+<li><code>DPF-001 Digital Platform Framework</code></li>
+<li><code>GlobalUnifiedSearchEngine</code> (<code>v27.0.0</code>)</li>
+<li><code>PortalRegistry</code> (<code>v27.0.0</code>)</li>
+<li><code>FastAPI + Pydantic</code></li>
+<li><code>React + Lucide Icons</code></li>
+</ul>
+<h2 id="11-risks">11. Risks</h2>
+<ul>
+<li><em>Risk:</em> Document index size causing slow search.</li>
+<li><em>Mitigation:</em> In-memory indexing using <code>GlobalUnifiedSearchEngine</code> (&lt;50ms response).</li>
+</ul>
+<h2 id="12-rollback-strategy">12. Rollback Strategy</h2>
+<p>Revert Phase 35 <code>git</code> commit without impacting transactional Retail OS or Product Website.</p>
+<h2 id="13-verification-plan">13. Verification Plan</h2>
+<ul>
+<li>Pytest suite <code>test_documentation_engine.py</code> (Article retrieval, API spec inspection, Release notes timeline).</li>
+<li>Full backend Pytest execution.</li>
+<li><code>npx tsc --noEmit</code> check.</li>
+</ul>
+<h2 id="14-test-plan">14. Test Plan</h2>
+<ul>
+<li><code>test_docs_engine_articles()</code>: Validates User Manual, Admin Guide, Dev Guide, and Governance document retrieval.</li>
+<li><code>test_api_reference_spec()</code>: Validates OpenAPI spec metadata.</li>
+<li><code>test_release_notes_timeline()</code>: Validates release history from <code>v1.0.0</code> through <code>v29.0.0</code>.</li>
+</ul>
+<h2 id="15-documentation-impact">15. Documentation Impact</h2>
+<ul>
+<li>Create Walkthrough <code>docs/walkthrough/documentation/Live_Documentation_Portal_v29.0.0.md</code>.</li>
+<li>Update <code>docs/implementation/README.md</code> and <code>docs/walkthrough/README.md</code>.</li>
+</ul>
+<h2 id="16-deployment-plan">16. Deployment Plan</h2>
+<p>Deploy REST router under <code>/api/v1/docs</code> and mount <code>SmritiLiveDocsPortal.tsx</code> at <code>/docs</code>.</p>
+<h2 id="17-status">17. Status</h2>
+<p>Approved — In Progress</p>
+<h2 id="18-related-adrs">18. Related ADRs</h2>
+<ul>
+<li><code>PAR-001 Master Platform Architecture Reference</code></li>
+<li><code>DPF-001 Digital Platform Framework</code></li>
+</ul>
+<h2 id="19-related-walkthroughs">19. Related Walkthroughs</h2>
+<ul>
+<li><code>Official_Product_Website_v28.0.0.md</code></li>
+</ul>
+
+      </div>
+      <div class="footer">SMRITI Retail OS documentation generated as sleek HTML. Open the generated file for a polished reading experience.</div>
+    </div>
+  </div>
+</body>
+</html>

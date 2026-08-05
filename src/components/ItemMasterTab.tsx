@@ -100,6 +100,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(products[0] || null);
   const [checkedProductIds, setCheckedProductIds] = useState<string[]>([]);
   const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState<boolean>(false);
+  const [isLookupStudioOpen, setIsLookupStudioOpen] = useState<boolean>(false);
 
   const categories = useMemo(() => {
     return Array.from(new Set(products.map((p) => (p.category || "General")).filter(Boolean)));
@@ -266,12 +267,12 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     }
   }, [onRefreshProducts, onNotification]);
 
-  // Keyboard Shortcuts: F2 = Toggle filter drawer | F4 = Barcode Hub | Ctrl+N = New SKU
+  // Keyboard Shortcuts: F2 = Universal Lookup Studio (ULS) | F4 = Barcode Hub | Ctrl+N = New SKU
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F2") {
         e.preventDefault();
-        setIsFilterDrawerOpen((prev) => !prev);
+        setIsLookupStudioOpen(true);
       } else if (e.key === "F4") {
         e.preventDefault();
         setIsBarcodeDialogOpen(true);

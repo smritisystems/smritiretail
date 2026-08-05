@@ -8,7 +8,7 @@
 
 import logger from "../core/logging/logger.js";
 import { WindowManager } from "../sdk/WindowManager.js";
-import { NavigationRegistry, DomainDefinition } from "./upr/navigation/NavigationRegistry.js";
+import { NavigationRegistry, DomainDefinition, NAV_IDS } from "./upr/navigation/NavigationRegistry.js";
 import { EntityRegistry, EntityMetadata } from "./upr/forms/EntityRegistry.js";
 import { FormRegistry, FormDefinition } from "./upr/forms/FormRegistry.js";
 import { FieldRegistry, FieldControlComponent } from "./upr/forms/FieldRegistry.js";
@@ -85,19 +85,126 @@ export interface IModuleMetadata {
   services: string[];
 }
 
-export interface ILookupItem {
+export type ProviderLifecycleState = "REGISTERED" | "VALIDATED" | "ACTIVE" | "DISABLED" | "DEPRECATED" | "REMOVED";
+
+export interface LookupBadge {
+  label: string;
+  type?: "info" | "success" | "warning" | "error";
+}
+
+export interface NormalizedLookupItem {
   id: string;
+  title?: string;
+  subtitle?: string;
+  badge?: string | LookupBadge;
+  icon?: string;
+  tags?: string[];
+  columns?: Record<string, any>;
+  actions?: Array<{ id: string; label: string; icon?: string; permission?: string }>;
+  metadata: Record<string, any>;
+}
+
+export interface ILookupItem extends NormalizedLookupItem {
   code: string;
   name: string;
-  badge?: string;
   type: string;
-  metadata: Record<string, any>;
+}
+
+export interface LookupCategoryDefinition {
+  id: string;
+  label: string;
+  icon?: string;
+}
+
+export interface LookupFilterFieldSchema {
+  key: string;
+  label: string;
+  type: "text" | "select" | "number_range" | "date_range" | "boolean";
+  options?: Array<{ label: string; value: any }>;
+  defaultValue?: any;
+}
+
+export interface PlatformSavedView {
+  id: string;
+  name: string;
+  description?: string;
+  createdBy: string;
+  createdOn: string;
+  updatedOn?: string;
+  owner: string;            // User ID or "SYSTEM"
+  shared: boolean;          // Organization-wide shared view
+  organizationId?: string;
+  filters: Record<string, any>;
+  columns?: string[];
+  layout?: string;
+  permissions?: string[];
+}
+
+export interface LookupCapabilities {
+  barcode: boolean;
+  qr: boolean;
+  voice: boolean;
+  ai: boolean;
+  bulkSelection: boolean;
+  quickCreate: boolean;
+}
+
+export interface LookupManifest {
+  manifestVersion: string;
+  schemaVersion: string;
+  minimumKernelVersion: string;
+  domain: string;
+  title: string;
+  icon: string;
+  defaultColumns: Array<{ key: string; label: string; type: string; width?: string }>;
+  searchFields: string[];
+  filterGroups: Array<{ id: string; label: string; fields: LookupFilterFieldSchema[] }>;
+  sortOptions: Array<{ label: string; key: string; order: "asc" | "desc" }>;
+  savedViews: PlatformSavedView[];
+  permissions: {
+    readScope: string;
+    createScope?: string;
+    editScope?: string;
+    costScope?: string; // Scope required to unmask cost price & margins
+  };
+  quickActions: Array<{ id: string; label: string; icon: string; permission?: string; shortcut?: string }>;
+  keyboardShortcuts: Record<string, string>;
+  defaultLayout: "table" | "gallery" | "card" | "tree" | "kanban";
+  supportedModes: Array<"field" | "grid" | "workspace" | "global">;
+  
+  // Business Capability Flags
+  capabilities: LookupCapabilities;
+}
+
+export interface ILookupAdvancedQuery {
+  domain: string;
+  query: string;
+  category?: string;
+  filters?: Record<string, any>;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  limit?: number;
+  offset?: number;
+  cursor?: string;
+}
+
+export interface ILookupSearchResult<T = NormalizedLookupItem> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  nextCursor?: string;
+  hasMore: boolean;
+  executionTimeMs: number;
 }
 
 export interface ILookupProvider {
   domain: string;
+  manifest?: LookupManifest;
+  state?: ProviderLifecycleState;
   search(query: string): Promise<ILookupItem[]>;
   getById(id: string): Promise<ILookupItem | null>;
+  searchAdvanced?(query: ILookupAdvancedQuery): Promise<ILookupSearchResult>;
 }
 
 export type EventCallback = (event: IDomainEvent) => void;
@@ -255,30 +362,185 @@ export class SMRITIPlatformKernel {
     }
   };
 
-  /* ── Universal Lookup Engine (SPK.ule) ── */
+  /* Universal Lookup Engine Caches */
+  private ulePlatformSavedViews = new Map<string, PlatformSavedView[]>();
+  private uleHistory: Array<{ query: string; domain: string; timestamp: number }> = [];
+
+  /* ── Universal Lookup Engine (SPK.ule — Level 1 Data Discovery Platform) ── */
   public ule = {
     registerProvider: (provider: ILookupProvider): void => {
-      this.lookupProviders.set(provider.domain.toUpperCase(), provider);
-      logger.debug(`[SPK ULE] Lookup Provider registered for domain: ${provider.domain.toUpperCase()}`);
+      const key = provider.domain.toUpperCase();
+      const instance = { ...provider, state: provider.state || "ACTIVE" };
+      this.lookupProviders.set(key, instance);
+      if (provider.manifest?.savedViews) {
+        this.ulePlatformSavedViews.set(key, [...provider.manifest.savedViews]);
+      }
+      logger.debug(`[SPK ULE] Lookup Provider registered for domain: ${key} (state: ${instance.state})`);
     },
     getProvider: (domain: string): ILookupProvider | undefined => {
       return this.lookupProviders.get(domain.toUpperCase());
     },
+    setProviderState: (domain: string, state: ProviderLifecycleState): boolean => {
+      const provider = this.lookupProviders.get(domain.toUpperCase());
+      if (!provider) return false;
+      provider.state = state;
+      logger.info(`[SPK ULE] Provider state updated: ${domain.toUpperCase()} -> ${state}`);
+      return true;
+    },
+    getManifest: (domain: string): LookupManifest | undefined => {
+      const provider = this.lookupProviders.get(domain.toUpperCase());
+      if (provider?.state === "DISABLED" || provider?.state === "REMOVED") return undefined;
+      return provider?.manifest;
+    },
     search: async (domain: string, query: string): Promise<ILookupItem[]> => {
       const provider = this.lookupProviders.get(domain.toUpperCase());
-      if (!provider) return [];
-      return await provider.search(query);
+      if (!provider || provider.state === "DISABLED" || provider.state === "REMOVED") return [];
+
+      // RBAC Scope Check
+      if (provider.manifest?.permissions?.readScope) {
+        const decision = this.security.evaluateAccess(
+          this.context.userId,
+          this.context.userRole,
+          provider.manifest.permissions.readScope
+        );
+        if (!decision.allowed) {
+          logger.warn(`[SPK ULE Security] Access denied for domain '${domain}' to user '${this.context.userId}'`);
+          return [];
+        }
+      }
+
+      if (query) {
+        this.recordUleHistory(query, domain);
+      }
+
+      const rawItems = await provider.search(query);
+      return this.applyFieldMasking(domain, rawItems);
+    },
+    searchAdvanced: async (queryObj: ILookupAdvancedQuery): Promise<ILookupSearchResult> => {
+      const startTime = performance.now();
+      const domainKey = queryObj.domain.toUpperCase();
+      const provider = this.lookupProviders.get(domainKey);
+
+      if (!provider || provider.state === "DISABLED" || provider.state === "REMOVED") {
+        return { items: [], totalCount: 0, page: 1, pageSize: 20, hasMore: false, executionTimeMs: 0 };
+      }
+
+      // RBAC Scope Check
+      if (provider.manifest?.permissions?.readScope) {
+        const decision = this.security.evaluateAccess(
+          this.context.userId,
+          this.context.userRole,
+          provider.manifest.permissions.readScope
+        );
+        if (!decision.allowed) {
+          logger.warn(`[SPK ULE Security] Access denied for domain '${queryObj.domain}' to user '${this.context.userId}'`);
+          return { items: [], totalCount: 0, page: 1, pageSize: 20, hasMore: false, executionTimeMs: Math.round(performance.now() - startTime) };
+        }
+      }
+
+      if (queryObj.query) {
+        this.recordUleHistory(queryObj.query, queryObj.domain);
+      }
+
+      const limit = queryObj.limit || 20;
+      const offset = queryObj.offset || 0;
+      const page = Math.floor(offset / limit) + 1;
+
+      if (provider.searchAdvanced) {
+        const res = await provider.searchAdvanced(queryObj);
+        const maskedItems = this.applyFieldMasking(queryObj.domain, res.items);
+        return {
+          ...res,
+          items: maskedItems,
+          page: res.page || page,
+          pageSize: res.pageSize || limit,
+          hasMore: res.hasMore ?? (offset + maskedItems.length < res.totalCount),
+          executionTimeMs: Math.round(performance.now() - startTime),
+        };
+      }
+
+      const rawItems = await provider.search(queryObj.query);
+      const maskedItems = this.applyFieldMasking(queryObj.domain, rawItems);
+      const paginatedItems = maskedItems.slice(offset, offset + limit);
+      const hasMore = offset + paginatedItems.length < maskedItems.length;
+
+      return {
+        items: paginatedItems,
+        totalCount: maskedItems.length,
+        page,
+        pageSize: limit,
+        hasMore,
+        executionTimeMs: Math.round(performance.now() - startTime),
+      };
+    },
+    getSavedViews: (domain: string): PlatformSavedView[] => {
+      return this.ulePlatformSavedViews.get(domain.toUpperCase()) || [];
+    },
+    saveView: (domain: string, view: PlatformSavedView): void => {
+      const key = domain.toUpperCase();
+      const existing = this.ulePlatformSavedViews.get(key) || [];
+      const updated = [...existing.filter((v) => v.id !== view.id), view];
+      this.ulePlatformSavedViews.set(key, updated);
+    },
+    getHistory: (domain?: string): Array<{ query: string; domain: string; timestamp: number }> => {
+      if (!domain) return this.uleHistory;
+      return this.uleHistory.filter((h) => h.domain.toUpperCase() === domain.toUpperCase());
     }
   };
 
+  /** RBAC Field Masking — strips financial cost fields if role lacks costScope */
+  private applyFieldMasking<T extends NormalizedLookupItem | ILookupItem>(domain: string, items: T[]): T[] {
+    const provider = this.lookupProviders.get(domain.toUpperCase());
+    const costScope = provider?.manifest?.permissions?.costScope;
+
+    if (!costScope) return items;
+
+    const decision = this.security.evaluateAccess(
+      this.context.userId,
+      this.context.userRole,
+      costScope
+    );
+
+    if (decision.allowed) return items;
+
+    // Mask financial cost fields
+    return items.map((item) => {
+      const clone = { ...item, metadata: { ...item.metadata }, columns: { ...item.columns } };
+      delete clone.metadata.purchase_price;
+      delete clone.metadata.costPrice;
+      delete clone.metadata.buyingRate;
+      delete clone.metadata.margin;
+      if (clone.columns) {
+        delete clone.columns.purchasePrice;
+        delete clone.columns.costPrice;
+        delete clone.columns.margin;
+      }
+      return clone;
+    });
+  }
+
+  private recordUleHistory(query: string, domain: string): void {
+    this.uleHistory = [
+      { query, domain: domain.toUpperCase(), timestamp: Date.now() },
+      ...this.uleHistory.filter((h) => h.query !== query).slice(0, 24),
+    ];
+  }
+
   /* ── Universal Navigation Registry Facade (SPK.navigation) ── */
   public navigation = {
+    NAV_IDS,
     getDomains: () => NavigationRegistry.getDomains(),
     getDomain: (id: string) => NavigationRegistry.getDomain(id),
+    getDomainForWorkspace: (workspaceId: string) => NavigationRegistry.getDomainForWorkspace(workspaceId),
+    getWorkspaceForRoute: (route: string) => NavigationRegistry.getWorkspaceForRoute(route),
+    getBreadcrumbForWorkspace: (workspaceId: string, itemRecordId?: string) => NavigationRegistry.getBreadcrumbForWorkspace(workspaceId, itemRecordId),
     getModuleIdsForDomain: (domainId: string) => NavigationRegistry.getModuleIdsForDomain(domainId),
     getSidebar: (activeDomainId: string) => NavigationRegistry.getSidebar(activeDomainId),
     registerDomain: (domain: DomainDefinition) => NavigationRegistry.registerDomain(domain),
-    subscribe: (listener: () => void) => NavigationRegistry.subscribe(listener)
+    recordNavigation: (workspaceId: string) => NavigationRegistry.recordNavigation(workspaceId),
+    getAnalytics: () => NavigationRegistry.getAnalytics(),
+    health: () => NavigationRegistry.health(),
+    subscribe: (listener: (event?: any) => void) => NavigationRegistry.subscribe(listener)
   };
 
   /* ── Universal Form Registry Facade (SPK.forms / UFR-001) ── */
