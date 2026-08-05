@@ -523,6 +523,26 @@ async def get_setup_status(
     return {"setupCompleted": setup_config is not None and setup_config.value == "true"}
 
 
+@router.post(
+    "/setup/reset",
+)
+@router.post(
+    "/system/setup/reset",
+)
+async def reset_setup_status(
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+):
+    """
+    Reset / unlock setup status for development, testing, or re-configuration.
+    """
+    actor_name = current_user.username if current_user and getattr(current_user, "username", None) else "system"
+    await set_system_config(db, SETUP_COMPLETED_KEY, "false", current_user, actor_name=actor_name)
+    await set_system_config(db, SETUP_STATE_KEY, "UNINITIALIZED", current_user, actor_name=actor_name)
+    await db.commit()
+    return {"success": True, "message": "Company setup lock cleared. Onboarding wizard re-enabled."}
+
+
 @router.get(
     "/doctor",
     response_model=SystemDoctorResponse,

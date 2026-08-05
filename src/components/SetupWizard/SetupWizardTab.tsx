@@ -51,7 +51,9 @@ import {
   AlertCircle,
   HelpCircle,
   CheckCircle2,
-  Database
+  Database,
+  Lock,
+  RefreshCw
 } from "lucide-react";
 import { INDIAN_STATES } from "../../constants/indianStates";
 import { isValidGSTIN, isValidPIN } from "../../utils/validators";
@@ -95,6 +97,43 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
   const totalSteps = 11;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [setupSuccess, setSetupSuccess] = useState(false);
+
+  // Locked State handling
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockMessage, setLockMessage] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
+
+  // Check setup status on mount
+  useEffect(() => {
+    async function checkSetupStatus() {
+      try {
+        const res = await apiFetchV1<{ setupCompleted: boolean }>("/system/setup-status");
+        if (res && res.setupCompleted) {
+          setIsLocked(true);
+          setLockMessage("Company setup is locked and cannot be re-executed from the onboarding wizard. Please use Administrative Modules for structural changes.");
+        }
+      } catch {
+        // Backend offline or local standalone mode
+      }
+    }
+    checkSetupStatus();
+  }, []);
+
+  const handleResetSetupLock = async () => {
+    try {
+      setIsResetting(true);
+      await apiFetchV1("/system/setup/reset", { method: "POST" });
+      setIsLocked(false);
+      setLockMessage("");
+      if (typeof localStorage !== "undefined") {
+        localStorage.removeItem("smriti_setup_completed");
+      }
+    } catch (err: any) {
+      alert(`Could not reset setup lock: ${err?.message || err}`);
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   // Form States
   const [welcomeMode, setWelcomeMode] = useState<"new" | "demo" | "restore">("new");
@@ -468,7 +507,13 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
       }, 2500);
     } catch (e: any) {
       console.error("[SetupWizard] Setup provisioning failed:", e);
-      alert(`Setup Provisioning Failed: ${e?.message || e || "Unknown server error"}. Please review inputs and try again.`);
+      const msg = e?.message || String(e) || "Unknown server error";
+      if (msg.toLowerCase().includes("locked") || msg.toLowerCase().includes("re-executed")) {
+        setIsLocked(true);
+        setLockMessage(msg);
+      } else {
+        alert(`Setup Provisioning Failed: ${msg}. Please review inputs and try again.`);
+      }
       setSetupSuccess(false);
     } finally {
       setIsSubmitting(false);
@@ -489,7 +534,42 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
       </div>
 
       <AnimatePresence mode="wait">
-        {setupSuccess ? (
+        {isLocked ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex-1 flex flex-col items-center justify-center py-12 px-6 text-center max-w-2xl mx-auto space-y-6"
+          >
+            <div className="w-20 h-20 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 shadow-2xl">
+              <Lock size={36} />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black text-theme-heading tracking-tight">
+                Company Setup Provisioned &amp; Locked
+              </h2>
+              <p className="text-sm text-theme-muted max-w-md mx-auto leading-relaxed">
+                {lockMessage || "Company setup has already been provisioned for this store tenant. Structural changes must be performed via Administrative Modules."}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <button
+                onClick={() => onComplete ? onComplete() : window.location.reload()}
+                className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
+              >
+                <Sparkles className="w-4 h-4" />
+                Proceed to Operational Workspace
+              </button>
+              <button
+                onClick={handleResetSetupLock}
+                disabled={isResetting}
+                className="w-full sm:w-auto px-5 py-3 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-divider font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
+              >
+                <RefreshCw className={`w-4 h-4 ${isResetting ? "animate-spin" : ""}`} />
+                {isResetting ? "Resetting Lock…" : "Unlock Setup Wizard (Dev Mode)"}
+              </button>
+            </div>
+          </motion.div>
+        ) : setupSuccess ? (
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
