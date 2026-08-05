@@ -43,6 +43,7 @@ import { CustomerLookupProvider } from "../kernel/ule/CustomerLookupProvider.js"
 import { SupplierService } from "../kernel/internal/SupplierService.js";
 import { CreateSupplierCommandHandler } from "../kernel/commands/CreateSupplierCommand.js";
 import { SupplierLookupProvider } from "../kernel/ule/SupplierLookupProvider.js";
+import { InventoryService } from "../kernel/internal/InventoryService.js";
 import { TaxResolutionEngine } from "../kernel/internal/TaxResolutionEngine.js";
 import { ResolveTaxCommandHandler } from "../kernel/commands/ResolveTaxCommand.js";
 import { PurchaseService } from "../kernel/internal/PurchaseService.js";
@@ -134,6 +135,9 @@ export function bootstrapDI(): DIContainer {
   SPK.services.register("ACCOUNTING", accountingServiceInstance);
   SPK.commands.registerHandler("POST_JOURNAL_VOUCHER", new PostJournalVoucherCommandHandler());
   SPK.ule.registerProvider(new AccountingLookupProvider());
+
+  const inventoryServiceInstance = new InventoryService();
+  SPK.services.register("INVENTORY", inventoryServiceInstance);
 
   if (dbProvider === "postgres") {
     instances.products = new PostgresProductRepository();

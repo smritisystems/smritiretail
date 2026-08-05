@@ -337,6 +337,9 @@ export class SMRITIPlatformKernel {
         this.eventSubscribers.get(eventType)?.delete(callback);
       };
     },
+    on: (eventType: string, callback: EventCallback): () => void => {
+      return this.events.subscribe(eventType, callback);
+    },
     emit: (eventType: string, entityId: string, payload: any): void => {
       const event: IDomainEvent = {
         eventType,
