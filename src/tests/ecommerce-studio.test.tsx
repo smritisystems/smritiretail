@@ -7,8 +7,8 @@ describe("EcommerceStudioTab", () => {
   it("renders the ecommerce studio shell", () => {
     const html = renderToStaticMarkup(<EcommerceStudioTab />);
 
-    expect(html).toContain("E-Commerce Studio");
-    expect(html).toContain("Order Management");
-    expect(html).toContain("Storefront & Catalog");
+    expect(html).toContain("Unified Commerce Studio");
+    expect(html).toContain("B2C E-Commerce");
+    expect(html).toContain("Marketplace");
   });
 });

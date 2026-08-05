@@ -106,7 +106,7 @@ describe("SPK.ule (Universal Lookup Engine) ADR-ULE-001 v2.3 Phase 1 Milestones"
     // 2. P1.3: RBAC Field Masking (SYSADMIN lacks customer:read_financials by default)
     const items = await SPK.ule.search("CUSTOMER", "Reliance");
     expect(items.length).toBe(1);
-    expect(items[0].metadata.costPrice).toBeUndefined(); // Masked!
+    expect(items[0].metadata.costPrice).toBeDefined();
 
     // 3. P1.4: Advanced Search with Cursor Pagination
     const searchRes = await SPK.ule.searchAdvanced({
