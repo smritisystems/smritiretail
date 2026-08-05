@@ -1,0 +1,28 @@
+{
+  "id": "apparel",
+  "name": "Apparel & Fashion",
+  "version": "1.0.0",
+  "description": "Garment and fashion boutique pack with Size-Color Grid, Garment Alterations, and Loyalty Studio.",
+  "recommended_modules": [
+    "pos",
+    "inventory",
+    "purchase",
+    "sales",
+    "crm",
+    "barcode",
+    "terms",
+    "apparel_matrix",
+    "loyalty"
+  ],
+  "default_uoms": ["Pcs", "Set", "Box", "Mtr"],
+  "barcode_parameters": {
+    "symbology": "CODE128",
+    "auto_generate": true,
+    "prefix": "AP"
+  },
+  "default_reports": [
+    "apparel_grid_summary",
+    "season_sales_analysis",
+    "category_margin_report"
+  ]
+}

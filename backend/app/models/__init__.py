@@ -36,7 +36,7 @@ from .sales import (
     SalesOrder, SalesOrderItem,
     SalesReturn, SalesReturnItem,
 )
-from .tenant import Company, Branch
+from .tenant import Company, Branch, Tenant, TenantSettings, TenantProvisionProfile, TenantProvisionJournal, TenantLifecycleState
 from .auth import User, RefreshTokenBlacklist, UserRole
 from .purchase import (
     Supplier,

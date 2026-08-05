@@ -1,0 +1,27 @@
+{
+  "id": "general_retail",
+  "name": "General Retail",
+  "version": "1.0.0",
+  "description": "Standard supermarket and retail store pack with POS billing, inventory, and barcode defaults.",
+  "recommended_modules": [
+    "pos",
+    "inventory",
+    "purchase",
+    "sales",
+    "crm",
+    "barcode",
+    "terms"
+  ],
+  "default_uoms": ["Nos", "Kg", "Pcs", "Box", "Mtr", "Ltr", "Pack"],
+  "barcode_parameters": {
+    "symbology": "EAN13",
+    "auto_generate": true,
+    "prefix": "20"
+  },
+  "default_reports": [
+    "daily_sales_summary",
+    "fast_moving_items",
+    "stock_reorder_alert",
+    "cashier_shift_reconciliation"
+  ]
+}

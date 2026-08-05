@@ -37,11 +37,10 @@ Any module that introduces search, lookup, filtering, or record selection MUST i
 
 Every navigation surface (Sidebar, Launchpad, Global Search, Breadcrumbs, Favorites, Recents, Workspace Switcher, Command Palette) MUST derive its module metadata from SPK.navigation. UI components may render navigation metadata but must not redefine module identity, hierarchy, permissions, or visibility.
 
+## Architecture Freeze Rule (AFR-002)
+
+SMRITI Enterprise SaaS Architecture v1.4 is the frozen architectural baseline. No new architectural capabilities, hierarchy changes, or platform redesign may be introduced until the Runtime Certification (Phases A–G) is successfully completed. During this period, engineering work is limited to implementation completion, bug fixes, security hardening, performance optimization, testing, documentation, and production certification. All future architectural ideas must be recorded in the **Future Architecture Backlog (v2.x+)** and deferred until after the first production release.
+
 ## Rule 20 – Navigation Contract Stability (NCS-001)
 
 Public SPK.navigation APIs are Level-1 Platform Contracts. Breaking changes require an Architecture Decision Record (ADR), backward compatibility assessment, migration guidance, and version increment. Internal implementations may evolve, but public contracts must remain stable.
-
-
-
-
-

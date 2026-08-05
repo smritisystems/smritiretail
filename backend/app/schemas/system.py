@@ -177,11 +177,26 @@ class StoreConfig(BaseModel):
 
 class BusinessInfo(BaseModel):
     name: str
+    tenantName: Optional[str] = Field("Smriti Systems Group", alias="tenantName")
+    tenantCode: Optional[str] = Field("SMS", alias="tenantCode")
+    tenantSlug: Optional[str] = Field("smriti-systems", alias="tenantSlug")
+    legalEntity: Optional[str] = Field("Private Limited Company", alias="legalEntity")
+    industryPack: Optional[str] = Field("general_retail", alias="industryPack")
     tradeName: Optional[str] = Field("", alias="tradeName")
     businessType: Optional[str] = Field("retail", alias="businessType")
     gstin: Optional[str] = ""
     pan: Optional[str] = ""
+    msme: Optional[str] = ""
+    cin: Optional[str] = ""
+    pinCode: Optional[str] = Field("273016", alias="pinCode")
+    country: Optional[str] = Field("India", alias="country")
     state: Optional[str] = ""
+    district: Optional[str] = Field("", alias="district")
+    city: Optional[str] = Field("", alias="city")
+    area: Optional[str] = Field("", alias="area")
+    locality: Optional[str] = Field("", alias="locality")
+    addressLine1: Optional[str] = Field("", alias="addressLine1")
+    isDemoMode: Optional[bool] = Field(False, alias="isDemoMode")
     financialYear: Optional[str] = Field("2026-2027", alias="financialYear")
     booksStartDate: Optional[str] = Field("2026-04-01", alias="booksStartDate")
 

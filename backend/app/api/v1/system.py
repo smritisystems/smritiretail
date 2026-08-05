@@ -30,8 +30,9 @@ from ...core.security import hash_password
 from ...models.auth import User, UserRole
 from ...models.psv import PSVParty, PSVPartySkuTracking
 from ...models.system import TallyConfig, SystemConfig
-from ...models.tenant import Company, Branch
-from ...models.inventory import Store
+from ...models.tenant import Company, Branch, Tenant, TenantSettings, TenantProvisionProfile, TenantLifecycleState
+from ...models.company_master import CompanyTaxProfile, CompanyFinancialYear
+from ...models.inventory import Store, Warehouse
 from ...schemas.psv import PSVPartyResponse
 from ...schemas.system import (
     TallyConfigCreate, TallyConfigUpdate, TallyConfigResponse,
@@ -706,6 +707,10 @@ async def company_setup(
     )
 
     timestamp_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    tenant_code = (business_info.tenantCode or "SMS").strip().upper()
+    tenant_slug = (business_info.tenantSlug or "smriti-systems").strip().lower()
+    tenant_name = (business_info.tenantName or "Smriti Systems Group").strip()
+    tenant_id = f"tent-{timestamp_ms}"
     company_id = f"comp-{timestamp_ms}"
     created_branches = []
     created_stores = []
@@ -714,16 +719,45 @@ async def company_setup(
 
     staff_entries = users_payload.staff or []
 
-
-
-
     try:
         # 1. State Machine: Transition to BOOTSTRAPPING
         await set_system_config(db, SETUP_STATE_KEY, "BOOTSTRAPPING", current_user, commit=False, actor_name=actor_username)
 
-        # 2. Company Creation
+        # 2. Tenant & TenantSettings Creation
+        tenant_record = Tenant(
+            id=tenant_id,
+            uuid=str(uuid.uuid4()),
+            tenant_code=tenant_code,
+            tenant_slug=tenant_slug,
+            name=tenant_name,
+            lifecycle_state=TenantLifecycleState.PROVISIONING.value,
+            is_active=True,
+            is_deleted=False,
+        )
+        db.add(tenant_record)
+        await db.flush()
+
+        tenant_settings = TenantSettings(
+            id=f"tset-{uuid.uuid4().hex[:12]}",
+            tenant_id=tenant_id,
+            language_code="en-IN",
+            locale="en-IN",
+            currency_code="INR",
+            timezone="Asia/Kolkata",
+            date_format="DD/MM/YYYY",
+            number_format="Indian",
+            decimal_precision=2,
+            ai_enabled=True,
+            sms_enabled=True,
+            email_enabled=True,
+        )
+        db.add(tenant_settings)
+        await db.flush()
+
+        # 3. Company Creation (linked to tenant_id)
         company = Company(
             id=company_id,
+            tenant_id=tenant_id,
             name=company_name,
             gst_number=company_gstin,
             is_active=True,
@@ -732,13 +766,29 @@ async def company_setup(
         db.add(company)
         await db.flush()
 
-        # 3. Branch Creation
+        # 4. Company Tax Profile Creation (1:1 with Company)
+        tax_profile = CompanyTaxProfile(
+            id=f"ctax-{uuid.uuid4().hex[:12]}",
+            company_id=company_id,
+            gstin=company_gstin,
+            gstin_state_code=company_gstin[:2] if company_gstin and len(company_gstin) >= 2 else None,
+            gst_registration_type="REGULAR" if company_gstin else "UNREGISTERED",
+            pan_number=business_pan or (company_gstin[2:12] if company_gstin and len(company_gstin) >= 12 else None),
+            msme_registration_no=getattr(business_info, "msme", None),
+            cin_number=getattr(business_info, "cin", None),
+            created_by=actor_username,
+        )
+        db.add(tax_profile)
+        await db.flush()
+
+        # 5. Branch Creation
         for idx, store in enumerate(branch_entries):
             branch_name = store.name or store.code or f"Branch {idx + 1}"
             branch_code = normalize_branch_code(store.code, idx)
             branch_id = f"br-{timestamp_ms + idx}"
             branch = Branch(
                 id=branch_id,
+                tenant_id=tenant_id,
                 company_id=company_id,
                 name=branch_name,
                 code=branch_code,
@@ -750,7 +800,7 @@ async def company_setup(
 
         await db.flush()
 
-        # 4. Store Creation
+        # 6. Store & Warehouse Creation
         for idx, store in enumerate(branch_entries):
             branch_name = created_branches[idx].name
             branch_code = created_branches[idx].code
@@ -759,6 +809,7 @@ async def company_setup(
             store_id = f"stor-{timestamp_ms + idx}"
             store_record = Store(
                 id=store_id,
+                tenant_id=tenant_id,
                 company_id=company_id,
                 branch_id=branch_id,
                 code=branch_code,
@@ -773,11 +824,75 @@ async def company_setup(
             db.add(store_record)
             created_stores.append(store_record)
 
+            # Create corresponding Warehouse
+            wh_record = Warehouse(
+                id=f"wh-{timestamp_ms + idx}",
+                tenant_id=tenant_id,
+                company_id=company_id,
+                branch_id=branch_id,
+                code=f"WH-{branch_code}",
+                name=f"Main Warehouse ({branch_name})",
+                is_transit=False,
+                address=store.address or "",
+                created_by=actor_username,
+                updated_by=actor_username,
+            )
+            db.add(wh_record)
+
         await db.flush()
 
-        # 5. User Creation
+        # 7. Financial Year Creation
+        start_year = int(business_financial_year.split("-")[0]) if "-" in business_financial_year else 2026
+        fy_record = CompanyFinancialYear(
+            id=f"cfy-{uuid.uuid4().hex[:12]}",
+            company_id=company_id,
+            year_label=f"FY {business_financial_year}",
+            start_date=datetime.strptime(f"{start_year}-04-01", "%Y-%m-%d").date(),
+            end_date=datetime.strptime(f"{start_year + 1}-03-31", "%Y-%m-%d").date(),
+            status="OPEN",
+            is_active=True,
+            created_by=actor_username,
+        )
+        db.add(fy_record)
+        await db.flush()
+
+        # 8. User Creation (Super Admin 'super' with 'whynothing')
+        dev_mode = str(getattr(settings, "ENVIRONMENT", "")).lower() in {"development", "dev", "test", "demo"} or getattr(settings, "ENABLE_DEV_LOGIN", False)
+        super_admin_pass = "whynothing" if dev_mode else secrets.token_urlsafe(10)
+
+        # Create or update super user
+        existing_super = await db.execute(select(User).where(User.username == "super", User.is_deleted == False))
+        super_user = existing_super.scalars().first()
+        if not super_user:
+            super_user = User(
+                id=f"usr-{uuid.uuid4().hex[:6]}",
+                username="super",
+                email="super@smritibooks.com",
+                hashed_password=hash_password(super_admin_pass),
+                role=UserRole.SYSADMIN,
+                is_active=True,
+                is_deleted=False,
+                is_platform_admin=True,
+                tenant_id=tenant_id,
+                company_id=company_id,
+                branch_id=created_branches[0].id if created_branches else None,
+                status="PendingPasswordChange",
+            )
+            db.add(super_user)
+            await db.flush()
+        created_users.append({
+            "id": super_user.id,
+            "username": super_user.username,
+            "role": super_user.role.value,
+            "company_id": company_id,
+            "branch_id": super_user.branch_id,
+            "temp_password": super_admin_pass,
+        })
+
         for idx, staff in enumerate(staff_entries):
             username = (staff.username or "").strip()
+            if username == "super":
+                continue
             display_name = (staff.name or username or f"user{idx + 1}").strip()
             role = normalize_staff_role(staff.role or "Cashier")
             email = staff.email or None
@@ -787,15 +902,7 @@ async def company_setup(
             if not username:
                 username = re.sub(r"[^a-z0-9]", "", display_name.lower()) or f"user{idx + 1}"
 
-            import random
-            import string
-            temp_password = (
-                random.choice(string.ascii_uppercase) +
-                random.choice(string.ascii_lowercase) +
-                random.choice(string.digits) +
-                random.choice("!@#$%^&*") +
-                "".join(random.choices(string.ascii_letters + string.digits, k=8))
-            )
+            temp_password = secrets.token_urlsafe(8)
             user_req = UserCreate(
                 username=username,
                 password=temp_password,
@@ -815,7 +922,7 @@ async def company_setup(
                 "temp_password": temp_password,
             })
 
-        # 6. Document Series Creation
+        # 9. Document Series Creation
         numbering_service = NumberingService(db)
         numbering_templates = payload.numbering or []
 
@@ -866,7 +973,28 @@ async def company_setup(
 
             await numbering_service.create_series(series_req, actor_username, commit=False)
 
-        # 7. System Configurations & State Machine Completion
+        # 10. Tenant Provision Profile & System Configs
+        ind_pack = getattr(business_info, "industryPack", "general_retail") or "general_retail"
+        prov_profile = TenantProvisionProfile(
+            id=f"tprof-{uuid_pkg.uuid4().hex[:12]}",
+            tenant_id=tenant_id,
+            setup_version="1.0.0",
+            schema_version="3.1.0",
+            platform_version="1.0.0",
+            industry_pack=ind_pack,
+            industry_pack_version="1.0.0",
+            license_tier=license_type,
+            created_by=actor_username,
+        )
+        db.add(prov_profile)
+
+        # Generate Configurable Setup ID: {TENANT_CODE}-{YYYYMMDD}-001
+        date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+        setup_id_str = f"{tenant_code}-{date_str}-001"
+
+        await set_system_config(db, "setup_id", setup_id_str, current_user, commit=False, actor_name=actor_username, company_id=company.id)
+        await set_system_config(db, "tenant_code", tenant_code, current_user, commit=False, actor_name=actor_username, company_id=company.id)
+        await set_system_config(db, "tenant_slug", tenant_slug, current_user, commit=False, actor_name=actor_username, company_id=company.id)
         await set_system_config(db, CURRENT_FINANCIAL_YEAR_KEY, business_financial_year, current_user, commit=False, actor_name=actor_username, company_id=company.id)
         await set_system_config(db, BOOKS_START_DATE_KEY, books_start_date, current_user, commit=False, actor_name=actor_username, company_id=company.id)
         await set_system_config(db, BUSINESS_TRADE_NAME_KEY, trade_name, current_user, commit=False, actor_name=actor_username, company_id=company.id)
@@ -880,9 +1008,10 @@ async def company_setup(
         await set_system_config(db, SETUP_COMPLETED_KEY, "true", current_user, commit=False, actor_name=actor_username, company_id=company.id)
         await set_system_config(db, SETUP_STATE_KEY, "LOCKED", current_user, commit=False, actor_name=actor_username, company_id=company.id)
 
+        # Transition Tenant lifecycle_state to ACTIVE
+        tenant_record.lifecycle_state = TenantLifecycleState.ACTIVE.value
 
-
-        # 8. Explicit Atomic Commit
+        # Explicit Atomic Commit
         await db.commit()
 
     except Exception as setup_err:

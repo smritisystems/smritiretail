@@ -22,6 +22,84 @@ from sqlalchemy import Column, String, Boolean, DateTime, SmallInteger, Date, Fo
 from sqlalchemy.orm import relationship
 from ..db.base import Base
 
+from enum import Enum
+
+class TenantLifecycleState(str, Enum):
+    CREATED = "CREATED"
+    PROVISIONING = "PROVISIONING"
+    VALIDATING = "VALIDATING"
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+    ARCHIVED = "ARCHIVED"
+    DELETED = "DELETED"
+
+
+class Tenant(Base):
+    __tablename__ = "tenants"
+
+    id              = Column(String(50), primary_key=True)
+    uuid            = Column(String(36), default=lambda: str(uuid_pkg.uuid4()), unique=True, nullable=False)
+    tenant_code     = Column(String(20), unique=True, nullable=False, index=True)
+    tenant_slug     = Column(String(100), unique=True, nullable=False, index=True)
+    name            = Column(String(255), nullable=False)
+    lifecycle_state = Column(String(30), nullable=False, default=TenantLifecycleState.CREATED.value)
+    is_active       = Column(Boolean, default=True)
+    is_deleted      = Column(Boolean, default=False)
+    created_at      = Column(DateTime(timezone=True), default=datetime.utcnow)
+    modified_at     = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TenantSettings(Base):
+    __tablename__ = "tenant_settings"
+
+    id                = Column(String(50), primary_key=True, default=lambda: f"tset-{uuid_pkg.uuid4().hex[:12]}")
+    tenant_id         = Column(String(50), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    language_code     = Column(String(10), nullable=False, default="en-IN")
+    locale            = Column(String(10), nullable=False, default="en-IN")
+    currency_code     = Column(String(3), nullable=False, default="INR")
+    timezone          = Column(String(50), nullable=False, default="Asia/Kolkata")
+    date_format       = Column(String(20), nullable=False, default="DD/MM/YYYY")
+    number_format     = Column(String(20), nullable=False, default="Indian")
+    decimal_precision = Column(SmallInteger, nullable=False, default=2)
+    ai_enabled        = Column(Boolean, nullable=False, default=True)
+    sms_enabled       = Column(Boolean, nullable=False, default=True)
+    email_enabled     = Column(Boolean, nullable=False, default=True)
+    created_at        = Column(DateTime(timezone=True), default=datetime.utcnow)
+    modified_at       = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TenantProvisionProfile(Base):
+    __tablename__ = "tenant_provision_profiles"
+
+    id                    = Column(String(50), primary_key=True, default=lambda: f"tprof-{uuid_pkg.uuid4().hex[:12]}")
+    tenant_id             = Column(String(50), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    setup_version         = Column(String(20), nullable=False, default="1.0.0")
+    schema_version        = Column(String(20), nullable=False, default="3.1.0")
+    platform_version      = Column(String(20), nullable=False, default="1.0.0")
+    industry_pack         = Column(String(50), nullable=True)
+    industry_pack_version = Column(String(20), nullable=False, default="1.0.0")
+    installed_modules     = Column(String(1000), nullable=True)
+    enabled_features      = Column(String(1000), nullable=True)
+    license_tier          = Column(String(50), nullable=False, default="Enterprise")
+    created_by            = Column(String(100), nullable=False, default="system")
+    created_at            = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class TenantProvisionJournal(Base):
+    __tablename__ = "tenant_provision_journals"
+
+    id          = Column(String(50), primary_key=True, default=lambda: f"tjr-{uuid_pkg.uuid4().hex[:12]}")
+    tenant_id   = Column(String(50), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    stage_id    = Column(String(50), nullable=False, index=True)
+    started_at  = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+    status      = Column(String(20), nullable=False, default="PASS")  # PASS, WARNING, FAIL, SKIPPED
+    duration_ms = Column(SmallInteger, nullable=True, default=0)
+    error_text  = Column(String(1000), nullable=True)
+    attempt     = Column(SmallInteger, nullable=False, default=1)
+    created_at  = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+
 class Company(Base):
     __tablename__ = "companies"
 

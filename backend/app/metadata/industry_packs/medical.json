@@ -1,0 +1,28 @@
+{
+  "id": "medical",
+  "name": "Medical / Pharmacy",
+  "version": "1.0.0",
+  "description": "Pharma and medical store pack with Batch Control, Expiry FEFO Tracking, Generic Salt Lookup, and Prescription Manager.",
+  "recommended_modules": [
+    "pos",
+    "inventory",
+    "purchase",
+    "sales",
+    "crm",
+    "barcode",
+    "batch_fefo",
+    "generic_salt",
+    "prescription"
+  ],
+  "default_uoms": ["Strip", "Tab", "Cap", "Btl", "Box", "Vial", "Tube"],
+  "barcode_parameters": {
+    "symbology": "GS1_128",
+    "auto_generate": true,
+    "prefix": "PH"
+  },
+  "default_reports": [
+    "near_expiry_fefo_report",
+    "schedule_h_drug_register",
+    "doctor_prescription_summary"
+  ]
+}
