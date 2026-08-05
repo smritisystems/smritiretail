@@ -2,7 +2,7 @@
  * Project      : SMRITI Retail OS
  * Test Suite   : Purchase Phase B — Smart Purchase Intelligence Tests
  * Standard     : AUD-004 / F-006 / F-007
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * Version      : 1.0.0
  *

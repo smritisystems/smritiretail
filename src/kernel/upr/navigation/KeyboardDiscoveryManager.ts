@@ -2,7 +2,7 @@
  * Project      : SMRITI Retail OS
  * Module       : Universal Discovery Keyboard Manager (SCS-UIX Lookup Rule-001)
  * Standard     : SCS-UIX Lookup Rule-001 — Universal Keyboard & F2 Lookup DNA
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Version      : 2.0.0
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  *

@@ -2,7 +2,7 @@
  * Project      : SMRITI Retail OS
  * Test Suite   : Sales Phase A — Contract Hardening Tests
  * Standard     : AUD-006 / SALES-A01 to SALES-A10
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * Version      : 1.0.0
  *

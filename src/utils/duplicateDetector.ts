@@ -1,7 +1,7 @@
 /**
  * Project      : SMRITI Retail OS v7.0
  * Module       : Duplicate Detection Engine (Master Data Quality Guardrail)
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * Version      : 1.0.0
  */

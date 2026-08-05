@@ -5,7 +5,7 @@ Description  : Backend resolution engine for calculating full workspace context,
                RBAC permissions, feature flags, operational policies, industry pack,
                and branding for a target workspace context (company_id, branch_id, warehouse_id).
 Standard     : SCS-WSC-001 — SMRITI Workspace Context & Resolver
-Author       : Jawahar Ramkripal Mallah & Antigravity AI
+Author       : Jawahar Ramkripal Mallah
 Version      : 1.0.0
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 """

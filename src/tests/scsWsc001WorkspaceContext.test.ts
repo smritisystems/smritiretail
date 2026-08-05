@@ -2,7 +2,7 @@
  * Project      : SMRITI Retail OS
  * Test Suite   : SCS-WSC-001 Workspace Context & Resolver Tests
  * Standard     : SCS-WSC-001 — Workspace Context & Resolver
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Version      : 1.0.0
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  *

@@ -1,7 +1,7 @@
 /**
  * Project      : SMRITI Retail OS v7.0
  * Module       : Item Completeness & Quality Score Widget (MDQE Consumer)
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * Version      : 1.0.0
  */

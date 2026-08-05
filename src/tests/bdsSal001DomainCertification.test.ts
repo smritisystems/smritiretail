@@ -2,7 +2,7 @@
  * Project      : SMRITI Retail OS
  * Test Suite   : BDS-SAL-001 POS & Sales Domain Certification Tests
  * Standard     : BDS-SAL-001 — Sales & POS Domain Business Standard
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Version      : 1.0.0
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  *

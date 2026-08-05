@@ -22,7 +22,7 @@ All Rights Reserved.
 # SMRITI Business OS v2.0 — Enterprise Architecture Specification
 
 **Specification Version:** 2.0.0 (Frozen Enterprise Baseline)  
-**Author:** Jawahar Ramkripal Mallah (Chief Systems Architect) & Antigravity AI  
+**Author:** Jawahar Ramkripal Mallah (Chief Systems Architect)  
 **Organization:** AITDL NETWORKS & SMRITIBooks.com  
 **Effective Date:** 2026-07-26  
 **Status:** **RATIFIED & FROZEN BASELINE**  

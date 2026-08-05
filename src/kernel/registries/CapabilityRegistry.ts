@@ -5,7 +5,7 @@
  *                the underlying platform supports technical features (e.g. batch,
  *                expiry, rfid, priceMatrix, thermal, digitalSignature).
  * Standard     : SCS-WSC-001 — SMRITI Workspace Context & Resolver
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Version      : 1.0.0
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  */

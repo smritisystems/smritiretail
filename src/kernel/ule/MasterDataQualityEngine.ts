@@ -2,7 +2,7 @@
  * Project      : SMRITI Retail OS v7.0
  * Module       : Master Data Quality Engine (MDQE / SPK.quality)
  * Standard     : UPR / UEDF Standard v1.0 — Reusable Enterprise Quality Engine
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * Version      : 1.0.0
  */

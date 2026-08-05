@@ -2,7 +2,7 @@
  * Project      : SMRITI Retail OS
  * Test Suite   : BDS-ITEM-001 Item Domain Certification Tests
  * Standard     : BDS-ITEM-001 — Item Domain Business Standard
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Version      : 1.0.0
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  *

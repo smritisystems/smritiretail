@@ -2,7 +2,7 @@
  * Project      : SMRITI Application Platform (SMAP) v1.0
  * Component    : IInventoryService Public Interface Contract
  * Standard     : SMAP Constitution v1.0 — Public Contract (Level 2)
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * License      : Proprietary Commercial Software
  */
 

@@ -5,7 +5,7 @@
  *                Pending Approvals, Pending GRNs, Overdue POs, Top Vendors by spend,
  *                and live status subscription via SPK.events.
  * Standard     : SEDS Standard v1.0 — Zero Legacy Slate Tokens
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Version      : 1.1.0
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  */

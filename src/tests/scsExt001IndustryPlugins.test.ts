@@ -2,7 +2,7 @@
  * Project      : SMRITI Retail OS
  * Test Suite   : SCS-EXT-001 Industry Plugins & Adapters Certification Tests
  * Standard     : SCS-EXT-001 — Extension SDK & Plugin Standard
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Version      : 1.0.0
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  *

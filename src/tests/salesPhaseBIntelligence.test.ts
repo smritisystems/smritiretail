@@ -2,7 +2,7 @@
  * Project      : SMRITI Retail OS
  * Test Suite   : Sales Phase B — POS & Sales Intelligence Tests
  * Standard     : AUD-006 / SALES-B01 to SALES-B06
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * Version      : 1.0.0
  *

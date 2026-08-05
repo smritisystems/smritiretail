@@ -2,7 +2,7 @@
  * Project      : SMRITI Application Platform (SMAP) v1.0
  * Component    : InventoryService Core Domain Implementation
  * Standard     : SMAP Constitution v1.0 — Internal Domain Engine
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * License      : Proprietary Commercial Software
  */
 

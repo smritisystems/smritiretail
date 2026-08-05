@@ -2,7 +2,7 @@
  * Project      : SMRITI Retail OS
  * Test Suite   : BDS-PUR-001 Purchase & GRN Domain Certification Tests
  * Standard     : BDS-PUR-001 — Purchase Domain Business Standard
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Version      : 1.0.0
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  *

@@ -5,7 +5,7 @@
  *                Manages Tenants, Companies, Branches, Warehouses, Users, Roles, Subscriptions & Licensing,
  *                and Financial Years.
  * Standard     : SCS-ORG-001 & SCS-PRO-001 — SMRITI Governance Standards
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Version      : 1.0.0
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  */

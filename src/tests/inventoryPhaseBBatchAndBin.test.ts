@@ -2,7 +2,7 @@
  * Project      : SMRITI Retail OS
  * Test Suite   : Inventory Phase B — Batch & Bin Tracking Tests
  * Standard     : AUD-005 / INV-B01 to INV-B05
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * Version      : 1.0.0
  *

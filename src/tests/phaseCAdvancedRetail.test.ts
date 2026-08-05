@@ -1,7 +1,7 @@
 /**
  * Project      : SMRITI Retail OS v7.0
  * Module       : Phase C Advanced Retail Operations Tests
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  */
 

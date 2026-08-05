@@ -3,7 +3,7 @@
  * Project      : SMRITI Retail OS
  * Test Suite   : SCS-UIX Lookup Rule-001 & Universal Keyboard Standard Tests
  * Standard     : SCS-UIX Lookup Rule-001
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * Version      : 1.0.0
  *

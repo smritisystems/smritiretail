@@ -4,7 +4,7 @@ Module       : OrganizationLifecycleEngine (OLE) (SCS-PRO-001 Standard)
 Description  : Manages company lifecycle state transitions (Draft -> Provisioning -> Active -> Maintenance -> Suspended -> Archived -> Deleted),
                resumable provisioning job state, Industry Plugin installation, and automated Health Checks (Validate -> Repair).
 Standard     : SCS-PRO-001 — Organization Lifecycle Engine
-Author       : Jawahar Ramkripal Mallah & Antigravity AI
+Author       : Jawahar Ramkripal Mallah
 Version      : 1.0.0
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 """

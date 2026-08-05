@@ -2,7 +2,7 @@
  * Project      : SMRITI Retail OS
  * Test Suite   : Purchase Phase A — Contract Hardening Tests
  * Standard     : AUD-004 / F-001 / F-002 / F-003 / F-004
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * Version      : 1.0.0
  *

@@ -4,7 +4,7 @@
  * Description  : Pluggable industry package system supplying Masters, Templates,
  *                Policies, Reports, Layouts, Validators, and Barcode Profiles.
  * Standard     : SCS-PRO-001 — Organization Lifecycle Engine & Industry Plugins
- * Author       : Jawahar Ramkripal Mallah & Antigravity AI
+ * Author       : Jawahar Ramkripal Mallah
  * Version      : 1.0.0
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  */
