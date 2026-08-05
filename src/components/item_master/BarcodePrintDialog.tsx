@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS v5.0
  * Module       : Browser-First Barcode Label Engine & Audit Capture (v4.0 Standard)
  * Author       : Jawahar Ramkripal Mallah
@@ -25,8 +25,9 @@ export const BarcodePrintDialog: React.FC<BarcodePrintDialogProps> = ({
   product,
   onNotification
 }) => {
+  const initialTemplate = product?.defaultLabelTemplate || (product as any)?.label_template || "50x25mm";
   const [printCount, setPrintCount] = useState<number>(10);
-  const [labelSize, setLabelSize] = useState<string>("50x25mm");
+  const [labelSize, setLabelSize] = useState<string>(initialTemplate);
   const [outputFormat, setOutputFormat] = useState<"PDF" | "ZPL" | "TSPL" | "EPL" | "DIRECT_QZ">("PDF");
   const [reprintReason, setReprintReason] = useState<string>("Manual Reprint");
   const [showPrice, setShowPrice] = useState<boolean>(true);

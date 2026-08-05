@@ -74,10 +74,41 @@ export class ItemService implements IItemService {
       .slice(0, limit);
   }
 
+  public validateStatus(product: Product | Partial<Product>): { allowed: boolean; reason?: string } {
+    const status = product.status || "Active";
+    switch (status) {
+      case "Active":
+        return { allowed: true };
+      case "Draft":
+        return { allowed: false, reason: `Item [${product.name || product.code}] is in DRAFT status and cannot be billed or ordered.` };
+      case "Inactive":
+        return { allowed: false, reason: `Item [${product.name || product.code}] is INACTIVE.` };
+      case "Blocked":
+        return { allowed: false, reason: `SECURITY ALERT: Item [${product.name || product.code}] is BLOCKED by governance.` };
+      case "Discontinued":
+        return { allowed: false, reason: `Item [${product.name || product.code}] is DISCONTINUED.` };
+      default:
+        return { allowed: true };
+    }
+  }
+
   public async save(productData: Partial<Product>): Promise<Product> {
     const isNew = !productData.id || productData.id.startsWith("prod_temp_");
     const id = productData.id || `prod_${Date.now()}`;
     
+    // Phase A Enforcement 1: Duplicate Barcode Check
+    if (productData.barcode && productData.barcode.trim()) {
+      const cleanBarcode = productData.barcode.trim();
+      const existingWithBarcode = this.localCache.find(
+        (p) => p.id !== id && (p.barcode === cleanBarcode || (p.secondaryBarcodes && p.secondaryBarcodes.includes(cleanBarcode)))
+      );
+      if (existingWithBarcode) {
+        throw new Error(
+          `DUPLICATE BARCODE REJECTED: Barcode "${cleanBarcode}" is already assigned to "${existingWithBarcode.name}" (SKU: ${existingWithBarcode.sku || existingWithBarcode.code}).`
+        );
+      }
+    }
+
     const sku: Product = {
       id,
       code: productData.code || productData.sku || `SKU-${Math.floor(100000 + Math.random() * 900000)}`,
@@ -97,6 +128,7 @@ export class ItemService implements IItemService {
       stock: productData.stock ?? productData.stock_qty ?? 0,
       stock_qty: productData.stock ?? productData.stock_qty ?? 0,
       uom: productData.uom || "Pcs",
+      status: productData.status || "Active",
       secondaryBarcodes: productData.secondaryBarcodes || [],
       attributes: productData.attributes || {}
     };

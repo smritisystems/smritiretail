@@ -206,6 +206,25 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
   // Item Selection Handlers
   const handleAddItem = (prod?: Product) => {
+    if (prod) {
+      try {
+        const itemSvc = SPK.services.resolve<IItemService>("ITEM");
+        if (itemSvc) {
+          const statusCheck = itemSvc.validateStatus(prod);
+          if (!statusCheck.allowed) {
+            showToast(statusCheck.reason || "Item status prevents billing.");
+            return;
+          }
+        }
+      } catch (e) {
+        // Fallback status check if service non-initialized
+        if (prod.status && prod.status !== "Active") {
+          showToast(`Item [${prod.name}] is ${prod.status} and cannot be billed.`);
+          return;
+        }
+      }
+    }
+
     const newItem: LineItem = prod
       ? {
           id: `item-${Date.now()}`,

@@ -29,6 +29,8 @@ export interface ProductBatch {
   stock: number;
 }
 
+export type ProductStatus = "Draft" | "Active" | "Inactive" | "Blocked" | "Discontinued";
+
 export interface Product {
   id: string;
   code: string;
@@ -52,6 +54,7 @@ export interface Product {
   sku?: string;
   hsnCode?: string;
   warehouse?: string;
+  status?: ProductStatus;
   attributes?: Record<string, string>;
   pricingMode?: "Fixed" | "Weight-based" | "Negotiated" | "Service";
   trackingMode?: "Standard" | "Batch" | "Serial" | "No-stock";
