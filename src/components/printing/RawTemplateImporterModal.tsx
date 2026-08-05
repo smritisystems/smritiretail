@@ -1,6 +1,6 @@
 /**
  * Project      : SMRITI Retail OS
- * Component    : Raw Template Importer & Mapping Wizard (DXP-RTE-001)
+ * Component    : Universal Data Binding Engine & Importer Wizard (DXP-UDBE-001)
  * Standard     : SIF-001 & SCS-DXP-001 (Consumes SEEFDialog mode="centered")
  * Author       : Jawahar Ramkripal Mallah
  * License      : Proprietary Commercial Software
@@ -14,9 +14,14 @@
  */
 
 import React, { useState } from "react";
-import { FileCode, Upload, Sparkles, CheckCircle2, RefreshCw } from "lucide-react";
+import { FileCode, Upload, Sparkles, CheckCircle2, ShieldCheck, AlertCircle, Library } from "lucide-react";
 import { SEEFDialog } from "../common/SEEFDialog.tsx";
-import { RawTemplateEngine, CATEGORIZED_MAPPING_TREE } from "../../dop/core/RawTemplateEngine.ts";
+import {
+  RawTemplateEngine,
+  CATEGORIZED_MAPPING_TREE,
+  INDUSTRY_TEMPLATE_LIBRARY,
+  IndustryTemplatePreset,
+} from "../../dop/core/RawTemplateEngine.ts";
 
 interface RawTemplateImporterModalProps {
   isOpen: boolean;
@@ -67,9 +72,23 @@ export const RawTemplateImporterModal: React.FC<RawTemplateImporterModalProps> =
     reader.readAsText(file);
   };
 
+  const handleSelectPreset = (preset: IndustryTemplatePreset) => {
+    setFileName(`${preset.id}.zpl`);
+    setTemplateName(preset.name);
+    setRawContent(preset.script);
+
+    const analysis = RawTemplateEngine.analyzeTemplate(preset.script);
+    setLanguage(preset.language);
+    setDetectedVariables(analysis.variables);
+    setMappings(preset.defaultMappings);
+    setStep("mapping");
+  };
+
   const handleMappingChange = (variable: string, field: string) => {
     setMappings((prev) => ({ ...prev, [variable]: field }));
   };
+
+  const validationReport = RawTemplateEngine.validateTemplate(rawContent, mappings);
 
   const handleSave = () => {
     onSaveTemplate({
@@ -122,28 +141,49 @@ export const RawTemplateImporterModal: React.FC<RawTemplateImporterModalProps> =
     <SEEFDialog
       open={isOpen}
       onClose={onClose}
-      title="Raw Template Import & Mapping Engine (DXP-RTE-001)"
-      subtitle="Import existing Zebra BarTender (.PRN / .ZPL / .TSPL) files without label redesign"
+      title="Universal Data Binding & Template Engine (DXP-UDBE-001)"
+      subtitle="Import existing BarTender / Zebra (.PRN / .ZPL / .TSPL) templates or select SMRITI Industry Presets"
       icon={FileCode}
       mode="centered"
       width={896}
       footer={footerActions}
     >
       <div className="space-y-4">
-        {/* STEP 1: UPLOAD */}
+        {/* STEP 1: UPLOAD OR PRESET */}
         {step === "upload" && (
-          <div className="py-8 flex flex-col items-center justify-center border-2 border-dashed border-theme-divider rounded-xl bg-theme-surface-2/30 text-center p-6 space-y-3">
-            <div className="p-3 bg-blue-500/10 text-blue-400 rounded-full">
-              <Upload className="w-8 h-8" />
+          <div className="space-y-4">
+            <div className="py-6 flex flex-col items-center justify-center border-2 border-dashed border-theme-divider rounded-xl bg-theme-surface-2/30 text-center p-6 space-y-3">
+              <div className="p-3 bg-blue-500/10 text-blue-400 rounded-full">
+                <Upload className="w-8 h-8" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-theme-heading">Upload Existing Retailer Template</h3>
+                <p className="text-xs text-theme-muted mt-1">Supports Zebra ZPL, TSC TSPL, Eltron EPL, or Raw PRN text files</p>
+              </div>
+              <label className="px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow cursor-pointer">
+                Browse .PRN / .ZPL / .TSPL File
+                <input type="file" accept=".prn,.zpl,.tspl,.tpl,.epl,.txt" onChange={handleFileUpload} className="hidden" />
+              </label>
             </div>
+
             <div>
-              <h3 className="text-sm font-bold text-theme-heading">Select Existing Printer Template</h3>
-              <p className="text-xs text-theme-muted mt-1">Supports Zebra ZPL, TSC TSPL, Eltron EPL, or Raw PRN text files</p>
+              <div className="flex items-center gap-2 mb-2 text-xs font-bold text-theme-heading">
+                <Library className="w-4 h-4 text-emerald-400" />
+                <span>Or Select from SMRITI Industry Template Library</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {INDUSTRY_TEMPLATE_LIBRARY.map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => handleSelectPreset(preset)}
+                    className="p-3 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-xl text-left transition-colors cursor-pointer"
+                  >
+                    <div className="text-xs font-bold text-theme-heading">{preset.name}</div>
+                    <div className="text-[10px] text-theme-muted mt-0.5">{preset.industry} • {preset.language} Syntax</div>
+                  </button>
+                ))}
+              </div>
             </div>
-            <label className="px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow cursor-pointer">
-              Browse .PRN / .ZPL / .TSPL File
-              <input type="file" accept=".prn,.zpl,.tspl,.tpl,.epl,.txt" onChange={handleFileUpload} className="hidden" />
-            </label>
           </div>
         )}
 
@@ -169,7 +209,7 @@ export const RawTemplateImporterModal: React.FC<RawTemplateImporterModalProps> =
             </div>
 
             <div>
-              <h4 className="text-xs font-bold text-theme-heading mb-2">Smart Field Mapping Engine ({detectedVariables.length} Placeholders Detected)</h4>
+              <h4 className="text-xs font-bold text-theme-heading mb-2">Universal Data Binding Engine ({detectedVariables.length} Placeholders Detected)</h4>
               <div className="max-h-60 overflow-y-auto border border-theme-divider rounded-xl divide-y divide-theme-divider bg-theme-surface-2/20">
                 {detectedVariables.length === 0 ? (
                   <div className="p-4 text-xs text-theme-muted text-center">No variables detected. Standard static script template.</div>
@@ -201,12 +241,16 @@ export const RawTemplateImporterModal: React.FC<RawTemplateImporterModalProps> =
           </div>
         )}
 
-        {/* STEP 3: LIVE PREVIEW */}
+        {/* STEP 3: LIVE PREVIEW & VALIDATION REPORT */}
         {step === "preview" && (
           <div className="space-y-3 font-mono text-xs">
             <div className="p-3 bg-theme-surface-2/40 border border-theme-divider rounded-xl flex items-center justify-between text-xs font-bold">
-              <span className="text-theme-heading">Live Preview ({language})</span>
-              <span className="text-emerald-400 font-normal">DXP-RTE-001 Resolved Output</span>
+              <span className="text-theme-heading flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" /> Validation Pre-check
+              </span>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded ${validationReport.isValid ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"}`}>
+                {validationReport.isValid ? "✓ Template Validated" : "⚠ Pre-check Warnings"}
+              </span>
             </div>
 
             <div className="p-4 bg-black text-emerald-400 rounded-xl overflow-x-auto max-h-64 whitespace-pre-wrap font-mono text-xs border border-theme-divider shadow-inner">
