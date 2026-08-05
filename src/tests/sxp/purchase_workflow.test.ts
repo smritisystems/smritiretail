@@ -76,6 +76,7 @@ function makeMockPurchaseService(overrides: Partial<IPurchaseService> = {}): IPu
   return {
     getPOById:     vi.fn().mockResolvedValue(null),
     getByPONumber: vi.fn().mockResolvedValue(null),
+    getBySupplier: vi.fn().mockResolvedValue([]),
     searchPOs:     vi.fn().mockResolvedValue([]),
     getAllPOs:      vi.fn().mockResolvedValue([]),
     savePO: vi.fn().mockImplementation(async (po: Partial<PurchaseOrderRecord>) => ({
@@ -91,6 +92,13 @@ function makeMockPurchaseService(overrides: Partial<IPurchaseService> = {}): IPu
       netPayable:     po.netPayable ?? 0,
       lines:          po.lines ?? [],
     } as PurchaseOrderRecord)),
+    cancelPO: vi.fn().mockImplementation(async (id: string, reason: string) => ({
+      id,
+      poNumber: `PO-${id}`,
+      supplierId: "sup-test",
+      status: "Cancelled",
+      cancellationReason: reason,
+    } as any)),
     postGRN: vi.fn().mockImplementation(async (poId: string) => ({
       id: poId, poNumber: `PO-${poId}`, supplierId: "sup-test",
       supplierName: "Test", orderDate: "2026-08-03", status: "Received",

@@ -22,6 +22,7 @@ describe("Phase B: Master Data Quality Engine (MDQE) & Business Intelligence", (
     price: 12999,
     costPrice: 8500,
     hsnCode: "50072010",
+    stock: 25,
     stock_qty: 25,
     min_stock_level: 5,
     warehouse: "Central WH-01",
