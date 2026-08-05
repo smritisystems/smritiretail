@@ -2,14 +2,19 @@
  * Project      : SMRITI Retail OS
  * Component    : DocumentStudio (SCS-DXP-001 Enterprise Architecture)
  * Description  : Modular Platform Document Studio consuming DocumentRegistry (DXP-DOC-001),
- *                DocumentRendererRegistry (DXP-REN-001), and OutputChannelRegistry (DXP-OUT-001).
+ *                TemplateRegistry (DXP-TPL-001), DocumentRendererRegistry (DXP-REN-001),
+ *                and OutputChannelRegistry (DXP-OUT-001).
  * Author       : Jawahar Ramkripal Mallah
- * Version      : 4.0.0
+ * Version      : 5.0.0
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ *
+ * SCS-DXP-001 Decoupled Platform Architecture
+ * Decouples Document Identity -> Templates -> UI Renderers -> Output Adapters.
  */
 
 import React, { useState } from "react";
 import { DocumentRegistry } from "../core/DocumentRegistry.ts";
+import { TemplateRegistry } from "../core/TemplateRegistry.ts";
 import { DocumentRendererRegistry } from "../core/DocumentRendererRegistry.ts";
 import { OutputChannelRegistry } from "../core/OutputChannelRegistry.ts";
 import { DxpDocumentType, DxpOutputChannel } from "../models/DxpTypes.ts";
@@ -61,7 +66,8 @@ export const DocumentStudio: React.FC = () => {
   const [outputStatus, setOutputStatus] = useState<string | null>(null);
 
   const activeDescriptor = DocumentRegistry.getDescriptor(selectedDocType);
-  const PreviewComponent = DocumentRendererRegistry.resolve(selectedDocType);
+  const activeTemplate = TemplateRegistry.getDefault(selectedDocType);
+  const PreviewComponent = activeTemplate.component || DocumentRendererRegistry.resolve(selectedDocType);
 
   const getPreviewData = () => {
     return selectedDocType === "BARCODE_LABEL" || selectedDocType === "SHELF_LABEL" ? BARCODE_DEMO_DATA : MOCK_DATA;
@@ -69,23 +75,32 @@ export const DocumentStudio: React.FC = () => {
 
   const handleExecuteChannel = async (channelId: DxpOutputChannel) => {
     try {
-      const channelPlugin = OutputChannelRegistry.get(channelId);
-      if (!channelPlugin) {
+      const channelAdapter = OutputChannelRegistry.get(channelId);
+      if (!channelAdapter) {
         throw new Error(`Output channel ${channelId} not registered`);
       }
 
-      const res = await channelPlugin.execute({
+      const req = {
         documentType: selectedDocType,
         referenceId: getPreviewData().invoiceNo,
         channel: channelId,
         data: getPreviewData(),
-      });
+      };
 
-      if (channelId === "PRINT") {
-        print({ templateId: activeDescriptor.defaultTemplateId || "standard-a4", data: getPreviewData() });
+      const validation = channelAdapter.validate(req);
+      if (!validation.valid) {
+        setOutputStatus(`Validation error: ${validation.reason}`);
+        setTimeout(() => setOutputStatus(null), 4000);
+        return;
       }
 
-      setOutputStatus(`Dispatched via ${channelPlugin.title} (State: ${res.lifecycleState})`);
+      const res = await channelAdapter.execute(req);
+
+      if (channelId === "PRINT") {
+        print({ templateId: activeTemplate.id, data: getPreviewData() });
+      }
+
+      setOutputStatus(`Dispatched via ${channelAdapter.title} (State: ${res.lifecycleState})`);
       setTimeout(() => setOutputStatus(null), 4000);
     } catch (err: any) {
       setOutputStatus(`Execution error: ${err.message || "Failed to process"}`);
@@ -137,7 +152,7 @@ export const DocumentStudio: React.FC = () => {
         />
 
         <DocumentPreviewCanvas
-          descriptor={activeDescriptor}
+          descriptor={{ ...activeDescriptor, format: activeTemplate.format }}
           previewComponent={PreviewComponent}
           previewData={getPreviewData()}
         />
