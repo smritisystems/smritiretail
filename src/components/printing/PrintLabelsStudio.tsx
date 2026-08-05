@@ -12,6 +12,7 @@ import { SdaRuntime } from "../../sdp/SdaRuntime.ts";
 import { WindowManager } from "../../sdk";
 import { UniversalAttributeEngine, IndustryPackManager, IndustryType } from "../../core/metadata";
 import { PRNTemplateStudio } from "./PRNTemplateStudio.tsx";
+import { RawTemplateImporterModal } from "./RawTemplateImporterModal.tsx";
 import { Product } from "../../types";
 import { SPK } from "../../kernel/SPK";
 import { IItemService } from "../../kernel/public/IItemService";
@@ -243,6 +244,8 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({ products: 
     mrp: "mrp",
     hsn: "hsnCode",
   });
+
+  const [isImporterModalOpen, setIsImporterModalOpen] = useState<boolean>(false);
 
   const getMappedProductValue = (product: Product, field: ItemMasterFieldKey): string | undefined => {
     const value = (product as any)[field];

@@ -56,5 +56,23 @@ class DOPOutputHistory(BaseEntity):
     output_target    = Column(String(200), nullable=False)
     item_count       = Column(Integer, nullable=False, default=1)
     status           = Column(String(30), nullable=False, default="COMPLETED")
-    error_message    = Column(Text, nullable=True)
     execution_time_ms= Column(Integer, nullable=True)
+
+
+class DOPRawTemplate(BaseEntity):
+    """Raw imported template mapping store (DXP-RTE-001)."""
+    __tablename__ = "dop_raw_templates"
+
+    template_name      = Column(String(200), nullable=False)
+    printer_language   = Column(String(50), nullable=False, default="ZPL") # ZPL, TSPL, EPL, ESC_POS, RAW
+    original_file_name = Column(String(255), nullable=False)
+    raw_content        = Column(Text, nullable=False)
+    detected_variables = Column(Text, nullable=False) # JSON array of extracted strings
+    field_mapping      = Column(Text, nullable=False) # JSON dictionary map
+    preview_image      = Column(Text, nullable=True)
+    printer_profile_id = Column(String(50), nullable=True)
+    company_id         = Column(String(50), nullable=True, index=True)
+    branch_id          = Column(String(50), nullable=True, index=True)
+    version            = Column(Integer, nullable=False, default=1)
+    is_default         = Column(Boolean, default=False)
+
