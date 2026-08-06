@@ -13,6 +13,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { visualizer } from "rollup-plugin-visualizer";
+import path from "node:path";
 
 const apiTarget = process.env.SMRITI_API_HOST
   ? `http://${process.env.SMRITI_API_HOST}`
@@ -88,6 +89,7 @@ export default defineConfig({
   resolve: {
     alias: {
       buffer: "buffer/",
+      pg: path.resolve(__dirname, "src/lib/pg_browser_stub.ts"),
     },
   },
   build: {
