@@ -83,7 +83,7 @@ export interface ModuleCompletenessReport {
   moduleId: string;
   moduleName: string;
   score: number; // 0 to 100%
-  readyForProduction: boolean; // True only if score >= 95% and all 9 checks pass (SPCC-GOV-012)
+  readyForProduction: boolean; // True only if score >= 95% and all 11 checks pass (SPCC-GOV-012)
   checks: {
     moduleRegistered: boolean;
     featuresRegistered: boolean;
@@ -94,6 +94,8 @@ export interface ModuleCompletenessReport {
     workspaceAssigned: boolean;
     licenseMapped: boolean;
     telemetryEnabled: boolean;
+    capabilityMapped: boolean;
+    processMapped: boolean;
   };
 }
 

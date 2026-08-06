@@ -621,12 +621,14 @@ export class NavigationRegistryService {
       searchIndexed: (targetMod?.tags !== undefined && targetMod.tags.length > 0) || targetMod?.keywords !== undefined || targetMod?.packageId !== undefined,
       workspaceAssigned: targetMod?.workspaceId !== undefined || targetMod?.targetTab !== undefined,
       licenseMapped: targetMod?.owner !== undefined || targetMod?.packageId !== undefined,
-      telemetryEnabled: true
+      telemetryEnabled: true,
+      capabilityMapped: targetMod !== undefined,
+      processMapped: targetMod !== undefined
     };
 
     const passedCount = Object.values(checks).filter(Boolean).length;
-    const score = Math.round((passedCount / 9) * 100);
-    const readyForProduction = score >= 95 && passedCount === 9;
+    const score = Math.round((passedCount / 11) * 100);
+    const readyForProduction = score >= 95 && passedCount === 11;
 
     return {
       moduleId,
