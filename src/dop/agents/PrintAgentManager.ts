@@ -4,7 +4,7 @@
  * Component    : PrintAgentManager (DXP-AGT-001 Standard)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Standard     : SCS-DXP-002 — Printing Intelligence Layer
+ * Standard     : SCS-DXP-002 Enterprise Printing Architecture v2.0
  * Version      : 2.0.0
  * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
@@ -20,16 +20,21 @@ import { CpclAgent } from "./protocol/CpclAgent.ts";
 import { PrinterHealthAgent } from "./system/PrinterHealthAgent.ts";
 import { QueueManagerAgent } from "./system/QueueManagerAgent.ts";
 import { RetryAgent } from "./system/RetryAgent.ts";
+import { PrinterDiscoveryAgent } from "./system/PrinterDiscoveryAgent.ts";
+import { CapabilityResolver } from "../core/CapabilityResolver.ts";
 import { DxpDocumentRequest, DxpDocumentResult } from "../models/DxpTypes.ts";
 
 export class PrintAgentManagerEngine {
   private agents: Map<string, IPrintAgent> = new Map();
+  private discoveryAgent: PrinterDiscoveryAgent;
 
   constructor() {
+    this.discoveryAgent = new PrinterDiscoveryAgent();
     this.registerDefaultAgents();
   }
 
   private registerDefaultAgents() {
+    this.register(this.discoveryAgent);
     this.register(new EscPosAgent());
     this.register(new ZplAgent());
     this.register(new TsplAgent());
@@ -58,6 +63,10 @@ export class PrintAgentManagerEngine {
   }
 
   public resolveAgent(req: DxpDocumentRequest): IPrintAgent {
+    const printerId = req.options?.printerId as string;
+    const profile = printerId ? this.discoveryAgent.getProfile(printerId) : undefined;
+    const driver = CapabilityResolver.resolveDriver(req, profile);
+
     const activeAgents = this.listAgents();
     for (const agent of activeAgents) {
       if (agent.canHandle(req)) {
@@ -68,8 +77,17 @@ export class PrintAgentManagerEngine {
   }
 
   public async dispatch(req: DxpDocumentRequest): Promise<DxpDocumentResult> {
+    const printerId = req.options?.printerId as string;
+    const profile = printerId ? this.discoveryAgent.getProfile(printerId) : undefined;
+    const driver = CapabilityResolver.resolveDriver(req, profile);
+    const transport = CapabilityResolver.resolveTransport(profile);
+
     const agent = this.resolveAgent(req);
-    console.log(`[DXP-AGT-001 PrintAgentManager]: Routing ${req.documentType} via ${agent.name} (${agent.standardId}).`);
+    console.log(`[DXP-AGT-001 PrintAgentManager]: Resolved Driver [${driver.name}], Transport [${transport.name}], Agent [${agent.name} (${agent.standardId})].`);
+
+    const compiledData = driver.compile(req);
+    await transport.send(compiledData);
+
     return agent.process(req);
   }
 }
