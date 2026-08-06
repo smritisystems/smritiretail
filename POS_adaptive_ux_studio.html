@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SMRITI Adaptive UX Studio v1.0</title>
+  <style>
+    /* Design tokens (updated to support brand palettes and fonts) */
+    :root{
+      /* visual tokens (will be overridden by Brand palettes) */
+      --bg:#eef4ff;
+      --panel:#fff;
+      --muted:#6b7280;
+      --brand:#1f6feb;
+      --accent:#0ea5a4;
+      --success:#16a34a;
+      --warning:#f59e0b;
+      --danger:#ef4444;
+      --radius:12px;
+      --ui-font: Inter, system-ui, -apple-system, "Segoe UI", Roboto, 'Helvetica Neue', Arial;
+    }
+
+    /* body uses variable font so JS can swap families */
+    body{font-family:var(--ui-font);margin:0;background:linear-gradient(180deg,#f7fbff 0%,#eef4ff 60%);color:#071022}
+    .studio{max-width:1400px;margin:20px auto;padding:18px;display:flex;gap:18px}
+    .sidebar{width:320px;background:var(--panel);border-radius:12px;padding:14px;box-shadow:0 8px 28px rgba(2,6,23,0.06)}
+    .main{flex:1;display:flex;flex-direction:column;gap:12px}
+    h1{font-size:18px;margin:0 0 8px}
+    .control{margin-bottom:12px}
+    .label{font-size:13px;color:var(--muted);margin-bottom:6px}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    button.btn{padding:8px 10px;border-radius:10px;border:1px solid rgba(2,6,23,0.06);background:white;cursor:pointer}
+    button.btn.active{background:linear-gradient(90deg,var(--brand),#4b90ff);color:white;border:0;box-shadow:0 8px 22px rgba(31,111,235,0.14)}
+    .brand-btn{padding:8px 10px;border-radius:10px;border:1px solid rgba(2,6,23,0.06);cursor:pointer}
+    select, input[type=range]{width:100%}
+    .preview-shell{background:linear-gradient(180deg,#f8fbff, #ffffff);padding:12px;border-radius:12px;box-shadow:0 10px 30px rgba(2,6,23,0.06);min-height:620px;display:flex;flex-direction:column}
+    .preview-toolbar{display:flex;justify-content:space-between;align-items:center;padding:8px 6px}
+    .preview-area{flex:1;display:flex;align-items:center;justify-content:center}
+    .viewport{background:linear-gradient(180deg,#fff,#fbfdff);border-radius:18px;padding:8px;box-shadow:0 12px 30px rgba(2,6,23,0.06);width:360px;height:780px;display:flex;flex-direction:column;overflow:hidden}
+    .viewport.w-320{width:320px;height:720px}
+    .viewport.w-480{width:480px;height:740px}
+    .viewport.w-600{width:600px;height:800px}
+    .viewport.w-900{width:900px;height:820px}
+    .viewport.w-1200{width:1200px;height:820px}
+    .device-inner{display:flex;flex-direction:column;height:100%;gap:10px;padding:12px}
+    .app-header{display:flex;align-items:center;justify-content:space-between}
+    .logo{display:flex;align-items:center;gap:8px}
+    .logo .mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--brand),#8ab7ff);display:flex;align-items:center;justify-content:center;color:white;font-weight:700}
+    .search{display:flex;gap:8px;align-items:center;background:rgba(2,6,23,0.03);padding:8px;border-radius:10px}
+    .list{overflow:auto}
+    .item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:10px;margin-bottom:8px;background:linear-gradient(180deg,#fff,#fbfdff)}
+    .cart{background:linear-gradient(180deg,#fff,#f8fbff);padding:10px;border-radius:12px;box-shadow:0 8px 22px rgba(2,6,23,0.04)}
+    .paybar{display:flex;align-items:center;justify-content:space-between;padding:10px;border-radius:12px;background:linear-gradient(90deg,var(--brand),#4b90ff);color:white}
+    .muted{color:var(--muted)}
+    .split{display:flex;gap:12px}
+    .footer-hint{font-size:13px;color:var(--muted);margin-top:8px}
+    /* Dark theme */
+    .dark{background:linear-gradient(180deg,#071022 0%, #071827 60%);color:#e6eef8}
+    .dark .sidebar{background:#071826}
+    .dark .preview-shell{background:linear-gradient(180deg,#071022,#071827)}
+    .dark .viewport{background:linear-gradient(180deg,#0b1220,#081422)}
+    .controls-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .industry-list{display:flex;flex-direction:column;gap:6px}
+    .modes{display:flex;gap:6px}
+  </style>
+</head>
+<body>
+  <div style="max-width:1400px;margin:18px auto;padding:0 14px">
+    <h1>SMRITI Adaptive UX Studio v1.0</h1>
+    <p class="muted">Preview the same POS reference across devices, themes, modes and industries. Design-first, code frozen.</p>
+  </div>
+  <div class="studio">
+    <aside class="sidebar">
+      <div class="control">
+        <div class="label">Theme</div>
+        <div class="row">
+          <button class="btn active" data-theme="light">Light</button>
+          <button class="btn" data-theme="dark">Dark</button>
+          <button class="btn" data-theme="hc">High Contrast</button>
+        </div>
+      </div>
+
+      <div class="control">
+        <div class="label">Brand Identity</div>
+        <div class="row">
+          <button class="btn active" data-brand="A">Enterprise Blue</button>
+          <button class="btn" data-brand="B">Premium Retail</button>
+          <button class="btn" data-brand="C">Luxury</button>
+        </div>
+      </div>
+
+      <div class="control">
+        <div class="label">Font</div>
+        <div class="row">
+          <button class="btn active" data-font="Inter">Inter</button>
+          <button class="btn" data-font="Manrope">Manrope</button>
+          <button class="btn" data-font="Plus Jakarta Sans">Plus Jakarta Sans</button>
+        </div>
+      </div>
+
+      <div class="control">
+        <div class="label">Device (Adaptive breakpoint)</div>
+        <div class="row">
+          <button class="btn active" data-device="mobile">Mobile</button>
+          <button class="btn" data-device="m-land">M-Land</button>
+          <button class="btn" data-device="tablet8">8" Tab</button>
+          <button class="btn" data-device="tablet10">10" Tab</button>
+          <button class="btn" data-device="laptop">Laptop</button>
+          <button class="btn" data-device="desktop">Desktop</button>
+          <button class="btn" data-device="ultrawide">UltraWide</button>
+        </div>
+      </div>
+
+      <div class="control">
+        <div class="label">Mode</div>
+        <div class="modes">
+          <button class="btn active" data-mode="simple">Simple</button>
+          <button class="btn" data-mode="standard">Standard</button>
+          <button class="btn" data-mode="advanced">Advanced</button>
+        </div>
+      </div>
+
+      <div class="control">
+        <div class="label">Industry Pack</div>
+        <div class="industry-list">
+          <label><input type="radio" name="industry" value="retail" checked> Retail (default)</label>
+          <label><input type="radio" name="industry" value="apparel"> Apparel</label>
+          <label><input type="radio" name="industry" value="footwear"> Footwear</label>
+          <label><input type="radio" name="industry" value="medical"> Medical</label>
+          <label><input type="radio" name="industry" value="jewelry"> Jewellery</label>
+          <label><input type="radio" name="industry" value="restaurant"> Restaurant</label>
+          <label><input type="radio" name="industry" value="electronics"> Electronics</label>
+        </div>
+      </div>
+
+      <div class="control">
+        <div class="label">Responsive width slider</div>
+        <input id="widthRange" type="range" min="320" max="1600" value="360" />
+        <div class="footer-hint">Width: <span id="widthVal">360</span>px — Drag to preview responsive adaptation</div>
+      </div>
+
+      <div class="control">
+        <div class="label">Preview Toggles</div>
+        <div class="controls-grid">
+          <label><input type="checkbox" id="showGrid" /> Show layout grid</label>
+          <label><input type="checkbox" id="showShadow" checked /> Show shadows</label>
+          <label><input type="checkbox" id="showThumbHint" checked /> Show One-Thumb guides</label>
+          <label><input type="checkbox" id="showMotion" checked /> Motion (demo)</label>
+        </div>
+      </div>
+
+      <div style="margin-top:12px" class="control">
+        <div class="label">Quick Presets</div>
+        <div class="row">
+          <button class="btn" id="presetMobile">Mobile Light — Simple</button>
+          <button class="btn" id="presetDesktop">Desktop Dark — Advanced</button>
+        </div>
+      </div>
+
+      <div style="margin-top:18px" class="control muted">Deliverables:
+        <ul>
+          <li>Mobile / Tablet / Desktop mockups</li>
+          <li>Light / Dark / High-contrast</li>
+          <li>Simple / Standard / Advanced</li>
+          <li>Industry packs</li>
+        </ul>
+      </div>
+    </aside>
+
+    <section class="main">
+      <div class="preview-shell" id="previewShell">
+        <div class="preview-toolbar">
+          <div class="split">
+            <div><strong id="previewLabel">Mobile — Light — Simple</strong></div>
+            <div class="muted">Adaptive Studio (code frozen)</div>
+          </div>
+          <div class="split"><div class="muted">Device width: <span id="deviceW">360</span>px</div><div class="muted" id="industryLabel">Retail</div></div>
+        </div>
+
+        <div class="preview-area">
+          <!-- viewport will be updated by JS to show appropriate device layout -->
+          <div id="viewport" class="viewport w-320" role="region" aria-label="Adaptive preview">
+            <div class="device-inner" id="deviceInner">
+              <div class="app-header">
+                <div class="logo"><div class="mark">S</div><div style="font-weight:700">SMRITI POS</div></div>
+                <div class="muted">Rakesh • <span style="color:var(--success)">●</span> Online</div>
+              </div>
+              <div class="search"><input style="border:0;background:transparent;outline:none;font-size:15px;width:100%" placeholder="Search or scan — always focused" /></div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:8px;overflow:auto;padding-right:6px" id="listArea">
+                <!-- items populated by JS -->
+              </div>
+              <div class="cart" id="cartArea">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:700">Cart <span class="muted">(3)</span></div><div style="display:flex;gap:8px"><button class="btn">Hold</button><button class="btn">Clear</button></div></div>
+                <div id="cartRows">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+          <div class="muted">Studio Preview — adjust controls on the left to simulate device, theme, mode and industry</div>
+          <div>
+            <button class="btn" id="exportPNG">Export PNG</button>
+            <button class="btn" id="approveBtn">Approve UX Studio</button>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="muted">Tip:</div>
+        <div class="muted">Start with Mobile — Simple — Retail, then toggle modes and industries to validate adaptive behavior.</div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Studio state (includes brand & font)
+    const state = {theme:'light', device:'mobile', mode:'simple', industry:'retail', width:360, brand:'A', font:'Inter', showGrid:false, showShadow:true, showThumbHint:true, showMotion:true};
+    const viewport = document.getElementById('viewport');
+    const deviceInner = document.getElementById('deviceInner');
+    const listArea = document.getElementById('listArea');
+    const cartRows = document.getElementById('cartRows');
+    const previewLabel = document.getElementById('previewLabel');
+    const deviceW = document.getElementById('deviceW');
+    const widthRange = document.getElementById('widthRange');
+    const widthVal = document.getElementById('widthVal');
+    const industryLabel = document.getElementById('industryLabel');
+
+    // Brand palettes (A,B,C) — colors chosen to match requested tones
+    const palettes = {
+      A: { name:'Enterprise Blue', primary:'#0f4bc6', secondary:'#475569', accent:'#06b6d4', success:'#10b981', warning:'#f59e0b', danger:'#dc2626', panel:'#ffffff' },
+      B: { name:'Premium Retail', primary:'#2b2b8f', secondary:'#111827', accent:'#06b6d4', success:'#10b981', warning:'#d4af37', danger:'#ef4444', panel:'#ffffff' },
+      C: { name:'Luxury', primary:'#071022', secondary:'#1f2937', accent:'#d4af37', success:'#10b981', warning:'#b58105', danger:'#b91c1c', panel:'#f9f6f2' }
+    };
+
+    // Font stacks to compare (Inter, Manrope, Plus Jakarta Sans)
+    const fontStacks = {
+      'Inter': 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
+      'Manrope': 'Manrope, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
+      'Plus Jakarta Sans': '"Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif'
+    };
+
+    function applyPalette(key){
+      const p = palettes[key]; if(!p) return; 
+      document.documentElement.style.setProperty('--brand', p.primary);
+      document.documentElement.style.setProperty('--accent', p.accent);
+      document.documentElement.style.setProperty('--muted', p.secondary);
+      document.documentElement.style.setProperty('--panel', p.panel);
+    }
+    function applyFont(name){
+      const f = fontStacks[name] || fontStacks['Inter'];
+      document.documentElement.style.setProperty('--ui-font', f);
+    }
+
+    // sample product sets by industry
+    const products = {
+      retail:[{n:'Milk 1L',p:'₹45'},{n:'Bread — White',p:'₹20'},{n:'Coke 500ml',p:'₹40'},{n:'Nike Air',p:'₹2,499'}],
+      apparel:[{n:'T-Shirt — L',p:'₹699'},{n:'Jeans 32',p:'₹1,199'},{n:'Cap',p:'₹199'}],
+      footwear:[{n:'Sneakers 9',p:'₹3,499'},{n:'Sandals',p:'₹899'},{n:'Socks 3pk',p:'₹199'}],
+      medical:[{n:'Paracetamol 10',p:'₹45'},{n:'Mask 50pk',p:'₹349'},{n:'Thermometer',p:'₹899'}],
+      jewelry:[{n:'Gold Ring',p:'₹25,000'},{n:'Silver Chain',p:'₹3,499'},{n:'Earrings',p:'₹1,599'}],
+      restaurant:[{n:'Chicken Biryani',p:'₹249'},{n:'Veg Thali',p:'₹159'},{n:'Coke 500ml',p:'₹40'}],
+      electronics:[{n:'Phone Charger',p:'₹499'},{n:'Screen Protector',p:'₹199'},{n:'Earbuds',p:'₹1,299'}]
+    };
+
+    function setActiveButtonAttr(selector, attr, value){
+      document.querySelectorAll(selector).forEach(b=>{
+        if(b.dataset && b.dataset[attr]===value) b.classList.add('active'); else b.classList.remove('active');
+      })
+    }
+
+    function renderViewport(){
+      // apply theme
+      document.body.classList.toggle('dark', state.theme==='dark');
+      previewLabel.textContent = `${capitalize(state.device)} — ${capitalize(state.theme)} — ${capitalize(state.mode)}`;
+      deviceW.textContent = state.width;
+      industryLabel.textContent = capitalize(state.industry);
+
+      // width classes
+      viewport.className = 'viewport';
+      if(state.width<=360) viewport.classList.add('w-320');
+      else if(state.width<=480) viewport.classList.add('w-480');
+      else if(state.width<=600) viewport.classList.add('w-600');
+      else if(state.width<=900) viewport.classList.add('w-900');
+      else viewport.classList.add('w-1200');
+
+      // fill lists based on industry and mode
+      listArea.innerHTML=''; cartRows.innerHTML='';
+      const set = products[state.industry] || products.retail;
+      set.forEach((p,i)=>{
+        const it = document.createElement('div'); it.className='item';
+        it.innerHTML = `<div><div style=\"font-weight:700\">${p.n}</div><div class=\"muted\">${p.p}</div></div><div><button class=\"btn\">+ Add</button></div>`;
+        listArea.appendChild(it);
+      });
+
+      // cart sample rows (mode affects density)
+      const cartSample = [ {n:set[set.length-1].n, q:2, p:set[set.length-1].p}, {n:set[0].n,q:1,p:set[0].p} ];
+      cartSample.forEach(r=>{
+        const row = document.createElement('div'); row.className='item';
+        row.innerHTML = `<div><div style=\"font-weight:700\">${r.n}</div><div class=\"muted\">Qty ${r.q}</div></div><div style=\"font-weight:700\">${r.p}</div>`;
+        cartRows.appendChild(row);
+      });
+
+      // show thumb hints
+      deviceInner.querySelectorAll('.thumb-hint').forEach(n=>n.remove());
+      if(state.showThumbHint && viewport.classList.contains('w-320')){
+        const hint = document.createElement('div'); hint.className='thumb-hint muted'; hint.style.fontSize='13px'; hint.style.marginTop='6px'; hint.textContent='One-thumb area: bottom 120px — Pay should be here'; deviceInner.appendChild(hint);
+      }
+    }
+
+    function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+
+    // attach handlers
+    document.querySelectorAll('[data-theme]').forEach(b=>b.addEventListener('click',e=>{ state.theme=b.dataset.theme; setActiveButtonAttr('[data-theme]','theme',state.theme); renderViewport(); }));
+    document.querySelectorAll('[data-device]').forEach(b=>b.addEventListener('click',e=>{ state.device=b.dataset.device; setActiveButtonAttr('[data-device]','device',state.device); // map device to width
+      if(state.device==='mobile'){state.width=360}
+      else if(state.device==='m-land'){state.width=480}
+      else if(state.device==='tablet8'){state.width=600}
+      else if(state.device==='tablet10'){state.width=900}
+      else if(state.device==='laptop'){state.width=1100}
+      else if(state.device==='desktop'){state.width=1300}
+      else if(state.device==='ultrawide'){state.width=1700}
+      widthRange.value = state.width; widthVal.textContent=state.width; renderViewport(); }));
+    document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',e=>{ state.mode=b.dataset.mode; setActiveButtonAttr('[data-mode]','mode',state.mode); renderViewport(); }));
+    document.querySelectorAll('input[name="industry"]').forEach(r=>r.addEventListener('change',e=>{ state.industry=e.target.value; renderViewport(); }));
+    widthRange.addEventListener('input',e=>{ state.width=+e.target.value; widthVal.textContent=state.width; deviceW.textContent=state.width; renderViewport(); });
+
+    // Brand and Font controls (live identity switch)
+    document.querySelectorAll('[data-brand]').forEach(b=>b.addEventListener('click',e=>{ state.brand=b.dataset.brand; setActiveButtonAttr('[data-brand]','brand',state.brand); applyPalette(state.brand); renderViewport(); }));
+    document.querySelectorAll('[data-font]').forEach(b=>b.addEventListener('click',e=>{ state.font=b.dataset.font; setActiveButtonAttr('[data-font]','font',state.font); applyFont(state.font); renderViewport(); }));
+    // apply initial palette & font
+    applyPalette(state.brand); applyFont(state.font);
+
+    document.getElementById('showGrid').addEventListener('change',e=>state.showGrid=e.target.checked);
+    document.getElementById('showShadow').addEventListener('change',e=>state.showShadow=e.target.checked);
+    document.getElementById('showThumbHint').addEventListener('change',e=>state.showThumbHint=e.target.checked);
+    document.getElementById('showMotion').addEventListener('change',e=>state.showMotion=e.target.checked);
+
+    document.getElementById('presetMobile').addEventListener('click',()=>{ document.querySelector('[data-device="mobile"]').click(); document.querySelector('[data-theme="light"]').click(); document.querySelector('[data-mode="simple"]').click(); document.querySelector('input[name="industry"][value="retail"]').checked=true; state.industry='retail'; renderViewport(); });
+    document.getElementById('presetDesktop').addEventListener('click',()=>{ document.querySelector('[data-device="desktop"]').click(); document.querySelector('[data-theme="dark"]').click(); document.querySelector('[data-mode="advanced"]').click(); document.querySelector('input[name="industry"][value="electronics"]').checked=true; state.industry='electronics'; renderViewport(); });
+
+    document.getElementById('exportPNG').addEventListener('click',()=>alert('Export PNG — use browser screenshot (design-only preview)'));
+    document.getElementById('approveBtn').addEventListener('click',()=>alert('Studio Approved: Next step — prepare Handoff assets (not implemented)'));
+
+    // init
+    renderViewport();
+  </script>
+</body>
+</html>
