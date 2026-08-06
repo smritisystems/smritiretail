@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SMRITI POS — Polished Reference Mockup (Design-only)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#f6f8fb; --card:#ffffff; --muted:#667085; --accent:#2563eb; --accent-600:#1e40af; --success:#16a34a; --warn:#f59e0b; --danger:#ef4444; --glass:rgba(16,24,40,0.06);
+      --radius:14px; --pad:16px; --shadow: 0 6px 24px rgba(16,24,40,0.08);
+      --money:32px; --money-compact:22px;
+    }
+
+    *{box-sizing:border-box}
+    body{font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,'Plus Jakarta Sans',Arial; margin:0; background:linear-gradient(180deg,#eef2ff 0%,#f6f8fb 100%); color:#071133}
+    .container{max-width:1300px;margin:28px auto;padding:22px;display:flex;flex-direction:column;gap:18px}
+    h1{font-size:18px;margin:0 0 4px}
+    .sub{color:var(--muted);font-size:13px}
+
+    .grid{display:grid;grid-template-columns:1fr;gap:18px}
+    .variants{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+
+    /* Canvas */
+    .canvas{display:grid;grid-template-columns:58% 40%;gap:18px;height:520px}
+
+    /* Header */
+    .header{height:56px;border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,#fff,#fbfdff);box-shadow:var(--shadow)}
+    .brand{display:flex;align-items:center;gap:12px}
+    .brand .logo{width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;color:white;font-weight:700}
+    .brand .title{font-weight:700}
+    .status{font-size:13px;color:var(--muted)}
+
+    /* Left area (search & discovery) */
+    .left{display:flex;flex-direction:column;gap:14px}
+    .search-card{background:var(--card);padding:14px;border-radius:12px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px}
+    .search-left{display:flex;flex-direction:column;flex:1}
+    .search-primary{font-weight:700;color:#071133;font-size:15px}
+    .search-input{margin-top:8px;display:flex;align-items:center;gap:8px}
+    .search-input input{flex:1;padding:12px 14px;border-radius:10px;border:1px solid rgba(14,20,30,0.06);font-weight:600}
+    .scan-btn{background:linear-gradient(90deg,var(--accent),var(--accent-600));color:white;padding:10px 12px;border-radius:10px;font-weight:700;border:none;box-shadow:0 6px 18px rgba(37,99,235,0.18)}
+
+    .discover{display:flex;flex-direction:column;gap:10px;overflow:auto;height:calc(100% - 140px)}
+    .section-title{font-size:13px;color:var(--muted);margin-bottom:6px}
+    .list{display:flex;flex-direction:column;gap:10px}
+    .item-card{display:flex;align-items:center;justify-content:space-between;padding:12px;border-radius:12px;background:linear-gradient(180deg,#fff,#fcfdff);box-shadow:0 8px 20px rgba(15,23,42,0.04);border:1px solid rgba(16,24,40,0.03)}
+    .item-left{display:flex;gap:12px;align-items:center}
+    .product-swatch{width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,#eef2ff,#fff);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent)}
+    .product-meta{display:flex;flex-direction:column}
+    .product-title{font-weight:700}
+    .product-sub{font-size:13px;color:var(--muted)}
+    .add-btn{background:transparent;border:1px solid rgba(37,99,235,0.14);padding:8px 10px;border-radius:8px;color:var(--accent);font-weight:700}
+
+    /* Right (cart) */
+    .cart{display:flex;flex-direction:column;gap:12px;height:100%}
+    .cart-box{flex:1;background:linear-gradient(180deg,#fff,#fbfdff);border-radius:12px;padding:12px;box-shadow:var(--shadow);display:flex;flex-direction:column}
+    .cart-header{display:flex;justify-content:space-between;align-items:center}
+    .cart-title{font-weight:800;font-size:16px}
+    .cart-actions{display:flex;gap:10px;align-items:center}
+    .plain-btn{background:transparent;border:none;color:var(--muted);font-weight:700;padding:8px 10px;border-radius:8px}
+
+    .cart-list{flex:1;overflow:auto;margin-top:10px;display:flex;flex-direction:column;gap:10px}
+    .row{display:grid;grid-template-columns:1fr 120px 90px;gap:12px;align-items:center;padding:12px;border-radius:10px;background:linear-gradient(180deg,#fff,#fff);border:1px solid rgba(16,24,40,0.03)}
+    .row .title{font-weight:700}
+    .row .price{font-weight:800;text-align:right}
+    .qty-group{display:flex;align-items:center;gap:8px;justify-content:center}
+    .step{width:36px;height:36px;border-radius:8px;border:1px solid rgba(16,24,40,0.06);display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .qty-num{min-width:28px;text-align:center;font-weight:700}
+
+    /* Pay bar — hero */
+    .pay-hero{height:86px;border-radius:12px;background:linear-gradient(90deg,var(--accent),var(--accent-600));color:white;display:flex;align-items:center;justify-content:space-between;padding:16px 20px;box-shadow:0 20px 40px rgba(37,99,235,0.18)}
+    .pay-left{display:flex;flex-direction:column}
+    .pay-total{font-size:34px;font-weight:900;letter-spacing:-0.6px}
+    .pay-sub{font-size:13px;opacity:0.9}
+    .pay-ctas{display:flex;gap:10px;align-items:center}
+    .pay-primary{background:white;color:var(--accent);padding:12px 20px;border-radius:12px;font-weight:800}
+    .pay-secondary{background:rgba(255,255,255,0.12);color:white;padding:10px 14px;border-radius:10px}
+
+    /* Mobile mock */
+    .mobile-frame{width:360px;height:720px;border-radius:18px;background:linear-gradient(180deg,#fff,#f8fafc);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+    .m-search{padding:14px;border-bottom:1px solid rgba(2,6,23,0.04)}
+    .m-list{flex:1;padding:12px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+    .m-pay{padding:12px;border-top:1px solid rgba(2,6,23,0.04);background:linear-gradient(180deg,#fff,#f9fafb)}
+    .m-pay .pay-now{background:linear-gradient(90deg,var(--accent),var(--accent-600));color:white;padding:14px;border-radius:12px;text-align:center;font-weight:800}
+
+    /* Dark theme overrides */
+    .dark-root{--bg:#071025; --card:#071425; color:#e6eefc; background:linear-gradient(180deg,#041028,#071025)}
+    .dark-root .search-card{background:linear-gradient(180deg,#071425,#051020);box-shadow:0 8px 30px rgba(2,6,23,0.5)}
+    .dark-root .item-card{background:linear-gradient(180deg,#071425,#041022);box-shadow:0 10px 28px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03)}
+    .dark-root .cart-box{background:linear-gradient(180deg,#071425,#041022);box-shadow:0 10px 28px rgba(2,6,23,0.6)}
+    .dark-root .pay-hero{background:linear-gradient(90deg,#0846a8,#05206a);box-shadow:0 20px 48px rgba(2,6,23,0.6)}
+
+    /* small helpers */
+    .muted{color:var(--muted);font-size:13px}
+    .shadow-sm{box-shadow:0 6px 18px rgba(16,24,40,0.06)}
+
+    /* subtle motion */
+    .item-card, .row{transition:transform .18s ease, box-shadow .18s ease}
+    .item-card:hover, .row:hover{transform:translateY(-6px);box-shadow:0 18px 36px rgba(15,23,42,0.08)}
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>SMRITI POS — Polished Reference Mockup</h1>
+    <div class="sub">Design-only mockup: Desktop & Mobile, Light & Dark. This is a high-fidelity visual mockup (no app code changes).</div>
+
+    <div class="variants">
+      <!-- Desktop Light Polished -->
+      <div style="background:transparent;padding:8px;border-radius:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-weight:800">Desktop — Light (polished)</div>
+          <div class="muted">Preview</div>
+        </div>
+        <div class="canvas">
+          <div>
+            <div class="header">
+              <div class="brand"><div class="logo">S</div><div class="title">SMRITI POS</div></div>
+              <div class="status">Rakesh • <span style="color:var(--success)">● Online</span></div>
+            </div>
+
+            <div class="search-card" style="margin-top:12px">
+              <div class="search-left">
+                <div class="search-primary">🔍 Search or scan barcode</div>
+                <div class="search-input"><input placeholder="Scan barcode or type to search — focus is persistent"><button class="scan-btn">Scan</button></div>
+              </div>
+            </div>
+
+            <div class="discover">
+              <div>
+                <div class="section-title">Suggestions</div>
+                <div class="list">
+                  <div class="item-card">
+                    <div class="item-left"><div class="product-swatch">M</div><div class="product-meta"><div class="product-title">Milk 1L</div><div class="product-sub">₹45 • Stock 24</div></div></div>
+                    <div><button class="add-btn">+ Add</button></div>
+                  </div>
+                  <div class="item-card">
+                    <div class="item-left"><div class="product-swatch">C</div><div class="product-meta"><div class="product-title">Coke 500ml</div><div class="product-sub">₹40 • Stock 12</div></div></div>
+                    <div><button class="add-btn">+ Add</button></div>
+                  </div>
+                  <div class="item-card">
+                    <div class="item-left"><div class="product-swatch">N</div><div class="product-meta"><div class="product-title">Nike Air</div><div class="product-sub">₹2,499 • Size avail</div></div></div>
+                    <div><button class="add-btn">+ Add</button></div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top:10px">
+                <div class="section-title">Favorites</div>
+                <div class="list">
+                  <div class="item-card"><div class="item-left"><div class="product-swatch">F</div><div class="product-meta"><div class="product-title">Bread — White</div><div class="product-sub">₹20</div></div></div><div><button class="add-btn">+ Add</button></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="cart">
+            <div class="cart-box">
+              <div class="cart-header"><div><div class="cart-title">Cart <span class="muted">(3 items)</span></div></div><div class="cart-actions"><button class="plain-btn">Hold</button><button class="plain-btn">Clear</button></div></div>
+
+              <div class="cart-list">
+                <div class="row"><div><div class="title">Nike Air</div><div class="muted">SKU 2345</div></div><div class="qty-group"><div class="step">−</div><div class="qty-num">2</div><div class="step">+</div></div><div class="price">₹4,998</div></div>
+                <div class="row"><div><div class="title">Milk 1L</div><div class="muted">SKU 998</div></div><div class="qty-group"><div class="step">−</div><div class="qty-num">1</div><div class="step">+</div></div><div class="price">₹45</div></div>
+                <div class="row"><div><div class="title">Coke 500ml</div><div class="muted">SKU 108</div></div><div class="qty-group"><div class="step">−</div><div class="qty-num">1</div><div class="step">+</div></div><div class="price">₹40</div></div>
+              </div>
+
+              <div class="pay-hero">
+                <div class="pay-left"><div class="pay-total">₹5,083</div><div class="pay-sub">3 Items • Subtotal • Tax</div></div>
+                <div class="pay-ctas"><div class="pay-secondary">Hold</div><div class="pay-primary">PAY NOW →</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile Light Polished -->
+      <div style="background:transparent;padding:8px;border-radius:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-weight:800">Mobile — Light (polished)</div>
+          <div class="muted">Preview</div>
+        </div>
+        <div style="display:flex;gap:18px;align-items:flex-start">
+          <div class="mobile-frame">
+            <div style="padding:12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(2,6,23,0.04)"><div style="display:flex;gap:10px;align-items:center"><div class="logo" style="width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:linear-gradient(90deg,var(--accent),var(--accent-600);color:white">S</div><div style="font-weight:700">SMRITI POS</div></div><div class="muted">Online</div></div>
+            <div class="m-search"><input style="width:100%;padding:12px;border-radius:12px;border:1px solid rgba(2,6,23,0.04);font-weight:700" placeholder="Scan or search — focus persistent"></div>
+            <div class="m-list">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:12px;background:#fff;box-shadow:var(--shadow)"><div><div style="font-weight:700">Milk 1L</div><div class="muted">₹45</div></div><div style="font-weight:800">＋</div></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:12px;background:#fff;box-shadow:var(--shadow)"><div><div style="font-weight:700">Coke 500ml</div><div class="muted">₹40</div></div><div style="font-weight:800">＋</div></div>
+            </div>
+            <div class="m-pay"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:900;font-size:20px">₹5,083</div><div class="pay-now">PAY NOW</div></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:center;justify-content:space-between">
+      <div class="muted">Polished mockup — focus: premium spacing, floating cards, refined hierarchy, hero pay bar, thumb reach on mobile.</div>
+      <div style="display:flex;gap:8px"><button class="plain-btn">Request edits</button><button style="background:var(--accent);color:white;padding:10px 14px;border-radius:10px;border:none;font-weight:800">Approve & Request Implementation Plan</button></div>
+    </div>
+
+  </div>
+</body>
+</html>
