@@ -1,16 +1,16 @@
 /**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
- * Module       : SMRITI Fiori Shell Header (WNG-002 Compliant)
- * Standard     : SCS-UX-002 — Unified Shell Architecture
+ * Module       : SMRITI Fiori OS Shell Header (WNG-002 / SCS-SHL-001 Compliant)
+ * Standard     : SCS-SHL-001 — SMRITI Shell Constitution v1.0
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * Version      : 6.0.0 (Unified 2-Row Fiori Shell Architecture)
+ * Version      : 7.0.0 (Operating System Shell Architecture)
  */
 
 import React, { useState } from "react";
-import { Search, Bell, HelpCircle, User, LogOut, Settings, Palette, Check } from "lucide-react";
+import { Search, Bell, HelpCircle, Bot, LogOut, Check, Sparkles, RefreshCw } from "lucide-react";
 import { useSEEF } from "../../layout_engine/SEEFContext.tsx";
 import { SEEFTheme } from "../../layout_engine/SEEFTypes.ts";
 
@@ -33,6 +33,7 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
   const { config, updateSEEF } = useSEEF();
   const activeTheme = config.theme;
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showAiCopilot, setShowAiCopilot] = useState(false);
 
   const handleThemeChange = (newTheme: SEEFTheme) => {
     updateSEEF({ theme: newTheme });
@@ -49,9 +50,8 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
         color: "var(--c-theme-body)",
       }}
     >
-      {/* 1. Logo & App Identity */}
+      {/* Zone A: Logo & OS Identity */}
       <div className="flex items-center gap-3">
-        {/* Waffle Launcher */}
         <div
           className="grid grid-cols-3 gap-[3px] w-4 h-4 opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
           title="Launchpad Matrix"
@@ -61,16 +61,15 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
           ))}
         </div>
 
-        {/* Clean SMRITI Enterprise Identity */}
         <div className="flex items-center gap-2">
           <span className="font-display font-extrabold text-sm tracking-wide text-theme-heading">SMRITI</span>
           <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-white/10 border border-white/15 text-indigo-300">
-            Enterprise
+            Enterprise OS
           </span>
         </div>
       </div>
 
-      {/* 2. Center Global Search Input Trigger (Ctrl+K) */}
+      {/* Zone B: Universal Command Search (Ctrl+K) */}
       <div className="flex-1 max-w-lg mx-6">
         <button
           type="button"
@@ -92,8 +91,25 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
         </button>
       </div>
 
-      {/* 3. Right Header Actions & User Profile */}
-      <div className="flex items-center gap-3">
+      {/* Zone E: Status Controls (AI Copilot, Notifications, Sync & User Profile) */}
+      <div className="flex items-center gap-2.5">
+        {/* 🤖 First-Class AI Copilot Button */}
+        <button
+          type="button"
+          onClick={() => setShowAiCopilot(!showAiCopilot)}
+          className="px-2.5 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 hover:text-indigo-200 transition-colors flex items-center gap-1.5 cursor-pointer font-bold text-xs"
+          title="SMRITI AI Copilot"
+        >
+          <Bot size={15} className="text-indigo-400" />
+          <span className="hidden sm:inline font-mono">AI Copilot</span>
+        </button>
+
+        {/* Sync Status Badge */}
+        <div className="hidden lg:flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-[10px] font-bold">
+          <RefreshCw size={11} className="animate-spin" />
+          <span>Live Sync</span>
+        </div>
+
         {/* Help Center */}
         <button
           type="button"
@@ -177,6 +193,32 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
           )}
         </div>
       </div>
+
+      {/* AI Copilot Drawer Overlay */}
+      {showAiCopilot && (
+        <div className="absolute right-4 top-14 w-80 rounded-2xl border border-indigo-500/30 bg-theme-surface-1 shadow-2xl p-4 z-50 font-sans text-xs space-y-3">
+          <div className="flex justify-between items-center border-b border-theme-divider pb-2">
+            <div className="flex items-center gap-2 text-indigo-400 font-bold font-display text-sm">
+              <Sparkles size={16} /> SMRITI AI Copilot
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAiCopilot(false)}
+              className="text-theme-muted hover:text-theme-heading text-xs font-mono cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="space-y-2 font-mono text-[11px]">
+            <div className="p-2.5 rounded-lg bg-theme-surface-2 border border-theme-divider text-theme-body">
+              💬 <span className="font-bold">Ask SMRITI AI:</span> "Why is negative stock allowed on Item #801?"
+            </div>
+            <div className="p-2.5 rounded-lg bg-theme-surface-2 border border-theme-divider text-theme-body">
+              📊 <span className="font-bold">Summary:</span> Today's POS Sales: ₹1,48,500 across 42 invoices.
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };
