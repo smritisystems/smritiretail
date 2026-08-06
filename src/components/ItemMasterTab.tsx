@@ -35,7 +35,8 @@ import {
   Package, Plus, Search, X, Barcode, CheckCircle2, AlertCircle, FileText,
   ShieldCheck, DollarSign, Percent, Truck, Tag, Zap, Settings2, RotateCcw,
   Save, AlertOctagon, Info, ChevronDown, ChevronUp, Layers, UploadCloud, Trash2,
-  Boxes, ExternalLink, Sparkles, Sliders, Filter, RefreshCw, Check
+  Boxes, ExternalLink, Sparkles, Sliders, Filter, RefreshCw, Check,
+  Building2, Warehouse, TrendingUp, BarChart3, FileSpreadsheet
 } from "lucide-react";
 // SXP v1.0 â€” WorkspaceTimeline for product movement history
 import { WorkspaceTimeline, InventoryTimelineAdapter } from "./shared/WorkspaceTimeline.js";
@@ -654,8 +655,8 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                     <Building2 className="w-4 h-4 text-amber-600" />
                   </div>
                   <div className="space-y-1">
-                    <div className="flex justify-between text-theme-muted"><span>Wholesale Rate:</span><span className="font-mono font-bold text-theme-heading">₹ {selectedProduct.wholesale_price || (selectedProduct.price * 0.9).toFixed(2)}</span></div>
-                    <div className="flex justify-between text-theme-muted"><span>Dealer Rate:</span><span className="font-mono font-bold text-theme-heading">₹ {selectedProduct.dealer_price || (selectedProduct.price * 0.85).toFixed(2)}</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>Wholesale Rate:</span><span className="font-mono font-bold text-theme-heading">₹ {(selectedProduct as any).wholesale_price || (selectedProduct.price * 0.9).toFixed(2)}</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>Dealer Rate:</span><span className="font-mono font-bold text-theme-heading">₹ {(selectedProduct as any).dealer_price || (selectedProduct.price * 0.85).toFixed(2)}</span></div>
                     <div className="flex justify-between text-theme-muted"><span>Min Selling Price:</span><span className="font-mono font-bold text-rose-600">₹ {(selectedProduct.purchasePrice || selectedProduct.purchase_price || 0)}</span></div>
                   </div>
                 </div>
@@ -688,21 +689,21 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   <div className="space-y-1">
                     <div className="flex justify-between text-theme-muted"><span>Available Stock:</span><span className="font-mono font-bold text-emerald-600">{selectedProduct.stock_qty ?? selectedProduct.qty ?? 0}</span></div>
                     <div className="flex justify-between text-theme-muted"><span>Min Reorder Level:</span><span className="font-mono font-bold text-amber-600">{selectedProduct.min_stock_level || 5}</span></div>
-                    <div className="flex justify-between text-theme-muted"><span>Max Limit:</span><span className="font-mono font-bold text-slate-600">{selectedProduct.max_stock_level || 500}</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>Max Limit:</span><span className="font-mono font-bold text-slate-600">{(selectedProduct as any).max_stock_level || 500}</span></div>
                   </div>
                 </div>
                 <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-3 space-y-2">
                   <div className="font-bold text-theme-heading flex items-center gap-2"><Warehouse className="w-4 h-4 text-purple-600" /><span>Warehouse & Bin</span></div>
                   <div className="space-y-1">
                     <div className="flex justify-between text-theme-muted"><span>Primary WH:</span><span className="font-mono font-bold text-theme-heading">{selectedProduct.warehouse || "Central WH-01"}</span></div>
-                    <div className="flex justify-between text-theme-muted"><span>Bin Location:</span><span className="font-mono font-bold text-indigo-600">{selectedProduct.bin_location || "A1-RACK-02"}</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>Bin Location:</span><span className="font-mono font-bold text-indigo-600">{(selectedProduct as any).bin_location || "A1-RACK-02"}</span></div>
                   </div>
                 </div>
                 <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-3 space-y-2">
                   <div className="font-bold text-theme-heading flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-600" /><span>Tracking Policies</span></div>
                   <div className="space-y-1">
-                    <div className="flex justify-between text-theme-muted"><span>Batch Tracking:</span><span className="font-bold text-emerald-600">{selectedProduct.is_batch_tracked ? "ENABLED" : "DISABLED"}</span></div>
-                    <div className="flex justify-between text-theme-muted"><span>Expiry Tracking:</span><span className="font-bold text-amber-600">{selectedProduct.is_expiry_tracked ? "ENABLED" : "DISABLED"}</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>Batch Tracking:</span><span className="font-bold text-emerald-600">{(selectedProduct as any).is_batch_tracked ? "ENABLED" : "DISABLED"}</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>Expiry Tracking:</span><span className="font-bold text-amber-600">{(selectedProduct as any).is_expiry_tracked ? "ENABLED" : "DISABLED"}</span></div>
                   </div>
                 </div>
               </div>
@@ -726,7 +727,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   <div className="font-bold text-theme-heading flex items-center gap-2"><Truck className="w-4 h-4 text-blue-600" /><span>Preferred Vendor</span></div>
                   <div className="space-y-1">
                     <div className="text-theme-muted">Supplier Name:</div>
-                    <div className="font-bold text-theme-heading">{selectedProduct.preferred_supplier || "TechCorp Distributors"}</div>
+                    <div className="font-bold text-theme-heading">{(selectedProduct as any).preferred_supplier || "TechCorp Distributors"}</div>
                   </div>
                 </div>
                 <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-3 space-y-2">
@@ -803,7 +804,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   <div className="font-extrabold text-indigo-900 flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-indigo-600" /> HSN & Statutory Tax Guidance
                   </div>
-                  <p className="text-indigo-800 text-xs">Suggested HSN <strong>{selectedProduct.hsnCode || selectedProduct.hsn_code || "8471"}</strong> matches standard Indian GST 18% slab for {selectedProduct.category || "General"} items.</p>
+                  <p className="text-indigo-800 text-xs">Suggested HSN <strong>{(selectedProduct as any).hsnCode || (selectedProduct as any).hsn_code || "8471"}</strong> matches standard Indian GST 18% slab for {selectedProduct.category || "General"} items.</p>
                 </div>
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 space-y-2">
                   <div className="font-extrabold text-emerald-900 flex items-center gap-2">
@@ -837,7 +838,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
               <h3 className="text-sm font-extrabold text-theme-heading">Lifecycle Events & Movement History for {selectedProduct?.name || "Selected Item"}</h3>
             </div>
             {selectedProduct ? (
-              <WorkspaceTimeline adapter={new InventoryTimelineAdapter(selectedProduct)} title="Item Master History Audit" />
+              <WorkspaceTimeline adapter={InventoryTimelineAdapter} entityId={selectedProduct?.id || "SKU-001"} />
             ) : (
               <div className="p-8 text-center text-theme-muted text-xs font-mono border border-dashed border-theme-divider rounded-xl">
                 Select a product to view audit history.
