@@ -81,13 +81,13 @@ export class TallySyncEngine {
     this.serverPort = port;
     this.isDaemonRunning = true;
     logger.info(`[TallySyncEngine] SMRITI Communicator Daemon listening on port ${this.serverPort} for TallyPrime HTTP/XML connection.`);
-    SPK.events.emit("TallyDaemonStarted", port, { port, timestamp: new Date().toISOString() });
+    SPK.events.emit("TallyDaemonStarted", String(port), { port, timestamp: new Date().toISOString() });
   }
 
   public stopDaemon(): void {
     this.isDaemonRunning = false;
     logger.info("[TallySyncEngine] SMRITI Communicator Daemon stopped.");
-    SPK.events.emit("TallyDaemonStopped", 0, { timestamp: new Date().toISOString() });
+    SPK.events.emit("TallyDaemonStopped", "0", { timestamp: new Date().toISOString() });
   }
 
   public getStatus(): { isRunning: boolean; port: number; totalInQueue: number; pendingCount: number; failedCount: number } {
