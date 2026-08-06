@@ -164,3 +164,21 @@ Every business entity, KPI, report, chart, ledger, document, and analytical valu
 3. **Master 360° Navigation**: Master entities (Customer, Supplier, Item, Invoice) MUST render a 360° view containing Orders, Invoices, Payments, Outstanding, Returns, Credit Notes, Loyalty, Attachments, Timeline, and Audit Trail.
 4. **Zero State Loss**: Users can navigate back and forth without losing search filters or active workspace state.
 
+---
+
+## Part XI — Enterprise End-to-End Business Traceability Standard (SCS-TRC-001 — MANDATORY)
+
+Every business event in SMRITI Retail OS MUST be fully traceable from top-level BI metrics down to originating transactions and accounting ledgers:
+
+1. **Every KPI ──► Transaction**: Executive KPI cards MUST resolve to source invoice / purchase lines in ≤ 4 clicks.
+2. **Every Report ──► Source Document**: BI report rows MUST resolve to source vouchers in ≤ 3 clicks.
+3. **Every Master ──► Related Entities**: Master entity 360 views MUST render all related documents in ≤ 2 clicks.
+4. **Click Depth SLA Benchmarks**:
+   - `Executive KPI ──► Source Document`: ≤ 4 clicks
+   - `Report Row ──► Voucher Line`: ≤ 3 clicks
+   - `Master 360 ──► Related Document`: ≤ 2 clicks
+5. **Business Journey Traceability**:
+   - `Purchase Journey`: PO ──► GRN ──► Invoice ──► Stock Ledger ──► Supplier ──► Payment ──► Tally Sync (100% Verified)
+   - `Sales Journey`: POS Billing ──► Customer 360 ──► Receipt ──► Outstanding ──► Tally Sync (100% Verified)
+   - `Item Stock Journey`: Item ──► Warehouse ──► Bin ──► Batch/Serial ──► Stock Movements (100% Verified)
+   - `Modern Trade Journey`: Key Account ──► Region ──► Store ──► Invoice ──► Sell-Out ──► Auto-Replenishment (100% Verified)
