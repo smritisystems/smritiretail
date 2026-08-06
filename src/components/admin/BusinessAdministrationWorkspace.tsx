@@ -20,7 +20,10 @@ import {
   Search,
   UserPlus,
   Key,
-  Clock
+  Clock,
+  Edit3,
+  Save,
+  CheckCircle
 } from "lucide-react";
 import { StaffManagementTab } from "../StaffManagementTab.tsx";
 
@@ -28,6 +31,40 @@ export type BusinessAdminTab = "store_settings" | "staff" | "terminals" | "appro
 
 export const BusinessAdministrationWorkspace: React.FC = () => {
   const [activeTab, setActiveTab] = useState<BusinessAdminTab>("staff");
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [companyName, setCompanyName] = useState(() => 
+    typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_company_name") || "Main Store" : "Main Store"
+  );
+  const [tenantCode, setTenantCode] = useState(() => 
+    typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_tenant_code") || "STORE01" : "STORE01"
+  );
+  const [addressLine1, setAddressLine1] = useState(() => 
+    typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_address_line1") || "" : ""
+  );
+  const [city, setCity] = useState(() => 
+    typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_city") || "" : ""
+  );
+  const [stateName, setStateName] = useState(() => 
+    typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_state") || "" : ""
+  );
+  const [pinCode, setPinCode] = useState(() => 
+    typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_pincode") || "" : ""
+  );
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  const handleSaveProfile = () => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem("smriti_company_name", companyName);
+      localStorage.setItem("smriti_tenant_code", tenantCode);
+      localStorage.setItem("smriti_address_line1", addressLine1);
+      localStorage.setItem("smriti_city", city);
+      localStorage.setItem("smriti_state", stateName);
+      localStorage.setItem("smriti_pincode", pinCode);
+    }
+    setSavedSuccess(true);
+    setIsEditingProfile(false);
+    setTimeout(() => setSavedSuccess(false), 3000);
+  };
 
   return (
     <div className="flex flex-col h-full bg-theme-bg text-theme-text overflow-hidden">
@@ -109,14 +146,115 @@ export const BusinessAdministrationWorkspace: React.FC = () => {
         {activeTab === "staff" && <StaffManagementTab />}
 
         {activeTab === "store_settings" && (
-          <div className="bg-theme-surface-1 p-6 rounded-lg border border-theme-divider space-y-4 max-w-2xl">
-            <h3 className="text-sm font-bold text-theme-text border-b border-theme-divider pb-2">Registered Main Store Profile</h3>
-            <div className="grid grid-cols-2 gap-4 text-xs font-mono">
-              <div><span className="text-theme-muted">Store Name:</span> <span className="text-theme-text font-bold">{typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_company_name") || "Main Store" : "Main Store"}</span></div>
-              <div><span className="text-theme-muted">Store Code:</span> <span className="text-blue-400 font-bold">{typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_tenant_code") || "STORE01" : "STORE01"}</span></div>
-              <div><span className="text-theme-muted">GSTIN:</span> <span className="text-emerald-400 font-bold">Registered Tax Profile</span></div>
-              <div><span className="text-theme-muted">Address:</span> <span className="text-theme-text">{typeof localStorage !== 'undefined' ? `${localStorage.getItem("smriti_address_line1") || ""} ${localStorage.getItem("smriti_city") || ""} ${localStorage.getItem("smriti_state") || ""}`.trim() || "Registered Location" : "Registered Location"}</span></div>
+          <div className="bg-theme-surface-1 p-6 rounded-xl border border-theme-divider space-y-6 max-w-2xl shadow-lg">
+            <div className="flex items-center justify-between border-b border-theme-divider pb-3">
+              <div>
+                <h3 className="text-base font-bold text-theme-text">Registered Company &amp; Store Profile</h3>
+                <p className="text-xs text-theme-muted mt-0.5">View and update your official business registration, store name, and location details.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingProfile(!isEditingProfile)}
+                className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center space-x-1.5 transition-colors cursor-pointer shadow"
+              >
+                <Edit3 size={14} />
+                <span>{isEditingProfile ? "Cancel Editing" : "Edit Profile"}</span>
+              </button>
             </div>
+
+            {savedSuccess && (
+              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center space-x-2">
+                <CheckCircle size={16} />
+                <span>Company profile updated successfully!</span>
+              </div>
+            )}
+
+            {isEditingProfile ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-theme-muted uppercase tracking-wider block mb-1">Company / Store Name</label>
+                    <input
+                      type="text"
+                      value={companyName}
+                      onChange={e => setCompanyName(e.target.value)}
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-text focus:border-blue-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-theme-muted uppercase tracking-wider block mb-1">Store / Tenant Code</label>
+                    <input
+                      type="text"
+                      value={tenantCode}
+                      onChange={e => setTenantCode(e.target.value)}
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs font-mono text-theme-text focus:border-blue-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-theme-muted uppercase tracking-wider block mb-1">Street Address</label>
+                  <input
+                    type="text"
+                    value={addressLine1}
+                    onChange={e => setAddressLine1(e.target.value)}
+                    placeholder="e.g. Shop No 4, Main Road"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-text focus:border-blue-500 outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-theme-muted uppercase tracking-wider block mb-1">City / Town</label>
+                    <input
+                      type="text"
+                      value={city}
+                      onChange={e => setCity(e.target.value)}
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-text focus:border-blue-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-theme-muted uppercase tracking-wider block mb-1">State</label>
+                    <input
+                      type="text"
+                      value={stateName}
+                      onChange={e => setStateName(e.target.value)}
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-text focus:border-blue-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-theme-muted uppercase tracking-wider block mb-1">PIN Code</label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={pinCode}
+                      onChange={e => setPinCode(e.target.value)}
+                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs font-mono text-theme-text focus:border-blue-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveProfile}
+                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center space-x-1.5 transition-colors cursor-pointer shadow"
+                  >
+                    <Save size={14} />
+                    <span>Save Company Changes</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 text-xs font-mono">
+                <div><span className="text-theme-muted">Company Name:</span> <span className="text-theme-text font-bold">{companyName || "Not specified"}</span></div>
+                <div><span className="text-theme-muted">Store Code:</span> <span className="text-blue-400 font-bold">{tenantCode || "Not specified"}</span></div>
+                <div><span className="text-theme-muted">Street Address:</span> <span className="text-theme-text">{addressLine1 || "Not specified"}</span></div>
+                <div><span className="text-theme-muted">City / Town:</span> <span className="text-theme-text">{city || "Not specified"}</span></div>
+                <div><span className="text-theme-muted">State:</span> <span className="text-theme-text">{stateName || "Not specified"}</span></div>
+                <div><span className="text-theme-muted">PIN Code:</span> <span className="text-theme-text">{pinCode || "Not specified"}</span></div>
+              </div>
+            )}
           </div>
         )}
 
