@@ -197,6 +197,26 @@ export class InventoryService implements IInventoryService {
     return list;
   }
 
+  public async checkReorderAlerts(): Promise<StockLevelRecord[]> {
+    const all = await this.getAllStockLevels();
+    return all.filter((r) => r.onHand <= (r.reorderLevel || 10));
+  }
+
+  public async calculateStockValuation(unitCosts: Record<string, number>, method: "FIFO" | "WEIGHTED_AVG" = "WEIGHTED_AVG"): Promise<{ totalValuation: number; itemsValuation: Record<string, number> }> {
+    const all = await this.getAllStockLevels();
+    const itemsValuation: Record<string, number> = {};
+    let totalValuation = 0;
+
+    for (const record of all) {
+      const unitCost = unitCosts[record.sku] || unitCosts[record.productId] || 100;
+      const val = record.onHand * unitCost;
+      itemsValuation[record.sku] = val;
+      totalValuation += val;
+    }
+
+    return { totalValuation, itemsValuation };
+  }
+
   public async getTimeline(productId?: string, warehouseId?: string, limit = 50): Promise<any[]> {
     return inventoryDomainService.fetchTimeline(productId, warehouseId, limit);
   }
