@@ -14,30 +14,16 @@
 
 import { DxpDocumentRequest, DxpDocumentResult, DxpOutputChannel } from "../models/DxpTypes.ts";
 import { DocumentRegistry } from "./DocumentRegistry.ts";
-import { IOutputAdapter } from "../adapters/IOutputAdapter.ts";
-import { PrinterAdapter } from "../adapters/PrinterAdapter.ts";
-import { PdfAdapter } from "../adapters/PdfAdapter.ts";
-import { PreviewAdapter } from "../adapters/PreviewAdapter.ts";
+import { DocumentQueueRegistry, DxpDocumentJob } from "./DocumentQueueRegistry.ts";
+import { OutputChannelRegistry } from "./OutputChannelRegistry.ts";
 
 class DocumentServiceEngine {
-  private adapters: Map<DxpOutputChannel, IOutputAdapter> = new Map();
-
-  constructor() {
-    this.registerAdapters();
-  }
-
-  private registerAdapters() {
-    this.adapters.set("PRINT", new PrinterAdapter());
-    this.adapters.set("PDF", new PdfAdapter());
-    this.adapters.set("PREVIEW", new PreviewAdapter());
-  }
-
   public async execute(req: DxpDocumentRequest): Promise<DxpDocumentResult> {
     const descriptor = DocumentRegistry.getDescriptor(req.documentType);
     const targetChannel: DxpOutputChannel = req.channel || descriptor.defaultChannel;
 
-    const adapter = this.adapters.get(targetChannel) || this.adapters.get("PREVIEW")!;
-    console.log(`[SCS-DXP-001 DocumentService]: Executing ${req.documentType} document via ${adapter.channel} channel.`);
+    const adapter = OutputChannelRegistry.get(targetChannel) || OutputChannelRegistry.get("PREVIEW")!;
+    console.log(`[SCS-DXP-001 DocumentService]: Executing ${req.documentType} document via ${adapter.title} channel.`);
 
     return adapter.execute(req);
   }
@@ -49,6 +35,18 @@ class DocumentServiceEngine {
   public async preview(req: DxpDocumentRequest): Promise<string> {
     const res = await this.execute({ ...req, channel: "PREVIEW" });
     return res.outputUri || "";
+  }
+
+  public enqueue(req: DxpDocumentRequest, maxRetries = 3): DxpDocumentJob {
+    return DocumentQueueRegistry.enqueue(req, maxRetries);
+  }
+
+  public async processQueueJob(jobId: string): Promise<DxpDocumentJob> {
+    return DocumentQueueRegistry.processJob(jobId);
+  }
+
+  public getQueueJobs(): DxpDocumentJob[] {
+    return DocumentQueueRegistry.listJobs();
   }
 
   public async reprint(jobId: string, copies = 1): Promise<DxpDocumentResult> {
