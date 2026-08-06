@@ -110,12 +110,12 @@ export const BusinessAdministrationWorkspace: React.FC = () => {
 
         {activeTab === "store_settings" && (
           <div className="bg-theme-surface-1 p-6 rounded-lg border border-theme-divider space-y-4 max-w-2xl">
-            <h3 className="text-sm font-bold text-theme-text border-b border-theme-divider pb-2">Gorakhpur Flagship Store Profile</h3>
+            <h3 className="text-sm font-bold text-theme-text border-b border-theme-divider pb-2">Registered Main Store Profile</h3>
             <div className="grid grid-cols-2 gap-4 text-xs font-mono">
-              <div><span className="text-theme-muted">Store Name:</span> <span className="text-theme-text font-bold">Gorakhpur Main Store</span></div>
-              <div><span className="text-theme-muted">Store Code:</span> <span className="text-blue-400 font-bold">GKP01</span></div>
-              <div><span className="text-theme-muted">GSTIN:</span> <span className="text-emerald-400 font-bold">09AAACS1234A1ZP</span></div>
-              <div><span className="text-theme-muted">Address:</span> <span className="text-theme-text">Plot X-10, Taramandal, Gorakhpur</span></div>
+              <div><span className="text-theme-muted">Store Name:</span> <span className="text-theme-text font-bold">{typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_company_name") || "Main Store" : "Main Store"}</span></div>
+              <div><span className="text-theme-muted">Store Code:</span> <span className="text-blue-400 font-bold">{typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_tenant_code") || "STORE01" : "STORE01"}</span></div>
+              <div><span className="text-theme-muted">GSTIN:</span> <span className="text-emerald-400 font-bold">Registered Tax Profile</span></div>
+              <div><span className="text-theme-muted">Address:</span> <span className="text-theme-text">{typeof localStorage !== 'undefined' ? `${localStorage.getItem("smriti_address_line1") || ""} ${localStorage.getItem("smriti_city") || ""} ${localStorage.getItem("smriti_state") || ""}`.trim() || "Registered Location" : "Registered Location"}</span></div>
             </div>
           </div>
         )}

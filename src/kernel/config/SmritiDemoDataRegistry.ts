@@ -121,19 +121,25 @@ export class SmritiDemoDataRegistryService {
   private _transport: DemoTransport;
 
   constructor() {
+    const storedCompanyName = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_company_name") : null;
+    const storedLine1 = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_address_line1") : null;
+    const storedCity = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_city") : null;
+    const storedState = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_state") : null;
+    const storedPin = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_pincode") : null;
+
     const companyAddress: DemoAddress = {
-      line1: "Gram Belwavadari",
-      line2: "Taramandal",
-      city: "Gorakhpur",
-      district: "Gorakhpur",
-      state: "Uttar Pradesh",
+      line1: storedLine1 || "Registered Office",
+      line2: "",
+      city: storedCity || "",
+      district: storedCity || "",
+      state: storedState || "",
       stateCode: "09",
-      pinCode: "273017",
+      pinCode: storedPin || "",
       country: "India",
     };
 
     this._company = {
-      name: "SMRITI Systems",
+      name: storedCompanyName || "Registered Business",
       legalEntity: "Private Limited Company",
       website: "https://smritisys.com",
       email: "support@smritisys.com",

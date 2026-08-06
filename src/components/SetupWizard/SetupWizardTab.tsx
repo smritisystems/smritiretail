@@ -140,11 +140,11 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
   const [welcomeMode, setWelcomeMode] = useState<"new" | "demo" | "restore">("new");
   
   // Step 1: Tenant & Business Info
-  const [tenantName, setTenantName] = useState("Smriti Systems Group");
-  const [tenantCode, setTenantCode] = useState("SMS");
-  const [tenantSlug, setTenantSlug] = useState("smriti-systems");
-  const [businessName, setBusinessName] = useState("Smriti Books Pvt. Ltd.");
-  const [tradeName, setTradeName] = useState("Smriti Books");
+  const [tenantName, setTenantName] = useState("");
+  const [tenantCode, setTenantCode] = useState("");
+  const [tenantSlug, setTenantSlug] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [tradeName, setTradeName] = useState("");
   const [legalEntity, setLegalEntity] = useState("Private Limited Company");
   const [businessType, setBusinessType] = useState("retail");
   const [industryPack, setIndustryPack] = useState("general_retail");
@@ -518,6 +518,10 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
         localStorage.setItem("smriti_setup_completed", "true");
         if (businessName) localStorage.setItem("smriti_company_name", businessName);
         if (tenantCode) localStorage.setItem("smriti_tenant_code", tenantCode);
+        if (addressLine1) localStorage.setItem("smriti_address_line1", addressLine1);
+        if (city) localStorage.setItem("smriti_city", city);
+        if (detectedState) localStorage.setItem("smriti_state", detectedState);
+        if (pinCode) localStorage.setItem("smriti_pincode", pinCode);
       }
 
       setTimeout(() => {
