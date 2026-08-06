@@ -1,24 +1,25 @@
 /**
  * Project      : SMRITI Retail OS
- * Module       : SMRITI UX Framework SDK (ExperiencePluginSDK v2.0 — SWEF P-012)
- * Standard     : SXP Constitution v1.0 — Certification Gate SXP-CS-012
+ * Module       : SMRITI Enterprise Developer Platform SDK (ExperiencePluginSDK v2.0.0 LTS)
+ * Standard     : SWEF P-012 / SXP Certification Gate SXP-CS-012
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Version      : 2.0.0
+ * Version      : 2.0.0-LTS (Frozen Public Contracts)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  *
- * GOVERNANCE (SWEF P-012):
- *   All platform extensions MUST implement ExperiencePlugin.
- *   No modifications to core SXP engines are permitted.
- *   Plugins register capabilities via the public SDK surfaces.
+ * 5 LOGICAL SDK DOMAINS:
+ * 1. UX SDK          (Theme, Component, Workspace, Navigation)
+ * 2. Business SDK    (Form, Lookup, Validation, Workflow)
+ * 3. Platform SDK    (Search, Timeline, DrillDown, AI)
+ * 4. Integration SDK (Hardware, Barcode, Print, Report, Integration, Notification)
+ * 5. Extension SDK   (Industry Pack, Mobile)
  */
 
-import { WorkspaceRegistry, WorkspaceMetadata } from "../layout_engine/WorkspaceRegistry.js";
-import { WorkspaceActionRegistry, WorkspaceActionDef } from "../layout_engine/WorkspaceActionRegistry.js";
-import { SPK } from "../kernel/SPK.js";
+import { WorkspaceRegistry } from "../layout_engine/WorkspaceRegistry.js";
+import { WorkspaceActionRegistry } from "../layout_engine/WorkspaceActionRegistry.js";
 
-// ── Platform Context (read-only at plugin init) ───────────────────────────────
+// ── Platform Context (Read-only at plugin init) ───────────────────────────────
 
 export interface PluginPlatformContext {
   readonly tenantId: string;
@@ -27,11 +28,19 @@ export interface PluginPlatformContext {
   readonly locale: string;
 }
 
-// ── Framework SDK Interfaces ──────────────────────────────────────────────────
+// ── Individual SDK Interfaces (20 Capabilities) ───────────────────────────────
 
-export interface SEDSThemeSDK {
+export interface ThemeSDK {
   getTokens(): Record<string, string>;
   setThemeMode(mode: "dark" | "light" | "auto"): void;
+}
+
+export interface ComponentSDK {
+  registerComponent(name: string, component: any): void;
+}
+
+export interface WorkspaceSDK {
+  registerWorkspace(metadata: any): void;
 }
 
 export interface NavigationSDK {
@@ -41,7 +50,34 @@ export interface NavigationSDK {
 
 export interface FormSDK {
   registerForm(entityType: string, formDef: any): void;
+}
+
+export interface LookupSDK {
+  registerLookupProvider(entityType: string, providerFn: (q: string) => Promise<any[]>): void;
+}
+
+export interface ValidationSDK {
   registerValidationRule(ruleId: string, validatorFn: (val: any) => boolean): void;
+}
+
+export interface WorkflowSDK {
+  registerWorkflow(entityType: string, stateMachine: any): void;
+}
+
+export interface ReportSDK {
+  registerReport(reportId: string, reportDef: any): void;
+}
+
+export interface PrintSDK {
+  registerTemplate(templateId: string, templateSchema: any): void;
+}
+
+export interface BarcodeSDK {
+  registerBarcodeParser(symbology: string, parserFn: (raw: string) => any): void;
+}
+
+export interface NotificationSDK {
+  emitToast(message: string, type: "info" | "success" | "warning" | "error"): void;
 }
 
 export interface DrillDownSDK {
@@ -49,24 +85,81 @@ export interface DrillDownSDK {
   registerLineageAdapter(entityType: string, adapterFn: (id: string) => any): void;
 }
 
-export interface PrintSDK {
-  registerTemplate(templateId: string, templateSchema: any): void;
+export interface TimelineSDK {
+  registerTimelineAdapter(entityType: string, adapterFn: (id: string) => any[]): void;
+}
+
+export interface SearchSDK {
+  registerSearchIndex(entityType: string, indexerFn: (q: string) => any[]): void;
 }
 
 export interface AiSkillSDK {
   registerAdvisorySkill(skillId: string, skillFn: (ctx: any) => any): void;
 }
 
-// ── Plugin Registration Targets ────────────────────────────────────────────────
+export interface IntegrationSDK {
+  registerCommunicatorAdapter(targetSystem: string, adapterFn: (payload: any) => Promise<any>): void;
+}
 
-export interface PluginRegistrationTargets {
+export interface HardwareSDK {
+  registerThermalPrinterDriver(driverId: string, driverFn: (bytes: Uint8Array) => Promise<boolean>): void;
+}
+
+export interface MobileSDK {
+  registerTouchGesture(gestureId: string, handlerFn: (evt: any) => void): void;
+}
+
+export interface IndustryPackSDK {
+  registerVerticalPack(packId: string, packDescriptor: { name: string; domainModules: any[] }): void;
+}
+
+// ── 5 Logical SDK Domains (v2.0.0 LTS Architecture) ───────────────────────────
+
+export interface SMRITIUXDomainSDK {
+  theme: ThemeSDK;
+  component: ComponentSDK;
+  workspace: WorkspaceSDK;
+  navigation: NavigationSDK;
+}
+
+export interface SMRITIBusinessDomainSDK {
+  form: FormSDK;
+  lookup: LookupSDK;
+  validation: ValidationSDK;
+  workflow: WorkflowSDK;
+}
+
+export interface SMRITIPlatformDomainSDK {
+  search: SearchSDK;
+  timeline: TimelineSDK;
+  drillDown: DrillDownSDK;
+  ai: AiSkillSDK;
+}
+
+export interface SMRITIIntegrationDomainSDK {
+  hardware: HardwareSDK;
+  barcode: BarcodeSDK;
+  print: PrintSDK;
+  report: ReportSDK;
+  integration: IntegrationSDK;
+  notification: NotificationSDK;
+}
+
+export interface SMRITIExtensionDomainSDK {
+  industryPack: IndustryPackSDK;
+  mobile: MobileSDK;
+}
+
+// ── Consolidated Plugin Registration Targets (v2.0.0 LTS) ─────────────────────
+
+export interface PluginRegistrationTargets extends SMRITIUXDomainSDK, SMRITIBusinessDomainSDK, SMRITIPlatformDomainSDK, SMRITIIntegrationDomainSDK, SMRITIExtensionDomainSDK {
+  ux: SMRITIUXDomainSDK;
+  business: SMRITIBusinessDomainSDK;
+  platform: SMRITIPlatformDomainSDK;
+  integration: SMRITIIntegrationDomainSDK;
+  extension: SMRITIExtensionDomainSDK;
   workspaceRegistry: typeof WorkspaceRegistry;
   actionRegistry: typeof WorkspaceActionRegistry;
-  navigation: NavigationSDK;
-  forms: FormSDK;
-  drillDown: DrillDownSDK;
-  printing: PrintSDK;
-  ai: AiSkillSDK;
 }
 
 // ── Plugin Descriptor ─────────────────────────────────────────────────────────
@@ -77,26 +170,9 @@ export interface ExperiencePlugin {
   readonly version: string;
   readonly description?: string;
 
-  /**
-   * Register workspaces this plugin adds to the platform.
-   * Called once during plugin initialization.
-   */
   registerWorkspaces?(registry: typeof WorkspaceRegistry): void;
-
-  /**
-   * Register actions this plugin contributes.
-   * Called once during plugin initialization.
-   */
   registerActions?(registry: typeof WorkspaceActionRegistry): void;
-
-  /**
-   * Register domain navigation modules, forms, print templates, and 360° inspectors.
-   */
   registerExtensions?(targets: PluginRegistrationTargets): void;
-
-  /**
-   * Called after all plugins have registered their components.
-   */
   onPlatformReady?(context: PluginPlatformContext): void;
 }
 
