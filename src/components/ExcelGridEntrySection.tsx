@@ -1826,11 +1826,31 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
           </table>
         </div>
 
-        {/* Keyboard Helper Tips Banner */}
+        {/* Keyboard Helper Shortcut Pills (Point 4 & SCS-WCM-001) */}
         <div className="flex flex-col md:flex-row items-center justify-between border-t border-theme-divider/40 pt-4 gap-4">
-          <div className="flex items-center space-x-2 text-theme-muted text-[10px] font-mono">
-            <Keyboard size={13} className="text-blue-400" />
-            <span>Tab: Next cell&nbsp;|&nbsp;Shift+Tab: Prev&nbsp;|&nbsp;Enter: Next row&nbsp;|&nbsp;Arrows: Navigate&nbsp;|&nbsp;<span className="text-emerald-400 font-bold">Ctrl+V with headers: auto-maps columns</span></span>
+          <div className="flex flex-wrap items-center gap-2 font-mono text-[10px]">
+            <span className="text-theme-muted font-bold uppercase tracking-wider mr-1 flex items-center gap-1">
+              <Keyboard size={13} className="text-indigo-400" /> Shortcuts:
+            </span>
+            {[
+              { key: "Tab", label: "Next Cell" },
+              { key: "Enter", label: "Next Row" },
+              { key: "Ctrl+S", label: "Save Changes" },
+              { key: "Ctrl+V", label: "Paste Excel" },
+              { key: "F2", label: "Lookup / Expand" },
+              { key: "F1", label: "All Shortcuts" },
+            ].map((pill) => (
+              <button
+                key={pill.key}
+                type="button"
+                onClick={() => onNotification("Keyboard Shortcut", `${pill.key}: ${pill.label}`, "success")}
+                className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider rounded-lg text-theme-body flex items-center space-x-1.5 cursor-pointer transition-colors"
+                title={`Press ${pill.key} to ${pill.label}`}
+              >
+                <kbd className="px-1.5 py-0.5 bg-theme-surface-1 rounded border border-theme-divider text-indigo-400 font-bold">{pill.key}</kbd>
+                <span className="text-theme-muted">{pill.label}</span>
+              </button>
+            ))}
           </div>
 
           <div className="flex items-center space-x-3">
@@ -1847,7 +1867,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
               className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs rounded-lg transition-all shadow-lg flex items-center space-x-1.5 cursor-pointer"
             >
               <CheckCircle2 size={12} />
-              <span>{loading ? "Writing SKU Catalog..." : "Commit Grid to SMRITI DB"}</span>
+              <span>{loading ? "Writing SKU Catalog..." : "Save Changes"}</span>
             </button>
           </div>
         </div>

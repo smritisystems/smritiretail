@@ -174,7 +174,7 @@ export class NavigationRegistryService {
           { id: NAV_IDS.STOCK_LEDGER, title: "Stock Ledger", icon: "Layers", targetTab: "stock-ledger", workspaceId: "stock-ledger", route: "/inventory/ledger", order: 2, visible: true, owner: "SMRITI", packageId: "smriti.inventory.ledger", version: "6.0.0", dependsOn: ["item-master"], workspaceCapabilities: { search: true, export: true, reports: true } },
           { id: NAV_IDS.CONSIGNMENT, title: "Consignment Studio", icon: "Truck", targetTab: "consignment", workspaceId: "consignment", route: "/inventory/consignment", order: 3, visible: true, owner: "SMRITI", packageId: "smriti.inventory.consignment", version: "6.0.0", dependsOn: ["item-master"] },
           { id: NAV_IDS.PRINT_STUDIO, title: "Document Studio", icon: "Printer", targetTab: "document-studio", workspaceId: "document-studio", route: "/platform/document-studio", order: 5, visible: true, owner: "SMRITI", packageId: "smriti.platform.documentstudio", version: "6.0.0" },
-          { id: "universal-label-printer", title: "Universal Label Printer", icon: "Printer", targetTab: "document-studio", workspaceId: "document-studio", route: "/platform/label-printer", order: 6, visible: true, owner: "SMRITI", packageId: "smriti.inventory.labelprinter", version: "6.0.0", dependsOn: ["document-studio"] },
+          { id: "universal-label-printer", title: "Universal Label Printer", icon: "Printer", targetTab: "document-studio", workspaceId: "document-studio", route: "/platform/label-printer", order: 6, visible: false, owner: "SMRITI", packageId: "smriti.inventory.labelprinter", version: "6.0.0", dependsOn: ["document-studio"] },
         ]
       },
       {

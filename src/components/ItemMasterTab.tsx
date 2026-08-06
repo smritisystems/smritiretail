@@ -24,6 +24,8 @@ import { BulkImportSection } from "./BulkImportSection.tsx";
 import { ExcelGridEntrySection } from "./ExcelGridEntrySection.tsx";
 import { AttributeAnalyticsSection } from "./AttributeAnalyticsSection.tsx";
 import { AdaptiveWorkspaceGrid } from "./common/AdaptiveWorkspaceGrid.tsx";
+import { AdaptiveWorkspaceLayout } from "./common/AdaptiveWorkspaceLayout.tsx";
+import { ProductMasterManifest } from "./item_master/ProductMasterManifest.ts";
 import { WorkspaceLayoutSelector } from "./common/WorkspaceLayoutSelector.tsx";
 import WorkspaceCard from "./workspace/WorkspaceCard.tsx";
 import { SPK } from "../kernel/SPK.js";

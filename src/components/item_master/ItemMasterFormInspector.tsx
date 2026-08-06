@@ -19,6 +19,8 @@ import { ItemMasterUomMatrix, UomConversion } from "./ItemMasterUomMatrix.tsx";
 import { ItemMasterVariantTable } from "./ItemMasterVariantTable.tsx";
 import { ItemMasterPrintHistoryTab } from "./ItemMasterPrintHistoryTab.tsx";
 import { ItemCompletenessWidget } from "./ItemCompletenessWidget.tsx";
+import { WorkspaceCommand } from "../../kernel/upr/workspace/WorkspaceCommandRegistry.js";
+import { WorkspaceStatus } from "../../kernel/services/WorkspaceStatusService.js";
 
 interface ItemMasterFormInspectorProps {
   product: Product | null;
@@ -109,25 +111,74 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
         <div className="space-y-6 max-w-5xl font-sans text-xs">
           <ItemCompletenessWidget product={activeProduct} />
 
-          <div className="p-4 bg-gradient-to-r from-purple-950/40 to-blue-950/40 border border-purple-500/30 rounded-xl space-y-2">
+          {/* AI Action Cards (SCS-WIN-001) */}
+          <div className="p-4 bg-gradient-to-r from-purple-950/40 to-blue-950/40 border border-purple-500/30 rounded-xl space-y-3">
             <div className="flex items-center gap-2 text-purple-400 font-bold uppercase font-mono text-[11px]">
-              <Sparkles className="w-4 h-4" /> AI Smart Recommendations &amp; Margin Nudges
+              <Sparkles className="w-4 h-4" /> AI Recommendations &amp; Action Cards
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-              {aiSuggestions.map((sug, i) => (
-                <div key={i} className="p-3 bg-theme-surface-2/80 border border-theme-divider rounded-lg font-mono text-[11px] text-theme-heading flex items-start gap-2">
-                  <ChevronRight className="w-3.5 h-3.5 text-[var(--c-seef-accent)] flex-shrink-0 mt-0.5" />
-                  <span>{sug}</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 font-mono text-xs">
+              <div className={`p-3 rounded-xl border flex flex-col justify-between space-y-2 ${salePrice < purchaseCost ? "bg-rose-500/10 border-rose-500/30 text-rose-300" : "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"}`}>
+                <div className="flex items-center space-x-1.5 font-bold">
+                  <span>{salePrice < purchaseCost ? "🔴" : "🟢"}</span>
+                  <span>{salePrice < purchaseCost ? "Sale Price below Cost" : "Margin Healthy"}</span>
                 </div>
-              ))}
+                <div className="text-[11px] opacity-80">
+                  {salePrice < purchaseCost ? `Loss: ₹${(purchaseCost - salePrice).toFixed(2)} / unit` : `Margin: ${marginPercent}%`}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => WorkspaceCommand.execute("inventory.openPricingTab")}
+                  className="px-2.5 py-1 text-[10px] font-bold rounded bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider self-start flex items-center space-x-1 cursor-pointer"
+                >
+                  <span>Fix Now</span>
+                  <ChevronRight size={11} />
+                </button>
+              </div>
+
+              <div className="p-3 rounded-xl border bg-amber-500/10 border-amber-500/30 text-amber-300 flex flex-col justify-between space-y-2">
+                <div className="flex items-center space-x-1.5 font-bold">
+                  <span>🟡</span>
+                  <span>Images Required</span>
+                </div>
+                <div className="text-[11px] opacity-80">
+                  {(activeProduct as any).primary_image_url || (activeProduct as any).primaryImageUrl ? "Primary image set" : "0 of 3 images uploaded"}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => WorkspaceCommand.execute("inventory.openMediaTab")}
+                  className="px-2.5 py-1 text-[10px] font-bold rounded bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider self-start flex items-center space-x-1 cursor-pointer"
+                >
+                  <span>Upload Images</span>
+                  <ChevronRight size={11} />
+                </button>
+              </div>
+
+              <div className="p-3 rounded-xl border bg-blue-500/10 border-blue-500/30 text-blue-300 flex flex-col justify-between space-y-2">
+                <div className="flex items-center space-x-1.5 font-bold">
+                  <span>🟢</span>
+                  <span>Supplier Assignment</span>
+                </div>
+                <div className="text-[11px] opacity-80">
+                  {(activeProduct as any).preferred_supplier || (activeProduct as any).preferredSupplier || "No primary vendor assigned"}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => WorkspaceCommand.execute("inventory.openSupplierTab")}
+                  className="px-2.5 py-1 text-[10px] font-bold rounded bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider self-start flex items-center space-x-1 cursor-pointer"
+                >
+                  <span>Assign Supplier</span>
+                  <ChevronRight size={11} />
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Identity Card (Point 9: Business Identity First) */}
             <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-3 font-mono">
               <div className="flex items-center justify-between mb-2">
                 <h5 className="font-bold text-theme-heading font-display text-sm flex items-center gap-2">
-                  <Package className="w-4 h-4 text-[var(--c-seef-accent)]" /> Identity &amp; Tax Profile
+                  <Package className="w-4 h-4 text-[var(--c-seef-accent)]" /> Basic Identity
                 </h5>
                 <select
                   disabled={isReadOnly}
@@ -153,42 +204,95 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                 </select>
               </div>
               {[
-                ["Item Code", activeProduct.code || activeProduct.sku || "N/A"],
                 ["Item Name", activeProduct.name],
-                ["Lifecycle Status", activeProduct.status || "Active"],
+                ["Item Code", activeProduct.code || activeProduct.sku || "N/A"],
                 ["Barcode", activeProduct.barcode || "N/A"],
                 ["Category", activeProduct.category || "General"],
-                ["Sub-Category", activeProduct.subCategory || activeProduct.sub_category || "Standard"],
                 ["Brand", activeProduct.brand || "Smriti Standard"],
+                ["Sub-Category", activeProduct.subCategory || activeProduct.sub_category || "Standard"],
                 ["HSN / SAC Code", activeProduct.hsn_code || activeProduct.hsnCode || "8471"],
                 ["GST Rate", `${activeProduct.gst_rate || activeProduct.gstPercentage || 18}%`],
-                ["Unit of Measure (UOM)", activeProduct.uom || "Pcs"],
               ].map(([k, v]) => (
                 <div key={k as string} className="flex justify-between text-xs border-b border-theme-divider/40 pb-1.5">
                   <span className="text-theme-muted">{k}</span>
                   <span className="font-bold text-theme-heading">{v || "—"}</span>
                 </div>
               ))}
+
+              <details className="pt-2 text-[10px] text-theme-muted cursor-pointer">
+                <summary className="font-semibold text-indigo-400 hover:underline">Advanced Technical IDs</summary>
+                <div className="pt-2 space-y-1 font-mono">
+                  <div className="flex justify-between"><span>Database UUID:</span><span className="text-white font-bold">{activeProduct.id}</span></div>
+                  <div className="flex justify-between"><span>Lifecycle State:</span><span className="text-emerald-400 font-bold">{activeProduct.status || "Active"}</span></div>
+                </div>
+              </details>
             </div>
 
-            <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-3 font-mono">
-              <h5 className="font-bold text-theme-heading font-display text-sm flex items-center gap-2 mb-2">
+            {/* Commercial Card (Point 8: Visual Hierarchy & Margins) */}
+            <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-4 font-mono">
+              <h5 className="font-bold text-theme-heading font-display text-sm flex items-center gap-2">
                 <DollarSign className="w-4 h-4 text-emerald-400" /> Commercial &amp; Margins
               </h5>
-              {[
-                ["MRP Price", `₹${mrp.toLocaleString("en-IN")}`],
-                ["Retail Sale Price", `₹${salePrice.toLocaleString("en-IN")}`],
-                ["Purchase Cost", `₹${purchaseCost.toLocaleString("en-IN")}`],
-                ["Gross Margin", `₹${(salePrice - purchaseCost).toLocaleString("en-IN")}`],
-                ["Margin %", `${marginPercent}%`],
-                ["Markup %", `${markupPercent}%`],
-                ["Current Stock Qty", `${activeProduct.stock_qty ?? activeProduct.qty ?? 0} ${activeProduct.uom || "Pcs"}`],
-                ["Min Reorder Level", `${activeProduct.min_stock_level || 5} Pcs`],
-              ].map(([k, v]) => (
-                <div key={k as string} className="flex justify-between text-xs border-b border-theme-divider/40 pb-1.5">
-                  <span className="text-theme-muted">{k}</span>
-                  <span className="font-bold text-theme-heading">{v || "â€”"}</span>
+
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-2.5 bg-theme-surface-1 rounded-xl border border-theme-divider">
+                  <div className="text-[10px] text-theme-muted uppercase font-bold">MRP</div>
+                  <div className="text-sm font-black text-white mt-0.5">₹{mrp.toLocaleString("en-IN")}</div>
                 </div>
+                <div className="p-2.5 bg-theme-surface-1 rounded-xl border border-theme-divider">
+                  <div className="text-[10px] text-theme-muted uppercase font-bold">Selling</div>
+                  <div className="text-sm font-black text-emerald-400 mt-0.5">₹{salePrice.toLocaleString("en-IN")}</div>
+                </div>
+                <div className="p-2.5 bg-theme-surface-1 rounded-xl border border-theme-divider">
+                  <div className="text-[10px] text-theme-muted uppercase font-bold">Purchase</div>
+                  <div className="text-sm font-black text-purple-400 mt-0.5">₹{purchaseCost.toLocaleString("en-IN")}</div>
+                </div>
+              </div>
+
+              {/* Visual HSL Margin Progress Bar */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex justify-between text-xs font-bold">
+                  <span className="text-theme-muted">Gross Margin: ₹{(salePrice - purchaseCost).toLocaleString("en-IN")}</span>
+                  <span className={parseFloat(marginPercent) >= 20 ? "text-emerald-400" : "text-amber-400"}>{marginPercent}%</span>
+                </div>
+                <div className="w-full h-2 bg-theme-surface-1 rounded-full overflow-hidden border border-theme-divider">
+                  <div
+                    className={`h-full ${parseFloat(marginPercent) >= 30 ? "bg-emerald-500" : parseFloat(marginPercent) >= 15 ? "bg-blue-500" : "bg-amber-500"} transition-all`}
+                    style={{ width: `${Math.min(100, Math.max(0, parseFloat(marginPercent)))}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-theme-divider/40 space-y-1.5 text-xs">
+                <div className="flex justify-between text-theme-muted"><span>Markup %</span><span className="font-bold text-theme-heading">{markupPercent}%</span></div>
+                <div className="flex justify-between text-theme-muted"><span>Current Stock</span><span className="font-bold text-emerald-400">{activeProduct.stock_qty ?? activeProduct.qty ?? 0} {activeProduct.uom || "Pcs"}</span></div>
+                <div className="flex justify-between text-theme-muted"><span>Reorder Point</span><span className="font-bold text-amber-400">{activeProduct.min_stock_level || 5} Pcs</span></div>
+              </div>
+            </div>
+          </div>
+
+          {/* SMRITI AI Copilot Dock */}
+          <div className="p-4 bg-indigo-950/30 border border-indigo-500/30 rounded-xl space-y-2">
+            <div className="flex items-center justify-between text-indigo-400 font-bold uppercase font-mono text-[10px] tracking-wider">
+              <span className="flex items-center gap-1.5"><Sparkles size={13} /> SMRITI AI Copilot Dock</span>
+              <span className="text-theme-muted">Ask Assistant</span>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1 font-mono text-[11px]">
+              {[
+                "What's wrong?",
+                "Optimize margin",
+                "Generate barcode",
+                "Assign supplier",
+                "Find duplicates"
+              ].map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => WorkspaceStatus.notify(`SMRITI AI: Executing "${prompt}" advisory task...`, "info")}
+                  className="px-3 py-1 bg-theme-surface-2 hover:bg-indigo-600/30 border border-indigo-500/25 text-indigo-200 rounded-lg transition-colors cursor-pointer"
+                >
+                  ⚡ {prompt}
+                </button>
               ))}
             </div>
           </div>

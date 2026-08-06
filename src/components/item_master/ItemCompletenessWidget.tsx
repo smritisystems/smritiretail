@@ -1,15 +1,16 @@
 /**
  * Project      : SMRITI Retail OS v7.0
  * Module       : Item Completeness & Quality Score Widget (MDQE Consumer)
+ * Standard     : SCS-WIN-001 (Workspace Inspector Standard)
  * Author       : Jawahar Ramkripal Mallah
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * Version      : 1.0.0
+ * Version      : 2.0.0
  */
 
 import React, { useState } from "react";
 import { Product } from "../../types.js";
 import { MDQE, ProductQualityResult } from "../../kernel/ule/MasterDataQualityEngine.js";
-import { ShieldCheck, AlertTriangle, AlertCircle, ChevronDown, ChevronUp, CheckCircle2, ArrowRight } from "lucide-react";
+import { ShieldCheck, AlertTriangle, AlertCircle, ChevronDown, ChevronUp, CheckCircle2, ArrowRight, Sparkles } from "lucide-react";
 
 interface ItemCompletenessWidgetProps {
   product: Product | Partial<Product>;
@@ -40,11 +41,13 @@ export const ItemCompletenessWidget: React.FC<ItemCompletenessWidgetProps> = ({
     return "bg-rose-500";
   };
 
+  const topMissingGap = missingGaps.length > 0 ? missingGaps[0] : null;
+
   if (compact) {
     return (
       <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-mono text-xs font-bold ${getScoreColor(overallScore)}`}>
         <ShieldCheck className="w-3.5 h-3.5" />
-        <span>Quality: {overallScore}% ({grade})</span>
+        <span>Completeness: {overallScore}% ({grade})</span>
       </div>
     );
   }
@@ -72,27 +75,58 @@ export const ItemCompletenessWidget: React.FC<ItemCompletenessWidgetProps> = ({
         </button>
       </div>
 
-      {/* 6 Category Sub-Score Breakdown Bars */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-2 pt-1 text-[10px]">
+      {/* Workflow Category Status Checklist */}
+      <div className="flex flex-wrap gap-2 pt-1 text-[11px]">
         {[
-          ["Basic Info", categoryBreakdown.basicInfo],
-          ["Pricing", categoryBreakdown.pricing],
-          ["Inventory", categoryBreakdown.inventory],
-          ["Barcode & Labels", categoryBreakdown.barcodeLabel],
-          ["Supplier", categoryBreakdown.supplier],
-          ["Images", categoryBreakdown.images],
-        ].map(([cat, score]) => (
-          <div key={cat as string} className="space-y-1">
-            <div className="flex justify-between text-theme-muted">
-              <span>{cat}</span>
-              <span className="font-bold">{score as number}%</span>
-            </div>
-            <div className="w-full h-1.5 bg-theme-surface-1 rounded-full overflow-hidden">
-              <div className={`h-full ${getBarColor(score as number)} transition-all`} style={{ width: `${score}%` }} />
+          { label: "Identity", score: categoryBreakdown.basicInfo, tab: "overview" },
+          { label: "Pricing", score: categoryBreakdown.pricing, tab: "pricing" },
+          { label: "Inventory", score: categoryBreakdown.inventory, tab: "inventory" },
+          { label: "Barcode", score: categoryBreakdown.barcodeLabel, tab: "overview" },
+          { label: "Supplier", score: categoryBreakdown.supplier, tab: "supplier" },
+          { label: "Images", score: categoryBreakdown.images, tab: "media" },
+        ].map((item) => {
+          const isComplete = item.score >= 80;
+          const isWarning = item.score >= 50 && item.score < 80;
+          return (
+            <button
+              key={item.label}
+              onClick={() => onNavigateTab?.(item.tab)}
+              className={`px-2.5 py-1 rounded-lg border flex items-center gap-1 cursor-pointer transition-all ${
+                isComplete
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20"
+                  : isWarning
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20"
+                  : "bg-rose-500/10 border-rose-500/30 text-rose-300 hover:bg-rose-500/20"
+              }`}
+            >
+              <span>{isComplete ? "✔" : isWarning ? "⚠" : "✖"}</span>
+              <span className="font-semibold">{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Next Recommended Step Banner */}
+      {topMissingGap && (
+        <div className="p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-xl flex items-center justify-between gap-3 text-[11px]">
+          <div className="flex items-center space-x-2">
+            <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
+            <div>
+              <span className="text-indigo-400 font-bold uppercase block text-[9px] tracking-wider">Next Recommended Step</span>
+              <span className="text-white font-semibold">{topMissingGap.message}</span>
             </div>
           </div>
-        ))}
-      </div>
+          {onNavigateTab && (
+            <button
+              onClick={() => onNavigateTab(topMissingGap.targetTab)}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center space-x-1 shrink-0 shadow-md"
+            >
+              <span>Go</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Expandable Missing Gaps Checklist */}
       {isExpanded && (
