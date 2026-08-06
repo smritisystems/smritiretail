@@ -358,28 +358,12 @@ const AppContent: React.FC = () => {
         ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
         : null;
 
-      if (token === "dev-bypass-token" && !FLAGS.ENABLE_DEV_LOGIN) {
+      if (!token || token === "dev-bypass-token") {
         if (typeof localStorage !== 'undefined') {
           localStorage.removeItem("smriti_jwt_token");
           localStorage.removeItem("smriti_session_token");
         }
         setCurrentUser(null);
-        setCheckingAuth(false);
-        return;
-      }
-
-      if (!token) {
-        if (terminalParam) {
-          setCurrentUser({ role: "SYSADMIN", name: "System Admin" });
-        } else {
-          setCurrentUser(null);
-        }
-        setCheckingAuth(false);
-        return;
-      }
-
-      if (token === "dev-bypass-token" && FLAGS.ENABLE_DEV_LOGIN) {
-        setCurrentUser({ role: "SYSADMIN", name: "System Admin" });
         setCheckingAuth(false);
         return;
       }
@@ -397,12 +381,11 @@ const AppContent: React.FC = () => {
         setCurrentUser(null);
       }
     } catch {
-      const token = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_jwt_token") : null;
-      if ((token === "dev-bypass-token" && FLAGS.ENABLE_DEV_LOGIN) || terminalParam) {
-        setCurrentUser({ role: "SYSADMIN", name: "System Admin" });
-      } else {
-        setCurrentUser(null);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem("smriti_jwt_token");
+        localStorage.removeItem("smriti_session_token");
       }
+      setCurrentUser(null);
     } finally {
       setCheckingAuth(false);
     }

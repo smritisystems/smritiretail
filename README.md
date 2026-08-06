@@ -185,13 +185,47 @@ f:\SMRITRretailNXmgrt\
 ---
 
 ## 7. Docker & Containerized Running
-Run the entire platform (Frontend, Backend, and Postgres database) using Docker Compose:
+
+### Development Mode (Docker)
+Run the development container stack using standard Docker Compose:
 
 ```bash
 docker compose up --build
 ```
-* Frontend Dev Server: `http://localhost:5173`
-* Backend FastAPI Docs: `http://localhost:8000/docs`
+* **Frontend Workspace UI:** `http://localhost:3000`
+* **Backend FastAPI OpenAPI Specs:** `http://localhost:8000/docs`
+* **PostgreSQL System-of-Record:** `localhost:5432`
+
+---
+
+### Production Mode (Docker)
+
+Production deployments consume the multi-container production stack (`docker-compose.prod.yml`) with PostgreSQL 15, FastAPI, built React static assets, and NGINX reverse proxy.
+
+> [!NOTE]
+> Production containers require a `.env` file for configuration and secret keys. The single-line commands below automatically generate `.env` from `.env.example` if it does not exist.
+
+#### 1-Line PowerShell Command (Windows Production):
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }; docker compose -f docker-compose.prod.yml up -d --build; Start-Sleep -Seconds 5; docker exec smriti-api-prod python -m alembic upgrade head
+```
+
+#### 1-Line Bash Command (Linux / macOS Production):
+```bash
+[ -f .env ] || cp .env.example .env; docker compose -f docker-compose.prod.yml up -d --build && sleep 5 && docker exec smriti-api-prod python -m alembic upgrade head
+```
+
+#### Production Verification & Diagnostics:
+- **Web App UI (NGINX Proxy):** `http://localhost` (Port 80 / 443)
+- **API Health Spec:** `http://localhost:8000/docs`
+- **Check Production Container Status:**
+  ```powershell
+  docker compose -f docker-compose.prod.yml ps
+  ```
+- **View Production Logs:**
+  ```powershell
+  docker compose -f docker-compose.prod.yml logs -f smriti-api-prod
+  ```
 
 ---
 

@@ -130,31 +130,15 @@ const LoginScreenContent: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           companyId: data.company_id ?? user.company_id,
           branchId:  data.branch_id  ?? user.branch_id,
         });
-      } else if (allowDevLogin && (DEV_ACCOUNTS.some(a => a.username === username) || username === "admin")) {
-        const matched = DEV_ACCOUNTS.find(a => a.username === username);
-        localStorage.setItem("smriti_jwt_token", "dev-bypass-token");
-        onLoginSuccess({
-          role: matched?.role || "SYSADMIN",
-          name: username || "System Admin",
-          passwordResetRequired: false,
-        });
       } else {
         setError("Incorrect User ID or password. Please try again.");
       }
     } catch (err: any) {
-      const matched = DEV_ACCOUNTS.find(a => a.username === username);
-      if (allowDevLogin && (matched || username === "admin")) {
-        localStorage.setItem("smriti_jwt_token", "dev-bypass-token");
-        onLoginSuccess({
-          role: matched?.role || "SYSADMIN",
-          name: username || "System Admin",
-          passwordResetRequired: false,
-        });
-        return;
-      }
       let errMsg = typeof err === "string" ? err : err?.message || "";
       if (!errMsg || errMsg === "Failed to fetch" || errMsg.includes("NetworkError") || errMsg.includes("fetch")) {
         errMsg = "Unable to reach the SMRITI authentication service. Please contact your system administrator.";
+      } else if (errMsg.includes("401") || errMsg.toLowerCase().includes("incorrect")) {
+        errMsg = "Incorrect User ID or password. Please try again.";
       }
       setError(errMsg);
     } finally {
