@@ -180,7 +180,7 @@ async def test_dev_login_reconciles_existing_super_account_password(db_session, 
 
     assert res.status_code == 200
     await db_session.refresh(user)
-    assert verify_password("whynothing", user.hashed_password) is True
+    assert verify_password("Shpr0128vdq!@", user.hashed_password) is True
 
 
 async def test_production_install_prevents_convenience_login(db_session, monkeypatch):
@@ -193,7 +193,7 @@ async def test_production_install_prevents_convenience_login(db_session, monkeyp
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post("/api/v1/auth/login", json={
             "username": "super",
-            "password": "whynothing",
+            "password": "Shpr0128vdq!@",
         })
 
     assert res.status_code == 401

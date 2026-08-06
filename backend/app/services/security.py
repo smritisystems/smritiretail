@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from ..models.auth import User
+from ..models.auth import User, UserRole
 from ..models.security import (
     PermissionType,
     SMRITIMenu,
@@ -58,30 +58,37 @@ class SecurityService:
         """
         now = datetime.now(timezone.utc)
 
-        # 1. Fetch active SMRITIUserAssignment records with valid temporal bounds
-        from ..models.security import SMRITIUserAssignment
-        assign_stmt = select(SMRITIUserAssignment).where(
-            SMRITIUserAssignment.user_id == user_id,
-            SMRITIUserAssignment.status == "ACTIVE",
-            SMRITIUserAssignment.is_deleted == False
-        )
-        assign_res = await self.db.execute(assign_stmt)
-        active_assignments = [
-            a for a in assign_res.scalars().all()
-            if (a.valid_from is None or a.valid_from <= now) and (a.valid_to is None or a.valid_to >= now)
-        ]
-
         resolved_role_ids = set()
-        if active_assignments:
-            resolved_role_ids = {a.role_id for a in active_assignments if a.role_id}
+        try:
+            async with self.db.begin_nested():
+                # 1. Fetch active SMRITIUserAssignment records with valid temporal bounds
+                from ..models.security import SMRITIUserAssignment
+                assign_stmt = select(SMRITIUserAssignment).where(
+                    SMRITIUserAssignment.user_id == user_id,
+                    SMRITIUserAssignment.status == "ACTIVE",
+                    SMRITIUserAssignment.is_deleted == False
+                )
+                assign_res = await self.db.execute(assign_stmt)
+                active_assignments = [
+                    a for a in assign_res.scalars().all()
+                    if (a.valid_from is None or a.valid_from <= now) and (a.valid_to is None or a.valid_to >= now)
+                ]
+                if active_assignments:
+                    resolved_role_ids = {a.role_id for a in active_assignments if a.role_id}
+        except Exception:
+            resolved_role_ids = set()
 
         if not resolved_role_ids:
-            # 2. Fetch direct SMRITIUserRole mappings
-            user_role_stmt = select(SMRITIUserRole).where(SMRITIUserRole.user_id == user_id)
-            user_roles_res = await self.db.execute(user_role_stmt)
-            direct_mappings = user_roles_res.scalars().all()
-            if direct_mappings:
-                resolved_role_ids = {m.role_id for m in direct_mappings if m.role_id}
+            try:
+                async with self.db.begin_nested():
+                    # 2. Fetch direct SMRITIUserRole mappings
+                    user_role_stmt = select(SMRITIUserRole).where(SMRITIUserRole.user_id == user_id)
+                    user_roles_res = await self.db.execute(user_role_stmt)
+                    direct_mappings = user_roles_res.scalars().all()
+                    if direct_mappings:
+                        resolved_role_ids = {m.role_id for m in direct_mappings if m.role_id}
+            except Exception:
+                resolved_role_ids = set()
 
         if not resolved_role_ids:
             # 3. Fallback to legacy User.role column
