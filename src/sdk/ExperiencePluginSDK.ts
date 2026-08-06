@@ -1,28 +1,22 @@
 /**
  * Project      : SMRITI Retail OS
- * Module       : SXP v1.0 — Experience Plugin SDK (SWEF P-012)
+ * Module       : SMRITI UX Framework SDK (ExperiencePluginSDK v2.0 — SWEF P-012)
  * Standard     : SXP Constitution v1.0 — Certification Gate SXP-CS-012
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Version      : 1.0.0
- * Created      : 2026-08-03
+ * Version      : 2.0.0
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  *
  * GOVERNANCE (SWEF P-012):
  *   All platform extensions MUST implement ExperiencePlugin.
  *   No modifications to core SXP engines are permitted.
- *   Plugins register capabilities via the provided registry instances.
- *
- * EXAMPLE PLUGINS (register without touching core):
- *   SmritiAIPlugin        — AI reorder advisory, demand forecast widgets
- *   MarketplacePlugin     — Shopify/Amazon sync widgets + timeline adapter
- *   ManufacturingPlugin   — BOM, production order workspaces
- *   RestaurantPlugin      — KOT, table management, modifier workspaces
+ *   Plugins register capabilities via the public SDK surfaces.
  */
 
 import { WorkspaceRegistry, WorkspaceMetadata } from "../layout_engine/WorkspaceRegistry.js";
 import { WorkspaceActionRegistry, WorkspaceActionDef } from "../layout_engine/WorkspaceActionRegistry.js";
+import { SPK } from "../kernel/SPK.js";
 
 // ── Platform Context (read-only at plugin init) ───────────────────────────────
 
@@ -33,11 +27,46 @@ export interface PluginPlatformContext {
   readonly locale: string;
 }
 
+// ── Framework SDK Interfaces ──────────────────────────────────────────────────
+
+export interface SEDSThemeSDK {
+  getTokens(): Record<string, string>;
+  setThemeMode(mode: "dark" | "light" | "auto"): void;
+}
+
+export interface NavigationSDK {
+  registerDomain(domain: { id: string; name: string; icon: string }): void;
+  registerModule(domainId: string, module: { id: string; label: string; icon: string; component: string }): void;
+}
+
+export interface FormSDK {
+  registerForm(entityType: string, formDef: any): void;
+  registerValidationRule(ruleId: string, validatorFn: (val: any) => boolean): void;
+}
+
+export interface DrillDownSDK {
+  register360Inspector(entityType: string, componentName: string): void;
+  registerLineageAdapter(entityType: string, adapterFn: (id: string) => any): void;
+}
+
+export interface PrintSDK {
+  registerTemplate(templateId: string, templateSchema: any): void;
+}
+
+export interface AiSkillSDK {
+  registerAdvisorySkill(skillId: string, skillFn: (ctx: any) => any): void;
+}
+
 // ── Plugin Registration Targets ────────────────────────────────────────────────
 
 export interface PluginRegistrationTargets {
   workspaceRegistry: typeof WorkspaceRegistry;
   actionRegistry: typeof WorkspaceActionRegistry;
+  navigation: NavigationSDK;
+  forms: FormSDK;
+  drillDown: DrillDownSDK;
+  printing: PrintSDK;
+  ai: AiSkillSDK;
 }
 
 // ── Plugin Descriptor ─────────────────────────────────────────────────────────
@@ -61,90 +90,50 @@ export interface ExperiencePlugin {
   registerActions?(registry: typeof WorkspaceActionRegistry): void;
 
   /**
-   * Register additional widget type IDs (declared in DashboardRegistry
-   * separately by the plugin's module).
+   * Register domain navigation modules, forms, print templates, and 360° inspectors.
    */
-  registerWidgetTypes?(): string[];
+  registerExtensions?(targets: PluginRegistrationTargets): void;
 
   /**
-   * Register timeline adapter IDs this plugin provides.
-   * WorkspaceTimeline resolves adapters by ID at render time.
+   * Called after all plugins have registered their components.
    */
-  registerTimelineAdapters?(): string[];
-
-  /**
-   * Register search source IDs (resolved by GlobalSearchEngine).
-   */
-  registerSearchSources?(): string[];
-
-  /**
-   * Lifecycle: called once with an immutable platform context.
-   * Plugins must complete initialization here (load data, set up subscriptions).
-   */
-  initialize(context: PluginPlatformContext): Promise<void>;
-
-  /**
-   * Lifecycle: called on platform teardown or plugin deregistration.
-   * Must remove all event subscriptions and timers.
-   */
-  destroy(): void;
+  onPlatformReady?(context: PluginPlatformContext): void;
 }
 
-// ── Plugin Registry ───────────────────────────────────────────────────────────
+// ── Plugin Host Manager ───────────────────────────────────────────────────────
 
-class ExperiencePluginRegistryService {
-  private readonly plugins: Map<string, ExperiencePlugin> = new Map();
+export class ExperiencePluginHost {
+  private static instance: ExperiencePluginHost;
+  private registeredPlugins: Map<string, ExperiencePlugin> = new Map();
 
-  /**
-   * Load and initialize a plugin.
-   * Calls all registerXxx hooks then initialize().
-   */
-  public async load(
-    plugin: ExperiencePlugin,
-    context: PluginPlatformContext
-  ): Promise<void> {
-    if (this.plugins.has(plugin.id)) {
-      console.warn(`[ExperiencePluginSDK] Plugin '${plugin.id}' is already loaded.`);
+  private constructor() {}
+
+  public static getInstance(): ExperiencePluginHost {
+    if (!ExperiencePluginHost.instance) {
+      ExperiencePluginHost.instance = new ExperiencePluginHost();
+    }
+    return ExperiencePluginHost.instance;
+  }
+
+  public registerPlugin(plugin: ExperiencePlugin): void {
+    if (this.registeredPlugins.has(plugin.id)) {
+      console.warn(`[ExperiencePluginHost] Plugin ${plugin.id} already registered.`);
       return;
     }
 
-    // Call registration hooks
-    plugin.registerWorkspaces?.(WorkspaceRegistry);
-    plugin.registerActions?.(WorkspaceActionRegistry);
+    this.registeredPlugins.set(plugin.id, plugin);
 
-    // Initialize with immutable context
-    await plugin.initialize(Object.freeze({ ...context }));
-
-    this.plugins.set(plugin.id, plugin);
-    console.info(`[ExperiencePluginSDK] Loaded plugin: ${plugin.name} v${plugin.version}`);
-  }
-
-  /** Unload a plugin and call its destroy() lifecycle method */
-  public unload(pluginId: string): void {
-    const plugin = this.plugins.get(pluginId);
-    if (plugin) {
-      plugin.destroy();
-      this.plugins.delete(pluginId);
+    if (plugin.registerWorkspaces) {
+      plugin.registerWorkspaces(WorkspaceRegistry);
     }
+    if (plugin.registerActions) {
+      plugin.registerActions(WorkspaceActionRegistry);
+    }
+
+    console.info(`[ExperiencePluginHost] Successfully registered plugin: ${plugin.name} (v${plugin.version})`);
   }
 
-  public get(pluginId: string): ExperiencePlugin | undefined {
-    return this.plugins.get(pluginId);
-  }
-
-  public getAll(): ExperiencePlugin[] {
-    return Array.from(this.plugins.values());
-  }
-
-  /** Check if a plugin is currently active */
-  public isLoaded(pluginId: string): boolean {
-    return this.plugins.has(pluginId);
+  public getPlugins(): ExperiencePlugin[] {
+    return Array.from(this.registeredPlugins.values());
   }
 }
-
-export const ExperiencePluginRegistry = new ExperiencePluginRegistryService();
-
-// ── Convenience type exports ──────────────────────────────────────────────────
-// Plugin authors import from this module only — not from internal SXP modules.
-
-export type { WorkspaceMetadata, WorkspaceActionDef };
