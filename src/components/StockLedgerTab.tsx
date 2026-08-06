@@ -30,6 +30,7 @@ import { StockLedgerEntry } from "../types.js";
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { FioriListReport, ListReportColumn } from "./common/FioriListReport.tsx";
+import { DrillableLink } from "./drilldown/DrillableLink.tsx";
 
 interface StockLedgerTabProps {
   currentUser?: { role: string; name: string } | null;
@@ -88,7 +89,12 @@ const COLUMNS: ListReportColumn<LedgerRow>[] = [
     render: (row) => (
       <div>
         <div className="text-theme-body text-xs">{row.warehouse || "Main WH"}</div>
-        <div className="text-[10px] text-theme-muted mt-0.5">Bin: {row.bin || "Default"}</div>
+        <div className="text-[10px] text-theme-muted mt-0.5">
+          Bin:{" "}
+          <DrillableLink context={{ entityType: "warehouse", entityId: row.bin || "Default", title: `Bin ${row.bin || "Default"}` }}>
+            {row.bin || "Default"}
+          </DrillableLink>
+        </div>
       </div>
     ),
   },
