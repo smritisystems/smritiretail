@@ -26,6 +26,8 @@ export const PrintCenterTab: React.FC = () => {
   const [routingRules, setRoutingRules] = useState<PrintRoutingRule[]>(PrintRoutingEngine.listRules());
   const [agents, setAgents] = useState(PrintAgentManager.getAgentStatuses());
 
+  const analytics = PrintAuditLogService.getAnalyticsSummary();
+
   const handleRefresh = () => {
     setPrinters(PrinterProfileRegistry.list());
     setJobs(DocumentQueueRegistry.listJobs());
@@ -40,7 +42,7 @@ export const PrintCenterTab: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-cyan-400 uppercase">
-            <span>SCS-DXP-002 Enterprise Printing Platform v2.1</span>
+            <span>SCS-DXP-002 Enterprise Printing Platform v3.0 (PrintDomain)</span>
           </div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-3 mt-1">
             <Printer className="w-7 h-7 text-cyan-400" />
@@ -56,6 +58,33 @@ export const PrintCenterTab: React.FC = () => {
             <RefreshCw className="w-4 h-4 text-cyan-400" />
             Refresh Fleet
           </button>
+        </div>
+      </div>
+
+      {/* Operational BI Analytics Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+        <div className="bg-slate-800/80 border border-slate-700/80 p-4 rounded-xl">
+          <p className="text-xs text-slate-400 font-medium">Total Jobs Processed</p>
+          <p className="text-2xl font-bold text-white mt-1">{analytics.totalJobsProcessed}</p>
+          <span className="text-[10px] text-emerald-400 font-mono">100% Spooler Covered</span>
+        </div>
+
+        <div className="bg-slate-800/80 border border-slate-700/80 p-4 rounded-xl">
+          <p className="text-xs text-slate-400 font-medium">Fleet Success Rate</p>
+          <p className="text-2xl font-bold text-emerald-400 mt-1">{analytics.successRatePercentage}%</p>
+          <span className="text-[10px] text-slate-400">{analytics.totalSuccessful} Success / {analytics.totalFailed} Failed</span>
+        </div>
+
+        <div className="bg-slate-800/80 border border-slate-700/80 p-4 rounded-xl">
+          <p className="text-xs text-slate-400 font-medium">Avg Execution Latency</p>
+          <p className="text-2xl font-bold text-cyan-400 mt-1">{analytics.averageDurationMs} ms</p>
+          <span className="text-[10px] text-slate-400">High-Speed Print Pipeline</span>
+        </div>
+
+        <div className="bg-slate-800/80 border border-slate-700/80 p-4 rounded-xl">
+          <p className="text-xs text-slate-400 font-medium">Payload Data Volume</p>
+          <p className="text-2xl font-bold text-amber-400 mt-1">{(analytics.totalPayloadBytes / 1024).toFixed(1)} KB</p>
+          <span className="text-[10px] text-slate-400">Transmitted over Fleet</span>
         </div>
       </div>
 

@@ -174,4 +174,7 @@ export class PrintRegistryService {
   }
 }
 
+import { PrintDomain } from "../../../dop/core/PrintDomainFacade.js";
+
 export const PrintRegistry = new PrintRegistryService();
+export const SPK_printing = PrintDomain;
