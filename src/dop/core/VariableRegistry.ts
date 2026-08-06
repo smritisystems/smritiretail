@@ -36,6 +36,8 @@ export interface DxpTypedVariable {
   example: string;
 }
 
+import { DemoDataRegistry } from "../../kernel/config/SmritiDemoDataRegistry.js";
+
 class VariableRegistryManager {
   private variables: Map<string, DxpTypedVariable> = new Map();
 
@@ -46,10 +48,10 @@ class VariableRegistryManager {
   private registerDefaults() {
     const defaults: DxpTypedVariable[] = [
       // Company Category
-      { id: "Company.Name", type: "string", category: "Company", description: "Legal Company Name", formatter: "text", example: "SMRITI Enterprise Co." },
-      { id: "Company.Address", type: "string", category: "Company", description: "Registered Store / Corporate Address", formatter: "text", example: "101 Tech Park, Mumbai" },
-      { id: "Company.GSTIN", type: "string", category: "Company", description: "15-digit GST Identification Number", formatter: "text", example: "27AAAAA0000A1Z5" },
-      { id: "Company.Phone", type: "string", category: "Company", description: "Store Support / Helpline Phone Number", formatter: "text", example: "+91 9876543210" },
+      { id: "Company.Name", type: "string", category: "Company", description: "Legal Company Name", formatter: "text", example: DemoDataRegistry.company().name },
+      { id: "Company.Address", type: "string", category: "Company", description: "Registered Store / Corporate Address", formatter: "text", example: DemoDataRegistry.getFormattedCompanyAddress() },
+      { id: "Company.GSTIN", type: "string", category: "Company", description: "15-digit GST Identification Number", formatter: "text", example: DemoDataRegistry.company().gstin },
+      { id: "Company.Phone", type: "string", category: "Company", description: "Store Support / Helpline Phone Number", formatter: "text", example: DemoDataRegistry.company().phone },
 
       // Customer Category
       { id: "Customer.Name", type: "string", category: "Customer", description: "Customer Full Name", formatter: "text", example: "Acme Retail Corp" },

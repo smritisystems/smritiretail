@@ -25,6 +25,7 @@
 
 import React, { useState, useEffect } from "react";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
+import { DemoDataRegistry } from "../../kernel/config/SmritiDemoDataRegistry.js";
 import { FLAGS } from "../../config/flags";
 import { motion, AnimatePresence } from "motion/react";
 import { SEDSWizard } from "../../design-system/components/SEDSWizard.tsx";
@@ -615,7 +616,7 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
                     setupId: `${tenantCode}-20260805-001`,
                     tenantCode: tenantCode || "SMS",
                     tenantName: tenantName || "Smriti Systems Group",
-                    companyName: businessName || "Smriti Books Pvt. Ltd.",
+                    companyName: businessName || DemoDataRegistry.company().name,
                     legalEntity: legalEntity || "Private Limited Company",
                     address: {
                       line1: addressLine1 || "Taramandal, Ramgarh Tal",

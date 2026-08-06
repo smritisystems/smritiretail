@@ -7,6 +7,7 @@
  */
 
 import { PlatformContext } from "../../context/PlatformContext.js";
+import { DemoDataRegistry } from "../../config/SmritiDemoDataRegistry.js";
 
 export type PrintPaperSize = "thermal_80mm" | "thermal_58mm" | "a4" | "a5" | "label_50x25mm";
 
@@ -47,7 +48,7 @@ export class PrintRegistryService {
         paperSize: "thermal_80mm",
         permissionId: "sales.pos.billing",
         isDefault: true,
-        templateBody: `<div className="pos-receipt"><h1>SMRITI RETAIL RECEIPT</h1><p>Invoice: {{invoiceNo}}</p><p>Total: {{totalAmount}}</p></div>`
+        templateBody: `<div className="pos-receipt"><h1>${DemoDataRegistry.company().name}</h1><p>${DemoDataRegistry.getFormattedCompanyAddress()}</p><p>Website: ${DemoDataRegistry.company().website}</p><p>Invoice: {{invoiceNo}}</p><p>Total: {{totalAmount}}</p></div>`
       },
       {
         id: "tmpl.barcode_label",

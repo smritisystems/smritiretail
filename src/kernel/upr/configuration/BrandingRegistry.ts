@@ -17,6 +17,8 @@ export interface BrandingDefinition {
   copyrightText: string;
 }
 
+import { DemoDataRegistry } from "../../config/SmritiDemoDataRegistry.js";
+
 export class BrandingRegistryService {
   private branding: Readonly<BrandingDefinition>;
   private listeners: Set<() => void> = new Set();
@@ -28,7 +30,7 @@ export class BrandingRegistryService {
       themeMode: "system",
       primaryColor: "#0a6ed1",
       accentColor: "#38bdf8",
-      companyName: "SMRITI Systems Private Limited",
+      companyName: DemoDataRegistry.company().name,
       copyrightText: "© SMRITIBooks.com. All Rights Reserved."
     });
   }

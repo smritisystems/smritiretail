@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -24,12 +24,13 @@
  */
 
 import React from "react";
+import { DemoDataRegistry } from "../../kernel/config/SmritiDemoDataRegistry.js";
 
 export const BarcodeLabel: React.FC<{ data: any }> = ({ data }) => {
   return (
     <div className="w-[50mm] h-[25mm] bg-white text-black p-[2mm] mx-auto box-border flex flex-col justify-between overflow-hidden">
       <div className="flex justify-between items-start">
-        <span className="text-[8px] font-bold truncate max-w-[30mm]">{data.companyName || "SMRITI"}</span>
+        <span className="text-[8px] font-bold truncate max-w-[30mm]">{data.companyName || DemoDataRegistry.company().name}</span>
         <span className="text-[10px] font-bold">${data.items?.[0]?.rate?.toFixed(2) || "99.99"}</span>
       </div>
       <div className="text-[9px] truncate w-full">{data.items?.[0]?.name || "Product Name"}</div>

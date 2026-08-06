@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -24,12 +24,13 @@
  */
 
 import React from "react";
+import { DemoDataRegistry } from "../../kernel/config/SmritiDemoDataRegistry.js";
 
 export const GoodsReceiptNoteA4: React.FC<{ data: any }> = ({ data }) => {
   return (
     <div className="w-[210mm] min-h-[297mm] bg-white text-black p-[20mm] mx-auto box-border text-sm font-sans">
       <div className="text-center border-b-2 border-black pb-4 mb-6">
-        <h1 className="text-3xl font-bold font-display uppercase tracking-wider">{data.companyName || "SMRITI Enterprise"}</h1>
+        <h1 className="text-3xl font-bold font-display uppercase tracking-wider">{data.companyName || DemoDataRegistry.company().name}</h1>
         <h2 className="text-xl font-bold text-gray-700 mt-2">GOODS RECEIPT NOTE (GRN)</h2>
       </div>
 

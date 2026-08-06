@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -12,6 +12,7 @@
  */
 
 import React from "react";
+import { DemoDataRegistry } from "../../kernel/config/SmritiDemoDataRegistry.js";
 
 export const numberToIndianWords = (num: number): string => {
   if (num === 0) return "Zero";
@@ -230,12 +231,12 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data }) => {
           )}
           <div>
             <h1 className="text-lg font-bold uppercase tracking-tight text-gray-900">
-              {data.companyName || "SMRITI ENTERPRISES"}
+              {data.companyName || DemoDataRegistry.company().name}
             </h1>
-            <p className="text-gray-600 max-w-sm whitespace-pre-wrap">{data.companyAddress || "Corporate Office Address Details"}</p>
-            {data.companyPhone && <span className="text-gray-600">Phone: {data.companyPhone} | </span>}
-            {data.companyEmail && <span className="text-gray-600">Email: {data.companyEmail}</span>}
-            {data.companyGst && <p className="text-gray-800 font-semibold mt-0.5">GSTIN: {data.companyGst}</p>}
+            <p className="text-gray-600 max-w-sm whitespace-pre-wrap">{data.companyAddress || DemoDataRegistry.getFormattedCompanyAddress()}</p>
+            <span className="text-gray-600">Phone: {data.companyPhone || DemoDataRegistry.company().phone} | </span>
+            <span className="text-gray-600">Email: {data.companyEmail || DemoDataRegistry.company().email}</span>
+            <p className="text-gray-800 font-semibold mt-0.5">GSTIN: {data.companyGst || DemoDataRegistry.company().gstin}</p>
           </div>
         </div>
         
@@ -473,7 +474,7 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data }) => {
         
         <div className="flex flex-col justify-between items-end pl-8">
           <div className="text-center font-mono w-48 border border-gray-200 rounded p-1.5 bg-gray-50/10">
-            <p className="text-[8px] text-gray-500 uppercase">For {data.companyName || "SMRITI ENTERPRISES"}</p>
+            <p className="text-[8px] text-gray-500 uppercase">For {data.companyName || DemoDataRegistry.company().name}</p>
             <div className="h-10 mt-1" /> {/* Spacer for signature */}
             <p className="border-t border-gray-300 pt-1 font-bold text-gray-800 uppercase text-[9px]">
               Authorised Signatory

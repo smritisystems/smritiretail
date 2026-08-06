@@ -14,6 +14,7 @@
  */
 
 import { DxpDocumentType, IDxpDocumentModel } from "../models/DxpTypes.ts";
+import { DemoDataRegistry } from "../../kernel/config/SmritiDemoDataRegistry.js";
 
 export interface IDxpDocumentBuilder {
   documentType: DxpDocumentType;
@@ -38,10 +39,10 @@ class DocumentBuilderRegistryManager {
         documentNo: raw.invoiceNo || raw.documentNo || "INV-2026-0001",
         date: raw.date || new Date().toISOString().split("T")[0],
         company: {
-          name: raw.companyName || raw.company?.name || "SMRITI Enterprise Co.",
-          address: raw.companyAddress || raw.company?.address || "Primary Store Location",
-          gstin: raw.companyGstin || raw.company?.gstin || "27AAAAA0000A1Z5",
-          phone: raw.companyPhone || raw.company?.phone || "+91 9876543210",
+          name: raw.companyName || raw.company?.name || DemoDataRegistry.company().name,
+          address: raw.companyAddress || raw.company?.address || DemoDataRegistry.getFormattedCompanyAddress(),
+          gstin: raw.companyGstin || raw.company?.gstin || DemoDataRegistry.company().gstin,
+          phone: raw.companyPhone || raw.company?.phone || DemoDataRegistry.company().phone,
         },
         customer: {
           name: raw.customerName || raw.customer?.name || "Cash Customer",
@@ -77,8 +78,8 @@ class DocumentBuilderRegistryManager {
         documentNo: raw.invoiceNo || raw.receiptNo || "RCT-2026-0001",
         date: raw.date || new Date().toISOString().split("T")[0],
         company: {
-          name: raw.companyName || "SMRITI Retail Store",
-          phone: raw.companyPhone || "+91 9876543210",
+          name: raw.companyName || DemoDataRegistry.company().name,
+          phone: raw.companyPhone || DemoDataRegistry.company().phone,
         },
         customer: {
           name: raw.customerName || "Retail Shopper",
@@ -105,7 +106,7 @@ class DocumentBuilderRegistryManager {
         documentType: "BARCODE_LABEL",
         documentNo: raw.invoiceNo || "LABEL-001",
         date: raw.date || new Date().toISOString().split("T")[0],
-        company: { name: raw.companyName || "SMRITI Retail OS" },
+        company: { name: raw.companyName || DemoDataRegistry.company().name },
         items: (raw.items || [{ name: "Demo SKU Product", rate: 1299.0, barcode: "8901234567890" }]).map((i: any) => ({
           name: i.name || "Demo SKU Product",
           barcode: i.barcode || "8901234567890",
@@ -138,7 +139,7 @@ class DocumentBuilderRegistryManager {
       documentType: type,
       documentNo: rawEntity.documentNo || rawEntity.invoiceNo || "DOC-2026-0001",
       date: rawEntity.date || new Date().toISOString().split("T")[0],
-      company: { name: rawEntity.companyName || rawEntity.company?.name || "SMRITI Enterprise" },
+      company: { name: rawEntity.companyName || rawEntity.company?.name || DemoDataRegistry.company().name },
       customer: { name: rawEntity.customerName || "Customer" },
       items: rawEntity.items || [],
       subtotal: Number(rawEntity.subtotal || 0),
