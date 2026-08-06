@@ -91,9 +91,10 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
 
   const domainTitle = rawDomainDef?.label || `${activeDomain || "Sales"} Domain`;
 
-  // Capability-Driven Module Filtering (WNG-005 & Rule 19)
+  // Capability-Driven Module Filtering (WNG-005 & Rule 19 - Navigation Registry Authority)
   const availableModules = rawDomainDef?.modules && rawDomainDef.modules.length > 0
     ? rawDomainDef.modules.filter((m) => {
+        if (m.visible === false) return false; // Enforce WNG-001 visibility authority
         if (!m.permission) return true;
         const decision = SPK.security.evaluateAccess("current_user", "MANAGER", m.permission);
         return decision.allowed;
@@ -158,7 +159,7 @@ export const ContextualSidebar: React.FC<ContextualSidebarProps> = ({
       <nav className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-none">
         {modules.map((item) => {
           const Icon = LUCIDE_ICON_MAP[item.icon] || Package;
-          const isActive = activeTab === item.targetTab;
+          const isActive = activeTab === item.id || activeTab === item.targetTab;
 
           return (
             <button
