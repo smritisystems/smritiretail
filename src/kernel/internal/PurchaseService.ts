@@ -196,6 +196,36 @@ export class PurchaseService implements IPurchaseService {
     return cancelledRecord;
   }
 
+  public async allocateLandedCost(poId: string, additionalCosts: { freightAmount?: number; customsDuty?: number; insurance?: number; handlingFee?: number }): Promise<{ poId: string; totalLandedCost: number; itemsLandedUnitCost: Record<string, number> }> {
+    const po = await this.getPOById(poId);
+    if (!po) {
+      throw new Error(`[PurchaseService] PO ${poId} not found for landed cost allocation.`);
+    }
+
+    const freight = additionalCosts.freightAmount || 0;
+    const customs = additionalCosts.customsDuty || 0;
+    const insurance = additionalCosts.insurance || 0;
+    const handling = additionalCosts.handlingFee || 0;
+    const totalAdditionalCost = freight + customs + insurance + handling;
+
+    const totalPoQty = po.lines.reduce((acc, line) => acc + (line.receivedQty || line.orderedQty || 1), 0);
+    const costPerUnitAdd = totalPoQty > 0 ? totalAdditionalCost / totalPoQty : 0;
+
+    const itemsLandedUnitCost: Record<string, number> = {};
+    for (const line of po.lines) {
+      const sku = line.itemId || line.itemCode;
+      const baseUnitCost = line.unitPrice || 0;
+      itemsLandedUnitCost[sku] = parseFloat((baseUnitCost + costPerUnitAdd).toFixed(2));
+    }
+
+    logger.info(`[PurchaseService] Allocated ₹${totalAdditionalCost} landed cost across ${po.lines.length} items for PO ${poId}.`);
+    return {
+      poId,
+      totalLandedCost: po.totalAmount + totalAdditionalCost,
+      itemsLandedUnitCost,
+    };
+  }
+
   private upsertLocalCache(po: PurchaseOrderRecord): void {
     const idx = this.localCache.findIndex((p) => p.id === po.id);
     if (idx >= 0) {
