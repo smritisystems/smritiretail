@@ -8,12 +8,12 @@
  * Copyright    : © Jawahar Ramkripal Mallah. All Rights Reserved.
  *
  * DXP-TPL-001 Compliance Declaration
- * Principle    : Template Decoupling & Versioning — Document definitions (DocumentRegistry) are decoupled
- *                from templates. Templates support semantic versioning (v1.0.0, v1.1.0) and variants (Retail, GST, Export).
+ * Principle    : Template Compatibility Metadata — Templates declare minPlatformVersion,
+ *                supportedChannels, version, and variant for safe platform upgrades.
  */
 
 import React from "react";
-import { DxpDocumentType } from "../models/DxpTypes.ts";
+import { DxpDocumentType, DxpOutputChannel } from "../models/DxpTypes.ts";
 import { StandardInvoiceA4 } from "../../print_engine/templates/StandardInvoiceA4.tsx";
 import { ThermalReceipt80mm } from "../../print_engine/templates/ThermalReceipt80mm.tsx";
 import { GoodsReceiptNoteA4 } from "../../print_engine/templates/GoodsReceiptNoteA4.tsx";
@@ -25,7 +25,9 @@ export interface RegisteredTemplateDescriptor {
   documentType: DxpDocumentType;
   format: "A4" | "A5" | "Thermal80mm" | "Label";
   version: string; // e.g. "v1.0.0"
-  variant?: string; // e.g. "Retail" | "GST" | "Export" | "Custom"
+  variant?: string; // e.g. "Retail" | "GST" | "Export" | "Supermarket"
+  minPlatformVersion: string; // e.g. "v5.0.0"
+  supportedChannels: DxpOutputChannel[];
   component: React.ComponentType<{ data: any }>;
   isDefault?: boolean;
   companyId?: string;
@@ -48,6 +50,8 @@ class TemplateRegistryManager {
         format: "A4",
         version: "v1.0.0",
         variant: "GST",
+        minPlatformVersion: "v5.0.0",
+        supportedChannels: ["PRINT", "PDF", "PREVIEW", "EMAIL", "WHATSAPP"],
         component: StandardInvoiceA4,
         isDefault: true,
         tags: ["invoice", "a4", "standard"],
@@ -59,6 +63,8 @@ class TemplateRegistryManager {
         format: "A4",
         version: "v1.0.0",
         variant: "Logistics",
+        minPlatformVersion: "v5.0.0",
+        supportedChannels: ["PRINT", "PDF", "PREVIEW", "ARCHIVE"],
         component: GoodsReceiptNoteA4,
         isDefault: true,
         tags: ["grn", "logistics", "a4"],
@@ -70,6 +76,8 @@ class TemplateRegistryManager {
         format: "Thermal80mm",
         version: "v1.0.0",
         variant: "Retail",
+        minPlatformVersion: "v5.0.0",
+        supportedChannels: ["PRINT", "PDF", "PREVIEW", "WHATSAPP"],
         component: ThermalReceipt80mm,
         isDefault: true,
         tags: ["pos", "receipt", "thermal"],
@@ -81,6 +89,8 @@ class TemplateRegistryManager {
         format: "Label",
         version: "v1.0.0",
         variant: "Sticker",
+        minPlatformVersion: "v5.0.0",
+        supportedChannels: ["PRINT", "PREVIEW"],
         component: BarcodeLabel,
         isDefault: true,
         tags: ["barcode", "sticker", "inventory"],
@@ -92,6 +102,8 @@ class TemplateRegistryManager {
         format: "Label",
         version: "v1.0.0",
         variant: "Supermarket",
+        minPlatformVersion: "v5.0.0",
+        supportedChannels: ["PRINT", "PREVIEW"],
         component: BarcodeLabel,
         isDefault: true,
         tags: ["shelf", "supermarket", "tag"],
@@ -123,6 +135,8 @@ class TemplateRegistryManager {
         documentType,
         format: "A4",
         version: "v1.0.0",
+        minPlatformVersion: "v5.0.0",
+        supportedChannels: ["PRINT", "PDF", "PREVIEW"],
         component: StandardInvoiceA4,
         isDefault: true,
       };
