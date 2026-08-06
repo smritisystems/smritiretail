@@ -113,9 +113,10 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
   const [copied, setCopied] = useState<boolean>(false);
   const [printHistory, setPrintHistory] = useState<PrintHistoryEntry[]>([]);
 
-  // Filter products by Universal Lookup
+  // Filter products by Universal Lookup & Range Selection Matrix (SLP-001 Architecture)
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
+      // 1. Search term keyword match
       const matchSearch =
         !searchTerm ||
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -131,9 +132,101 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
       const matchMin = !mrpMin || price >= parseFloat(mrpMin);
       const matchMax = !mrpMax || price <= parseFloat(mrpMax);
 
-      return matchSearch && matchCat && matchBrand && matchMin && matchMax;
+      // 2. Stock No. Range Filter (Open-ended support: 99 -> blank means Stock No >= 99)
+      let matchStockNo = true;
+      const stockNumStr = (p.code || p.id).replace(/\D/g, "");
+      const stockNum = parseInt(stockNumStr, 10) || 0;
+      if (stockNoFrom.trim()) {
+        const fromVal = parseInt(stockNoFrom.replace(/\D/g, ""), 10) || 0;
+        matchStockNo = matchStockNo && stockNum >= fromVal;
+      }
+      if (stockNoTo.trim()) {
+        const toVal = parseInt(stockNoTo.replace(/\D/g, ""), 10) || Number.MAX_SAFE_INTEGER;
+        matchStockNo = matchStockNo && stockNum <= toVal;
+      }
+
+      // 3. Category Range Filter
+      let matchCategoryRange = true;
+      if (productFrom !== "ALL" && productFrom.trim()) {
+        matchCategoryRange = matchCategoryRange && (p.category || "").toLowerCase() >= productFrom.toLowerCase();
+      }
+      if (productTo !== "ALL" && productTo.trim()) {
+        matchCategoryRange = matchCategoryRange && (p.category || "").toLowerCase() <= productTo.toLowerCase();
+      }
+
+      // 4. Brand Range Filter
+      let matchBrandRange = true;
+      if (brandFrom !== "ALL" && brandFrom.trim()) {
+        matchBrandRange = matchBrandRange && (p.brand || "").toLowerCase() >= brandFrom.toLowerCase();
+      }
+      if (brandTo !== "ALL" && brandTo.trim()) {
+        matchBrandRange = matchBrandRange && (p.brand || "").toLowerCase() <= brandTo.toLowerCase();
+      }
+
+      // 5. Style / Article Range Filter
+      let matchStyleRange = true;
+      const itemStyle = (p.styleCode || (p as any).articleNo || p.code || "").toLowerCase();
+      if (styleFrom !== "ALL" && styleFrom.trim()) {
+        matchStyleRange = matchStyleRange && itemStyle >= styleFrom.toLowerCase();
+      }
+      if (styleTo !== "ALL" && styleTo.trim()) {
+        matchStyleRange = matchStyleRange && itemStyle <= styleTo.toLowerCase();
+      }
+
+      // 6. Shade / Color Range Filter
+      let matchShadeRange = true;
+      const itemColor = (p.color || "").toLowerCase();
+      if (shadeFrom !== "ALL" && shadeFrom.trim()) {
+        matchShadeRange = matchShadeRange && itemColor >= shadeFrom.toLowerCase();
+      }
+      if (shadeTo !== "ALL" && shadeTo.trim()) {
+        matchShadeRange = matchShadeRange && itemColor <= shadeTo.toLowerCase();
+      }
+
+      // 7. Size Range Filter
+      let matchSizeRange = true;
+      const itemSize = (p.size || "").toLowerCase();
+      if (sizeFrom !== "ALL" && sizeFrom.trim()) {
+        matchSizeRange = matchSizeRange && itemSize >= sizeFrom.toLowerCase();
+      }
+      if (sizeTo !== "ALL" && sizeTo.trim()) {
+        matchSizeRange = matchSizeRange && itemSize <= sizeTo.toLowerCase();
+      }
+
+      return (
+        matchSearch &&
+        matchCat &&
+        matchBrand &&
+        matchMin &&
+        matchMax &&
+        matchStockNo &&
+        matchCategoryRange &&
+        matchBrandRange &&
+        matchStyleRange &&
+        matchShadeRange &&
+        matchSizeRange
+      );
     });
-  }, [products, searchTerm, selectedCategory, selectedBrand, mrpMin, mrpMax]);
+  }, [
+    products,
+    searchTerm,
+    selectedCategory,
+    selectedBrand,
+    mrpMin,
+    mrpMax,
+    stockNoFrom,
+    stockNoTo,
+    productFrom,
+    productTo,
+    brandFrom,
+    brandTo,
+    styleFrom,
+    styleTo,
+    shadeFrom,
+    shadeTo,
+    sizeFrom,
+    sizeTo,
+  ]);
 
   // Selected Items List
   const selectedItemsList = useMemo(() => {
