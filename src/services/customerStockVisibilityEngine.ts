@@ -1,26 +1,66 @@
 /**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
- * Component    : Customer Stock Visibility Engine (ADR-CSV-001)
+ * Component    : SMRITI Modern Trade & Customer Inventory Visibility (CIV / ADR-CSV-001)
  * Standard     : SCS-BUS-001 / SCS-BUS-004 — Off-Balance-Sheet Commercial Stock Tracking
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * Version      : 1.0.0
+ * Version      : 2.0.0
  *
  * NOTE: Ownership of stock is transferred upon GST Tax Invoice issuance.
- * This engine tracks commercial visibility at customer store locations (e.g., Reliance, D-Mart, Lifestyle, Croma)
+ * This engine tracks commercial visibility at modern trade stores (e.g., Reliance, D-Mart, Lifestyle, Croma)
  * WITHOUT modifying internal Inventory Ledger or Tally accounting vouchers.
  */
 
 import logger from "../core/logging/logger.js";
 import { SPK } from "../kernel/SPK.js";
 
+export interface StoreHierarchy {
+  keyAccount: string; // e.g. "Reliance Retail Ltd", "Avenue Supermarts (D-Mart)", "Lifestyle Stores"
+  region: string; // e.g. "West Zone", "South Zone"
+  distributionCenter: string; // e.g. "DC Mumbai — Bhiwandi", "DC Pune"
+  storeName: string; // e.g. "Reliance Fresh — Phoenix Marketcity", "D-Mart — Malad"
+}
+
+export interface InvoiceAllocationRecord {
+  invoiceNo: string;
+  invoiceDate: string;
+  totalInvoicedQty: number;
+  allocatedStore: string;
+  storeAllocatedQty: number;
+  storeLyingQty: number;
+}
+
+export interface RetailerClaimRecord {
+  id: string;
+  customerName: string;
+  storeLocation: string;
+  sku: string;
+  claimType: "DAMAGE" | "EXPIRY" | "SHRINKAGE" | "DISPLAY_LOSS" | "PROMOTION_CLAIM";
+  claimQty: number;
+  claimAmount: number;
+  status: "PENDING_REVIEW" | "APPROVED" | "REJECTED";
+  submittedDate: string;
+}
+
+export interface SuggestedDispatchOrder {
+  id: string;
+  customerName: string;
+  destinationStore: string;
+  sku: string;
+  productName: string;
+  currentStockDOS: number;
+  suggestedQty: number;
+  unitPrice: number;
+  estimatedTotal: number;
+  status: "DRAFT_SUGGESTED" | "APPROVED" | "DISPATCHED";
+  createdDate: string;
+}
+
 export interface CustomerStoreStockRecord {
   id: string;
-  customerId: string;
-  customerName: string; // e.g. "Reliance Retail Ltd", "Avenue Supermarts (D-Mart)", "Lifestyle Stores", "Croma"
-  storeLocation: string; // e.g. "Reliance Fresh — Andheri West", "D-Mart — Malad"
+  hierarchy: StoreHierarchy;
   sku: string;
   productName: string;
   invoicedQty: number; // Cumulative GST Tax Invoiced Qty
@@ -32,6 +72,13 @@ export interface CustomerStoreStockRecord {
   daysOfStock: number; // Days of Stock cover remaining
   weeksOfCover: number; // Weeks of Cover remaining
   lastSellOutDate: string;
+  invoiceAllocations: InvoiceAllocationRecord[];
+  claims: {
+    damageQty: number;
+    expiryQty: number;
+    shrinkageQty: number;
+    displayLossQty: number;
+  };
   agingBuckets: {
     days0to30: number;
     days31to60: number;
@@ -58,10 +105,13 @@ export class CustomerStockVisibilityEngine {
 
   private storeStockLedger: CustomerStoreStockRecord[] = [
     {
-      id: "csv-rec-101",
-      customerId: "CUST-001",
-      customerName: "Reliance Retail Ltd",
-      storeLocation: "Reliance Fresh — Andheri West, Mumbai",
+      id: "civ-rec-101",
+      hierarchy: {
+        keyAccount: "Reliance Retail Ltd",
+        region: "West Zone",
+        distributionCenter: "DC Mumbai — Bhiwandi",
+        storeName: "Reliance Fresh — Phoenix Marketcity, Kurla",
+      },
       sku: "SHOE-001",
       productName: "Nike Sports Shoes (Black / 9)",
       invoicedQty: 100,
@@ -73,6 +123,22 @@ export class CustomerStockVisibilityEngine {
       daysOfStock: 7.1,
       weeksOfCover: 1.0,
       lastSellOutDate: "2026-08-05",
+      invoiceAllocations: [
+        {
+          invoiceNo: "INV-2026-0041",
+          invoiceDate: "2026-07-15",
+          totalInvoicedQty: 100,
+          allocatedStore: "Reliance Fresh — Phoenix Marketcity, Kurla",
+          storeAllocatedQty: 100,
+          storeLyingQty: 25,
+        },
+      ],
+      claims: {
+        damageQty: 2,
+        expiryQty: 0,
+        shrinkageQty: 1,
+        displayLossQty: 0,
+      },
       agingBuckets: {
         days0to30: 20,
         days31to60: 5,
@@ -81,14 +147,17 @@ export class CustomerStockVisibilityEngine {
       replenishmentRecommendation: {
         suggestedReorderQty: 50,
         urgency: "CRITICAL_REORDER",
-        actionMessage: "Stock runway under 8 days. Issue replenishment PO to prevent stock-out.",
+        actionMessage: "Stock cover under 8 days. Issue replenishment dispatch order.",
       },
     },
     {
-      id: "csv-rec-102",
-      customerId: "CUST-002",
-      customerName: "Avenue Supermarts (D-Mart)",
-      storeLocation: "D-Mart — Malad West, Mumbai",
+      id: "civ-rec-102",
+      hierarchy: {
+        keyAccount: "Avenue Supermarts (D-Mart)",
+        region: "West Zone",
+        distributionCenter: "DC Thane",
+        storeName: "D-Mart — Malad West, Mumbai",
+      },
       sku: "TSHIRT-001",
       productName: "Cotton Polo T-Shirt Premium (L)",
       invoicedQty: 250,
@@ -100,6 +169,22 @@ export class CustomerStockVisibilityEngine {
       daysOfStock: 6.9,
       weeksOfCover: 1.0,
       lastSellOutDate: "2026-08-05",
+      invoiceAllocations: [
+        {
+          invoiceNo: "INV-2026-0089",
+          invoiceDate: "2026-07-20",
+          totalInvoicedQty: 250,
+          allocatedStore: "D-Mart — Malad West, Mumbai",
+          storeAllocatedQty: 250,
+          storeLyingQty: 55,
+        },
+      ],
+      claims: {
+        damageQty: 3,
+        expiryQty: 0,
+        shrinkageQty: 2,
+        displayLossQty: 0,
+      },
       agingBuckets: {
         days0to30: 45,
         days31to60: 10,
@@ -112,10 +197,13 @@ export class CustomerStockVisibilityEngine {
       },
     },
     {
-      id: "csv-rec-103",
-      customerId: "CUST-003",
-      customerName: "Lifestyle Stores",
-      storeLocation: "Lifestyle — Lower Parel, Mumbai",
+      id: "civ-rec-103",
+      hierarchy: {
+        keyAccount: "Lifestyle Stores",
+        region: "West Zone",
+        distributionCenter: "DC Mumbai — Bhiwandi",
+        storeName: "Lifestyle — Lower Parel, Mumbai",
+      },
       sku: "JEANS-002",
       productName: "Slim Fit Denim Jeans (32)",
       invoicedQty: 80,
@@ -127,6 +215,22 @@ export class CustomerStockVisibilityEngine {
       daysOfStock: 120.0,
       weeksOfCover: 17.1,
       lastSellOutDate: "2026-08-01",
+      invoiceAllocations: [
+        {
+          invoiceNo: "INV-2026-0012",
+          invoiceDate: "2026-06-12",
+          totalInvoicedQty: 80,
+          allocatedStore: "Lifestyle — Lower Parel, Mumbai",
+          storeAllocatedQty: 80,
+          storeLyingQty: 60,
+        },
+      ],
+      claims: {
+        damageQty: 0,
+        expiryQty: 0,
+        shrinkageQty: 0,
+        displayLossQty: 0,
+      },
       agingBuckets: {
         days0to30: 15,
         days31to60: 25,
@@ -140,6 +244,35 @@ export class CustomerStockVisibilityEngine {
     },
   ];
 
+  private suggestedDispatches: SuggestedDispatchOrder[] = [
+    {
+      id: "dsp-501",
+      customerName: "Reliance Retail Ltd",
+      destinationStore: "Reliance Fresh — Phoenix Marketcity, Kurla",
+      sku: "SHOE-001",
+      productName: "Nike Sports Shoes (Black / 9)",
+      currentStockDOS: 7.1,
+      suggestedQty: 50,
+      unitPrice: 2000,
+      estimatedTotal: 100000,
+      status: "DRAFT_SUGGESTED",
+      createdDate: new Date().toISOString().slice(0, 10),
+    },
+    {
+      id: "dsp-502",
+      customerName: "Avenue Supermarts (D-Mart)",
+      destinationStore: "D-Mart — Malad West, Mumbai",
+      sku: "TSHIRT-001",
+      productName: "Cotton Polo T-Shirt Premium (L)",
+      currentStockDOS: 6.9,
+      suggestedQty: 100,
+      unitPrice: 600,
+      estimatedTotal: 60000,
+      status: "DRAFT_SUGGESTED",
+      createdDate: new Date().toISOString().slice(0, 10),
+    },
+  ];
+
   private constructor() {}
 
   public static getInstance(): CustomerStockVisibilityEngine {
@@ -149,39 +282,38 @@ export class CustomerStockVisibilityEngine {
     return CustomerStockVisibilityEngine.instance;
   }
 
-  /**
-   * Returns commercial customer store stock records, optionally filtered by customer or store.
-   */
-  public getCustomerStoreStock(customerId?: string, storeLocation?: string): CustomerStoreStockRecord[] {
+  public getCustomerStoreStock(keyAccount?: string, region?: string): CustomerStoreStockRecord[] {
     let result = [...this.storeStockLedger];
-    if (customerId) {
-      result = result.filter((r) => r.customerId === customerId || r.customerName.toLowerCase().includes(customerId.toLowerCase()));
+    if (keyAccount && keyAccount !== "ALL") {
+      result = result.filter((r) => r.hierarchy.keyAccount === keyAccount);
     }
-    if (storeLocation) {
-      result = result.filter((r) => r.storeLocation.toLowerCase().includes(storeLocation.toLowerCase()));
+    if (region && region !== "ALL") {
+      result = result.filter((r) => r.hierarchy.region === region);
     }
     return result;
   }
 
-  /**
-   * Returns salesman-scoped customer stock visibility for field beat routes.
-   */
-  public getSalesmanCustomerStock(salesmanId: string): CustomerStoreStockRecord[] {
-    logger.info(`[CustomerStockVisibilityEngine] Fetching customer store stock for Salesman ${salesmanId}`);
-    return [...this.storeStockLedger];
+  public getSuggestedDispatches(): SuggestedDispatchOrder[] {
+    return [...this.suggestedDispatches];
   }
 
-  /**
-   * Imports sell-out POS/EDI transactions from customer feeds (CSV/EDI).
-   * Updates commercial lying stock and recalculates sell-through % & replenishment recommendations.
-   */
+  public approveDispatch(id: string): SuggestedDispatchOrder | null {
+    const dsp = this.suggestedDispatches.find((d) => d.id === id);
+    if (dsp) {
+      dsp.status = "APPROVED";
+      logger.info(`[CustomerStockVisibilityEngine] Approved suggested replenishment dispatch ${id} for ${dsp.destinationStore}.`);
+      SPK.events.emit("ReplenishmentDispatchApproved", id, { id, store: dsp.destinationStore });
+    }
+    return dsp || null;
+  }
+
   public importSellOutData(rows: SellOutImportRow[]): { importedRows: number; updatedRecords: number } {
     let updatedCount = 0;
 
     for (const row of rows) {
       const rec = this.storeStockLedger.find(
         (r) =>
-          (r.customerId === row.customerCode || r.customerName.toLowerCase().includes(row.customerCode.toLowerCase())) &&
+          r.hierarchy.keyAccount.toLowerCase().includes(row.customerCode.toLowerCase()) &&
           r.sku === row.sku
       );
 
@@ -189,44 +321,19 @@ export class CustomerStockVisibilityEngine {
         rec.confirmedSoldQty += row.sellOutQty;
         rec.lastSellOutDate = row.sellOutDate;
         
-        // Recalculate lying stock & sell-through %
         rec.currentLyingStock = Math.max(0, rec.invoicedQty - rec.confirmedSoldQty - rec.returnedQty);
         rec.sellThroughPct = rec.invoicedQty > 0 ? parseFloat(((rec.confirmedSoldQty / rec.invoicedQty) * 100).toFixed(1)) : 0;
         
-        // Recalculate Days of Stock (DOS)
         if (rec.avgDailySalesVelocity > 0) {
           rec.daysOfStock = parseFloat((rec.currentLyingStock / rec.avgDailySalesVelocity).toFixed(1));
           rec.weeksOfCover = parseFloat((rec.daysOfStock / 7).toFixed(1));
-        }
-
-        // Recalculate Replenishment Urgency
-        if (rec.daysOfStock < 8) {
-          rec.replenishmentRecommendation.urgency = "CRITICAL_REORDER";
-          rec.replenishmentRecommendation.suggestedReorderQty = Math.max(50, Math.round(rec.avgDailySalesVelocity * 21));
-          rec.replenishmentRecommendation.actionMessage = `Critical stock level (${rec.daysOfStock} days left). Reorder ${rec.replenishmentRecommendation.suggestedReorderQty} units.`;
-        } else if (rec.daysOfStock > 60) {
-          rec.replenishmentRecommendation.urgency = "EXCESS_STOCK";
-          rec.replenishmentRecommendation.suggestedReorderQty = 0;
-          rec.replenishmentRecommendation.actionMessage = `Excess stock detected (${rec.daysOfStock} days cover). Avoid reorder.`;
-        } else {
-          rec.replenishmentRecommendation.urgency = "HEALTHY";
-          rec.replenishmentRecommendation.suggestedReorderQty = Math.round(rec.avgDailySalesVelocity * 14);
-          rec.replenishmentRecommendation.actionMessage = "Stock levels optimal.";
         }
 
         updatedCount += 1;
       }
     }
 
-    logger.info(`[CustomerStockVisibilityEngine] Successfully imported ${rows.length} sell-out rows. Updated ${updatedCount} commercial records.`);
-    SPK.events.emit("CustomerSellOutImported", String(rows.length), { importedRows: rows.length, updatedRecords: updatedCount });
+    logger.info(`[CustomerStockVisibilityEngine] Successfully imported ${rows.length} sell-out rows.`);
     return { importedRows: rows.length, updatedRecords: updatedCount };
-  }
-
-  /**
-   * Automatically calculates replenishment recommendations across all modern trade customer stores.
-   */
-  public getReplenishmentRecommendations(): CustomerStoreStockRecord[] {
-    return this.storeStockLedger.filter((r) => r.replenishmentRecommendation.urgency === "CRITICAL_REORDER");
   }
 }
