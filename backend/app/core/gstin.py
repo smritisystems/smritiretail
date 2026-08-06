@@ -32,8 +32,8 @@ def calculate_gstin_checksum(gstin_14: str) -> str:
     total = 0
     for i, char in enumerate(gstin_14):
         val = CHAR_TO_VAL[char]
-        # Multiplier alternates: index 0 is 2, index 1 is 1, etc.
-        factor = 2 if i % 2 == 0 else 1
+        # Multiplier alternates: index 0 is 1, index 1 is 2, etc. (1-indexed odd: 1, even: 2)
+        factor = 1 if i % 2 == 0 else 2
         product = val * factor
         total += (product // 36) + (product % 36)
     
@@ -41,10 +41,11 @@ def calculate_gstin_checksum(gstin_14: str) -> str:
     check_val = (36 - remainder) % 36
     return VAL_TO_CHAR[check_val]
 
-def validate_gstin_format(gstin: str) -> str:
+def validate_gstin_format(gstin: str, ignore_checksum: bool = False) -> str:
     """
     Validates the structure and checksum of an Indian GSTIN.
     Raises ValueError if invalid. Returns clean upper-case GSTIN.
+    If ignore_checksum is True, checksum mismatch raises a soft warning/is bypassed.
     """
     if not gstin:
         return ""
@@ -75,7 +76,7 @@ def validate_gstin_format(gstin: str) -> str:
     # 5. Checksum check (Luhn mod 36)
     calculated_checksum = calculate_gstin_checksum(gst[:14])
     provided_checksum = gst[14]
-    if provided_checksum != calculated_checksum:
+    if provided_checksum != calculated_checksum and not ignore_checksum:
         raise ValueError(f"GSTIN checksum is invalid. Expected '{calculated_checksum}', got '{provided_checksum}'.")
         
     return gst
