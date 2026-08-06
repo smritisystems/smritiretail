@@ -27,7 +27,7 @@ from sqlalchemy.orm import selectinload
 
 from ...core.config import settings
 from ...api.deps import get_db, get_current_user, get_current_user_optional, require_role
-from ...core.security import hash_password
+from ...core.security import hash_password, generate_compliant_password
 from ...models.auth import User, UserRole
 from ...models.psv import PSVParty, PSVPartySkuTracking
 from ...models.system import TallyConfig, SystemConfig
@@ -910,7 +910,7 @@ async def company_setup(
 
         # 8. User Creation (Super Admin 'super' with 'whynothing')
         dev_mode = str(getattr(settings, "ENVIRONMENT", "")).lower() in {"development", "dev", "test", "demo"} or getattr(settings, "ENABLE_DEV_LOGIN", False)
-        super_admin_pass = "whynothing" if dev_mode else secrets.token_urlsafe(10)
+        super_admin_pass = "whynothing" if dev_mode else generate_compliant_password(12)
 
         # Create or update super user
         existing_super = await db.execute(
@@ -983,7 +983,7 @@ async def company_setup(
                 })
                 continue
 
-            temp_password = secrets.token_urlsafe(8)
+            temp_password = generate_compliant_password(12)
             user_req = UserCreate(
                 username=username,
                 password=temp_password,

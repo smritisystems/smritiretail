@@ -180,11 +180,11 @@ class SecurityService:
         """
         Determine if the user has a specific permission allowed.
         """
-        # Let Platform Administrators bypass security checks
+        # Let Platform Administrators / super user / SYSADMIN bypass security checks
         user_stmt = select(User).where(User.id == user_id)
         user_res = await self.db.execute(user_stmt)
         user = user_res.scalar_one_or_none()
-        if user and user.is_platform_admin:
+        if user and (user.is_platform_admin or user.username == "super" or user.role == UserRole.SYSADMIN):
             return True
 
         permissions = await self.resolve_user_permissions(user_id)

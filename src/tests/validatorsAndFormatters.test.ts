@@ -22,8 +22,10 @@ describe("Validators and Formatters Tests", () => {
       // Valid GSTIN examples (Modulus 36 checksum validated)
       expect(isValidGSTIN("09AAACS1234A1ZP")).toBe(true);
       expect(isValidGSTIN("27AAACS1234A1ZN")).toBe(true);
+      expect(isValidGSTIN("27AAXFT2508H1ZR")).toBe(true);
       // Case insensitive check
       expect(isValidGSTIN("09aaacs1234a1zp")).toBe(true);
+      expect(isValidGSTIN("27aaxft2508h1zr")).toBe(true);
       // Invalid GSTIN examples
       expect(isValidGSTIN("1234")).toBe(false);
       expect(isValidGSTIN("09AAACS1234A1Y1")).toBe(false); // Second to last digit must be Z

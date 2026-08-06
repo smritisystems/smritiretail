@@ -103,6 +103,34 @@ def validate_password_strength(password: str) -> None:
         )
 
 
+def generate_compliant_password(length: int = 12) -> str:
+    """
+    Generate a random temporary password guaranteed to satisfy
+    validate_password_strength (uppercase, lowercase, digit, special char).
+    """
+    if length < 8:
+        length = 8
+
+    uppercase = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+    lowercase = "abcdefghijkmnopqrstuvwxyz"
+    digits = "23456789"
+    specials = "!@#$%^&*()-_=+"
+    all_chars = uppercase + lowercase + digits + specials
+
+    password_chars = [
+        secrets.choice(uppercase),
+        secrets.choice(lowercase),
+        secrets.choice(digits),
+        secrets.choice(specials),
+    ]
+
+    for _ in range(length - 4):
+        password_chars.append(secrets.choice(all_chars))
+
+    secrets.SystemRandom().shuffle(password_chars)
+    return "".join(password_chars)
+
+
 # ---------------------------------------------------------------------------
 # JWT helpers — python-jose
 # ---------------------------------------------------------------------------

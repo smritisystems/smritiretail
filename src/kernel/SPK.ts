@@ -696,6 +696,23 @@ export class SMRITIPlatformKernel {
       const activeTenant = TenantRegistry.getActiveTenant();
       const tenantId = activeTenant ? activeTenant.tenantId : "smriti-default";
 
+      // 0. Super Admin / Platform Admin Override (Allow All)
+      const normUser = (userId || "").toLowerCase();
+      const normRole = (roleId || "").toLowerCase();
+      if (
+        normUser === "super" ||
+        normUser === "usr-super" ||
+        normRole === "super" ||
+        normRole === "sysadmin" ||
+        normRole === "sys_admin" ||
+        normRole === "platform_admin" ||
+        normRole === "admin"
+      ) {
+        const reason = `Access granted: Super Admin override for user '${userId}' / role '${roleId}'.`;
+        AuditRegistry.logEvent({ userId, roleId, action: "evaluateAccess", permissionId, isAllowed: true, reason });
+        return { allowed: true, permissionId, roleId, userId, tenantId, featureId, reason };
+      }
+
       // 1. License Check
       if (featureId && !LicenseRegistry.isFeatureEnabled(featureId)) {
         const reason = `Feature '${featureId}' is disabled under current enterprise license edition.`;
