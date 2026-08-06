@@ -69,16 +69,21 @@ describe("Attribute Propagation Integration & Lifecycle Suite", () => {
   it("2. PERSISTENCE & SEARCH INDEXING TEST: Dynamic attributes persist and index in GlobalSearchEngine", async () => {
     const sampleProduct: Product = {
       id: "prod-fw-101",
+      code: "SHOES-NIKE-01",
       sku: "SHOES-NIKE-01",
       name: "Nike Air Zoom Footwear",
       mrp: 3999,
+      price: 3999,
+      stock: 10,
+      category: "Footwear",
+      barcode: "890123456789",
       attributes: {
-        heelHeight: 4.5,
+        heelHeight: "4.5",
         upperMaterial: "Breathable Mesh",
       },
     };
 
-    expect(sampleProduct.attributes?.heelHeight).toBe(4.5);
+    expect(sampleProduct.attributes?.heelHeight).toBe("4.5");
 
     // Verify Search Engine indexes attributes dynamically
     GlobalSearchEngine.registerSource({
@@ -108,12 +113,16 @@ describe("Attribute Propagation Integration & Lifecycle Suite", () => {
   it("3. AI COPILOT QUALITY EVALUATION TEST: MDQE scores product with dynamic attributes", () => {
     const sampleProduct: Product = {
       id: "prod-fw-102",
+      code: "SHOES-PUMA-02",
       sku: "SHOES-PUMA-02",
       name: "Puma Running Shoes",
       mrp: 2999,
+      price: 2999,
+      stock: 15,
       category: "Footwear",
+      barcode: "890123456790",
       attributes: {
-        heelHeight: 3.0,
+        heelHeight: "3.0",
       },
     };
 
@@ -125,10 +134,14 @@ describe("Attribute Propagation Integration & Lifecycle Suite", () => {
   it("4. NEGATIVE / LIFECYCLE DEACTIVATION TEST: Gracefully handles missing or un-configured dynamic attributes", () => {
     const legacyProduct: Product = {
       id: "prod-legacy-001",
+      code: "LEGACY-SKU-99",
       sku: "LEGACY-SKU-99",
       name: "Standard Commodity Item",
       mrp: 500,
-      // attributes bag is undefined or empty
+      price: 500,
+      stock: 20,
+      category: "General",
+      barcode: "890123456791",
     };
 
     // Form rendering fallback
@@ -149,9 +162,14 @@ describe("Attribute Propagation Integration & Lifecycle Suite", () => {
 
     const denseProduct: Product = {
       id: "prod-dense-999",
+      code: "DENSE-SKU-100",
       sku: "DENSE-SKU-100",
       name: "High Density Spec Item",
       mrp: 9999,
+      price: 9999,
+      stock: 50,
+      category: "HighDensity",
+      barcode: "890123456792",
       attributes: highDensityAttributes,
     };
 
