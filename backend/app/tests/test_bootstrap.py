@@ -59,7 +59,7 @@ async def test_fresh_install_dev_bootstrap_creates_super_user(db_session, monkey
     super_user = user_res.scalars().first()
     assert super_user is not None
     assert super_user.role == UserRole.SYSADMIN
-    assert verify_password("whynothing", super_user.hashed_password) is True
+    assert verify_password("Shpr0128vdq!@", super_user.hashed_password) is True
 
     # Verify bootstrap state table entries
     states_res = await db_session.execute(select(SystemBootstrapState))
@@ -120,7 +120,7 @@ async def test_existing_custom_admin_password_is_never_overwritten(db_session, m
     await db_session.refresh(custom_super)
     assert custom_super.hashed_password == custom_hash
     assert verify_password("MyStrongCustomPass!2026", custom_super.hashed_password) is True
-    assert verify_password("whynothing", custom_super.hashed_password) is False
+    assert verify_password("Shpr0128vdq!@", custom_super.hashed_password) is False
 
     state = await service._get_task_state(BootstrapTask.LEGACY_PASSWORD_RECONCILIATION.value)
     assert state.status == "Complete"
@@ -150,7 +150,7 @@ async def test_production_environment_disables_reconciliation(db_session, monkey
     await db_session.refresh(legacy_super)
     # Password remains Smriti@1234 — NOT changed to whynothing in production
     assert verify_password("Smriti@1234", legacy_super.hashed_password) is True
-    assert verify_password("whynothing", legacy_super.hashed_password) is False
+    assert verify_password("Shpr0128vdq!@", legacy_super.hashed_password) is False
 
     state = await service._get_task_state(BootstrapTask.LEGACY_PASSWORD_RECONCILIATION.value)
     assert state.status == "Skipped"
@@ -177,7 +177,7 @@ async def test_legacy_seeded_admin_one_time_reconciliation_succeeds(db_session, 
     await service.run()
 
     await db_session.refresh(legacy_super)
-    assert verify_password("whynothing", legacy_super.hashed_password) is True
+    assert verify_password("Shpr0128vdq!@", legacy_super.hashed_password) is True
 
     state = await service._get_task_state(BootstrapTask.LEGACY_PASSWORD_RECONCILIATION.value)
     assert state.status == "Complete"

@@ -119,7 +119,7 @@ async def test_dev_login_bootstraps_default_admin_when_no_users_exist(db_session
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post("/api/v1/auth/login", json={
             "username": "super",
-            "password": "whynothing",
+            "password": "Shpr0128vdq!@",
         })
 
     assert res.status_code == 200
@@ -141,7 +141,7 @@ async def test_dev_login_bootstraps_super_when_other_users_exist(db_session, mon
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post("/api/v1/auth/login", json={
             "username": "super",
-            "password": "whynothing",
+            "password": "Shpr0128vdq!@",
         })
 
     assert res.status_code == 200
@@ -175,7 +175,7 @@ async def test_dev_login_reconciles_existing_super_account_password(db_session, 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post("/api/v1/auth/login", json={
             "username": "super",
-            "password": "whynothing",
+            "password": "Shpr0128vdq!@",
         })
 
     assert res.status_code == 200
@@ -642,7 +642,7 @@ async def test_role_guard_cashier_cannot_create_product(db_session):
         )
     assert res.status_code == 403
     detail = res.json()["detail"]
-    assert "CASHIER" in detail or "ITEM.CREATE" in str(detail)
+    assert "CASHIER" in str(detail) or "ITEM.CREATE" in str(detail)
 
 
 async def test_role_guard_manager_can_create_product(db_session):
