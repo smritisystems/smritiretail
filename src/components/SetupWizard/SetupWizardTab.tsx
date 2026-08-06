@@ -150,12 +150,12 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
   const [industryPack, setIndustryPack] = useState("general_retail");
 
   // Step 2: PIN Code & Address
-  const [pinCode, setPinCode] = useState("273016");
-  const [addressLine1, setAddressLine1] = useState("Taramandal, Ramgarh Tal");
-  const [district, setDistrict] = useState("Gorakhpur");
-  const [city, setCity] = useState("Gorakhpur");
-  const [area, setArea] = useState("Ramgarh Tal");
-  const [locality, setLocality] = useState("Taramandal");
+  const [pinCode, setPinCode] = useState("");
+  const [addressLine1, setAddressLine1] = useState("");
+  const [district, setDistrict] = useState("");
+  const [city, setCity] = useState("");
+  const [area, setArea] = useState("");
+  const [locality, setLocality] = useState("");
   const [country] = useState("India");
 
   // Step 3: Tax Profile
@@ -163,7 +163,7 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
   const [pan, setPan] = useState("");
   const [msme, setMsme] = useState("");
   const [cin, setCin] = useState("");
-  const [detectedState, setDetectedState] = useState("Uttar Pradesh");
+  const [detectedState, setDetectedState] = useState("");
   const [financialYear, setFinancialYear] = useState("2026-2027");
   const [booksStartDate, setBooksStartDate] = useState("2026-04-01");
   const [currency] = useState("INR (₹)");
@@ -175,16 +175,16 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
     {
       id: "st-1",
       name: "Main Flagship Store",
-      code: "GKP01",
+      code: "STORE01",
       type: "Company Owned",
-      address: "Plot No. X-10, Sector 1A, Belvadari, Jaitpur, Kalesar Industrial Area, GIDA",
+      address: "",
       landmark: "",
-      city: "Gorakhpur",
-      state: "Uttar Pradesh",
-      pinCode: "273209",
-      contactPerson: "Pushpa",
-      mobile: "9324117007",
-      email: "gida@smritibooks.com"
+      city: "",
+      state: "",
+      pinCode: "",
+      contactPerson: "Branch Manager",
+      mobile: "",
+      email: ""
     }
   ]);
 
@@ -254,6 +254,8 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
     shiftReportEmail: true
   });
 
+  const [setupNotice, setSetupNotice] = useState<{ message: string; canIgnore: boolean } | null>(null);
+
   // Automated Field Deductions and Validations
   useEffect(() => {
     // GSTIN parser
@@ -279,6 +281,23 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
       setPan(extractedPan);
     }
   }, [gstin]);
+
+  // Synchronize first flagship store address with user's business address inputs
+  useEffect(() => {
+    setStores(prev => 
+      prev.map((s, idx) => 
+        idx === 0 
+          ? { 
+              ...s, 
+              address: addressLine1 || s.address, 
+              city: city || s.city, 
+              state: detectedState || s.state, 
+              pinCode: pinCode || s.pinCode 
+            } 
+          : s
+      )
+    );
+  }, [addressLine1, city, detectedState, pinCode]);
 
   // Helper to suggest Store Codes
   const suggestStoreCode = (name: string): string => {
@@ -431,20 +450,21 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
     }
   };
 
-  const handleCompleteSetup = async () => {
+  const handleCompleteSetup = async (forceIgnoreWarnings: boolean = false) => {
     setIsSubmitting(true);
+    setSetupNotice(null);
     try {
       const response = await apiFetchV1("/company/setup", {
         method: "POST",
         body: JSON.stringify({
           businessInfo: {
-            name: businessName || "Smriti Books Pvt. Ltd.",
-            tenantName: tenantName || "Smriti Systems Group",
+            name: businessName,
+            tenantName: tenantName || businessName,
             tenantCode: tenantCode || "SMS",
             tenantSlug: tenantSlug || "smriti-systems",
             legalEntity: legalEntity || "Private Limited Company",
             industryPack: industryPack || "general_retail",
-            tradeName: tradeName || businessName || "Smriti Books",
+            tradeName: tradeName || businessName,
             businessType,
             gstin,
             pan,
@@ -452,15 +472,16 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
             cin,
             pinCode,
             country: country || "India",
-            state: detectedState || "Uttar Pradesh",
-            district: district || "Gorakhpur",
-            city: city || "Gorakhpur",
-            area: area || "Ramgarh Tal",
-            locality: locality || "Taramandal",
-            addressLine1: addressLine1 || "Taramandal, Ramgarh Tal",
+            state: detectedState,
+            district,
+            city,
+            area,
+            locality,
+            addressLine1,
             isDemoMode,
             financialYear,
-            booksStartDate
+            booksStartDate,
+            ignoreWarnings: forceIgnoreWarnings
           },
           orgStructure: {
             layout: orgLayout,
@@ -513,7 +534,8 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
         setIsLocked(true);
         setLockMessage(msg);
       } else {
-        alert(`Setup Provisioning Failed: ${msg}. Please review inputs and try again.`);
+        const canIgnore = msg.includes("GSTIN") || msg.includes("checksum") || msg.includes("invalid") || msg.includes("Value error");
+        setSetupNotice({ message: msg, canIgnore });
       }
       setSetupSuccess(false);
     } finally {
@@ -589,8 +611,8 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
             <div className="w-full bg-theme-surface border border-theme-divider rounded-2xl p-6 text-left mb-6 shadow-xl space-y-4">
               <div className="border-b border-theme-divider pb-3">
                 <h3 className="text-xs uppercase font-mono text-theme-muted tracking-wider">Company Profile</h3>
-                <div className="text-lg font-bold text-theme-body mt-1">{businessName || "Smriti Books Pvt. Ltd."}</div>
-                <div className="text-xs text-theme-muted">{addressLine1 || "Taramandal"}, {city || "Gorakhpur"}, {detectedState || "Uttar Pradesh"} - {pinCode || "273016"}</div>
+                <div className="text-lg font-bold text-theme-body mt-1">{businessName || "Registered Business"}</div>
+                <div className="text-xs text-theme-muted">{addressLine1}{city ? `, ${city}` : ""}{detectedState ? `, ${detectedState}` : ""}{pinCode ? ` - ${pinCode}` : ""}</div>
               </div>
 
               <div className="bg-amber-950/30 border border-amber-800/60 rounded-xl p-4 space-y-2">
@@ -619,11 +641,11 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
                     companyName: businessName || DemoDataRegistry.company().name,
                     legalEntity: legalEntity || "Private Limited Company",
                     address: {
-                      line1: addressLine1 || "Taramandal, Ramgarh Tal",
-                      city: city || "Gorakhpur",
-                      district: district || "Gorakhpur",
-                      state: detectedState || "Uttar Pradesh",
-                      pinCode: pinCode || "273016",
+                      line1: addressLine1,
+                      city: city,
+                      district: district,
+                      state: detectedState,
+                      pinCode: pinCode,
                       country: "India"
                     },
                     financialYear: financialYear || "FY 2026-27",
@@ -863,6 +885,64 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
                         onChange={e => setBooksStartDate(e.target.value)}
                         className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:border-blue-500 outline-none"
                       />
+                    </div>
+                  </div>
+
+                  {/* Registered Business Address & Location */}
+                  <div className="border-t border-theme-divider pt-3 space-y-3">
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-theme-muted">Registered Business Address &amp; Location</h4>
+                    <div>
+                      <label className="text-xs font-bold text-theme-muted uppercase tracking-wider block mb-1">Building / Street Address *</label>
+                      <input 
+                        type="text" 
+                        value={addressLine1} 
+                        onChange={e => setAddressLine1(e.target.value)}
+                        placeholder="e.g. Shop No 4, Main Commercial Complex"
+                        className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:border-blue-500 outline-none"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-theme-muted uppercase tracking-wider block mb-1">PIN Code *</label>
+                        <input 
+                          type="text" 
+                          maxLength={6}
+                          value={pinCode} 
+                          onChange={e => setPinCode(e.target.value)}
+                          placeholder="e.g. 400001"
+                          className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs font-mono text-theme-body focus:border-blue-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-theme-muted uppercase tracking-wider block mb-1">City / Town *</label>
+                        <input 
+                          type="text" 
+                          value={city} 
+                          onChange={e => setCity(e.target.value)}
+                          placeholder="e.g. Mumbai"
+                          className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:border-blue-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-theme-muted uppercase tracking-wider block mb-1">District</label>
+                        <input 
+                          type="text" 
+                          value={district} 
+                          onChange={e => setDistrict(e.target.value)}
+                          placeholder="e.g. Mumbai City"
+                          className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:border-blue-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-theme-muted uppercase tracking-wider block mb-1">State *</label>
+                        <input 
+                          type="text" 
+                          value={detectedState} 
+                          onChange={e => setDetectedState(e.target.value)}
+                          placeholder="e.g. Maharashtra"
+                          className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:border-blue-500 outline-none"
+                        />
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -1436,6 +1516,38 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
 
             </div>
 
+            {setupNotice && (
+              <div className="mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-3">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-xs text-amber-200">Setup Provisioning Validation Notice</p>
+                    <p className="text-xs text-amber-300/90 mt-1">{setupNotice.message}</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end space-x-3 pt-2 border-t border-amber-500/20">
+                  {setupNotice.canIgnore && (
+                    <button
+                      type="button"
+                      onClick={() => handleCompleteSetup(true)}
+                      disabled={isSubmitting}
+                      className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition-colors flex items-center space-x-1.5 shadow-md cursor-pointer"
+                    >
+                      {isSubmitting ? <Database size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                      <span>Ignore with warning &amp; Continue</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSetupNotice(null)}
+                    className="px-3 py-1.5 rounded-lg bg-theme-surface hover:bg-theme-surface-hover text-theme-text font-medium text-xs transition-colors cursor-pointer"
+                  >
+                    Review Inputs
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Bottom Navigation Buttons */}
             <div className="mt-6 flex items-center justify-between border-t border-theme-divider pt-4">
               <button
@@ -1461,7 +1573,7 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
                 </button>
               ) : (
                 <button
-                  onClick={handleCompleteSetup}
+                  onClick={() => handleCompleteSetup(false)}
                   disabled={isSubmitting}
                   className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-theme-surface-3 text-white font-semibold text-xs rounded-xl flex items-center space-x-2 cursor-pointer shadow-lg transition-transform hover:scale-[1.02]"
                 >

@@ -13,7 +13,7 @@ License      : Proprietary Commercial Software
 
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, ValidationInfo
 
 
 class TallyConfigCreate(BaseModel):
@@ -199,6 +199,7 @@ class BusinessInfo(BaseModel):
     isDemoMode: Optional[bool] = Field(False, alias="isDemoMode")
     financialYear: Optional[str] = Field("2026-2027", alias="financialYear")
     booksStartDate: Optional[str] = Field("2026-04-01", alias="booksStartDate")
+    ignoreWarnings: Optional[bool] = Field(False, alias="ignoreWarnings")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -229,11 +230,14 @@ class BusinessInfo(BaseModel):
 
     @field_validator("gstin")
     @classmethod
-    def validate_gstin(cls, value: Optional[str]) -> str:
+    def validate_gstin(cls, value: Optional[str], info: ValidationInfo) -> str:
         if not value:
             return ""
+        ignore_checksum = False
+        if info.data and info.data.get("ignoreWarnings"):
+            ignore_checksum = True
         from app.core.gstin import validate_gstin_format
-        return validate_gstin_format(value)
+        return validate_gstin_format(value, ignore_checksum=ignore_checksum)
 
     @field_validator("pan")
     @classmethod
