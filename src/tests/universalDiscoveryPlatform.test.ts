@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from "vitest";
 import { UniversalDiscoveryPlatform } from "../services/UniversalDiscoveryPlatform.js";
-import { NormalizedLookupItem } from "../kernel/SPK.js";
+import { ILookupItem } from "../kernel/SPK.js";
 
 describe("Universal Discovery Platform (UDP / ADR-UDP-001) Test Suite", () => {
   const udp = UniversalDiscoveryPlatform.getInstance();
@@ -26,10 +26,10 @@ describe("Universal Discovery Platform (UDP / ADR-UDP-001) Test Suite", () => {
   });
 
   it("2. SMART RELEVANCE RANKING ALGORITHM: Ranks Barcode Exact Match > SKU > Article > Name Prefix", () => {
-    const rawItems: NormalizedLookupItem[] = [
-      { id: "1", code: "NIKE-01", name: "Puma Running Shoes", master_type_id: "ITEM", data: { barcode: "890999" } },
-      { id: "2", code: "NIKE-02", name: "Nike Air Zoom", master_type_id: "ITEM", data: { barcode: "890200" } },
-      { id: "3", code: "BAR-890100", name: "Exact Barcode Item", master_type_id: "ITEM", data: { barcode: "890100" } },
+    const rawItems: ILookupItem[] = [
+      { id: "1", code: "NIKE-01", name: "Puma Running Shoes", type: "ITEM", metadata: { barcode: "890999" } },
+      { id: "2", code: "NIKE-02", name: "Nike Air Zoom", type: "ITEM", metadata: { barcode: "890200" } },
+      { id: "3", code: "BAR-890100", name: "Exact Barcode Item", type: "ITEM", metadata: { barcode: "890100" } },
     ];
 
     const ranked = udp.rankResults(rawItems, "890100");

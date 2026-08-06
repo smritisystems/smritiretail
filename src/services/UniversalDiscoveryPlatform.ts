@@ -11,7 +11,7 @@
  * and AI Assistant across Products, Customers, Suppliers, Accounts, and Documents.
  */
 
-import { SPK, NormalizedLookupItem } from "../kernel/SPK.js";
+import { SPK, ILookupItem } from "../kernel/SPK.js";
 import { ItemQueryBuilder } from "./ItemQueryBuilder.js";
 
 export type DiscoveryDomain = "ITEM" | "CUSTOMER" | "SUPPLIER" | "ACCOUNT" | "DOCUMENT" | "USER";
@@ -61,14 +61,14 @@ export class UniversalDiscoveryPlatform {
   /**
    * 2. Smart Relevance Ranking Algorithm (Exact Barcode -> SKU -> Code -> Prefix -> Substring)
    */
-  public rankResults(rawItems: NormalizedLookupItem[], query?: string): RankedDiscoveryResult[] {
+  public rankResults(rawItems: ILookupItem[], query?: string): RankedDiscoveryResult[] {
     const q = (query || "").trim().toLowerCase();
 
-    const ranked = rawItems.map((item) => {
-      const itemCode = (item.code || "").toLowerCase();
-      const itemName = (item.name || "").toLowerCase();
-      const itemBarcode = (item.data?.barcode || "").toLowerCase();
-      const itemArticle = ((item.data?.articleNo || item.data?.styleCode || "") as string).toLowerCase();
+    const ranked: RankedDiscoveryResult[] = rawItems.map((item) => {
+      const itemCode = (item.code || item.id || "").toLowerCase();
+      const itemName = (item.name || item.title || "").toLowerCase();
+      const itemBarcode = String(item.metadata?.barcode || "").toLowerCase();
+      const itemArticle = String(item.metadata?.articleNo || item.metadata?.styleCode || "").toLowerCase();
 
       let score = 0;
 
@@ -82,15 +82,17 @@ export class UniversalDiscoveryPlatform {
         score = 100; // Default browse score
       }
 
+      const badgeStr = typeof item.badge === "string" ? item.badge : item.badge?.label;
+
       return {
         id: item.id,
-        code: item.code,
-        title: item.name,
-        subtitle: item.data?.category || item.data?.group || item.data?.phone || "",
-        domain: (item.master_type_id?.toUpperCase() as DiscoveryDomain) || "ITEM",
-        badge: item.badge,
+        code: item.code || item.id,
+        title: item.name || item.title || item.id,
+        subtitle: (item.metadata?.category || item.metadata?.group || item.metadata?.phone || item.subtitle || "") as string,
+        domain: (item.type?.toUpperCase() as DiscoveryDomain) || "ITEM",
+        badge: badgeStr,
         relevanceScore: score,
-        data: item.data || {},
+        data: item.metadata || {},
       };
     });
 
@@ -107,15 +109,14 @@ export class UniversalDiscoveryPlatform {
     const domain = this.resolveDomainFromWorkspace(context.activeWorkspaceId);
 
     const lookupProvider = SPK.ule.getProvider(domain);
-    let rawItems: NormalizedLookupItem[] = [];
+    let rawItems: ILookupItem[] = [];
 
     if (lookupProvider) {
-      rawItems = await SPK.ule.search(domain, query, { limit: context.limit || 100 });
+      const searchRes = await SPK.ule.search(domain, query);
+      rawItems = searchRes as ILookupItem[];
     }
 
     const ranked = this.rankResults(rawItems, query);
-    const duration = performance.now() - startTime;
-
     return ranked.slice(0, context.limit || 100);
   }
 }
