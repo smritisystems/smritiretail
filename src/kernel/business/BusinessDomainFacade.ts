@@ -2,7 +2,7 @@
  * Project      : SMRITI Retail OS
  * Module       : Universal Business Domain Facade (SPK.business)
  * Author       : Jawahar Ramkripal Mallah
- * Standard     : Business Constitution v1.0 — Unified Business Domain Facade
+ * Standard     : Business Constitution v1.0 — Unified Business Domain Facade (BASELINE LTS)
  * Version      : 1.0.0
  * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
@@ -20,6 +20,12 @@ export const BusinessDomain = {
   purchase: new PurchaseService(),
   sales: new SalesService(),
   schemes: SchemeEngine,
+  tally: { syncQueue: [], isCommunicatorActive: true },
+  distribution: { routes: [], beats: [], salesman: [] },
+  reports: { dailySales: [], stockValuation: [] },
+  configuration: { branch: "HO-MUMBAI", warehouse: "WH-MAIN", numberingSeries: "INV-2026-" },
+  crm: { customers: [], suppliers: [] },
+  loyalty: { pointsRatio: 0.01, giftVouchers: [] },
 };
 
 export const SPK_business = BusinessDomain;

@@ -83,7 +83,7 @@ All core platform kernel services, workspace engines, document experience platfo
 
 ---
 
-## Part VII — Business Governance & Principles (SCS-BUS-001 — SCS-BUS-003)
+## Part VII — Business Governance & Principles (SCS-BUS-001 — SCS-BUS-004)
 
 ### SCS-BUS-001 — Retail First Principle (MANDATORY)
 > SMRITI Retail OS shall prioritize POS, Inventory, Purchase, Distribution, and TallyPrime Integration. Any feature that primarily belongs to a full ERP (advanced accounting, manufacturing, payroll, HR, fixed assets, budgeting) shall not be implemented inside the core Retail Engine unless it directly supports retail operations.
@@ -95,36 +95,55 @@ All core platform kernel services, workspace engines, document experience platfo
 ### SCS-BUS-003 — Offline First Principle (MANDATORY)
 > Every retail POS transaction MUST be capable of executing without Internet connectivity. Synchronization is asynchronous. Billing must NEVER stop because the Internet is unavailable.
 
+### SCS-BUS-004 — Ledger First Principle (MANDATORY)
+> Business state shall never be derived from master tables. Inventory = Stock Ledger; Customer Outstanding = Party Ledger; Supplier Outstanding = Party Ledger; Cash = Cash Ledger; Bank = Bank Ledger. Master tables contain reference information only. Every business document MUST create immutable ledger entries.
+
 ### Operational vs Financial System of Record Distinction
 - **SMRITI Retail OS** = Operational System of Record (inventory, POS checkout, purchase GRNs, distribution, stock movements).
 - **TallyPrime** = Financial System of Record (general ledger, statutory books of accounts, tax audit).
 
+### 3-Category Data Architecture Boundary
+1. **Operational Data**: Sales, Purchase, Inventory, POS checkout, Stock transfers.
+2. **Configuration Data**: GST, Barcodes, Number Series, Branch, Warehouse, Printers, Tally, Themes.
+3. **Master Data**: Items, Customers, Suppliers, Categories, Brands.
+
 ---
 
-## Part VIII — Universal Business Domain Facade (SPK.business)
+## Part VIII — Universal Business Domain Facade (SPK.business — BASELINE LTS)
 
-All business domain APIs are exposed through a single public facade boundary:
+All business domain APIs are exposed through a single public facade boundary (`BusinessDomainFacade.ts`):
 ```ts
-SPK.business / BusinessDomain
-├── masterData   (Item Master, Categories, Brands, Barcodes, Multi-Price Tiers)
-├── inventory    (Stock Ledger, Warehouses, Bin Locations, Batches, Serials, FIFO)
-├── purchase     (POs, Partial GRNs, Invoices, Landed Cost Allocation)
-├── sales        (POS Billing, Barcode Billing, Hold/Resume)
-└── schemes      (Indian Scheme Engine: Buy X Get Y, Coupons, Discounts)
+SPK.business / BusinessDomain (Frozen Public APIs)
+├── masterData     (Item Master, Categories, Brands, Barcodes, Multi-Price Tiers)
+├── inventory      (Stock Ledger, Warehouses, Bin Locations, Batches, Serials, FIFO)
+├── purchase       (POs, Partial GRNs, Invoices, Landed Cost Allocation)
+├── sales          (POS Billing, Barcode Billing, Hold/Resume)
+├── schemes        (Indian Scheme Engine: Buy X Get Y, Coupons, Discounts)
+├── tally          (SMRITI Communicator 2-Way Sync Engine & Retry Queue)
+├── distribution   (Salesman, Beat/Route, Vehicle, Van Loading, Secondary Sales)
+├── reports        (Retail Analytics BI, Daily Sales, Stock Ageing, Profitability)
+├── configuration  (Financial Year, Branch, Warehouse, Number Series, Tally Setup)
+├── crm            (Customer/Supplier Master, Credit Limits, Outstanding Aging)
+└── loyalty        (Loyalty Points Redemption, Gift Vouchers, B2B Quotations)
 ```
 
 ---
 
-## Part IX — Master 10-Phase Retail Engine Roadmap
+## Part IX — Master 10-Phase Retail Engine Roadmap & Exit Gates
 
 1. **Phase 1 — Master Data Foundation**: Item Master, Category, Brand, Color, Size, UOM, Barcode, Supplier Mapping, Tax Mapping, Multi-Price Tiers (MRP, Retail, Wholesale, Dealer, Branch, Date-effective).
+   - *Exit Gate:* Item Master, Barcodes, Price Tiers, Tax Mapping & Supplier Mapping 100% verified.
 2. **Phase 2 — Inventory Engine**: Stock Ledger, Warehouse, Bin Location, Batch, Serial, Transfers, Physical Stock, Adjustment, FIFO, Weighted Average, Reorder.
+   - *Exit Gate:* Stock Ledger, Warehouses, Bin Locations, Batches, Serials, Transfers, FIFO Valuation & Reorder Alerts 100% verified.
 3. **Phase 3 — Purchase & GRN**: Purchase Order, Partial GRN, Purchase Invoice, Purchase Return, Supplier Ledger, Landed Cost Allocation.
+   - *Exit Gate:* PO, Partial GRN, Landed Cost Allocation onto item unit cost 100% verified.
 4. **Phase 4 — Sales + POS + Scheme Engine**: Fast POS Billing, Barcode Billing, Hold/Resume, Indian Scheme Engine (Buy X Get Y, Coupons, Mix & Match).
+   - *Exit Gate:* POS Checkout, Thermal Receipt Printing, Scheme calculation 100% verified.
 5. **Phase 5 — TallyPrime Communicator**: SMRITI Communicator Daemon (Port 9000), 2-Way Sync for Vouchers (Sales, Purchase, Receipts, Payments, Credit/Debit Notes), Masters & Retry Queue.
+   - *Exit Gate:* Port 9000 Daemon HTTP listener, 2-Way sync & retry queue 100% verified.
 6. **Phase 6 — Distribution & Field Sales Engine**: Salesman, Beat, Route, Vehicle, Van Loading, Delivery Challan, Secondary Sales, Distributor Stock, Market Visit.
 7. **Phase 7 — Retail Reports & Analytics**: Daily Sales, Dead Stock, Fast/Slow Moving, Stock Ageing, Profit Analysis by Item/Brand/Supplier.
-8. **Phase 8 — Retail Configuration Engine**: Financial Year, Branch, Warehouse, Numbering Series, GST Settings, Barcode Settings, Printer Mapping, Tally Settings.
-9. **Phase 9 — Basic CRM**: Customer, Supplier, Credit Limit, Outstanding Aging, Contacts.
-10. **Phase 10 — Loyalty & Extensions**: Loyalty redemption, Gift vouchers, B2B Quotations.
+8. **Phase 8 — Retail Configuration Engine**: Deployment Wizard: Financial Year, Branch, Warehouse, Numbering Series, GST Settings, Barcode Settings, Printer Mapping, Tally Settings.
+9. **Phase 9 — Basic CRM**: Customer, Supplier, Credit Limit Warnings, Outstanding Aging Analysis, Contacts.
+10. **Phase 10 — Loyalty & Extensions**: Loyalty Points Redemption, Gift Voucher Redemption, B2B Quotations & Sales Orders.
 
