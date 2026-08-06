@@ -22,6 +22,7 @@ from passlib.context import CryptContext
 from passlib.exc import MissingBackendError
 import hashlib
 import binascii
+import secrets
 from .config import settings
 
 pwd_context = CryptContext(
