@@ -153,3 +153,14 @@ SPK.business / BusinessDomain (Frozen Public APIs)
 9. **Phase 9 — Basic CRM**: Customer, Supplier, Credit Limit Warnings, Outstanding Aging Analysis, Contacts.
 10. **Phase 10 — Loyalty & Extensions**: Loyalty Points Redemption, Gift Voucher Redemption, B2B Quotations & Sales Orders.
 
+---
+
+## Part X — Universal Drill-Down & 360° Navigation Principle (SCS-UX-001 — MANDATORY)
+
+Every business entity, KPI, report, chart, ledger, document, and analytical value shall support contextual drill-down to the originating transaction and provide a complete 360° business view with related documents, ledgers, history, analytics, communications, and audit trail.
+
+1. **No Dead-End Values**: Every visible business value (amount, quantity, document ID, entity name, badge, chart data point) MUST be clickable.
+2. **Contextual Side Inspector**: Clicking any value opens the `DrillDownSidePanel` with context breadcrumbs and direct navigation links.
+3. **Master 360° Navigation**: Master entities (Customer, Supplier, Item, Invoice) MUST render a 360° view containing Orders, Invoices, Payments, Outstanding, Returns, Credit Notes, Loyalty, Attachments, Timeline, and Audit Trail.
+4. **Zero State Loss**: Users can navigate back and forth without losing search filters or active workspace state.
+
