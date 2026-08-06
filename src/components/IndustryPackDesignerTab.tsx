@@ -99,10 +99,12 @@ export const IndustryPackDesignerTab: React.FC = () => {
 
   const handleSaveToFormRegistry = () => {
     // Dynamically register with UPR FormRegistry
-    FormRegistry.registerForm(`product_${activePack.id}`, {
+    FormRegistry.registerForm({
       id: `product_${activePack.id}`,
-      name: activePack.name,
+      title: activePack.name,
       entityId: "product",
+      domainId: "masterData",
+      version: "1.0.0",
       sections: [
         {
           id: "industry_attributes",
