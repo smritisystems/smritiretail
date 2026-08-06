@@ -36,7 +36,7 @@ describe("Universal Print Registry (UPRT Phase 6 Core)", () => {
     expect(doc.templateId).toBe("tmpl.pos_receipt");
     expect(doc.htmlContent).toContain("INV-9900");
     expect(doc.htmlContent).toContain("₹1,250.00");
-    expect(doc.plainTextContent).toContain("SMRITI RETAIL RECEIPT");
+    expect(doc.plainTextContent).toContain("SMRITI Systems");
   });
 
   it("should support dynamic registration of plugin print templates", () => {

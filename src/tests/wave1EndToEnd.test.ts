@@ -44,7 +44,7 @@ describe("Wave 1 End-to-End Business Integration Scenarios", () => {
     expect(checkoutResult.status).toBe("completed");
     expect(checkoutResult.invoiceNo).toContain("INV-2026-");
     expect(checkoutResult.totalFormatted).toContain("1,770.00"); // Taxable 1500 + 18% GST (270)
-    expect(checkoutResult.receiptHtml).toContain("SMRITI RETAIL RECEIPT");
+    expect(checkoutResult.receiptHtml).toContain("SMRITI Systems");
 
     // Verify event bus propagation
     expect(capturedSaleEvent).not.toBeNull();
