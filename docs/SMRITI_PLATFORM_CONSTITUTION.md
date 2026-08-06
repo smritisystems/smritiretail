@@ -83,10 +83,23 @@ All core platform kernel services, workspace engines, document experience platfo
 
 ---
 
-## Part VI — Business Domain Implementation Roadmap
+## Part VII — Business Governance & Retail First Principle (SCS-BUS-001)
 
-1. **Phase A — Financial Foundation**: Accounting Engine, Chart of Accounts, General Ledger, GST, Receivables, Payables.
-2. **Phase B — Procurement**: Requisitions, Purchase Orders, Goods Receipt Notes (GRN), Purchase Invoices, Vendor Returns.
-3. **Phase C — Inventory & Stock**: Stock Ledger, Multi-warehouse transfers, Batch/Serial tracking, FIFO valuation.
-4. **Phase D — Sales & POS**: Fast POS checkout, Thermal receipt printing, Barcode scanning, Cash drawer integration.
-5. **Phase E — Analytics & BI**: Financial P&L, Balance Sheet, Inventory Turnover, Profitability dashboards.
+### SCS-BUS-001 — Retail First Principle (MANDATORY)
+> SMRITI Retail OS shall prioritize POS, Inventory, Purchase, Distribution, and TallyPrime Integration. Any feature that primarily belongs to a full ERP (advanced accounting, manufacturing, payroll, HR, fixed assets, budgeting) shall not be implemented inside the core Retail Engine unless it directly supports retail operations.
+
+---
+
+## Part VIII — Master 10-Phase Retail Engine Roadmap
+
+1. **Phase 1 — Master Data Foundation**: Item Master, Category, Brand, Color, Size, UOM, Barcode, Supplier Mapping, Tax Mapping, Multi-Price Tiers (MRP, Retail, Wholesale, Dealer, Branch, Date-effective).
+2. **Phase 2 — Inventory Engine**: Stock Ledger, Warehouse, Bin, Batch, Serial, Transfers, Physical Stock, Adjustment, FIFO, Weighted Average, Reorder.
+3. **Phase 3 — Purchase & GRN**: Purchase Order, Partial GRN, Purchase Invoice, Purchase Return, Supplier Ledger, Landed Cost Allocation.
+4. **Phase 4 — Sales + POS + Scheme Engine**: Fast POS Billing, Barcode Billing, Hold/Resume, Indian Scheme Engine (Buy X Get Y, Coupons, Mix & Match).
+5. **Phase 5 — TallyPrime Communicator**: SMRITI Communicator Daemon (Port 9000), 2-Way Sync for Vouchers (Sales, Purchase, Receipts, Payments, Credit/Debit Notes), Masters & Retry Queue.
+6. **Phase 6 — Distribution & Field Sales Engine**: Salesman, Beat, Route, Vehicle, Van Loading, Delivery Challan, Secondary Sales, Distributor Stock, Market Visit.
+7. **Phase 7 — Retail Reports & Analytics**: Daily Sales, Dead Stock, Fast/Slow Moving, Stock Ageing, Profit Analysis by Item/Brand/Supplier.
+8. **Phase 8 — Retail Configuration Engine**: Financial Year, Branch, Warehouse, Numbering Series, GST Settings, Barcode Settings, Printer Mapping, Tally Settings.
+9. **Phase 9 — Basic CRM**: Customer, Supplier, Credit Limit, Outstanding Aging, Contacts.
+10. **Phase 10 — Loyalty & Extensions**: Loyalty redemption, Gift vouchers, B2B Quotations.
+
