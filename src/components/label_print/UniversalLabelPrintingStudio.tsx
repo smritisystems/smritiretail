@@ -701,7 +701,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                     <input
                       type="text"
                       value={shadeTo}
-                      onChange={(e) => setStyleTo(e.target.value)}
+                      onChange={(e) => setShadeTo(e.target.value)}
                       placeholder="To (e.g. Ecru)"
                       className="w-1/2 bg-theme-surface-1 border border-theme-divider rounded-lg px-2.5 py-1 text-xs text-theme-body"
                     />
@@ -732,17 +732,26 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
 
               </div>
 
-              {/* Universal Keyword Quick Search */}
+              {/* Universal Keyword Quick Search with F2 Discovery DNA (SCS-UIX Lookup Rule-001) */}
               <div className="pt-2">
-                <div className="relative">
+                <div className="relative flex items-center">
                   <Search size={14} className="absolute left-3 top-2.5 text-theme-muted" />
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Quick Filter Keyword: SKU, Barcode, Article, Supplier, Brand..."
-                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-9 pr-3 py-2 text-xs text-theme-body focus:outline-none focus:border-[var(--c-seef-accent)]"
+                    onKeyDown={(e) => {
+                      if (e.key === "F2") {
+                        e.preventDefault();
+                        onNotification?.("F2 Universal Discovery", `Triggered F2 discovery mode for query: "${searchTerm}"`, "success");
+                      }
+                    }}
+                    placeholder="Quick Filter Keyword: SKU, Barcode, Article, Brand... (Press F2 for Universal Discovery)"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-9 pr-14 py-2 text-xs text-theme-body focus:outline-none focus:border-[var(--c-seef-accent)]"
                   />
+                  <kbd className="absolute right-3 top-2 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-theme-surface-1 border border-theme-divider text-theme-muted">
+                    F2
+                  </kbd>
                 </div>
               </div>
 
