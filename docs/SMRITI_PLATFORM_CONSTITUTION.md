@@ -8,12 +8,13 @@
 
 ---
 
-## Declaration of Platform Milestone
+## Declaration of Architectural Freeze Baseline (v1.0 LTS)
 
-> **SMRITI Platform Infrastructure Phase — COMPLETE**  
-> **SMRITI Business Domain Phase — ACTIVE**  
-
-All core platform kernel services, workspace engines, document experience platforms, and printing subsystems are formally certified as **BASELINE LTS** (Long Term Support). Engineering effort is 80–90% dedicated to core business domain execution (Accounting, Purchasing, Inventory, Sales/POS, CRM, Analytics).
+> **SMRITI PLATFORM ARCHITECTURE — VERSION 1.0 LTS**  
+> **STATUS: ARCHITECTURE FROZEN**  
+> 
+> No new architectural layers. No new registries. No new kernel abstractions. No new domain facades.  
+> Engineering focus is 95% dedicated to Business Domain Feature Delivery across the 10 Retail Phases.
 
 ---
 

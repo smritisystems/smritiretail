@@ -8,18 +8,19 @@
  * License      : Proprietary Commercial Software
  */
 
-import { InventoryService } from "../internal/InventoryService.ts";
-import { PurchaseService } from "../internal/PurchaseService.ts";
-import { SalesService } from "../internal/SalesService.ts";
+import { SPK } from "../SPK.js";
+import { IInventoryService } from "../public/IInventoryService.js";
+import { IPurchaseService } from "../public/IPurchaseService.js";
+import { ISalesService } from "../public/ISalesService.js";
 import { SchemeEngine } from "../../services/schemeEngine.ts";
 import { DemoDataRegistry } from "../config/SmritiDemoDataRegistry.ts";
 
 export const BusinessDomain = {
-  masterData: DemoDataRegistry,
-  inventory: new InventoryService(),
-  purchase: new PurchaseService(),
-  sales: new SalesService(),
-  schemes: SchemeEngine,
+  get masterData() { return DemoDataRegistry; },
+  get inventory(): IInventoryService { return SPK.services.resolve<IInventoryService>("INVENTORY"); },
+  get purchase(): IPurchaseService { return SPK.services.resolve<IPurchaseService>("PURCHASE"); },
+  get sales(): ISalesService { return SPK.services.resolve<ISalesService>("SALES"); },
+  get schemes() { return SchemeEngine; },
   tally: { syncQueue: [], isCommunicatorActive: true },
   distribution: { routes: [], beats: [], salesman: [] },
   reports: { dailySales: [], stockValuation: [] },
