@@ -79,11 +79,17 @@ export interface PlatformSnapshot {
   manifest: PlatformManifest;
 }
 
+export type ProductionReadinessLevel = "CERTIFIED" | "RELEASE_CANDIDATE" | "DEV_COMPLETE" | "WORK_IN_PROGRESS";
+
+export type ReadinessRiskCategory = "LOW" | "MEDIUM" | "HIGH";
+
 export interface ModuleCompletenessReport {
   moduleId: string;
   moduleName: string;
   score: number; // 0 to 100%
   readyForProduction: boolean; // True only if score >= 95% and all 11 checks pass (SPCC-GOV-012)
+  readinessLevel: ProductionReadinessLevel;
+  riskCategory: ReadinessRiskCategory;
   checks: {
     moduleRegistered: boolean;
     featuresRegistered: boolean;

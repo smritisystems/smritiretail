@@ -30,7 +30,9 @@ import type {
   AIIntentRegistration,
   BusinessProcessCertificationReport,
   BusinessProcessDefinition,
-  ProcessCertificationStatus
+  ProcessCertificationStatus,
+  ProductionReadinessLevel,
+  ReadinessRiskCategory
 } from "../manifest/PlatformManifest.js";
 
 export type ModuleOwnerType = "SMRITI" | "Partner" | "Marketplace" | "Customer";
@@ -630,11 +632,24 @@ export class NavigationRegistryService {
     const score = Math.round((passedCount / 11) * 100);
     const readyForProduction = score >= 95 && passedCount === 11;
 
+    let readinessLevel: ProductionReadinessLevel = "CERTIFIED";
+    if (score === 100) readinessLevel = "CERTIFIED";
+    else if (score >= 90) readinessLevel = "RELEASE_CANDIDATE";
+    else if (score >= 70) readinessLevel = "DEV_COMPLETE";
+    else readinessLevel = "WORK_IN_PROGRESS";
+
+    let riskCategory: ReadinessRiskCategory = "LOW";
+    if (score >= 90) riskCategory = "LOW";
+    else if (score >= 70) riskCategory = "MEDIUM";
+    else riskCategory = "HIGH";
+
     return {
       moduleId,
       moduleName: targetMod?.title || moduleId,
       score,
       readyForProduction,
+      readinessLevel,
+      riskCategory,
       checks
     };
   }
