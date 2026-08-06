@@ -7,6 +7,7 @@
 
 import { IOutputAdapter } from "./IOutputAdapter.ts";
 import { DxpDocumentRequest, DxpDocumentResult } from "../models/DxpTypes.ts";
+import { PrintAgentManager } from "../agents/PrintAgentManager.ts";
 
 export class PrinterAdapter implements IOutputAdapter {
   public channel: "PRINT" = "PRINT";
@@ -16,14 +17,11 @@ export class PrinterAdapter implements IOutputAdapter {
     const copies = req.copies || 1;
     const totalProcessed = itemCount * copies;
 
-    console.log(`[DXP PrinterAdapter]: Dispatching ${totalProcessed} labels/pages for ${req.referenceId} to SDP Hardware Daemon.`);
+    console.log(`[DXP PrinterAdapter]: Dispatching ${totalProcessed} labels/pages for ${req.referenceId} via PrintAgentManager.`);
 
+    const agentResult = await PrintAgentManager.dispatch(req);
     return {
-      jobId: `job-print-${Date.now()}`,
-      lifecycleState: "DELIVERED",
-      channel: "PRINT",
-      adapterUsed: "PrinterAdapter (SDP Local Daemon)",
-      templateVersion: 1,
+      ...agentResult,
       labelsOrPagesProcessed: totalProcessed,
     };
   }

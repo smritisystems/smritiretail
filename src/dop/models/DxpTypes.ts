@@ -141,6 +141,8 @@ export interface DxpDocumentRequest {
   recipientEmail?: string;
   recipientPhone?: string;
   copies?: number;
+  format?: "A4" | "A5" | "Thermal80mm" | "Label";
+  options?: Record<string, any>;
   isAdvisoryOnly?: boolean;
 }
 
