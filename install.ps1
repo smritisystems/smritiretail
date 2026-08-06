@@ -382,7 +382,7 @@ try {
     Write-Host "   - API Health Monitoring Status       : http://localhost:8000/health" -ForegroundColor Cyan
     Write-Host ""
     Write-Host " Default System Authentication Credentials:" -ForegroundColor Yellow
-    Write-Host "   Username: super     Password: Smriti@1234   Role: System Admin" -ForegroundColor Green
+    Write-Host "   Username: super     Password: Shpr0128vdq!@   Role: System Admin" -ForegroundColor Green
     Write-Host "   Username: manager   Password: Password@123  Role: Store Manager" -ForegroundColor Green
     Write-Host "   Username: cashier   Password: Cashier@1234  Role: POS Cashier" -ForegroundColor Green
     Write-Host ""

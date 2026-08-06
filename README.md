@@ -69,7 +69,7 @@ After a fresh installation, the following default accounts are automatically cre
 
 | Username  | Password       | Role             | Scope                                   |
 |-----------|----------------|------------------|-----------------------------------------|
-| `super`   | `Smriti@1234`  | System Admin     | Platform-wide root access               |
+| `super`   | `Shpr0128vdq!@`  | System Admin     | Platform-wide root access               |
 | `manager` | `Password@123` | Store Manager    | All modules for `Default Branch`        |
 | `cashier` | `Cashier@1234` | Cashier Operator | POS billing and sales for `Default Branch` |
 

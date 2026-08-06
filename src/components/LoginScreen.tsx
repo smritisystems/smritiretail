@@ -51,7 +51,7 @@ interface LoginScreenProps {
 
 // Dev-mode seed accounts — only visible in development builds
 const DEV_ACCOUNTS = [
-  { label: "System Admin",  username: "super",   password: "Smriti@1234",  role: "SYSADMIN", color: "#d93025" },
+  { label: "System Admin",  username: "super",   password: "Shpr0128vdq!@",  role: "SYSADMIN", color: "#d93025" },
   { label: "Store Manager", username: "manager", password: "Password@123", role: "MANAGER",  color: "#f29900" },
   { label: "POS Cashier",   username: "cashier", password: "Cashier@1234", role: "CASHIER",  color: "#188038" },
 ];

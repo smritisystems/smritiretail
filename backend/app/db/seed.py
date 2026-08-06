@@ -410,7 +410,7 @@ async def seed_default_users():
                 "username": "super",
                 "email": "super@smritibooks.com",
                 "mobile": "9999999999",
-                "plain_password": "Smriti@1234",
+                "plain_password": "Shpr0128vdq!@",
                 "role": "SYSADMIN",
                 "company_id": "comp-default",
                 "branch_id": "br-default",

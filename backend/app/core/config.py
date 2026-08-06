@@ -151,7 +151,7 @@ class Settings(BaseSettings):
 
     # Installation Bootstrap & Reconciliation configuration
     BOOTSTRAP_VERSION: str = "1.0.0"
-    BOOTSTRAP_LEGACY_PASSWORDS: list[str] = ["Smriti@1234", "Password@123", "Admin@123", "TempPass@123"]
+    BOOTSTRAP_LEGACY_PASSWORDS: list[str] = ["Smriti@1234", "whynothing", "Password@123", "Admin@123", "TempPass@123"]
 
     ENABLE_SETUP_DEMO: bool = False
     ENABLE_SEED_SAMPLE_DATA: bool = False
