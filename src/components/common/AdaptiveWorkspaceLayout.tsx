@@ -15,6 +15,7 @@ import { SPK } from "../../kernel/SPK.js";
 import { useDrillDown } from "../drilldown/drilldown_store.js";
 import "../../kernel/upr/context/context.manifest.js";
 import { UniversalCommandPalette } from "./UniversalCommandPalette.js";
+import { ArchitectureInspector } from "./ArchitectureInspector.js";
 
 interface AdaptiveWorkspaceLayoutProps {
   manifest: WorkspaceManifest;
@@ -299,6 +300,8 @@ export const AdaptiveWorkspaceLayout: React.FC<AdaptiveWorkspaceLayoutProps> = (
       </footer>
       {/* Global Universal Command Palette (USCP v1.0 / Ctrl+K) */}
       <UniversalCommandPalette />
+      {/* SMRITI Platform DevTools Architecture Inspector (Ctrl+Shift+K) */}
+      <ArchitectureInspector />
     </div>
   );
 };
