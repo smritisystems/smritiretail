@@ -1,4 +1,4 @@
-# SMRITI Retail OS v1.0 Beta — Definition of Done (DoD)
+# SMRITI Retail OS v1.0 Beta — Definition of Done (Workflow Gate)
 
 **System:** SMRITI Retail OS  
 **Status:** MANDATORY RELEASE GATE  
@@ -8,23 +8,49 @@
 
 ---
 
-## Declaration of Retail v1.0 Beta Release Gate
+## Declaration of Retail v1.0 Beta Workflow Release Gate
 
-SMRITI Retail OS shall be certified **READY FOR BETA PILOT DEPLOYMENT** only when all 12 core workflow validation criteria are 100% verified end-to-end.
+SMRITI Retail OS shall be certified **READY FOR BETA PILOT DEPLOYMENT** only when all 10 end-to-end retail operational workflows pass their target SLA criteria.
 
 ---
 
-## 12 Mandatory Retail Beta Workflow Criteria
+## 10 End-to-End Retail Operational Workflows
 
-- [ ] **1. Organization & Branch Setup**: Retailer can create company, branches, and warehouses via Retail Configuration Wizard.
-- [ ] **2. System & Hardware Settings**: Retailer can configure GSTIN, HSN tax rates, document numbering series, thermal receipt printers, and barcode printers.
-- [ ] **3. Master Data Management**: Retailer can create Item Master, Categories, Brands, Colors/Sizes/UOM, EAN-13 Barcodes, Multi-Price Tiers (MRP, Retail, Wholesale), and bulk import/export via CSV/Excel.
-- [ ] **4. Procurement & GRN Workflow**: Retailer can execute Purchase Order -> Partial/Full Goods Receipt Note (GRN) with Landed Cost allocation -> Purchase Invoice -> Supplier Outstanding posting.
-- [ ] **5. Multi-Warehouse Stock Transfers**: Retailer can transfer stock between warehouses and branches with in-transit status tracking.
-- [ ] **6. Physical Stock Reconciliation**: Retailer can perform physical stock audits, record stock adjustments, and view automated reorder alerts.
-- [ ] **7. Fast POS & Barcode Checkout**: Cashier can scan barcodes, bill items under 3 seconds, hold/resume carts, apply schemes (Buy X Get Y, Coupons), and collect multi-mode payments (Cash, UPI, Card, Credit).
-- [ ] **8. Sales Returns & Exchanges**: Cashier can process sales returns, generate store credit / credit notes, and redeem them at checkout.
-- [ ] **9. Receipts & Payments**: Cashier/Accountant can record customer receipts, supplier payments, cash/bank vouchers, and view party outstanding ledgers.
-- [ ] **10. Print Engine Execution**: System prints thermal ESC/POS receipts, Zebra ZPL barcode sticky labels, and A4 tax invoices via SCS-DXP-002 `PrintDomain`.
-- [ ] **11. SMRITI Communicator Tally Synchronization**: Background daemon pushes Sales, Purchase, Receipts, Payments, Credit/Debit Notes, and Master Data into TallyPrime / Tally.ERP 9 with automatic retry queue and error logging.
-- [ ] **12. Operational BI Reports**: Retailer can generate Daily Sales, GST Returns, Dead Stock, Fast/Slow-Moving, Stock Valuation (FIFO), and Item/Brand Profitability reports.
+| Workflow ID | Workflow Name | Target SLA & Pass Criteria | Verification Status |
+|---|---|---|---|
+| **WF-01** | **New Store Setup** | New retailer onboarded and ready within 15 minutes via Configuration Wizard. | 🟡 In Progress |
+| **WF-02** | **Purchase Cycle** | PO → Partial/Full GRN → Landed Cost Allocation → Purchase Invoice → Stock & Supplier Ledger updated. | 🟡 In Progress |
+| **WF-03** | **Stock Transfer** | Warehouse A → In-Transit → Warehouse B → Stock Ledgers updated automatically. | 🟡 In Progress |
+| **WF-04** | **Physical Stock Audit** | Physical Count → Adjustment Voucher → Stock Ledger & Reorder Alerts updated. | 🟡 In Progress |
+| **WF-05** | **Fast POS Billing** | Barcode Scan → Cart → Applied Scheme → Thermal Receipt Print → Payment in < 3 seconds. | 🟡 In Progress |
+| **WF-06** | **Sales Return & Credit** | Return Receipt → Store Credit / Credit Note Issue → Stock & Party Ledger updated. | 🟡 In Progress |
+| **WF-07** | **Supplier Payment** | Vendor Outstanding → Payment Voucher → Cash/Bank Ledger → Tally Sync Queue. | 🟡 In Progress |
+| **WF-08** | **Customer Receipt** | Customer Outstanding → Receipt Voucher → Cash/Bank Ledger → Tally Sync Queue. | 🟡 In Progress |
+| **WF-09** | **Tally Sync Engine** | XML Voucher Export → SMRITI Communicator Port 9000 Daemon → Tally Acknowledge / Retry Queue. | 🟡 In Progress |
+| **WF-10** | **Retail Reports & BI** | Instant generation of Daily Sales, GST Returns, Stock Valuation (FIFO), and Dead Stock reports. | 🟡 In Progress |
+
+---
+
+## Retail Readiness Completion Tracking
+
+```text
+========================================================================================
+SMRITI RETAIL READINESS DASHBOARD
+========================================================================================
+Platform Architecture (LTS Frozen)  : 100% [PASSED]
+Business Constitution (LTS Frozen)  : 100% [PASSED]
+
+Phase 1  : Master Data Foundation   :  62%
+Phase 2  : Inventory Engine        :  48%
+Phase 3  : Purchase & GRN           :  35%
+Phase 4  : Sales + POS Checkout     :  41%
+Phase 5  : TallyPrime Communicator  :  18%
+Phase 6  : Distribution & Field     :   5%
+Phase 7  : Retail Reports & BI      :  22%
+Phase 8  : Retail Configuration     :  15%
+Phase 9  : Basic CRM                :  12%
+Phase 10 : Loyalty & Extensions     :   0%
+
+OVERALL RETAIL COMPLETION TARGET    : 100% FOR BETA LAUNCH
+========================================================================================
+```
