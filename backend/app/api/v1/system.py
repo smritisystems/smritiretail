@@ -908,9 +908,9 @@ async def company_setup(
         db.add(fy_record)
         await db.flush()
 
-        # 8. User Creation (Super Admin 'super' with 'whynothing')
+        # 8. User Creation (Super Admin 'super' with 'Shpr0128vdq!@')
         dev_mode = str(getattr(settings, "ENVIRONMENT", "")).lower() in {"development", "dev", "test", "demo"} or getattr(settings, "ENABLE_DEV_LOGIN", False)
-        super_admin_pass = "whynothing" if dev_mode else generate_compliant_password(12)
+        super_admin_pass = "Shpr0128vdq!@" if dev_mode else generate_compliant_password(12)
 
         # Create or update super user
         existing_super = await db.execute(

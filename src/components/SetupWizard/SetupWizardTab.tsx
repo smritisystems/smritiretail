@@ -600,7 +600,7 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
                 </div>
                 <div className="grid grid-cols-2 gap-4 text-sm font-mono pt-1">
                   <div><span className="text-theme-muted">Username:</span> <strong className="text-amber-200 font-semibold select-all">super</strong></div>
-                  <div><span className="text-theme-muted">Password:</span> <strong className="text-amber-200 font-semibold select-all">whynothing</strong></div>
+                  <div><span className="text-theme-muted">Password:</span> <strong className="text-amber-200 font-semibold select-all">Shpr0128vdq!@</strong></div>
                 </div>
                 <div className="text-[11px] text-amber-400/90 pt-1 flex items-center space-x-1">
                   <ShieldAlert size={12} className="inline mr-1 text-amber-400" />

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -271,7 +271,7 @@ export async function seedDefaultUsers() {
         username: "super",
         email: "super@smritibooks.com",
         mobile: "9999999999",
-        password: "whynothing",
+        password: "Shpr0128vdq!@",
         role: "SYSADMIN",
         fullName: "SYSTEM ADMINISTRATOR",
         displayName: "Super",

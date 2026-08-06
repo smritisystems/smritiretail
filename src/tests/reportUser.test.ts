@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -29,7 +29,7 @@ describe('Report User Role Integration Tests', () => {
         userId: "usr-report-test",
         employeeId: "EMP-RPT-TEST",
         username: "reportuser",
-        passwordHash: hashPassword("whynothing"),
+        passwordHash: hashPassword("Shpr0128vdq!@"),
         role: "Report User",
         status: "Active",
         photo: "",
@@ -71,7 +71,7 @@ describe('Report User Role Integration Tests', () => {
     // Authenticate and fetch session token
     const loginRes = await request(app)
       .post('/api/auth/login')
-      .send({ username: 'reportuser', password: 'whynothing' });
+      .send({ username: 'reportuser', password: 'Shpr0128vdq!@' });
 
     sessionToken = loginRes.body.token;
   });
