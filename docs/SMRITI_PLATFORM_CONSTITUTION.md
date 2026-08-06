@@ -1,209 +1,92 @@
-<!--
-  Project      : SMRITI Retail OS
-  Organization : SmritiSys
-  Author       : Jawahar Ramkripal Mallah
-  Designation  : Chief Systems Architect & Creator
-  Email        : support@smritibooks.com
-  Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 1.0.0
-  Created      : 2026-08-04
-  Copyright    : © SMRITIBooks.com. All Rights Reserved.
-  License      : Proprietary Commercial Software
-  Classification: Internal Architecture Constitution
--->
+# SMRITI Platform Constitution
 
-# SMRITI Digital Commerce Platform Constitution (FROZEN v1.0)
-
-**Status:** PERMANENT ARCHITECTURAL CONSTITUTION — FROZEN v1.0 (2026-08-04)
-**Baseline:** SMRITI Digital Commerce Platform OS v4.2 & KDS v1.1 Baseline
-**Scope:** Supreme Governance Document for Platform OS, Shared Services, Shared Business Kernels, Master Data, Registries, Business Studios, Deployment Editions, & Network Topology
+**System:** SMRITI Retail OS / SmritiSys Architecture  
+**Status:** BASELINE LTS — v1.0 (2026-08-06)  
+**Author & Chief Systems Architect:** Jawahar Ramkripal Mallah  
+**Copyright:** © SMRITIBooks.com and AITDL.com. All Rights Reserved.  
+**Classification:** Internal Core Architecture Baseline  
 
 ---
 
-## 1. Platform Vision & Identity Statement
+## Declaration of Platform Milestone
 
-> **SMRITI Digital Commerce Platform OS** is a modular, multi-tenant, enterprise digital commerce operating system built on a strictly frozen 7-layer architecture, governed by constitutional engineering standards (KDS, SDS, RDS, BDS, NDS, IDS, DDS), powered by shared platform services and business kernels, and extended through certified business capability studios and distributed network nodes.
+> **SMRITI Platform Infrastructure Phase — COMPLETE**  
+> **SMRITI Business Domain Phase — ACTIVE**  
 
----
-
-## 2. Supreme 7-Level Architectural Topology
-
-All platform capabilities MUST be categorized into exactly one of the following 7 frozen architectural layers. **No new architectural layers may ever be introduced.**
-
-```text
- ┌────────────────────────────────────────────────────────────────────────┐
- │ SMRITI DIGITAL COMMERCE PLATFORM OS ARCHITECTURAL TOPOLOGY             │
- ├────────────────────────────────────────────────────────────────────────┤
- │ Level 1: Platform Operating System (SXP, SEEF, SEDS, WNG, USR)         │
- │ Level 2: Shared Platform Services (SEB, SES, SNP, SWA, SAS, STS, SAI,  │
- │          SPD Platform Doctor Service)                                  │
- │ Level 3: Shared Business Kernels (SDK, SBPK, SPPK, SIK, SNK, STK, SLK, │
- │          SAK Asset Kernel)                                             │
- │ Level 4: Master Data Platform (MDP v3.1, Reference Master Hub, MDGC)   │
- │ Level 5: Universal Registries (UFR, UWR, URR, USR, UPRT, ULR, UEDF)     │
- │ Level 6: Enterprise Business Studios (13 Certified Business Studios)   │
- │ Level 7: Network & Connectors (SMN Network Protocol, SIK Connectors)   │
- └────────────────────────────────────────────────────────────────────────┘
-```
+All core platform kernel services, workspace engines, document experience platforms, and printing subsystems are formally certified as **BASELINE LTS** (Long Term Support). Engineering effort is 80–90% dedicated to core business domain execution (Accounting, Purchasing, Inventory, Sales/POS, CRM, Analytics).
 
 ---
 
-## 3. Standardized Lock File Schema v1.0 (`smriti.lock.v1`)
+## Part I — SPK Kernel & Kernel Independence (KND-001)
 
-Every release build MUST generate an immutable, self-describing `smriti.lock.v1` snapshot capturing platform build fingerprints, immutable container image digests, database migration locks, per-module cryptographic signatures, compatibility baselines, and integrity hashes:
-
-```yaml
-# SMRITI Platform Immutable Lock File v1.0
-lock:
-  schema: "smriti.lock.v1"
-  version: "1.0.0"
-
-platform_build:
-  platform_version: "4.2.0"
-  build_number: "20260804.001"
-  built_by: "SmritiSys CI/CD Governance Pipeline v1.0"
-  build_time: "2026-08-04T12:00:00Z"
-  git_commit:
-    backend: "d815dc42"
-    frontend: "e2aa9921"
-    docs: "83013a75"
-
-database:
-  migration:
-    current: "2026_08_04_001_core_schema"
-    required: "2026_08_04_001_core_schema"
-    hash: "sha256:fa7dff2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c"
-
-integrity:
-  constitution_hash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-  manifest_hash: "sha256:7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a"
-  api_facade_hash: "sha256:2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3f"
-  registry_hash: "sha256:9b8a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b"
-  dependency_graph_hash: "sha256:5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c"
-  ui_tokens_hash: "sha256:0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f"
-
-compatibility:
-  minimum_api: "4.2.0"
-  minimum_database: "2026.08"
-  minimum_frontend: "4.2.0"
-  minimum_worker: "4.2.0"
-
-containers:
-  smriti-web:
-    image: "ghcr.io/smritisys/smriti-web"
-    tag: "4.2.0"
-    digest: "sha256:a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
-  smriti-api:
-    image: "ghcr.io/smritisys/smriti-api"
-    tag: "4.2.0"
-    digest: "sha256:b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3"
-  smriti-db:
-    image: "ghcr.io/smritisys/smriti-db"
-    tag: "16-alpine"
-    digest: "sha256:c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4"
-  smriti-redis:
-    image: "ghcr.io/smritisys/smriti-redis"
-    tag: "7-alpine"
-    digest: "sha256:d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5"
-  smriti-worker:
-    image: "ghcr.io/smritisys/smriti-worker"
-    tag: "4.2.0"
-    digest: "sha256:e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6"
-
-standards:
-  KDS: "1.1.0"
-  DDS: "1.0.0"
-  IDS: "1.0.0"
-  SDS: "1.0.0"
-  RDS: "1.0.0"
-  BDS: "1.0.0"
-  NDS: "1.0.0"
-
-modules:
-  kernels:
-    SDK: { version: "1.0.0", hash: "sha256:9b8a7c...", status: "active" }
-    STK: { version: "1.0.0", hash: "sha256:2a1f0e...", status: "active" }
-    SLK: { version: "1.0.0", hash: "sha256:5d4c3b...", status: "active" }
-    SAK: { version: "2.1.0", hash: "sha256:fa7dff...", status: "active" }
-  studios:
-    pim: { version: "1.0.0", hash: "sha256:894ae9...", status: "active" }
-    purchase: { version: "1.0.0", hash: "sha256:b40688...", status: "active" }
-    sales: { version: "1.0.0", hash: "sha256:aaa02c...", status: "active" }
-    pos: { version: "1.0.0", hash: "sha256:c09fa1...", status: "active" }
-    crm: { version: "1.0.0", hash: "sha256:e64d3f...", status: "active" }
-    accounting: { version: "1.0.0", hash: "sha256:906dc4...", status: "active" }
-    warehouse: { version: "1.0.0", hash: "sha256:e6e1d4...", status: "active" }
-    asset: { version: "1.0.0", hash: "sha256:948117...", status: "active" }
-```
+1. `SPK.ule` (Universal Lookup Engine) and all platform kernel services MUST NEVER depend on React, UI components, renderers, or DOM/browser-specific APIs.
+2. Kernel services expose strictly contracts, manifests, data, and capabilities. All presentation concerns belong to the UI layer.
 
 ---
 
-## 4. SPD 11-Dimensional Architecture Drift Detection Engine
+## Part II — Workspace Platform (WNG-001 — WNG-005)
 
-Operating within Level 2 Shared Platform Services, **SPD (SMRITI Platform Diagnostics)** continuously compares runtime state against `platform.lock.yaml` across 11 canonical drift dimensions:
-
-| Drift Dimension | Evaluated Scope | Governance Action on Violation |
-|---|---|---|
-| **1. Container Drift** | Container image tag/digest mismatch | Critical Boot Failure (Abort) |
-| **2. Manifest Drift** | Unsigned/modified manifest files | Critical Boot Failure (Abort) |
-| **3. API Drift** | Unauthorized facade signature changes | Critical Boot Failure (Abort) |
-| **4. Dependency Drift** | Resolved graph mismatch against lock file | Critical Boot Failure (Abort) |
-| **5. Registry Drift** | Unapproved UPR registry modifications | Critical Boot Failure (Abort) |
-| **6. Security Drift** | Key ID revocation or certificate drift | Critical Boot Failure (Abort) |
-| **7. DB Schema Drift** | DB migration version mismatch | Major Warning (Restricted Mode)|
-| **8. Config Drift** | Environment variable mismatch | Minor Warning (Log Note) |
-| **9. Feature Flag Drift**| Unapproved runtime toggle state | Minor Warning (Log Note) |
-| **10. UI Token Drift** | Unauthorized CSS design token edits | Minor Warning (Log Note) |
-| **11. License/Policy Drift**| Tenant edition / ABAC policy drift | Major Warning (Restricted Mode)|
-
-```text
- ┌────────────────────────────────────────────────────────────────────────┐
- │ SMRITI PLATFORM COMPLIANCE & DRIFT REPORT                             │
- ├────────────────────────────────────────────────────────────────────────┤
- │ MANDATORY BINARY GATES: 5/5 PASSED                                     │
- │ 11-DIMENSIONAL DRIFT AUDIT: NO ARCHITECTURE DRIFT DETECTED             │
- │ CERTIFICATION STATUS    : ENTERPRISE CERTIFIED (PRODUCTION READY)     │
- └────────────────────────────────────────────────────────────────────────┘
-```
+1. Single Persistent Navigation Sidebar (`WNG-003`). Primary navigation belongs exclusively to the main left sidebar.
+2. Context-Aware Domain Navigation (`WNG-004`). Left sidebar displays exclusively the modules belonging to the currently active business domain.
+3. Universal Platform Registry (`UPR`). Navigation metadata is declared in `SPK.navigation`.
 
 ---
 
-## 5. Platform Versioning & Governance Layer Freeze Classification
+## Part III — Document Platform (SCS-DXP-001 — BASELINE LTS)
 
-Platform architecture components are categorized into 6 governance layers with explicit change boundaries:
+### Frozen Public APIs
+- `DocumentRegistry`
+- `TemplateRegistry`
+- `VariableRegistry`
+- `DocumentRendererRegistry`
+- `OutputChannelRegistry`
+- `DocumentBuilderRegistry`
+- `DocumentService`
 
-```text
- ┌────────────────────────────────────────────────────────────────────────┐
- │ PLATFORM GOVERNANCE LAYER FREEZE CLASSIFICATION                       │
- ├────────────────────────────────────────────────────────────────────────┤
- │ Layer A: Platform Constitution (SPC, PRIG, PCMM, ADRs) ── MAJOR ONLY  │
- │ Layer B: Governance Standards (KDS, DDS, IDS, SDS, RDS, BDS, NDS)     │
- │          ── MAJOR ONLY                                                 │
- │ Layer C: Platform Runtime (Boot, Manifest SDK, Health, SPD Engine)    │
- │          ── MINOR ALLOWED                                              │
- │ Layer D: Shared Platform Services (SEB, SES, SNP, SWA, SAS, STS, SAI)  │
- │          ── CONTINUOUS EVOLUTION                                       │
- │ Layer E: Shared Business Kernels (SDK, STK, SLK, SPPK, SBPK, SIK, SAK) │
- │          ── CONTINUOUS EVOLUTION                                       │
- │ Layer F: Business Capability Studios (13 Enterprise Studios)           │
- │          ── CONTINUOUS EVOLUTION                                       │
- └────────────────────────────────────────────────────────────────────────┘
-```
-
-- **Patch (`v4.2.x`):** Documentation, bug fixes, performance tuning, non-breaking diagnostic rules.
-- **Minor (`v4.3.0`):** New Level 2 Services, Level 3 Kernels, Level 5 Registries, Level 6 Studios, or Level 7 Connectors.
-- **Major (`v5.0.0`):** Requires approved ADR for breaking changes to manifest/lock schemas, boot lifecycle, deployment topology, trust model, container architecture, governance standards, or 7-layer topology.
+### Governance Rules
+- Handcrafted HTML/TSX document forms are strictly prohibited.
+- Previews and renderers MUST consume `IDxpDocumentModel` decoupled data structures.
 
 ---
 
-## 6. Baseline Structural Freeze & ADR Policy
+## Part IV — Printing Platform (SCS-DXP-002 — BASELINE LTS)
 
-1. **Constitutional Freeze Directive:** The 7-level Platform Topology, Platform OS v4.2, Professional Edition Deployment Topology (5 Containers), Graceful Shutdown Order, Health Levels, Distributed Leader Election, Shared Platform Services (Level 2), Shared Business Kernels (Level 3), Master Data Platform (Level 4), Universal Registries (Level 5), Business Studios (Level 6), and SMN Network Protocol (Level 7) are **PERMANENTLY FROZEN**.
-2. **Platform Foundation Freeze Rule:** The SMRITI Digital Commerce Platform Foundation (SPC, PRIG, DDS, KDS, SDS, IDS, RDS, BDS, NDS, manifest/lock schemas, boot lifecycle, and deployment topology) is frozen under Platform OS v4.2. Future enhancements should primarily occur within Shared Services, Shared Business Kernels, Registries, Business Studios, or deployment implementations. Changes to the foundation require an approved ADR and a major Platform OS version increment.
-3. **DDS v1.0 Freeze Directive:** Deployment Development Standard v1.0 is the canonical deployment specification for SMRITI Digital Commerce Platform OS v4.2. Non-breaking operational clarifications may be added in patch releases. Changes affecting container topology, deployment lifecycle, readiness contracts, health semantics, or orchestration behavior require a DDS major version increment and an approved Architecture Decision Record (ADR).
-4. **ADR Mandatory Conditions:** Architecture Decision Records (`ADR.md`) are strictly required ONLY for:
-   - Introduction of a new Level 3 Shared Business Kernel or Level 2 Shared Service.
-   - Breaking API changes to an existing public service facade (`KernelName.Service`).
-   - Modification of cross-kernel transaction boundaries.
-   - Alteration of USR security ABAC policies or data isolation models.
-5. **Semantic Evolution Policy:** Routine bug fixes and non-breaking feature extensions use minor version increments (`v4.2.x`). Structural changes require a major version bump and an approved ADR.
+### Frozen Public APIs
+- `PrintDomain` (`SPK.printing`)
+- `PrintAgentManager` (`DXP-AGT-001`)
+- `PrinterDriverRegistry`
+- `TransportRegistry`
+- `CapabilityResolver`
+- `QueueManagerAgent` (`DXP-QUE-001`)
+- `PrinterHealthAgent` (`DXP-DIA-001`)
+- `RetryAgent` (`DXP-RET-001`)
+- `PrinterDiscoveryAgent` (`DXP-DIS-001`)
+- `PrinterProfileRegistry`
+- `PrintProfileEngine`
+- `PrintRoutingEngine`
+- `PrintAuditLogService`
+- `PrintPipelineHooks`
+- `PrintingSDK`
+
+### Governance Rules
+- Hardware drivers (ESC/POS, ZPL, TSPL, EPL, CPCL, RAW, PCL) MUST be registered via `PrinterDriverRegistry` plug-ins (`IPrinterDriver`).
+- Transports (USB, TCP Network 9100, Bluetooth, SDA, QZ) MUST be registered via `TransportRegistry` plug-ins (`IPrinterTransport`).
+
+---
+
+## Part V — Baseline LTS Governance Model
+
+| Rule Category | Policy |
+|---|---|
+| **Allowed Changes** | Bug fixes, performance optimizations, new document templates, new driver plugins, new transport plugins, non-breaking schema additions. |
+| **Prohibited Changes** | Breaking API signature alterations, removing kernel services, public contract modifications, registry redesigns. |
+
+---
+
+## Part VI — Business Domain Implementation Roadmap
+
+1. **Phase A — Financial Foundation**: Accounting Engine, Chart of Accounts, General Ledger, GST, Receivables, Payables.
+2. **Phase B — Procurement**: Requisitions, Purchase Orders, Goods Receipt Notes (GRN), Purchase Invoices, Vendor Returns.
+3. **Phase C — Inventory & Stock**: Stock Ledger, Multi-warehouse transfers, Batch/Serial tracking, FIFO valuation.
+4. **Phase D — Sales & POS**: Fast POS checkout, Thermal receipt printing, Barcode scanning, Cash drawer integration.
+5. **Phase E — Analytics & BI**: Financial P&L, Balance Sheet, Inventory Turnover, Profitability dashboards.
