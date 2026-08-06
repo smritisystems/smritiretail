@@ -32,7 +32,8 @@ export type DxpOutputChannel = "PRINT" | "PDF" | "PREVIEW" | "EMAIL" | "WHATSAPP
 export type DxpLifecycleState =
   | "DRAFT"
   | "GENERATED"
-  | "VALIDATED" | "RENDERED"
+  | "VALIDATED"
+  | "RENDERED"
   | "QUEUED"
   | "DELIVERED"
   | "ARCHIVED";
@@ -77,6 +78,47 @@ export interface DxpOutputHistoryRecord {
   user: string;
   targetDeviceOrAddress: string;
   status: "SUCCESS" | "FAILED" | "QUEUED";
+}
+
+/**
+ * Normalized Document Model Stage (Decouples UI renderers from raw DB/business entities)
+ */
+export interface IDxpDocumentModel {
+  documentType: DxpDocumentType;
+  documentNo: string;
+  date: string;
+  company: {
+    name: string;
+    address?: string;
+    gstin?: string;
+    phone?: string;
+    logoUrl?: string;
+  };
+  customer?: {
+    name: string;
+    mobile?: string;
+    address?: string;
+    gstin?: string;
+  };
+  items: Array<{
+    name: string;
+    sku?: string;
+    barcode?: string;
+    qty: number;
+    rate: number;
+    amount: number;
+    hsnCode?: string;
+    taxRate?: number;
+    cgstAmount?: number;
+    sgstAmount?: number;
+    igstAmount?: number;
+  }>;
+  subtotal: number;
+  taxTotal: number;
+  grandTotal: number;
+  paymentMethod?: string;
+  cashier?: string;
+  customFields?: Record<string, any>;
 }
 
 export interface DxpDocumentRequest {

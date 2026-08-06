@@ -8,9 +8,8 @@
  * Copyright    : © Jawahar Ramkripal Mallah. All Rights Reserved.
  *
  * DXP-TPL-001 Compliance Declaration
- * Principle    : Template Decoupling — Document definitions (DocumentRegistry) are decoupled
- *                from templates (Standard A4, Tax Invoice A5, Thermal 80mm, Sticker 50x25mm).
- *                Plugins and tenants can register custom templates without modifying document schemas.
+ * Principle    : Template Decoupling & Versioning — Document definitions (DocumentRegistry) are decoupled
+ *                from templates. Templates support semantic versioning (v1.0.0, v1.1.0) and variants (Retail, GST, Export).
  */
 
 import React from "react";
@@ -25,6 +24,8 @@ export interface RegisteredTemplateDescriptor {
   name: string;
   documentType: DxpDocumentType;
   format: "A4" | "A5" | "Thermal80mm" | "Label";
+  version: string; // e.g. "v1.0.0"
+  variant?: string; // e.g. "Retail" | "GST" | "Export" | "Custom"
   component: React.ComponentType<{ data: any }>;
   isDefault?: boolean;
   companyId?: string;
@@ -42,45 +43,55 @@ class TemplateRegistryManager {
     const defaults: RegisteredTemplateDescriptor[] = [
       {
         id: "standard-a4",
-        name: "Standard Tax Invoice (A4)",
+        name: "Standard Tax Invoice (A4 v1.0)",
         documentType: "INVOICE",
         format: "A4",
+        version: "v1.0.0",
+        variant: "GST",
         component: StandardInvoiceA4,
         isDefault: true,
         tags: ["invoice", "a4", "standard"],
       },
       {
         id: "grn-a4",
-        name: "Goods Receipt Note (GRN A4)",
+        name: "Goods Receipt Note (GRN A4 v1.0)",
         documentType: "GRN",
         format: "A4",
+        version: "v1.0.0",
+        variant: "Logistics",
         component: GoodsReceiptNoteA4,
         isDefault: true,
         tags: ["grn", "logistics", "a4"],
       },
       {
         id: "thermal-80",
-        name: "Retail Thermal Receipt (80mm)",
+        name: "Retail Thermal Receipt (80mm v1.0)",
         documentType: "RECEIPT",
         format: "Thermal80mm",
+        version: "v1.0.0",
+        variant: "Retail",
         component: ThermalReceipt80mm,
         isDefault: true,
         tags: ["pos", "receipt", "thermal"],
       },
       {
         id: "label-50x25",
-        name: "Product Sticky Barcode Label (50x25mm)",
+        name: "Product Sticky Barcode Label (50x25mm v1.0)",
         documentType: "BARCODE_LABEL",
         format: "Label",
+        version: "v1.0.0",
+        variant: "Sticker",
         component: BarcodeLabel,
         isDefault: true,
         tags: ["barcode", "sticker", "inventory"],
       },
       {
         id: "shelf-label-75x50",
-        name: "Supermarket Shelf Edge Tag (75x50mm)",
+        name: "Supermarket Shelf Edge Tag (75x50mm v1.0)",
         documentType: "SHELF_LABEL",
         format: "Label",
+        version: "v1.0.0",
+        variant: "Supermarket",
         component: BarcodeLabel,
         isDefault: true,
         tags: ["shelf", "supermarket", "tag"],
@@ -111,6 +122,7 @@ class TemplateRegistryManager {
         name: "Standard Document Template (A4)",
         documentType,
         format: "A4",
+        version: "v1.0.0",
         component: StandardInvoiceA4,
         isDefault: true,
       };
