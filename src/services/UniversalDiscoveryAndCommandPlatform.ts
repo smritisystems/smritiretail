@@ -167,7 +167,7 @@ export class UniversalDiscoveryAndCommandPlatform {
             WindowManager.openTransaction({
               transactionType: "SalesInvoice",
               mode: "standalone",
-              recordId: rec.id,
+              documentId: rec.id,
             });
           },
         },
