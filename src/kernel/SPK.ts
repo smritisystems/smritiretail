@@ -35,6 +35,19 @@ import { ISearchProvider, ISearchQuery, ISearchResult, SearchManifest, SavedView
 import { posDomainService } from "../domains/pos/POSDomainService.js";
 import { salesDomainService } from "../domains/sales/SalesDomainService.js";
 import { inventoryDomainService } from "../domains/inventory/InventoryDomainService.js";
+import { UCIFKernel } from "./upr/context/UCIFKernel.js";
+import { UDCPKernel } from "./upr/discovery/UDCPKernel.js";
+import { UDCPEventBus } from "./upr/discovery/UDCPEventBus.js";
+import type {
+  DiscoveryResult, DiscoveryContext, IDiscoveryProvider,
+  VocabularyProvider, UDCPEventType, UDCPEventSubscriber,
+} from "./upr/discovery/UDCPSchema.js";
+import type {
+  InspectorConfig, InspectorSectionDef, InspectorVariant,
+  InspectorLifecycleEvent, LifecycleSubscriber,
+  FieldContext, ResolvedContext,
+  IInspectorDataProvider, IContextResolver, IEntityResolver,
+} from "./upr/context/InspectorSchema.js";
 
 /* ── Kernel Interfaces ── */
 
@@ -745,8 +758,31 @@ export class SMRITIPlatformKernel {
     subscribe: (listener: () => void) => AIRegistry.subscribe(listener)
   };
 
-  /* ── Universal Search & Filter Framework Facade (SPK.search / SUSF v1.0) ── */
+  /* ── Universal Discovery & Command Platform Facade (SPK.udcp / UDCP v1.0) ── */
+  public udcp = {
+    /** Multi-provider parallel discovery search across all registered providers */
+    search: (query: string, context?: DiscoveryContext) => UDCPKernel.search(query, context),
+    /** Execute a discovery result */
+    executeResult: (result: DiscoveryResult) => UDCPKernel.executeResult(result),
+    /** Inspect a discovery result via UCIF */
+    inspectResult: (result: DiscoveryResult) => UDCPKernel.inspectResult(result),
+    /** Register a custom discovery provider (online / offline / hybrid) */
+    registerProvider: (provider: IDiscoveryProvider) => UDCPKernel.registerProvider(provider),
+    /** Register an Industry Vocabulary Pack (Synonyms e.g., Paracetamol = PCM) */
+    registerVocabulary: (pack: VocabularyProvider) => UDCPKernel.registerVocabulary(pack),
+    /** Current discovery session */
+    getSession: () => UDCPKernel.getCurrentSession(),
+    /** UDCP Pub/Sub Event Bus (Refinement #1) */
+    events: {
+      on: (event: UDCPEventType | "*", subscriber: UDCPEventSubscriber) =>
+        UDCPEventBus.on(event, subscriber),
+    },
+  };
+
+  /* ── Universal Search & Filter Framework Facade (SPK.search — Backward-Compatible Facade) ── */
   public search = {
+    /** Delegates 100% to SPK.udcp search under the hood */
+    search: (query: string, context?: DiscoveryContext) => UDCPKernel.search(query, context),
     registerProvider: (provider: ISearchProvider) => SearchRegistry.registerProvider(provider),
     getProvider: (moduleId: string) => SearchRegistry.getProvider(moduleId),
     getManifest: (moduleId: string) => SearchRegistry.getManifest(moduleId),
@@ -762,6 +798,56 @@ export class SMRITIPlatformKernel {
     pos: posDomainService,
     sales: salesDomainService,
     inventory: inventoryDomainService
+  };
+
+  /* ── Universal Context Intelligence Framework Facade (SPK.ucif / UCIF v1.0) ── */
+  public ucif = {
+    /** Full pipeline: resolve field → resolve entity → open inspector */
+    inspect: (variant?: InspectorVariant) => UCIFKernel.inspect(variant),
+    /** Preview variant — hover (minimal card) */
+    preview: (el?: HTMLElement) => UCIFKernel.preview(el),
+    /** Phase 1: active element → FieldContext */
+    resolveField: (el?: HTMLElement) => UCIFKernel.resolveField(el),
+    /** Phase 2: FieldContext → EntityContext[] */
+    resolveEntity: (fc: FieldContext) => UCIFKernel.resolveEntity(fc),
+    /** Register a full InspectorConfig (entity + variant) */
+    registerInspector: (config: InspectorConfig) => UCIFKernel.registerInspector(config),
+    /** Inject a plugin section into an existing entity inspector */
+    registerInspectorSection: (entityType: string, section: InspectorSectionDef) =>
+      UCIFKernel.registerInspectorSection(entityType, section),
+    /** Register a custom data provider (REST/GraphQL/ERPNext/Tally/Mock) */
+    registerDataProvider: (provider: IInspectorDataProvider) =>
+      UCIFKernel.registerDataProvider(provider),
+    /** Register a Phase 1 context resolver (barcode, OCR, camera, voice…) */
+    registerContextResolver: (resolver: IContextResolver) =>
+      UCIFKernel.registerContextResolver(resolver),
+    /** Register a Phase 2 entity resolver */
+    registerEntityResolver: (resolver: IEntityResolver) =>
+      UCIFKernel.registerEntityResolver(resolver),
+    /** Subscribe to inspector lifecycle events */
+    onLifecycle: (event: InspectorLifecycleEvent | "*", handler: LifecycleSubscriber) =>
+      UCIFKernel.onLifecycle(event, handler),
+    /** Recent inspection history */
+    getHistory: () => UCIFKernel.getHistory(),
+    /** Pin a context for quick re-access */
+    pin: (ctx: ResolvedContext) => UCIFKernel.pin(ctx),
+    /** Mark a context as favourite */
+    favorite: (ctx: ResolvedContext) => UCIFKernel.favorite(ctx),
+    /** Analytics / telemetry service handle */
+    getTelemetry: () => UCIFKernel.getTelemetry(),
+    /** Refresh API — invalidate cache and trigger re-fetch (UCIF v1.1) */
+    refresh: (entityType: string, entityId: string) => UCIFKernel.refresh(entityType, entityId),
+    /** Context Graph breadcrumb stack (UCIF v1.1) */
+    pushBreadcrumb: (ctx: ResolvedContext) => UCIFKernel.pushBreadcrumb(ctx),
+    getBreadcrumbs: () => UCIFKernel.getBreadcrumbs(),
+    clearBreadcrumbs: () => UCIFKernel.clearBreadcrumbs(),
+    /** Internal — inject React panel opener (called by AdaptiveWorkspaceLayout) */
+    _injectPanelOpener: (fn: (ctx: ResolvedContext) => void) =>
+      UCIFKernel.injectPanelOpener(fn),
+    _injectDisambiguationUI: (fn: (candidates: ResolvedContext[]) => void) =>
+      UCIFKernel.injectDisambiguationUI(fn),
+    _injectConfirmationUI: (fn: (ctx: ResolvedContext, onConfirm: () => void) => void) =>
+      UCIFKernel.injectConfirmationUI(fn),
   };
 
   /* ── Extension SDK (SPK.sdk) ── */

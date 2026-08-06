@@ -11,6 +11,10 @@ import { WorkspaceManifest, WorkspacePolicyRegistry, WorkspaceMode } from "../..
 import { WorkspaceStatusService, WorkspaceStatusPayload, WorkspaceNotification } from "../../kernel/services/WorkspaceStatusService.js";
 import { WorkspaceExtensionRegistry } from "../../kernel/upr/workspace/WorkspaceExtensionRegistry.js";
 import { LayoutGrid, Layers, SlidersHorizontal, Eye, Bell, CheckCircle2, AlertCircle, Info, RefreshCw, ChevronRight, X } from "lucide-react";
+import { SPK } from "../../kernel/SPK.js";
+import { useDrillDown } from "../drilldown/drilldown_store.js";
+import "../../kernel/upr/context/context.manifest.js";
+import { UniversalCommandPalette } from "./UniversalCommandPalette.js";
 
 interface AdaptiveWorkspaceLayoutProps {
   manifest: WorkspaceManifest;
@@ -56,6 +60,20 @@ export const AdaptiveWorkspaceLayout: React.FC<AdaptiveWorkspaceLayoutProps> = (
   // Status & Notification Dock states
   const [status, setStatus] = useState<WorkspaceStatusPayload>(WorkspaceStatusService.getStatus());
   const [notifications, setNotifications] = useState<WorkspaceNotification[]>([]);
+
+  const { openPanel } = useDrillDown();
+
+  // Wire UCIF panel opener bridge to useDrillDown
+  useEffect(() => {
+    SPK.ucif._injectPanelOpener((ctx) => {
+      openPanel({
+        entityType: ctx.entityType,
+        entityId: ctx.entityId,
+        title: ctx.title,
+        metadata: { variant: ctx.variant },
+      });
+    });
+  }, [openPanel]);
 
   // Execute lifecycle hook on mount & unmount
   useEffect(() => {
@@ -279,6 +297,8 @@ export const AdaptiveWorkspaceLayout: React.FC<AdaptiveWorkspaceLayoutProps> = (
           <span>Workspace: <strong className="text-indigo-300">{manifest.id}</strong></span>
         </div>
       </footer>
+      {/* Global Universal Command Palette (USCP v1.0 / Ctrl+K) */}
+      <UniversalCommandPalette />
     </div>
   );
 };

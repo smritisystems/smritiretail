@@ -81,8 +81,45 @@ export interface NotificationSDK {
 }
 
 export interface DrillDownSDK {
+  // ── FROZEN (existing Level-1 contracts) ─────────────────────────────────────
   register360Inspector(entityType: string, componentName: string): void;
   registerLineageAdapter(entityType: string, adapterFn: (id: string) => any): void;
+
+  // ── UCIF v1.0 ContextSDK expansion ──────────────────────────────────────────
+  // (These extend the SDK without renaming it — AFR-001 compliance)
+
+  /** Register a full InspectorConfig (entity + variant + capabilities) */
+  registerInspector(config: import('../kernel/upr/context/InspectorSchema.js').InspectorConfig): void;
+  /** Inject an additional section into an existing entity inspector (VS Code pattern) */
+  registerInspectorSection(entityType: string, section: import('../kernel/upr/context/InspectorSchema.js').InspectorSectionDef): void;
+  /** Register a custom data provider (REST / GraphQL / ERPNext / Tally / Mock) */
+  registerDataProvider(provider: import('../kernel/upr/context/InspectorSchema.js').IInspectorDataProvider): void;
+  /** Register a Phase 1 context resolver (barcode, OCR, camera, voice…) */
+  registerContextResolver(resolver: import('../kernel/upr/context/InspectorSchema.js').IContextResolver): void;
+  /** Register a Phase 2 entity resolver */
+  registerEntityResolver(resolver: import('../kernel/upr/context/InspectorSchema.js').IEntityResolver): void;
+
+  /** Trigger a full inspection pipeline for the current cursor context */
+  inspect(entityType: string, entityId: string, variant?: string): void;
+  /** Resolve the field the cursor is currently on (async — Phase 1) */
+  resolve(activeElement?: HTMLElement): Promise<import('../kernel/upr/context/InspectorSchema.js').ResolvedContext | null>;
+  /** Open the inspector panel for a pre-resolved context */
+  openInspector(context: import('../kernel/upr/context/InspectorSchema.js').ResolvedContext): void;
+  /** Close the currently open inspector panel */
+  closeInspector(): void;
+
+  /** Subscribe to inspector lifecycle events */
+  onLifecycle(
+    event: import('../kernel/upr/context/InspectorSchema.js').InspectorLifecycleEvent | '*',
+    handler: import('../kernel/upr/context/InspectorSchema.js').LifecycleSubscriber
+  ): () => void;
+
+  /** Recent inspection history */
+  getHistory(): import('../kernel/upr/context/InspectorSchema.js').ResolvedContext[];
+  /** Pin an inspection context for quick re-access */
+  pin(context: import('../kernel/upr/context/InspectorSchema.js').ResolvedContext): void;
+  /** Mark an inspection context as favourite */
+  favorite(context: import('../kernel/upr/context/InspectorSchema.js').ResolvedContext): void;
 }
 
 export interface TimelineSDK {

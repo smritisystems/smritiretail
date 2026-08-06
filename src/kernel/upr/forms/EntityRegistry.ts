@@ -83,6 +83,68 @@ export class EntityRegistryService {
           { id: "loyalty_tier", label: "Loyalty Tier", dataType: "enum" },
           { id: "credit_limit", label: "Credit Limit (₹)", dataType: "decimal" }
         ]
+      },
+      {
+        id: "supplier",
+        name: "Supplier Master",
+        domainId: "purchase",
+        tableName: "suppliers",
+        version: "1.0.0",
+        fields: [
+          { id: "id", label: "Supplier ID", dataType: "string", isPrimaryKey: true, isRequired: true },
+          { id: "name", label: "Supplier Name", dataType: "string", isRequired: true },
+          { id: "gst", label: "GSTIN", dataType: "string" },
+          { id: "outstanding", label: "Outstanding (₹)", dataType: "decimal" }
+        ]
+      },
+      {
+        id: "invoice",
+        name: "Sales Invoice",
+        domainId: "sales",
+        tableName: "invoices",
+        version: "1.0.0",
+        fields: [
+          { id: "id", label: "Invoice ID", dataType: "string", isPrimaryKey: true, isRequired: true },
+          { id: "invoice_no", label: "Invoice Number", dataType: "string", isRequired: true },
+          { id: "customer_name", label: "Customer Name", dataType: "string" },
+          { id: "grand_total", label: "Grand Total (₹)", dataType: "decimal" }
+        ]
+      },
+      {
+        id: "warehouse",
+        name: "Warehouse Facility",
+        domainId: "inventory",
+        tableName: "warehouses",
+        version: "1.0.0",
+        fields: [
+          { id: "id", label: "Warehouse ID", dataType: "string", isPrimaryKey: true, isRequired: true },
+          { id: "name", label: "Warehouse Name", dataType: "string", isRequired: true },
+          { id: "location", label: "Location", dataType: "string" }
+        ]
+      },
+      {
+        id: "batch",
+        name: "Item Batch",
+        domainId: "inventory",
+        tableName: "item_batches",
+        version: "1.0.0",
+        fields: [
+          { id: "id", label: "Batch ID", dataType: "string", isPrimaryKey: true, isRequired: true },
+          { id: "batch_no", label: "Batch Number", dataType: "string", isRequired: true },
+          { id: "expiry_date", label: "Expiry Date", dataType: "date" }
+        ]
+      },
+      {
+        id: "serial",
+        name: "Item Serial Number",
+        domainId: "inventory",
+        tableName: "item_serials",
+        version: "1.0.0",
+        fields: [
+          { id: "id", label: "Serial ID", dataType: "string", isPrimaryKey: true, isRequired: true },
+          { id: "serial_no", label: "Serial Number", dataType: "string", isRequired: true },
+          { id: "status", label: "Status", dataType: "string" }
+        ]
       }
     ];
 
