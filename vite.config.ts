@@ -73,10 +73,6 @@ export default defineConfig({
     "process.env": {},
     "process.browser": true,
     "process.version": '"v20.0.0"',
-    // Ensure Buffer is defined as a global at build time so vendor chunks
-    // (e.g. qrcode, jspdf, pg) that reference Buffer directly never get
-    // ReferenceError: Buffer is not defined at runtime.
-    "Buffer": "globalThis.Buffer",
   },
 
   optimizeDeps: {
