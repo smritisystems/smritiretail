@@ -84,7 +84,7 @@
 
 ---
 
-## Part VII — Business Governance & Principles (SCS-BUS-001 — SCS-BUS-004)
+## Part VII — Business Governance & Principles (SCS-BUS-001 — SCS-BUS-005 — FROZEN v1.0 LTS)
 
 ### SCS-BUS-001 — Retail First Principle (MANDATORY)
 > SMRITI Retail OS shall prioritize POS, Inventory, Purchase, Distribution, and TallyPrime Integration. Any feature that primarily belongs to a full ERP (advanced accounting, manufacturing, payroll, HR, fixed assets, budgeting) shall not be implemented inside the core Retail Engine unless it directly supports retail operations.
@@ -98,6 +98,11 @@
 
 ### SCS-BUS-004 — Ledger First Principle (MANDATORY)
 > Business state shall never be derived from master tables. Inventory = Stock Ledger; Customer Outstanding = Party Ledger; Supplier Outstanding = Party Ledger; Cash = Cash Ledger; Bank = Bank Ledger. Master tables contain reference information only. Every business document MUST create immutable ledger entries.
+
+### SCS-BUS-005 — Simplicity First Principle (MANDATORY)
+> Every feature added to SMRITI Retail OS shall improve retailer productivity without increasing operational complexity. If a feature requires significant training, excessive navigation, or resembles ERP functionality more than retail operations, it shall be redesigned, simplified, or excluded. Simple Mode shall always remain the primary user experience. Advanced functionality shall be progressive and optional.
+
+> **CONSTITUTIONAL FREEZE NOTICE:** Business Governance Rules `SCS-BUS-001` through `SCS-BUS-005` are officially **PERMANENTLY FROZEN v1.0 LTS**. No further constitutional rules shall be introduced.
 
 ### Operational vs Financial System of Record Distinction
 - **SMRITI Retail OS** = Operational System of Record (inventory, POS checkout, purchase GRNs, distribution, stock movements).
