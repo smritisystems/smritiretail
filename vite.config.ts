@@ -90,6 +90,7 @@ export default defineConfig({
     alias: {
       buffer: "buffer/",
       pg: path.resolve(__dirname, "src/lib/pg_browser_stub.ts"),
+      dotenv: path.resolve(__dirname, "src/lib/dotenv_browser_stub.ts"),
     },
   },
   build: {
