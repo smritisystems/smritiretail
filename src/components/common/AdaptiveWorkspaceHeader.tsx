@@ -1,18 +1,18 @@
 /**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
- * Module       : SAP Fiori Enterprise Slim Header (WNG-002 Compliant)
+ * Module       : SMRITI Fiori Shell Header (WNG-002 Compliant)
+ * Standard     : SCS-UX-002 — Unified Shell Architecture
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
- * Version      : 5.2.0 (SEEF Phase 9 â€” Full Token Compliance, no hardcoded hex)
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Version      : 6.0.0 (Unified 2-Row Fiori Shell Architecture)
  */
 
-import React from "react";
-import { Search, Bell, HelpCircle, Palette } from "lucide-react";
+import React, { useState } from "react";
+import { Search, Bell, HelpCircle, User, LogOut, Settings, Palette, Check } from "lucide-react";
 import { useSEEF } from "../../layout_engine/SEEFContext.tsx";
 import { SEEFTheme } from "../../layout_engine/SEEFTypes.ts";
-import { SUNEFNavigationBar } from "../../navigation/SUNEFNavigationBar.tsx";
 
 interface AdaptiveWorkspaceHeaderProps {
   currentUser?: {
@@ -32,169 +32,149 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
 }) => {
   const { config, updateSEEF } = useSEEF();
   const activeTheme = config.theme;
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const handleThemeChange = (newTheme: SEEFTheme) => {
     updateSEEF({ theme: newTheme });
   };
 
-  // Derive light vs dark mode for readable foreground colors
   const isLight = activeTheme === "enterprise" || activeTheme === "light" || activeTheme === "minimal";
 
   return (
     <header
-      className="h-12 border-b px-4 flex items-center justify-between text-xs select-none z-30 shadow-md transition-colors duration-300"
+      className="h-13 border-b px-5 flex items-center justify-between text-xs select-none z-30 shadow-xs transition-colors duration-300 relative"
       style={{
         background: "var(--c-seef-brand)",
-        borderColor: isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.10)",
+        borderColor: isLight ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.10)",
         color: "var(--c-theme-body)",
       }}
     >
-      {/* 1. SMRITI Brand & Waffle Matrix App Launcher */}
+      {/* 1. Logo & App Identity */}
       <div className="flex items-center gap-3">
+        {/* Waffle Launcher */}
         <div
-          className="grid grid-cols-3 gap-[3px] w-4 h-4 opacity-90 cursor-pointer hover:opacity-100 transition-opacity"
-          title="SMRITI Launchpad Matrix"
+          className="grid grid-cols-3 gap-[3px] w-4 h-4 opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+          title="Launchpad Matrix"
         >
           {Array.from({ length: 9 }).map((_, i) => (
-            <div
-              key={i}
-              className="w-[4px] h-[4px] rounded-[1px]"
-              style={{ background: "var(--c-theme-body)" }}
-            />
+            <div key={i} className="w-[4px] h-[4px] rounded-[1px]" style={{ background: "var(--c-theme-body)" }} />
           ))}
         </div>
-        <span className="seds-text-title flex items-center gap-2" style={{ color: "var(--c-theme-body)" }}>
-          SMRITI{" "}
-          <span
-            className="font-mono text-xs"
-            style={{ color: "var(--c-seef-info)" }}
-          >
-            Retail OS
+
+        {/* Clean SMRITI Enterprise Identity */}
+        <div className="flex items-center gap-2">
+          <span className="font-display font-extrabold text-sm tracking-wide text-theme-heading">SMRITI</span>
+          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-white/10 border border-white/15 text-indigo-300">
+            Enterprise
           </span>
-        </span>
-        <span
-          className="px-2 py-0.5 rounded seds-text-overline hidden sm:inline-block"
-          style={{
-            background: isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.12)",
-            border: `1px solid ${isLight ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.10)"}`,
-            color: "var(--c-theme-body)",
-          }}
-        >
-          v5.3 Enterprise
-        </span>
-        {/* SUNE In-App Control Bar (Back, Forward, Refresh, Home) */}
-        <SUNEFNavigationBar />
+        </div>
       </div>
 
       {/* 2. Center Global Search Input Trigger (Ctrl+K) */}
-      <div className="flex-1 max-w-md mx-4">
+      <div className="flex-1 max-w-lg mx-6">
         <button
+          type="button"
           onClick={onOpenGlobalSearch}
-          className="w-full flex items-center justify-between rounded-xl px-3 py-1.5 transition-all seds-text-small"
+          className="w-full flex items-center justify-between rounded-xl px-3.5 py-1.5 transition-all seds-text-small cursor-pointer shadow-xs"
           style={{
             background: "var(--c-theme-surface-2)",
             border: `1px solid ${isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.15)"}`,
             color: "var(--c-theme-muted)",
           }}
-          onMouseEnter={e => (e.currentTarget.style.color = "var(--c-theme-body)")}
-          onMouseLeave={e => (e.currentTarget.style.color = "var(--c-theme-muted)")}
         >
-          <div className="flex items-center gap-2">
-            <Search size={14} style={{ color: "var(--c-theme-muted)" }} />
-            <span className="seds-text-small">Search applications, SKU, customers...</span>
+          <div className="flex items-center gap-2 overflow-hidden">
+            <Search size={14} className="shrink-0 text-theme-muted" />
+            <span className="truncate text-xs text-theme-muted font-sans">Search products, customers, invoices...</span>
           </div>
-          <kbd
-            className="px-1.5 seds-text-overline rounded"
-            style={{
-              background: isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.10)",
-              border: `1px solid ${isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.15)"}`,
-              color: "var(--c-theme-muted)",
-            }}
-          >
+          <kbd className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-theme-surface-1 border border-theme-divider text-theme-muted shrink-0">
             Ctrl+K
           </kbd>
         </button>
       </div>
 
-      {/* 3. Right Enterprise Actions & User Profile */}
-      <div className="flex items-center gap-2">
-        {/* SEEF Theme Switcher */}
-        <div
-          className="flex items-center gap-1 rounded-lg p-1"
-          style={{
-            background: isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.10)",
-            border: `1px solid ${isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.15)"}`,
-          }}
-        >
-          <Palette size={14} className="ml-1 shrink-0" style={{ color: "var(--c-seef-info)" }} />
-          <select
-            value={activeTheme}
-            onChange={(e) => handleThemeChange(e.target.value as SEEFTheme)}
-            className="bg-transparent seds-text-caption font-semibold focus:outline-none cursor-pointer pr-1"
-            style={{ color: "var(--c-theme-body)" }}
-            title="Switch Theme"
-          >
-            <option value="dark"          className="bg-[#1c222b] text-white">Quartz Dark</option>
-            <option value="enterprise"    className="bg-white text-[#1d2d3e]">Horizon Light (Fiori)</option>
-            <option value="light"         className="bg-white text-[#1d2d3e]">Light</option>
-            <option value="corporate"     className="bg-[#0f1d2a] text-white">Corporate Navy</option>
-            <option value="high-contrast" className="bg-black text-white">High Contrast</option>
-          </select>
-        </div>
-
-        {/* Help Portal */}
+      {/* 3. Right Header Actions & User Profile */}
+      <div className="flex items-center gap-3">
+        {/* Help Center */}
         <button
+          type="button"
           onClick={onOpenHelp}
-          className="p-1.5 rounded-lg transition-colors"
-          style={{ color: "var(--c-theme-muted)" }}
-          onMouseEnter={e => (e.currentTarget.style.color = "var(--c-theme-body)")}
-          onMouseLeave={e => (e.currentTarget.style.color = "var(--c-theme-muted)")}
-          title="SMRITI Documentation & Help"
+          className="p-2 rounded-lg hover:bg-white/10 text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
+          title="Documentation & Help"
         >
           <HelpCircle size={16} />
         </button>
 
-        {/* Notifications Trigger */}
+        {/* Notifications */}
         <button
+          type="button"
           onClick={onOpenNotifications}
-          className="p-1.5 rounded-lg transition-colors relative"
-          style={{ color: "var(--c-theme-muted)" }}
-          onMouseEnter={e => (e.currentTarget.style.color = "var(--c-theme-body)")}
-          onMouseLeave={e => (e.currentTarget.style.color = "var(--c-theme-muted)")}
+          className="p-2 rounded-lg hover:bg-white/10 text-theme-muted hover:text-theme-body transition-colors relative cursor-pointer"
           title="Notifications"
         >
           <Bell size={16} />
-          <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-400" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
         </button>
 
-        {/* User Profile Pill */}
-        <div
-          className="flex items-center gap-2 pl-2"
-          style={{ borderLeft: `1px solid ${isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.15)"}` }}
-        >
-          <div
-            className="w-7 h-7 rounded-full border text-white flex items-center justify-center font-bold text-xs shadow-sm"
-            style={{
-              background: "var(--c-seef-accent)",
-              borderColor: isLight ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.20)",
-            }}
+        {/* User Profile Pill & Dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="flex items-center gap-2.5 pl-2 hover:opacity-90 transition-opacity cursor-pointer"
           >
-            {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "U"}
-          </div>
-          <div className="hidden md:flex flex-col text-left">
-            <span
-              className="font-bold text-xs leading-tight"
-              style={{ color: "var(--c-theme-body)" }}
-            >
-              {currentUser?.name || "Cashier"}
-            </span>
-            <span
-              className="text-[10px] font-mono leading-tight"
-              style={{ color: "var(--c-seef-info)" }}
-            >
-              {currentUser?.role || "Staff"}
-            </span>
-          </div>
+            <div className="w-8 h-8 rounded-full border text-white flex items-center justify-center font-bold text-xs shadow-xs bg-indigo-600 border-indigo-400">
+              {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "S"}
+            </div>
+            <div className="hidden md:flex flex-col text-left">
+              <span className="font-bold text-xs leading-tight text-theme-heading">{currentUser?.name || "Super Admin"}</span>
+              <span className="text-[10px] font-mono leading-tight text-indigo-400 font-semibold">{currentUser?.role || "SYSADMIN"}</span>
+            </div>
+          </button>
+
+          {/* User Settings & Theme Dropdown Menu */}
+          {showUserMenu && (
+            <div className="absolute right-0 mt-2 w-56 rounded-xl border border-theme-divider bg-theme-surface-1 shadow-2xl p-2 z-50 text-xs space-y-1 font-sans">
+              <div className="px-3 py-2 border-b border-theme-divider">
+                <div className="font-bold text-theme-heading">{currentUser?.name || "Super Admin"}</div>
+                <div className="text-[10px] text-theme-muted font-mono">{currentUser?.role || "SYSADMIN"}</div>
+              </div>
+
+              <div className="px-3 pt-2 text-[10px] font-mono uppercase text-theme-muted font-bold">Theme Settings</div>
+              <div className="space-y-0.5">
+                {[
+                  { id: "enterprise", label: "Horizon Light (Fiori)" },
+                  { id: "dark", label: "Quartz Dark" },
+                  { id: "corporate", label: "Corporate Navy" },
+                  { id: "high-contrast", label: "High Contrast" },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      handleThemeChange(t.id as SEEFTheme);
+                      setShowUserMenu(false);
+                    }}
+                    className={`w-full px-3 py-1.5 rounded-lg text-left flex items-center justify-between text-xs transition-colors ${
+                      activeTheme === t.id ? "bg-theme-surface-2 font-bold text-emerald-400" : "text-theme-body hover:bg-theme-surface-2/60"
+                    }`}
+                  >
+                    <span>{t.label}</span>
+                    {activeTheme === t.id && <Check size={14} className="text-emerald-400" />}
+                  </button>
+                ))}
+              </div>
+
+              <div className="border-t border-theme-divider pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowUserMenu(false)}
+                  className="w-full px-3 py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/10 transition-colors flex items-center gap-2 font-bold"
+                >
+                  <LogOut size={14} /> Sign Out
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>
