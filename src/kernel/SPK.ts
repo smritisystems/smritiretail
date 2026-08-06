@@ -595,7 +595,26 @@ export class SMRITIPlatformKernel {
     recordNavigation: (workspaceId: string) => NavigationRegistry.recordNavigation(workspaceId),
     getAnalytics: () => NavigationRegistry.getAnalytics(),
     health: () => NavigationRegistry.health(),
-    subscribe: (listener: (event?: any) => void) => NavigationRegistry.subscribe(listener)
+    subscribe: (listener: (event?: any) => void) => NavigationRegistry.subscribe(listener),
+
+    // SPCC Control Plane Facades (ADR-022)
+    exportPlatformManifest: (author?: string) => NavigationRegistry.exportPlatformManifest(author),
+    importPlatformManifest: (manifest: any) => NavigationRegistry.importPlatformManifest(manifest),
+    createSnapshot: (author: string, description: string, type?: any) => NavigationRegistry.createSnapshot(author, description, type),
+    restoreSnapshot: (snapshotId: string) => NavigationRegistry.restoreSnapshot(snapshotId),
+    getSnapshots: () => NavigationRegistry.getSnapshots(),
+    analyzeImpact: (action: any, targetId: string) => NavigationRegistry.analyzeImpact(action, targetId),
+    validatePrePublish: () => NavigationRegistry.validatePrePublish(),
+    auditPlatformIntegrity: () => NavigationRegistry.auditPlatformIntegrity(),
+    repairPlatform: () => NavigationRegistry.repairPlatform(),
+    checkModuleCompleteness: (moduleId: string) => NavigationRegistry.checkModuleCompleteness(moduleId),
+    checkReleaseReadiness: () => NavigationRegistry.checkReleaseReadiness(),
+    detectPlatformDrift: () => NavigationRegistry.detectPlatformDrift(),
+    certifyPlatform: () => NavigationRegistry.certifyPlatform(),
+    generatePlatformCoverageReport: () => NavigationRegistry.generatePlatformCoverageReport(),
+    calculateNavigationComplexity: (domainId: string) => NavigationRegistry.calculateNavigationComplexity(domainId),
+    auditBusinessCapabilities: () => NavigationRegistry.auditBusinessCapabilities(),
+    auditBusinessProcesses: () => NavigationRegistry.auditBusinessProcesses()
   };
 
   /* ── Universal Form Registry Facade (SPK.forms / UFR-001) ── */

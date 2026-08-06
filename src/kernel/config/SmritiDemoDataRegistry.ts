@@ -139,7 +139,7 @@ export class SmritiDemoDataRegistryService {
     };
 
     this._company = {
-      name: storedCompanyName || "Registered Business",
+      name: storedCompanyName || "SMRITI Systems",
       legalEntity: "Private Limited Company",
       website: "https://smritisys.com",
       email: "support@smritisys.com",
