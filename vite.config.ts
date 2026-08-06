@@ -24,34 +24,7 @@ const apiTarget = process.env.SMRITI_API_HOST
 
 const manualChunksHandler = (id: string) => {
   if (id.includes("node_modules")) {
-    if (
-      id.includes("react") ||
-      id.includes("react-dom") ||
-      id.includes("scheduler") ||
-      id.includes("use-sync-external-store") ||
-      id.includes("object-assign")
-    ) {
-      return "vendor-react";
-    }
-    if (id.includes("recharts") || id.includes("d3")) {
-      return "vendor-charts";
-    }
-    if (id.includes("jspdf") || id.includes("html2canvas") || id.includes("qrcode")) {
-      return "vendor-pdf";
-    }
-    if (id.includes("react-markdown") || id.includes("remark") || id.includes("mdast")) {
-      return "vendor-markdown";
-    }
-    if (id.includes("motion")) {
-      return "vendor-motion";
-    }
-    if (id.includes("lucide-react") || id.includes("lucide")) {
-      return "vendor-icons";
-    }
-    if (id.includes("@google/genai")) {
-      return "vendor-ai";
-    }
-    return "vendor-common";
+    return "vendor";
   }
 };
 
