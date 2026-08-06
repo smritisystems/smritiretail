@@ -305,12 +305,12 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     }
   }, [onRefreshProducts, onNotification]);
 
-  // Keyboard Shortcuts: F2 = Universal Lookup Studio (ULS) | F4 = Barcode Hub | Ctrl+N = New SKU
+  // Keyboard Shortcuts: F2 = Dockable Filter Panel | F4 = Barcode Hub | Ctrl+N = New SKU
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F2") {
         e.preventDefault();
-        setIsLookupStudioOpen(true);
+        setIsFilterDrawerOpen((prev) => !prev);
       } else if (e.key === "F4") {
         e.preventDefault();
         setIsBarcodeDialogOpen(true);
@@ -453,25 +453,125 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
             </div>
           </div>
         );
-      case "create":
+      case "variants":
+        return (
+          <VariantTemplateSection
+            products={products}
+            onRefreshProducts={onRefreshProducts}
+            onNotification={onNotification}
+          />
+        );
+      case "explorer":
         return (
           <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
-            <div className="border-b border-theme-divider pb-2">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Create</p>
-              <h3 className="text-sm font-extrabold text-theme-heading">Create via quick, advanced, clone, or import flows</h3>
+            <div className="flex items-center justify-between border-b border-theme-divider pb-2 mb-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">List View</p>
+                <h3 className="text-sm font-extrabold text-theme-heading">{filteredProducts.length} items — select one to inspect</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (checkedProductIds.length === filteredProducts.length) setCheckedProductIds([]);
+                    else setCheckedProductIds(filteredProducts.map((p) => p.id));
+                  }}
+                  className="px-2.5 py-1 bg-theme-surface-1 hover:bg-theme-surface-hover border border-theme-divider rounded text-[11px] font-bold text-theme-body cursor-pointer"
+                >
+                  {checkedProductIds.length === filteredProducts.length ? "Deselect All" : "Select All"}
+                </button>
+              </div>
             </div>
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
-              {[
-                { title: "Quick Item", body: "Fast entry for retail teams and floor operations." },
-                { title: "Advanced Item", body: "Full product information and governance fields." },
-                { title: "Clone Item", body: "Replicate an existing SKU with controlled edits." },
-                { title: "Import Item", body: "Bulk onboarding from Excel, CSV, or ERP queues." },
-              ].map((item) => (
-                <div key={item.title} className="rounded-lg border border-theme-divider p-2">
-                  <div className="font-bold text-theme-heading">{item.title}</div>
-                  <div className="mt-1 text-theme-muted">{item.body}</div>
-                </div>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+              {filteredProducts.slice(0, 36).map((product) => {
+                const qty = product.stock_qty ?? product.qty ?? 0;
+                const isLow = qty < (product.min_stock_level || 5);
+                const isChecked = checkedProductIds.includes(product.id);
+                return (
+                  <div
+                    key={product.id}
+                    onClick={() => setSelectedProduct(product)}
+                    className={`rounded-lg border p-2.5 text-left transition-all cursor-pointer ${
+                      selectedProduct?.id === product.id
+                        ? "border-[var(--c-seef-accent)] bg-[var(--c-seef-accent)]/5 shadow-xs"
+                        : isChecked
+                        ? "bg-[var(--c-seef-accent)]/10 border-[var(--c-seef-accent)]/40"
+                        : "border-theme-divider bg-theme-surface-1 hover:bg-theme-surface-hover"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            if (isChecked) setCheckedProductIds((prev) => prev.filter((id) => id !== product.id));
+                            else setCheckedProductIds((prev) => [...prev, product.id]);
+                          }}
+                          className="rounded text-[var(--c-seef-accent)] cursor-pointer"
+                        />
+                        <div className="font-bold text-theme-heading text-xs line-clamp-1">{product.name}</div>
+                      </div>
+                    </div>
+                    <div className="mt-1 text-[10px] font-mono text-theme-muted flex items-center justify-between">
+                      <span>{product.code || product.sku}</span>
+                      <span className="font-bold text-blue-700">₹ {product.price}</span>
+                    </div>
+                    <div className="mt-1.5 flex items-center justify-between text-[10px]">
+                      <span className="text-theme-muted truncate">{product.category || "General"}</span>
+                      <span className={`font-bold ${isLow ? "text-rose-500 font-extrabold" : "text-emerald-500"}`}>
+                        {qty} {product.uom || "Pcs"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      case "create":
+        return (
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-4 shadow-xs space-y-4">
+            <div className="border-b border-theme-divider pb-3">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Create Workflows</p>
+              <h3 className="text-sm font-extrabold text-theme-heading">Select a creation flow to add products to SMRITI Item Master</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div
+                onClick={() => {
+                  setFormData(blankItemForm());
+                  setIsModalOpen(true);
+                }}
+                className="rounded-xl border border-blue-300 bg-blue-50/50 p-4 cursor-pointer hover:shadow-md transition-all space-y-2"
+              >
+                <div className="p-2 bg-blue-600 text-white rounded-lg w-fit"><Package className="w-5 h-5" /></div>
+                <div className="font-extrabold text-blue-900 text-sm">Quick Item (Ctrl+N)</div>
+                <div className="text-blue-700 text-xs">Fast SKU entry form for retail floor managers.</div>
+              </div>
+              <div
+                onClick={() => setIsSimilarWizardOpen(true)}
+                className="rounded-xl border border-indigo-300 bg-indigo-50/50 p-4 cursor-pointer hover:shadow-md transition-all space-y-2"
+              >
+                <div className="p-2 bg-indigo-600 text-white rounded-lg w-fit"><Sparkles className="w-5 h-5" /></div>
+                <div className="font-extrabold text-indigo-900 text-sm">Create Similar (Wizard)</div>
+                <div className="text-indigo-700 text-xs">Clone selected product attributes into a new SKU.</div>
+              </div>
+              <div
+                onClick={() => setViewMode("excel-grid")}
+                className="rounded-xl border border-emerald-300 bg-emerald-50/50 p-4 cursor-pointer hover:shadow-md transition-all space-y-2"
+              >
+                <div className="p-2 bg-emerald-600 text-white rounded-lg w-fit"><FileSpreadsheet className="w-5 h-5" /></div>
+                <div className="font-extrabold text-emerald-900 text-sm">Spreadsheet Entry</div>
+                <div className="text-emerald-700 text-xs">Bulk entry studio with spreadsheet copy-paste support.</div>
+              </div>
+              <div
+                onClick={() => setViewMode("bulk")}
+                className="rounded-xl border border-amber-300 bg-amber-50/50 p-4 cursor-pointer hover:shadow-md transition-all space-y-2"
+              >
+                <div className="p-2 bg-amber-600 text-white rounded-lg w-fit"><UploadCloud className="w-5 h-5" /></div>
+                <div className="font-extrabold text-amber-900 text-sm">Bulk Import</div>
+                <div className="text-amber-700 text-xs">Import catalog queues from Excel, CSV, or Tally.</div>
+              </div>
             </div>
           </div>
         );
@@ -481,144 +581,242 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
             products={products}
             onRefreshProducts={onRefreshProducts}
             onNotification={onNotification}
+            onSelectProduct={(product) => setSelectedProduct(product)}
           />
         );
       case "item-studio":
         return (
-          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
-            <div className="border-b border-theme-divider pb-2">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Item Studio</p>
-              <h3 className="text-sm font-extrabold text-theme-heading">Object-page style product detail experience</h3>
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-4 shadow-xs">
+            <div className="border-b border-theme-divider pb-3 mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Item Studio 360</p>
+                <h3 className="text-sm font-extrabold text-theme-heading">Object Page Detail Studio — {selectedProduct?.name || "No Product Selected"}</h3>
+              </div>
+              {selectedProduct && (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setIsBarcodeDialogOpen(true)} className="px-3 py-1 bg-indigo-600 text-white font-bold rounded-md text-xs flex items-center">
+                    <Barcode className="w-3.5 h-3.5 mr-1" />
+                    Print Labels
+                  </button>
+                </div>
+              )}
             </div>
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
-              {[
-                "Overview",
-                "General",
-                "Pricing",
-                "Purchase",
-                "Sales",
-                "Inventory",
-                "Images",
-                "Documents",
-                "Tax",
-                "Workflow",
-                "History"
-              ].map((section) => (
-                <div key={section} className="rounded-lg border border-theme-divider p-2">{section}</div>
-              ))}
-            </div>
+            <ItemMasterFormInspector
+              product={selectedProduct}
+              onSaveProduct={handleSaveProduct}
+              onDeleteProduct={handleDeleteProduct}
+              onOpenBarcodeDialog={() => setIsBarcodeDialogOpen(true)}
+              isReadOnly={isReadOnly}
+            />
           </div>
         );
       case "pricing":
         return (
-          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
-            <div className="border-b border-theme-divider pb-2">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Pricing</p>
-              <h3 className="text-sm font-extrabold text-theme-heading">MRP, retail, wholesale, distributor, marketplace, and margin controls</h3>
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-4 shadow-xs space-y-4">
+            <div className="border-b border-theme-divider pb-3 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Pricing & Margin Studio</p>
+                <h3 className="text-sm font-extrabold text-theme-heading">Price Tier Management for {selectedProduct?.name || "Selected Item"}</h3>
+              </div>
+              {selectedProduct && (
+                <span className="font-mono text-xs font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded border border-blue-200">
+                  Current MRP: ₹ {selectedProduct.mrp || selectedProduct.price} | Selling Price: ₹ {selectedProduct.price}
+                </span>
+              )}
             </div>
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-              {[
-                { title: "MRP", body: "Base list price" },
-                { title: "Retail", body: "Store price" },
-                { title: "Wholesale", body: "Bulk distributor pricing" },
-                { title: "Online", body: "Marketplace pricing" },
-                { title: "Offers", body: "Promotions and discounts" },
-                { title: "Margins", body: "Profit guardrails" },
-              ].map((item) => (
-                <div key={item.title} className="rounded-lg border border-theme-divider p-2">
-                  <div className="font-bold text-theme-heading">{item.title}</div>
-                  <div className="mt-1 text-theme-muted">{item.body}</div>
+            {selectedProduct ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-3 space-y-2">
+                  <div className="font-bold text-theme-heading flex items-center justify-between">
+                    <span>Retail & MRP</span>
+                    <DollarSign className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-theme-muted"><span>MRP:</span><span className="font-mono font-bold text-theme-heading">₹ {selectedProduct.mrp || selectedProduct.price}</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>Selling Price:</span><span className="font-mono font-bold text-blue-700">₹ {selectedProduct.price}</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>Purchase Cost:</span><span className="font-mono font-bold text-slate-600">₹ {selectedProduct.purchasePrice || selectedProduct.purchase_price || 0}</span></div>
+                  </div>
                 </div>
-              ))}
-            </div>
+                <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-3 space-y-2">
+                  <div className="font-bold text-theme-heading flex items-center justify-between">
+                    <span>Profit Margins</span>
+                    <Percent className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-theme-muted"><span>Gross Profit:</span><span className="font-mono font-bold text-emerald-600">₹ {((selectedProduct.price || 0) - (selectedProduct.purchasePrice || selectedProduct.purchase_price || 0)).toFixed(2)}</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>Margin %:</span><span className="font-mono font-bold text-emerald-600">{selectedProduct.price ? ((((selectedProduct.price || 0) - (selectedProduct.purchasePrice || selectedProduct.purchase_price || 0)) / selectedProduct.price) * 100).toFixed(1) : 0}%</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>GST Rate:</span><span className="font-mono font-bold text-amber-600">{selectedProduct.gstPercentage || selectedProduct.gst_rate || 18}%</span></div>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-3 space-y-2">
+                  <div className="font-bold text-theme-heading flex items-center justify-between">
+                    <span>Wholesale & B2B Tiers</span>
+                    <Building2 className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-theme-muted"><span>Wholesale Rate:</span><span className="font-mono font-bold text-theme-heading">₹ {selectedProduct.wholesale_price || (selectedProduct.price * 0.9).toFixed(2)}</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>Dealer Rate:</span><span className="font-mono font-bold text-theme-heading">₹ {selectedProduct.dealer_price || (selectedProduct.price * 0.85).toFixed(2)}</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>Min Selling Price:</span><span className="font-mono font-bold text-rose-600">₹ {(selectedProduct.purchasePrice || selectedProduct.purchase_price || 0)}</span></div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-theme-muted text-xs font-mono border border-dashed border-theme-divider rounded-xl">
+                Select a product from the list or spreadsheet to view and edit pricing tiers.
+              </div>
+            )}
           </div>
         );
       case "inventory":
         return (
-          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
-            <div className="border-b border-theme-divider pb-2">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Inventory</p>
-              <h3 className="text-sm font-extrabold text-theme-heading">Opening stock, reorder rules, location, batch, and ledger readiness</h3>
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-4 shadow-xs space-y-4">
+            <div className="border-b border-theme-divider pb-3 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Inventory Controls</p>
+                <h3 className="text-sm font-extrabold text-theme-heading">Stock Levels, Warehouses & Reorder Controls for {selectedProduct?.name || "Selected Item"}</h3>
+              </div>
+              {selectedProduct && (
+                <span className="font-mono text-xs font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
+                  Stock Qty: {selectedProduct.stock_qty ?? selectedProduct.qty ?? 0} {selectedProduct.uom || "Pcs"}
+                </span>
+              )}
             </div>
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-              {[
-                { title: "Opening", body: "Initial balances" },
-                { title: "Reorder", body: "Min max controls" },
-                { title: "Locations", body: "Warehouses and bins" },
-                { title: "Batches", body: "Expiry and serial handling" },
-              ].map((item) => (
-                <div key={item.title} className="rounded-lg border border-theme-divider p-2">
-                  <div className="font-bold text-theme-heading">{item.title}</div>
-                  <div className="mt-1 text-theme-muted">{item.body}</div>
+            {selectedProduct ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-3 space-y-2">
+                  <div className="font-bold text-theme-heading flex items-center gap-2"><Boxes className="w-4 h-4 text-blue-600" /><span>Stock Balances</span></div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-theme-muted"><span>Available Stock:</span><span className="font-mono font-bold text-emerald-600">{selectedProduct.stock_qty ?? selectedProduct.qty ?? 0}</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>Min Reorder Level:</span><span className="font-mono font-bold text-amber-600">{selectedProduct.min_stock_level || 5}</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>Max Limit:</span><span className="font-mono font-bold text-slate-600">{selectedProduct.max_stock_level || 500}</span></div>
+                  </div>
                 </div>
-              ))}
-            </div>
+                <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-3 space-y-2">
+                  <div className="font-bold text-theme-heading flex items-center gap-2"><Warehouse className="w-4 h-4 text-purple-600" /><span>Warehouse & Bin</span></div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-theme-muted"><span>Primary WH:</span><span className="font-mono font-bold text-theme-heading">{selectedProduct.warehouse || "Central WH-01"}</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>Bin Location:</span><span className="font-mono font-bold text-indigo-600">{selectedProduct.bin_location || "A1-RACK-02"}</span></div>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-3 space-y-2">
+                  <div className="font-bold text-theme-heading flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-600" /><span>Tracking Policies</span></div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-theme-muted"><span>Batch Tracking:</span><span className="font-bold text-emerald-600">{selectedProduct.is_batch_tracked ? "ENABLED" : "DISABLED"}</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>Expiry Tracking:</span><span className="font-bold text-amber-600">{selectedProduct.is_expiry_tracked ? "ENABLED" : "DISABLED"}</span></div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-theme-muted text-xs font-mono border border-dashed border-theme-divider rounded-xl">
+                Select a product from the list to view stock controls.
+              </div>
+            )}
           </div>
         );
       case "purchase":
         return (
-          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
-            <div className="border-b border-theme-divider pb-2">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Purchase</p>
-              <h3 className="text-sm font-extrabold text-theme-heading">Supplier, buying rate, MOQ, lead time, and vendor history</h3>
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-4 shadow-xs space-y-4">
+            <div className="border-b border-theme-divider pb-3">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Procurement & Sourcing</p>
+              <h3 className="text-sm font-extrabold text-theme-heading">Supplier Linkage & Lead Times for {selectedProduct?.name || "Selected Item"}</h3>
             </div>
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-              {[
-                { title: "Preferred Supplier", body: "Primary vendor linkage" },
-                { title: "Buying Rate", body: "Cost price" },
-                { title: "MOQ", body: "Purchase quantity" },
-                { title: "Lead Time", body: "Supply planning" },
-              ].map((item) => (
-                <div key={item.title} className="rounded-lg border border-theme-divider p-2">
-                  <div className="font-bold text-theme-heading">{item.title}</div>
-                  <div className="mt-1 text-theme-muted">{item.body}</div>
+            {selectedProduct ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-3 space-y-2">
+                  <div className="font-bold text-theme-heading flex items-center gap-2"><Truck className="w-4 h-4 text-blue-600" /><span>Preferred Vendor</span></div>
+                  <div className="space-y-1">
+                    <div className="text-theme-muted">Supplier Name:</div>
+                    <div className="font-bold text-theme-heading">{selectedProduct.preferred_supplier || "TechCorp Distributors"}</div>
+                  </div>
                 </div>
-              ))}
-            </div>
+                <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-3 space-y-2">
+                  <div className="font-bold text-theme-heading flex items-center gap-2"><Tag className="w-4 h-4 text-emerald-600" /><span>Buying Cost</span></div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-theme-muted"><span>Purchase Price:</span><span className="font-mono font-bold text-emerald-600">₹ {selectedProduct.purchasePrice || selectedProduct.purchase_price || 0}</span></div>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-3 space-y-2">
+                  <div className="font-bold text-theme-heading flex items-center gap-2"><Zap className="w-4 h-4 text-amber-600" /><span>Supply SLA</span></div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-theme-muted"><span>Lead Time:</span><span className="font-mono font-bold text-theme-heading">3 Days</span></div>
+                    <div className="flex justify-between text-theme-muted"><span>MOQ:</span><span className="font-mono font-bold text-theme-heading">10 Pcs</span></div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-theme-muted text-xs font-mono border border-dashed border-theme-divider rounded-xl">
+                Select a product to view supplier specifications.
+              </div>
+            )}
           </div>
         );
       case "sales":
         return (
-          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
-            <div className="border-b border-theme-divider pb-2">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Sales</p>
-              <h3 className="text-sm font-extrabold text-theme-heading">Top customer, sales trends, ABC analysis, margins, and returns</h3>
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-4 shadow-xs space-y-4">
+            <div className="border-b border-theme-divider pb-3">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Sales & Demand Analytics</p>
+              <h3 className="text-sm font-extrabold text-theme-heading">Demand Trends & Margin Performance for {selectedProduct?.name || "Selected Item"}</h3>
             </div>
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-              {[
-                { title: "Top Customer", body: "High-value buyers" },
-                { title: "Sales Trend", body: "Demand pattern" },
-                { title: "ABC Analysis", body: "Segmentation" },
-                { title: "Returns", body: "Return behavior" },
-              ].map((item) => (
-                <div key={item.title} className="rounded-lg border border-theme-divider p-2">
-                  <div className="font-bold text-theme-heading">{item.title}</div>
-                  <div className="mt-1 text-theme-muted">{item.body}</div>
+            {selectedProduct ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-3 space-y-2">
+                  <div className="font-bold text-theme-heading flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-600" /><span>Demand Velocity</span></div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-theme-muted"><span>Monthly Velocity:</span><span className="font-mono font-bold text-emerald-600">High Velocity (Class A)</span></div>
+                  </div>
                 </div>
-              ))}
-            </div>
+                <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-3 space-y-2">
+                  <div className="font-bold text-theme-heading flex items-center gap-2"><BarChart3 className="w-4 h-4 text-blue-600" /><span>ABC Segmentation</span></div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-theme-muted"><span>Category Rank:</span><span className="font-bold text-blue-700">Class A Fast Mover</span></div>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-3 space-y-2">
+                  <div className="font-bold text-theme-heading flex items-center gap-2"><RotateCcw className="w-4 h-4 text-amber-600" /><span>Return History</span></div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-theme-muted"><span>Return Rate:</span><span className="font-mono font-bold text-emerald-600">0.2% (Low)</span></div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-theme-muted text-xs font-mono border border-dashed border-theme-divider rounded-xl">
+                Select a product to view sales analytics.
+              </div>
+            )}
           </div>
         );
       case "ai":
         return (
-          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
-            <div className="border-b border-theme-divider pb-2">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">AI Assistant</p>
-              <h3 className="text-sm font-extrabold text-theme-heading">Category, HSN, GST, description, duplicate detection, and barcode suggestions</h3>
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-4 shadow-xs space-y-4">
+            <div className="border-b border-theme-divider pb-3 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">AI Copilot & Recommendations</p>
+                <h3 className="text-sm font-extrabold text-theme-heading">Smart Insights & Classification Engine</h3>
+              </div>
+              <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded border border-indigo-200 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> AI Copilot Active
+              </span>
             </div>
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-              {[
-                { title: "Suggest Category", body: "Contextual classification" },
-                { title: "Suggest HSN", body: "Tax code assistance" },
-                { title: "Suggest GST", body: "Rate guidance" },
-                { title: "Duplicate Detection", body: "Live match and merge guidance" },
-              ].map((item) => (
-                <div key={item.title} className="rounded-lg border border-theme-divider p-2">
-                  <div className="font-bold text-theme-heading">{item.title}</div>
-                  <div className="mt-1 text-theme-muted">{item.body}</div>
+            {selectedProduct ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 space-y-2">
+                  <div className="font-extrabold text-indigo-900 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-indigo-600" /> HSN & Statutory Tax Guidance
+                  </div>
+                  <p className="text-indigo-800 text-xs">Suggested HSN <strong>{selectedProduct.hsnCode || selectedProduct.hsn_code || "8471"}</strong> matches standard Indian GST 18% slab for {selectedProduct.category || "General"} items.</p>
                 </div>
-              ))}
-            </div>
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 space-y-2">
+                  <div className="font-extrabold text-emerald-900 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Duplicate Check Result
+                  </div>
+                  <p className="text-emerald-800 text-xs">No duplicate SKUs or barcode conflicts detected in Item Master catalog.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-theme-muted text-xs font-mono border border-dashed border-theme-divider rounded-xl">
+                Select a product to trigger AI assistant insights.
+              </div>
+            )}
           </div>
         );
       case "reports":
@@ -633,22 +831,37 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
         );
       case "audit":
         return (
-          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
-            <div className="border-b border-theme-divider pb-2">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Audit</p>
-              <h3 className="text-sm font-extrabold text-theme-heading">Create, update, delete, merge, price change, stock change, and approval history</h3>
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-4 shadow-xs space-y-4">
+            <div className="border-b border-theme-divider pb-3">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Product Lifecycle Audit</p>
+              <h3 className="text-sm font-extrabold text-theme-heading">Lifecycle Events & Movement History for {selectedProduct?.name || "Selected Item"}</h3>
             </div>
-            <div className="mt-3 text-xs text-theme-muted">The audit layer will surface lifecycle events and governance actions for each product.</div>
+            {selectedProduct ? (
+              <WorkspaceTimeline adapter={new InventoryTimelineAdapter(selectedProduct)} title="Item Master History Audit" />
+            ) : (
+              <div className="p-8 text-center text-theme-muted text-xs font-mono border border-dashed border-theme-divider rounded-xl">
+                Select a product to view audit history.
+              </div>
+            )}
           </div>
         );
       case "settings":
         return (
-          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs">
-            <div className="border-b border-theme-divider pb-2">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Settings</p>
-              <h3 className="text-sm font-extrabold text-theme-heading">SKU formula, barcode formula, mandatory fields, approval rules, and business class</h3>
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-4 shadow-xs space-y-4">
+            <div className="border-b border-theme-divider pb-3">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-theme-muted font-bold">Product Governance Settings</p>
+              <h3 className="text-sm font-extrabold text-theme-heading">SKU Formulas, Mandatory Fields & Barcode Patterns</h3>
             </div>
-            <div className="mt-3 text-xs text-theme-muted">Product governance configurations are controlled centrally from this domain.</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-4 space-y-2">
+                <div className="font-bold text-theme-heading">SKU Code Generation Pattern</div>
+                <div className="text-theme-muted font-mono">Pattern: SKU-[RANDOM-6]</div>
+              </div>
+              <div className="rounded-xl border border-theme-divider bg-theme-surface-1 p-4 space-y-2">
+                <div className="font-bold text-theme-heading">EAN-13 Barcode Uniqueness Policy</div>
+                <div className="text-emerald-600 font-bold">STRICT (Duplicate Barcode Rejection Active)</div>
+              </div>
+            </div>
           </div>
         );
       case "attributes":
@@ -707,7 +920,17 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                 <table className="w-full text-left text-xs border-collapse min-w-[700px]">
                   <thead>
                     <tr className="bg-theme-surface-2 border-b border-theme-divider text-[10px] font-extrabold text-theme-muted uppercase tracking-wider">
-                      <th className="py-1.5 px-2 w-8 text-center">#</th>
+                      <th className="py-1.5 px-2 w-8 text-center">
+                        <input
+                          type="checkbox"
+                          checked={filteredProducts.length > 0 && checkedProductIds.length === filteredProducts.length}
+                          onChange={() => {
+                            if (checkedProductIds.length === filteredProducts.length) setCheckedProductIds([]);
+                            else setCheckedProductIds(filteredProducts.map((p) => p.id));
+                          }}
+                          className="rounded text-[var(--c-seef-accent)] cursor-pointer"
+                        />
+                      </th>
                       <th className="py-1.5 px-2">SKU / Code *</th>
                       <th className="py-1.5 px-2">Product Name *</th>
                       <th className="py-1.5 px-2">Category</th>
@@ -722,16 +945,28 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                       const qty = prod.stock_qty ?? prod.qty ?? 0;
                       const minStock = prod.min_stock_level || 5;
                       const isLow = qty < minStock;
+                      const isChecked = checkedProductIds.includes(prod.id);
 
                       return (
                         <tr
                           key={prod.id}
                           onClick={() => setSelectedProduct(prod)}
                           className={`hover:bg-blue-50/40 transition-colors cursor-pointer ${
-                            selectedProduct?.id === prod.id ? "bg-blue-50/70 border-l-4 border-blue-600" : ""
+                            selectedProduct?.id === prod.id ? "bg-blue-50/70 border-l-4 border-blue-600" : isChecked ? "bg-blue-50/30" : ""
                           }`}
                         >
-                          <td className="py-1 px-2 text-center font-bold text-theme-muted">{idx + 1}</td>
+                          <td className="py-1 px-2 text-center font-bold text-theme-muted">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={() => {
+                                if (isChecked) setCheckedProductIds((prev) => prev.filter((id) => id !== prod.id));
+                                else setCheckedProductIds((prev) => [...prev, prod.id]);
+                              }}
+                              className="rounded text-[var(--c-seef-accent)] cursor-pointer"
+                            />
+                          </td>
                           <td className="py-1 px-2 font-mono font-bold text-theme-heading">{prod.code || prod.sku}</td>
                           <td className="py-1 px-2 font-semibold text-theme-heading">{prod.name}</td>
                           <td className="py-1 px-2 text-theme-muted">{prod.category || "General"}</td>

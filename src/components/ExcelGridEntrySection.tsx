@@ -28,6 +28,7 @@ interface ExcelGridEntrySectionProps {
   products?: Product[];
   onRefreshProducts: () => Promise<void>;
   onNotification: (title: string, message: string, type?: "success" | "error") => void;
+  onSelectProduct?: (product: Product) => void;
 }
 
 interface GridRow {
@@ -269,7 +270,8 @@ const defaultFieldConfigs: FieldConfig[] = [
 export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
   products,
   onRefreshProducts,
-  onNotification
+  onNotification,
+  onSelectProduct
 }) => {
   const { pack } = useSAEFExperience();
   const fieldConfigStorageKey = getFieldConfigStorageKey(pack.id);
