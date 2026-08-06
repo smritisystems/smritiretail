@@ -141,7 +141,7 @@ export interface SMRITIIntegrationDomainSDK {
   barcode: BarcodeSDK;
   print: PrintSDK;
   report: ReportSDK;
-  integration: IntegrationSDK;
+  communicator: IntegrationSDK;
   notification: NotificationSDK;
 }
 
@@ -153,11 +153,11 @@ export interface SMRITIExtensionDomainSDK {
 // ── Consolidated Plugin Registration Targets (v2.0.0 LTS) ─────────────────────
 
 export interface PluginRegistrationTargets extends SMRITIUXDomainSDK, SMRITIBusinessDomainSDK, SMRITIPlatformDomainSDK, SMRITIIntegrationDomainSDK, SMRITIExtensionDomainSDK {
-  ux: SMRITIUXDomainSDK;
-  business: SMRITIBusinessDomainSDK;
-  platform: SMRITIPlatformDomainSDK;
-  integration: SMRITIIntegrationDomainSDK;
-  extension: SMRITIExtensionDomainSDK;
+  uxDomain: SMRITIUXDomainSDK;
+  businessDomain: SMRITIBusinessDomainSDK;
+  platformDomain: SMRITIPlatformDomainSDK;
+  integrationDomain: SMRITIIntegrationDomainSDK;
+  extensionDomain: SMRITIExtensionDomainSDK;
   workspaceRegistry: typeof WorkspaceRegistry;
   actionRegistry: typeof WorkspaceActionRegistry;
 }
