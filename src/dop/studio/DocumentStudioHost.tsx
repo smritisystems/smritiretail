@@ -22,6 +22,7 @@ import { DocumentExplorer } from "./DocumentExplorer.tsx";
 import { DocumentOutputToolbar } from "./DocumentOutputToolbar.tsx";
 import { DocumentPreviewCanvas } from "./DocumentPreviewCanvas.tsx";
 import { UniversalLabelPrintingStudio } from "../../components/label_print/UniversalLabelPrintingStudio.tsx";
+import { PrintCenterTab } from "./PrintCenterTab.tsx";
 import { products as storeProducts } from "../../state/store.ts";
 import { usePrintEngine } from "../../print_engine/print_store.tsx";
 import { useLayoutEngine } from "../../layout_engine/layout_store.tsx";
@@ -63,6 +64,7 @@ export const DocumentStudio: React.FC = () => {
   const { addToRecentlyUsed } = useLayoutEngine();
   const [selectedDocType, setSelectedDocType] = useState<DxpDocumentType>("INVOICE");
   const [isLabelDesignerActive, setIsLabelDesignerActive] = useState<boolean>(false);
+  const [isPrintCenterActive, setIsPrintCenterActive] = useState<boolean>(false);
   const [outputStatus, setOutputStatus] = useState<string | null>(null);
 
   const activeDescriptor = DocumentRegistry.getDescriptor(selectedDocType);
@@ -129,6 +131,28 @@ export const DocumentStudio: React.FC = () => {
     );
   }
 
+  if (isPrintCenterActive) {
+    return (
+      <div className="h-full flex flex-col bg-theme-base font-sans">
+        <div className="h-12 border-b border-theme-divider bg-theme-surface-1 flex items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsPrintCenterActive(false)}
+              className="text-xs font-semibold text-blue-500 hover:underline cursor-pointer"
+            >
+              ← Back to Document Studio
+            </button>
+            <span className="text-theme-divider">|</span>
+            <span className="text-xs font-bold text-theme-primary">Printing Center & Fleet Management Spooler</span>
+          </div>
+        </div>
+        <div className="flex-1 overflow-auto">
+          <PrintCenterTab />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full bg-theme-base font-sans overflow-hidden text-theme-body">
       {/* Decoupled Document Explorer */}
@@ -148,7 +172,7 @@ export const DocumentStudio: React.FC = () => {
           descriptor={activeDescriptor}
           outputStatus={outputStatus}
           onExecuteChannel={handleExecuteChannel}
-          onViewSpoolLogs={() => addToRecentlyUsed("print-history")}
+          onViewSpoolLogs={() => setIsPrintCenterActive(true)}
         />
 
         <DocumentPreviewCanvas

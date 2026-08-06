@@ -22,11 +22,21 @@ export interface DriverCapabilities {
   maxPaperWidthMm: number;
 }
 
+export interface DriverManifest {
+  supportsBarcode: boolean;
+  supportsQRCode: boolean;
+  supportsImages: boolean;
+  supportsRotation: boolean;
+  maxWidthMm: number;
+  minDpi: number;
+}
+
 export interface IPrinterDriver {
   id: string;
   name: string;
   protocol: DriverProtocol;
   capabilities: DriverCapabilities;
+  manifest?: DriverManifest;
   
   compile(req: DxpDocumentRequest): string | Uint8Array;
   validateSyntax?(compiled: string | Uint8Array): boolean;
