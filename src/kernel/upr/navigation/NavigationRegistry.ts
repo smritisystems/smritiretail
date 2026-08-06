@@ -765,10 +765,21 @@ export class NavigationRegistryService {
     const drift = this.detectPlatformDrift();
     const readiness = this.checkReleaseReadiness();
     const audit = this.auditPlatformIntegrity();
+    const ch = audit.compositeHealth;
 
-    const certified = !drift.hasDrift && readiness.ready && audit.overallScore >= 95;
+    const thresholds = { governance: 95, engineering: 95, operational: 95, business: 80 };
+
+    const thresholdsPassed =
+      ch.governanceScore >= thresholds.governance &&
+      ch.engineeringScore >= thresholds.engineering &&
+      ch.operationalScore >= thresholds.operational &&
+      ch.businessScore >= thresholds.business;
+
+    const certified = !drift.hasDrift && readiness.ready && audit.overallScore >= 95 && thresholdsPassed;
     const details: string[] = [
-      `Integrity Score: ${audit.overallScore}% (${audit.status})`,
+      `Overall Integrity Score: ${audit.overallScore}% (${audit.status})`,
+      `Composite Platform Health: ${ch.compositeScore}% (Gov: ${ch.governanceScore}%, Eng: ${ch.engineeringScore}%, Ops: ${ch.operationalScore}%, Biz: ${ch.businessScore}%)`,
+      `Minimum Threshold Gate: ${thresholdsPassed ? "PASSED (All 4 Dimensions Satisfied)" : "FAILED (Minimum Dimension Threshold Violation)"}`,
       `Configuration Drift: ${drift.driftCount} mismatch(es) detected`,
       `Release Readiness: ${readiness.ready ? "PASSED" : "BLOCKED"} (${readiness.blockersCount} blocker(s))`
     ];

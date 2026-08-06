@@ -331,7 +331,9 @@ export function createDefaultPlatformManifest(): PlatformManifest {
       pos: { offlineMode: true, receiptThermal: true },
       inventory: { autoBarcodeGen: true, lowStockAlerts: true },
       crm: { loyaltyMultiplier: 1.5 },
-      ai: { copilotEnabled: true, advisoryOnly: true }
+      ai: { copilotEnabled: true, advisoryOnly: true },
+      healthWeights: { governance: 0.25, engineering: 0.25, operational: 0.25, business: 0.25 },
+      certificationThresholds: { governance: 95, engineering: 95, operational: 95, business: 80 }
     },
     snapshotId: `snap_init_${Date.now()}`
   };
