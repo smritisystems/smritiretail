@@ -83,17 +83,42 @@ All core platform kernel services, workspace engines, document experience platfo
 
 ---
 
-## Part VII — Business Governance & Retail First Principle (SCS-BUS-001)
+## Part VII — Business Governance & Principles (SCS-BUS-001 — SCS-BUS-003)
 
 ### SCS-BUS-001 — Retail First Principle (MANDATORY)
 > SMRITI Retail OS shall prioritize POS, Inventory, Purchase, Distribution, and TallyPrime Integration. Any feature that primarily belongs to a full ERP (advanced accounting, manufacturing, payroll, HR, fixed assets, budgeting) shall not be implemented inside the core Retail Engine unless it directly supports retail operations.
 
+### SCS-BUS-002 — Business Engine Dependency Rule (MANDATORY)
+> Business modules MUST be built strictly following prerequisite dependency order:
+> `Master Data -> Inventory -> Purchase -> Sales/POS -> Tally Sync -> Distribution -> Reports -> Configuration -> CRM -> Extensions`.
+
+### SCS-BUS-003 — Offline First Principle (MANDATORY)
+> Every retail POS transaction MUST be capable of executing without Internet connectivity. Synchronization is asynchronous. Billing must NEVER stop because the Internet is unavailable.
+
+### Operational vs Financial System of Record Distinction
+- **SMRITI Retail OS** = Operational System of Record (inventory, POS checkout, purchase GRNs, distribution, stock movements).
+- **TallyPrime** = Financial System of Record (general ledger, statutory books of accounts, tax audit).
+
 ---
 
-## Part VIII — Master 10-Phase Retail Engine Roadmap
+## Part VIII — Universal Business Domain Facade (SPK.business)
+
+All business domain APIs are exposed through a single public facade boundary:
+```ts
+SPK.business / BusinessDomain
+├── masterData   (Item Master, Categories, Brands, Barcodes, Multi-Price Tiers)
+├── inventory    (Stock Ledger, Warehouses, Bin Locations, Batches, Serials, FIFO)
+├── purchase     (POs, Partial GRNs, Invoices, Landed Cost Allocation)
+├── sales        (POS Billing, Barcode Billing, Hold/Resume)
+└── schemes      (Indian Scheme Engine: Buy X Get Y, Coupons, Discounts)
+```
+
+---
+
+## Part IX — Master 10-Phase Retail Engine Roadmap
 
 1. **Phase 1 — Master Data Foundation**: Item Master, Category, Brand, Color, Size, UOM, Barcode, Supplier Mapping, Tax Mapping, Multi-Price Tiers (MRP, Retail, Wholesale, Dealer, Branch, Date-effective).
-2. **Phase 2 — Inventory Engine**: Stock Ledger, Warehouse, Bin, Batch, Serial, Transfers, Physical Stock, Adjustment, FIFO, Weighted Average, Reorder.
+2. **Phase 2 — Inventory Engine**: Stock Ledger, Warehouse, Bin Location, Batch, Serial, Transfers, Physical Stock, Adjustment, FIFO, Weighted Average, Reorder.
 3. **Phase 3 — Purchase & GRN**: Purchase Order, Partial GRN, Purchase Invoice, Purchase Return, Supplier Ledger, Landed Cost Allocation.
 4. **Phase 4 — Sales + POS + Scheme Engine**: Fast POS Billing, Barcode Billing, Hold/Resume, Indian Scheme Engine (Buy X Get Y, Coupons, Mix & Match).
 5. **Phase 5 — TallyPrime Communicator**: SMRITI Communicator Daemon (Port 9000), 2-Way Sync for Vouchers (Sales, Purchase, Receipts, Payments, Credit/Debit Notes), Masters & Retry Queue.
