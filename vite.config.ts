@@ -24,6 +24,15 @@ const apiTarget = process.env.SMRITI_API_HOST
 
 const manualChunksHandler = (id: string) => {
   if (id.includes("node_modules")) {
+    if (
+      id.includes("react") ||
+      id.includes("react-dom") ||
+      id.includes("scheduler") ||
+      id.includes("use-sync-external-store") ||
+      id.includes("object-assign")
+    ) {
+      return "vendor-react";
+    }
     if (id.includes("recharts") || id.includes("d3")) {
       return "vendor-charts";
     }
@@ -42,28 +51,7 @@ const manualChunksHandler = (id: string) => {
     if (id.includes("@google/genai")) {
       return "vendor-ai";
     }
-    if (id.includes("react") || id.includes("react-dom")) {
-      return "vendor-react";
-    }
     return "vendor-common";
-  }
-  if (id.includes("SalesStudioTab")) {
-    return "smriti-sales-studio";
-  }
-  if (id.includes("PurchaseStudioTab")) {
-    return "smriti-purchase-studio";
-  }
-  if (id.includes("ConsignmentStudioTab")) {
-    return "smriti-consignment-studio";
-  }
-  if (id.includes("OperationalWorkspacesTab")) {
-    return "smriti-operational-workspaces";
-  }
-  if (id.includes("TransactionWorkspacesTab")) {
-    return "smriti-transaction-workspaces";
-  }
-  if (id.includes("BiReportingAndPrintingTab")) {
-    return "smriti-reporting-printing";
   }
 };
 
