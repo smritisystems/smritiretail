@@ -17,6 +17,7 @@ import { Product } from "../../types.js";
 import { DocumentService } from "../../dop/core/DocumentService.ts";
 import { SdaRuntime } from "../../sdp/SdaRuntime.ts";
 import { WindowManager } from "../../sdk/WindowManager.ts";
+import { ItemQueryBuilder } from "../../services/ItemQueryBuilder.js";
 
 export type PrintProviderType = "prn" | "zpl" | "tspl" | "pdf" | "web_serial" | "raw_bt";
 
@@ -113,99 +114,26 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
   const [copied, setCopied] = useState<boolean>(false);
   const [printHistory, setPrintHistory] = useState<PrintHistoryEntry[]>([]);
 
-  // Filter products by Universal Lookup & Range Selection Matrix (SLP-001 Architecture)
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      // 1. Search term keyword match
-      const matchSearch =
-        !searchTerm ||
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.code && p.code.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (p.barcode && p.barcode.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        ((p as any).articleNo && (p as any).articleNo.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase()));
-
-      const matchCat = selectedCategory === "ALL" || p.category === selectedCategory;
-      const matchBrand = selectedBrand === "ALL" || p.brand === selectedBrand;
-
-      const price = p.mrp || p.price || 0;
-      const matchMin = !mrpMin || price >= parseFloat(mrpMin);
-      const matchMax = !mrpMax || price <= parseFloat(mrpMax);
-
-      // 2. Stock No. Range Filter (Open-ended support: 99 -> blank means Stock No >= 99)
-      let matchStockNo = true;
-      const stockNumStr = (p.code || p.id).replace(/\D/g, "");
-      const stockNum = parseInt(stockNumStr, 10) || 0;
-      if (stockNoFrom.trim()) {
-        const fromVal = parseInt(stockNoFrom.replace(/\D/g, ""), 10) || 0;
-        matchStockNo = matchStockNo && stockNum >= fromVal;
-      }
-      if (stockNoTo.trim()) {
-        const toVal = parseInt(stockNoTo.replace(/\D/g, ""), 10) || Number.MAX_SAFE_INTEGER;
-        matchStockNo = matchStockNo && stockNum <= toVal;
-      }
-
-      // 3. Category Range Filter
-      let matchCategoryRange = true;
-      if (productFrom !== "ALL" && productFrom.trim()) {
-        matchCategoryRange = matchCategoryRange && (p.category || "").toLowerCase() >= productFrom.toLowerCase();
-      }
-      if (productTo !== "ALL" && productTo.trim()) {
-        matchCategoryRange = matchCategoryRange && (p.category || "").toLowerCase() <= productTo.toLowerCase();
-      }
-
-      // 4. Brand Range Filter
-      let matchBrandRange = true;
-      if (brandFrom !== "ALL" && brandFrom.trim()) {
-        matchBrandRange = matchBrandRange && (p.brand || "").toLowerCase() >= brandFrom.toLowerCase();
-      }
-      if (brandTo !== "ALL" && brandTo.trim()) {
-        matchBrandRange = matchBrandRange && (p.brand || "").toLowerCase() <= brandTo.toLowerCase();
-      }
-
-      // 5. Style / Article Range Filter
-      let matchStyleRange = true;
-      const itemStyle = (p.styleCode || (p as any).articleNo || p.code || "").toLowerCase();
-      if (styleFrom !== "ALL" && styleFrom.trim()) {
-        matchStyleRange = matchStyleRange && itemStyle >= styleFrom.toLowerCase();
-      }
-      if (styleTo !== "ALL" && styleTo.trim()) {
-        matchStyleRange = matchStyleRange && itemStyle <= styleTo.toLowerCase();
-      }
-
-      // 6. Shade / Color Range Filter
-      let matchShadeRange = true;
-      const itemColor = (p.color || "").toLowerCase();
-      if (shadeFrom !== "ALL" && shadeFrom.trim()) {
-        matchShadeRange = matchShadeRange && itemColor >= shadeFrom.toLowerCase();
-      }
-      if (shadeTo !== "ALL" && shadeTo.trim()) {
-        matchShadeRange = matchShadeRange && itemColor <= shadeTo.toLowerCase();
-      }
-
-      // 7. Size Range Filter
-      let matchSizeRange = true;
-      const itemSize = (p.size || "").toLowerCase();
-      if (sizeFrom !== "ALL" && sizeFrom.trim()) {
-        matchSizeRange = matchSizeRange && itemSize >= sizeFrom.toLowerCase();
-      }
-      if (sizeTo !== "ALL" && sizeTo.trim()) {
-        matchSizeRange = matchSizeRange && itemSize <= sizeTo.toLowerCase();
-      }
-
-      return (
-        matchSearch &&
-        matchCat &&
-        matchBrand &&
-        matchMin &&
-        matchMax &&
-        matchStockNo &&
-        matchCategoryRange &&
-        matchBrandRange &&
-        matchStyleRange &&
-        matchShadeRange &&
-        matchSizeRange
-      );
+  // Filter products using SMRITI ItemQueryBuilder Server-Side Query Architecture (ADR-IQB-001)
+  const queryResult = useMemo(() => {
+    return ItemQueryBuilder.executeQuery(products, {
+      searchTerm: searchTerm || undefined,
+      productFrom: selectedCategory !== "ALL" ? selectedCategory : productFrom,
+      productTo: productTo,
+      brandFrom: selectedBrand !== "ALL" ? selectedBrand : brandFrom,
+      brandTo: brandTo,
+      mrpMin: mrpMin ? parseFloat(mrpMin) : undefined,
+      mrpMax: mrpMax ? parseFloat(mrpMax) : undefined,
+      stockNoFrom: stockNoFrom,
+      stockNoTo: stockNoTo,
+      styleFrom: styleFrom,
+      styleTo: styleTo,
+      shadeFrom: shadeFrom,
+      shadeTo: shadeTo,
+      sizeFrom: sizeFrom,
+      sizeTo: sizeTo,
+      limit: 100, // Enforce 100-item server pagination limit
+      offset: 0,
     });
   }, [
     products,
@@ -227,6 +155,9 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
     sizeFrom,
     sizeTo,
   ]);
+
+  const filteredProducts = queryResult.items;
+  const totalMatchingCount = queryResult.totalMatching;
 
   // Selected Items List
   const selectedItemsList = useMemo(() => {
@@ -649,7 +580,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                   <span>Selection Criteria Matrix (From â”€â”€â–º To Ranges)</span>
                 </span>
                 <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
-                  {filteredProducts.length} Matching SKUs
+                  {totalMatchingCount} Matching SKUs
                 </span>
               </div>
 
