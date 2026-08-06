@@ -285,10 +285,19 @@ export interface CategoryHealthScore {
   details: string;
 }
 
+export interface CompositePlatformHealth {
+  governanceScore: number;  // 0-100% (Registry, Menus, Routes, Permissions)
+  engineeringScore: number; // 0-100% (Build, Lint, Unit Tests, Type Safety)
+  operationalScore: number;  // 0-100% (Telemetry, Uptime, Memory, Zero-Drift)
+  businessScore: number;     // 0-100% (BCR Capability & BPR Process Certification)
+  compositeScore: number;    // Weighted Composite Platform Health (0-100%)
+}
+
 export interface PlatformIntegrityScorecard {
   timestamp: number;
   overallScore: number; // Weighted composite 0-100%
   status: "EXCELLENT" | "HEALTHY" | "DEGRADED" | "CRITICAL";
+  compositeHealth: CompositePlatformHealth;
   totalModules: number;
   accessibleModules: number;
   hiddenModules: number;

@@ -260,6 +260,40 @@ export const PlatformControlCenterWorkspace: React.FC = () => {
             </button>
           </div>
 
+          {/* 4-Dimension Composite Platform Health */}
+          {scorecard?.compositeHealth && (
+            <div style={{ backgroundColor: "#0f172a", border: "1px solid #38bdf8", padding: "16px", borderRadius: "10px", marginBottom: "20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                <div style={{ fontSize: "14px", fontWeight: "800", color: "#38bdf8" }}>🧬 4-DIMENSION COMPOSITE PLATFORM HEALTH SCORECARD</div>
+                <div style={{ fontSize: "18px", fontWeight: "800", color: "#4ade80" }}>
+                  OVERALL HEALTH: {scorecard.compositeHealth.compositeScore}% ({scorecard.status})
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
+                <div style={{ backgroundColor: "#1e293b", padding: "10px 14px", borderRadius: "6px", border: "1px solid #334155" }}>
+                  <div style={{ fontSize: "11px", color: "#94a3b8", fontWeight: "700" }}>GOVERNANCE SCORE</div>
+                  <div style={{ fontSize: "20px", fontWeight: "800", color: "#38bdf8" }}>{scorecard.compositeHealth.governanceScore}%</div>
+                  <div style={{ fontSize: "10px", color: "#64748b" }}>Registry, Menus, Routes, RBAC</div>
+                </div>
+                <div style={{ backgroundColor: "#1e293b", padding: "10px 14px", borderRadius: "6px", border: "1px solid #334155" }}>
+                  <div style={{ fontSize: "11px", color: "#94a3b8", fontWeight: "700" }}>ENGINEERING SCORE</div>
+                  <div style={{ fontSize: "20px", fontWeight: "800", color: "#4ade80" }}>{scorecard.compositeHealth.engineeringScore}%</div>
+                  <div style={{ fontSize: "10px", color: "#64748b" }}>Build, Lint, Unit Tests & Types</div>
+                </div>
+                <div style={{ backgroundColor: "#1e293b", padding: "10px 14px", borderRadius: "6px", border: "1px solid #334155" }}>
+                  <div style={{ fontSize: "11px", color: "#94a3b8", fontWeight: "700" }}>OPERATIONAL SCORE</div>
+                  <div style={{ fontSize: "20px", fontWeight: "800", color: "#a855f7" }}>{scorecard.compositeHealth.operationalScore}%</div>
+                  <div style={{ fontSize: "10px", color: "#64748b" }}>Zero Drift, Telemetry & Memory</div>
+                </div>
+                <div style={{ backgroundColor: "#1e293b", padding: "10px 14px", borderRadius: "6px", border: "1px solid #334155" }}>
+                  <div style={{ fontSize: "11px", color: "#94a3b8", fontWeight: "700" }}>BUSINESS SCORE</div>
+                  <div style={{ fontSize: "20px", fontWeight: "800", color: "#facc15" }}>{scorecard.compositeHealth.businessScore}%</div>
+                  <div style={{ fontSize: "10px", color: "#64748b" }}>BCR Capability & BPR Workflows</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Platform Coverage Metric Cards */}
           {(() => {
             const cov = SPK.navigation.generatePlatformCoverageReport();
