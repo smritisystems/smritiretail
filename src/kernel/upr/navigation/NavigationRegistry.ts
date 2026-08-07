@@ -207,7 +207,7 @@ export class NavigationRegistryService {
         defaultWorkspaceId: "item-master",
         moduleIds: ["item-master", "stock-ledger", "consignment", "scdm-studio", "print-labels-studio", "universal-label-printer", "document-studio"],
         modules: [
-          { id: NAV_IDS.ITEM_MASTER, title: "Product Master", icon: "Package", targetTab: "item-master", workspaceId: "item-master", route: "/inventory/items", order: 1, visible: true, owner: "SMRITI", packageId: "smriti.inventory.items", version: "6.0.0", workspaceCapabilities: { search: true, create: true, edit: true, delete: true, export: true, import: true } },
+          { id: NAV_IDS.ITEM_MASTER, title: "Inventory ⭐", icon: "Package", targetTab: "item-master", workspaceId: "item-master", route: "/inventory/items", badge: "Primary", order: 1, visible: true, owner: "SMRITI", packageId: "smriti.inventory.items", version: "6.0.0", workspaceCapabilities: { search: true, create: true, edit: true, delete: true, export: true, import: true } },
           { id: NAV_IDS.STOCK_LEDGER, title: "Stock Ledger", icon: "Layers", targetTab: "stock-ledger", workspaceId: "stock-ledger", route: "/inventory/ledger", order: 2, visible: true, owner: "SMRITI", packageId: "smriti.inventory.ledger", version: "6.0.0", dependsOn: ["item-master"], workspaceCapabilities: { search: true, export: true, reports: true } },
           { id: NAV_IDS.CONSIGNMENT, title: "Consignment Studio", icon: "Truck", targetTab: "consignment", workspaceId: "consignment", route: "/inventory/consignment", order: 3, visible: true, owner: "SMRITI", packageId: "smriti.inventory.consignment", version: "6.0.0", dependsOn: ["item-master"] },
           { id: "scdm-studio", title: "Supply Chain SCDM Studio", icon: "GitMerge", targetTab: "scdm-studio", workspaceId: "scdm-studio", route: "/inventory/scdm", order: 4, visible: true, owner: "SMRITI", packageId: "smriti.inventory.scdm", version: "6.0.0" },
@@ -222,13 +222,13 @@ export class NavigationRegistryService {
         icon: "shopping_cart",
         emoji: "🛒",
         order: 3,
-        defaultWorkspaceId: "purchase",
-        moduleIds: ["purchase", "supplier-mgmt", "supplier-dashboard", "purchase-studio"],
+        defaultWorkspaceId: "purchase-studio",
+        moduleIds: ["purchase-studio", "purchase", "supplier-mgmt", "supplier-dashboard"],
         modules: [
-          { id: NAV_IDS.PURCHASE_ORDER, title: "Procurement POs", icon: "Briefcase", targetTab: "purchase", workspaceId: "purchase", route: "/purchase/orders", order: 1, visible: true, owner: "SMRITI", packageId: "smriti.purchase.orders", version: "6.0.0", dependsOn: ["supplier-mgmt"], workspaceCapabilities: { search: true, create: true, edit: true, print: true } },
-          { id: NAV_IDS.SUPPLIER_MASTER, title: "Supplier Registry", icon: "Building", targetTab: "supplier-mgmt", workspaceId: "supplier-mgmt", route: "/purchase/suppliers", order: 2, visible: true, owner: "SMRITI", packageId: "smriti.purchase.suppliers", version: "6.0.0" },
-          { id: "supplier-dashboard", title: "Supplier Dashboard", icon: "LayoutDashboard", targetTab: "supplier-dashboard", workspaceId: "supplier-dashboard", route: "/purchase/dashboard", order: 3, visible: true, owner: "SMRITI", packageId: "smriti.purchase.dashboard", version: "6.0.0" },
-          { id: "purchase-studio", title: "Purchase Studio", icon: "ShoppingBag", targetTab: "purchase-studio", workspaceId: "purchase-studio", route: "/purchase/studio", order: 4, visible: true, owner: "SMRITI", packageId: "smriti.purchase.studio", version: "6.0.0" }
+          { id: "purchase-studio", title: "Purchase ⭐", icon: "ShoppingBag", targetTab: "purchase-studio", workspaceId: "purchase-studio", route: "/purchase/studio", badge: "Primary", order: 1, visible: true, owner: "SMRITI", packageId: "smriti.purchase.studio", version: "6.0.0" },
+          { id: NAV_IDS.PURCHASE_ORDER, title: "Procurement POs", icon: "Briefcase", targetTab: "purchase", workspaceId: "purchase", route: "/purchase/orders", order: 2, visible: true, owner: "SMRITI", packageId: "smriti.purchase.orders", version: "6.0.0", dependsOn: ["supplier-mgmt"], workspaceCapabilities: { search: true, create: true, edit: true, print: true } },
+          { id: NAV_IDS.SUPPLIER_MASTER, title: "Supplier Registry", icon: "Building", targetTab: "supplier-mgmt", workspaceId: "supplier-mgmt", route: "/purchase/suppliers", order: 3, visible: true, owner: "SMRITI", packageId: "smriti.purchase.suppliers", version: "6.0.0" },
+          { id: "supplier-dashboard", title: "Supplier Dashboard", icon: "LayoutDashboard", targetTab: "supplier-dashboard", workspaceId: "supplier-dashboard", route: "/purchase/dashboard", order: 4, visible: true, owner: "SMRITI", packageId: "smriti.purchase.dashboard", version: "6.0.0" }
         ]
       },
       {
@@ -255,13 +255,13 @@ export class NavigationRegistryService {
         icon: "groups",
         emoji: "👥",
         order: 5,
-        defaultWorkspaceId: "customers",
-        moduleIds: ["customers", "customer-master", "customer-dashboard", "crm-studio", "loyalty"],
+        defaultWorkspaceId: "crm-studio",
+        moduleIds: ["crm-studio", "customers", "customer-master", "customer-dashboard", "loyalty"],
         modules: [
-          { id: NAV_IDS.CUSTOMERS, title: "Customer CRM", icon: "Users", targetTab: "customers", workspaceId: "customers", route: "/crm/accounts", order: 1, visible: true, owner: "SMRITI", packageId: "smriti.crm.accounts", version: "6.0.0" },
-          { id: "customer-master", title: "Customer Master", icon: "UserCheck", targetTab: "customer-master", workspaceId: "customer-master", route: "/crm/customers", order: 2, visible: true, owner: "SMRITI", packageId: "smriti.crm.customermaster", version: "6.0.0" },
-          { id: "customer-dashboard", title: "Customer Dashboard", icon: "PieChart", targetTab: "customer-dashboard", workspaceId: "customer-dashboard", route: "/crm/dashboard", order: 3, visible: true, owner: "SMRITI", packageId: "smriti.crm.customerdashboard", version: "6.0.0" },
-          { id: "crm-studio", title: "CRM Studio", icon: "Contact", targetTab: "crm-studio", workspaceId: "crm-studio", route: "/crm/studio", order: 4, visible: true, owner: "SMRITI", packageId: "smriti.crm.studio", version: "6.0.0" },
+          { id: "crm-studio", title: "Universal Person Workspace ⭐", icon: "Contact", targetTab: "crm-studio", workspaceId: "crm-studio", route: "/crm/studio", badge: "Primary", order: 1, visible: true, owner: "SMRITI", packageId: "smriti.crm.studio", version: "6.0.0" },
+          { id: NAV_IDS.CUSTOMERS, title: "Customer CRM", icon: "Users", targetTab: "customers", workspaceId: "customers", route: "/crm/accounts", order: 2, visible: true, owner: "SMRITI", packageId: "smriti.crm.accounts", version: "6.0.0" },
+          { id: "customer-master", title: "Customer Master", icon: "UserCheck", targetTab: "customer-master", workspaceId: "customer-master", route: "/crm/customers", order: 3, visible: true, owner: "SMRITI", packageId: "smriti.crm.customermaster", version: "6.0.0" },
+          { id: "customer-dashboard", title: "Customer Dashboard", icon: "PieChart", targetTab: "customer-dashboard", workspaceId: "customer-dashboard", route: "/crm/dashboard", order: 4, visible: true, owner: "SMRITI", packageId: "smriti.crm.customerdashboard", version: "6.0.0" },
           { id: "loyalty", title: "Loyalty Programs", icon: "Sparkles", targetTab: "loyalty", workspaceId: "loyalty", route: "/crm/loyalty", order: 5, visible: true, owner: "SMRITI", packageId: "smriti.crm.loyalty", version: "6.0.0", dependsOn: ["customers"] }
         ]
       },
