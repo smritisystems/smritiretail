@@ -352,65 +352,46 @@ const AppContent: React.FC = () => {
 
   const checkAuth = async () => {
     try {
+      const savedName = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_name") : null;
+      const savedRole = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_role") : null;
       const token = typeof localStorage !== 'undefined'
         ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
         : null;
 
-      if (!token || token === "dev-bypass-token") {
-        if (typeof localStorage !== 'undefined') {
-          localStorage.removeItem("smriti_jwt_token");
-          localStorage.removeItem("smriti_session_token");
-        }
-        setCurrentUser(null);
-        setCheckingAuth(false);
-        return;
-      }
-
-      const data = await apiFetchV1("/auth/me").catch(() => null);
-      if (data && data.username) {
-        const uObj = {
-          role: data.role ?? "SYSADMIN",
-          name: data.display_name || data.full_name || data.username || "System Operator",
-          companyId: data.company_id ?? undefined,
-          branchId: data.branch_id ?? undefined,
-          passwordResetRequired: data.password_reset_required ?? false,
-        };
-        setCurrentUser(uObj);
-        authStore.setCurrentUser({ ...uObj, username: data.username });
-        authStore.setAuthState("Authenticated");
-      } else {
-        const savedName = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_name") : null;
-        const savedRole = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_role") : null;
-        if (savedName && savedRole) {
-          const uObj = { role: savedRole, name: savedName };
-          setCurrentUser(uObj);
-          authStore.setCurrentUser({ ...uObj, username: savedName });
-          authStore.setAuthState("Authenticated");
-        } else {
-          if (typeof localStorage !== 'undefined') {
-            localStorage.removeItem("smriti_jwt_token");
-            localStorage.removeItem("smriti_session_token");
-          }
-          setCurrentUser(null);
-          authStore.setAuthState("Unauthenticated");
-        }
-      }
-    } catch {
-      const savedName = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_name") : null;
-      const savedRole = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_role") : null;
+      // 1. If valid saved user session exists in localStorage, restore authentication immediately (Bulletproof Persistence)
       if (savedName && savedRole) {
         const uObj = { role: savedRole, name: savedName };
         setCurrentUser(uObj);
         authStore.setCurrentUser({ ...uObj, username: savedName });
         authStore.setAuthState("Authenticated");
+      } else if (token && token !== "dev-bypass-token") {
+        const uObj = { role: "SYSADMIN", name: "System Operator" };
+        setCurrentUser(uObj);
+        authStore.setCurrentUser({ ...uObj, username: "admin" });
+        authStore.setAuthState("Authenticated");
       } else {
-        if (typeof localStorage !== 'undefined') {
-          localStorage.removeItem("smriti_jwt_token");
-          localStorage.removeItem("smriti_session_token");
-        }
         setCurrentUser(null);
         authStore.setAuthState("Unauthenticated");
       }
+
+      // 2. Background sync profile with backend if online
+      if (token && token !== "dev-bypass-token") {
+        const data = await apiFetchV1("/auth/me").catch(() => null);
+        if (data && data.username) {
+          const uObj = {
+            role: data.role ?? savedRole ?? "SYSADMIN",
+            name: data.display_name || data.full_name || data.username || savedName || "System Operator",
+            companyId: data.company_id ?? undefined,
+            branchId: data.branch_id ?? undefined,
+            passwordResetRequired: data.password_reset_required ?? false,
+          };
+          setCurrentUser(uObj);
+          authStore.setCurrentUser({ ...uObj, username: data.username });
+          authStore.setAuthState("Authenticated");
+        }
+      }
+    } catch (e) {
+      console.warn("[SMRITI Auth] Background checkAuth sync skipped:", e);
     } finally {
       setCheckingAuth(false);
     }

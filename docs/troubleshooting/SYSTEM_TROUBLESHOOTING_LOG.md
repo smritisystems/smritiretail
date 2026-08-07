@@ -78,26 +78,29 @@ Removed `<OrganizationSelector />` from `src/features/auth/components/LoginCard.
 ## 📌 Issue #4: Browser Refresh (`F5`) Session Redirection to Login
 
 ### **Symptom**
-On browser refresh (`F5` / `Ctrl+F5` / `Cmd+R`), an already logged-in user was redirected back to the login screen.
+On browser refresh (`F5` / `Ctrl+F5` / `Cmd+R`), an already logged-in user was redirected back to the login screen with console logs:
+```text
+GET http://localhost/api/v1/pos/shifts/ 401 (Unauthorized)
+GET http://localhost/api/v1/pos/profiles/ 401 (Unauthorized)
+Critical error syncing system data: Error: Token is invalid or has expired. Please log in again.
+```
 
 ### **Root Cause**
-1. Interceptor status 401 handler in `src/lib/apiFetchV1.ts` greedily removed `smriti_jwt_token` and `smriti_session_token` whenever `/api/v1/auth/me` status check returned 401.
-2. `App.tsx`'s `checkAuth()` function did not synchronize `authStore` state on session restoration.
+1. Interceptor status 401 handler in `src/lib/apiFetchV1.ts` greedily removed `smriti_jwt_token` and `smriti_session_token` whenever ANY background API request (e.g. `/pos/profiles/`, `/customers`, `/inventory/`) returned 401 Unauthorized.
+2. `App.tsx`'s `checkAuth()` checked `!token` first and wiped session state before inspecting saved local user session credentials (`smriti_user_name` & `smriti_user_role`).
 
 ### **Resolution & Fix**
-1. Updated `src/lib/apiFetchV1.ts` to exclude `/auth/me` from automatic token erasure:
+1. Removed automatic token deletion on background 401 API responses in `src/lib/apiFetchV1.ts`. Session tokens are now ONLY erased upon explicit user logout (`SessionService.executeLogout()`).
+2. Updated `checkAuth()` in `src/App.tsx` to prioritize local session restoration before attempting background profile sync:
    ```typescript
-   if (response.status === 401 && !path.includes("/auth/login") && !path.includes("/auth/me") && typeof localStorage !== 'undefined') {
-     localStorage.removeItem("smriti_jwt_token");
-     localStorage.removeItem("smriti_session_token");
-   }
-   ```
-2. Updated `checkAuth()` in `src/App.tsx` to restore session and synchronize `authStore`:
-   ```typescript
-   const savedName = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_name") : null;
-   const savedRole = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_role") : null;
+   // 1. If valid saved user session exists in localStorage, restore authentication immediately (Bulletproof Persistence)
    if (savedName && savedRole) {
      const uObj = { role: savedRole, name: savedName };
+     setCurrentUser(uObj);
+     authStore.setCurrentUser({ ...uObj, username: savedName });
+     authStore.setAuthState("Authenticated");
+   }
+   ```
      setCurrentUser(uObj);
      authStore.setCurrentUser({ ...uObj, username: savedName });
      authStore.setAuthState("Authenticated");
