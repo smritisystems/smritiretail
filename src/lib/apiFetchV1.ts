@@ -27,9 +27,13 @@ export const isLocalMockToken = (t: string | null): boolean => {
  * Universal client fetch helper for FastAPI Core API (/api/v1/*)
  */
 export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof localStorage !== 'undefined'
-    ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
-    : null;
+  const requestHeaders = new Headers(options.headers || {});
+  const authHeader = requestHeaders.get("Authorization");
+  const token = authHeader
+    ? authHeader.replace(/^Bearer\s+/i, "")
+    : typeof localStorage !== 'undefined'
+      ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
+      : null;
 
   let path = endpoint.startsWith("/") ? endpoint : "/" + endpoint;
   const isAuthCheckEndpoint = path.includes("/auth/me") || path.includes("/auth/login") || path.includes("/auth/token");

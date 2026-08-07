@@ -32,6 +32,28 @@ async def seed_default_users():
     conn = await asyncpg.connect(url)
     
     try:
+        # 0. Ensure DatabaseProfile exists (PROD-003 & PROD-004 Governance Standard)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS database_profiles (
+                id               VARCHAR(50)  PRIMARY KEY,
+                database_name    VARCHAR(100) NOT NULL,
+                environment_type VARCHAR(30)  NOT NULL DEFAULT 'PRODUCTION',
+                is_demo          BOOLEAN      NOT NULL DEFAULT FALSE,
+                company_count    INTEGER      NOT NULL DEFAULT 1,
+                version          VARCHAR(30)  NOT NULL DEFAULT '4.0.0',
+                created_by       VARCHAR(100) NOT NULL DEFAULT 'SYSTEM_INSTALLER',
+                created_on       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                modified_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        profile_exists = await conn.fetchval("SELECT COUNT(*) FROM database_profiles WHERE id = 'db-prof-prod'")
+        if not profile_exists:
+            print("[SMRITI DB SEED] Seeding PRODUCTION database profile metadata...")
+            await conn.execute(
+                "INSERT INTO database_profiles (id, database_name, environment_type, is_demo, company_count, version, created_by) "
+                "VALUES ('db-prof-prod', 'smriti_prod', 'PRODUCTION', false, 1, '4.0.0', 'SYSTEM_INSTALLER')"
+            )
+
         # 1. Ensure default company exists
         company_exists = await conn.fetchval("SELECT COUNT(*) FROM companies WHERE id = 'comp-default'")
         if not company_exists:

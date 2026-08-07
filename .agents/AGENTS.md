@@ -271,7 +271,29 @@ Every completion claim must be backed by directly observable evidence. If eviden
 2. **Zero Prompting Required (DOC-002 — MANDATORY)**:
    - Never wait for or require the user to explicitly remind or instruct you to update documentation. Documentation synchronization is an automated, non-negotiable step of every task.
 
-> **Key Takeaway:** SMRITI Retail OS is built on an unshakable architectural foundation and a customer-first product philosophy. Guided by the Single Workspace Principle (`PROD-002 / SWP-001`), every business process is unified into a single adaptive workspace rather than fragmented across duplicate screens, menus, or modules. SMRITI adapts to the business—not the other way around. Retailers focus on running their business, while the platform intelligently applies policies, pricing, taxation, and workflows behind the scenes. **One Workspace. Infinite Business Scenarios.**
+## 23. Production Data Integrity & Clean Installation (PROD-003 — FROZEN)
+1. **Clean Production Baseline (PROD-003 — MANDATORY)**:
+   - A newly installed SMRITI Retail OS production database (`smriti_prod`) MUST contain strictly system metadata (Company/Branch setup, Admin User, System Config, Roles, Permissions, Tax Rates, UOM, Currencies, Countries).
+2. **Zero Sample Business Data (PROD-003 — MANDATORY)**:
+   - Fresh production setup scripts and migrations MUST NEVER seed sample customers, suppliers, items, sales invoices, purchase orders, stock ledger, or payment receipts. Dashboard metrics MUST honestly display 0 records on first installation.
+3. **Opt-In Environment Provisioning (PROD-003 — MANDATORY)**:
+   - Demo, training, sample, and test datasets exist strictly in isolated environments (`smriti_demo`, `smriti_training`, `smriti_test`, `smriti_dev`) and are provisioned strictly via user opt-in via installer or Environment Manager.
+
+## 24. Environment Isolation Governance (PROD-004 — FROZEN)
+1. **Complete Database & Tenant Isolation (PROD-004 — MANDATORY)**:
+   - Production, Demo, Training, Test, and Development environments shall remain completely isolated. Business data, transactions, users, and ledgers shall never be shared automatically across environments.
+2. **Persistent Environment Profile Metadata (PROD-004 — MANDATORY)**:
+   - Every database MUST record its `DatabaseProfile` metadata (`database_id`, `database_name`, `environment_type`, `is_demo`, `created_on`, `version`) and persistently display its environment badge (`PRODUCTION`, `DEMO`, `TRAINING`, `TEST`, `DEVELOPMENT`) on login forms and application top bars.
+
+## 25. Environment Awareness & Statutory Safeguards (PROD-005 — FROZEN)
+1. **Universal Environment Identification (PROD-005 — MANDATORY)**:
+   - Every workspace screen, report, print template, exported data file, and API response MUST clearly identify the active execution environment (`PRODUCTION`, `DEMO`, `TRAINING`, `TEST`, `DEVELOPMENT`).
+2. **Non-Production Statutory Watermarks (PROD-005 — MANDATORY)**:
+   - Invoices, vouchers, labels, and receipts generated from `DEMO` or `TRAINING` environments MUST render a prominent watermark (`DEMO ENVIRONMENT - NOT FOR ACCOUNTING`).
+3. **Immutable Environment Types & Safety Guards (PROD-005 — MANDATORY)**:
+   - Database profile environment types are immutable after creation. Production databases MUST NEVER be converted to Demo, and UI deletion of `PRODUCTION` database instances is strictly prohibited.
+
+> **Key Takeaway:** SMRITI Retail OS is built on an unshakable architectural foundation and a customer-first product philosophy. Guided by the Single Workspace Principle (`PROD-002 / SWP-001`), Production Data Integrity (`PROD-003 / PROD-004`), and Environment Awareness (`PROD-005`), every business process is unified into a single adaptive workspace. A fresh production installation represents a clean business baseline—never a software demo. **One Workspace. Infinite Business Scenarios.**
 
 
 ---

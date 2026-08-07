@@ -115,6 +115,7 @@ import { Launchpad } from "./components/Launchpad.tsx";
 import { WorkspaceTabsBar } from "./components/common/WorkspaceTabsBar.tsx";
 import { CommandPaletteModal } from "./components/common/CommandPaletteModal.tsx";
 import { StatutoryComplianceWorkspace } from "./components/compliance/StatutoryComplianceWorkspace.tsx";
+import { EnvironmentManagerTab } from "./components/EnvironmentManagerTab.tsx";
 
 
 interface AppNotification {
@@ -963,6 +964,8 @@ const isLocalMockToken = (t: string | null): boolean => {
         return <AboutSmritiTab />;
       case "dev-tracker":
         return <DevTrackerTab />;
+      case "environment-manager":
+        return <EnvironmentManagerTab />;
       case "accounting-sync":
         return <AccountingSyncTab />;
       case "business-ledger":

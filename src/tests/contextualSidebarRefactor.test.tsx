@@ -27,7 +27,7 @@ describe("ContextualSidebar.tsx — SPK.navigation Registry Binding Refactoring"
 
     // Should resolve Inventory & Stock Domain dynamically from SPK.navigation for workspace "item-master"
     expect(container.textContent).toContain("Inventory & Stock Domain");
-    expect(container.textContent).toContain("Product Master");
+    expect(container.textContent).toContain("Inventory ⭐");
     expect(container.textContent).toContain("Stock Ledger");
 
     act(() => { root.unmount(); });

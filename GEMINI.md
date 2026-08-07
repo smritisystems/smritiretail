@@ -57,6 +57,18 @@ If a proposed change does not help a retailer sell faster, buy better, manage in
 
 There shall be exactly one Billing Workspace (`sales-billing-studio`), one Purchase Workspace (`purchase-studio`), one Inventory Workspace (`item-master`), and one Universal Person Workspace (`crm-studio`). Business behavior MUST be determined by policies, customer/supplier profiles, document type, and configuration—NOT by duplicate screens, menus, or modules.
 
+## Rule PROD-003 – Production Data Integrity & Clean Installation (MANDATORY)
+
+A fresh SMRITI Retail OS installation shall never preload business transactions or master data into a production database. Clean installation, upgrades, database restores, and multi-tenant provisioning must strictly maintain clean production boundaries. Production databases (`smriti_prod`) contain strictly system metadata (Company/Branch setup, Admin User, System Config, Roles, Permissions, Tax Rates, UOM, Currencies, Countries). Business masters (Customers, Suppliers, Items) and transactional ledgers (Invoices, POs, Payments, Stock) MUST start strictly empty (0 records). Demo, training, sample, and test data shall exist only in explicitly created, isolated environments and only when requested by the user.
+
+## Rule PROD-004 – Environment Isolation (MANDATORY)
+
+Production (`smriti_prod`), Demo (`smriti_demo`), Training (`smriti_training`), Test (`smriti_test`), and Development (`smriti_dev`) environments shall remain completely isolated. Business data, transactions, users, and ledgers shall never be shared automatically across environments. Every database profile shall record explicit metadata (`database_id`, `database_name`, `environment_type`, `is_demo`, `created_on`, `version`) and display its environment badge persistently on login screens and application headers. Any movement of data must occur only through explicit backup, restore, import, export, or migration operations.
+
+## Rule PROD-005 – Environment Awareness (MANDATORY)
+
+Every workspace screen, report, print template, exported data file, and API response MUST clearly identify the active execution environment (`PRODUCTION`, `DEMO`, `TRAINING`, `TEST`, `DEVELOPMENT`). Demo/Training documents and printouts MUST carry a persistent statutory watermark (`DEMO ENVIRONMENT - NOT FOR ACCOUNTING`). Environment types are immutable once provisioned, and production database deletion from application interfaces is strictly prohibited.
+
 ### SMRITI Product Philosophy (Founder's Principle)
 **By Jawahar R. Mallah**
 

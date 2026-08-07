@@ -6,6 +6,7 @@
 
 import React from "react";
 import { Shield, CheckCircle2 } from "lucide-react";
+import { EnvironmentBadge } from "../../../components/EnvironmentBadge.tsx";
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -42,10 +43,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
         </div>
 
         <div className="flex items-center space-x-3 text-xs font-mono">
-          <span className="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            {environment}
-          </span>
+          <EnvironmentBadge showDetails />
           <span className="text-slate-400">{version}</span>
         </div>
       </header>

@@ -44,7 +44,8 @@ from .api.v1 import (
     crm,
     dev_tracker,
     docs,
-    exchange,
+    dev_tracker,
+    environment_router,
     health_flags,
     inventory,
     inventory_availability,
@@ -276,6 +277,7 @@ app.include_router(system.router,           prefix=settings.API_V1_STR,         
 app.include_router(roles.router,            prefix=settings.API_V1_STR + "/roles",         tags=["Role Matrix"])
 app.include_router(security.router,         prefix=settings.API_V1_STR + "/security",      tags=["Security Engine"])
 app.include_router(compliance_router,       prefix=settings.API_V1_STR)
+app.include_router(environment_router.router, prefix=settings.API_V1_STR + "/admin/environment", tags=["Environment Manager"])
 app.include_router(consignment.router,       prefix=settings.API_V1_STR + "/consignment", tags=["Consignment"])
 app.include_router(sre.router,               prefix=settings.API_V1_STR + "/sre",         tags=["SMRITI Regulatory Engine"])
 app.include_router(dispatch.router,          prefix=settings.API_V1_STR + "/dispatch",    tags=["Stock Dispatch Engine"])

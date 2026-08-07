@@ -317,11 +317,11 @@ function Initialize-Database {
     $MigrateOut | Out-File -FilePath $LogFile -Append
     Write-Log "Database schema migrations applied." -Level "SUCCESS"
 
-    # Database Seed
-    Write-Log "Seeding system default master tables & admin accounts..." -Level "INFO"
+    # Database Seed (PROD-003 Clean Production Installation Standard)
+    Write-Log "Seeding system metadata, roles, permissions, tax rates & admin accounts (Clean Production Baseline)..." -Level "INFO"
     $SeedOut = docker exec smriti-api python -m app.db.seed 2>&1
     $SeedOut | Out-File -FilePath $LogFile -Append
-    Write-Log "Default database seeding complete." -Level "SUCCESS"
+    Write-Log "Default database seeding complete (0 business items/invoices seeded)." -Level "SUCCESS"
 }
 
 # -----------------------------------------------------------------------------

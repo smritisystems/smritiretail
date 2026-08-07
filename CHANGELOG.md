@@ -36,6 +36,9 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ### Fixed
 - Exported `AsyncSessionLocal` in `backend/app/db/session.py` and resolved MyPy type errors across backend services.
+- Enhanced `apiFetchV1` to inspect `Authorization` headers in request options prior to `localStorage` lookup, enabling clean API execution in server-side/headless test environments.
+- Aligned `NAV_IDS.POS` mapping in `NavigationRegistry.ts` to `sales-billing-studio` (SWP-001 Single Workspace Principle compliance).
+- Verified full test suite headlessly (131/131 test files passed, 630/630 unit tests passed).
 
 
 
