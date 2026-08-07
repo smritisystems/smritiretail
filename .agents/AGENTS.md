@@ -257,6 +257,16 @@ Every completion claim must be backed by directly observable evidence. If eviden
 3. **Mandatory AI Checklist Before Creating Modules (SWP-003 — MANDATORY)**:
    - Check if an existing Workspace can adapt through Policy. If YES, extend Policy Engine (`CustomerPolicyEngine`, `SupplierPolicyEngine`, `PersonPolicyEngine`). Do NOT create a duplicate workspace or screen.
 
+## 21. SMRITI Authentication Design Standard (AUTH-001 — FROZEN)
+1. **User-First Authentication Flow (AUTH-001 — MANDATORY)**:
+   - Always authenticate the **user credentials first** (`Username + Password`). Never ask for Company, Database, or Infrastructure selection prior to authentication.
+2. **Access Resolution Chain (AUTH-002 — MANDATORY)**:
+   - `Authenticate User ──► Resolve Assigned Tenant ──► Resolve Company ──► Resolve Branch ──► Load Permissions ──► Open Workspace`.
+3. **Single Assignment Auto-Selection (AUTH-003 — MANDATORY)**:
+   - If the authenticated user has access to exactly 1 company/branch/database, auto-select it and open the dashboard directly without showing any selection screen.
+4. **Multiple Assignments Selector Isolation (AUTH-004 — MANDATORY)**:
+   - If the user has access to multiple companies, display ONLY their authorized companies post-login. Never expose unassigned companies, branches, databases, or tenant resources.
+
 > **Key Takeaway:** SMRITI Retail OS is built on an unshakable architectural foundation and a customer-first product philosophy. Guided by the Single Workspace Principle (`PROD-002 / SWP-001`), every business process is unified into a single adaptive workspace rather than fragmented across duplicate screens, menus, or modules. SMRITI adapts to the business—not the other way around. Retailers focus on running their business, while the platform intelligently applies policies, pricing, taxation, and workflows behind the scenes. **One Workspace. Infinite Business Scenarios.**
 
 

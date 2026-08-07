@@ -40,6 +40,19 @@ export interface OrganizationContext {
   lastLoginTimestamp?: string;
 }
 
+export interface UserCompanyAccess {
+  userId: string;
+  companyId: string;
+  companyName: string;
+  databaseId?: string;
+  branchId?: string;
+  branchName?: string;
+  roleId: string;
+  defaultCompany?: boolean;
+  defaultBranch?: boolean;
+  active: boolean;
+}
+
 export interface SessionToken {
   accessToken: string;
   refreshToken?: string;

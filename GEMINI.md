@@ -82,6 +82,13 @@ There shall be exactly one Billing Workspace (`sales-billing-studio`), one Purch
 1. **Can an existing Workspace adapt through Policy?** If YES, extend the Policy Engine (`CustomerPolicyEngine`, `SupplierPolicyEngine`, `PersonPolicyEngine`). Do NOT create a new module/screen.
 2. **Will this create a duplicate menu, screen, master, or registry?** If YES, REJECT and redesign immediately.
 
+## Rule AUTH-001 – SMRITI Authentication Design Standard (MANDATORY P0)
+
+Always authenticate the **user first**. Never ask for Company, Database, or Infrastructure selection on login forms.
+`Authenticate User ──► Resolve Assigned Tenant ──► Resolve Company ──► Resolve Branch ──► Load Permissions ──► Open Workspace`.
+- **Single Assignment:** If user has access to 1 company/branch, auto-select and open dashboard (Zero Prompts).
+- **Multiple Assignments:** Display ONLY authorized assigned companies post-login. Never expose unassigned companies or databases.
+
 ---
 
 ### Key Takeaway
