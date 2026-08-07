@@ -57,15 +57,16 @@ describe("Sprint 2: POS Billing Cockpit & Universal Person Master", () => {
     expect(duration).toBeLessThan(300);
   });
 
-  it("should hold bill in session storage and restore bill", () => {
+  it("should hold bill in session storage and restore bill with customer & sales personnel attribution", () => {
     const billToHold: Bill = {
       id: "bill-1001",
       billNumber: "POS-2026-0001",
       totalAmount: 3700,
-      customerName: "Walk-In Customer",
+      customerName: "Jawahar Mallah (VIP)",
+      salespersonId: "emp-101",
       items: [
-        { product: sampleProducts[0], quantity: 1 },
-        { product: sampleProducts[1], quantity: 1 }
+        { product: sampleProducts[0], quantity: 1, salespersonId: "emp-101" },
+        { product: sampleProducts[1], quantity: 1, salespersonId: "emp-101" }
       ],
       createdAt: new Date().toISOString()
     } as any;
@@ -75,6 +76,8 @@ describe("Sprint 2: POS Billing Cockpit & Universal Person Master", () => {
     const restored = JSON.parse(sessionStorage.getItem("smriti_held_bills") || "[]");
     expect(restored.length).toBe(1);
     expect(restored[0].billNumber).toBe("POS-2026-0001");
+    expect(restored[0].customerName).toBe("Jawahar Mallah (VIP)");
+    expect(restored[0].salespersonId).toBe("emp-101");
     expect(restored[0].totalAmount).toBe(3700);
   });
 

@@ -197,20 +197,51 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
   return (
     <div className="flex flex-col h-full bg-[var(--sds-color-background)] text-[var(--sds-color-text-main)] font-[var(--sds-font-family)] overflow-hidden">
       {/* Top Cockpit Header */}
-      <div className="flex items-center justify-between px-6 py-3 bg-[var(--sds-color-surface)] border-b border-[var(--sds-color-border)] shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-3 bg-[var(--sds-color-surface)] border-b border-[var(--sds-color-border)] gap-2 shadow-xs">
         <div className="flex items-center gap-3">
           <Zap className="w-5 h-5 text-[var(--sds-color-primary)]" />
           <h1 className="text-lg font-bold tracking-tight">POS Billing Cockpit Studio</h1>
           <SEDSStatusBadge status="Active">Terminal #01 (ONLINE)</SEDSStatusBadge>
         </div>
 
-        {/* Speed Budget KPI Badges */}
-        <div className="flex items-center gap-4 text-xs font-mono">
-          <div className="px-2.5 py-1 rounded bg-[var(--sds-color-background)] border border-[var(--sds-color-border-subtle)] text-[var(--sds-color-text-secondary)]">
-            Scan Speed: <span className="font-bold text-green-600">&lt;100ms</span>
+        {/* Customer & Sales Executive Selectors (IPS-001 Universal Person Master Integration) */}
+        <div className="flex items-center gap-3 text-xs font-sans">
+          <div className="flex items-center gap-1.5 bg-[var(--sds-color-background)] px-2.5 py-1.5 rounded-lg border border-[var(--sds-color-border)]">
+            <User className="w-3.5 h-3.5 text-indigo-500" />
+            <span className="text-[10px] uppercase font-bold text-[var(--sds-color-text-muted)]">Customer:</span>
+            <select
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="bg-transparent font-semibold text-xs text-[var(--sds-color-text-main)] focus:outline-none cursor-pointer"
+            >
+              <option value="Walk-In Customer (Cash)">Walk-In Customer (Cash)</option>
+              <option value="Jawahar Mallah (VIP)">Jawahar Mallah (VIP)</option>
+              <option value="Anand Patel (Retail)">Anand Patel (Retail)</option>
+              <option value="Sneha Rao (Corporate)">Sneha Rao (Corporate)</option>
+            </select>
           </div>
-          <div className="px-2.5 py-1 rounded bg-[var(--sds-color-background)] border border-[var(--sds-color-border-subtle)] text-[var(--sds-color-text-secondary)]">
-            SUXG Checkout Budget: <span className="font-bold text-[var(--sds-color-primary)]">&lt;10s</span>
+
+          <div className="flex items-center gap-1.5 bg-[var(--sds-color-background)] px-2.5 py-1.5 rounded-lg border border-[var(--sds-color-border)]">
+            <User className="w-3.5 h-3.5 text-emerald-500" />
+            <span className="text-[10px] uppercase font-bold text-[var(--sds-color-text-muted)]">Salesperson:</span>
+            <select
+              value={selectedSalespersonId}
+              onChange={(e) => setSelectedSalespersonId(e.target.value)}
+              className="bg-transparent font-semibold text-xs text-[var(--sds-color-text-main)] focus:outline-none cursor-pointer"
+            >
+              {SALESPERSONS.map((sp) => (
+                <option key={sp.id} value={sp.id}>
+                  {sp.name} ({sp.code})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Speed Budget KPI Badges */}
+          <div className="hidden lg:flex items-center gap-2 font-mono">
+            <div className="px-2.5 py-1 rounded bg-[var(--sds-color-background)] border border-[var(--sds-color-border-subtle)] text-[var(--sds-color-text-secondary)]">
+              Scan Speed: <span className="font-bold text-green-600">&lt;100ms</span>
+            </div>
           </div>
         </div>
       </div>
