@@ -1272,6 +1272,7 @@ export class NavigationRegistryService {
     let assignedWorkspaces = 0;
 
     const routesSet = new Set<string>();
+    const menuIdsSet = new Set<string>();
 
     for (const dom of this.domains.values()) {
       const mods = dom.modules || [];
@@ -1281,9 +1282,22 @@ export class NavigationRegistryService {
         if (m.visible !== false) accessibleModules++;
         else hiddenModules++;
 
+        if (menuIdsSet.has(m.id)) {
+          duplicateMenus++;
+        } else {
+          menuIdsSet.add(m.id);
+        }
+
         if (m.route) {
-          if (routesSet.has(m.route)) brokenRoutes++;
-          else routesSet.add(m.route);
+          if (routesSet.has(m.route)) {
+            brokenRoutes++;
+          } else {
+            routesSet.add(m.route);
+          }
+          // Verify target workspace mapping
+          if (m.targetTab && !this.routeToWorkspaceIndex.has(m.targetTab) && !this.moduleToWorkspaceIndex.has(m.id)) {
+            brokenRoutes++;
+          }
         } else {
           missingMenus++;
         }
@@ -1297,9 +1311,9 @@ export class NavigationRegistryService {
     const categories: CategoryHealthScore[] = [
       { category: "Kernel", score: 100, status: "OPTIMAL", details: "Level 1 SPK Singleton & UPR baseline intact" },
       { category: "Navigation", score: totalModules > 0 ? Math.round((accessibleModules / totalModules) * 100) : 100, status: "OPTIMAL", details: `${accessibleModules}/${totalModules} modules accessible via sidebar` },
-      { category: "Modules", score: 100, status: "OPTIMAL", details: `${totalModules} modules loaded with zero version conflicts` },
-      { category: "Routes", score: brokenRoutes === 0 ? 100 : 92, status: brokenRoutes === 0 ? "OPTIMAL" : "WARNING", details: `${brokenRoutes} duplicate or broken route detected` },
-      { category: "Permissions", score: 98, status: "OPTIMAL", details: "RBAC policies active across all core domains" },
+      { category: "Modules", score: duplicateMenus === 0 ? 100 : Math.max(70, 100 - duplicateMenus * 5), status: duplicateMenus === 0 ? "OPTIMAL" : "WARNING", details: `${totalModules} modules loaded with ${duplicateMenus} duplicate menu ID(s)` },
+      { category: "Routes", score: brokenRoutes === 0 ? 100 : Math.max(70, 100 - brokenRoutes * 5), status: brokenRoutes === 0 ? "OPTIMAL" : "WARNING", details: `${brokenRoutes} duplicate or unmapped route(s) detected` },
+      { category: "Permissions", score: totalModules > 0 ? Math.round(((totalModules - permissionIssues) / totalModules) * 100) : 100, status: permissionIssues === 0 ? "OPTIMAL" : "WARNING", details: `${totalModules - permissionIssues}/${totalModules} modules specify permission requirements` },
       { category: "Search", score: Math.round((indexedModules / Math.max(1, totalModules)) * 100), status: "OPTIMAL", details: `${indexedModules}/${totalModules} registered for F2 search index` },
       { category: "Workspace", score: Math.round((assignedWorkspaces / Math.max(1, totalModules)) * 100), status: "OPTIMAL", details: `${assignedWorkspaces}/${totalModules} assigned to valid workspace components` },
       { category: "Licensing", score: 100, status: "OPTIMAL", details: "Enterprise License Active — Unlimited Seats" },
@@ -1345,6 +1359,13 @@ export class NavigationRegistryService {
       workspaceAssignedRatio: `${assignedWorkspaces}/${totalModules}`,
       categories
     };
+  }
+
+  /**
+   * Platform Health Alias (PBC-001 Standard)
+   */
+  public health(): PlatformIntegrityScorecard {
+    return this.auditPlatformIntegrity();
   }
 
   public subscribe(listener: (event?: { type: NavigationEventType; payload?: any }) => void): () => void {

@@ -12,16 +12,22 @@ import { FastAPIAdapter } from "./FastAPIAdapter.ts";
 import { SQLAlchemyAdapter } from "./SQLAlchemyAdapter.ts";
 import { ReactAdapter } from "./ReactAdapter.ts";
 import { PytestAdapter } from "./PytestAdapter.ts";
+import { NavigationAdapter } from "./NavigationAdapter.ts";
+import { RouteAdapter } from "./RouteAdapter.ts";
+import { PermissionAdapter } from "./PermissionAdapter.ts";
 
 export class AdapterRegistry {
   private adapters: Map<string, IAdapter> = new Map();
 
   constructor() {
-    // Register Default Engine Adapters (SDS v2.3)
+    // Register Default Engine Adapters (SDS v2.3 / PBC-001)
     this.register(new FastAPIAdapter());
     this.register(new SQLAlchemyAdapter());
     this.register(new ReactAdapter());
     this.register(new PytestAdapter());
+    this.register(new NavigationAdapter());
+    this.register(new RouteAdapter());
+    this.register(new PermissionAdapter());
   }
 
   public register(adapter: IAdapter): void {
