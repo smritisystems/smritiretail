@@ -74,7 +74,7 @@ describe("NavigationRegistry (UPR Metadata Service)", () => {
     unsubscribe();
   });
 
-  it("should compute platform integrity scorecard and support health() alias", () => {
+  it("should compute platform integrity scorecard and navigation health report", () => {
     const audit = NavigationRegistry.auditPlatformIntegrity();
     expect(audit).toBeDefined();
     expect(audit.overallScore).toBeGreaterThan(0);
@@ -82,7 +82,8 @@ describe("NavigationRegistry (UPR Metadata Service)", () => {
     expect(audit.categories.length).toBeGreaterThan(0);
 
     const health = NavigationRegistry.health();
-    expect(health.overallScore).toEqual(audit.overallScore);
-    expect(health.categories.length).toEqual(audit.categories.length);
+    expect(health).toBeDefined();
+    expect(health.status).toBeDefined();
+    expect(health.totalModules).toBeGreaterThan(0);
   });
 });

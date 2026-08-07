@@ -486,6 +486,8 @@ export class NavigationRegistryService {
     let disabledModules = 0;
     const routesSeen = new Set<string>();
     let duplicateRoutes = 0;
+    let brokenRoutes = 0;
+    let orphanWorkspaces = 0;
 
     for (const dom of this.domains.values()) {
       const mods = dom.modules || [];
@@ -495,14 +497,25 @@ export class NavigationRegistryService {
         if (m.owner === "Marketplace" || m.owner === "Partner") marketplaceModules++;
         if (m.visible === false) hiddenModules++;
         if (m.featureFlag === "disabled") disabledModules++;
+
         if (m.route) {
-          if (routesSeen.has(m.route)) duplicateRoutes++;
-          else routesSeen.add(m.route);
+          if (routesSeen.has(m.route)) {
+            duplicateRoutes++;
+            brokenRoutes++;
+          } else {
+            routesSeen.add(m.route);
+          }
+
+          if (m.targetTab && !this.routeToWorkspaceIndex.has(m.targetTab) && !this.moduleToWorkspaceIndex.has(m.id)) {
+            brokenRoutes++;
+          }
+        } else if (m.workspaceId && !m.targetTab) {
+          orphanWorkspaces++;
         }
       });
     }
 
-    const status: NavigationHealthStatus = duplicateRoutes > 0 ? "ERROR" : "HEALTHY";
+    const status: NavigationHealthStatus = (duplicateRoutes > 0 || brokenRoutes > 0) ? "ERROR" : "HEALTHY";
 
     return {
       timestamp: Date.now(),
@@ -512,9 +525,9 @@ export class NavigationRegistryService {
       marketplaceModules,
       hiddenModules,
       disabledModules,
-      brokenRoutes: 0,
+      brokenRoutes,
       duplicateRoutes,
-      orphanWorkspaces: 0,
+      orphanWorkspaces,
       versionConflicts: 0,
       healthy: status === "HEALTHY"
     };
@@ -1359,13 +1372,6 @@ export class NavigationRegistryService {
       workspaceAssignedRatio: `${assignedWorkspaces}/${totalModules}`,
       categories
     };
-  }
-
-  /**
-   * Platform Health Alias (PBC-001 Standard)
-   */
-  public health(): PlatformIntegrityScorecard {
-    return this.auditPlatformIntegrity();
   }
 
   public subscribe(listener: (event?: { type: NavigationEventType; payload?: any }) => void): () => void {

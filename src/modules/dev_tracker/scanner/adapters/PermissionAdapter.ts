@@ -45,7 +45,7 @@ export class PermissionAdapter implements IAdapter {
         const symbol = match.replace(/["']/g, "").replace(/(permission|hasPermission\s*\():\s*/, "");
         items.push({
           id: `EV-PERM-${symbol.replace(/[^a-zA-Z0-9]/g, "-")}-${idx}`,
-          category: "security",
+          category: "frontend",
           file: rel,
           symbol: `Permission: ${symbol}`,
           confidence: "100% Verified"

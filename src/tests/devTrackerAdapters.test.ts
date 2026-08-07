@@ -37,7 +37,7 @@ describe("DevTracker Scanner Adapters (PBC-001 Navigation & Security)", () => {
 
     const items = adapter.extract("src/kernel/upr/navigation/NavigationRegistry.ts", sampleContent);
     expect(items.length).toBeGreaterThan(0);
-    expect(items.some((i) => i.symbol.includes("NAV_ITEM_MASTER"))).toBe(true);
+    expect(items.some((i) => i.symbol?.includes("NAV_ITEM_MASTER"))).toBe(true);
   });
 
   it("RouteAdapter should extract route and targetTab mappings", () => {
@@ -50,7 +50,7 @@ describe("DevTracker Scanner Adapters (PBC-001 Navigation & Security)", () => {
 
     const items = adapter.extract("src/workspaces/PlatformControlCenterWorkspace.tsx", sampleContent);
     expect(items.length).toBeGreaterThan(0);
-    expect(items.some((i) => i.symbol.includes("/sales/invoice"))).toBe(true);
+    expect(items.some((i) => i.symbol?.includes("/sales/invoice"))).toBe(true);
   });
 
   it("PermissionAdapter should extract security permissions", () => {
@@ -63,7 +63,7 @@ describe("DevTracker Scanner Adapters (PBC-001 Navigation & Security)", () => {
 
     const items = adapter.extract("src/kernel/upr/security/PermissionRegistry.ts", sampleContent);
     expect(items.length).toBeGreaterThan(0);
-    expect(items.some((i) => i.symbol.includes("sales.create"))).toBe(true);
+    expect(items.some((i) => i.symbol?.includes("sales.create"))).toBe(true);
   });
 
   it("AdapterRegistry should execute all registered adapters against file map", () => {
