@@ -350,6 +350,18 @@ const AppContent: React.FC = () => {
     }
   });
 
+const isLocalMockToken = (t: string | null): boolean => {
+  if (!t) return true;
+  return (
+    t.startsWith("smriti_jwt_") ||
+    t.startsWith("demo_") ||
+    t.startsWith("smriti_rf_") ||
+    t === "token_demo" ||
+    t === "dev-bypass-token" ||
+    t === "mock-jwt-provider"
+  );
+};
+
   const checkAuth = async () => {
     try {
       const savedName = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_name") : null;
@@ -364,7 +376,7 @@ const AppContent: React.FC = () => {
         setCurrentUser(uObj);
         authStore.setCurrentUser({ ...uObj, username: savedName });
         authStore.setAuthState("Authenticated");
-      } else if (token && token !== "dev-bypass-token") {
+      } else if (token && !isLocalMockToken(token)) {
         const uObj = { role: "SYSADMIN", name: "System Operator" };
         setCurrentUser(uObj);
         authStore.setCurrentUser({ ...uObj, username: "admin" });
@@ -374,8 +386,8 @@ const AppContent: React.FC = () => {
         authStore.setAuthState("Unauthenticated");
       }
 
-      // 2. Background sync profile with backend if online
-      if (token && token !== "dev-bypass-token") {
+      // 2. Background sync profile with backend only if real backend token exists
+      if (token && !isLocalMockToken(token)) {
         const data = await apiFetchV1("/auth/me").catch(() => null);
         if (data && data.username) {
           const uObj = {

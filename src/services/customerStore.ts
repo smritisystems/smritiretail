@@ -681,8 +681,8 @@ export async function syncPendingCustomers() {
 
 export async function syncCustomersWithBackend() {
   const token = typeof localStorage !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
-  const isDemo = !token || token === "demo_access_token_jwt" || token === "token_demo";
-  if (isDemo) return;
+  const isMockToken = !token || token.startsWith("smriti_jwt_") || token.startsWith("demo_") || token.startsWith("smriti_rf_") || token === "token_demo" || token === "dev-bypass-token";
+  if (isMockToken) return;
 
   // Sync any pending edits first
   await syncPendingCustomers();
