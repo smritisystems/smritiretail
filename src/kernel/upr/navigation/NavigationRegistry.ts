@@ -353,18 +353,7 @@ export class NavigationRegistryService {
   }
 
   public registerDomain(domain: DomainDefinition): void {
-    const domainId = domain.id.toLowerCase();
-    const modulesWithPermissions = (domain.modules || []).map((m) => ({
-      ...m,
-      permission: m.permission || `${domainId}.${m.id.toLowerCase()}.view`
-    }));
-
-    const payload = Object.freeze({
-      ...domain,
-      id: domainId,
-      modules: modulesWithPermissions
-    });
-
+    const payload = Object.freeze({ ...domain, id: domain.id.toLowerCase() });
     this.domains.set(payload.id, payload);
 
     (payload.moduleIds || []).forEach((mId) => {
