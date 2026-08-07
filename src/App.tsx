@@ -407,8 +407,22 @@ const AppContent: React.FC = () => {
         setCurrentUser(null);
       }
     });
+
+    // Work Protection: Warn operator on accidental tab closure or navigation
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const heldBills = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem("smriti_held_bills") : null;
+      if (heldBills && heldBills !== "[]") {
+        e.preventDefault();
+        e.returnValue = "You have active transaction bills in your workspace. Are you sure you want to leave?";
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
     return () => {
       unsub();
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, []);
 
