@@ -31,6 +31,6 @@ describe("IntelligenceCenterWorkspace (Developer Studio UI)", () => {
     });
 
     expect(container.textContent).toContain("SMRITI Intelligence Center");
-    expect(container.textContent).toContain("13-Category Integrity Scorecard");
+    expect(container.textContent).toContain("Capability Discovery Engine");
   });
 });

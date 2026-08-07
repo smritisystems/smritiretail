@@ -8,12 +8,13 @@
 import React, { useState, useEffect } from "react";
 import { SPK } from "../../../kernel/SPK.js";
 import { AdapterRegistry } from "../../../modules/dev_tracker/scanner/adapters/AdapterRegistry.js";
+import { CapabilityDiscoveryEngine, CapabilityMatchResult } from "../../../kernel/upr/discovery/CapabilityDiscoveryEngine.js";
 import type { PlatformIntegrityScorecard } from "../../../kernel/upr/manifest/PlatformManifest.js";
-import { ShieldCheck, Activity, Cpu, Layers, AlertTriangle, CheckCircle2, RefreshCw, Terminal, Search, Zap, Check } from "lucide-react";
+import { ShieldCheck, Activity, Cpu, Layers, AlertTriangle, CheckCircle2, RefreshCw, Terminal, Search, Zap, Check, Compass, ArrowRight } from "lucide-react";
 
 export const IntelligenceCenterWorkspace: React.FC = () => {
   const [scorecard, setScorecard] = useState<PlatformIntegrityScorecard | null>(null);
-  const [activeTab, setActiveTab] = useState<"scorecard" | "wiring" | "scanner" | "runtime">("scorecard");
+  const [activeTab, setActiveTab] = useState<"discovery" | "scorecard" | "wiring" | "scanner" | "runtime">("discovery");
   const [singletons, setSingletons] = useState({
     headerCount: 1,
     sidebarCount: 1,
@@ -21,17 +22,29 @@ export const IntelligenceCenterWorkspace: React.FC = () => {
     workspaceCount: 1,
   });
 
+  // Capability Discovery Engine State
+  const [cdeQuery, setCdeQuery] = useState("Purchase Return");
+  const [cdeResult, setCdeResult] = useState<CapabilityMatchResult | null>(null);
+
   const adapterRegistry = new AdapterRegistry();
   const adapterHealthList = adapterRegistry.getHealth();
 
   useEffect(() => {
     refreshAudit();
     inspectRuntimeSingletons();
+    runDiscovery("Purchase Return");
   }, []);
 
   const refreshAudit = () => {
     const report = SPK.navigation.auditPlatformIntegrity();
     setScorecard(report);
+  };
+
+  const runDiscovery = (q: string) => {
+    if (!q.trim()) return;
+    const engine = new CapabilityDiscoveryEngine();
+    const res = engine.analyzeCapability({ query: q });
+    setCdeResult(res);
   };
 
   const inspectRuntimeSingletons = () => {
@@ -87,7 +100,7 @@ export const IntelligenceCenterWorkspace: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Developer Studio • Single source of truth platform integrity, metadata wiring, and live runtime inspector
+              Developer Studio • Single source of truth platform integrity, capability discovery, and live runtime inspector
             </p>
           </div>
 
@@ -131,6 +144,14 @@ export const IntelligenceCenterWorkspace: React.FC = () => {
         {/* Tab Navigation */}
         <div className="flex gap-2 mt-6 border-b border-slate-800 text-xs">
           <button
+            onClick={() => setActiveTab("discovery")}
+            className={`pb-2.5 px-3 font-semibold transition border-b-2 ${
+              activeTab === "discovery" ? "text-indigo-400 border-indigo-500" : "text-slate-400 border-transparent hover:text-slate-200"
+            }`}
+          >
+            Capability Discovery Center (CDE v1.0)
+          </button>
+          <button
             onClick={() => setActiveTab("scorecard")}
             className={`pb-2.5 px-3 font-semibold transition border-b-2 ${
               activeTab === "scorecard" ? "text-indigo-400 border-indigo-500" : "text-slate-400 border-transparent hover:text-slate-200"
@@ -167,6 +188,110 @@ export const IntelligenceCenterWorkspace: React.FC = () => {
 
       {/* Main Tab Content */}
       <div className="p-6 flex-1">
+        {/* TAB 0: Capability Discovery Center (CDE v1.0) */}
+        {activeTab === "discovery" && (
+          <div className="space-y-6">
+            {/* Search Input Box */}
+            <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-white flex items-center gap-2">
+                    <Compass className="w-5 h-5 text-indigo-400" /> Capability Discovery Engine (CDE v1.0)
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Rule PBC-001 (Promote Before Create) • Search proposed features to discover reusable platform capabilities before coding
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                  <input
+                    type="text"
+                    value={cdeQuery}
+                    onChange={(e) => setCdeQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && runDiscovery(cdeQuery)}
+                    placeholder="What do you want to build? (e.g., Purchase Return, Delivery Challan, Customer Credit)"
+                    className="w-full pl-9 pr-4 py-2.5 bg-slate-950 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+                  />
+                </div>
+                <button
+                  onClick={() => runDiscovery(cdeQuery)}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-xs text-white transition flex items-center gap-2 shadow-lg shadow-indigo-600/20"
+                >
+                  <Zap className="w-4 h-4" /> Discover
+                </button>
+              </div>
+            </div>
+
+            {/* Discovery Analysis Result */}
+            {cdeResult && (
+              <div className="space-y-6">
+                {/* Result KPI Bar */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <span className="text-xs text-slate-400">Capability Match</span>
+                    <div className="text-2xl font-black text-indigo-400 mt-1">{cdeResult.capabilityMatchPercent}%</div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <span className="text-xs text-slate-400">Duplicate Risk</span>
+                    <div className="text-2xl font-black text-amber-400 mt-1">{cdeResult.duplicateRisk}</div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <span className="text-xs text-slate-400">Existing Assets Found</span>
+                    <div className="text-2xl font-black text-white mt-1">{cdeResult.existingAssetsCount} Assets</div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <span className="text-xs text-slate-400">Recommendation</span>
+                    <div className="text-xl font-bold text-emerald-400 mt-1">{cdeResult.recommendedAction}</div>
+                  </div>
+                </div>
+
+                {/* Automated Guidance Banner */}
+                <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-medium flex items-center gap-3">
+                  <Zap className="w-5 h-5 text-indigo-400 shrink-0" />
+                  <span>{cdeResult.guidanceQuote}</span>
+                </div>
+
+                {/* Asset Reuse Breakdown */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="p-5 rounded-2xl bg-slate-900/50 border border-slate-800">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" /> Reusable Platform Assets ({cdeResult.reusableComponentsCount})
+                    </h3>
+                    <ul className="space-y-2 text-xs text-slate-300">
+                      {cdeResult.reusableAssetList.map((asset, i) => (
+                        <li key={i} className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 flex items-center justify-between">
+                          <span className="font-mono text-[11px] text-slate-300">{asset}</span>
+                          <span className="text-[10px] text-emerald-400 font-semibold px-2 py-0.5 bg-emerald-500/10 rounded">REUSE</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="p-5 rounded-2xl bg-slate-900/50 border border-slate-800">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-3 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" /> Assets Needed to Build ({cdeResult.missingComponentsCount})
+                    </h3>
+                    <ul className="space-y-2 text-xs text-slate-300">
+                      {cdeResult.missingAssetList.map((asset, i) => (
+                        <li key={i} className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 flex items-center justify-between">
+                          <span className="font-mono text-[11px] text-slate-300">{asset}</span>
+                          <span className="text-[10px] text-amber-400 font-semibold px-2 py-0.5 bg-amber-500/10 rounded">BUILD NEW</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* TAB 1: 13-Category Platform Integrity Grid */}
         {activeTab === "scorecard" && (
           <div>
