@@ -364,46 +364,87 @@ const isLocalMockToken = (t: string | null): boolean => {
 
   const checkAuth = async () => {
     try {
-      const savedName = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_name") : null;
-      const savedRole = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_role") : null;
+      setCheckingAuth(true);
       const token = typeof localStorage !== 'undefined'
         ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
         : null;
 
-      // 1. If valid saved user session exists in localStorage, restore authentication immediately (Bulletproof Persistence)
-      if (savedName && savedRole) {
-        const uObj = { role: savedRole, name: savedName };
-        setCurrentUser(uObj);
-        authStore.setCurrentUser({ ...uObj, username: savedName });
-        authStore.setAuthState("Authenticated");
-      } else if (token && !isLocalMockToken(token)) {
-        const uObj = { role: "SYSADMIN", name: "System Operator" };
-        setCurrentUser(uObj);
-        authStore.setCurrentUser({ ...uObj, username: "admin" });
-        authStore.setAuthState("Authenticated");
-      } else {
+      const savedName = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_name") : null;
+      const savedRole = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_role") : null;
+
+      // Case 1: No session token exists -> Immediately show Login Screen, do NOT call protected APIs
+      if (!token) {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem("smriti_user_name");
+          localStorage.removeItem("smriti_user_role");
+        }
         setCurrentUser(null);
+        authStore.setCurrentUser(null);
         authStore.setAuthState("Unauthenticated");
+        setCheckingAuth(false);
+        return;
       }
 
-      // 2. Background sync profile with backend only if real backend token exists
-      if (token && !isLocalMockToken(token)) {
-        const data = await apiFetchV1("/auth/me").catch(() => null);
-        if (data && data.username) {
-          const uObj = {
-            role: data.role ?? savedRole ?? "SYSADMIN",
-            name: data.display_name || data.full_name || data.username || savedName || "System Operator",
-            companyId: data.company_id ?? undefined,
-            branchId: data.branch_id ?? undefined,
-            passwordResetRequired: data.password_reset_required ?? false,
-          };
+      // Case 2: Local Mock/Demo Token -> Validate local mock session
+      if (isLocalMockToken(token)) {
+        if (savedName && savedRole) {
+          const uObj = { role: savedRole, name: savedName };
           setCurrentUser(uObj);
-          authStore.setCurrentUser({ ...uObj, username: data.username });
+          authStore.setCurrentUser({ ...uObj, username: savedName });
           authStore.setAuthState("Authenticated");
+        } else {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem("smriti_jwt_token");
+            localStorage.removeItem("smriti_session_token");
+            localStorage.removeItem("smriti_user_name");
+            localStorage.removeItem("smriti_user_role");
+          }
+          setCurrentUser(null);
+          authStore.setCurrentUser(null);
+          authStore.setAuthState("Unauthenticated");
         }
+        setCheckingAuth(false);
+        return;
+      }
+
+      // Case 3: Real Backend JWT Token -> Validate via GET /api/v1/auth/me
+      const data = await apiFetchV1("/auth/me").catch(() => null);
+      if (data && (data.username || data.id || data.role)) {
+        const verifiedUser = {
+          role: data.role ?? savedRole ?? "SYSADMIN",
+          name: data.display_name || data.full_name || data.username || savedName || "System Operator",
+          companyId: data.company_id ?? undefined,
+          branchId: data.branch_id ?? undefined,
+          passwordResetRequired: data.password_reset_required ?? false,
+        };
+        setCurrentUser(verifiedUser);
+        authStore.setCurrentUser({ ...verifiedUser, username: data.username || verifiedUser.name });
+        authStore.setAuthState("Authenticated");
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem("smriti_user_name", verifiedUser.name);
+          localStorage.setItem("smriti_user_role", verifiedUser.role);
+        }
+      } else {
+        // Backend Token 401 Unauthorized / Expired -> Clear session & show login screen
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem("smriti_jwt_token");
+          localStorage.removeItem("smriti_session_token");
+          localStorage.removeItem("smriti_user_name");
+          localStorage.removeItem("smriti_user_role");
+        }
+        setCurrentUser(null);
+        authStore.setCurrentUser(null);
+        authStore.setAuthState("Unauthenticated");
       }
     } catch (e) {
-      console.warn("[SMRITI Auth] Background checkAuth sync skipped:", e);
+      console.warn("[SMRITI Auth] Session validation error:", e);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem("smriti_jwt_token");
+        localStorage.removeItem("smriti_session_token");
+      }
+      setCurrentUser(null);
+      authStore.setCurrentUser(null);
+      authStore.setAuthState("Unauthenticated");
     } finally {
       setCheckingAuth(false);
     }
@@ -414,6 +455,7 @@ const isLocalMockToken = (t: string | null): boolean => {
     const unsub = authEvents.subscribe((event) => {
       if (event.eventType === "UserLoggedOut") {
         setCurrentUser(null);
+        authStore.setAuthState("Unauthenticated");
       }
     });
 
@@ -437,6 +479,8 @@ const isLocalMockToken = (t: string | null): boolean => {
 
   const handleLoginSuccess = (user: { role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string }) => {
     setCurrentUser(user);
+    authStore.setCurrentUser({ ...user, username: user.name });
+    authStore.setAuthState("Authenticated");
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem("smriti_user_name", user.name);
       localStorage.setItem("smriti_user_role", user.role);
@@ -447,10 +491,11 @@ const isLocalMockToken = (t: string | null): boolean => {
     authStore.setLogoutModalOpen(true);
   };
 
+  // Protected Resource Loading: ONLY invoke when user is strictly authenticated
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || checkingAuth) return;
     syncCustomersWithBackend();
-  }, [currentUser]);
+  }, [currentUser, checkingAuth]);
 
   useEffect(() => {
     if (currentUser && !currentUser.passwordResetRequired) {
@@ -1028,6 +1073,16 @@ const isLocalMockToken = (t: string | null): boolean => {
           </div>
         )}
       </SharedTerminalFramework>
+    );
+  }
+
+  if (checkingAuth) {
+    return (
+      <div className="w-screen h-screen flex flex-col items-center justify-center bg-slate-900 text-white font-sans">
+        <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3" />
+        <div className="text-sm font-bold tracking-wider">SMRITI RETAIL OS</div>
+        <div className="text-xs text-slate-400 font-mono mt-1">Verifying Session Security Credentials...</div>
+      </div>
     );
   }
 

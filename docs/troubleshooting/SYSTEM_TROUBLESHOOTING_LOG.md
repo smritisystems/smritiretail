@@ -101,8 +101,35 @@ Critical error syncing system data: Error: Token is invalid or has expired. Plea
      authStore.setAuthState("Authenticated");
    }
    ```
-     setCurrentUser(uObj);
-     authStore.setCurrentUser({ ...uObj, username: savedName });
-     authStore.setAuthState("Authenticated");
-   }
-   ```
+
+---
+
+## 📌 Issue #5: Authentication Bootstrap Sequence & Protected API Resource Guarding
+
+### **Symptom**
+Console flooded with 401 (Unauthorized) HTTP GET errors during app launch / boot sequence:
+```text
+GET http://localhost:3000/api/v1/auth/me 401 (Unauthorized)
+GET http://localhost:3000/api/v1/customers 401 (Unauthorized)
+GET http://localhost:3000/api/v1/inventory/ 401 (Unauthorized)
+GET http://localhost:3000/api/v1/pos/profiles/ 401 (Unauthorized)
+GET http://localhost:3000/api/v1/pos/shifts/ 401 (Unauthorized)
+GET http://localhost:3000/api/v1/customer-groups 401 (Unauthorized)
+GET http://localhost:3000/api/v1/psv/parties 401 (Unauthorized)
+```
+
+### **Root Cause**
+1. Reverse execution sequence: `App.tsx` mounted and triggered `useEffect([currentUser])` firing `fetchSystemState()` and `syncCustomersWithBackend()` BEFORE session token validation was completed via `/api/v1/auth/me`.
+2. Missing Guard: If no valid token existed or if token validation failed, the app attempted protected API calls anyway before displaying `<LoginScreen />`.
+3. Standalone Mock Session mismatch: Local mock tokens (`smriti_jwt_*`) were not recognized as mock tokens, triggering unauthenticated calls to backend port 3000.
+
+### **Resolution & Fix**
+1. **Strict Startup Sequence in `App.tsx` (`checkAuth()`):**
+   - If no token exists: Instantly clear session, set `Unauthenticated`, and render `<LoginScreen />`. **ZERO protected API calls executed.**
+   - If real token exists: Validates token via `GET /api/v1/auth/me` with `Authorization: Bearer <token>` header.
+   - If token valid: Sets `Authenticated` state and stores user profile.
+   - If token invalid (401 from backend): Clears tokens & user credentials from `localStorage`, sets `Unauthenticated`, and presents `<LoginScreen />`.
+2. **Protected Resource Loading Effect Guard:**
+   - Wrapped `fetchSystemState()` and `syncCustomersWithBackend()` inside `useEffect([currentUser, checkingAuth])` so protected APIs are **NEVER called while unauthenticated or while checking auth**.
+3. **Data Source Authority:**
+   - Verified PostgreSQL Database (via backend API) as single source of truth; `localStorage` strictly operates as an optional offline client cache.
