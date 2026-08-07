@@ -61,6 +61,8 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
           © 2026 SMRITIBooks.com. All Rights Reserved. | <span className="text-slate-300 font-semibold">Chief Systems Architect: Jawahar Ramkripal Mallah</span>
         </div>
         <div className="flex items-center space-x-4">
+          <span className="hidden md:inline text-slate-500 italic text-[10px]">"One Workspace. Infinite Business Scenarios."</span>
+          <span>•</span>
           <a href="#privacy" className="hover:text-slate-200 transition">Privacy Policy</a>
           <span>•</span>
           <a href="#terms" className="hover:text-slate-200 transition">Terms of Service</a>

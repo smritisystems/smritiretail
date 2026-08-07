@@ -291,6 +291,7 @@ export const AdaptiveWorkspaceLayout: React.FC<AdaptiveWorkspaceLayoutProps> = (
         </div>
 
         <div className="flex items-center space-x-3">
+          <span className="hidden md:inline text-theme-muted/70 italic text-[10px]">"One Workspace. Infinite Business Scenarios." — SMRITI adapts to the business</span>
           {StatusBarComponent}
           {statusBarExtensions.map((ext) => (
             <ext.component key={ext.id} />
