@@ -21,10 +21,12 @@ class NavigationRegistryImpl implements INavigationRegistry {
     const defaults: NavigationMetadataEntry[] = [
       // Sales & POS Domain
       { id: "launchpad", domain: "sales", module: "home", label: "SMRITI Launchpad", icon: "grid_view", route: "/", permission: "read:launchpad", priority: 1, workspace: "launchpad" },
-      { id: "pos", domain: "sales", module: "pos", label: "Point of Sale (POS)", icon: "point_of_sale", route: "/pos", permission: "read:pos", priority: 2, workspace: "pos" },
-      { id: "sales", domain: "sales", module: "sales-studio", label: "Sales Studio", icon: "receipt_long", route: "/sales", permission: "read:sales", priority: 3, workspace: "sales" },
-      { id: "billing", domain: "sales", module: "billing-studio", label: "Sales Billing Studio", icon: "receipt", route: "/billing", permission: "read:billing", priority: 4, workspace: "billing" },
-      { id: "crm", domain: "sales", module: "crm-studio", label: "CRM Studio & Customers", icon: "group", route: "/crm", permission: "read:crm", priority: 5, workspace: "crm" },
+      { id: "billing", domain: "sales", module: "billing", label: "Billing ⭐", icon: "credit_card", route: "/sales/billing", permission: "read:billing", priority: 2, workspace: "billing" },
+      { id: "sales-invoices", domain: "sales", module: "sales-invoices", label: "Invoices", icon: "receipt_long", route: "/sales/invoices", permission: "read:sales", priority: 3, workspace: "sales-invoices" },
+      { id: "sales-returns", domain: "sales", module: "sales-returns", label: "Returns", icon: "settings_backup_restore", route: "/sales/returns", permission: "read:sales-returns", priority: 4, workspace: "sales-returns" },
+      { id: "sales-orders", domain: "sales", module: "sales-orders", label: "Orders", icon: "clipboard_list", route: "/sales/orders", permission: "read:sales-orders", priority: 5, workspace: "sales-orders" },
+      { id: "sales-quotations", domain: "sales", module: "sales-quotations", label: "Quotations", icon: "description", route: "/sales/quotations", permission: "read:sales-quotations", priority: 6, workspace: "sales-quotations" },
+      { id: "sales-reports", domain: "sales", module: "sales-reports", label: "Reports", icon: "bar_chart", route: "/sales/reports", permission: "read:reports", priority: 7, workspace: "sales-reports" },
       
       // Inventory Domain
       { id: "item-master", domain: "inventory", module: "item-master", label: "Item Master Registry", icon: "inventory_2", route: "/item-master", permission: "read:item-master", priority: 1, workspace: "item-master" },

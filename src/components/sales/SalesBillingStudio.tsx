@@ -217,6 +217,50 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
     },
   ]);
 
+  // IPS-002 Hotkey Listener Standard (F2 to F12)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F2") {
+        e.preventDefault();
+        setIsScannerModalOpen(true);
+      } else if (e.key === "F4") {
+        e.preventDefault();
+        setItems((prev) => {
+          if (prev.length === 0) return prev;
+          showToast("Removed last line item", "success");
+          return prev.slice(0, -1);
+        });
+      } else if (e.key === "F6") {
+        e.preventDefault();
+        setIsDiscountModalOpen(true);
+      } else if (e.key === "F7") {
+        e.preventDefault();
+        if (items.length === 0) {
+          showToast("Cannot checkout an empty invoice grid.", "error");
+          return;
+        }
+        setPaymentMode("CASH");
+        setIsPaymentModalOpen(true);
+      } else if (e.key === "F8") {
+        e.preventDefault();
+        if (items.length === 0) {
+          showToast("Cannot checkout an empty invoice grid.", "error");
+          return;
+        }
+        setIsPaymentModalOpen(true);
+      } else if (e.key === "F11") {
+        e.preventDefault();
+        const scanElem = document.querySelector<HTMLInputElement>("input[placeholder*='Scan Barcode']");
+        if (scanElem) scanElem.focus();
+      } else if (e.key === "F12") {
+        e.preventDefault();
+        handleHoldBill();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [items]);
+
   // Staff & Department Master State (reusing Staff from src/types.ts)
   const [staffList, setStaffList] = useState<Partial<Staff>[]>([
     { id: "s1", employeeId: "EMP101", name: "Rahul Sharma", department: "Apparel", designation: "Sales Executive", branch: "Andheri West, Mumbai" },
