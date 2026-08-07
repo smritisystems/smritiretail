@@ -637,9 +637,21 @@ const AppContent: React.FC = () => {
 
   // Fetch initial system state
   const fetchSystemState = async () => {
+    const token = typeof localStorage !== 'undefined'
+      ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
+      : null;
+
+    const isDemo = !token || token === "demo_access_token_jwt" || token === "token_demo";
+
+    // In demo/offline mode, bypass backend network queries silently
+    if (isDemo) {
+      setFields([]);
+      setFormulas([]);
+      setPsvParties([]);
+      return;
+    }
+
     try {
-      // Migrated: /pos/registers/ â†’ /pos/profiles/ (returns camelCase POSProfileResponse)
-      // Migrated: /pos/shifts/ (FastAPI list endpoint â€” v3.22.0, replaces broken Express stub)
       const [profData, shiftsData] = await Promise.all([
         apiFetchV1("/pos/profiles/").catch(() => []),
         apiFetchV1("/pos/shifts/").catch(() => []),
@@ -648,21 +660,19 @@ const AppContent: React.FC = () => {
       if (Array.isArray(profData)) setProfiles(profData);
       if (Array.isArray(shiftsData)) setShifts(shiftsData);
 
-      // Legacy Express placeholder routes are currently not implemented on the backend.
-      // Avoid calling them here so the page does not produce auth/501 errors during startup.
       setFields([]);
       setFormulas([]);
       setPsvParties([]);
 
       // Fetch products from FastAPI backend
-      try {
-        const prodData = await apiFetchV1("/inventory/");
+      const prodData = await apiFetchV1("/inventory/").catch(() => null);
+      if (Array.isArray(prodData) && prodData.length > 0) {
         const mappedProducts = prodData.map((p: any) => ({
           id: p.id,
           code: p.code,
           name: p.name,
-          price: parseFloat(p.price),
-          stock: p.stock,
+          price: parseFloat(p.price) || 0,
+          stock: p.stock || 0,
           category: p.category,
           isFavorite: p.is_favorite,
           barcode: p.barcode,
@@ -687,20 +697,14 @@ const AppContent: React.FC = () => {
           weightGrams: p.weight_grams ? parseFloat(p.weight_grams) : 0
         }));
         setProducts(mappedProducts);
-      } catch (err) {
-        console.error("Failed to load products from FastAPI:", err);
       }
 
-      try {
-        const psvData = await apiFetchV1("/psv/parties");
-        if (Array.isArray(psvData)) {
-          setPsvParties(psvData);
-        }
-      } catch (err) {
-        console.error("Failed to load PSV parties from FastAPI:", err);
+      const psvData = await apiFetchV1("/psv/parties").catch(() => null);
+      if (Array.isArray(psvData)) {
+        setPsvParties(psvData);
       }
-    } catch (error) {
-      console.error("Critical error syncing system data:", error);
+    } catch (e) {
+      console.warn("[SMRITI Bootstrap] Offline system sync note:", e);
     }
   };
 
