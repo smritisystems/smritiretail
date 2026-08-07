@@ -11,6 +11,7 @@
 import React, { useEffect, useState } from "react";
 import { ShieldCheck, Database, FlaskConical, Code2, AlertTriangle } from "lucide-react";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { OfflineSessionBadge } from "./OfflineSessionBadge.tsx";
 
 export type EnvironmentType = "PRODUCTION" | "DEMO" | "TRAINING" | "TEST" | "DEVELOPMENT" | string;
 
@@ -95,19 +96,22 @@ export const EnvironmentBadge: React.FC<EnvironmentBadgeProps> = ({ className = 
   const Icon = style.icon;
 
   return (
-    <div
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-semibold select-none transition-all ${className}`}
-      style={{
-        background: style.bg,
-        color: style.color,
-        borderColor: style.borderColor
-      }}
-      title={`Database: ${dbName} (${style.label})`}
-    >
-      <span className="w-2 h-2 rounded-full shrink-0 animate-pulse" style={{ background: style.badgeDot }} />
-      <Icon size={13} className="shrink-0" />
-      <span>{style.label}</span>
-      {showDetails && <span className="opacity-70 text-[10px]">({dbName})</span>}
+    <div className="inline-flex items-center gap-2">
+      <OfflineSessionBadge />
+      <div
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-semibold select-none transition-all ${className}`}
+        style={{
+          background: style.bg,
+          color: style.color,
+          borderColor: style.borderColor
+        }}
+        title={`Database: ${dbName} (${style.label})`}
+      >
+        <span className="w-2 h-2 rounded-full shrink-0 animate-pulse" style={{ background: style.badgeDot }} />
+        <Icon size={13} className="shrink-0" />
+        <span>{style.label}</span>
+        {showDetails && <span className="opacity-70 text-[10px]">({dbName})</span>}
+      </div>
     </div>
   );
 };
