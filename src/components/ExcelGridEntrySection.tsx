@@ -23,6 +23,8 @@ import { AttributeGroup, AttributeDefinition, Product } from "../types.js";
 import { useSAEFExperience, IndustryPackType } from "../layout_engine/saef_experience_store.ts";
 import { ExpandedCellEditor, ExpandContextMenu } from "./ExpandedCellEditor";
 import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
+import { SPK } from "../kernel/SPK.js";
+import { IItemService } from "../kernel/public/IItemService.js";
 
 interface ExcelGridEntrySectionProps {
   products?: Product[];
@@ -964,10 +966,8 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
         };
 
         try {
-          await apiFetchV1("/inventory/", {
-            method: "POST",
-            body: JSON.stringify(payload),
-          });
+          const itemService = SPK.services.resolve<IItemService>("ITEM");
+          await itemService.save(payload);
           successCount++;
         } catch (err: any) {
           const errMsg = err.message || "Save failed";
