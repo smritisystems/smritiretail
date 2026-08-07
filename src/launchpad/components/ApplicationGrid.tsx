@@ -1,13 +1,13 @@
 /**
  * Project      : SMRITI Retail OS
- * Module       : Zone E â€” Application Grid Component (WNG-002 & Rule AI-001 Compliant)
+ * Module       : Zone E — Application Grid Component (WNG-002 & Rule AI-001 Compliant)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
- * Version      : 5.4.0
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Version      : 6.0.0
  */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   ShoppingCart,
@@ -26,7 +26,17 @@ import {
   Settings,
   Grid,
   ChevronRight,
-  Sparkles
+  Truck,
+  Network,
+  ShoppingBag,
+  Building,
+  Building2,
+  Gift,
+  Layers,
+  BarChart3,
+  FileCheck,
+  Lock,
+  Monitor
 } from "lucide-react";
 import { ModuleRegistry } from "../registry/ModuleRegistry.ts";
 import { CapabilityRegistry } from "../registry/CapabilityRegistry.ts";
@@ -53,7 +63,18 @@ const ICON_MAP: Record<string, React.ElementType> = {
   ShieldCheck,
   Bot,
   Brain,
-  Settings
+  Settings,
+  Truck,
+  Network,
+  ShoppingBag,
+  Building,
+  Building2,
+  Gift,
+  Layers,
+  BarChart3,
+  FileCheck,
+  Lock,
+  Monitor
 };
 
 export const ApplicationGrid: React.FC<ApplicationGridProps> = ({
@@ -67,11 +88,12 @@ export const ApplicationGrid: React.FC<ApplicationGridProps> = ({
 
   const allManifests = ModuleRegistry.getAll();
 
-  // WNG-002 & Rule AI-001 RBAC Filtering (Max 12 tiles cap, zero disabled tiles)
+  // WNG-002 & Rule AI-001 RBAC Filtering across all categories
   const authorizedTiles = useMemo(() => {
     const isAdmin =
       currentUser?.role?.toLowerCase().includes("admin") ||
-      currentUser?.role?.toLowerCase().includes("manager");
+      currentUser?.role?.toLowerCase().includes("manager") ||
+      currentUser?.role?.toLowerCase().includes("sysadmin");
 
     const filtered = allManifests.filter((tile) => {
       // Rule AI-001: Filter out AI features if AI advisory is disabled
@@ -82,7 +104,7 @@ export const ApplicationGrid: React.FC<ApplicationGridProps> = ({
       return userPermissions.includes(tile.permissionScope);
     });
 
-    return filtered.slice(0, 12);
+    return filtered;
   }, [currentUser, userPermissions, allManifests, isAiEnabled]);
 
   // Search & Category Filtering
@@ -139,7 +161,7 @@ export const ApplicationGrid: React.FC<ApplicationGridProps> = ({
         </div>
 
         <div className="text-[11px] font-mono text-theme-muted px-2 hidden sm:block">
-          Governance WNG-002 Certified (Max 12 Active Apps)
+          Governance WNG-002 Certified ({authorizedTiles.length} Active Apps)
         </div>
       </div>
 
