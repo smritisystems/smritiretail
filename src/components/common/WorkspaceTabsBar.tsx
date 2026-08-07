@@ -70,11 +70,13 @@ export const WorkspaceTabsBar: React.FC = () => {
     return <Layout size={13} className="text-theme-muted" />;
   };
 
-  if (openWorkspaces.length === 0) return null;
+  const visibleWorkspaces = openWorkspaces.filter((ws) => ws.workspaceId !== "launchpad");
+
+  if (visibleWorkspaces.length === 0 || activeId === "launchpad") return null;
 
   return (
     <div className="flex items-center bg-theme-surface-2 border-b border-theme-divider px-4 pt-1.5 gap-1.5 overflow-x-auto select-none font-sans text-xs shadow-xs">
-      {openWorkspaces.map((ws) => {
+      {visibleWorkspaces.map((ws) => {
         const isActive = ws.workspaceId === activeId;
         const isPinned = ws.cachePolicy === "Pinned";
         const cleanTitle = formatTitle(ws.title);

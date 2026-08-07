@@ -12,29 +12,31 @@ export class MockAuthProvider implements IAuthProvider {
   public providerName = "SMRITI Enterprise Internal Auth";
 
   public async authenticate(credentials: { username: string; password?: string }): Promise<AuthenticationResult> {
-    const { username, password } = credentials;
+    const { username } = credentials;
 
-    if (!username.trim() || !password?.trim()) {
-      return { success: false, errorMessage: "Username and password are required." };
+    if (!username || !username.trim()) {
+      return { success: false, errorMessage: "Username is required." };
     }
+
+    const cleanUsername = username.trim().toLowerCase();
 
     let role = "SYSADMIN";
     let name = username.charAt(0).toUpperCase() + username.slice(1);
 
-    if (username === "super") {
+    if (cleanUsername === "super" || cleanUsername === "admin") {
       role = "SYSADMIN";
-      name = "Super Admin";
-    } else if (username === "manager") {
+      name = cleanUsername === "super" ? "Super Admin" : "System Administrator";
+    } else if (cleanUsername === "manager") {
       role = "MANAGER";
       name = "Store Manager";
-    } else if (username === "cashier") {
+    } else if (cleanUsername === "cashier") {
       role = "CASHIER";
       name = "POS Cashier";
     }
 
     const user: User = {
-      id: `usr_${username}`,
-      username,
+      id: `usr_${cleanUsername}`,
+      username: cleanUsername,
       name,
       role,
       lastLoginAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),

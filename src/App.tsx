@@ -32,7 +32,7 @@ import {
   useLayoutEngine,
 } from "./layout_engine/layout_store.tsx";
 import { LayoutManager } from "./layout_engine/layout_manager.tsx";
-import { LockScreen, LogoutDialog, SessionExpiredDialog, authStore } from "./features/auth";
+import { LockScreen, LogoutDialog, SessionExpiredDialog, authStore, authEvents } from "./features/auth";
 
 // Import tabs components
 import { DashboardTab } from "./components/DashboardTab.tsx";
@@ -390,6 +390,14 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     checkAuth();
+    const unsub = authEvents.subscribe((event) => {
+      if (event.eventType === "UserLoggedOut") {
+        setCurrentUser(null);
+      }
+    });
+    return () => {
+      unsub();
+    };
   }, []);
 
   const handleLoginSuccess = (user: { role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string }) => {
