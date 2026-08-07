@@ -15,6 +15,7 @@ import { PytestAdapter } from "./PytestAdapter.ts";
 import { NavigationAdapter } from "./NavigationAdapter.ts";
 import { RouteAdapter } from "./RouteAdapter.ts";
 import { PermissionAdapter } from "./PermissionAdapter.ts";
+import { DuplicateCapabilityAdapter } from "./DuplicateCapabilityAdapter.ts";
 
 export class AdapterRegistry {
   private adapters: Map<string, IAdapter> = new Map();
@@ -28,6 +29,7 @@ export class AdapterRegistry {
     this.register(new NavigationAdapter());
     this.register(new RouteAdapter());
     this.register(new PermissionAdapter());
+    this.register(new DuplicateCapabilityAdapter());
   }
 
   public register(adapter: IAdapter): void {
