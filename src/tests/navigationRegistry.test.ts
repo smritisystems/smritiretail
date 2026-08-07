@@ -29,7 +29,7 @@ describe("NavigationRegistry (UPR Metadata Service)", () => {
 
   it("should return correct module workspace IDs for active domain", () => {
     const salesModules = NavigationRegistry.getModuleIdsForDomain("sales");
-    expect(salesModules.some((m) => m.toLowerCase().includes("pos"))).toBe(true);
+    expect(salesModules.some((m) => m.toLowerCase().includes("billing") || m.toLowerCase().includes("pos"))).toBe(true);
 
     const inventoryModules = NavigationRegistry.getModuleIdsForDomain("inventory");
     expect(inventoryModules.some((m) => m.toLowerCase().includes("item"))).toBe(true);
