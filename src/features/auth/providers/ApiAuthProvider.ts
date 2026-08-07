@@ -63,6 +63,13 @@ export class ApiAuthProvider implements IAuthProvider {
           refreshToken: `smriti_rf_${Date.now()}`,
         };
       }
+
+      if (data && (data.error || data.detail)) {
+        return {
+          success: false,
+          errorMessage: data.detail || data.error || "Invalid username or password. Please check your credentials."
+        };
+      }
     } catch {
       // Fallback to local authenticated provider
       return this.fallbackMock.authenticate(credentials);
