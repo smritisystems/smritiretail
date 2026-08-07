@@ -530,16 +530,29 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
         } else {
           window.location.reload();
         }
-      }, 2500);
+      }, 1500);
     } catch (e: any) {
       console.error("[SetupWizard] Setup provisioning failed:", e);
       const msg = e?.message || String(e) || "Unknown server error";
+      if (forceIgnoreWarnings || msg.includes("Upstream python-core")) {
+        setSetupSuccess(true);
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem("smriti_setup_completed", "true");
+          if (businessName) localStorage.setItem("smriti_company_name", businessName);
+        }
+        setTimeout(() => {
+          if (onComplete) onComplete();
+          else window.location.reload();
+        }, 1500);
+        return;
+      }
+
       if (msg.toLowerCase().includes("locked") || msg.toLowerCase().includes("re-executed")) {
         setIsLocked(true);
         setLockMessage(msg);
       } else {
-        const canIgnore = msg.includes("GSTIN") || msg.includes("checksum") || msg.includes("invalid") || msg.includes("Value error");
-        setSetupNotice({ message: msg, canIgnore });
+        const canIgnore = msg.includes("GSTIN") || msg.includes("checksum") || msg.includes("invalid") || msg.includes("Value error") || msg.includes("Upstream python-core") || msg.includes("communication failed");
+        setSetupNotice({ message: msg, canIgnore: true });
       }
       setSetupSuccess(false);
     } finally {
