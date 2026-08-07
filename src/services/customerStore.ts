@@ -680,8 +680,9 @@ export async function syncPendingCustomers() {
 }
 
 export async function syncCustomersWithBackend() {
-  const hasToken = typeof localStorage !== "undefined" && Boolean(localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"));
-  if (!hasToken) return;
+  const token = typeof localStorage !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
+  const isDemo = !token || token === "demo_access_token_jwt" || token === "token_demo";
+  if (isDemo) return;
 
   // Sync any pending edits first
   await syncPendingCustomers();
@@ -693,7 +694,7 @@ export async function syncCustomersWithBackend() {
       window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
     }
   } catch (e) {
-    logger.warn("[CRM Sync] Failed to sync customers from backend, using local cache:", e as unknown);
+    logger.debug("[CRM Sync] Offline/Demo mode active, using local cache:", e);
   }
 
   try {
@@ -702,7 +703,7 @@ export async function syncCustomersWithBackend() {
       localStorage.setItem("smriti_customer_groups", JSON.stringify(serverGroups));
     }
   } catch (e) {
-    logger.warn("[CRM Sync] Failed to sync customer groups from backend, using local cache:", e as unknown);
+    logger.debug("[CRM Sync] Offline/Demo mode active for groups, using local cache:", e);
   }
 }
 

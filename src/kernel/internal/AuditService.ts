@@ -77,18 +77,21 @@ export class AuditService implements IAuditService {
       const savedResponse = await apiFetchV1("/audit/logs/", {
         method: "POST",
         body: JSON.stringify(record)
-      });
+      }).catch(() => null);
 
-      const normalized = this.normalizeBackendLog(savedResponse || record);
-      this.upsertLocalCache(normalized);
-      SPK.events.emit("AuditLogged", normalized.id, normalized);
-      return normalized;
-    } catch (err) {
-      logger.warn("[AuditService] Backend audit save warning, caching locally.", err as unknown);
-      this.upsertLocalCache(record);
-      SPK.events.emit("AuditLogged", record.id, record);
-      return record;
+      if (savedResponse) {
+        const normalized = this.normalizeBackendLog(savedResponse);
+        this.upsertLocalCache(normalized);
+        SPK.events.emit("AuditLogged", normalized.id, normalized);
+        return normalized;
+      }
+    } catch {
+      // Quiet offline fallback
     }
+
+    this.upsertLocalCache(record);
+    SPK.events.emit("AuditLogged", record.id, record);
+    return record;
   }
 
   private upsertLocalCache(log: AuditLogRecord): void {

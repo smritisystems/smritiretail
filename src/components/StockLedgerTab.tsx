@@ -190,7 +190,8 @@ export const StockLedgerTab: React.FC<StockLedgerTabProps> = ({ currentUser }) =
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Failed to load stock movements:", err);
+        console.warn("[StockLedger] Stock movements API offline, using local mode:", err);
+        setEntries([]);
         setLoading(false);
       });
   };

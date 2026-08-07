@@ -641,8 +641,8 @@ const AppContent: React.FC = () => {
       // Migrated: /pos/registers/ â†’ /pos/profiles/ (returns camelCase POSProfileResponse)
       // Migrated: /pos/shifts/ (FastAPI list endpoint â€” v3.22.0, replaces broken Express stub)
       const [profData, shiftsData] = await Promise.all([
-        apiFetchV1("/pos/profiles/"),
-        apiFetchV1("/pos/shifts/").catch(() => []),  // graceful fallback if no shifts yet
+        apiFetchV1("/pos/profiles/").catch(() => []),
+        apiFetchV1("/pos/shifts/").catch(() => []),
       ]);
 
       if (Array.isArray(profData)) setProfiles(profData);
