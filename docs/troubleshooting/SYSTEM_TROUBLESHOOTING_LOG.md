@@ -129,7 +129,10 @@ GET http://localhost:3000/api/v1/psv/parties 401 (Unauthorized)
    - If real token exists: Validates token via `GET /api/v1/auth/me` with `Authorization: Bearer <token>` header.
    - If token valid: Sets `Authenticated` state and stores user profile.
    - If token invalid (401 from backend): Clears tokens & user credentials from `localStorage`, sets `Unauthenticated`, and presents `<LoginScreen />`.
-2. **Protected Resource Loading Effect Guard:**
-   - Wrapped `fetchSystemState()` and `syncCustomersWithBackend()` inside `useEffect([currentUser, checkingAuth])` so protected APIs are **NEVER called while unauthenticated or while checking auth**.
-3. **Data Source Authority:**
+2. **Centralized Authentication Guard (`apiFetchV1.ts` & `apiFetch.ts`):**
+   - Intercepts all outgoing protected API requests at entry point (`apiFetchV1` and `apiFetch`).
+   - If no session token is present or if running in local standalone mock mode (`isLocalMockToken`), requests to protected endpoints (`/customers`, `/inventory/`, `/pos/profiles/`, `/pos/shifts/`, etc.) return mock fallback data silently **without initiating network requests** to backend port 3000.
+3. **Unauthenticated View Unmounting (`AuthProvider` Pattern):**
+   - `ProtectedAppShell` and child components are strictly unmounted when `!currentUser` or `authState !== "Authenticated"`, ensuring no subcomponent `useEffect` hooks fire during unauthenticated state.
+4. **Data Source Authority:**
    - Verified PostgreSQL Database (via backend API) as single source of truth; `localStorage` strictly operates as an optional offline client cache.

@@ -19,8 +19,16 @@ export { apiFetchV1 } from "./apiFetchV1.js";
  * Universal client fetch helper for Express API (/api/*)
  */
 export async function apiFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
-  const jwtToken = localStorage.getItem("smriti_jwt_token");
-  const sessionToken = localStorage.getItem("smriti_session_token");
+  const jwtToken = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_jwt_token") : null;
+  const sessionToken = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_session_token") : null;
+  const token = jwtToken || sessionToken;
+
+  const isAuthCheckEndpoint = endpoint.includes("/auth/login") || endpoint.includes("/auth/token") || endpoint.includes("/auth/me");
+  const isMock = !token || token.startsWith("smriti_jwt_") || token.startsWith("demo_") || token === "token_demo" || token === "dev-bypass-token";
+
+  if (!isAuthCheckEndpoint && isMock) {
+    return [];
+  }
 
   const headers = new Headers(options.headers || {});
   if (jwtToken) {

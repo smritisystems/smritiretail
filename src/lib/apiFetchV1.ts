@@ -11,6 +11,18 @@
  * License      : Proprietary Commercial Software
  */
 
+export const isLocalMockToken = (t: string | null): boolean => {
+  if (!t) return true;
+  return (
+    t.startsWith("smriti_jwt_") ||
+    t.startsWith("demo_") ||
+    t.startsWith("smriti_rf_") ||
+    t === "token_demo" ||
+    t === "dev-bypass-token" ||
+    t === "mock-jwt-provider"
+  );
+};
+
 /**
  * Universal client fetch helper for FastAPI Core API (/api/v1/*)
  */
@@ -18,7 +30,18 @@ export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit
   const token = typeof localStorage !== 'undefined'
     ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
     : null;
-  
+
+  let path = endpoint.startsWith("/") ? endpoint : "/" + endpoint;
+  const isAuthCheckEndpoint = path.includes("/auth/me") || path.includes("/auth/login") || path.includes("/auth/token");
+
+  // Centralized Authentication Guard (P0 Security Compliance):
+  // Prevent all unauthenticated or local mock session network requests to protected API endpoints.
+  if (!isAuthCheckEndpoint) {
+    if (!token || isLocalMockToken(token)) {
+      return [] as unknown as T;
+    }
+  }
+
   const headers = new Headers(options.headers || {});
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
@@ -36,7 +59,6 @@ export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit
     headers.set("traceparent", `00-${traceId}-${spanId}-01`);
   }
 
-  let path = endpoint.startsWith("/") ? endpoint : "/" + endpoint;
   if (!path.startsWith("/api/v1") && !path.startsWith("http://") && !path.startsWith("https://")) {
     path = `/api/v1${path}`;
   }
