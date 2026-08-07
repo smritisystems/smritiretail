@@ -27,6 +27,7 @@ from . import (
     crm,
     dev_tracker,
     docs,
+    environment_router,
     exchange,
     inventory,
     inventory_state,
