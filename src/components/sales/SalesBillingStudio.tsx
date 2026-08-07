@@ -611,6 +611,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
             onClick={() => WindowManager.openTabStandalone("sales", "SMRITI Sales Billing Studio")}
             className="p-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-muted rounded-md cursor-pointer"
             title="Pop-out Standalone Window (SWMF)"
+            aria-label="Pop-out Standalone Window (SWMF)"
           >
             <ExternalLink className="w-3.5 h-3.5 text-indigo-600" />
           </button>
@@ -997,6 +998,8 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                       <button
                         onClick={() => removeItem(item.id)}
                         className="p-0.5 text-theme-muted hover:text-red-500 rounded cursor-pointer"
+                        aria-label={`Remove ${item.name || "item"}`}
+                        title={`Remove ${item.name || "item"}`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1142,7 +1145,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                 <Scan className="w-3.5 h-3.5 text-blue-600" />
                 <span>Scan Barcode / Search Item (F2)</span>
               </h3>
-              <button onClick={() => setIsScannerModalOpen(false)} className="text-theme-muted hover:text-theme-muted">
+              <button onClick={() => setIsScannerModalOpen(false)} className="text-theme-muted hover:text-theme-muted" aria-label="Close scanner dialog">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1178,7 +1181,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                 <PlayCircle className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Recall Held Bills (F7)</span>
               </h3>
-              <button onClick={() => setIsRecallModalOpen(false)} className="text-theme-muted hover:text-theme-muted">
+              <button onClick={() => setIsRecallModalOpen(false)} className="text-theme-muted hover:text-theme-muted" aria-label="Close held bills dialog">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1220,7 +1223,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                   <p className="text-xs text-theme-muted">Invoice #{invoiceNo}</p>
                 </div>
               </div>
-              <button onClick={() => setIsPaymentModalOpen(false)} className="text-theme-muted hover:text-theme-muted">
+              <button onClick={() => setIsPaymentModalOpen(false)} className="text-theme-muted hover:text-theme-muted" aria-label="Close payment dialog">
                 <X className="w-5 h-5" />
               </button>
             </div>

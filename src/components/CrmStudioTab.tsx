@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS v6.5
  * Module       : Enterprise CRM Studio & Sales Lifecycle Platform
  *                Leads Â· Opportunity Kanban Â· Field Visits Â· Campaigns Â· AI Nudges
@@ -58,6 +58,15 @@ export interface FieldVisitRecord {
 export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotification }) => {
   const isReadOnly = currentUser?.role === "Report User";
 
+  // Safe Notification Dispatcher (Guards against missing onNotification prop drops)
+  const notify = (title: string, message: string, type: "success" | "error" = "success") => {
+    if (onNotification) {
+      onNotification(title, message, type);
+    } else {
+      console.log(`[CRM Notification - ${type.toUpperCase()}]: ${title} - ${message}`);
+    }
+  };
+
   /* â”€â”€ Sub Tab Selector â”€â”€ */
   const [activeSubTab, setActiveSubTab] = useState<
     "dashboard" | "leads" | "pipeline" | "visits" | "campaigns"
@@ -95,11 +104,11 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
   /* â”€â”€ Move Lead Stage â”€â”€ */
   const handleUpdateLeadStatus = (leadId: string, nextStatus: LeadRecord["status"]) => {
     if (isReadOnly) {
-      onNotification?.("Access Denied", "Read-only operators cannot update pipeline stages.", "error");
+      notify("Access Denied", "Read-only operators cannot update pipeline stages.", "error");
       return;
     }
     setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, status: nextStatus } : l)));
-    onNotification?.("Stage Updated", `Lead Moved to ${nextStatus}`, "success");
+    notify("Stage Updated", `Lead Moved to ${nextStatus}`, "success");
     recordAuditAction("UPDATE", "crm_leads", leadId, `Updated status to: ${nextStatus}`);
   };
 
@@ -107,7 +116,7 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
   const handleCreateLead = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newLeadName.trim() || !newLeadPhone.trim()) {
-      onNotification?.("Validation Error", "Lead Name and Phone are required.", "error");
+      notify("Validation Error", "Lead Name and Phone are required.", "error");
       return;
     }
 

@@ -316,7 +316,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                 className="w-full pl-9 pr-4 py-2.5 text-sm bg-[var(--sds-color-surface)] border border-[var(--sds-color-border)] rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-[var(--sds-color-primary)]"
               />
             </div>
-            <button type="submit" className="px-4 py-2.5 bg-[var(--sds-color-primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--sds-color-primary-hover)]">
+            <button type="submit" aria-label="Scan barcode or search item" className="px-4 py-2.5 bg-[var(--sds-color-primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--sds-color-primary-hover)]">
               Scan
             </button>
           </form>
@@ -350,10 +350,10 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
               <h2 className="text-sm font-bold">Active Cart ({cart.length} Items)</h2>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => setShowVariantMatrix((visible) => !visible)} className="rounded border border-[var(--sds-color-border)] px-2 py-1 text-[10px] font-bold text-[var(--sds-color-primary)]">
+              <button onClick={() => setShowVariantMatrix((visible) => !visible)} aria-label={showVariantMatrix ? "Switch to cart grid view" : "Switch to color and size pivot view"} className="rounded border border-[var(--sds-color-border)] px-2 py-1 text-[10px] font-bold text-[var(--sds-color-primary)]">
                 {showVariantMatrix ? "Cart Grid" : "Color x Size"}
               </button>
-              <button onClick={() => setCart([])} className="text-xs text-red-600 hover:underline flex items-center gap-1">
+              <button onClick={() => setCart([])} aria-label="Clear all items from active cart" className="text-xs text-red-600 hover:underline flex items-center gap-1">
                 <Trash2 className="w-3.5 h-3.5" /> Clear [ESC]
               </button>
             </div>
