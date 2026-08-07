@@ -370,10 +370,10 @@ export const WorkspaceTaskbar: React.FC = () => {
                     style={isOpen ? { background: "rgba(var(--c-seef-accent-rgb, 10 110 209) / 0.10)", borderColor: "rgba(var(--c-seef-accent-rgb, 10 110 209) / 0.30)", color: "var(--c-seef-accent)" } : {}}
                     title={`Open Pinned ${pw.title}`}
                   >
-                    <span className="material-symbols-outlined text-[15px] shrink-0">
+                    <span className="material-symbols-outlined text-[15px] shrink-0 font-normal">
                       {pw.icon}
                     </span>
-                    <span className="max-w-[70px] truncate">{pw.title}</span>
+                    <span className="max-w-[120px] sm:max-w-[160px] truncate font-sans">{pw.title}</span>
                   </button>
                 );
               })}

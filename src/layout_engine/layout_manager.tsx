@@ -16,6 +16,7 @@ import { NotificationCenter } from "../notifications/NotificationCenter.tsx";
 import { useNotifications } from "../notifications/notification_store.tsx";
 import { SEEFCommandPalette } from "./SEEFCommandPalette.tsx";
 import { LayoutInspectorOverlay } from "./components/LayoutInspectorOverlay.tsx";
+import { SMRITIWorkspaceShell } from "../workspace/index.ts";
 
 interface LayoutManagerProps {
   activeTab: string;
@@ -94,36 +95,8 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
   const isLaunchpad = activeTab === "launchpad";
 
   return (
-    <div className="h-[100dvh] max-h-[100dvh] w-full max-w-[100vw] flex flex-col overflow-hidden bg-theme-base text-theme-body font-sans antialiased select-none relative pb-[env(safe-area-inset-bottom)]">
-      {/* 1. SAP Fiori Slim Header (Only rendered in operational workspaces, not Launchpad) */}
-      {!isLaunchpad && (
-        <AdaptiveWorkspaceHeader
-          currentUser={currentUser}
-          onOpenGlobalSearch={() => setShowSearchPalette(true)}
-          onOpenNotifications={() => setShowNotifications(!showNotifications)}
-          onOpenHelp={() => onTabSelect("live-docs")}
-          onLogout={onLogout}
-        />
-      )}
-
-      {/* Notifications Portal */}
-      <NotificationCenter
-        isOpen={showNotifications}
-        onClose={() => setShowNotifications(false)}
-        onNavigate={onTabSelect}
-      />
-
-      {/* Global Command Search Palette */}
-      <SEEFCommandPalette
-        isOpen={showSearchPalette}
-        onClose={() => setShowSearchPalette(false)}
-        onNavigate={(id) => {
-          onTabSelect(id);
-          setShowSearchPalette(false);
-        }}
-      />
-
-      {/* 2. Main Workspace Body (Sidebar + Content Viewport) */}
+    <SMRITIWorkspaceShell currentUser={currentUser} onLogout={onLogout}>
+      {/* Main Workspace Body (Sidebar + Content Viewport) */}
       <div className="flex-1 min-h-0 min-w-0 flex overflow-hidden relative">
         {/* Context-Aware Collapsible Sidebar (Only rendered in operational workspaces) */}
         {!isLaunchpad && (
@@ -163,6 +136,6 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
         {/* Developer Layout Inspector Overlay */}
         <LayoutInspectorOverlay />
       </div>
-    </div>
+    </SMRITIWorkspaceShell>
   );
 };

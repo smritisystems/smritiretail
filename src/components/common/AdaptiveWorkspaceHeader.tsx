@@ -13,6 +13,7 @@ import React, { useState } from "react";
 import { Search, Bell, HelpCircle, Bot, LogOut, Check, Sparkles, RefreshCw } from "lucide-react";
 import { useSEEF } from "../../layout_engine/SEEFContext.tsx";
 import { SEEFTheme } from "../../layout_engine/SEEFTypes.ts";
+import { UserProfileMenu } from "../../features/auth/components/UserProfileMenu";
 
 interface AdaptiveWorkspaceHeaderProps {
   currentUser?: {
@@ -47,8 +48,8 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
     <header
       className="h-13 border-b px-5 flex items-center justify-between text-xs select-none z-30 shadow-xs transition-colors duration-300 relative"
       style={{
-        background: "var(--c-seef-brand)",
-        borderColor: isLight ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.10)",
+        background: "var(--c-theme-surface-1)",
+        borderColor: "var(--c-theme-divider)",
         color: "var(--c-theme-body)",
       }}
     >
@@ -65,18 +66,19 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
 
         <div className="flex items-center gap-2">
           <span className="font-display font-extrabold text-sm tracking-wide text-theme-heading">SMRITI</span>
-          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-white/10 border border-white/15 text-indigo-300">
+          <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-white/10 border border-white/15 text-indigo-300">
             Enterprise OS
           </span>
         </div>
       </div>
 
       {/* Zone B: Universal Command Search (Ctrl+K) */}
-      <div className="flex-1 max-w-lg mx-6">
+      <div className="flex-1 max-w-lg mx-2 sm:mx-6 flex justify-center sm:justify-start">
+        {/* Desktop Full Search Bar */}
         <button
           type="button"
           onClick={onOpenGlobalSearch}
-          className="w-full flex items-center justify-between rounded-xl px-3.5 py-1.5 transition-all seds-text-small cursor-pointer shadow-xs"
+          className="hidden sm:flex w-full items-center justify-between rounded-xl px-3.5 py-1.5 transition-all seds-text-small cursor-pointer shadow-xs"
           style={{
             background: "var(--c-theme-surface-2)",
             border: `1px solid ${isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.15)"}`,
@@ -90,6 +92,16 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
           <kbd className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-theme-surface-1 border border-theme-divider text-theme-muted shrink-0">
             Ctrl+K
           </kbd>
+        </button>
+
+        {/* Mobile Compact Search Icon Button */}
+        <button
+          type="button"
+          onClick={onOpenGlobalSearch}
+          className="sm:hidden p-2 rounded-lg text-theme-muted hover:text-theme-body hover:bg-white/10 transition-colors"
+          title="Search (Ctrl+K)"
+        >
+          <Search size={16} />
         </button>
       </div>
 
@@ -138,53 +150,15 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
             </div>
           </button>
 
-          {/* User Settings & Theme Dropdown Menu */}
-          {showUserMenu && (
-            <div className="absolute right-0 mt-2 w-56 rounded-xl border border-theme-divider bg-theme-surface-1 shadow-2xl p-2 z-50 text-xs space-y-1 font-sans">
-              <div className="px-3 py-2 border-b border-theme-divider">
-                <div className="font-bold text-theme-heading">{currentUser?.name || "Super Admin"}</div>
-                <div className="text-[10px] text-theme-muted font-mono">{currentUser?.role || "SYSADMIN"}</div>
-              </div>
-
-              <div className="px-3 pt-2 text-[10px] font-mono uppercase text-theme-muted font-bold">Theme Settings</div>
-              <div className="space-y-0.5">
-                {[
-                  { id: "enterprise", label: "Horizon Light (Fiori)" },
-                  { id: "dark", label: "Quartz Dark" },
-                  { id: "corporate", label: "Corporate Navy" },
-                  { id: "high-contrast", label: "High Contrast" },
-                ].map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => {
-                      handleThemeChange(t.id as SEEFTheme);
-                      setShowUserMenu(false);
-                    }}
-                    className={`w-full px-3 py-1.5 rounded-lg text-left flex items-center justify-between text-xs transition-colors ${
-                      activeTheme === t.id ? "bg-theme-surface-2 font-bold text-emerald-400" : "text-theme-body hover:bg-theme-surface-2/60"
-                    }`}
-                  >
-                    <span>{t.label}</span>
-                    {activeTheme === t.id && <Check size={14} className="text-emerald-400" />}
-                  </button>
-                ))}
-              </div>
-
-              <div className="border-t border-theme-divider pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowUserMenu(false);
-                    onLogout?.();
-                  }}
-                  className="w-full px-3 py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/10 transition-colors flex items-center gap-2 font-bold"
-                >
-                  <LogOut size={14} /> Sign Out
-                </button>
-              </div>
-            </div>
-          )}
+          {/* User Profile Menu Component */}
+          <UserProfileMenu
+            isOpen={showUserMenu}
+            onClose={() => setShowUserMenu(false)}
+            onOpenLogoutModal={() => {
+              setShowUserMenu(false);
+              onLogout?.();
+            }}
+          />
         </div>
       </div>
     </header>

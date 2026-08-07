@@ -32,6 +32,7 @@ import {
   useLayoutEngine,
 } from "./layout_engine/layout_store.tsx";
 import { LayoutManager } from "./layout_engine/layout_manager.tsx";
+import { LockScreen, LogoutDialog, SessionExpiredDialog, authStore } from "./features/auth";
 
 // Import tabs components
 import { DashboardTab } from "./components/DashboardTab.tsx";
@@ -400,9 +401,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("smriti_session_token");
-    localStorage.removeItem("smriti_jwt_token");
-    setCurrentUser(null);
+    authStore.setLogoutModalOpen(true);
   };
 
   useEffect(() => {
@@ -1029,7 +1028,7 @@ const AppContent: React.FC = () => {
         </AnimatePresence>
       </div>
 
-      {/* SMRITI Layout Manager Shell */}
+      {/* SMRITI Layout Manager Shell (ADR-UX-003 SWS Compliant) */}
       <LayoutManager 
         activeTab={activeTab} 
         onTabSelect={setActiveWorkspace}
