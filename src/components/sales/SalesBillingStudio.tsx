@@ -50,11 +50,13 @@ import {
 } from "lucide-react";
 import { STRE, TaxContext, WindowManager } from "../../sdk/index.js";
 import { getCustomers, addCustomer, initialCustomerGroups } from "../../services/customerStore.js";
-import { Customer, Product } from "../../types.js";
+import { Customer, Product, Staff } from "../../types.js";
 import { SPK } from "../../kernel/SPK.js";
 import { IItemService } from "../../kernel/public/IItemService.js";
 import { ICustomerService } from "../../kernel/public/ICustomerService.js";
 import { CreateSalesInvoiceCommand } from "../../kernel/commands/CreateSalesInvoiceCommand.js";
+import { apiFetchV1 } from "../../lib/apiFetchV1.js";
+import { ScanBarcodeRow, DEFAULT_SCAN_ROW_CONFIG } from "./ScanBarcodeRow.js";
 
 export interface LineItem {
   id: string;
@@ -66,6 +68,9 @@ export interface LineItem {
   uom: string;
   rate: number;
   discountPct: number;
+  discountAmt?: number;
+  salesmanId?: string;
+  departmentId?: string;
   gstRate?: number;
   color?: string;
   size?: string;
@@ -163,12 +168,6 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
   const [showAddItemsMenu, setShowAddItemsMenu] = useState<boolean>(false);
 
-  // Additional Details
-  const [salesman, setSalesman] = useState<string>("S01 - Rahul Sharma");
-  const [remarks, setRemarks] = useState<string>("");
-  const [billDiscountInput, setBillDiscountInput] = useState<number>(0);
-  const [loyaltyRedeem, setLoyaltyRedeem] = useState<number>(0);
-
   // Line Items State
   const [items, setItems] = useState<LineItem[]>([
     {
@@ -181,6 +180,9 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
       uom: "Pcs",
       rate: 850.0,
       discountPct: 0.0,
+      discountAmt: 0.0,
+      salesmanId: "EMP101",
+      departmentId: "Apparel",
       gstRate: 12,
       color: "Black",
       size: "M",
@@ -195,11 +197,62 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
       uom: "Pair",
       rate: 2450.0,
       discountPct: 5.0,
+      discountAmt: 122.5,
+      salesmanId: "EMP102",
+      departmentId: "Footwear",
       gstRate: 18,
       color: "Brown",
       size: "42",
     },
   ]);
+
+  // Staff & Department Master State (reusing Staff from src/types.ts)
+  const [staffList, setStaffList] = useState<Partial<Staff>[]>([
+    { id: "s1", employeeId: "EMP101", name: "Rahul Sharma", department: "Apparel", designation: "Sales Executive", branch: "Andheri West, Mumbai" },
+    { id: "s2", employeeId: "EMP102", name: "Anjali Verma", department: "Footwear", designation: "Senior Sales Associate", branch: "Andheri West, Mumbai" },
+    { id: "s3", employeeId: "EMP103", name: "Vikram Patel", department: "Electronics", designation: "Department Lead", branch: "Andheri West, Mumbai" },
+    { id: "s4", employeeId: "EMP104", name: "Pooja Roy", department: "Accessories", designation: "Sales Executive", branch: "Andheri West, Mumbai" }
+  ]);
+  const [departmentsList] = useState<string[]>(["Apparel", "Footwear", "Electronics", "Accessories", "General"]);
+  const [defaultSalesmanId, setDefaultSalesmanId] = useState<string>("EMP101");
+  const [defaultDepartmentId, setDefaultDepartmentId] = useState<string>("Apparel");
+
+  useEffect(() => {
+    apiFetchV1("/users/")
+      .then((data: any) => {
+        const users = data?.users ?? data ?? [];
+        if (Array.isArray(users) && users.length > 0) {
+          const loadedStaff: Partial<Staff>[] = users.map((u: any, idx: number) => ({
+            id: u.id || `staff_${idx}`,
+            employeeId: u.employeeId || u.code || `EMP10${idx + 1}`,
+            name: u.fullName || u.name || u.username || "Staff Member",
+            department: u.department || "Sales",
+            designation: u.designation || u.role || "Sales Executive",
+            branch: u.branch || "Main Branch"
+          }));
+          setStaffList(loadedStaff);
+        }
+      })
+      .catch(() => { /* Fallback retained */ });
+  }, []);
+
+  // Computed Primary Salesman derived from line items attribution (Step 3)
+  const primarySalesman = useMemo(() => {
+    if (items.length === 0) return defaultSalesmanId;
+    const salesmanCounts: Record<string, number> = {};
+    for (const item of items) {
+      const sid = item.salesmanId || defaultSalesmanId;
+      salesmanCounts[sid] = (salesmanCounts[sid] || 0) + 1;
+    }
+    const sorted = Object.entries(salesmanCounts).sort((a, b) => b[1] - a[1]);
+    const primaryId = sorted[0]?.[0] || defaultSalesmanId;
+    const foundStaff = staffList.find((s) => s.employeeId === primaryId || s.id === primaryId);
+    return foundStaff ? `${foundStaff.employeeId} - ${foundStaff.name}` : primaryId;
+  }, [items, defaultSalesmanId, staffList]);
+
+  const [remarks, setRemarks] = useState<string>("");
+  const [billDiscountInput, setBillDiscountInput] = useState<number>(0);
+  const [loyaltyRedeem, setLoyaltyRedeem] = useState<number>(0);
 
   // Held Bills State (F6 / F7)
   const [heldBills, setHeldBills] = useState<HeldBill[]>([]);
@@ -593,21 +646,26 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
               <span className="font-bold text-theme-heading text-xs">{docDate}</span>
             </div>
             <div>
-              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Salesman ID</span>
-              <input
-                type="text"
-                value={salesman}
-                onChange={(e) => setSalesman(e.target.value)}
-                className="bg-theme-surface-2 border border-theme-divider rounded px-2 py-0.5 text-xs text-theme-heading font-semibold w-full"
-              />
+              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Primary Salesman (Derived)</span>
+              <span className="font-bold text-indigo-400 text-xs font-mono block truncate" title={primarySalesman}>{primarySalesman}</span>
             </div>
             <div>
               <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Tax Governance</span>
               <span className="font-semibold text-emerald-600 text-xs font-mono">TG-001 (Intrastate)</span>
             </div>
             <div>
-              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Price List</span>
-              <span className="font-semibold text-theme-heading text-xs">Retail MRP</span>
+              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Default Salesman Pre-Fill</span>
+              <select
+                value={defaultSalesmanId}
+                onChange={(e) => setDefaultSalesmanId(e.target.value)}
+                className="bg-theme-surface-2 border border-theme-divider rounded px-1.5 py-0.5 text-xs text-theme-heading font-semibold w-full"
+              >
+                {staffList.map((s) => (
+                  <option key={s.id || s.employeeId} value={s.employeeId || s.id}>
+                    {s.name} ({s.department || "Sales"})
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
@@ -651,7 +709,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
         {/* SUPG Dense Data Table */}
         <div className="overflow-x-auto border border-theme-divider rounded-lg smriti-custom-scroll">
-          <table className="w-full text-left text-xs border-collapse min-w-[850px]">
+          <table className="w-full text-left text-xs border-collapse min-w-[1050px]">
             <thead>
               <tr className="bg-theme-surface-2 border-b border-theme-divider text-[10px] font-extrabold text-theme-muted uppercase tracking-wider">
                 <th className="py-1.5 px-2 w-8 text-center">#</th>
@@ -661,7 +719,10 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                 <th className="py-1.5 px-2">UOM</th>
                 <th className="py-1.5 px-2 text-right">Qty *</th>
                 <th className="py-1.5 px-2 text-right">MRP Rate (INR) *</th>
-                <th className="py-1.5 px-2 text-right">Discount %</th>
+                <th className="py-1.5 px-2 text-right">Disc %</th>
+                <th className="py-1.5 px-2 text-right">Disc ₹</th>
+                <th className="py-1.5 px-2">Salesman / Staff</th>
+                <th className="py-1.5 px-2">Department</th>
                 <th className="py-1.5 px-2 text-right font-extrabold">Line Total (INR) *</th>
                 <th className="py-1.5 px-2 text-center w-8">Action</th>
               </tr>
@@ -669,7 +730,9 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
             <tbody className="divide-y divide-theme-divider font-medium text-[11px]">
               {items.map((item, idx) => {
                 const lineGross = item.qty * item.rate;
-                const lineDisc = (lineGross * item.discountPct) / 100;
+                const lineDisc = item.discountAmt !== undefined && item.discountAmt > 0
+                  ? item.discountAmt
+                  : (lineGross * item.discountPct) / 100;
                 const lineNet = lineGross - lineDisc;
 
                 return (
@@ -703,11 +766,66 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                         onChange={(e) => {
                           const val = parseFloat(e.target.value) || 0;
                           setItems((prev) =>
-                            prev.map((i) => (i.id === item.id ? { ...i, discountPct: val } : i))
+                            prev.map((i) => (i.id === item.id ? { ...i, discountPct: val, discountAmt: (i.qty * i.rate * val) / 100 } : i))
                           );
                         }}
                         className="w-12 bg-theme-surface-2 border border-theme-divider rounded px-1 py-0.5 text-right font-mono text-theme-heading focus:outline-none focus:border-blue-500"
                       />
+                    </td>
+
+                    <td className="py-1 px-2 text-right">
+                      <input
+                        type="number"
+                        min="0"
+                        value={item.discountAmt ?? Math.round((lineGross * item.discountPct) / 100)}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setItems((prev) =>
+                            prev.map((i) => (i.id === item.id ? { ...i, discountAmt: val } : i))
+                          );
+                        }}
+                        className="w-16 bg-theme-surface-2 border border-theme-divider rounded px-1 py-0.5 text-right font-mono text-theme-heading focus:outline-none focus:border-blue-500"
+                      />
+                    </td>
+
+                    {/* Per-Line Salesman Attribution Select */}
+                    <td className="py-1 px-2">
+                      <select
+                        value={item.salesmanId || defaultSalesmanId}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setItems((prev) =>
+                            prev.map((i) => (i.id === item.id ? { ...i, salesmanId: val } : i))
+                          );
+                        }}
+                        className="w-36 bg-theme-surface-2 border border-theme-divider rounded px-1.5 py-0.5 text-[11px] font-semibold text-indigo-400 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                      >
+                        {staffList.map((s) => (
+                          <option key={s.id || s.employeeId} value={s.employeeId || s.id}>
+                            {s.name} ({s.department || "Sales"})
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+
+                    {/* Per-Line Department Attribution Select */}
+                    <td className="py-1 px-2">
+                      <select
+                        value={item.departmentId || defaultDepartmentId}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setItems((prev) =>
+                            prev.map((i) => (i.id === item.id ? { ...i, departmentId: val } : i))
+                          );
+                        }}
+                        className="w-28 bg-theme-surface-2 border border-theme-divider rounded px-1.5 py-0.5 text-[11px] font-semibold text-emerald-400 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                      >
+                        {departmentsList.map((d) => (
+                          <option key={d} value={d}>
+                            {d}
+                          </option>
+                        ))}
+                      </select>
                     </td>
 
                     <td className="py-1 px-2 text-right font-mono font-bold text-theme-heading">
@@ -725,6 +843,35 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
                   </tr>
                 );
               })}
+
+              {/* Step 4: Per-Line Barcode Scan Row with Config-Driven Fields */}
+              <ScanBarcodeRow
+                products={liveProducts}
+                staffList={staffList}
+                departments={departmentsList}
+                defaultSalesmanId={defaultSalesmanId}
+                defaultDepartmentId={defaultDepartmentId}
+                fieldConfig={DEFAULT_SCAN_ROW_CONFIG}
+                onAddLineItem={(scanned) => {
+                  const newItem: LineItem = {
+                    id: `scanned-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                    barcode: scanned.barcode,
+                    name: scanned.product?.name || `Scanned Item (${scanned.barcode})`,
+                    hsnCode: scanned.product?.hsnCode || scanned.product?.hsn_code || "6109",
+                    qty: scanned.qty || 1,
+                    availableStock: scanned.product?.stock || 50,
+                    uom: scanned.product?.unit || "Pcs",
+                    rate: scanned.product?.price || 500,
+                    discountPct: scanned.discountPct || 0,
+                    discountAmt: scanned.discountAmt || 0,
+                    salesmanId: scanned.salesmanId || defaultSalesmanId,
+                    departmentId: scanned.departmentId || defaultDepartmentId,
+                    gstRate: scanned.product?.gstPercentage || 12,
+                  };
+                  setItems((prev) => [...prev, newItem]);
+                }}
+                onNotification={(title, msg, type) => showToast(msg, type === "error" ? "error" : "success")}
+              />
             </tbody>
           </table>
         </div>
