@@ -83,12 +83,11 @@ export const StandardDocumentToolbar: React.FC<StandardDocumentToolbarProps> = (
 
         <button
           onClick={onSearchClick}
-          className="flex items-center space-x-1.5 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider text-theme-body text-xs font-semibold px-3 py-1.5 rounded transition-colors"
-          title="Universal Search (Ctrl+K)"
+          className="flex items-center space-x-1.5 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider text-theme-body text-xs font-semibold px-3 py-1.5 rounded transition-colors cursor-pointer"
+          title="Universal Search"
         >
           <span className="material-symbols-outlined text-sm text-emerald-400">search</span>
           <span>Search</span>
-          <kbd className="bg-theme-base px-1 py-0.5 rounded text-[9px] font-mono text-theme-muted border border-theme-divider">Ctrl+K</kbd>
         </button>
       </div>
 

@@ -89,17 +89,15 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
             <Search size={14} className="shrink-0 text-theme-muted" />
             <span className="truncate text-xs text-theme-muted font-sans">Search products, customers, invoices...</span>
           </div>
-          <kbd className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-theme-surface-1 border border-theme-divider text-theme-muted shrink-0">
-            Ctrl+K
-          </kbd>
         </button>
 
         {/* Mobile Compact Search Icon Button */}
         <button
           type="button"
           onClick={onOpenGlobalSearch}
-          className="sm:hidden p-2 rounded-lg text-theme-muted hover:text-theme-body hover:bg-white/10 transition-colors"
-          title="Search (Ctrl+K)"
+          className="sm:hidden p-2 rounded-lg text-theme-muted hover:text-theme-body hover:bg-white/10 transition-colors cursor-pointer"
+          title="Universal Search"
+          aria-label="Universal Search"
         >
           <Search size={16} />
         </button>

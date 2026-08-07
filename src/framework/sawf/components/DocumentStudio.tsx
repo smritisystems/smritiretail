@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SMRITI Adaptive Workspace Framework (SAWF v1.1)
  * Universal Document Studio Workspace Shell
  */
@@ -186,13 +186,6 @@ export const DocumentStudio: React.FC<DocumentStudioProps> = ({
         onCancel={handleAttemptBack}
         isDirty={isDirty}
         lastAutosavedAt={lastAutosavedAt}
-      />
-
-      {/* COMMAND PALETTE MODAL */}
-      <CommandPalette
-        isOpen={isCommandPaletteOpen}
-        onClose={() => setIsCommandPaletteOpen(false)}
-        commands={allCommands}
       />
 
       {/* UNSAVED CHANGES GUARD MODAL */}

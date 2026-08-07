@@ -7,9 +7,9 @@
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  */
 
-import React, { useState, useEffect } from "react";
-import { Search, X, Command, ArrowRight, Zap } from "lucide-react";
-import { workspaceShellController } from "../controllers/WorkspaceShellController";
+import React, { useState, useEffect, useRef } from "react";
+import { Search, X, Zap, ArrowRight } from "lucide-react";
+import { CommandRegistry } from "../registries/CommandRegistry";
 import { CommandPaletteProviderItem } from "../types/workspace.types";
 
 interface UniversalCommandPaletteProps {
@@ -20,25 +20,31 @@ interface UniversalCommandPaletteProps {
 export const UniversalCommandPalette: React.FC<UniversalCommandPaletteProps> = ({ isOpen, onClose }) => {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setQuery("");
     setSelectedIndex(0);
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleGlobalEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleGlobalEsc, true);
+    return () => window.removeEventListener("keydown", handleGlobalEsc, true);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  const items = workspaceShellController.getCommandItems();
-  const filtered = items.filter((item) => {
-    if (!query.trim()) return true;
-    const q = query.toLowerCase();
-    return (
-      item.title.toLowerCase().includes(q) ||
-      item.category.toLowerCase().includes(q) ||
-      (item.subtitle && item.subtitle.toLowerCase().includes(q)) ||
-      (item.keywords && item.keywords.some((k) => k.toLowerCase().includes(q)))
-    );
-  });
+  const filtered = CommandRegistry.search(query);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -57,15 +63,21 @@ export const UniversalCommandPalette: React.FC<UniversalCommandPaletteProps> = (
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start justify-center pt-20 px-4 animate-in fade-in duration-200">
+    <div
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start justify-center pt-20 px-4 animate-in fade-in duration-200"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Universal Search"
+    >
       <div
         className="w-full max-w-2xl bg-theme-surface-1 border border-theme-divider rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] text-theme-body font-sans"
         onKeyDown={handleKeyDown}
       >
-        {/* Command Search Input Bar */}
+        {/* Universal Search Input Bar */}
         <div className="flex items-center px-4 py-3.5 border-b border-theme-divider gap-3 bg-theme-surface-2/40">
           <Search size={18} className="text-theme-muted shrink-0" />
           <input
+            ref={inputRef}
             type="text"
             autoFocus
             value={query}
@@ -73,13 +85,10 @@ export const UniversalCommandPalette: React.FC<UniversalCommandPaletteProps> = (
               setQuery(e.target.value);
               setSelectedIndex(0);
             }}
-            placeholder="Type a command, module name, or route (e.g. Sales, POS, Items)..."
+            placeholder="Search commands, modules, routes, or items (e.g. Sales, POS)..."
             className="flex-1 bg-transparent text-sm text-theme-heading placeholder:text-theme-muted outline-none border-none"
           />
-          <kbd className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-theme-surface-2 border border-theme-divider text-theme-muted shrink-0">
-            ESC to cancel
-          </kbd>
-          <button onClick={onClose} className="p-1 rounded-lg text-theme-muted hover:text-theme-body cursor-pointer">
+          <button onClick={onClose} title="Close search" className="p-1 rounded-lg text-theme-muted hover:text-theme-body cursor-pointer">
             <X size={16} />
           </button>
         </div>
@@ -137,10 +146,10 @@ export const UniversalCommandPalette: React.FC<UniversalCommandPaletteProps> = (
               <kbd className="px-1.5 py-0.5 rounded bg-theme-surface-2 border border-theme-divider">↓</kbd> Navigate
             </span>
             <span>
-              <kbd className="px-1.5 py-0.5 rounded bg-theme-surface-2 border border-theme-divider">↵</kbd> Execute
+              <kbd className="px-1.5 py-0.5 rounded bg-theme-surface-2 border border-theme-divider">↵</kbd> Select
             </span>
           </div>
-          <div className="font-mono text-[10px]">SMRITI SWS v1.0 Command Engine</div>
+          <div className="font-mono text-[10px]">SMRITI Universal Search Engine</div>
         </div>
       </div>
     </div>

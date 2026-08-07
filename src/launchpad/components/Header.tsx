@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Module       : Zone A â€” Shell Header Component
  * Author       : Jawahar Ramkripal Mallah
@@ -71,11 +71,8 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <span className="flex items-center gap-2">
             <Search className="w-3.5 h-3.5 text-[var(--c-seef-accent)]" />
-            Search (Ctrl+K)...
+            Search...
           </span>
-          <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-theme-surface-1 border border-theme-divider rounded text-theme-muted">
-            Ctrl+K
-          </kbd>
         </div>
 
         <button

@@ -111,7 +111,6 @@ import { SmritiEcosystemHub } from "./components/SmritiEcosystemHub.tsx";
 import { LoginScreen } from "./components/LoginScreen.tsx";
 import { SmritiErrorBoundary } from "./components/SmritiErrorBoundary.tsx";
 import { Launchpad } from "./components/Launchpad.tsx";
-import { SEEFCommandPalette, useSEEFCommandPaletteShortcut } from "./layout_engine/SEEFCommandPalette.tsx";
 import { WorkspaceTabsBar } from "./components/common/WorkspaceTabsBar.tsx";
 import { CommandPaletteModal } from "./components/common/CommandPaletteModal.tsx";
 import { StatutoryComplianceWorkspace } from "./components/compliance/StatutoryComplianceWorkspace.tsx";
@@ -338,10 +337,7 @@ const AppContent: React.FC = () => {
   const { globalZoom, popOutTab } = useWorkspace();
   const { addNotification: addSystemNotification } = useNotifications();
 
-  // SEEF Command Palette (Ctrl+K)
-  const [seefPaletteOpen, setSeefPaletteOpen] = useState(false);
-  useSEEFCommandPaletteShortcut(setSeefPaletteOpen);
-  
+  // User Session & Auth Context
   const [currentUser, setCurrentUser] = useState<{ role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string } | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [terminalParam, setTerminalParam] = useState<string | null>(() => {
@@ -1076,16 +1072,6 @@ const AppContent: React.FC = () => {
           activeTabId={activeTab}
         />
       )}
-
-      {/* SEEF Command Palette â€” Ctrl+K global keyboard launcher */}
-      <SEEFCommandPalette
-        isOpen={seefPaletteOpen}
-        onClose={() => setSeefPaletteOpen(false)}
-        onNavigate={(id) => {
-          addToRecentlyUsed(id);
-          setActiveWorkspace(id);
-        }}
-      />
     </div>
   );
 };

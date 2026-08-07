@@ -311,8 +311,8 @@ export const QuickActionBar: React.FC<QuickActionBarProps> = ({
       <button
         id="quick-action-search"
         onClick={openCommandPalette}
-        aria-label="Search (Ctrl+K)"
-        title="Search (Ctrl+K)"
+        aria-label="Universal Search"
+        title="Universal Search"
         style={{ ...iconBtnStyle, marginLeft: "auto" }}
         onMouseEnter={(e) => {
           (e.currentTarget as HTMLElement).style.background = "var(--sxp-surface-hover, #252D3D)";

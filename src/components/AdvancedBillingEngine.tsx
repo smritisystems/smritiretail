@@ -264,7 +264,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       handleAddToCart(found, 1);
       setScanInput("");
     } else {
-      onNotification("SKU Not Found", `No product matches "${scanInput}". Use Quick Catalog or Search (Ctrl+K).`, "error");
+      onNotification("SKU Not Found", `No product matches "${scanInput}". Use Quick Catalog or Search.`, "error");
     }
   };
 

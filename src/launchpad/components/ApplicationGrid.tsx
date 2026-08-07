@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Module       : Zone E â€” Application Grid Component (WNG-002 & Rule AI-001 Compliant)
  * Author       : Jawahar Ramkripal Mallah
@@ -36,7 +36,7 @@ interface ApplicationGridProps {
   currentUser?: { role: string; name: string } | null;
   userPermissions?: string[];
   onSelectTab: (tabId: string) => void;
-  searchQuery: string;
+  searchQuery?: string;
 }
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -89,6 +89,7 @@ export const ApplicationGrid: React.FC<ApplicationGridProps> = ({
   const displayedTiles = useMemo(() => {
     return authorizedTiles.filter((tile) => {
       const matchesSearch =
+        !searchQuery ||
         tile.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         tile.subtitle.toLowerCase().includes(searchQuery.toLowerCase());
 

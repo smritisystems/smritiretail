@@ -3,7 +3,7 @@
  * Renders mode selector and primary/secondary document actions (Save, Draft, Post, Print, Commands)
  */
 import React from "react";
-import { Save, CheckCircle2, Command, Printer } from "lucide-react";
+import { Save, CheckCircle2, Search, Printer } from "lucide-react";
 import { SAWFExperienceMode } from "../../framework/sawf/types/sawf";
 
 interface WorkspaceFormActionsProps {
@@ -48,11 +48,10 @@ const WorkspaceFormActions: React.FC<WorkspaceFormActionsProps> = ({
           type="button"
           onClick={onOpenCommandPalette}
           className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer"
-          title="Command Palette (Ctrl+K)"
+          title="Universal Search"
         >
-          <Command size={14} className="text-indigo-400" />
-          <span className="hidden sm:inline">Commands</span>
-          <span className="font-mono text-[9px] bg-theme-surface-2 px-1 rounded text-theme-muted">Ctrl+K</span>
+          <Search size={14} className="text-indigo-400" />
+          <span className="hidden sm:inline">Search</span>
         </button>
       )}
 

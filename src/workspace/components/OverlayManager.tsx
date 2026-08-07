@@ -17,8 +17,6 @@ export const OverlayManager: React.FC = () => {
   const { shellState, closeOverlay } = useWorkspaceShell();
   const { activeOverlay } = shellState;
 
-  if (activeOverlay === "none") return null;
-
   return (
     <>
       <UniversalCommandPalette

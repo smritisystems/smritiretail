@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Module       : Digital Business Desktop Composition Shell (Zones A-H Engine)
  * Author       : Jawahar Ramkripal Mallah
@@ -7,16 +7,13 @@
  * Version      : 5.4.0
  */
 
-import React, { useState } from "react";
-import { Header } from "./Header.tsx";
+import React from "react";
 import { BusinessSnapshotEngine } from "./BusinessSnapshotEngine.tsx";
 import { FavoritesBar } from "./FavoritesBar.tsx";
 import { QuickActionsBar } from "./QuickActionsBar.tsx";
 import { ApplicationGrid } from "./ApplicationGrid.tsx";
 import { PluginWidgetEngine } from "./PluginWidgetEngine.tsx";
 import { ActivityAndWorkPanel } from "./ActivityAndWorkPanel.tsx";
-import { StatusBar } from "./StatusBar.tsx";
-import { SearchModal } from "./SearchModal.tsx";
 
 // Ensure default KPI plugins & search providers are loaded
 import "../widgets/SalesKpiWidget.tsx";
@@ -36,23 +33,11 @@ interface LaunchpadShellProps {
 export const LaunchpadShell: React.FC<LaunchpadShellProps> = ({
   currentUser,
   userPermissions,
-  onSelectTab,
-  onOpenNotifications = () => {}
+  onSelectTab
 }) => {
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-
   return (
     <div className="w-full h-full overflow-y-auto bg-theme-base text-theme-body p-6 md:p-8 font-sans selection:bg-[var(--c-seef-accent)] selection:text-white">
       <div className="max-w-7xl mx-auto space-y-6 pb-12">
-        {/* Zone A: Shell Header */}
-        <Header
-          currentUser={currentUser}
-          onOpenSearch={() => setSearchOpen(true)}
-          onOpenNotifications={onOpenNotifications}
-          onSelectTab={onSelectTab}
-        />
-
         {/* Zone B: Business Snapshot KPIs */}
         <BusinessSnapshotEngine currentUser={currentUser} onSelectTab={onSelectTab} />
 
@@ -67,7 +52,6 @@ export const LaunchpadShell: React.FC<LaunchpadShellProps> = ({
           currentUser={currentUser}
           userPermissions={userPermissions}
           onSelectTab={onSelectTab}
-          searchQuery={searchQuery}
         />
 
         {/* Zone F: Extension Plugin Widgets */}
@@ -75,17 +59,7 @@ export const LaunchpadShell: React.FC<LaunchpadShellProps> = ({
 
         {/* Zone G: Activity & Pending Work Panel */}
         <ActivityAndWorkPanel onSelectTab={onSelectTab} />
-
-        {/* Zone H: Status Bar */}
-        <StatusBar />
       </div>
-
-      {/* Universal Search Modal (Ctrl+K) */}
-      <SearchModal
-        isOpen={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        onSelectTab={onSelectTab}
-      />
     </div>
   );
 };

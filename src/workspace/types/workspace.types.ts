@@ -72,6 +72,7 @@ export interface CommandPaletteProviderItem {
   subtitle?: string;
   category: string;
   icon?: string | React.ElementType;
+  shortcut?: string;
   action: () => void;
   keywords?: string[];
 }
