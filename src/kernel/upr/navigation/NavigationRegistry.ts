@@ -65,6 +65,7 @@ export const NAV_IDS = {
   CUSTOMERS: "NAV_CUSTOMERS",
   DASHBOARD: "NAV_DASHBOARD",
   PLATFORM_CONTROL_CENTER: "NAV_PLATFORM_CONTROL_CENTER",
+  INTELLIGENCE_CENTER: "NAV_INTELLIGENCE_CENTER",
 } as const;
 
 export interface WorkspaceCapabilities {
@@ -319,10 +320,11 @@ export class NavigationRegistryService {
         emoji: "🛡️",
         order: 9,
         defaultWorkspaceId: "platform-control-center",
-        moduleIds: ["platform-control-center", "company-management", "launchpad-config", "ai-config", "setup-wizard", "about-smriti"],
+        moduleIds: ["platform-control-center", "intelligence-center", "company-management", "launchpad-config", "ai-config", "setup-wizard", "about-smriti"],
         modules: [
           { id: NAV_IDS.PLATFORM_CONTROL_CENTER, title: "Platform Control Center", icon: "Sliders", targetTab: "platform-control-center", workspaceId: "platform-control-center", route: "/admin/spcc", order: 1, visible: true, owner: "SMRITI", packageId: "smriti.platform.controlcenter", version: "1.0.0", workspaceCapabilities: { search: true, edit: true, dashboard: true, reports: true } },
-          { id: "company-management", title: "Company & Enterprise Structure", icon: "Building2", targetTab: "company-management", workspaceId: "company-management", route: "/admin/company", order: 2, visible: true, owner: "SMRITI", packageId: "smriti.admin.companymanagement", version: "6.0.0", workspaceCapabilities: { search: true, create: true, edit: true, export: true } },
+          { id: NAV_IDS.INTELLIGENCE_CENTER, title: "Intelligence Center", icon: "Cpu", targetTab: "intelligence-center", workspaceId: "intelligence-center", route: "/admin/intelligence-center", order: 2, visible: true, owner: "SMRITI", packageId: "smriti.platform.intelligencecenter", version: "1.0.0", workspaceCapabilities: { search: true, dashboard: true, reports: true } },
+          { id: "company-management", title: "Company & Enterprise Structure", icon: "Building2", targetTab: "company-management", workspaceId: "company-management", route: "/admin/company", order: 3, visible: true, owner: "SMRITI", packageId: "smriti.admin.companymanagement", version: "6.0.0", workspaceCapabilities: { search: true, create: true, edit: true, export: true } },
           { id: "launchpad-config", title: "Launchpad Configuration", icon: "LayoutGrid", targetTab: "launchpad-config", workspaceId: "launchpad-config", route: "/admin/launchpad-config", order: 3, visible: true, owner: "SMRITI", packageId: "smriti.admin.launchpadconfig", version: "6.0.0" },
           { id: "ai-config", title: "AI Engine Configuration", icon: "Bot", targetTab: "ai-config", workspaceId: "ai-config", route: "/admin/ai-config", order: 4, visible: true, owner: "SMRITI", packageId: "smriti.admin.aiconfig", version: "6.0.0" },
           { id: "setup-wizard", title: "Initial Setup Wizard", icon: "Wand2", targetTab: "setup-wizard", workspaceId: "setup-wizard", route: "/admin/setup", order: 5, visible: true, owner: "SMRITI", packageId: "smriti.admin.setup", version: "6.0.0" },
@@ -351,10 +353,20 @@ export class NavigationRegistryService {
   }
 
   public registerDomain(domain: DomainDefinition): void {
-    const payload = Object.freeze({ ...domain, id: domain.id.toLowerCase() });
+    const domainId = domain.id.toLowerCase();
+    const modulesWithPermissions = (domain.modules || []).map((m) => ({
+      ...m,
+      permission: m.permission || `${domainId}.${m.id.toLowerCase()}.view`
+    }));
+
+    const payload = Object.freeze({
+      ...domain,
+      id: domainId,
+      modules: modulesWithPermissions
+    });
+
     this.domains.set(payload.id, payload);
 
-    // Populate O(1) Index Maps for instant lookup
     (payload.moduleIds || []).forEach((mId) => {
       this.workspaceToDomainIndex.set(mId.toLowerCase(), payload.id);
       this.moduleToWorkspaceIndex.set(mId.toLowerCase(), mId);

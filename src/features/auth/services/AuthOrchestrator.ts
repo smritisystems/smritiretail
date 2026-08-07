@@ -8,6 +8,7 @@ import { authStore } from "../store/authStore";
 import { authEvents } from "../events/authEvents";
 import { IAuthProvider } from "../interfaces/IAuthProvider";
 import { ApiAuthProvider } from "../providers/ApiAuthProvider";
+import { SessionService } from "./SessionService";
 import { User, AuthProgressStep } from "../types/auth.types";
 
 export class AuthOrchestrator {

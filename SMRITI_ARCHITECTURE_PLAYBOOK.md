@@ -72,7 +72,7 @@ Every proposal must declare what layers or systems will be affected.
 ### Rule 14 — Deprecation First
 When duplicates are found, prefer deprecation, migration, and removal over parallel coexistence.
 
-### Rule 15 — Preserve Platform Identity
+### Rule 21 — Preserve Platform Identity (PPI-001)
 New architecture must align with the existing platform vocabulary and naming pattern.
 Examples:
 - SPK

@@ -9,7 +9,7 @@ import { User, AlertCircle, ArrowRight, Shield, Globe, Terminal, ChevronDown } f
 import { OrganizationSelector } from "./OrganizationSelector";
 import { PasswordField } from "./PasswordField";
 import { ProgressIndicator } from "./ProgressIndicator";
-import { useAuthStore } from "../store/authStore";
+import { useAuthStore, authStore } from "../store/authStore";
 import { AuthOrchestrator } from "../services/AuthOrchestrator";
 import { User as UserModel } from "../types/auth.types";
 
@@ -35,7 +35,7 @@ export const LoginCard: React.FC<LoginCardProps> = ({ onLoginSuccess }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      useAuthStore.getState().setErrorMessage("Username and password are required.");
+      authStore.setErrorMessage("Username and password are required.");
       return;
     }
     await AuthOrchestrator.executeLoginWorkflow(username, password, onLoginSuccess);
