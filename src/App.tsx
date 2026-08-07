@@ -504,6 +504,7 @@ const AppContent: React.FC = () => {
 
   const safeLastWorkspace =
     initialTabFromUrl ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem("smriti_default_terminal") === "pos" ? "pos" : null) ||
     (isSetupCompleted && preferences.lastWorkspace === "company-setup"
       ? "launchpad"
       : preferences.lastWorkspace);
@@ -520,9 +521,13 @@ const AppContent: React.FC = () => {
       setActiveTab("company-setup");
       return;
     }
+    if (currentUser?.role?.toUpperCase() === "CASHIER" && !initialTabFromUrl) {
+      setActiveTab("pos");
+      return;
+    }
     const resolvedTab = normalizeTab(safeLastWorkspace || "launchpad") || "launchpad";
     setActiveTab(resolvedTab);
-  }, [isSetupCompleted, safeLastWorkspace]);
+  }, [isSetupCompleted, safeLastWorkspace, currentUser]);
 
   const setActiveWorkspace = (tab: string) => {
     if (!isSetupCompleted && tab !== "company-setup") {
