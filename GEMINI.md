@@ -44,3 +44,7 @@ SMRITI Enterprise SaaS Architecture v1.4 is the frozen architectural baseline. N
 ## Rule 20 – Navigation Contract Stability (NCS-001)
 
 Public SPK.navigation APIs are Level-1 Platform Contracts. Breaking changes require an Architecture Decision Record (ADR), backward compatibility assessment, migration guidance, and version increment. Internal implementations may evolve, but public contracts must remain stable.
+
+## Rule CON-001 – Constitution Freeze
+
+The SMRITI Developer Operating System Constitution (`ADR-023`, `ADR-024`, `ADR-025`, `ADR-026`) is permanently FROZEN. Direct edits, rewrites, or renumbering of these constitutional ADRs are strictly prohibited. Platform evolution transitions 100% to Product Mode (Business Capabilities, Domain Packs, and Implementation Specifications / IPS).
