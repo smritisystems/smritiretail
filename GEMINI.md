@@ -69,6 +69,10 @@ Production (`smriti_prod`), Demo (`smriti_demo`), Training (`smriti_training`), 
 
 Every workspace screen, report, print template, exported data file, and API response MUST clearly identify the active execution environment (`PRODUCTION`, `DEMO`, `TRAINING`, `TEST`, `DEVELOPMENT`). Demo/Training documents and printouts MUST carry a persistent statutory watermark (`DEMO ENVIRONMENT - NOT FOR ACCOUNTING`). Environment types are immutable once provisioned, and production database deletion from application interfaces is strictly prohibited.
 
+## Rule PROD-006 – Fallback Session Transparency & Offline Awareness (MANDATORY)
+
+Whenever the platform operates in local mock, cached fallback, or offline bypass mode (e.g. `smriti_jwt_*`, `demo_*`, `token_demo`, `dev-bypass-token`), the UI MUST render a persistent `OfflineSessionBadge` component (`CACHED OFFLINE` / `DEMO SESSION`) alerting the user that API network calls are operating via local cache/mock provider. Silent masking of fallback session states is strictly prohibited.
+
 ### SMRITI Product Philosophy (Founder's Principle)
 **By Jawahar R. Mallah**
 

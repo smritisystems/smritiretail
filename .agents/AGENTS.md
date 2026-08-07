@@ -293,7 +293,13 @@ Every completion claim must be backed by directly observable evidence. If eviden
 3. **Immutable Environment Types & Safety Guards (PROD-005 — MANDATORY)**:
    - Database profile environment types are immutable after creation. Production databases MUST NEVER be converted to Demo, and UI deletion of `PRODUCTION` database instances is strictly prohibited.
 
-> **Key Takeaway:** SMRITI Retail OS is built on an unshakable architectural foundation and a customer-first product philosophy. Guided by the Single Workspace Principle (`PROD-002 / SWP-001`), Production Data Integrity (`PROD-003 / PROD-004`), and Environment Awareness (`PROD-005`), every business process is unified into a single adaptive workspace. A fresh production installation represents a clean business baseline—never a software demo. **One Workspace. Infinite Business Scenarios.**
+## 26. Fallback Session Transparency & Offline Awareness (PROD-006 — FROZEN)
+1. **Offline / Cached Session Badge Rendering (PROD-006 — MANDATORY)**:
+   - Whenever the platform operates in local mock token or offline bypass mode (`smriti_jwt_*`, `demo_*`, `token_demo`, `dev-bypass-token`), the UI MUST render a persistent `OfflineSessionBadge` component (`CACHED OFFLINE` / `DEMO SESSION`) informing the operator of offline fallback operation.
+2. **No Masked Fallback Operations (PROD-006 — MANDATORY)**:
+   - Silent masking of mock API providers or offline local state is strictly prohibited. All fallback branches MUST explicitly declare their mock status to prevent user confusion during live network disruptions.
+
+> **Key Takeaway:** SMRITI Retail OS is built on an unshakable architectural foundation and a customer-first product philosophy. Guided by the Single Workspace Principle (`PROD-002 / SWP-001`), Production Data Integrity (`PROD-003 / PROD-004`), Environment Awareness (`PROD-005`), and Fallback Session Transparency (`PROD-006`), every business process is unified into a single adaptive workspace. A fresh production installation represents a clean business baseline—never a software demo. **One Workspace. Infinite Business Scenarios.**
 
 
 ---
