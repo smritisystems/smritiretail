@@ -33,27 +33,26 @@ SMRITI Retail OS is an enterprise-grade AI-powered Retail ERP platform built as 
 
 ---
 
-## Product Philosophy (Founder's Principle)
+## Product Philosophy & Founder Statement
 **By Jawahar R. Mallah**
 
 > **"Simplicity is the highest form of enterprise software."**
 
-**Core Principle**
-> **"There shall be exactly one Billing Workspace, one Purchase Workspace, one Inventory Workspace, and one Universal Person Workspace. Business behavior shall be determined by policies, customer/supplier profiles, document type, and configuration—not by duplicate screens, menus, or modules."**
+### Design Promise
+> **"A retailer should think about serving customers and selling products—not about which screen to open. SMRITI adapts to the business, so the business never has to adapt to the software."**
 
-**Design Promise**
-> **"A retailer should think about selling products—not about which billing screen to open. SMRITI adapts to the business, so the business never has to adapt to the software."**
+### Core Philosophy
+- **One Workspace. Infinite Business Scenarios.**
+- **Policy over Proliferation.**
+- **Configuration over Duplication.**
+- **Reuse before Creation.**
+- **Customer Workflow First.**
+- **Enterprise Power. Consumer Simplicity.**
 
-**Founder's Vision**
-> **"One Workspace. Infinite Business Scenarios."**
-
-### Core Values
-- **One Workspace, Many Behaviors**
-- **Policy over Proliferation**
-- **Configuration over Duplication**
-- **Reuse before Creation**
-- **Customer Workflow First**
-- **Enterprise Power, Consumer Simplicity**
+### Founder Statement
+> **"Software should adapt to people—not force people to adapt to software. Every duplicate screen is a design failure; every unified workflow is a step toward simplicity. That is the philosophy behind SMRITI Retail OS."**
+>
+> — **Jawahar R. Mallah**
 
 ---
 
@@ -355,5 +354,10 @@ Before automated E-Invoicing can be deployed, the following milestones must be a
 ---
 
 ### Key Takeaway
-> **SMRITI Retail OS now possesses both an unshakable architectural guardrail (`PROD-002 / SWP-001`) and a compelling commercial identity ("One Workspace. Infinite Business Scenarios."). SMRITI is built to adapt to the business—so the retailer never has to adapt to the software.**
+> **SMRITI Retail OS is built on an unshakable architectural foundation and a customer-first product philosophy. Guided by the Single Workspace Principle (PROD-002 / SWP-001), every business process is unified into a single adaptive workspace rather than fragmented across duplicate screens, menus, or modules.**
+>
+> **SMRITI adapts to the business—not the other way around. Retailers focus on running their business, while the platform intelligently applies the right policies, pricing, taxation, permissions, and workflows behind the scenes.**
+>
+> **One Workspace. Infinite Business Scenarios.**
+
 

@@ -257,7 +257,7 @@ Every completion claim must be backed by directly observable evidence. If eviden
 3. **Mandatory AI Checklist Before Creating Modules (SWP-003 — MANDATORY)**:
    - Check if an existing Workspace can adapt through Policy. If YES, extend Policy Engine (`CustomerPolicyEngine`, `SupplierPolicyEngine`, `PersonPolicyEngine`). Do NOT create a duplicate workspace or screen.
 
-> **Key Takeaway:** SMRITI Retail OS possesses both an unshakable architectural guardrail (`PROD-002 / SWP-001`) and a compelling commercial identity ("One Workspace. Infinite Business Scenarios."). SMRITI is built to adapt to the business—so the retailer never has to adapt to the software.
+> **Key Takeaway:** SMRITI Retail OS is built on an unshakable architectural foundation and a customer-first product philosophy. Guided by the Single Workspace Principle (`PROD-002 / SWP-001`), every business process is unified into a single adaptive workspace rather than fragmented across duplicate screens, menus, or modules. SMRITI adapts to the business—not the other way around. Retailers focus on running their business, while the platform intelligently applies policies, pricing, taxation, and workflows behind the scenes. **One Workspace. Infinite Business Scenarios.**
 
 
 ---
