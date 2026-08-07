@@ -68,6 +68,7 @@ const LoyaltyStudioTab = React.lazy(() => import("./components/LoyaltyStudioTab.
 const SupplierDashboardTab = React.lazy(() => import("./components/SupplierDashboardTab.tsx").then((module) => ({ default: module.SupplierDashboardTab })));
 import { ScreenStudioTab } from "./components/ScreenStudioTab.tsx";
 const ReportDesignerTab = React.lazy(() => import("./components/ReportDesignerTab.tsx").then((module) => ({ default: module.ReportDesignerTab })));
+const OrganizationStudio = React.lazy(() => import("./components/admin/OrganizationStudio.tsx").then((module) => ({ default: module.OrganizationStudio })));
 import { ExplainModal } from "./components/ExplainModal.tsx";
 import { DrillDownProvider } from "./components/drilldown/drilldown_store.tsx";
 import { DrillDownBreadcrumbs } from "./components/drilldown/DrillDownBreadcrumbs.tsx";
@@ -796,6 +797,13 @@ const AppContent: React.FC = () => {
       case "loyalty":
         return <LoyaltyStudioTab currentUser={currentUser} />;
       case "compliance":
+      case "company-management":
+      case "organization-studio":
+      case "org-studio":
+      case "organization":
+      case "companies":
+      case "company":
+        return <OrganizationStudio />;
       case "statutory":
       case "statutory-compliance":
       case "gst":

@@ -130,6 +130,16 @@ class ModuleRegistryImpl {
         orderIndex: 10
       },
       {
+        id: "organization-studio",
+        title: "Organization Studio",
+        subtitle: "Companies, Branches, Warehouses & Licensing",
+        category: "Administration",
+        iconName: "Building2",
+        permissionScope: "SECURITY_ADMIN",
+        targetTab: "organization-studio",
+        orderIndex: 10.5
+      },
+      {
         id: "staff-management",
         title: "User & Role RBAC",
         subtitle: "Staff Permissions & Access Control",
