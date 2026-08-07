@@ -265,7 +265,11 @@ Every completion claim must be backed by directly observable evidence. If eviden
 3. **Single Assignment Auto-Selection (AUTH-003 — MANDATORY)**:
    - If the authenticated user has access to exactly 1 company/branch/database, auto-select it and open the dashboard directly without showing any selection screen.
 4. **Multiple Assignments Selector Isolation (AUTH-004 — MANDATORY)**:
-   - If the user has access to multiple companies, display ONLY their authorized companies post-login. Never expose unassigned companies, branches, databases, or tenant resources.
+## 22. Automatic Documentation Maintenance (DOC-001 — FROZEN)
+1. **Automatic Documentation Updates (DOC-001 — MANDATORY)**:
+   - AI agents MUST automatically update, append, and synchronize all respective documentation files (`SYSTEM_TROUBLESHOOTING_LOG.md`, `CHANGELOG.md`, `AGENTS.md`, `GEMINI.md`, and architectural specs) whenever code changes, bug fixes, or design standards are introduced or modified.
+2. **Zero Prompting Required (DOC-002 — MANDATORY)**:
+   - Never wait for or require the user to explicitly remind or instruct you to update documentation. Documentation synchronization is an automated, non-negotiable step of every task.
 
 > **Key Takeaway:** SMRITI Retail OS is built on an unshakable architectural foundation and a customer-first product philosophy. Guided by the Single Workspace Principle (`PROD-002 / SWP-001`), every business process is unified into a single adaptive workspace rather than fragmented across duplicate screens, menus, or modules. SMRITI adapts to the business—not the other way around. Retailers focus on running their business, while the platform intelligently applies policies, pricing, taxation, and workflows behind the scenes. **One Workspace. Infinite Business Scenarios.**
 

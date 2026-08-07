@@ -87,7 +87,9 @@ There shall be exactly one Billing Workspace (`sales-billing-studio`), one Purch
 Always authenticate the **user first**. Never ask for Company, Database, or Infrastructure selection on login forms.
 `Authenticate User ──► Resolve Assigned Tenant ──► Resolve Company ──► Resolve Branch ──► Load Permissions ──► Open Workspace`.
 - **Single Assignment:** If user has access to 1 company/branch, auto-select and open dashboard (Zero Prompts).
-- **Multiple Assignments:** Display ONLY authorized assigned companies post-login. Never expose unassigned companies or databases.
+## Rule DOC-001 – Automatic Documentation Maintenance (MANDATORY P0)
+
+AI agents must automatically append and synchronize all respective documentation files (`SYSTEM_TROUBLESHOOTING_LOG.md`, `CHANGELOG.md`, `AGENTS.md`, `GEMINI.md`, and architectural specs) whenever code changes, bug fixes, or design standards are implemented. Never wait for or ask the user for explicit instructions to update documentation.
 
 ---
 
