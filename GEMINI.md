@@ -48,3 +48,7 @@ Public SPK.navigation APIs are Level-1 Platform Contracts. Breaking changes requ
 ## Rule CON-001 – Constitution Freeze
 
 The SMRITI Developer Operating System Constitution (`ADR-023`, `ADR-024`, `ADR-025`, `ADR-026`) is permanently FROZEN. Direct edits, rewrites, or renumbering of these constitutional ADRs are strictly prohibited. Platform evolution transitions 100% to Product Mode (Business Capabilities, Domain Packs, and Implementation Specifications / IPS).
+
+## Rule PROD-001 – Customer Value Priority (MANDATORY)
+
+If a proposed change does not help a retailer sell faster, buy better, manage inventory more accurately, or comply with regulations, it is not a priority during Product Mode. Architecture refactoring and non-essential infrastructure tasks are prohibited.

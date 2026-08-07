@@ -439,6 +439,7 @@ Before writing ANY new code or creating files, all AI agents and engineers MUST 
 - **SLP-007 (Label Profile Auto-Resolution)**: Items automatically resolve to their configured Label Profile ──► PRN Script ──► Printer Language. Manual override is permitted.
 - **SLP-008 (Pluggable Print Provider Framework)**: Printing operations must decouple logic from transport layers via pluggable providers (`BrowserPrintProvider`, `PDFPrintProvider`, `QZTrayProvider`, `NetworkPrintProvider`). Direct unabstracted socket code in UI modules is strictly prohibited.
 - **CON-001 (Constitution Freeze — MANDATORY)**: The SMRITI Developer Operating System Constitution (`ADR-023`, `ADR-024`, `ADR-025`, `ADR-026`) is permanently FROZEN. Direct edits, rewrites, or renumbering of these constitutional ADRs are strictly prohibited. The platform evolution transitions 100% to Product Mode (Business Capabilities, Domain Packs, and Implementation Specifications / IPS).
+- **PROD-001 (Customer Value Priority — MANDATORY)**: If a proposed change does not help a retailer sell faster, buy better, manage inventory more accurately, or comply with regulations, it is not a priority during Product Mode. Architecture refactoring and non-essential infrastructure tasks are prohibited.
 
 ### AI Agent Mandatory 5-Phase Review Protocol (MANDATORY — ALL FEATURES)
 
