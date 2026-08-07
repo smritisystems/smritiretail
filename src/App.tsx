@@ -690,11 +690,19 @@ const AppContent: React.FC = () => {
       const icon = tabConfig ? tabConfig.icon : "description";
       popOutTab(activeTab, title, icon);
     };
+    const handleNavigateEvent = (e: CustomEvent<string> | any) => {
+      const targetTab = e?.detail ?? e;
+      if (typeof targetTab === "string" && targetTab) {
+        setActiveWorkspace(targetTab);
+      }
+    };
     window.addEventListener("smriti_popout_current_tab", handlePopoutEvent);
+    window.addEventListener("smriti_navigate_tab", handleNavigateEvent as EventListener);
     return () => {
       window.removeEventListener("smriti_popout_current_tab", handlePopoutEvent);
+      window.removeEventListener("smriti_navigate_tab", handleNavigateEvent as EventListener);
     };
-  }, [activeTab, registeredWorkspaces, popOutTab]);
+  }, [activeTab, registeredWorkspaces, popOutTab, setActiveWorkspace]);
 
   const renderTab = (tabId: string) => {
     switch (tabId) {
@@ -717,7 +725,7 @@ const AppContent: React.FC = () => {
       case "pos":
       case "billing":
       case "quick-billing":
-        return <SalesBillingStudio products={products} onRefreshProducts={fetchSystemState} />;
+        return <SalesBillingStudio products={products} onRefreshProducts={fetchSystemState} currentUser={currentUser} onNotification={addNotification} />;
       case "crm":
       case "crm-studio":
         return <CrmStudioTab currentUser={currentUser} onNotification={addNotification} />;

@@ -173,7 +173,8 @@ export const WorkspaceTaskbar: React.FC = () => {
   };
 
   const launchPinned = (pw: PinnedWorkspace) => {
-    popOutTab(pw.tabId, pw.title, pw.icon);
+    window.dispatchEvent(new CustomEvent("smriti_navigate_tab", { detail: pw.tabId }));
+    addToRecentlyUsed(pw.tabId);
   };
 
   // Reordering helpers
@@ -301,7 +302,7 @@ export const WorkspaceTaskbar: React.FC = () => {
                         <button
                           key={`launcher-${mod.id}`}
                           onClick={() => {
-                            popOutTab(mod.id, mod.label, mod.icon);
+                            window.dispatchEvent(new CustomEvent("smriti_navigate_tab", { detail: mod.id }));
                             setIsNewWorkspaceMenuOpen(false);
                             addToRecentlyUsed(mod.id);
                           }}

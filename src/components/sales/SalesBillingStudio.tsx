@@ -430,7 +430,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
   }, [items, roundedNetPayable]);
 
   return (
-    <div className="w-full bg-theme-surface-2 font-sans text-theme-heading p-2.5 sm:p-3 space-y-3">
+    <div className="w-full min-h-full bg-theme-base font-sans text-theme-heading p-4 space-y-4 overflow-y-auto">
       {/* ================= SINGLE HORIZONTAL TOOLBAR (55px HERO COMPRESSION) ================= */}
       <div className="bg-theme-surface-2 border border-theme-divider rounded-xl px-4 py-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
         {/* Left Title & Branch Badge */}
