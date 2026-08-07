@@ -102,6 +102,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
           onOpenGlobalSearch={() => setShowSearchPalette(true)}
           onOpenNotifications={() => setShowNotifications(!showNotifications)}
           onOpenHelp={() => onTabSelect("live-docs")}
+          onLogout={onLogout}
         />
       )}
 

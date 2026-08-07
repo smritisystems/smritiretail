@@ -22,6 +22,7 @@ interface AdaptiveWorkspaceHeaderProps {
   onOpenGlobalSearch?: () => void;
   onOpenNotifications?: () => void;
   onOpenHelp?: () => void;
+  onLogout?: () => void;
 }
 
 export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = ({
@@ -29,6 +30,7 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
   onOpenGlobalSearch,
   onOpenNotifications,
   onOpenHelp,
+  onLogout,
 }) => {
   const { config, updateSEEF } = useSEEF();
   const activeTheme = config.theme;
@@ -172,7 +174,10 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
               <div className="border-t border-theme-divider pt-1">
                 <button
                   type="button"
-                  onClick={() => setShowUserMenu(false)}
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    onLogout?.();
+                  }}
                   className="w-full px-3 py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/10 transition-colors flex items-center gap-2 font-bold"
                 >
                   <LogOut size={14} /> Sign Out
