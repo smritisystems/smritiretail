@@ -375,14 +375,26 @@ const AppContent: React.FC = () => {
           passwordResetRequired: data.password_reset_required ?? false,
         });
       } else {
-        setCurrentUser(null);
+        const savedName = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_name") : null;
+        const savedRole = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_role") : null;
+        if (savedName && savedRole) {
+          setCurrentUser({ role: savedRole, name: savedName });
+        } else {
+          setCurrentUser(null);
+        }
       }
     } catch {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem("smriti_jwt_token");
-        localStorage.removeItem("smriti_session_token");
+      const savedName = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_name") : null;
+      const savedRole = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_role") : null;
+      if (savedName && savedRole) {
+        setCurrentUser({ role: savedRole, name: savedName });
+      } else {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem("smriti_jwt_token");
+          localStorage.removeItem("smriti_session_token");
+        }
+        setCurrentUser(null);
       }
-      setCurrentUser(null);
     } finally {
       setCheckingAuth(false);
     }
@@ -402,6 +414,10 @@ const AppContent: React.FC = () => {
 
   const handleLoginSuccess = (user: { role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string }) => {
     setCurrentUser(user);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem("smriti_user_name", user.name);
+      localStorage.setItem("smriti_user_role", user.role);
+    }
   };
 
   const handleLogout = () => {
