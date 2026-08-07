@@ -55,7 +55,7 @@ export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit
   });
 
   if (!response.ok) {
-    if (response.status === 401 && typeof localStorage !== 'undefined') {
+    if (response.status === 401 && !path.includes("/auth/login") && typeof localStorage !== 'undefined') {
       localStorage.removeItem("smriti_jwt_token");
       localStorage.removeItem("smriti_session_token");
     }

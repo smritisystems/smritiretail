@@ -13,6 +13,7 @@ export class SessionService {
 
   public static initSession(token: string, refreshToken?: string): void {
     localStorage.setItem("smriti_session_token", token);
+    localStorage.setItem("smriti_jwt_token", token);
     if (refreshToken) {
       localStorage.setItem("smriti_refresh_token", refreshToken);
     }
@@ -48,6 +49,7 @@ export class SessionService {
       }
     } else {
       localStorage.removeItem("smriti_session_token");
+      localStorage.removeItem("smriti_jwt_token");
       localStorage.removeItem("smriti_refresh_token");
       localStorage.removeItem("smriti_user_name");
       localStorage.removeItem("smriti_user_role");
