@@ -20,6 +20,8 @@ import { HardwareAdapterRegistry } from "../hardware/HardwareAdapterRegistry";
 import { Search, ShoppingBag, CreditCard, User, PauseCircle, PlayCircle, Trash2, Printer, Zap, CheckCircle2 } from "lucide-react";
 import { SEDSStatusBadge } from "../design-system/components/SEDSStatusBadge";
 import { VariantPivotMatrix } from "./common/VariantPivotMatrix";
+import { TransactionEngine, TransactionStepProgress, TransactionResult } from "../kernel/transaction/TransactionEngine";
+import { TransactionSuccessModal } from "./pos/TransactionSuccessModal";
 
 interface PosTerminalTabProps {
   products: Product[];
@@ -182,14 +184,65 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
     }
   });
 
+  // Transaction Reliability Engine State (IPS-002)
+  const [isPosting, setIsPosting] = useState(false);
+  const [postingProgress, setPostingProgress] = useState<TransactionStepProgress | null>(null);
+  const [transactionResult, setTransactionResult] = useState<TransactionResult | null>(null);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+
   const handleCheckoutComplete = async () => {
+    setIsCheckoutModalOpen(false);
+    setIsPosting(true);
+    setIsSuccessModalOpen(true);
+
     try {
       HardwareAdapterRegistry.openCashDrawer();
-      onNotification("Sale Completed", `Thermal receipt printed for ₹${grandTotal.toFixed(2)}`, "success");
-      setCart([]);
-      setIsCheckoutModalOpen(false);
-      setCashTendered("");
+
+      const payload = {
+        invoiceNumber: `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        customerName: customerName.split(" (")[0] || "Walk-In Customer",
+        customerMobile: "9876543210",
+        paymentMode: paymentMode,
+        itemsTotal: subtotal,
+        discountTotal: discountAmount,
+        netPayable: grandTotal,
+        lines: cart.map((item, idx) => ({
+          id: `line_${idx + 1}`,
+          itemId: item.product.id,
+          itemCode: item.product.code,
+          itemName: item.product.name,
+          hsnCode: (item.product as any).hsn || (item.product as any).hsnCode || "9999",
+          qty: item.quantity,
+          uom: "NOS",
+          rate: item.product.price,
+          discountPct: 0,
+          discountAmount: 0,
+          taxableValue: (item.product.price * item.quantity) / 1.18,
+          gstRate: 18,
+          cgstAmount: (item.product.price * item.quantity * 0.09) / 1.18,
+          sgstAmount: (item.product.price * item.quantity * 0.09) / 1.18,
+          igstAmount: 0,
+          totalTaxAmount: (item.product.price * item.quantity * 0.18) / 1.18,
+          lineTotal: item.product.price * item.quantity
+        }))
+      };
+
+      const result = await TransactionEngine.processCheckout(payload, (progress) => {
+        setPostingProgress(progress);
+      });
+
+      setIsPosting(false);
+      setTransactionResult(result);
+
+      if (result.success) {
+        setCart([]);
+        setCashTendered("");
+        onNotification("Invoice Posted Successfully", `Invoice ${result.invoiceNo} committed to stock and ledger ✓`, "success");
+      } else {
+        onNotification("Transaction Draft Saved", result.error || "Saved to local draft recovery", "error");
+      }
     } catch (err: any) {
+      setIsPosting(false);
       onNotification("Checkout Error", err?.message || "Failed to process payment", "error");
     }
   };
@@ -448,6 +501,28 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Transaction Success & Stepped Posting Modal (IPS-002) */}
+      <TransactionSuccessModal
+        isOpen={isSuccessModalOpen}
+        isPosting={isPosting}
+        progress={postingProgress}
+        result={transactionResult}
+        onClose={() => setIsSuccessModalOpen(false)}
+        onNewBill={() => {
+          setIsSuccessModalOpen(false);
+          setCart([]);
+          searchInputRef.current?.focus();
+        }}
+        onPrint={() => {
+          window.print();
+        }}
+        onViewInvoiceList={(invNo) => {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("smriti_navigate_sales_invoice", { detail: { invoiceNo: invNo } }));
+          }
+        }}
+      />
     </div>
   );
 };
