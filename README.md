@@ -186,12 +186,20 @@ f:\SMRITRretailNXmgrt\
 
 ## 7. Docker & Containerized Running
 
-### Development Mode (Docker)
-Run the development container stack using standard Docker Compose:
+### Development & Production Containerized Deployment
+
+Run the containerized stack using Docker Compose with detached mode, rebuild on change, and orphan removal:
 
 ```bash
-docker compose up --build
+docker compose up -d --build --remove-orphans
 ```
+
+| Flag | Description |
+|---|---|
+| `-d` | **Detached mode** — Runs container stack in background. |
+| `--build` | Rebuilds Docker images to incorporate source changes. |
+| `--remove-orphans` | Removes obsolete background containers not in the active Compose spec. |
+
 * **Frontend Workspace UI:** `http://localhost:3000`
 * **Backend FastAPI OpenAPI Specs:** `http://localhost:8000/docs`
 * **PostgreSQL System-of-Record:** `localhost:5432`
@@ -205,14 +213,19 @@ Production deployments consume the multi-container production stack (`docker-com
 > [!NOTE]
 > Production containers require a `.env` file for configuration and secret keys. The single-line commands below automatically generate `.env` from `.env.example` if it does not exist.
 
+#### Production Deployment Command:
+```bash
+docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+```
+
 #### 1-Line PowerShell Command (Windows Production):
 ```powershell
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }; docker compose -f docker-compose.prod.yml up -d --build; Start-Sleep -Seconds 5; docker exec smriti-api-prod python -m alembic upgrade head
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }; docker compose -f docker-compose.prod.yml up -d --build --remove-orphans; Start-Sleep -Seconds 5; docker exec smriti-api-prod python -m alembic upgrade head
 ```
 
 #### 1-Line Bash Command (Linux / macOS Production):
 ```bash
-[ -f .env ] || cp .env.example .env; docker compose -f docker-compose.prod.yml up -d --build && sleep 5 && docker exec smriti-api-prod python -m alembic upgrade head
+[ -f .env ] || cp .env.example .env; docker compose -f docker-compose.prod.yml up -d --build --remove-orphans && sleep 5 && docker exec smriti-api-prod python -m alembic upgrade head
 ```
 
 #### Production Verification & Diagnostics:
@@ -224,7 +237,7 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }; docker compose -f do
   ```
 - **View Production Logs:**
   ```powershell
-  docker compose -f docker-compose.prod.yml logs -f smriti-api-prod
+  docker compose -f docker-compose.prod.yml logs -f --tail=100
   ```
 
 ---
