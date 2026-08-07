@@ -6,7 +6,6 @@
 
 import React, { useState } from "react";
 import { User, AlertCircle, ArrowRight, Shield, Globe, Terminal, ChevronDown } from "lucide-react";
-import { OrganizationSelector } from "./OrganizationSelector";
 import { PasswordField } from "./PasswordField";
 import { ProgressIndicator } from "./ProgressIndicator";
 import { useAuthStore, authStore } from "../store/authStore";
@@ -69,8 +68,6 @@ export const LoginCard: React.FC<LoginCardProps> = ({ onLoginSuccess }) => {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
-          <OrganizationSelector />
-
           <div>
             <label htmlFor="login-username" className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider text-left">
               Username / Email / Mobile
