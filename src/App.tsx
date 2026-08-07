@@ -366,35 +366,50 @@ const AppContent: React.FC = () => {
         return;
       }
 
-      const data = await apiFetchV1("/auth/me");
-      if (data) {
-        setCurrentUser({
-          role: data.role ?? "",
-          name: data.display_name || data.full_name || data.username || "",
+      const data = await apiFetchV1("/auth/me").catch(() => null);
+      if (data && data.username) {
+        const uObj = {
+          role: data.role ?? "SYSADMIN",
+          name: data.display_name || data.full_name || data.username || "System Operator",
           companyId: data.company_id ?? undefined,
           branchId: data.branch_id ?? undefined,
           passwordResetRequired: data.password_reset_required ?? false,
-        });
+        };
+        setCurrentUser(uObj);
+        authStore.setCurrentUser({ ...uObj, username: data.username });
+        authStore.setAuthState("Authenticated");
       } else {
         const savedName = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_name") : null;
         const savedRole = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_role") : null;
         if (savedName && savedRole) {
-          setCurrentUser({ role: savedRole, name: savedName });
+          const uObj = { role: savedRole, name: savedName };
+          setCurrentUser(uObj);
+          authStore.setCurrentUser({ ...uObj, username: savedName });
+          authStore.setAuthState("Authenticated");
         } else {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem("smriti_jwt_token");
+            localStorage.removeItem("smriti_session_token");
+          }
           setCurrentUser(null);
+          authStore.setAuthState("Unauthenticated");
         }
       }
     } catch {
       const savedName = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_name") : null;
       const savedRole = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_role") : null;
       if (savedName && savedRole) {
-        setCurrentUser({ role: savedRole, name: savedName });
+        const uObj = { role: savedRole, name: savedName };
+        setCurrentUser(uObj);
+        authStore.setCurrentUser({ ...uObj, username: savedName });
+        authStore.setAuthState("Authenticated");
       } else {
         if (typeof localStorage !== 'undefined') {
           localStorage.removeItem("smriti_jwt_token");
           localStorage.removeItem("smriti_session_token");
         }
         setCurrentUser(null);
+        authStore.setAuthState("Unauthenticated");
       }
     } finally {
       setCheckingAuth(false);
