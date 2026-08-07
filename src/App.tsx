@@ -1074,6 +1074,10 @@ const AppContent: React.FC = () => {
       {/* Floating Workspace Windows Host */}
       <FloatingWindowHost renderTab={(id) => renderTabSafe(id)} />
 
+      {/* Auth System Modals & Workflows (ADR-AUTH-001) */}
+      <LogoutDialog />
+      <SessionExpiredDialog />
+
       {/* Formula Explanation drawer portal overlay */}
       <ExplainModal
         formula={selectedFormula}
