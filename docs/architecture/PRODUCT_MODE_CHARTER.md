@@ -1,33 +1,30 @@
-# PROD-002 — Single Workspace Principle (SWP-001)
+# SMRITI Product Philosophy & Product Mode Charter
 
-**Status:** 🔒 **FROZEN (Product Mode Charter v1.0)**  
-**Priority:** P0 (Mandatory)  
-**Applies To:** All Developers, AI Agents, Contributors, Extensions, Future Modules  
-
----
-
-## Principle
-
-> **There shall be exactly one Billing Workspace, one Purchase Workspace, one Inventory Workspace, and one Universal Person Workspace. Business behavior must be determined by policies, customer/supplier profiles, document type, and configuration—not by duplicate screens, menus, or modules.**
+**By Jawahar R. Mallah**  
+*Founder, CEO & Chief Systems Architect*
 
 ---
 
-## Objectives
+> **"Simplicity is the highest form of enterprise software."**
 
-SMRITI Retail OS shall never evolve into duplicate billing/purchasing/master screens:
-- ❌ POS Billing
-- ❌ Sales Billing
-- ❌ Retail Billing
-- ❌ GST Billing
-- ❌ Corporate Billing
-- ❌ B2B Billing
-- ❌ Export Billing
+### Core Principle
+> **"There shall be exactly one Billing Workspace, one Purchase Workspace, one Inventory Workspace, and one Universal Person Workspace. Business behavior shall be determined by policies, customer/supplier profiles, document type, and configuration—not by duplicate screens, menus, or modules."**
 
-Instead:
-- ✅ **ONE Billing Workspace** (`sales-billing-studio`) that automatically adapts via `CustomerPolicyEngine`.
-- ✅ **ONE Purchase Workspace** (`purchase-studio`) that automatically adapts via `SupplierPolicyEngine`.
-- ✅ **ONE Inventory Workspace** (`item-master`) that automatically adapts via `InventoryPolicyEngine`.
-- ✅ **ONE Universal Person Workspace** (`crm-studio`) that automatically adapts via `PersonPolicyEngine`.
+### Design Promise
+> **"A retailer should think about selling products—not about which billing screen to open. SMRITI adapts to the business, so the business never has to adapt to the software."**
+
+### Founder's Vision
+> **"One Workspace. Infinite Business Scenarios."**
+
+---
+
+## Mandated Product Mode Rules
+
+### 1. PROD-001 — Customer Value Priority (P0 Mandatory)
+Every code change must directly help retailers sell faster, buy better, manage inventory more accurately, or comply with statutory regulations.
+
+### 2. PROD-002 / SWP-001 — Single Workspace Principle (FROZEN P0)
+There shall be exactly **one Billing Workspace**, **one Purchase Workspace**, **one Inventory Workspace**, and **one Universal Person Workspace**. Business behavior is determined by policies, customer profiles, and document types—NOT by duplicate screens or modules.
 
 ---
 

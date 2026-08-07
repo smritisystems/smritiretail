@@ -61,10 +61,15 @@ There shall be exactly one Billing Workspace (`sales-billing-studio`), one Purch
 **By Jawahar R. Mallah**
 
 > **"Simplicity is the highest form of enterprise software."**
->
-> **There shall be exactly one Billing Workspace, one Purchase Workspace, one Inventory Workspace, and one Universal Person Workspace. Business behavior shall be determined by policies, customer/supplier profiles, document type, and configuration—not by duplicate screens, menus, or modules.**
->
-> **Every new capability must extend the platform, never fragment it. The software adapts to the business; the user should not have to choose between multiple versions of the same workflow.**
+
+**Core Principle**
+> **"There shall be exactly one Billing Workspace, one Purchase Workspace, one Inventory Workspace, and one Universal Person Workspace. Business behavior shall be determined by policies, customer/supplier profiles, document type, and configuration—not by duplicate screens, menus, or modules."**
+
+**Design Promise**
+> **"A retailer should think about selling products—not about which billing screen to open. SMRITI adapts to the business, so the business never has to adapt to the software."**
+
+**Founder's Vision**
+> **"One Workspace. Infinite Business Scenarios."**
 
 ### Core Values
 - **One Workspace, Many Behaviors**
@@ -73,6 +78,7 @@ There shall be exactly one Billing Workspace (`sales-billing-studio`), one Purch
 - **Reuse before Creation**
 - **Customer Workflow First**
 - **Enterprise Power, Consumer Simplicity**
+
 
 ### Mandatory AI Decision Checklist:
 1. **Can an existing Workspace adapt through Policy?** If YES, extend the Policy Engine (`CustomerPolicyEngine`, `SupplierPolicyEngine`, `PersonPolicyEngine`). Do NOT create a new module/screen.
