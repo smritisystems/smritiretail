@@ -26,6 +26,18 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
     });
   }, []);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleGlobalEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleGlobalEsc, true);
+    return () => window.removeEventListener("keydown", handleGlobalEsc, true);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const renderIcon = (type: NotificationItem["type"]) => {
@@ -42,7 +54,19 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-theme-surface-1 border-l border-theme-divider shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 text-theme-body font-sans">
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+
+      <div
+        className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-theme-surface-1 border-l border-theme-divider shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 text-theme-body font-sans"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Notifications"
+      >
       {/* Header Bar */}
       <div className="p-4 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2/40">
         <div className="flex items-center gap-2.5">
@@ -56,13 +80,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
         <div className="flex items-center gap-2">
           <button
             onClick={() => notificationService.markAllAsRead()}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-theme-muted hover:text-theme-body text-xs flex items-center gap-1 cursor-pointer"
+            className="p-1.5 rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body text-xs flex items-center gap-1 cursor-pointer"
             title="Mark all as read"
           >
             <CheckCheck size={14} />
             <span className="hidden sm:inline">Mark read</span>
           </button>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-theme-muted hover:text-theme-body cursor-pointer">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body cursor-pointer">
             <X size={16} />
           </button>
         </div>
@@ -86,7 +110,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
               {!item.read && <span className="absolute top-3.5 right-3.5 w-2 h-2 rounded-full bg-[var(--c-seef-accent)]" />}
 
               <div className="flex items-start gap-3">
-                <div className="p-1.5 rounded-lg bg-white/5 border border-white/10 shrink-0 mt-0.5">{renderIcon(item.type)}</div>
+                <div className="p-1.5 rounded-lg bg-theme-surface-2 border border-theme-divider shrink-0 mt-0.5">{renderIcon(item.type)}</div>
                 <div className="flex-1 overflow-hidden">
                   <div className="flex items-center justify-between text-xs font-semibold text-theme-heading pr-4">
                     <span className="truncate">{item.title}</span>
@@ -111,5 +135,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, 
         Platform Event Bus Connected • Live
       </div>
     </div>
+    </>
   );
 };

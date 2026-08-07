@@ -117,7 +117,7 @@ export const UniversalCommandPalette: React.FC<UniversalCommandPaletteProps> = (
                   }`}
                 >
                   <div className="flex items-center gap-3 overflow-hidden">
-                    <div className="p-2 rounded-lg bg-white/5 border border-white/10 text-theme-heading shrink-0">
+                    <div className="p-2 rounded-lg bg-theme-surface-2 border border-theme-divider text-theme-heading shrink-0">
                       <Zap size={14} className="text-[var(--c-seef-accent)]" />
                     </div>
                     <div className="overflow-hidden">
@@ -127,7 +127,7 @@ export const UniversalCommandPalette: React.FC<UniversalCommandPaletteProps> = (
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-white/10 border border-white/10 text-theme-muted">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-theme-surface-2 border border-theme-divider text-theme-muted">
                       {item.category}
                     </span>
                     <ArrowRight size={14} className={`transition-transform ${isSelected ? "translate-x-1 text-theme-heading" : "opacity-0"}`} />

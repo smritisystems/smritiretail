@@ -26,7 +26,7 @@
 | **SEEFCommandPalette** | `src/layout_engine/SEEFCommandPalette.tsx` | `UniversalCommandPalette` | 🟡 Retired (Unwired from App.tsx) |
 | **CommandPaletteModal** | `src/components/common/CommandPaletteModal.tsx` | `UniversalCommandPalette` | 🟡 Retired (Deprecated Wrapper) |
 | **SAWF CommandPalette** | `src/framework/sawf/keyboard/CommandPalette.tsx` | `UniversalCommandPalette` | 🟡 Retired (Unwired from DocumentStudio) |
-| **Legacy NotificationCenter**| `src/notifications/NotificationCenter.tsx` | `NotificationCenter` (SWS) | 🟡 Legacy (Ready for Audit) |
+| **Legacy NotificationCenter**| `src/notifications/NotificationCenter.tsx` | `NotificationCenter` (SWS) | 🟡 Retired (Replaced by SWS NotificationCenter) |
 
 ---
 

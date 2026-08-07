@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Module       : Launchpad Configuration Tab (Admin Settings â€” SLP-001 v1.0)
  * Author       : Jawahar Ramkripal Mallah
@@ -108,7 +108,7 @@ export const LaunchpadConfigTab: React.FC<LaunchpadConfigTabProps> = ({ onNotifi
                   value="comfortable"
                   checked={density === "comfortable"}
                   onChange={() => setDensity("comfortable")}
-                  className="accent-[#0a6ed1]"
+                  className="accent-[var(--c-seef-accent)]"
                 />
                 Comfortable (Standard spacing)
               </label>
@@ -120,7 +120,7 @@ export const LaunchpadConfigTab: React.FC<LaunchpadConfigTabProps> = ({ onNotifi
                   value="compact"
                   checked={density === "compact"}
                   onChange={() => setDensity("compact")}
-                  className="accent-[#0a6ed1]"
+                  className="accent-[var(--c-seef-accent)]"
                 />
                 Compact (High data density)
               </label>

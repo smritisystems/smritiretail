@@ -9,8 +9,9 @@
  * Version      : 7.0.0 (Operating System Shell Architecture)
  */
 
-import React, { useState } from "react";
-import { Search, Bell, HelpCircle, Bot, LogOut, Check, Sparkles, RefreshCw } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Search, Bell, HelpCircle, LogOut, Lock, Shield, User, RefreshCw } from "lucide-react";
+import { notificationService } from "../../workspace/services/NotificationService";
 import { useSEEF } from "../../layout_engine/SEEFContext.tsx";
 import { SEEFTheme } from "../../layout_engine/SEEFTypes.ts";
 import { UserProfileMenu } from "../../features/auth/components/UserProfileMenu";
@@ -37,6 +38,13 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
   const activeTheme = config.theme;
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showAiCopilot, setShowAiCopilot] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(() => notificationService.getUnreadCount());
+
+  useEffect(() => {
+    return notificationService.subscribe((list) => {
+      setUnreadCount(list.filter((n) => !n.read).length);
+    });
+  }, []);
 
   const handleThemeChange = (newTheme: SEEFTheme) => {
     updateSEEF({ theme: newTheme });
@@ -66,24 +74,19 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
 
         <div className="flex items-center gap-2">
           <span className="font-display font-extrabold text-sm tracking-wide text-theme-heading">SMRITI</span>
-          <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-white/10 border border-white/15 text-indigo-300">
+          <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-theme-surface-2 border border-theme-divider text-indigo-300">
             Enterprise OS
           </span>
         </div>
       </div>
 
-      {/* Zone B: Universal Command Search (Ctrl+K) */}
+      {/* Zone B: Universal Search */}
       <div className="flex-1 max-w-lg mx-2 sm:mx-6 flex justify-center sm:justify-start">
         {/* Desktop Full Search Bar */}
         <button
           type="button"
           onClick={onOpenGlobalSearch}
-          className="hidden sm:flex w-full items-center justify-between rounded-xl px-3.5 py-1.5 transition-all seds-text-small cursor-pointer shadow-xs"
-          style={{
-            background: "var(--c-theme-surface-2)",
-            border: `1px solid ${isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.15)"}`,
-            color: "var(--c-theme-muted)",
-          }}
+          className="hidden sm:flex w-full items-center justify-between rounded-xl px-3.5 py-1.5 transition-all seds-text-small cursor-pointer shadow-xs bg-theme-surface-2 border border-theme-divider text-theme-muted hover:bg-theme-surface-hover"
         >
           <div className="flex items-center gap-2 overflow-hidden">
             <Search size={14} className="shrink-0 text-theme-muted" />
@@ -95,7 +98,7 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
         <button
           type="button"
           onClick={onOpenGlobalSearch}
-          className="sm:hidden p-2 rounded-lg text-theme-muted hover:text-theme-body hover:bg-white/10 transition-colors cursor-pointer"
+          className="sm:hidden p-2 rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-colors cursor-pointer"
           title="Universal Search"
           aria-label="Universal Search"
         >
@@ -115,7 +118,7 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
         <button
           type="button"
           onClick={onOpenHelp}
-          className="p-2 rounded-lg hover:bg-white/10 text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
+          className="p-2 rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
           title="Documentation & Help"
         >
           <HelpCircle size={16} />
@@ -125,11 +128,15 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
         <button
           type="button"
           onClick={onOpenNotifications}
-          className="p-2 rounded-lg hover:bg-white/10 text-theme-muted hover:text-theme-body transition-colors relative cursor-pointer"
+          className="p-2 rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors relative cursor-pointer"
           title="Notifications"
         >
           <Bell size={16} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 px-1 min-w-[14px] h-3.5 rounded-full bg-rose-500 text-white text-[9px] font-mono font-bold flex items-center justify-center shadow-xs">
+              {unreadCount}
+            </span>
+          )}
         </button>
 
         {/* User Profile Pill & Dropdown */}
