@@ -33,6 +33,28 @@ SMRITI Retail OS is an enterprise-grade AI-powered Retail ERP platform built as 
 
 ---
 
+## Product Philosophy (Founder's Principle)
+**By Jawahar R. Mallah**
+
+> **"Simplicity is the highest form of enterprise software."**
+>
+> **There shall be exactly one Billing Workspace, one Purchase Workspace, one Inventory Workspace, and one Universal Person Workspace. Business behavior shall be determined by policies, customer/supplier profiles, document type, and configuration—not by duplicate screens, menus, or modules.**
+>
+> **Every new capability must extend the platform, never fragment it. The software adapts to the business; the user should not have to choose between multiple versions of the same workflow.**
+
+### Core Values
+- **One Workspace, Many Behaviors**
+- **Policy over Proliferation**
+- **Configuration over Duplication**
+- **Reuse before Creation**
+- **Customer Workflow First**
+- **Enterprise Power, Consumer Simplicity**
+
+### Design Promise
+> *"A retailer should think about selling products—not about which billing screen to open."*
+
+---
+
 ## Documentation
 
 ### Platform Governance

@@ -249,6 +249,15 @@ Every completion claim must be backed by directly observable evidence. If eviden
 6. **UAR Standard v1.0 Status (FROZEN)**:
    - Rules `UAR-001` through `UAR-006` are officially **FROZEN v1.0**.
 
+## 20. Single Workspace Principle (PROD-002 / SWP-001 — FROZEN)
+1. **Four Universal Workspaces Only (SWP-001 — MANDATORY)**:
+   - There shall be exactly one Billing Workspace (`sales-billing-studio`), one Purchase Workspace (`purchase-studio`), one Inventory Workspace (`item-master`), and one Universal Person Workspace (`crm-studio`).
+2. **Policy-Driven Behavior (SWP-002 — MANDATORY)**:
+   - Business behavior MUST be determined by policies, customer/supplier profiles, document type, and configuration—NOT by duplicate screens, menus, or modules.
+3. **Mandatory AI Checklist Before Creating Modules (SWP-003 — MANDATORY)**:
+   - Check if an existing Workspace can adapt through Policy. If YES, extend Policy Engine (`CustomerPolicyEngine`, `SupplierPolicyEngine`, `PersonPolicyEngine`). Do NOT create a duplicate workspace or screen.
+
+
 ---
 
 

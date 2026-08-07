@@ -52,3 +52,30 @@ The SMRITI Developer Operating System Constitution (`ADR-023`, `ADR-024`, `ADR-0
 ## Rule PROD-001 – Customer Value Priority (MANDATORY)
 
 If a proposed change does not help a retailer sell faster, buy better, manage inventory more accurately, or comply with regulations, it is not a priority during Product Mode. Architecture refactoring and non-essential infrastructure tasks are prohibited.
+
+## Rule PROD-002 – Single Workspace Principle (SWP-001 — MANDATORY)
+
+There shall be exactly one Billing Workspace (`sales-billing-studio`), one Purchase Workspace (`purchase-studio`), one Inventory Workspace (`item-master`), and one Universal Person Workspace (`crm-studio`). Business behavior MUST be determined by policies, customer/supplier profiles, document type, and configuration—NOT by duplicate screens, menus, or modules.
+
+### SMRITI Product Philosophy (Founder's Principle)
+**By Jawahar R. Mallah**
+
+> **"Simplicity is the highest form of enterprise software."**
+>
+> **There shall be exactly one Billing Workspace, one Purchase Workspace, one Inventory Workspace, and one Universal Person Workspace. Business behavior shall be determined by policies, customer/supplier profiles, document type, and configuration—not by duplicate screens, menus, or modules.**
+>
+> **Every new capability must extend the platform, never fragment it. The software adapts to the business; the user should not have to choose between multiple versions of the same workflow.**
+
+### Core Values
+- **One Workspace, Many Behaviors**
+- **Policy over Proliferation**
+- **Configuration over Duplication**
+- **Reuse before Creation**
+- **Customer Workflow First**
+- **Enterprise Power, Consumer Simplicity**
+
+### Mandatory AI Decision Checklist:
+1. **Can an existing Workspace adapt through Policy?** If YES, extend the Policy Engine (`CustomerPolicyEngine`, `SupplierPolicyEngine`, `PersonPolicyEngine`). Do NOT create a new module/screen.
+2. **Will this create a duplicate menu, screen, master, or registry?** If YES, REJECT and redesign immediately.
+
+
