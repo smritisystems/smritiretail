@@ -187,16 +187,15 @@ export class NavigationRegistryService {
         icon: "point_of_sale",
         emoji: "🛍️",
         order: 1,
-        defaultWorkspaceId: "pos",
-        moduleIds: ["pos", "sales", "sales-returns", "sales-studio", "sales-billing-studio", "pos-profiles", "advanced-billing"],
+        defaultWorkspaceId: "sales-billing-studio",
+        moduleIds: ["sales-billing-studio", "sales-invoices", "sales-returns", "sales-orders", "sales-quotations", "sales-reports"],
         modules: [
-          { id: NAV_IDS.POS, title: "Point of Sale", icon: "ShoppingCart", targetTab: "pos", workspaceId: "pos", route: "/sales/pos", badge: "Live", order: 1, visible: true, owner: "SMRITI", packageId: "smriti.sales.pos", version: "6.0.0", dependsOn: ["sales", "customers"], workspaceCapabilities: { search: true, create: true, print: true, mobile: true, offline: true } },
-          { id: NAV_IDS.SALES_INVOICE, title: "Sales Invoices", icon: "Receipt", targetTab: "sales", workspaceId: "sales", route: "/sales/invoices", order: 2, visible: true, owner: "SMRITI", packageId: "smriti.sales.invoices", version: "6.0.0", dependsOn: ["customers"], workspaceCapabilities: { search: true, create: true, edit: true, export: true, print: true } },
-          { id: "sales-returns", title: "Sales Returns", icon: "RotateCcw", targetTab: "sales-returns", workspaceId: "sales-returns", route: "/sales/returns", order: 3, visible: true, owner: "SMRITI", packageId: "smriti.sales.returns", version: "6.0.0", dependsOn: ["sales"] },
-          { id: "sales-studio", title: "Sales Studio", icon: "Briefcase", targetTab: "sales-studio", workspaceId: "sales-studio", route: "/sales/studio", order: 4, visible: true, owner: "SMRITI", packageId: "smriti.sales.studio", version: "6.0.0" },
-          { id: "sales-billing-studio", title: "Sales Billing Studio", icon: "CreditCard", targetTab: "sales-billing-studio", workspaceId: "sales-billing-studio", route: "/sales/billing-studio", order: 5, visible: true, owner: "SMRITI", packageId: "smriti.sales.billingstudio", version: "6.0.0" },
-          { id: "pos-profiles", title: "POS Terminal Profiles", icon: "Sliders", targetTab: "pos-profiles", workspaceId: "pos-profiles", route: "/sales/pos-profiles", order: 6, visible: true, owner: "SMRITI", packageId: "smriti.sales.posprofiles", version: "6.0.0" },
-          { id: "advanced-billing", title: "Advanced Billing Engine", icon: "Zap", targetTab: "advanced-billing", workspaceId: "advanced-billing", route: "/sales/advanced-billing", order: 7, visible: true, owner: "SMRITI", packageId: "smriti.sales.advancedbilling", version: "6.0.0" }
+          { id: "sales-billing-studio", title: "Billing ⭐", icon: "CreditCard", targetTab: "sales-billing-studio", workspaceId: "sales-billing-studio", route: "/sales/billing", badge: "Primary", order: 1, visible: true, owner: "SMRITI", packageId: "smriti.sales.billing", version: "6.0.0" },
+          { id: NAV_IDS.SALES_INVOICE, title: "Invoices", icon: "Receipt", targetTab: "sales", workspaceId: "sales", route: "/sales/invoices", order: 2, visible: true, owner: "SMRITI", packageId: "smriti.sales.invoices", version: "6.0.0" },
+          { id: "sales-returns", title: "Returns", icon: "RotateCcw", targetTab: "sales-returns", workspaceId: "sales-returns", route: "/sales/returns", order: 3, visible: true, owner: "SMRITI", packageId: "smriti.sales.returns", version: "6.0.0" },
+          { id: "sales-orders", title: "Orders", icon: "ClipboardList", targetTab: "sales-orders", workspaceId: "sales-orders", route: "/sales/orders", order: 4, visible: true, owner: "SMRITI", packageId: "smriti.sales.orders", version: "6.0.0" },
+          { id: "sales-quotations", title: "Quotations", icon: "FileText", targetTab: "sales-quotations", workspaceId: "sales-quotations", route: "/sales/quotations", order: 5, visible: true, owner: "SMRITI", packageId: "smriti.sales.quotations", version: "6.0.0" },
+          { id: "sales-reports", title: "Reports", icon: "BarChart3", targetTab: "sales-reports", workspaceId: "sales-reports", route: "/sales/reports", order: 6, visible: true, owner: "SMRITI", packageId: "smriti.sales.reports", version: "6.0.0" }
         ]
       },
       {

@@ -57,6 +57,7 @@ import { ICustomerService } from "../../kernel/public/ICustomerService.js";
 import { CreateSalesInvoiceCommand } from "../../kernel/commands/CreateSalesInvoiceCommand.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 import { ScanBarcodeRow, DEFAULT_SCAN_ROW_CONFIG } from "./ScanBarcodeRow.js";
+import { resolveCustomerPolicy, CustomerPolicy } from "../../kernel/sales/CustomerPolicyEngine.js";
 
 export interface LineItem {
   id: string;
@@ -142,10 +143,20 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
   const [gstin, setGstin] = useState<string>("27ABCDE1234F1Z5");
   const [taxProfile, setTaxProfile] = useState<string>("Retail Registered");
 
-  // Corporate Customer Credit Attributes
-  const [isCorporateClient, setIsCorporateClient] = useState<boolean>(false);
-  const [creditLimit, setCreditLimit] = useState<number>(500000);
-  const [outstandingBalance, setOutstandingBalance] = useState<number>(180000);
+  // Customer Policy Engine — Resolves price list, tax group, payment options, and field visibility automatically
+  const customerPolicy = useMemo(() => {
+    return resolveCustomerPolicy(selectedCustomer);
+  }, [selectedCustomer]);
+
+  // Dynamic Corporate / Extra Fields
+  const [poNumber, setPoNumber] = useState<string>("");
+  const [projectName, setProjectName] = useState<string>("");
+  const [costCenter, setCostCenter] = useState<string>("");
+  const [transporterName, setTransporterName] = useState<string>("");
+  const [lrNumber, setLrNumber] = useState<string>("");
+  const [eWayBillNo, setEWayBillNo] = useState<string>("");
+  const [shippingBillNo, setShippingBillNo] = useState<string>("");
+  const [portCode, setPortCode] = useState<string>("");
 
   // Branch & Cashier State
   const [selectedBranch, setSelectedBranch] = useState<string>("Branch 01");
@@ -567,7 +578,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
         </div>
       </div>
 
-      {/* ================= 2-COLUMN MASTER FORM (CUSTOMER INFO + INVOICE DETAILS) ================= */}
+      {/* ================= 2-COLUMN MASTER FORM (CUSTOMER INFO + POLICY RESOLVER) ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* ----- CUSTOMER INFORMATION (7 COLUMNS) ----- */}
         <div className="lg:col-span-7 bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
@@ -576,39 +587,55 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
               <User className="w-3.5 h-3.5" />
               <span>Customer Details</span>
             </div>
-            <div className="flex items-center space-x-1">
+            {/* Auto-Resolved Customer Policy Badge */}
+            <div className="flex items-center space-x-2">
+              <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase font-mono tracking-wider ${
+                customerPolicy.customerType === "WALK_IN" ? "bg-blue-950 text-blue-400 border border-blue-800" :
+                customerPolicy.customerType === "GST_RETAIL" || customerPolicy.customerType === "WHOLESALE" ? "bg-emerald-950 text-emerald-400 border border-emerald-800" :
+                customerPolicy.customerType === "CORPORATE" ? "bg-indigo-950 text-indigo-400 border border-indigo-800" :
+                "bg-amber-950 text-amber-400 border border-amber-800"
+              }`}>
+                ⚡ {customerPolicy.customerTypeName}
+              </span>
               <button
                 onClick={() => {
-                  setIsWalkIn(true);
+                  setSelectedCustomer(null);
                   setSelectedCustomerName("Walk-in Retail Customer");
                   setMobileNumber("9876543210");
                 }}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                  isWalkIn ? "bg-blue-600 text-white" : "bg-theme-surface-2 text-theme-body"
-                }`}
+                className="px-2 py-0.5 rounded text-[10px] font-bold bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-muted cursor-pointer"
               >
-                Walk-in
-              </button>
-              <button
-                onClick={() => setIsWalkIn(false)}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                  !isWalkIn ? "bg-blue-600 text-white" : "bg-theme-surface-2 text-theme-body"
-                }`}
-              >
-                Registered
+                Reset Walk-in
               </button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
             <div>
-              <label className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Customer Name *</label>
-              <input
-                type="text"
-                value={selectedCustomerName}
-                onChange={(e) => setSelectedCustomerName(e.target.value)}
-                className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs font-semibold text-theme-heading"
-              />
+              <label className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Who is the Customer? *</label>
+              <select
+                value={selectedCustomer?.id || ""}
+                onChange={(e) => {
+                  const found = customerList.find((c) => c.id === e.target.value);
+                  setSelectedCustomer(found || null);
+                  if (found) {
+                    setSelectedCustomerName(found.name);
+                    setMobileNumber(found.mobile || "");
+                    setGstin(found.gstNumber || (found as any).gstin || "");
+                  } else {
+                    setSelectedCustomerName("Walk-in Retail Customer");
+                    setMobileNumber("9876543210");
+                  }
+                }}
+                className="w-full bg-slate-900 border border-indigo-500/60 rounded px-2 py-1 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">-- Walk-in Retail Customer --</option>
+                {customerList.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.mobile || "No Mobile"}) {c.gstNumber ? " [GST]" : ""}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Mobile Number</label>
@@ -620,52 +647,142 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">GSTIN / TAX ID</label>
+              <label className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">GSTIN / Tax ID</label>
               <input
                 type="text"
                 value={gstin}
                 onChange={(e) => setGstin(e.target.value)}
+                placeholder="Optional for Walk-in"
                 className="w-full bg-theme-surface-2 border border-theme-divider rounded px-2 py-1 text-xs font-mono text-theme-heading"
               />
             </div>
           </div>
+
+          {/* DYNAMIC EXTRA FIELDS: Appears Automatically Based on Customer Policy */}
+          {customerPolicy.showGstFields && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1.5 border-t border-dashed border-theme-divider/60">
+              <div>
+                <label className="text-[9px] font-mono text-emerald-400 uppercase tracking-wider block">Transporter Name</label>
+                <input
+                  type="text"
+                  value={transporterName}
+                  onChange={(e) => setTransporterName(e.target.value)}
+                  placeholder="e.g. VRL Logistics"
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-xs text-white"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-mono text-emerald-400 uppercase tracking-wider block">LR / Transport Receipt No</label>
+                <input
+                  type="text"
+                  value={lrNumber}
+                  onChange={(e) => setLrNumber(e.target.value)}
+                  placeholder="e.g. LR-99012"
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-xs text-white font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-mono text-emerald-400 uppercase tracking-wider block">E-Way Bill Number</label>
+                <input
+                  type="text"
+                  value={eWayBillNo}
+                  onChange={(e) => setEWayBillNo(e.target.value)}
+                  placeholder="12-digit NIC E-Way Bill"
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-xs text-white font-mono"
+                />
+              </div>
+            </div>
+          )}
+
+          {customerPolicy.showCorporateFields && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1.5 border-t border-dashed border-indigo-900/60 bg-indigo-950/20 p-2 rounded-lg">
+              <div>
+                <label className="text-[9px] font-mono text-indigo-300 uppercase tracking-wider block">PO Number *</label>
+                <input
+                  type="text"
+                  value={poNumber}
+                  onChange={(e) => setPoNumber(e.target.value)}
+                  placeholder="e.g. PO-889021"
+                  className="w-full bg-slate-900 border border-indigo-800 rounded px-2 py-0.5 text-xs text-white font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-mono text-indigo-300 uppercase tracking-wider block">Project / Cost Center</label>
+                <input
+                  type="text"
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="e.g. Project Retail Expansion"
+                  className="w-full bg-slate-900 border border-indigo-800 rounded px-2 py-0.5 text-xs text-white"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-mono text-indigo-300 uppercase tracking-wider block">Credit Terms</label>
+                <span className="text-xs font-mono font-bold text-indigo-200 block py-0.5">
+                  {customerPolicy.creditDays || 30} Days Credit (Limit: ₹{customerPolicy.creditLimit?.toLocaleString("en-IN")})
+                </span>
+              </div>
+            </div>
+          )}
+
+          {customerPolicy.showExportFields && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1.5 border-t border-dashed border-amber-900/60 bg-amber-950/20 p-2 rounded-lg">
+              <div>
+                <label className="text-[9px] font-mono text-amber-300 uppercase tracking-wider block">Currency</label>
+                <span className="text-xs font-mono font-bold text-amber-300 block py-0.5">USD ($ - Commercial Export)</span>
+              </div>
+              <div>
+                <label className="text-[9px] font-mono text-amber-300 uppercase tracking-wider block">Shipping Bill No</label>
+                <input
+                  type="text"
+                  value={shippingBillNo}
+                  onChange={(e) => setShippingBillNo(e.target.value)}
+                  placeholder="e.g. SB-889012"
+                  className="w-full bg-slate-900 border border-amber-800 rounded px-2 py-0.5 text-xs text-white font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-mono text-amber-300 uppercase tracking-wider block">Port Code</label>
+                <input
+                  type="text"
+                  value={portCode}
+                  onChange={(e) => setPortCode(e.target.value)}
+                  placeholder="e.g. INNSA1"
+                  className="w-full bg-slate-900 border border-amber-800 rounded px-2 py-0.5 text-xs text-white font-mono"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* ----- INVOICE DETAILS (5 COLUMNS) ----- */}
+        {/* ----- POLICY-RESOLVED PARAMETERS (5 COLUMNS) ----- */}
         <div className="lg:col-span-5 bg-theme-surface-2 border border-theme-divider rounded-xl p-3 shadow-xs space-y-2">
           <div className="flex items-center justify-between border-b border-theme-divider pb-1.5">
             <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs uppercase tracking-wide">
               <FileText className="w-3.5 h-3.5" />
-              <span>Billing Parameters</span>
+              <span>Resolved Policy Parameters</span>
             </div>
+            <span className="text-[10px] font-mono text-slate-400">Policy-Driven Engine</span>
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>
-              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Invoice Date</span>
-              <span className="font-bold text-theme-heading text-xs">{docDate}</span>
+              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Price Group (Resolved)</span>
+              <span className="font-bold text-emerald-400 text-xs font-mono block">{customerPolicy.priceGroup}</span>
             </div>
             <div>
-              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Primary Salesman (Derived)</span>
+              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Tax Governance (Resolved)</span>
+              <span className="font-bold text-blue-400 text-xs font-mono block">{customerPolicy.taxGroup}</span>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Print Template (Resolved)</span>
+              <span className="font-semibold text-slate-300 text-[11px] font-mono block truncate" title={customerPolicy.defaultPrintTemplate}>
+                {customerPolicy.defaultPrintTemplate}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Primary Salesman</span>
               <span className="font-bold text-indigo-400 text-xs font-mono block truncate" title={primarySalesman}>{primarySalesman}</span>
-            </div>
-            <div>
-              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Tax Governance</span>
-              <span className="font-semibold text-emerald-600 text-xs font-mono">TG-001 (Intrastate)</span>
-            </div>
-            <div>
-              <span className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Default Salesman Pre-Fill</span>
-              <select
-                value={defaultSalesmanId}
-                onChange={(e) => setDefaultSalesmanId(e.target.value)}
-                className="bg-theme-surface-2 border border-theme-divider rounded px-1.5 py-0.5 text-xs text-theme-heading font-semibold w-full"
-              >
-                {staffList.map((s) => (
-                  <option key={s.id || s.employeeId} value={s.employeeId || s.id}>
-                    {s.name} ({s.department || "Sales"})
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
         </div>
