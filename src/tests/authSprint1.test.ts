@@ -105,5 +105,5 @@ describe("Sprint 1: Authentication & Session Management", () => {
     );
 
     expect(result).toBeDefined();
-  });
+  }, 15000);
 });

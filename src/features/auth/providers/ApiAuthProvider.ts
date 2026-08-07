@@ -10,6 +10,12 @@ import { apiFetch, apiFetchV1 } from "../../../lib/apiFetch";
 
 import { MockAuthProvider } from "./MockAuthProvider";
 
+const isLocalDemoEnvironment = () => {
+  if (typeof window === "undefined") return true;
+  const host = window.location.hostname.toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host === "" || host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.");
+};
+
 export class ApiAuthProvider implements IAuthProvider {
   public providerId = "api-auth-provider";
   public providerName = "SMRITI Backend API Auth";
@@ -65,17 +71,30 @@ export class ApiAuthProvider implements IAuthProvider {
       }
 
       if (data && (data.error || data.detail)) {
+        if (isLocalDemoEnvironment()) {
+          return this.fallbackMock.authenticate(credentials);
+        }
+
         return {
           success: false,
           errorMessage: data.detail || data.error || "Invalid username or password. Please check your credentials."
         };
       }
     } catch {
-      // Fallback to local authenticated provider
+      // Fallback to local authenticated provider for local demo sessions
+      if (isLocalDemoEnvironment()) {
+        return this.fallbackMock.authenticate(credentials);
+      }
+    }
+
+    if (isLocalDemoEnvironment()) {
       return this.fallbackMock.authenticate(credentials);
     }
 
-    return this.fallbackMock.authenticate(credentials);
+    return {
+      success: false,
+      errorMessage: "Invalid username or password. Please check your credentials."
+    };
   }
 
   public async revokeSession(token: string): Promise<boolean> {
