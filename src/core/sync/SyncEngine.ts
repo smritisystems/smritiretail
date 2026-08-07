@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -110,8 +110,14 @@ export class SyncEngine {
           }
         }
       }
-    } catch (error) {
-      logger.error("[SMRITI SyncEngine] Critical error processing sync queue:", error as unknown);
+    } catch (error: any) {
+      const isBrowserPgStub = typeof window !== "undefined" && error?.message?.includes("Direct PostgreSQL TCP queries");
+      if (isBrowserPgStub) {
+        // Browser frontend UI uses REST API (/api/v1). Direct PostgreSQL TCP queries are prohibited in browser.
+        logger.debug("[SMRITI SyncEngine] Browser direct DB query skipped:", error.message);
+      } else {
+        logger.error("[SMRITI SyncEngine] Critical error processing sync queue:", error as unknown);
+      }
     } finally {
       this.isSyncing = false;
     }

@@ -680,6 +680,9 @@ export async function syncPendingCustomers() {
 }
 
 export async function syncCustomersWithBackend() {
+  const hasToken = typeof localStorage !== "undefined" && Boolean(localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"));
+  if (!hasToken) return;
+
   // Sync any pending edits first
   await syncPendingCustomers();
 
