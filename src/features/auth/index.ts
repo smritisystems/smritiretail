@@ -9,6 +9,7 @@ export * from "./store/authStore";
 export * from "./events/authEvents";
 export * from "./interfaces/IAuthProvider";
 export * from "./providers/MockAuthProvider";
+export * from "./providers/ApiAuthProvider";
 export * from "./services/AuthService";
 export * from "./services/SessionService";
 export * from "./services/LockService";

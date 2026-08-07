@@ -49,7 +49,6 @@ export const PasswordField: React.FC<PasswordFieldProps> = ({
           onKeyDown={handleKeyDown}
           onKeyUp={handleKeyDown}
           placeholder={placeholder}
-          required
           className="w-full pl-9 pr-10 py-2.5 rounded-lg bg-slate-900/90 border border-slate-700/80 hover:border-indigo-500/50 focus:border-indigo-500 text-slate-100 placeholder-slate-500 text-sm transition shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
         />
 

@@ -34,6 +34,10 @@ export const LoginCard: React.FC<LoginCardProps> = ({ onLoginSuccess }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!username.trim() || !password.trim()) {
+      useAuthStore.getState().setErrorMessage("Username and password are required.");
+      return;
+    }
     await AuthOrchestrator.executeLoginWorkflow(username, password, onLoginSuccess);
   };
 
@@ -81,7 +85,6 @@ export const LoginCard: React.FC<LoginCardProps> = ({ onLoginSuccess }) => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter username or email"
-                required
                 className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-slate-900/90 border border-slate-700/80 hover:border-indigo-500/50 focus:border-indigo-500 text-slate-100 placeholder-slate-500 text-sm transition shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               />
             </div>

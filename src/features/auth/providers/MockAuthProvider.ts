@@ -12,33 +12,37 @@ export class MockAuthProvider implements IAuthProvider {
   public providerName = "SMRITI Enterprise Internal Auth";
 
   public async authenticate(credentials: { username: string; password?: string }): Promise<AuthenticationResult> {
-    const { username } = credentials;
+    const { username, password } = credentials;
 
     if (!username || !username.trim()) {
       return { success: false, errorMessage: "Username is required." };
     }
 
+    if (!password || !password.trim()) {
+      return { success: false, errorMessage: "Password is required." };
+    }
+
     const cleanUsername = username.trim().toLowerCase();
+    const cleanPassword = password.trim();
 
-    let role = "SYSADMIN";
-    let name = username.charAt(0).toUpperCase() + username.slice(1);
+    const MOCK_ACCOUNTS: Record<string, { pass: string; role: string; name: string }> = {
+      super: { pass: "Shpr0128vdq!@", role: "SYSADMIN", name: "Super Admin" },
+      admin: { pass: "admin123", role: "SYSADMIN", name: "System Administrator" },
+      manager: { pass: "Password@123", role: "MANAGER", name: "Store Manager" },
+      cashier: { pass: "Cashier@1234", role: "CASHIER", name: "POS Cashier" },
+    };
 
-    if (cleanUsername === "super" || cleanUsername === "admin") {
-      role = "SYSADMIN";
-      name = cleanUsername === "super" ? "Super Admin" : "System Administrator";
-    } else if (cleanUsername === "manager") {
-      role = "MANAGER";
-      name = "Store Manager";
-    } else if (cleanUsername === "cashier") {
-      role = "CASHIER";
-      name = "POS Cashier";
+    const matchedAccount = MOCK_ACCOUNTS[cleanUsername];
+
+    if (!matchedAccount || matchedAccount.pass !== cleanPassword) {
+      return { success: false, errorMessage: "Invalid username or password." };
     }
 
     const user: User = {
       id: `usr_${cleanUsername}`,
       username: cleanUsername,
-      name,
-      role,
+      name: matchedAccount.name,
+      role: matchedAccount.role,
       lastLoginAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 

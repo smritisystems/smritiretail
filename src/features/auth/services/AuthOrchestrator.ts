@@ -7,12 +7,11 @@
 import { authStore } from "../store/authStore";
 import { authEvents } from "../events/authEvents";
 import { IAuthProvider } from "../interfaces/IAuthProvider";
-import { MockAuthProvider } from "../providers/MockAuthProvider";
-import { SessionService } from "./SessionService";
+import { ApiAuthProvider } from "../providers/ApiAuthProvider";
 import { User, AuthProgressStep } from "../types/auth.types";
 
 export class AuthOrchestrator {
-  private static provider: IAuthProvider = new MockAuthProvider();
+  private static provider: IAuthProvider = new ApiAuthProvider();
 
   public static setProvider(newProvider: IAuthProvider) {
     this.provider = newProvider;
