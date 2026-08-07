@@ -98,7 +98,7 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
         <button
           type="button"
           onClick={onOpenGlobalSearch}
-          className="sm:hidden p-2 rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-colors cursor-pointer"
+          className="sm:hidden p-2.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-colors cursor-pointer"
           title="Universal Search"
           aria-label="Universal Search"
         >
@@ -118,7 +118,7 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
         <button
           type="button"
           onClick={onOpenHelp}
-          className="p-2 rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
+          className="p-2.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
           title="Documentation & Help"
         >
           <HelpCircle size={16} />
@@ -128,7 +128,7 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
         <button
           type="button"
           onClick={onOpenNotifications}
-          className="p-2 rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors relative cursor-pointer"
+          className="p-2.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors relative cursor-pointer"
           title="Notifications"
         >
           <Bell size={16} />
