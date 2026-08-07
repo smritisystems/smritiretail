@@ -24,10 +24,15 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}): Pro
   const token = jwtToken || sessionToken;
 
   const isAuthCheckEndpoint = endpoint.includes("/auth/login") || endpoint.includes("/auth/token") || endpoint.includes("/auth/me");
-  const isMock = !token || token.startsWith("smriti_jwt_") || token.startsWith("demo_") || token === "token_demo" || token === "dev-bypass-token";
-
-  if (!isAuthCheckEndpoint && isMock) {
-    return [];
+  
+  if (!isAuthCheckEndpoint) {
+    if (!token) {
+      throw new Error("Unauthenticated session. Please log in to access protected enterprise API.");
+    }
+    const isMock = token.startsWith("smriti_jwt_") || token.startsWith("demo_") || token === "token_demo" || token === "dev-bypass-token";
+    if (isMock) {
+      return [];
+    }
   }
 
   const headers = new Headers(options.headers || {});

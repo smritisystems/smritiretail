@@ -35,9 +35,11 @@ export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit
   const isAuthCheckEndpoint = path.includes("/auth/me") || path.includes("/auth/login") || path.includes("/auth/token");
 
   // Centralized Authentication Guard (P0 Security Compliance):
-  // Prevent all unauthenticated or local mock session network requests to protected API endpoints.
   if (!isAuthCheckEndpoint) {
-    if (!token || isLocalMockToken(token)) {
+    if (!token) {
+      throw new Error("Unauthenticated session. Please log in to access protected enterprise API.");
+    }
+    if (isLocalMockToken(token)) {
       return [] as unknown as T;
     }
   }
