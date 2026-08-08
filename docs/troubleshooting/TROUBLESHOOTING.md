@@ -36,7 +36,12 @@ This document details common operational issues and resolutions.
 
 ---
 
-## 1. Container `smriti-api-prod` Failed to Start (Circular Import Error)
+## 1. Container `smriti-api-prod` NameError `name 'exchange' is not defined`
+- **Symptom:** `smriti-api-prod` crashes during boot with `NameError: name 'exchange' is not defined` at line 271 of `app/main.py`.
+- **Cause:** `exchange` router module was mounted with `app.include_router(exchange.router, ...)` but was omitted from the top `from .api.v1 import (...)` tuple.
+- **Resolution:** Added `exchange` to `from .api.v1 import (...)` in `backend/app/main.py`.
+
+## 2. Container `smriti-api-prod` Failed to Start (Circular Import Error)
 - **Symptom:** `smriti-api-prod` container fails health check and exits with `ImportError: cannot import name 'environment_router' from partially initialized module 'app.api.v1'`.
 - **Cause:** `environment_router.py` was located under `app/api/v1/endpoints/environment_router.py`, but `app/api/v1/__init__.py` attempted to import `environment_router` directly from `app.api.v1`.
 - **Resolution:** Initialized `app/api/v1/endpoints/__init__.py` as a Python package and updated `app/api/v1/__init__.py` to import `from .endpoints import environment_router`.

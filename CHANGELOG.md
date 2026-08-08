@@ -31,6 +31,8 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [Unreleased]
 
 ### Fixed
+- **Backend FastAPI `main.py` Exchange Router Module Import**:
+  - Fixed `NameError: name 'exchange' is not defined` at line 271 of [backend/app/main.py](file:///f:/SMRITRretailNXmgrt/backend/app/main.py) by adding `exchange` to the `from .api.v1 import (...)` module list.
 - **Backend FastAPI `smriti-api-prod` Container Circular Import Fix (`PROD-004`)**:
   - Fixed `ImportError: cannot import name 'environment_router' from partially initialized module 'app.api.v1'` in [backend/app/api/v1/__init__.py](file:///f:/SMRITRretailNXmgrt/backend/app/api/v1/__init__.py).
   - Created [backend/app/api/v1/endpoints/__init__.py](file:///f:/SMRITRretailNXmgrt/backend/app/api/v1/endpoints/__init__.py) package initializer and updated `__init__.py` to import `environment_router` from `.endpoints`, allowing Gunicorn / Uvicorn workers in Docker container `smriti-api-prod` to boot cleanly and pass health checks.
