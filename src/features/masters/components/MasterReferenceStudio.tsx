@@ -24,7 +24,7 @@ import {
   X,
   Edit2
 } from "lucide-react";
-import { apiFetchV1 } from "../../../lib/apiFetch";
+import { apiFetchV1 } from "../../../lib/apiFetchV1";
 
 export interface MasterTypeItem {
   id: string;
@@ -95,6 +95,7 @@ export const MasterReferenceStudio: React.FC = () => {
   const [definitions, setDefinitions] = useState<AttributeDefinitionItem[]>([]);
   const [groups, setGroups] = useState<AttributeGroupItem[]>([]);
   const [mappings, setMappings] = useState<CategoryMappingItem[]>([]);
+  const [categoryValues, setCategoryValues] = useState<MasterValueItem[]>([]);
 
   // New Attribute Definition Form State
   const [attrName, setAttrName] = useState("");
@@ -173,6 +174,9 @@ export const MasterReferenceStudio: React.FC = () => {
 
       const mapsRes = await apiFetchV1<CategoryMappingItem[]>("attributes/category-mappings");
       if (Array.isArray(mapsRes)) setMappings(mapsRes);
+
+      const catsRes = await apiFetchV1<MasterValueItem[]>("master-lookups/values/product_category");
+      if (Array.isArray(catsRes)) setCategoryValues(catsRes);
     } catch (e) {
       console.warn("[MasterStudio] Failed loading attribute configs", e);
     }
@@ -612,26 +616,45 @@ export const MasterReferenceStudio: React.FC = () => {
               </h3>
               <form onSubmit={handleCreateCategoryMapping} className="space-y-3 text-xs">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Category Code/Name</label>
-                  <input
-                    type="text"
+                  <label className="block text-slate-300 font-semibold mb-1">Select Product Category</label>
+                  <select
                     value={mapCategory}
                     onChange={(e) => setMapCategory(e.target.value)}
-                    placeholder="e.g. Footwear"
                     required
-                    className="w-full p-2 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
-                  />
+                    className="w-full p-2 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="">-- Select Category --</option>
+                    {categoryValues.length > 0 ? (
+                      categoryValues.map((cat) => (
+                        <option key={cat.id || cat.code} value={cat.name || cat.code}>
+                          {cat.name} ({cat.code})
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="Footwear">Footwear (CAT-FOOTWEAR)</option>
+                        <option value="Shirts">Shirts (CAT-SHIRTS)</option>
+                        <option value="Trousers">Trousers (CAT-TROUSERS)</option>
+                        <option value="Jeans">Jeans (CAT-JEANS)</option>
+                      </>
+                    )}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Target Attribute Group ID</label>
-                  <input
-                    type="text"
+                  <label className="block text-slate-300 font-semibold mb-1">Target Attribute Group</label>
+                  <select
                     value={mapGroupId}
                     onChange={(e) => setMapGroupId(e.target.value)}
-                    placeholder="e.g. grp-footwear-01"
                     required
                     className="w-full p-2 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
-                  />
+                  >
+                    <option value="">-- Select Attribute Group --</option>
+                    {groups.map((grp) => (
+                      <option key={grp.id} value={grp.id}>
+                        {grp.name} ({grp.id})
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <button
                   type="submit"

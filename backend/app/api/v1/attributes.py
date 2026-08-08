@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user, require_permission
+from ...api.deps import get_db, get_current_user, require_permission, get_current_tenant, TenantContext
 from ...models.auth import User
 from ...models.attributes import (
     AttributeDefinition, AttributeGroup, VariantTemplate, CategoryAttributeGroupMapping
@@ -45,12 +45,14 @@ router = APIRouter()
 async def list_definitions(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     List all active attribute definitions.
     """
     service = AttributesService(db)
-    defns = await service.list_definitions()
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    defns = await service.list_definitions(company_id=company_id)
     res = []
     for d in defns:
         res.append(AttributeDefinitionResponse(
@@ -86,12 +88,14 @@ async def create_definition(
     req: AttributeDefinitionCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     Create a new custom attribute definition.
     """
     service = AttributesService(db)
-    d = await service.create_definition(req, current_user.username)
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    d = await service.create_definition(req, current_user.username, company_id=company_id)
     return AttributeDefinitionResponse(
         id=d.id,
         name=d.name,
@@ -179,12 +183,14 @@ async def delete_definition(
 async def list_groups(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     List all active attribute groups.
     """
     service = AttributesService(db)
-    groups = await service.list_groups()
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    groups = await service.list_groups(company_id=company_id)
     res = []
     for g in groups:
         res.append(AttributeGroupResponse(
@@ -207,12 +213,14 @@ async def create_group(
     req: AttributeGroupCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     Create a new attribute group.
     """
     service = AttributesService(db)
-    g = await service.create_group(req, current_user.username)
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    g = await service.create_group(req, current_user.username, company_id=company_id)
     return AttributeGroupResponse(
         id=g.id,
         name=g.name,
@@ -273,12 +281,14 @@ async def delete_group(
 async def list_templates(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     List all active style variant templates.
     """
     service = AttributesService(db)
-    templates = await service.list_templates()
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    templates = await service.list_templates(company_id=company_id)
     res = []
     for t in templates:
         res.append(VariantTemplateResponse(
@@ -308,12 +318,14 @@ async def create_template(
     req: VariantTemplateCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     Create a new variant template.
     """
     service = AttributesService(db)
-    t = await service.create_template(req, current_user.username)
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    t = await service.create_template(req, current_user.username, company_id=company_id)
     return VariantTemplateResponse(
         id=t.id,
         styleCode=t.style_code,
@@ -491,12 +503,14 @@ async def generate_variants(
 async def list_category_mappings(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     List all category to attribute group association mappings.
     """
     service = AttributesService(db)
-    mappings = await service.list_category_mappings()
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    mappings = await service.list_category_mappings(company_id=company_id)
     res = []
     for m in mappings:
         res.append(CategoryMappingResponse(
@@ -515,12 +529,14 @@ async def save_category_mapping(
     req: CategoryMappingCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     Save category to attribute group mapping registry.
     """
     service = AttributesService(db)
-    m = await service.save_category_mapping(req.category, req.attributeGroupId, current_user.username)
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    m = await service.save_category_mapping(req.category, req.attributeGroupId, current_user.username, company_id=company_id)
     return CategoryMappingResponse(
         category=m.category,
         attributeGroupId=m.attribute_group_id

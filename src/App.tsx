@@ -47,6 +47,7 @@ const AdvancedBillingEngine = React.lazy(() => import("./components/AdvancedBill
 const SalesStudioTab = React.lazy(() => import("./components/SalesStudioTab.tsx").then((module) => ({ default: module.SalesStudioTab })));
 const SalesBillingStudio = React.lazy(() => import("./components/sales/SalesBillingStudio.tsx").then((module) => ({ default: module.SalesBillingStudio })));
 import { ItemMasterTab } from "./components/ItemMasterTab.tsx";
+import { MasterReferenceStudio } from "./features/masters/components/MasterReferenceStudio.tsx";
 import { WikiTab } from "./components/WikiTab.tsx";
 const PurchaseStudioTab = React.lazy(() => import("./components/PurchaseStudioTab.tsx").then((module) => ({ default: module.PurchaseStudioTab })));
 import { MasterManagementTab } from "./components/MasterManagementTab.tsx";
@@ -932,6 +933,10 @@ const isLocalMockToken = (t: string | null): boolean => {
         return <WikiTab onNotification={addNotification} />;
       case "masters":
         return <MasterManagementTab onNotification={addNotification} />;
+      case "master-studio":
+      case "master-reference-studio":
+      case "masters-reference":
+        return <MasterReferenceStudio />;
       case "ai-config":
       case "ai-configuration":
         return <AIConfigurationTab onNotification={addNotification} />;

@@ -11,7 +11,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from sqlalchemy import Column, String, Boolean, Text, Integer, Numeric
+from sqlalchemy import Column, String, Boolean, Text, Integer, Numeric, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import BaseEntity
 
@@ -80,6 +80,9 @@ class CategoryAttributeGroupMapping(BaseEntity):
     Associates item categories to specific attribute groups automatically.
     """
     __tablename__ = "category_attribute_group_mappings"
+    __table_args__ = (
+        UniqueConstraint('category', 'attribute_group_id', name='uq_category_group_mapping'),
+    )
 
-    category           = Column(String(100), nullable=False, unique=True)
+    category           = Column(String(100), nullable=False)
     attribute_group_id = Column(String(50), nullable=False)

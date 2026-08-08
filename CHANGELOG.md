@@ -31,13 +31,15 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [Unreleased]
 
 ### Added
-- **Master & Reference Studio & Dynamic Attribute Architecture (`MasterReferenceStudio.tsx` / `ItemMasterStudio.tsx` / `NavigationRegistry.ts`)**:
+- **Master & Reference Studio & Dynamic Attribute Architecture (`MasterReferenceStudio.tsx` / `ItemMasterStudio.tsx` / `NavigationRegistry.ts` / `attributes.py`)**:
   - Implemented unified `MasterReferenceStudio.tsx` in [src/features/masters/components/MasterReferenceStudio.tsx](file:///f:/SMRITRretailNXmgrt/src/features/masters/components/MasterReferenceStudio.tsx) adhering to Single Workspace Principle (Rule PROD-002 / SWP-001) and Promote Before Create (Rule PBC-001).
-  - Dynamically discovers pre-seeded `master_types` (`product_category`, `product_brand`, `uom`, `payment_mode`, `product_color`, `state`, `city`, `tax_category`, `reason_code`, `department`, `designation`) and displays governance badges (`SYSTEM`, `REFERENCE`, `BUSINESS`, `OPERATIONAL`).
-  - Added Attribute Configuration Studio for managing `AttributeDefinition`, `AttributeGroup`, and `CategoryAttributeGroupMapping` without code changes.
-  - Refactored `ItemMasterStudio.tsx` category selection to dynamically resolve `CategoryAttributeGroupMapping` and render custom dynamic fields via `UniversalFormRenderer` storing values in `Product.attributes` JSONB.
+  - Mounted `MasterReferenceStudio` in `src/App.tsx` under switch cases (`master-studio`, `master-reference-studio`, `masters-reference`).
+  - Hardened tenant isolation in `AttributesService` (`list_definitions`, `list_groups`, `list_templates`, `list_category_mappings`) with mandatory `company_id` filter.
+  - Replaced single `unique=True` on `CategoryAttributeGroupMapping.category` with composite `UniqueConstraint('category', 'attribute_group_id')` allowing multi-group category mappings, supported by Alembic migration [v900_multi_group_category_mapping.py](file:///f:/SMRITRretailNXmgrt/backend/alembic/versions/v900_multi_group_category_mapping.py).
+  - Replaced free-text category and attribute group inputs in `MasterReferenceStudio.tsx` with `<select>` dropdowns populated from `product_category` master values and loaded `AttributeGroup` records.
+  - Corrected `apiFetchV1` import path in `MasterReferenceStudio.tsx` to `../../../lib/apiFetchV1`.
   - Registered `NAV_MASTER_STUDIO` in [NavigationRegistry.ts](file:///f:/SMRITRretailNXmgrt/src/kernel/upr/navigation/NavigationRegistry.ts).
-  - Added full automated integration test suite in [attributeCategoryMaster.test.ts](file:///f:/SMRITRretailNXmgrt/src/tests/attributeCategoryMaster.test.ts) testing all 20 verification scenarios.
+  - Verified 100% clean test suite in [attributeCategoryMaster.test.ts](file:///f:/SMRITRretailNXmgrt/src/tests/attributeCategoryMaster.test.ts) (56/56 total passed).
 - **Company Code Provisioning & Intelligent Suggestion Engine (`CompanyCodeSuggestionService.ts` / `system.py` / `SetupWizardTab.tsx`)**:
   - Refactored Enterprise Organization Studio & Company Provisioning Wizard so Company Code is explicitly visible in UX/UI, suggested from `CITY(3) + PIN_LAST3(3) + SEQUENCE(3)` (e.g. `MUM067001`), and overridable by users.
   - Implemented `GET /api/v1/company/code/availability` returning strictly `{ "available": boolean }` without exposing tenant secrets.
