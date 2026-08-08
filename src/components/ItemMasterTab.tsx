@@ -46,6 +46,7 @@ import { findPotentialDuplicates, validateBarcodeUniqueness } from "../utils/dup
 import { ProductStatus } from "../types.js";
 import { ItemHealthDashboard } from "./item_master/ItemHealthDashboard.tsx";
 import { CreateSimilarItemWizard } from "./item_master/CreateSimilarItemWizard.tsx";
+import { apiFetchV1 } from "../lib/apiFetch.ts";
 
 export type ItemFormMode = "quick" | "advanced";
 
@@ -141,6 +142,29 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   const [formMode, setFormMode] = useState<ItemFormMode>("quick");
   const [formData, setFormData] = useState<ItemFormData>(blankItemForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Authority-backed MasterLookups state
+  const [masterCategories, setMasterCategories] = useState<{ id?: string; code: string; name: string }[]>([]);
+  const [masterBrands, setMasterBrands] = useState<{ id?: string; code: string; name: string }[]>([]);
+  const [masterUoms, setMasterUoms] = useState<{ id?: string; code: string; name: string }[]>([]);
+
+  useEffect(() => {
+    const loadMasterLookups = async () => {
+      try {
+        const [cats, brs, uoms] = await Promise.all([
+          apiFetchV1<{ id?: string; code: string; name: string }[]>("master-lookups/values/product_category").catch(() => []),
+          apiFetchV1<{ id?: string; code: string; name: string }[]>("master-lookups/values/product_brand").catch(() => []),
+          apiFetchV1<{ id?: string; code: string; name: string }[]>("master-lookups/values/uom").catch(() => [])
+        ]);
+        if (Array.isArray(cats)) setMasterCategories(cats);
+        if (Array.isArray(brs)) setMasterBrands(brs);
+        if (Array.isArray(uoms)) setMasterUoms(uoms);
+      } catch (e) {
+        console.warn("[ItemMasterTab] Failed loading master lookups:", e);
+      }
+    };
+    loadMasterLookups();
+  }, []);
 
   // Compute Inventory Summaries
   const inventoryTotals = useMemo(() => {
@@ -1206,21 +1230,47 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Category</label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-heading"
-                  />
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-heading font-medium"
+                  >
+                    {masterCategories.length > 0 ? (
+                      masterCategories.map((c) => (
+                        <option key={c.id || c.code} value={c.name || c.code}>
+                          {c.name || c.code}
+                        </option>
+                      ))
+                    ) : (
+                      categories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))
+                    )}
+                  </select>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Brand</label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.brand}
                     onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-heading"
-                  />
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-heading font-medium"
+                  >
+                    {masterBrands.length > 0 ? (
+                      masterBrands.map((b) => (
+                        <option key={b.id || b.code} value={b.name || b.code}>
+                          {b.name || b.code}
+                        </option>
+                      ))
+                    ) : (
+                      brands.map((br) => (
+                        <option key={br} value={br}>
+                          {br}
+                        </option>
+                      ))
+                    )}
+                  </select>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">HSN Code</label>
@@ -1233,7 +1283,47 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">UOM</label>
+                  <select
+                    value={formData.uom}
+                    onChange={(e) => setFormData({ ...formData, uom: e.target.value })}
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-heading font-semibold"
+                  >
+                    {masterUoms.length > 0 ? (
+                      masterUoms.map((u) => (
+                        <option key={u.id || u.code} value={u.name || u.code}>
+                          {u.name} ({u.code})
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="Pcs">Pieces (Pcs)</option>
+                        <option value="PCS">Pieces (PCS)</option>
+                        <option value="KG">Kilograms (KG)</option>
+                        <option value="LTR">Liters (LTR)</option>
+                        <option value="BOX">Box / Pack (BOX)</option>
+                        <option value="MTR">Meters (MTR)</option>
+                        <option value="PAIR">Pair (PAIR)</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">GST Rate (%)</label>
+                  <select
+                    value={formData.gst_rate}
+                    onChange={(e) => setFormData({ ...formData, gst_rate: e.target.value })}
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-heading font-semibold font-mono"
+                  >
+                    <option value="0">0% (Exempt)</option>
+                    <option value="5">5% (Reduced)</option>
+                    <option value="12">12% (Standard)</option>
+                    <option value="18">18% (Standard)</option>
+                    <option value="28">28% (Super)</option>
+                  </select>
+                </div>
                 <div>
                   <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">MRP (₹)</label>
                   <input
@@ -1253,6 +1343,9 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-mono font-bold text-blue-700"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Initial Stock Qty</label>
                   <input
@@ -1260,6 +1353,15 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                     value={formData.stock_qty}
                     onChange={(e) => setFormData({ ...formData, stock_qty: e.target.value })}
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-mono text-theme-heading"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Warehouse / Storage Location</label>
+                  <input
+                    type="text"
+                    value={formData.warehouse}
+                    onChange={(e) => setFormData({ ...formData, warehouse: e.target.value })}
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-theme-heading"
                   />
                 </div>
               </div>

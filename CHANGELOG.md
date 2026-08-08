@@ -38,6 +38,18 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - PlatformValidationEngine (`PVE`) updated to validate `size_scale_id` tenant authorization and verify `Product.size` belongs to `SizeValue.display_size` for that scale, raising HTTP 422 `SMRITI-VAL-SIZE-001` on invalid size combination or scale ID.
   - Added `SizeMasterService.resolve_conversions(scale_id, display_size)` multi-region resolution engine returning mapped regional size labels (e.g. `{"UK": "7", "US": "8", "EU": "41"}`) without region fabrication. Read-only.
   - Added comprehensive automated test suite `app/tests/test_phase_f_sizescale.py` verifying aggregate creation, PVE validation, multi-region resolution, tenant isolation, DB `ON DELETE SET NULL` behavior, and algorithm preservation.
+
+### Fixed & Hardened (MasterReferenceStudio UI/UX & Attribute Governance — CERTIFIED)
+- **MasterReferenceStudio (8 UI/UX Hardening Fixes)**:
+  - **FIX 1:** Category mapping creation now binds category `code` (`value={cat.code}`) rather than display name, aligning with backend schema constraints.
+  - **FIX 2:** Corrected datatype option value typo from `"Text font-sans"` to `"Text"`.
+  - **FIX 3:** Implemented full JSX Groups tab panel and `CreateGroupForm` helper component for creating and displaying attribute groups (`POST /attributes/groups`).
+  - **FIX 4:** Enforced UI action lock for `SYSTEM` category types (`disabled={selectedType?.is_system}`) rendering `<ShieldAlert />` icon, tooltip, and cursor lock.
+  - **FIX 5:** Integrated toast notification system (`{toast && ...}`) with auto-dismiss timer and added `isSaving` loading spinners (`<Loader2 className="animate-spin" />`) on submit actions.
+  - **FIX 6:** Category mappings table primary column now resolves human-readable Attribute Group Name via `groups.find(...)?.name`.
+  - **FIX 7:** Removed hardcoded fallback master types array; implemented explicit `<ShieldAlert />` error container (`masterTypesError`) when server returns empty/error response.
+  - **FIX 8:** Added advanced flags section exposing `is_searchable`, `is_filterable`, `is_printable`, `is_barcode_enabled`, `is_enabled`, and `display_order` to attribute definition POST body.
+  - Verified with `npx tsc --noEmit` (0 errors) and Vitest frontend test suite (137/137 files passed, 685/685 tests passed).
   - Core identity algorithms `generate_sku_business_key()` and `generate_fingerprint_hash()` 100% unedited and preserved.
   - Verified 100% test pass rate across complete relevant backend test suite (`184/184 PASSED`, `0 FAILED`).
 
