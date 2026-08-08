@@ -1,24 +1,50 @@
 /**
  * Project      : SMRITI Retail OS
- * Architecture : ADR-AUTH-001 — Session Timeout Modal
+ * Architecture : ADR-AUTH-001 — Session Timeout Modal (Server-Bound Password Verification)
  * Feature      : src/features/auth/components/SessionExpiredDialog.tsx
  */
 
 import React, { useState } from "react";
-import { Clock, ArrowRight, KeyRound } from "lucide-react";
+import { Clock, ArrowRight, KeyRound, Loader2 } from "lucide-react";
 import { useSession } from "../hooks/useSession";
-import { authStore } from "../store/authStore";
+import { SessionService } from "../services/SessionService";
 
 export const SessionExpiredDialog: React.FC = () => {
   const { isSessionExpiredModalOpen, logout } = useSession();
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [failedAttempts, setFailedAttempts] = useState(0);
 
   if (!isSessionExpiredModalOpen) return null;
 
-  const handleExtendSession = (e: React.FormEvent) => {
+  const handleExtendSession = async (e: React.FormEvent) => {
     e.preventDefault();
-    authStore.setAuthState("Authenticated");
-    authStore.setSessionExpiredModalOpen(false);
+    if (!password.trim()) {
+      setErrorMsg("Password is required to resume session.");
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMsg(null);
+
+    const result = await SessionService.resumeSession(password);
+    setIsLoading(false);
+
+    if (!result.success) {
+      const nextAttempts = failedAttempts + 1;
+      setFailedAttempts(nextAttempts);
+
+      if (nextAttempts >= 5) {
+        setErrorMsg("Too many failed attempts. Signing out...");
+        setTimeout(() => {
+          logout();
+        }, 1500);
+        return;
+      }
+
+      setErrorMsg(result.message || "Incorrect password or PIN.");
+    }
   };
 
   return (
@@ -45,20 +71,39 @@ export const SessionExpiredDialog: React.FC = () => {
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setErrorMsg(null);
+                }}
                 placeholder="Enter password"
                 required
-                className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                disabled={isLoading}
+                className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
               />
             </div>
+            {errorMsg && (
+              <p className="text-[11px] text-rose-400 mt-1.5 font-medium flex items-center gap-1">
+                <span>⚠️ {errorMsg}</span>
+              </p>
+            )}
           </div>
 
           <button
             type="submit"
-            className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition flex items-center justify-center space-x-2 shadow-lg shadow-indigo-600/30"
+            disabled={isLoading || !password.trim()}
+            className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition flex items-center justify-center space-x-2 shadow-lg shadow-indigo-600/30 disabled:opacity-50"
           >
-            <span>Resume Session</span>
-            <ArrowRight size={14} />
+            {isLoading ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                <span>Verifying Password...</span>
+              </>
+            ) : (
+              <>
+                <span>Resume Session</span>
+                <ArrowRight size={14} />
+              </>
+            )}
           </button>
         </form>
 

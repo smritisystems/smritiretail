@@ -46,6 +46,15 @@ This document details common operational issues and resolutions.
   2. Configured initial provider state to `EnvironmentResolver.unresolved()` (`mode: "UNKNOWN"`, `showDevCredentials: false`).
   3. Implemented strict **Fail-Closed Security** in `EnvironmentResolver.shouldShowDevCredentials()`, ensuring dev credentials remain hidden during `UNKNOWN` / pre-resolution loading states.
 
+## 2. Session Expired & Workspace Lock Server-Side Password Verification
+- **Symptom:** Entering an incorrect or arbitrary password previously allowed users to unlock the session or workspace overlay.
+- **Cause:** `SessionExpiredDialog.tsx` and `LockService.ts` called `authStore.setAuthState("Authenticated")` unconditionally upon form submission or non-empty input without verifying credentials server-side.
+- **Resolution:**
+  1. Implemented `POST /api/v1/auth/session/resume` to enforce authoritative server-side password verification against trusted user context (`current_user` / `refresh_token`).
+  2. Refactored `LockService.unlockWorkspace(password)` and `SessionService.resumeSession(password)` to be asynchronous and fail-closed on 401, 403, 429, 500, or malformed HTTP 200 payloads.
+  3. Implemented server-side rate limiting in `AuthService.resume_session()` (returns `HTTP 429 Too Many Requests` after 5 failed password attempts).
+  4. Added automated security test suite in `src/tests/sessionExpiryAuth.test.ts` covering 14 security test scenarios.
+
 ## 2. Company Code Provisioning, Sequence Exhaustion & Duplicate Code Race
 - **Symptom:** User sees duplicate code error (`HTTP 409 Conflict`), or automated Company Code suggestion stops.
 - **Cause:**

@@ -1,11 +1,11 @@
 /**
  * Project      : SMRITI Retail OS
- * Architecture : ADR-AUTH-001 — Workspace Lock Overlay (State Preserving)
+ * Architecture : ADR-AUTH-001 — Workspace Lock Overlay (State Preserving, Server-Bound Verification)
  * Feature      : src/features/auth/components/LockScreen.tsx
  */
 
 import React, { useState } from "react";
-import { Lock, KeyRound, LogOut, ArrowRight, ShieldCheck, User } from "lucide-react";
+import { Lock, KeyRound, LogOut, ArrowRight, User, Loader2 } from "lucide-react";
 import { useLockScreen } from "../hooks/useLockScreen";
 import { useSession } from "../hooks/useSession";
 
@@ -13,19 +13,26 @@ export const LockScreen: React.FC = () => {
   const { isLocked, currentUser, unlock } = useLockScreen();
   const { openLogoutModal } = useSession();
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   if (!isLocked) return null;
 
-  const handleUnlock = (e: React.FormEvent) => {
+  const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password.trim()) {
-      setError(true);
+      setErrorMsg("Password is required to unlock.");
       return;
     }
-    const success = unlock(password);
+
+    setIsLoading(true);
+    setErrorMsg(null);
+
+    const success = await unlock(password);
+    setIsLoading(false);
+
     if (!success) {
-      setError(true);
+      setErrorMsg("Incorrect password or PIN.");
     }
   };
 
@@ -65,23 +72,38 @@ export const LockScreen: React.FC = () => {
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
-                  setError(false);
+                  setErrorMsg(null);
                 }}
                 placeholder="Enter password to unlock"
                 autoFocus
                 required
-                className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-slate-950 border border-slate-700/80 focus:border-amber-500 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                disabled={isLoading}
+                className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-slate-950 border border-slate-700/80 focus:border-amber-500 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:opacity-50"
               />
             </div>
-            {error && <p className="text-[11px] text-rose-400 mt-1">Please enter your password.</p>}
+            {errorMsg && (
+              <p className="text-[11px] text-rose-400 mt-1.5 font-medium flex items-center gap-1">
+                <span>⚠️ {errorMsg}</span>
+              </p>
+            )}
           </div>
 
           <button
             type="submit"
-            className="w-full py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition flex items-center justify-center space-x-2 shadow-lg shadow-amber-600/20"
+            disabled={isLoading || !password.trim()}
+            className="w-full py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition flex items-center justify-center space-x-2 shadow-lg shadow-amber-600/20 disabled:opacity-50"
           >
-            <span>Unlock Workspace</span>
-            <ArrowRight size={14} />
+            {isLoading ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                <span>Verifying...</span>
+              </>
+            ) : (
+              <>
+                <span>Unlock Workspace</span>
+                <ArrowRight size={14} />
+              </>
+            )}
           </button>
         </form>
 

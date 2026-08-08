@@ -57,19 +57,23 @@ export const authStore = {
 
   setCurrentUser: (user: User | null) => {
     globalState = { ...globalState, currentUser: user };
-    if (user) {
-      localStorage.setItem("smriti_user_name", user.name);
-      localStorage.setItem("smriti_user_role", user.role);
-    } else {
-      localStorage.removeItem("smriti_user_name");
-      localStorage.removeItem("smriti_user_role");
+    if (typeof localStorage !== 'undefined') {
+      if (user) {
+        localStorage.setItem("smriti_user_name", user.name);
+        localStorage.setItem("smriti_user_role", user.role);
+      } else {
+        localStorage.removeItem("smriti_user_name");
+        localStorage.removeItem("smriti_user_role");
+      }
     }
     notifyListeners();
   },
 
   setSelectedOrganization: (org: OrganizationContext) => {
     globalState = { ...globalState, selectedOrganization: org };
-    localStorage.setItem("smriti_selected_org", JSON.stringify(org));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem("smriti_selected_org", JSON.stringify(org));
+    }
     authEvents.publish("OrganizationChanged", globalState.currentUser?.id, org.id);
     notifyListeners();
   },

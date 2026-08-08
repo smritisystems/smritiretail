@@ -172,6 +172,54 @@ class AuthService:
         }
 
     # ------------------------------------------------------------------
+    # Session Resume / Re-authentication with Server-Side Rate Limiting
+    # ------------------------------------------------------------------
+    async def resume_session(self, current_user: User, password: str) -> dict:
+        """
+        Re-authenticate and resume an expired/locked session.
+        Determines user identity strictly from server-side context (current_user).
+        Enforces server-side rate limiting and password verification.
+        """
+        if not current_user or not current_user.is_active:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or inactive user session.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        _check_rate_limit(current_user.id)
+
+        if not password or not password.strip():
+            _record_failed_attempt(current_user.id)
+            raise HTTPException(
+                status_code=401,
+                detail="Incorrect password or PIN.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if not verify_password(password, current_user.hashed_password):
+            _record_failed_attempt(current_user.id)
+            raise HTTPException(
+                status_code=401,
+                detail="Incorrect password or PIN.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        _clear_failed_attempts(current_user.id)
+
+        payload = _build_token_payload(current_user)
+        return {
+            "access_token":  create_access_token(payload),
+            "refresh_token": create_refresh_token(payload),
+            "token_type":    "bearer",
+            "role":          current_user.role,
+            "company_id":    current_user.company_id,
+            "branch_id":     current_user.branch_id,
+            "password_reset_required": current_user.status == "PendingPasswordChange",
+            "user":          current_user,
+        }
+
+    # ------------------------------------------------------------------
     # Refresh
     # ------------------------------------------------------------------
     async def refresh(self, refresh_token: str) -> dict:

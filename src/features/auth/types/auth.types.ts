@@ -80,6 +80,7 @@ export type AuthEventType =
   | "WorkspaceLocked"
   | "WorkspaceUnlocked"
   | "SessionExpired"
+  | "SessionResumed"
   | "UserLoggedOut"
   | "OrganizationChanged"
   | "WorkspaceChanged";

@@ -25,11 +25,12 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user
+from ...api.deps import get_db, get_current_user, get_current_user_optional
 from ...services.auth import AuthService
 from ...schemas.auth import (
     LoginRequest, TokenResponse, AccessTokenResponse,
     RefreshRequest, BootstrapRequest, UserResponse,
+    ResumeSessionRequest,
 )
 from ...schemas.masters_tier2 import CompanyResponse, BranchResponse
 from ...models.auth import User, UserRole
@@ -132,6 +133,27 @@ async def logout(
     service = AuthService(db)
     await service.logout(req.refresh_token, current_user.id)
     return {"message": "You have been logged out successfully."}
+
+
+@router.post("/session/resume", response_model=TokenResponse)
+async def resume_session(
+    req: ResumeSessionRequest,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Re-authenticate and resume a locked or expired session.
+    Identity is established strictly from server-side context (current_user).
+    Enforces server-side rate limiting and password verification.
+    """
+    if not current_user:
+        raise HTTPException(
+            status_code=401,
+            detail="Session has expired. Complete re-authentication required.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    service = AuthService(db)
+    return await service.resume_session(current_user, req.password)
 
 
 @router.get("/me", response_model=UserResponse)

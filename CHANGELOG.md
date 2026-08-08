@@ -31,6 +31,13 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [Unreleased]
 
 ### Added
+- **Master & Reference Studio & Dynamic Attribute Architecture (`MasterReferenceStudio.tsx` / `ItemMasterStudio.tsx` / `NavigationRegistry.ts`)**:
+  - Implemented unified `MasterReferenceStudio.tsx` in [src/features/masters/components/MasterReferenceStudio.tsx](file:///f:/SMRITRretailNXmgrt/src/features/masters/components/MasterReferenceStudio.tsx) adhering to Single Workspace Principle (Rule PROD-002 / SWP-001) and Promote Before Create (Rule PBC-001).
+  - Dynamically discovers pre-seeded `master_types` (`product_category`, `product_brand`, `uom`, `payment_mode`, `product_color`, `state`, `city`, `tax_category`, `reason_code`, `department`, `designation`) and displays governance badges (`SYSTEM`, `REFERENCE`, `BUSINESS`, `OPERATIONAL`).
+  - Added Attribute Configuration Studio for managing `AttributeDefinition`, `AttributeGroup`, and `CategoryAttributeGroupMapping` without code changes.
+  - Refactored `ItemMasterStudio.tsx` category selection to dynamically resolve `CategoryAttributeGroupMapping` and render custom dynamic fields via `UniversalFormRenderer` storing values in `Product.attributes` JSONB.
+  - Registered `NAV_MASTER_STUDIO` in [NavigationRegistry.ts](file:///f:/SMRITRretailNXmgrt/src/kernel/upr/navigation/NavigationRegistry.ts).
+  - Added full automated integration test suite in [attributeCategoryMaster.test.ts](file:///f:/SMRITRretailNXmgrt/src/tests/attributeCategoryMaster.test.ts) testing all 20 verification scenarios.
 - **Company Code Provisioning & Intelligent Suggestion Engine (`CompanyCodeSuggestionService.ts` / `system.py` / `SetupWizardTab.tsx`)**:
   - Refactored Enterprise Organization Studio & Company Provisioning Wizard so Company Code is explicitly visible in UX/UI, suggested from `CITY(3) + PIN_LAST3(3) + SEQUENCE(3)` (e.g. `MUM067001`), and overridable by users.
   - Implemented `GET /api/v1/company/code/availability` returning strictly `{ "available": boolean }` without exposing tenant secrets.
@@ -40,6 +47,12 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Added full test suite in [companyCodeProvisioning.test.ts](file:///f:/SMRITRretailNXmgrt/src/tests/companyCodeProvisioning.test.ts) covering all 15 test scenarios (including sequence exhaustion and async race protection).
 
 ### Fixed
+- **Session Expiry & Workspace Unlock Server-Side Password Verification (`SessionExpiredDialog.tsx` / `LockScreen.tsx` / `LockService.ts` / `SessionService.ts` / `auth.py`)**:
+  - Eliminated critical security vulnerability where entering an incorrect or arbitrary password unlocked the session/workspace.
+  - Implemented `POST /api/v1/auth/session/resume` enforcing authoritative server-side password verification and identity resolution.
+  - Enforced server-side rate limiting (returns `HTTP 429 Too Many Requests` after 5 failed password attempts).
+  - Enforced fail-closed security invariants: session remains locked on 401, 403, 429, 500, network errors, or malformed HTTP 200 payloads.
+  - Added comprehensive automated security test suite in [sessionExpiryAuth.test.ts](file:///f:/SMRITRretailNXmgrt/src/tests/sessionExpiryAuth.test.ts) covering 14 security test scenarios.
 - **Fail-Closed Pre-Resolution Security & Pre-Login Environment Discovery (`EnvironmentContext.tsx` / `EnvironmentResolver.ts` / `apiFetchV1.ts`)**:
   - `EnvironmentProvider` initializes state as `EnvironmentResolver.unresolved()` (`mode: "UNKNOWN"`, `showDevCredentials: false`, `badgeLabel: "RESOLVING..."`), completely eliminating brief dev credential exposure flashes on page load.
   - Configured `apiFetchV1.ts` to allow pre-login access to `/admin/environment/profile` (public bootstrap environment profile metadata) without throwing unauthenticated errors.

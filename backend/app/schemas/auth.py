@@ -31,6 +31,10 @@ class LoginRequest(BaseModel):
     branch_id: Optional[str] = None
 
 
+class ResumeSessionRequest(BaseModel):
+    password: str
+
+
 class UserResponse(BaseModel):
     id: str
     username: str
