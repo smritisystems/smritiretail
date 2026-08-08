@@ -30,6 +30,15 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Added
+- **Company Code Provisioning & Intelligent Suggestion Engine (`CompanyCodeSuggestionService.ts` / `system.py` / `SetupWizardTab.tsx`)**:
+  - Refactored Enterprise Organization Studio & Company Provisioning Wizard so Company Code is explicitly visible in UX/UI, suggested from `CITY(3) + PIN_LAST3(3) + SEQUENCE(3)` (e.g. `MUM067001`), and overridable by users.
+  - Implemented `GET /api/v1/company/code/availability` returning strictly `{ "available": boolean }` without exposing tenant secrets.
+  - Implemented `GET /api/v1/company/code/suggest` calculating sequence `01..99` for city+pin prefixes and stopping automatic suggestion when all 99 sequences are occupied.
+  - Hardened backend `POST /api/v1/company/setup` with pre-flight uniqueness checks and `IntegrityError` handling, returning `HTTP 409 Conflict` on duplicate codes.
+  - Enforced OLE event ordering: duplicate failures emit `Company.Provisioning.Started.v1` ──► `Company.Provisioning.Failed.v1` (NEVER `Activated`).
+  - Added full test suite in [companyCodeProvisioning.test.ts](file:///f:/SMRITRretailNXmgrt/src/tests/companyCodeProvisioning.test.ts) covering all 15 test scenarios (including sequence exhaustion and async race protection).
+
 ### Fixed
 - **Fail-Closed Pre-Resolution Security & Pre-Login Environment Discovery (`EnvironmentContext.tsx` / `EnvironmentResolver.ts` / `apiFetchV1.ts`)**:
   - `EnvironmentProvider` initializes state as `EnvironmentResolver.unresolved()` (`mode: "UNKNOWN"`, `showDevCredentials: false`, `badgeLabel: "RESOLVING..."`), completely eliminating brief dev credential exposure flashes on page load.

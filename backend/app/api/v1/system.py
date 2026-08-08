@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Body
 from pydantic import BaseModel
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -697,6 +698,80 @@ def normalize_branch_code(code: str | None, idx: int) -> str:
     return f"BR-{idx + 1:02d}"
 
 
+@router.get("/company/code/availability")
+async def check_company_code_availability(
+    code: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Checks if a Company Code is available for provisioning.
+    Returns strictly { "available": boolean } without exposing tenant or system secrets.
+    """
+    if not code or not code.strip():
+        return {"available": False}
+
+    cleaned_code = code.strip().upper()
+    res_tenant = await db.execute(select(Tenant.id).where(Tenant.tenant_code == cleaned_code))
+    if res_tenant.scalar_one_or_none():
+        return {"available": False}
+
+    res_comp = await db.execute(select(Company.id).where(Company.code == cleaned_code))
+    if res_comp.scalar_one_or_none():
+        return {"available": False}
+
+    return {"available": True}
+
+
+@router.get("/company/code/suggest")
+async def suggest_company_code(
+    city: str = "",
+    pin: str = "",
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generates CITY(3) + PIN_LAST3(3) + SEQUENCE(3) suggestion (e.g. MUM067001).
+    UX convenience only. Database UNIQUE constraint remains the final authority.
+    """
+    city_map = {
+        "MUMBAI": "MUM", "PUNE": "PUN", "DELHI": "DEL", "NEW DELHI": "DEL",
+        "BENGALURU": "BLR", "BANGALORE": "BLR", "HYDERABAD": "HYD", "CHENNAI": "CHE",
+        "MADRAS": "CHE", "KOLKATA": "KOL", "CALCUTTA": "KOL", "AHMEDABAD": "AMD",
+        "JAIPUR": "JAI", "NAGPUR": "NAG", "NASHIK": "NSK", "SURAT": "SUR"
+    }
+    city_clean = city.strip().upper() if city else ""
+    city_code = city_map.get(city_clean)
+    if not city_code:
+        alpha_only = "".join([c for c in city_clean if c.isalnum()])
+        city_code = (alpha_only[:3] if len(alpha_only) >= 3 else (alpha_only + "XXX")[:3]) if alpha_only else "XXX"
+
+    pin_clean = "".join([c for c in (pin or "") if c.isdigit()])
+    if len(pin_clean) != 6:
+        return {"suggestedCode": None, "error": "Invalid 6-digit PIN code."}
+
+    pin_last3 = pin_clean[3:]
+    prefix = f"{city_code}{pin_last3}"
+
+    res = await db.execute(select(Tenant.tenant_code).where(Tenant.tenant_code.like(f"{prefix}%")))
+    existing_codes = set(res.scalars().all())
+
+    for seq in range(1, 1000):
+        candidate = f"{prefix}{seq:03d}"
+        if candidate not in existing_codes:
+            return {
+                "suggestedCode": candidate,
+                "prefix": prefix,
+                "sequence": seq,
+                "exhausted": False
+            }
+
+    return {
+        "suggestedCode": None,
+        "prefix": prefix,
+        "exhausted": True,
+        "message": f"All sequences (001-999) for prefix '{prefix}' are occupied. Please enter a custom code."
+    }
+
+
 @router.post(
     "/company/setup",
 )
@@ -713,6 +788,22 @@ async def company_setup(
     business_info = payload.businessInfo
     org_structure = payload.orgStructure
     users_payload = payload.users
+
+    raw_code = (business_info.tenantCode or getattr(business_info, "companyCode", None) or "").strip().upper() if business_info else ""
+    if not raw_code:
+        raise HTTPException(
+            status_code=400,
+            detail="Company Code is required for legal entity provisioning."
+        )
+    tenant_code = raw_code
+
+    # Pre-flight Uniqueness check for Company Code
+    existing_tenant_res = await db.execute(select(Tenant.id).where(Tenant.tenant_code == tenant_code))
+    if existing_tenant_res.scalar_one_or_none():
+        raise HTTPException(
+            status_code=409,
+            detail=f'Company Code "{tenant_code}" is already in use. Please choose another Company Code.'
+        )
 
     company_name = business_info.name or "SMRITI Retail Company"
     company_gstin = business_info.gstin or None
@@ -1095,6 +1186,15 @@ async def company_setup(
         # Explicit Atomic Commit
         await db.commit()
 
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f'Company Code "{tenant_code}" is already in use. Please choose another Company Code.'
+        )
+    except HTTPException:
+        await db.rollback()
+        raise
     except Exception as setup_err:
         await db.rollback()
         import traceback

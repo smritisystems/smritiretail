@@ -46,6 +46,17 @@ This document details common operational issues and resolutions.
   2. Configured initial provider state to `EnvironmentResolver.unresolved()` (`mode: "UNKNOWN"`, `showDevCredentials: false`).
   3. Implemented strict **Fail-Closed Security** in `EnvironmentResolver.shouldShowDevCredentials()`, ensuring dev credentials remain hidden during `UNKNOWN` / pre-resolution loading states.
 
+## 2. Company Code Provisioning, Sequence Exhaustion & Duplicate Code Race
+- **Symptom:** User sees duplicate code error (`HTTP 409 Conflict`), or automated Company Code suggestion stops.
+- **Cause:**
+  1. Company Code sequence `01..99` for a city+pin prefix (e.g. `MUM0067`) was fully occupied.
+  2. A race condition occurred where two users attempted to provision the same Company Code simultaneously.
+- **Resolution:**
+  1. `CompanyCodeSuggestionService.ts` automatically extracts `CITY(3) + PIN_LAST4(4)` and queries `/api/v1/company/code/suggest` for next available 2-digit sequence (`01..99`).
+  2. When all 99 sequences are occupied, automatic suggestion stops and prompts the user to enter a custom code.
+  3. Backend `/company/setup` handles database `IntegrityError` by rolling back atomically, publishing `Company.Provisioning.Failed.v1`, and returning `HTTP 409 Conflict` with message `Company Code "MUM067001" is already in use. Please choose another Company Code.`
+  4. Async race protection in `SetupWizardTab.tsx` ensures user manual overrides take absolute precedence over late-arriving async suggestion fetches.
+
 ## 2. Console Error `401 (Unauthorized)` on API Requests
 - **Symptom:** `GET /api/v1/pos/profiles/`, `/pos/shifts/`, `/inventory/`, `/psv/parties` return `401 (Unauthorized)`.
 - **Cause:** `ApiAuthProvider.ts` only looked for `data.token` from login responses. Because FastAPI returned `access_token`, `ApiAuthProvider` fell back to a mock string (`smriti_jwt_*`). Sending mock token headers to FastAPI failed signature verification.

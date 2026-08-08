@@ -23,8 +23,9 @@
  * * License    : Proprietary Commercial Software
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
+import { CompanyCodeSuggestionService } from "../../services/CompanyCodeSuggestionService.ts";
 import { DemoDataRegistry } from "../../kernel/config/SmritiDemoDataRegistry.js";
 import { SPK } from "../../kernel/SPK.ts";
 import { FLAGS } from "../../config/flags";
@@ -159,6 +160,77 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
   const [area, setArea] = useState("");
   const [locality, setLocality] = useState("");
   const [country] = useState("India");
+
+  // Company Code Provisioning States (CITY3 + PIN4 + SEQ2)
+  const [companyCodeSource, setCompanyCodeSource] = useState<"AUTO_SUGGESTED" | "USER_DEFINED">("AUTO_SUGGESTED");
+  const [userHasOverriddenCode, setUserHasOverriddenCode] = useState<boolean>(false);
+  const [companyCodeAvailability, setCompanyCodeAvailability] = useState<"UNKNOWN" | "CHECKING" | "AVAILABLE" | "TAKEN" | "INVALID">("UNKNOWN");
+  const [codeValidationError, setCodeValidationError] = useState<string>("");
+  const [isSequenceExhausted, setIsSequenceExhausted] = useState<boolean>(false);
+  const latestSuggestionRequestId = useRef(0);
+
+  // Auto-Suggest Company Code on City / PIN change (Async Race Protected)
+  useEffect(() => {
+    if (userHasOverriddenCode) return;
+
+    const currentReqId = ++latestSuggestionRequestId.current;
+
+    if (city.trim() && pinCode.trim().length === 6) {
+      const localBuilt = CompanyCodeSuggestionService.buildSuggestion(city, pinCode, 1);
+      if (localBuilt && localBuilt.suggestedCode) {
+        if (latestSuggestionRequestId.current === currentReqId && !userHasOverriddenCode) {
+          setTenantCode(localBuilt.suggestedCode);
+          setCompanyCodeSource("AUTO_SUGGESTED");
+          setIsSequenceExhausted(false);
+        }
+      }
+
+      apiFetchV1<{ suggestedCode?: string; exhausted?: boolean; message?: string }>(
+        `company/code/suggest?city=${encodeURIComponent(city.trim())}&pin=${encodeURIComponent(pinCode.trim())}`
+      ).then((res) => {
+        if (latestSuggestionRequestId.current !== currentReqId || userHasOverriddenCode) {
+          return;
+        }
+        if (res && res.suggestedCode) {
+          setTenantCode(res.suggestedCode);
+          setCompanyCodeSource("AUTO_SUGGESTED");
+          setIsSequenceExhausted(false);
+        } else if (res && res.exhausted) {
+          setIsSequenceExhausted(true);
+        }
+      }).catch(() => {
+        // Keep local built code on network fallback
+      });
+    }
+  }, [city, pinCode, userHasOverriddenCode]);
+
+  const handleCheckAvailability = async () => {
+    if (!tenantCode || !tenantCode.trim()) {
+      setCompanyCodeAvailability("INVALID");
+      setCodeValidationError("Company Code is required.");
+      return;
+    }
+    const val = CompanyCodeSuggestionService.validateCompanyCode(tenantCode);
+    if (!val.valid) {
+      setCompanyCodeAvailability("INVALID");
+      setCodeValidationError(val.message || "Invalid code format.");
+      return;
+    }
+
+    setCompanyCodeAvailability("CHECKING");
+    try {
+      const res = await apiFetchV1<{ available?: boolean }>(
+        `company/code/availability?code=${encodeURIComponent(tenantCode.trim().toUpperCase())}`
+      );
+      if (res && res.available === true) {
+        setCompanyCodeAvailability("AVAILABLE");
+      } else {
+        setCompanyCodeAvailability("TAKEN");
+      }
+    } catch {
+      setCompanyCodeAvailability("UNKNOWN");
+    }
+  };
 
   // Step 3: Tax Profile
   const [gstin, setGstin] = useState("");
@@ -456,12 +528,23 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
   };
 
   const handleCompleteSetup = async (forceIgnoreWarnings: boolean = false) => {
+    if (!tenantCode || !tenantCode.trim()) {
+      alert("Company Code is required for provisioning! Please enter a Company Code.");
+      return;
+    }
+    const codeVal = CompanyCodeSuggestionService.validateCompanyCode(tenantCode);
+    if (!codeVal.valid) {
+      alert(codeVal.message || "Invalid Company Code.");
+      return;
+    }
+
+    const tCode = tenantCode.trim().toUpperCase();
+
     setIsSubmitting(true);
     setSetupNotice(null);
     setIsFallbackMode(false);
     setFallbackMessage(null);
     const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const tCode = tenantCode || "SMS";
 
     // OLE Lifecycle State 1: Provisioning Started
     SPK.events.emit("Company.Provisioning.Started.v1", tCode, {
@@ -575,8 +658,9 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
       const elapsed = typeof performance !== "undefined" ? Math.round(performance.now() - startTime) : 120;
       setSetupDurationMs(elapsed);
       const msg = e?.message || String(e) || "Unknown server error";
+      const isDuplicateCodeError = msg.includes("already in use") || msg.includes("409") || msg.includes("duplicate");
 
-      if (forceIgnoreWarnings || msg.includes("Upstream python-core")) {
+      if (!isDuplicateCodeError && (forceIgnoreWarnings || msg.includes("Upstream python-core"))) {
         setIsFallbackMode(true);
         setFallbackMessage(msg);
         setSetupSuccess(true);
@@ -1048,7 +1132,7 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-theme-muted uppercase tracking-wider block mb-1">State *</label>
+                        <label className="text-xs font-bold text-theme-muted uppercase tracking-wider block mb-1">State Code / Region</label>
                         <input 
                           type="text" 
                           value={detectedState} 
@@ -1056,6 +1140,78 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
                           placeholder="e.g. Maharashtra"
                           className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:border-blue-500 outline-none"
                         />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Company Code Identification */}
+                  <div className="border-t border-theme-divider pt-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-xs uppercase tracking-wider text-theme-muted">Legal Company Identification Code</h4>
+                      {companyCodeSource === "AUTO_SUGGESTED" && (
+                        <span className="text-[11px] text-blue-400 font-mono flex items-center gap-1">
+                          <Sparkles size={12} />
+                          <span>Suggested from {city || "City"} + {pinCode || "PIN"}</span>
+                        </span>
+                      )}
+                      {companyCodeSource === "USER_DEFINED" && (
+                        <span className="text-[11px] text-indigo-400 font-mono flex items-center gap-1">
+                          <span>✎ Custom Company Code</span>
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
+                      <div className="md:col-span-2">
+                        <label htmlFor="company-code-field" className="text-xs font-bold text-theme-muted uppercase tracking-wider block mb-1">
+                          Company Code *
+                        </label>
+                        <div className="relative flex items-center">
+                          <input 
+                            id="company-code-field"
+                            type="text" 
+                            maxLength={20}
+                            value={tenantCode} 
+                            onChange={e => {
+                              const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+                              setTenantCode(val);
+                              setUserHasOverriddenCode(true);
+                              setCompanyCodeSource("USER_DEFINED");
+                              setCompanyCodeAvailability("UNKNOWN");
+                            }}
+                            placeholder="e.g. MUM067001 or ABC000123"
+                            className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs font-mono font-bold text-theme-body focus:border-blue-500 outline-none uppercase tracking-wider pr-24"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleCheckAvailability}
+                            disabled={companyCodeAvailability === "CHECKING" || !tenantCode.trim()}
+                            className="absolute right-1 px-3 py-1 text-[10px] font-semibold font-mono rounded bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/40 transition disabled:opacity-50"
+                          >
+                            {companyCodeAvailability === "CHECKING" ? "Checking..." : "Check"}
+                          </button>
+                        </div>
+
+                        {companyCodeAvailability === "AVAILABLE" && (
+                          <span className="text-[10px] text-emerald-400 font-mono mt-1 block">
+                            ✓ Company Code is available!
+                          </span>
+                        )}
+                        {companyCodeAvailability === "TAKEN" && (
+                          <span className="text-[10px] text-rose-400 font-mono mt-1 block">
+                            ⚠️ This Company Code is already in use. Please choose another code.
+                          </span>
+                        )}
+                        {companyCodeAvailability === "INVALID" && (
+                          <span className="text-[10px] text-amber-400 font-mono mt-1 block">
+                            ⚠️ {codeValidationError || "Invalid Company Code format."}
+                          </span>
+                        )}
+                        {isSequenceExhausted && (
+                          <span className="text-[10px] text-amber-400 font-mono mt-1 block">
+                            ⚠️ All sequences (001-999) for this prefix are occupied. Please enter a custom code.
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
