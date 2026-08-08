@@ -31,6 +31,9 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [Unreleased]
 
 ### Fixed
+- **Backend FastAPI `smriti-api-prod` Container Circular Import Fix (`PROD-004`)**:
+  - Fixed `ImportError: cannot import name 'environment_router' from partially initialized module 'app.api.v1'` in [backend/app/api/v1/__init__.py](file:///f:/SMRITRretailNXmgrt/backend/app/api/v1/__init__.py).
+  - Created [backend/app/api/v1/endpoints/__init__.py](file:///f:/SMRITRretailNXmgrt/backend/app/api/v1/endpoints/__init__.py) package initializer and updated `__init__.py` to import `environment_router` from `.endpoints`, allowing Gunicorn / Uvicorn workers in Docker container `smriti-api-prod` to boot cleanly and pass health checks.
 - **Organization Studio & OLE Lifecycle Event Architecture (`Company Provisioning Wizard → SPK.events → OLE`)**:
   - Replaced the placeholder string notice on the **Create New Company** button in [OrganizationStudio.tsx](file:///f:/SMRITRretailNXmgrt/src/components/admin/OrganizationStudio.tsx) with a modal overlay launching [SetupWizardTab.tsx](file:///f:/SMRITRretailNXmgrt/src/components/SetupWizard/SetupWizardTab.tsx) (provisioning UI/workflow).
   - Emits standard infrastructure-neutral domain events (`Company.Provisioning.Started.v1`, `Company.Provisioning.Completed.v1`, `Company.Activated.v1`, `Company.Provisioning.Failed.v1`) through `SPK.events` carrying explicit `oleState` lifecycle metadata (`Draft ──► Provisioning ──► Active / ProvisionedWithWarning / Failed`).

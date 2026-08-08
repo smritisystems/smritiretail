@@ -27,7 +27,6 @@ from . import (
     crm,
     dev_tracker,
     docs,
-    environment_router,
     exchange,
     inventory,
     inventory_state,
@@ -75,6 +74,8 @@ from . import (
     scdm,
     size_master,
 )
+
+from .endpoints import environment_router
 
 
 

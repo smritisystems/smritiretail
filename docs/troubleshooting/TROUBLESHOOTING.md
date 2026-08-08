@@ -36,17 +36,22 @@ This document details common operational issues and resolutions.
 
 ---
 
-## 1. Organization Studio Company Provisioning
+## 1. Container `smriti-api-prod` Failed to Start (Circular Import Error)
+- **Symptom:** `smriti-api-prod` container fails health check and exits with `ImportError: cannot import name 'environment_router' from partially initialized module 'app.api.v1'`.
+- **Cause:** `environment_router.py` was located under `app/api/v1/endpoints/environment_router.py`, but `app/api/v1/__init__.py` attempted to import `environment_router` directly from `app.api.v1`.
+- **Resolution:** Initialized `app/api/v1/endpoints/__init__.py` as a Python package and updated `app/api/v1/__init__.py` to import `from .endpoints import environment_router`.
+
+## 2. Organization Studio Company Provisioning
 - **Symptom:** Clicking "Create New Company" in Organization Studio used to set a string banner notice.
 - **Cause:** Button was previously a dead-end placeholder setter instead of an interactive action handler.
 - **Resolution:** Clicking "Create New Company" opens the modal `SetupWizardTab` Company Provisioning Wizard overlay directly in `OrganizationStudio.tsx`.
 
-## 2. Setup Wizard Fallback Mode & Upstream Python Core Notice
+## 3. Setup Wizard Fallback Mode & Upstream Python Core Notice
 - **Symptom:** Setup Wizard completes with an Amber warning badge (`Status: LOCAL FALLBACK MODE — Pending Backend Confirmation`).
 - **Cause:** Upstream Python backend core service was unreachable or returned a notice during `/company/setup` provisioning.
 - **Resolution:** Setup details are provisioned locally (`smriti_setup_fallback_mode: true`). Verify backend API connectivity and run database verification via Administrative Modules.
 
-## 2. Item Master Notification Prop Drop & Silent Failures
+## 4. Item Master Notification Prop Drop & Silent Failures
 - **Symptom:** Catalog creation, save, or delete errors do not display toast notifications if the host workspace omitted `onNotification`.
 - **Cause:** Direct unguarded calls to `if (onNotification) onNotification(...)` caused errors to vanish silently without logging.
 - **Resolution:** `ItemMasterTab` and child components use the safe `notify` dispatcher wrapper. If `onNotification` is missing, notifications fall back automatically to `console.log('[ItemMaster Notification - ERROR/SUCCESS]: ...')`.
