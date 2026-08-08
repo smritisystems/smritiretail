@@ -97,6 +97,11 @@ export const MasterReferenceStudio: React.FC = () => {
   const [mappings, setMappings] = useState<CategoryMappingItem[]>([]);
   const [categoryValues, setCategoryValues] = useState<MasterValueItem[]>([]);
 
+  // Toast & Loading States
+  const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [masterTypesError, setMasterTypesError] = useState<string | null>(null);
+
   // New Attribute Definition Form State
   const [attrName, setAttrName] = useState("");
   const [attrLabel, setAttrLabel] = useState("");
@@ -104,10 +109,24 @@ export const MasterReferenceStudio: React.FC = () => {
   const [attrIsVariant, setAttrIsVariant] = useState(false);
   const [attrIsMandatory, setAttrIsMandatory] = useState(false);
   const [attrValidValues, setAttrValidValues] = useState("");
+  const [attrIsSearchable, setAttrIsSearchable] = useState(true);
+  const [attrIsFilterable, setAttrIsFilterable] = useState(true);
+  const [attrIsPrintable, setAttrIsPrintable] = useState(true);
+  const [attrIsBarcodeEnabled, setAttrIsBarcodeEnabled] = useState(false);
+  const [attrDisplayOrder, setAttrDisplayOrder] = useState(0);
+  const [attrIsEnabled, setAttrIsEnabled] = useState(true);
 
   // New Category Mapping Form State
   const [mapCategory, setMapCategory] = useState("");
   const [mapGroupId, setMapGroupId] = useState("");
+
+  // Toast Auto-Dismiss
+  useEffect(() => {
+    if (toast) {
+      const t = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [toast]);
 
   // Load Initial Master Types & Definitions
   useEffect(() => {
@@ -123,27 +142,18 @@ export const MasterReferenceStudio: React.FC = () => {
 
   const loadMasterTypes = async () => {
     setIsLoading(true);
+    setMasterTypesError(null);
     try {
       const res = await apiFetchV1<MasterTypeItem[]>("master-lookups/types");
       if (Array.isArray(res) && res.length > 0) {
         setMasterTypes(res);
         setSelectedType(res[0]);
       } else {
-        // Fallback default master types if backend database is offline
-        const defaults: MasterTypeItem[] = [
-          { id: "1", code: "product_category", label: "Product Category", category_type: "BUSINESS", is_system: false },
-          { id: "2", code: "product_brand", label: "Product Brand", category_type: "BUSINESS", is_system: false },
-          { id: "3", code: "uom", label: "Unit of Measure (UOM)", category_type: "SYSTEM", is_system: true },
-          { id: "4", code: "payment_mode", label: "Payment Mode", category_type: "SYSTEM", is_system: true },
-          { id: "5", code: "product_color", label: "Product Color", category_type: "BUSINESS", is_system: false },
-          { id: "6", code: "state", label: "State / Province", category_type: "REFERENCE", is_system: true },
-          { id: "7", code: "reason_code", label: "Reason Code", category_type: "REFERENCE", is_system: false }
-        ];
-        setMasterTypes(defaults);
-        setSelectedType(defaults[0]);
+        setMasterTypesError("No master types returned from server.");
       }
     } catch (e) {
-      console.warn("[MasterStudio] Failed loading master types, using fallback.", e);
+      console.warn("[MasterStudio] Failed loading master types.", e);
+      setMasterTypesError("Failed to load master types from server.");
     } finally {
       setIsLoading(false);
     }
@@ -186,6 +196,7 @@ export const MasterReferenceStudio: React.FC = () => {
     e.preventDefault();
     if (!selectedType || !valCode.trim() || !valName.trim()) return;
 
+    setIsSaving(true);
     try {
       if (editingValueId) {
         await apiFetchV1(`master-lookups/values/${editingValueId}`, {
@@ -206,9 +217,13 @@ export const MasterReferenceStudio: React.FC = () => {
       setValCode("");
       setValName("");
       setEditingValueId(null);
+      setToast({ type: "success", msg: "Saved successfully" });
       loadMasterValues(selectedType.code);
     } catch (err) {
       console.error("[MasterStudio] Save value error:", err);
+      setToast({ type: "error", msg: "Save failed. Please try again." });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -216,6 +231,7 @@ export const MasterReferenceStudio: React.FC = () => {
     e.preventDefault();
     if (!attrName.trim() || !attrLabel.trim()) return;
 
+    setIsSaving(true);
     try {
       const validValsArray = attrValidValues
         ? attrValidValues.split(",").map((v) => v.trim()).filter(Boolean)
@@ -229,16 +245,26 @@ export const MasterReferenceStudio: React.FC = () => {
           data_type: attrDataType,
           is_variant_dimension: attrIsVariant,
           is_mandatory: attrIsMandatory,
-          valid_values: validValsArray
+          valid_values: validValsArray,
+          is_searchable: attrIsSearchable,
+          is_filterable: attrIsFilterable,
+          is_printable: attrIsPrintable,
+          is_barcode_enabled: attrIsBarcodeEnabled,
+          display_order: attrDisplayOrder,
+          is_enabled: attrIsEnabled,
         }),
       });
 
       setAttrName("");
       setAttrLabel("");
       setAttrValidValues("");
+      setToast({ type: "success", msg: "Saved successfully" });
       loadAttributeConfigurations();
     } catch (err) {
       console.error("[MasterStudio] Create attribute error:", err);
+      setToast({ type: "error", msg: "Save failed. Please try again." });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -246,6 +272,7 @@ export const MasterReferenceStudio: React.FC = () => {
     e.preventDefault();
     if (!mapCategory.trim() || !mapGroupId) return;
 
+    setIsSaving(true);
     try {
       await apiFetchV1("attributes/category-mappings", {
         method: "POST",
@@ -257,9 +284,13 @@ export const MasterReferenceStudio: React.FC = () => {
 
       setMapCategory("");
       setMapGroupId("");
+      setToast({ type: "success", msg: "Saved successfully" });
       loadAttributeConfigurations();
     } catch (err) {
       console.error("[MasterStudio] Create mapping error:", err);
+      setToast({ type: "error", msg: "Save failed. Please try again." });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -368,6 +399,11 @@ export const MasterReferenceStudio: React.FC = () => {
                   </div>
                 </button>
               ))}
+              {masterTypesError && (
+                <div className="p-4 text-xs text-rose-400 flex items-center gap-2">
+                  <ShieldAlert size={14} /> {masterTypesError}
+                </div>
+              )}
             </div>
           </div>
 
@@ -402,10 +438,16 @@ export const MasterReferenceStudio: React.FC = () => {
                         setValName("");
                         setIsModalOpen(true);
                       }}
-                      className="py-1.5 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-lg shadow-indigo-600/20"
+                      disabled={selectedType?.is_system}
+                      title={selectedType?.is_system ? "System protected — contact system admin" : "Add a new value"}
+                      className={`py-1.5 px-3 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 ${
+                        selectedType?.is_system
+                          ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                          : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 cursor-pointer"
+                      }`}
                     >
-                      <Plus size={14} />
-                      <span>Add Value</span>
+                      {selectedType?.is_system ? <ShieldAlert size={14} /> : <Plus size={14} />}
+                      <span>{selectedType?.is_system ? "System Protected" : "Add Value"}</span>
                     </button>
                   </div>
                 </div>
@@ -457,7 +499,12 @@ export const MasterReferenceStudio: React.FC = () => {
                                     setValName(v.name);
                                     setIsModalOpen(true);
                                   }}
-                                  className="p-1 text-slate-400 hover:text-indigo-400 transition"
+                                  disabled={selectedType?.is_system}
+                                  className={`p-1 transition ${
+                                    selectedType?.is_system
+                                      ? "text-slate-700 cursor-not-allowed"
+                                      : "text-slate-400 hover:text-indigo-400 cursor-pointer"
+                                  }`}
                                 >
                                   <Edit2 size={14} />
                                 </button>
@@ -515,7 +562,7 @@ export const MasterReferenceStudio: React.FC = () => {
                     onChange={(e) => setAttrDataType(e.target.value)}
                     className="w-full p-2 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   >
-                    <option value="Text font-sans">Text</option>
+                    <option value="Text">Text</option>
                     <option value="Number">Number</option>
                     <option value="Select">Select Dropdown</option>
                     <option value="Boolean">Boolean (Yes/No)</option>
@@ -554,12 +601,49 @@ export const MasterReferenceStudio: React.FC = () => {
                     <span className="text-slate-300">Mandatory</span>
                   </label>
                 </div>
+
+                <details className="mt-2">
+                  <summary className="text-slate-400 cursor-pointer text-[11px] uppercase tracking-wider font-semibold">
+                    Advanced flags
+                  </summary>
+                  <div className="mt-2 space-y-2">
+                    {[
+                      ["Searchable", attrIsSearchable, setAttrIsSearchable],
+                      ["Filterable", attrIsFilterable, setAttrIsFilterable],
+                      ["Printable on label", attrIsPrintable, setAttrIsPrintable],
+                      ["Barcode enabled", attrIsBarcodeEnabled, setAttrIsBarcodeEnabled],
+                      ["Enabled", attrIsEnabled, setAttrIsEnabled],
+                    ].map(([label, val, setter]: any) => (
+                      <label key={label} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={val}
+                          onChange={(e) => setter(e.target.checked)}
+                          className="rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-slate-300">{label}</span>
+                      </label>
+                    ))}
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">Display Order</label>
+                      <input
+                        type="number"
+                        value={attrDisplayOrder}
+                        onChange={(e) => setAttrDisplayOrder(Number(e.target.value))}
+                        min={0}
+                        className="w-full p-2 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                </details>
+
                 <button
                   type="submit"
-                  className="w-full py-2 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition flex items-center justify-center space-x-1.5 shadow-lg shadow-indigo-600/20 mt-2"
+                  disabled={isSaving}
+                  className="w-full py-2 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white font-semibold transition flex items-center justify-center space-x-1.5 shadow-lg shadow-indigo-600/20 mt-2"
                 >
-                  <Save size={14} />
-                  <span>Save Definition</span>
+                  {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  <span>{isSaving ? "Saving..." : "Save Definition"}</span>
                 </button>
               </form>
             </div>
@@ -604,6 +688,58 @@ export const MasterReferenceStudio: React.FC = () => {
         </div>
       )}
 
+      {/* Groups Tab (FIX 3) */}
+      {activeTab === "groups" && (
+        <div className="flex-1 flex flex-col p-6 space-y-4 overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 overflow-hidden">
+            {/* Create Group Form */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 flex flex-col">
+              <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                <Layers size={14} className="text-indigo-400" />
+                <span>Create Attribute Group</span>
+              </h3>
+              <CreateGroupForm definitions={definitions} onSuccess={loadAttributeConfigurations} setToast={setToast} />
+            </div>
+            {/* Groups Datatable */}
+            <div className="md:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col">
+              <div className="p-3 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                  Registered Attribute Groups
+                </span>
+                <span className="text-xs font-mono text-indigo-400">{groups.length} total</span>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="bg-slate-950/80 text-slate-400 font-mono border-b border-slate-800 sticky top-0">
+                    <tr>
+                      <th className="p-3">Group Name</th>
+                      <th className="p-3">Attributes</th>
+                      <th className="p-3 text-right">Count</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/50">
+                    {groups.map((g) => (
+                      <tr key={g.id} className="hover:bg-slate-800/40 transition">
+                        <td className="p-3 font-semibold text-slate-100">{g.name}</td>
+                        <td className="p-3 font-mono text-indigo-300 text-[11px]">
+                          {g.attribute_ids.slice(0, 3).join(", ")}
+                          {g.attribute_ids.length > 3 && ` +${g.attribute_ids.length - 3} more`}
+                        </td>
+                        <td className="p-3 text-right">
+                          <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-mono">
+                            {g.attribute_ids.length}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Category Mappings Tab */}
       {activeTab === "mappings" && (
         <div className="flex-1 flex flex-col p-6 space-y-4 overflow-hidden">
@@ -626,16 +762,16 @@ export const MasterReferenceStudio: React.FC = () => {
                     <option value="">-- Select Category --</option>
                     {categoryValues.length > 0 ? (
                       categoryValues.map((cat) => (
-                        <option key={cat.id || cat.code} value={cat.name || cat.code}>
+                        <option key={cat.id || cat.code} value={cat.code}>
                           {cat.name} ({cat.code})
                         </option>
                       ))
                     ) : (
                       <>
-                        <option value="Footwear">Footwear (CAT-FOOTWEAR)</option>
-                        <option value="Shirts">Shirts (CAT-SHIRTS)</option>
-                        <option value="Trousers">Trousers (CAT-TROUSERS)</option>
-                        <option value="Jeans">Jeans (CAT-JEANS)</option>
+                        <option value="CAT-FOOTWEAR">Footwear (CAT-FOOTWEAR)</option>
+                        <option value="CAT-SHIRTS">Shirts (CAT-SHIRTS)</option>
+                        <option value="CAT-TROUSERS">Trousers (CAT-TROUSERS)</option>
+                        <option value="CAT-JEANS">Jeans (CAT-JEANS)</option>
                       </>
                     )}
                   </select>
@@ -658,10 +794,11 @@ export const MasterReferenceStudio: React.FC = () => {
                 </div>
                 <button
                   type="submit"
-                  className="w-full py-2 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition flex items-center justify-center space-x-1.5 shadow-lg shadow-indigo-600/20 mt-2"
+                  disabled={isSaving}
+                  className="w-full py-2 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white font-semibold transition flex items-center justify-center space-x-1.5 shadow-lg shadow-indigo-600/20 mt-2"
                 >
-                  <Save size={14} />
-                  <span>Save Category Rule</span>
+                  {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  <span>{isSaving ? "Saving..." : "Save Category Rule"}</span>
                 </button>
               </form>
             </div>
@@ -684,7 +821,10 @@ export const MasterReferenceStudio: React.FC = () => {
                     {mappings.map((m) => (
                       <tr key={m.id} className="hover:bg-slate-800/40 transition">
                         <td className="p-3 font-semibold text-slate-100">{m.category}</td>
-                        <td className="p-3 font-mono text-indigo-300">{m.attribute_group_id}</td>
+                        <td className="p-3 font-semibold text-slate-100">
+                          {groups.find((g) => g.id === m.attribute_group_id)?.name ?? m.attribute_group_id}
+                          <span className="ml-1 text-[10px] font-mono text-slate-500">({m.attribute_group_id})</span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -741,15 +881,109 @@ export const MasterReferenceStudio: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/20"
+                  disabled={isSaving}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white text-xs font-semibold shadow-lg shadow-indigo-600/20 flex items-center gap-1.5"
                 >
-                  Save Value
+                  {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  <span>{isSaving ? "Saving..." : "Save Value"}</span>
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Toast Notification Container (FIX 5) */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-xl text-xs font-semibold flex items-center gap-2 ${
+            toast.type === "success" ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"
+          }`}
+        >
+          {toast.type === "success" ? <CheckCircle2 size={15} /> : <XCircle size={15} />}
+          {toast.msg}
+        </div>
+      )}
     </div>
+  );
+};
+
+// Create Group Form Helper Component
+const CreateGroupForm: React.FC<{
+  definitions: AttributeDefinitionItem[];
+  onSuccess: () => void;
+  setToast: (t: { type: "success" | "error"; msg: string }) => void;
+}> = ({ definitions, onSuccess, setToast }) => {
+  const [groupName, setGroupName] = useState("");
+  const [selectedAttrIds, setSelectedAttrIds] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!groupName.trim() || selectedAttrIds.length === 0) return;
+    setIsSaving(true);
+    try {
+      await apiFetchV1("attributes/groups", {
+        method: "POST",
+        body: JSON.stringify({
+          name: groupName.trim(),
+          attribute_ids: selectedAttrIds,
+        }),
+      });
+      setGroupName("");
+      setSelectedAttrIds([]);
+      setToast({ type: "success", msg: "Saved successfully" });
+      onSuccess();
+    } catch (err) {
+      console.error("[MasterStudio] Create group error:", err);
+      setToast({ type: "error", msg: "Save failed. Please try again." });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const toggleAttr = (id: string) => {
+    setSelectedAttrIds((prev) => (prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]));
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3 text-xs flex-1 flex flex-col">
+      <div>
+        <label className="block text-slate-300 font-semibold mb-1">Group Name</label>
+        <input
+          type="text"
+          value={groupName}
+          onChange={(e) => setGroupName(e.target.value)}
+          placeholder="e.g. Footwear Specifications"
+          required
+          className="w-full p-2 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        />
+      </div>
+      <div className="flex-1 flex flex-col min-h-0">
+        <label className="block text-slate-300 font-semibold mb-1">Select Attributes</label>
+        <div className="flex-1 overflow-y-auto bg-slate-950 border border-slate-700 rounded-lg p-2 space-y-1.5 max-h-48">
+          {definitions.map((d) => (
+            <label key={d.id} className="flex items-center space-x-2 cursor-pointer hover:bg-slate-900 p-1 rounded">
+              <input
+                type="checkbox"
+                checked={selectedAttrIds.includes(d.id)}
+                onChange={() => toggleAttr(d.id)}
+                className="rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-slate-200 font-mono text-[11px]">{d.name}</span>
+              <span className="text-slate-500 text-[10px]">({d.label})</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <button
+        type="submit"
+        disabled={isSaving}
+        className="w-full py-2 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white font-semibold transition flex items-center justify-center space-x-1.5 shadow-lg shadow-indigo-600/20"
+      >
+        {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        <span>{isSaving ? "Saving..." : "Save Group"}</span>
+      </button>
+    </form>
   );
 };
