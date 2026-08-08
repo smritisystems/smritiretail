@@ -173,14 +173,14 @@ const defaultFieldConfigs: FieldConfig[] = [
     key: "brand",
     label: "Brand Name",
     required: false,
-    aliases: ["Brand", "Brand Name", "Brand Names", "Manufacturer", "Label"],
+    aliases: ["Brand", "Brand Name", "Brand Names", "BRAND NAME", "Manufacturer", "Label"],
     editable: true,
   },
   {
     key: "styleCode",
     label: "Product Style Code",
     required: false,
-    aliases: ["Product Style Code", "Style Code", "StyleCode", "Product Code"],
+    aliases: ["Product Style Code", "Style Code", "StyleCode", "Product Code", "STYLE/ARTICLE CODE", "Style/Article Code", "Article Code", "Style No"],
     editable: true,
   },
   {
@@ -423,6 +423,25 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
     ...coreCols.map(c => c.key),
     ...activeAttrs.map(a => `attr_${a.name}`)
   ];
+
+  // Dynamic Content-Adaptive Column Width Calculator
+  const getColumnWidth = useCallback((colKey: string, label: string): number => {
+    let maxLen = label.length;
+    for (const r of rows) {
+      let val = "";
+      if (colKey.startsWith("attr_")) {
+        const attrName = colKey.substring(5);
+        val = r.attributes[attrName] || "";
+      } else {
+        val = (r as any)[colKey] || "";
+      }
+      if (val && val.toString().length > maxLen) {
+        maxLen = val.toString().length;
+      }
+    }
+    const calculated = Math.round(maxLen * 9.5 + 28);
+    return Math.min(340, Math.max(110, calculated));
+  }, [rows]);
 
   const productToGridRow = useCallback((p: Product): GridRow => {
     const attrs: Record<string, string> = {};
@@ -860,17 +879,15 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
   const handleSaveGrid = async () => {
     // Filter out completely blank rows
     const validRows = rows.filter(r => 
-      r.code.trim() !== "" || r.name.trim() !== "" || r.barcode.trim() !== ""
+      r.code.trim() !== "" || r.name.trim() !== "" || r.barcode.trim() !== "" || r.styleCode.trim() !== ""
     );
 
     if (validRows.length === 0) {
-      onNotification("Blank Sheet", "Please enter at least one item details in the grid.", "error");
+      onNotification("Blank Sheet", "Please enter or paste at least one item details in the grid.", "error");
       return;
     }
 
     setLoading(true);
-    let successCount = 0;
-    let failCount = 0;
     setRowErrors([]);
     const capturedErrors: Array<{
       rowIndex: number;
@@ -881,131 +898,183 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
       issue: string;
       action: string;
     }> = [];
-    
-    try {
-      // Validate mandatory custom attributes
-      for (let i = 0; i < validRows.length; i++) {
-        const row = validRows[i];
-        
-        if (!row.code.trim() || !row.name.trim() || !row.barcode.trim()) {
-          onNotification("Validation Failed", `Row ${i + 1} requires SKU Code, Item Name and Barcode.`, "error");
-          setLoading(false);
-          return;
-        }
 
-        for (const config of fieldConfigs) {
-          if (config.editable && config.required) {
-            const value = (row as any)[config.key];
-            if (!value || value.toString().trim() === "") {
-              onNotification(
-                "Validation Failed",
-                `Row ${i + 1} requires ${config.label} because it is configured as required.`,
-                "error"
-              );
-              setLoading(false);
-              return;
+    // Pre-commit in-memory validation
+    const seenBarcodes = new Set<string>();
+    const seenVariantSkus = new Set<string>();
+
+    for (let i = 0; i < validRows.length; i++) {
+      const row = validRows[i];
+      const rowNum = i + 1;
+      const baseStyle = row.styleCode.trim() || row.code.trim() || row.name.trim();
+      
+      // Dynamic variant SKU key resolution based on activeGroup dimensions
+      const variantDimParts: string[] = [];
+      if (activeGroup && activeGroup.attributeIds) {
+        activeGroup.attributeIds.forEach(aid => {
+          const defn = definitions.find(d => d.id === aid);
+          if (defn && defn.isVariantDimension) {
+            const val = row.attributes[defn.name] || (row as any)[defn.name];
+            if (val && val.trim()) {
+              variantDimParts.push(val.trim().toUpperCase().replace(/\s+/g, ""));
             }
           }
-        }
+        });
+      }
+      if (variantDimParts.length === 0) {
+        // Fallback to color/size if attribute group dimensions not loaded
+        const cVal = row.attributes["color"] || row.attributes["Color"] || row.gender || "";
+        const sVal = row.attributes["size"] || row.attributes["Size"] || "";
+        if (cVal.trim()) variantDimParts.push(cVal.trim().toUpperCase().replace(/\s+/g, ""));
+        if (sVal.trim()) variantDimParts.push(sVal.trim().toUpperCase().replace(/\s+/g, ""));
+      }
 
-        for (const attr of activeAttrs) {
-          const val = row.attributes[attr.name];
-          if (attr.isMandatory && (!val || val.trim() === "")) {
-            onNotification("Mandatory Field", `Row ${i + 1}: Attribute "${attr.label}" is mandatory.`, "error");
-            setLoading(false);
-            return;
-          }
+      const variantSuffix = variantDimParts.join("-");
+      const computedVariantSku = variantSuffix ? `${baseStyle}-${variantSuffix}` : baseStyle;
+
+      // 1. Mandatory Field Checks
+      if (!baseStyle && !row.name.trim()) {
+        capturedErrors.push({
+          rowIndex: i,
+          barcode: row.barcode,
+          sku: computedVariantSku,
+          styleCode: baseStyle,
+          name: row.name,
+          issue: `Row ${rowNum}: Item Name or Style/Article Code is required.`,
+          action: "Provide Style/Article Code or Item Description."
+        });
+      }
+
+      // 2. Barcode Preservation & Duplicate Check
+      const cleanBc = row.barcode.trim();
+      if (cleanBc) {
+        if (seenBarcodes.has(cleanBc)) {
+          capturedErrors.push({
+            rowIndex: i,
+            barcode: cleanBc,
+            sku: computedVariantSku,
+            styleCode: baseStyle,
+            name: row.name,
+            issue: `Row ${rowNum}: Duplicate Barcode "${cleanBc}" detected in spreadsheet paste.`,
+            action: "Ensure each row carries a unique barcode."
+          });
+        } else {
+          seenBarcodes.add(cleanBc);
         }
       }
 
-      // Submit items sequentially
-      for (let i = 0; i < validRows.length; i++) {
-        const row = validRows[i];
-        const rowNum = i + 1;
-        
-        // Construct unique SKU code by suffixing color/size to the base style code
-        const variantSuffix = [row.attributes.color, row.attributes.size]
-          .filter(v => v && v.trim() !== "")
-          .map(v => v.trim().toUpperCase())
-          .join("-");
-        
-        const uniqueSku = variantSuffix ? `${row.code.trim()}-${variantSuffix}` : row.code.trim();
+      // 3. Variant Business Key Duplicate Check
+      if (computedVariantSku) {
+        if (seenVariantSkus.has(computedVariantSku)) {
+          capturedErrors.push({
+            rowIndex: i,
+            barcode: cleanBc,
+            sku: computedVariantSku,
+            styleCode: baseStyle,
+            name: row.name,
+            issue: `Row ${rowNum}: Duplicate Variant SKU "${computedVariantSku}" detected.`,
+            action: "Verify Style, Color, and Size combinations."
+          });
+        } else {
+          seenVariantSkus.add(computedVariantSku);
+        }
+      }
 
-        const payload = {
-          id: `p-grid-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          code: uniqueSku,
+      // 4. Pricing Validation Rules (MRP >= Cost Price; MRP >= Selling Price >= Cost Price if price supplied)
+      const costP = parseFloat(row.costPrice) || 0;
+      const mrpP = parseFloat(row.mrp) || 0;
+      const sellP = row.price.trim() !== "" ? parseFloat(row.price) : null;
+
+      if (mrpP > 0 && costP > 0 && mrpP < costP) {
+        capturedErrors.push({
+          rowIndex: i,
+          barcode: cleanBc,
+          sku: computedVariantSku,
+          styleCode: baseStyle,
           name: row.name,
-          price: parseFloat(row.price) || 0,
-          stock: parseInt(row.stock) || 0,
-          category: row.category.trim() || activeGroup?.name || "General",
-          barcode: row.barcode,
-          cost_price: parseFloat(row.costPrice) || Math.round((parseFloat(row.price) || 0) * 0.6),
-          mrp: parseFloat(row.mrp) || parseFloat(row.price) || 0,
-          gst_percentage: parseFloat(row.gstPercentage) || 18.00,
-          sku: uniqueSku,
-          style_code: row.styleCode.trim() || row.code.trim(),
-          brand: row.brand.trim() || row.attributes.brand || "SMRITI",
-          hsn_code: row.hsnCode.trim() || row.attributes.hsnCode || row.attributes.HSN || row.attributes.hsn || "61091000",
-          primary_image_url: row.imageLink.trim() || undefined,
-          attributes: {
-            ...row.attributes,
-            ...(row.brand.trim() ? { brand: row.brand.trim() } : {}),
-            ...(row.styleCode.trim() ? { styleCode: row.styleCode.trim() } : {}),
-            ...(row.category.trim() ? { category: row.category.trim() } : {}),
-            ...(row.hsnCode.trim() ? { hsnCode: row.hsnCode.trim() } : {}),
-            ...(row.vendorCode.trim() ? { vendorCode: row.vendorCode.trim() } : {}),
-            ...(row.purchaseClass.trim() ? { purchaseClass: row.purchaseClass.trim() } : {}),
-            ...(row.department.trim() ? { department: row.department.trim() } : {}),
-            ...(row.merchandiseCategory.trim() ? { merchandiseCategory: row.merchandiseCategory.trim() } : {}),
-            ...(row.subCategory.trim() ? { subCategory: row.subCategory.trim() } : {}),
-            ...(row.gender.trim() ? { gender: row.gender.trim() } : {}),
-            ...(row.heels.trim() ? { heels: row.heels.trim() } : {}),
-            ...(row.upperMaterial.trim() ? { upperMaterial: row.upperMaterial.trim() } : {}),
-            ...(row.outsole.trim() ? { outsole: row.outsole.trim() } : {}),
-          },
+          issue: `Row ${rowNum}: MRP (${mrpP}) cannot be less than Cost Price (${costP}).`,
+          action: "Adjust MRP or Cost Price so MRP >= Cost Price."
+        });
+      }
+
+      if (sellP !== null && sellP > 0) {
+        if (mrpP > 0 && mrpP < sellP) {
+          capturedErrors.push({
+            rowIndex: i,
+            barcode: cleanBc,
+            sku: computedVariantSku,
+            styleCode: baseStyle,
+            name: row.name,
+            issue: `Row ${rowNum}: MRP (${mrpP}) cannot be less than Selling Price (${sellP}).`,
+            action: "Ensure MRP >= Selling Price."
+          });
+        }
+        if (costP > 0 && sellP < costP) {
+          capturedErrors.push({
+            rowIndex: i,
+            barcode: cleanBc,
+            sku: computedVariantSku,
+            styleCode: baseStyle,
+            name: row.name,
+            issue: `Row ${rowNum}: Selling Price (${sellP}) cannot be less than Cost Price (${costP}).`,
+            action: "Ensure Selling Price >= Cost Price."
+          });
+        }
+      }
+    }
+
+    if (capturedErrors.length > 0) {
+      setRowErrors(capturedErrors);
+      onNotification("Pre-Commit Validation Errors", `Found ${capturedErrors.length} validation issues in spreadsheet. Correct highlighted cells before committing.`, "error");
+      setLoading(false);
+      return;
+    }
+
+    // Atomic Backend Commit Submission
+    try {
+      const formattedRows = validRows.map((row) => {
+        const baseStyle = row.styleCode.trim() || row.code.trim() || row.name.trim();
+        const payloadRow: Record<string, any> = {
+          TemplateStyleCode: baseStyle,
+          BaseName: row.name.trim() || baseStyle,
+          Brand: row.brand.trim() || row.attributes.brand || "SMRITI",
+          Category: row.category.trim() || row.department.trim() || "General",
+          HSN: row.hsnCode.trim() || "61091000",
+          Price: row.price.trim() !== "" ? row.price : (row.mrp.trim() !== "" ? row.mrp : "0"),
+          MRP: row.mrp.trim() !== "" ? row.mrp : (row.price.trim() !== "" ? row.price : "0"),
+          CostPrice: row.costPrice.trim() !== "" ? row.costPrice : "0",
+          GST_Percentage: row.gstPercentage.trim() || "18",
+          Stock: row.stock.trim() || "10",
+          Barcode: row.barcode.trim(),
         };
 
-        try {
-          const itemService = SPK.services.resolve<IItemService>("ITEM");
-          await itemService.save(payload);
-          successCount++;
-        } catch (err: any) {
-          const errMsg = err.message || "Save failed";
-          let action = "Ensure Barcode and SKU Code are unique across catalog.";
-          if (errMsg.toLowerCase().includes("brand")) {
-            action = "Select a valid brand option or add brand to system dictionary.";
-          } else if (errMsg.toLowerCase().includes("barcode")) {
-            action = "Change barcode for this row to make it unique.";
-          } else if (errMsg.toLowerCase().includes("sku") || errMsg.toLowerCase().includes("code")) {
-            action = "Change SKU Code or style suffix for this row.";
+        // Attach all attributes prefixed with Attr_ for backend template resolution
+        Object.entries(row.attributes).forEach(([k, v]) => {
+          if (v && v.trim()) {
+            payloadRow[`Attr_${k}`] = v.trim();
           }
+        });
+        if (row.gender.trim()) payloadRow["Attr_gender"] = row.gender.trim();
+        if (row.heels.trim()) payloadRow["Attr_heels"] = row.heels.trim();
+        if (row.upperMaterial.trim()) payloadRow["Attr_upperMaterial"] = row.upperMaterial.trim();
+        if (row.outsole.trim()) payloadRow["Attr_outsole"] = row.outsole.trim();
 
-          capturedErrors.push({
-            rowIndex: rowNum,
-            barcode: row.barcode.trim() || "Missing",
-            sku: uniqueSku || "Missing",
-            styleCode: row.styleCode.trim() || row.code.trim() || "N/A",
-            name: row.name.trim(),
-            issue: errMsg,
-            action
-          });
-          failCount++;
-        }
-      }
+        return payloadRow;
+      });
 
-      setRowErrors(capturedErrors);
+      const commitRes = await apiFetchV1<{ success: boolean; count: number }>("/attributes/import-commit", {
+        method: "POST",
+        body: JSON.stringify({
+          groupId: selectedGroupId || (groups[0] ? groups[0].id : ""),
+          rows: formattedRows
+        })
+      });
 
-      if (successCount > 0) {
-        onNotification("Success", `Committed ${successCount} items to Master ledger database.`, "success");
-      }
-      if (failCount > 0) {
-        onNotification("Save Failures", `${failCount} items failed validations or unique SKU constraint checks.`, "error");
-      }
-
+      onNotification("Atomic Commit Successful", `Successfully created and saved ${commitRes.count} products/variants in SMRITI Catalog.`, "success");
       await onRefreshProducts();
       resetGrid();
     } catch (err: any) {
-      onNotification("Connection Failed", err.message || "Failed to submit items.", "error");
+      onNotification("Atomic Commit Failed", err.message || "Failed to commit items to database transaction.", "error");
     } finally {
       setLoading(false);
     }
@@ -1402,20 +1471,28 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
       </div>
 
       {/* Grid Sheet Container */}
-      <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 space-y-4">
-        <div className="overflow-x-auto border border-theme-divider/70 rounded-xl max-h-96">
-          <table className="w-full text-left border-collapse text-xs table-fixed">
+      <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 space-y-4 w-full max-w-full">
+        <div className="overflow-x-auto border border-theme-divider/70 rounded-xl max-h-[650px] w-full max-w-full">
+          <table className="w-full text-left border-collapse text-xs table-auto">
             <thead>
-              <tr className="bg-theme-surface-2 border-b border-theme-divider text-theme-muted font-mono text-[9px] tracking-wider uppercase">
+              <tr className="bg-theme-surface-2 border-b border-theme-divider text-theme-heading font-mono text-[9px] tracking-wider uppercase">
                 <th className="p-3 text-center w-12 border-r border-theme-divider/40">Row</th>
-                {coreCols.map(c => (
-                  <th key={c.key} className="p-3 border-r border-theme-divider/40 min-w-[130px]">{c.label}</th>
-                ))}
-                {activeAttrs.map(attr => (
-                  <th key={attr.id} className="p-3 border-r border-theme-divider/40 min-w-[130px] text-indigo-300">
-                    {attr.label} {attr.isMandatory && "*"}
-                  </th>
-                ))}
+                {coreCols.map(c => {
+                  const colW = getColumnWidth(c.key, c.label);
+                  return (
+                    <th key={c.key} style={{ width: `${colW}px`, minWidth: `${colW}px` }} className="p-3 border-r border-theme-divider/40 whitespace-nowrap">
+                      {c.label}
+                    </th>
+                  );
+                })}
+                {activeAttrs.map(attr => {
+                  const colW = getColumnWidth(`attr_${attr.name}`, attr.label);
+                  return (
+                    <th key={attr.id} style={{ width: `${colW}px`, minWidth: `${colW}px` }} className="p-3 border-r border-theme-divider/40 text-indigo-300 whitespace-nowrap">
+                      {attr.label} {attr.isMandatory && "*"}
+                    </th>
+                  );
+                })}
                 <th className="p-3 text-center w-16">Action</th>
               </tr>
             </thead>
@@ -1440,7 +1517,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "code", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "code")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "code" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button
                       onClick={() => handleExpandCell(rowIndex, "code")}
@@ -1485,7 +1562,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "barcode", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "barcode")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "barcode" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "barcode")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1500,7 +1577,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "costPrice", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "costPrice")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "costPrice" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono text-right"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "costPrice")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1515,7 +1592,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "price", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "price")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "price" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono text-right"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "price")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1530,7 +1607,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "mrp", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "mrp")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "mrp" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono text-right"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "mrp")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1545,7 +1622,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "gstPercentage", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "gstPercentage")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "gstPercentage" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono text-right"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "gstPercentage")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1560,7 +1637,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "stock", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "stock")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "stock" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono text-right"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono text-right"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "stock")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1575,7 +1652,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "brand", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "brand")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "brand" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "brand")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1590,7 +1667,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "styleCode", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "styleCode")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "styleCode" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "styleCode")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1605,7 +1682,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "category", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "category")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "category" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "category")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1620,7 +1697,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "hsnCode", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "hsnCode")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "hsnCode" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "hsnCode")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1635,7 +1712,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "vendorCode", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "vendorCode")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "vendorCode" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "vendorCode")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1650,7 +1727,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "purchaseClass", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "purchaseClass")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "purchaseClass" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "purchaseClass")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1665,7 +1742,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "department", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "department")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "department" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "department")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1680,7 +1757,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "merchandiseCategory", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "merchandiseCategory")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "merchandiseCategory" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "merchandiseCategory")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1695,7 +1772,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "subCategory", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "subCategory")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "subCategory" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "subCategory")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1710,7 +1787,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "gender", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "gender")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "gender" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "gender")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1725,7 +1802,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "heels", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "heels")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "heels" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "heels")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1740,7 +1817,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "upperMaterial", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "upperMaterial")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "upperMaterial" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "upperMaterial")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1755,7 +1832,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "outsole", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "outsole")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "outsole" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "outsole")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>
@@ -1770,7 +1847,7 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                       onChange={(e) => handleCellChange(rowIndex, "imageLink", e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, rowIndex, "imageLink")}
                       onFocus={() => setFocusedCell({ rowIndex, field: "imageLink" })}
-                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
+                      className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
                     />
                     <button onClick={() => handleExpandCell(rowIndex, "imageLink")} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
                   </td>

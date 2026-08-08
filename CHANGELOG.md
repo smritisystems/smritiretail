@@ -30,6 +30,16 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Added & Hardened (Barcode Sourcing Multi-Mode Support & GS1 Governance — CERTIFIED)
+- **Barcode Sourcing Multi-Mode Support**:
+  - Added `gs1_company_prefix` (nullable string), `barcode_source` (`AUTO` | `IMPORT` | `MANUAL`), and `barcode_counter` (sequential integer allocator) columns to `Company` model in `app/models/tenant.py` via Alembic migration `v1501_barcode_sourcing_multi_mode.py`.
+  - Added `ProductIdentityService.validate_gs1_company_prefix()` strictly enforcing digits-only format and 6–11 character length constraint.
+  - Eliminated hardcoded `"8901000"` fake prefix across `identity_service.py` and `sip/strategies.py`.
+  - Implemented multi-tenant GS1 company prefix formatting (`{gs1_company_prefix}{item_ref}{check_digit}`) when configured.
+  - Implemented GS1 restricted-circulation range (`200` series, e.g. `200{seq:09d}{check_digit}`) for internal retail numbering when `gs1_company_prefix` is None.
+  - Updated `/attributes/import-commit` and variant creation endpoints to enforce `barcode_source` company policy (`AUTO` auto-generates; `IMPORT` and `MANUAL` preserve supplied barcode or raise HTTP 422 if missing).
+  - Added comprehensive backend test suite `app/tests/test_barcode_sourcing_multi_mode.py` (4/4 passed).
+
 ### Hardened (Phase F SizeScale Adoption — CERTIFIED)
 - **Phase F SizeScale Adoption & Schema Integrity**:
   - `Product.size` preserved as canonical product display/sellable size value across all billing, POS, and inventory workflows.
