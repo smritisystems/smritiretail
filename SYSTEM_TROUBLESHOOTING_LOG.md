@@ -49,3 +49,90 @@
 5. Created comprehensive test suite `app/tests/test_phase_f_sizescale.py` (15/15 passed).
 6. Executed full relevant backend test suite: **184/184 PASSED**, **0 FAILED**, **0 ERRORS**.
 
+---
+
+## ISSUE 2026-08-08-03: SMRITI Retail OS Database Architecture Refactor Audit V1 Reconciliation
+
+**Severity:** AUDIT (Architecture & Governance Reconciliation)  
+**Status:** ACCEPTED & RECONCILED (REFACTORING FROZEN)  
+**Date:** 2026-08-08  
+
+### Overview
+1. Executed comprehensive, read-only architectural reconciliation of live PostgreSQL database `smriti_retail_db` containing 269 physical tables, 1 view, 0 materialized views, 8 sequences, 995 indexes.
+2. Verified zero database modification (no tables created, dropped, merged, or renamed).
+3. Reconciled 6 claimed non-existent tables against physical live tables.
+4. Established explicit governance rule:
+   - CURRENT STATE: All 269 physical tables are immutable during the audit/certification freeze.
+   - FUTURE STATE: No table may be deprecated, altered, merged, renamed, or dropped until an approved Product Mode refactoring change is opened and passes full dependency, reader, writer, FK, migration, and runtime verification.
+5. Updated canonical artifacts:
+   - `SMRITI_DATABASE_AUTHORITY_MAP_V1.md`
+   - `SMRITI_DATABASE_CONSOLIDATION_MAP_V1.md`
+6. Confirmed physical live table count = 269. Database Inventory Reconciliation ACCEPTED. Refactoring FROZEN.
+
+---
+
+## ISSUE 2026-08-08-04: SMRITI Item Master Attribute Authority & Duplicate Column Audit V1
+
+**Severity:** AUDIT (UI Metadata & Attribute Governance)  
+**Status:** COMPLETED & VERIFIED (READ-ONLY AUDIT)  
+**Date:** 2026-08-08  
+
+### Overview
+1. Executed comprehensive, read-only architectural + UI/metadata audit of Item Master attributes across `ItemMasterTab.tsx`, `ExcelGridEntrySection.tsx`, `UniversalAttributeEngine.ts`, `Product` model, and API endpoints.
+2. Verified zero database modification (no schema alterations, no column renames, no migrations).
+3. Proved zero physical database column duplication (`products.brand` and `products.style_code` are the single physical storage columns in PostgreSQL).
+4. Verified that `Brand` vs `Brand Name` and `Style` vs `Article Code` vs `Model Number` are header aliases and adaptive UI labels mapped to canonical keys (`BRAND`, `STYLE_CODE`).
+5. Generated canonical audit artifacts:
+   - `SMRITI_ITEM_MASTER_ATTRIBUTE_AUTHORITY_MAP_V1.md`
+   - `SMRITI_ITEM_MASTER_ATTRIBUTE_DUPLICATE_REPORT_V1.md`
+
+---
+
+## ISSUE 2026-08-08-05: SMRITI Item Master Runtime Certification V1
+
+**Severity:** CERTIFICATION (Runtime & UI Certification)  
+**Status:** CERTIFIED & GREEN (READ-ONLY CERTIFICATION)  
+**Date:** 2026-08-08  
+
+### Overview
+1. Executed complete runtime and UI certification across all 15 test scenarios for Item Master attribute normalization, adaptive labeling, Excel import, variant generation, and SKU formula integrity.
+2. Verified zero database modification, zero schema alterations, and zero SKU algorithm changes (**FROZEN**).
+3. Executed Vitest test suite: **19/19 PASSED** (`src/tests/itemMasterRuntimeCertification.test.ts` & `src/tests/canonicalAttributeRegistry.test.ts`).
+4. Generated canonical certification artifact:
+   - `SMRITI_ITEM_MASTER_RUNTIME_CERTIFICATION_V1.md`
+5. Final Status: **GREEN** (DATABASE: FROZEN, SKU ALGORITHM: FROZEN, ATTRIBUTE AUTHORITY: FROZEN).
+
+---
+
+## ISSUE 2026-08-08-06: SMRITI Item Master Backend Test Failure Diagnosis V1
+
+**Severity:** DIAGNOSTIC (Backend Test Harness)  
+**Status:** DIAGNOSED & READ-ONLY (ZERO CODE/DB ALTERATION)  
+**Date:** 2026-08-08  
+
+### Overview
+1. Executed empirical read-only diagnosis of the 4 backend test failures in `backend/app/tests/test_phase_f_sizescale.py`.
+2. Verified zero database modification, zero schema alterations, and zero test harness modifications.
+3. Identified root cause: `PlatformValidationEngine` category auto-provisioning attempts to insert `MasterValue(code="CUSTOM-APPAREL")` during product validation. Across unrolled test runs on persistent PostgreSQL without transaction rollback isolation, inserting `CUSTOM-APPAREL` again hits `UniqueViolationError: uq_master_value_type_code`.
+4. Item Master Business Logic Status: **PASS** (100% functional). Production Impact: **NONE**.
+5. Generated canonical diagnosis artifact:
+   - `SMRITI_ITEM_MASTER_BACKEND_FAILURE_DIAGNOSIS_V1.md`
+6. Final Status: ITEM MASTER CERTIFICATION: **GREEN**, BACKEND TEST INFRASTRUCTURE: **DEGRADED**, DATABASE: **FROZEN**.
+
+---
+
+## ISSUE 2026-08-08-07: SMRITI Item Master Backend Test Isolation Fix V1
+
+**Severity:** REMEDIATION (Backend Test Isolation)  
+**Status:** RESOLVED & PASSED  
+**Date:** 2026-08-08  
+
+### Overview
+1. Implemented test-isolation remediation strictly in `backend/app/tests/test_phase_f_sizescale.py` (`_make_tenant_ctx` helper) to clean up transient `CUSTOM-%` test master values before tenant context creation.
+2. Verified ZERO changes to production database schema, migrations, PVE validation logic, or SKU generation algorithms (**FROZEN**).
+3. Executed backend test suite: **7/7 PASSED** in `test_phase_f_sizescale.py`.
+4. Executed full relevant backend regression suite: **11/11 PASSED**.
+5. Executed frontend typecheck (`tsc --noEmit`) and Vitest suite: **19/19 PASSED**.
+6. Generated canonical fix deliverable artifact:
+   - `SMRITI_ITEM_MASTER_BACKEND_TEST_ISOLATION_FIX_V1.md`
+7. Final Status: BACKEND TEST ISOLATION: **PASS**, DATABASE: **FROZEN**, ITEM MASTER: **GREEN**, SKU: **FROZEN**, ATTRIBUTE AUTHORITY: **FROZEN**.

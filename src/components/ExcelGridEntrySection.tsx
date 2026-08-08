@@ -25,6 +25,7 @@ import { ExpandedCellEditor, ExpandContextMenu } from "./ExpandedCellEditor";
 import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
 import { SPK } from "../kernel/SPK.js";
 import { IItemService } from "../kernel/public/IItemService.js";
+import { UniversalAttributeEngine } from "../core/metadata/attributes/UniversalAttributeEngine";
 
 interface ExcelGridEntrySectionProps {
   products?: Product[];
@@ -1485,14 +1486,18 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                     </th>
                   );
                 })}
-                {activeAttrs.map(attr => {
-                  const colW = getColumnWidth(`attr_${attr.name}`, attr.label);
-                  return (
-                    <th key={attr.id} style={{ width: `${colW}px`, minWidth: `${colW}px` }} className="p-3 border-r border-theme-divider/40 text-indigo-300 whitespace-nowrap">
-                      {attr.label} {attr.isMandatory && "*"}
-                    </th>
-                  );
-                })}
+                {(() => {
+                  const coreCanonicalKeys = new Set(coreCols.map(c => UniversalAttributeEngine.resolveCanonicalKey(c.key || c.label)));
+                  const deduplicatedAttrs = activeAttrs.filter(attr => !coreCanonicalKeys.has(UniversalAttributeEngine.resolveCanonicalKey(attr.name || attr.label)));
+                  return deduplicatedAttrs.map(attr => {
+                    const colW = getColumnWidth(`attr_${attr.name}`, attr.label);
+                    return (
+                      <th key={attr.id} style={{ width: `${colW}px`, minWidth: `${colW}px` }} className="p-3 border-r border-theme-divider/40 text-indigo-300 whitespace-nowrap">
+                        {attr.label} {attr.isMandatory && "*"}
+                      </th>
+                    );
+                  });
+                })()}
                 <th className="p-3 text-center w-16">Action</th>
               </tr>
             </thead>
@@ -1853,41 +1858,45 @@ SNE-001	Vintage Trainer	8901234567890	1200	1500	1750	18	10	TATTLY THREADS	CH-01-
                   </td>
 
                   {/* Dynamic Custom Attributes */}
-                  {activeAttrs.map(attr => {
-                    const fieldKey = `attr_${attr.name}`;
-                    const val = row.attributes[attr.name] || "";
-                    
-                    return (
-                      <td key={attr.id} className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, fieldKey)} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, fieldKey)}>
-                        {attr.dataType === "select" ? (
-                          <select
-                            id={`cell-${rowIndex}-${fieldKey}`}
-                            value={val}
-                            onChange={(e) => handleCellChange(rowIndex, fieldKey, e.target.value)}
-                            onFocus={() => setFocusedCell({ rowIndex, field: fieldKey })}
-                            className="w-full bg-transparent border-0 outline-none text-xs px-2 py-0.5 text-white"
-                          >
-                            <option value="" className="bg-theme-surface-2">-- Option --</option>
-                            {attr.validValues.map(opt => (
-                              <option key={opt} value={opt} className="bg-theme-surface-2">{opt}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            id={`cell-${rowIndex}-${fieldKey}`}
-                            type={attr.dataType === "number" ? "number" : "text"}
-                            placeholder={`Enter ${attr.label}`}
-                            value={val}
-                            onChange={(e) => handleCellChange(rowIndex, fieldKey, e.target.value)}
-                            onKeyDown={(e) => handleKeyDown(e, rowIndex, fieldKey)}
-                            onFocus={() => setFocusedCell({ rowIndex, field: fieldKey })}
-                            className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-white font-mono"
-                          />
-                        )}
-                        <button onClick={() => handleExpandCell(rowIndex, fieldKey)} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
-                      </td>
-                    );
-                  })}
+                  {(() => {
+                    const coreCanonicalKeys = new Set(coreCols.map(c => UniversalAttributeEngine.resolveCanonicalKey(c.key || c.label)));
+                    const deduplicatedAttrs = activeAttrs.filter(attr => !coreCanonicalKeys.has(UniversalAttributeEngine.resolveCanonicalKey(attr.name || attr.label)));
+                    return deduplicatedAttrs.map(attr => {
+                      const fieldKey = `attr_${attr.name}`;
+                      const val = row.attributes[attr.name] || "";
+                      const colW = getColumnWidth(fieldKey, attr.label);
+                      return (
+                        <td key={attr.id} style={{ width: `${colW}px`, minWidth: `${colW}px` }} className="p-1 border-r border-theme-divider/40 relative group" onDoubleClick={() => handleExpandCell(rowIndex, fieldKey)} onContextMenu={(e) => handleCellContextMenu(e, rowIndex, fieldKey)}>
+                          {attr.dataType === "select" ? (
+                            <select
+                              id={`cell-${rowIndex}-${fieldKey}`}
+                              value={val}
+                              onChange={(e) => handleCellChange(rowIndex, fieldKey, e.target.value)}
+                              onFocus={() => setFocusedCell({ rowIndex, field: fieldKey })}
+                              className="w-full bg-transparent border-0 outline-none text-xs px-2 py-0.5 text-theme-body font-mono"
+                            >
+                              <option value="" className="bg-theme-surface-2">-- Option --</option>
+                              {attr.validValues.map(opt => (
+                                <option key={opt} value={opt} className="bg-theme-surface-2">{opt}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              id={`cell-${rowIndex}-${fieldKey}`}
+                              type={attr.dataType === "number" ? "number" : "text"}
+                              placeholder={`Enter ${attr.label}`}
+                              value={val}
+                              onChange={(e) => handleCellChange(rowIndex, fieldKey, e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, rowIndex, fieldKey)}
+                              onFocus={() => setFocusedCell({ rowIndex, field: fieldKey })}
+                              className="w-full bg-transparent border-0 outline-none text-xs px-2 py-1 text-theme-body font-mono"
+                            />
+                          )}
+                          <button onClick={() => handleExpandCell(rowIndex, fieldKey)} title="Expand cell (F2)" className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 rounded text-indigo-400 hover:bg-indigo-600/20 transition-all z-10" tabIndex={-1}><Maximize2 size={9} /></button>
+                        </td>
+                      );
+                    });
+                  })()}
 
                   {/* Action Delete row */}
                   <td className="p-1.5 text-center">

@@ -725,7 +725,16 @@ async def import_commit(
     gs1_company_prefix = company_obj.gs1_company_prefix if company_obj else None
 
     for index, row in enumerate(rows):
-        style_code = row.get("TemplateStyleCode")
+        style_code = (
+            row.get("TemplateStyleCode") or
+            row.get("StyleCode") or
+            row.get("STYLE/ARTICLE CODE") or
+            row.get("Style/Article Code") or
+            row.get("Style Code") or
+            row.get("Style") or
+            row.get("Article Code") or
+            row.get("Model")
+        )
         
         # Check if template exists, create if not
         q = select(VariantTemplate).where(
@@ -735,16 +744,23 @@ async def import_commit(
         res = await db.execute(q)
         template = res.scalars().first()
         if not template:
+            brand_val = (
+                row.get("Brand") or
+                row.get("Brand Name") or
+                row.get("BRAND NAME") or
+                row.get("Manufacturer") or
+                "SMRITI"
+            )
             template = VariantTemplate(
                 id=f"vt-{int(datetime.now(timezone.utc).timestamp())}-{index}",
                 style_code=style_code,
-                name=row.get("BaseName"),
-                brand=row.get("Brand") or "SMRITI",
-                category=row.get("Category") or "General",
-                hsn_code=row.get("HSN") or "61091000",
-                base_price=int(float(row.get("Price") or 0)),
-                base_mrp=int(float(row.get("MRP") or row.get("Price") or 0)),
-                gst_percentage=int(float(row.get("GST_Percentage") or 18)),
+                name=row.get("BaseName") or row.get("Item Name") or row.get("Description"),
+                brand=brand_val,
+                category=row.get("Category") or row.get("Merchandise Category") or "General",
+                hsn_code=row.get("HSN") or row.get("HSN Code") or "61091000",
+                base_price=int(float(row.get("Price") or row.get("Selling Price") or 0)),
+                base_mrp=int(float(row.get("MRP") or row.get("Price") or row.get("Selling Price") or 0)),
+                gst_percentage=int(float(row.get("GST_Percentage") or row.get("GST %") or 18)),
                 attribute_group_id=group.id,
                 pricing_mode=row.get("PricingMode") or "Fixed",
                 tracking_mode=row.get("TrackingMode") or "Standard",

@@ -23,6 +23,7 @@ from app.services.size_master import SizeMasterService
 from app.services.inventory import InventoryService
 from app.services.identity_service import ProductIdentityService
 from app.models.tenant import Company, Branch
+from app.models.master_lookup import MasterType, MasterValue
 from app.api.deps import TenantContext
 from app.core.validation import get_validation_engine
 
@@ -32,6 +33,11 @@ async def _make_tenant_ctx(db_session, company_code: str = "COMP_F") -> TenantCo
     comp = Company(id=f"c_{company_code}_{uid}", name=f"Company {company_code} {uid}", is_active=True)
     br = Branch(id=f"b_{company_code}_{uid}", company_id=comp.id, name=f"Branch {company_code} {uid}", code=f"BR-{company_code}-{uid}", is_active=True)
     db_session.add_all([comp, br])
+
+    # Clean up test-created custom master values to maintain strict test isolation across unrolled test runs
+    from sqlalchemy import text
+    await db_session.execute(text("DELETE FROM master_values WHERE code LIKE 'CUSTOM-%'"))
+
     await db_session.commit()
     return TenantContext(
         company_id=comp.id,

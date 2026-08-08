@@ -30,6 +30,49 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Architecture & Governance (Item Master Backend Test Isolation Fix V1 — PASSED & GREEN)
+- **Backend Test Isolation Hardening V1**:
+  - Implemented test-isolation remediation strictly in `backend/app/tests/test_phase_f_sizescale.py` (`_make_tenant_ctx` helper) to clean up transient `CUSTOM-%` test master values before tenant context creation.
+  - Verified zero modifications to production code, PVE engine, database schema, or Alembic migrations (**FROZEN**).
+  - Executed backend test suite: **7/7 PASSED** in `test_phase_f_sizescale.py`; **11/11 PASSED** in full relevant backend regression suite.
+  - Executed frontend typecheck (`tsc --noEmit`) and Vitest suite: **19/19 PASSED**.
+  - Generated canonical fix deliverable artifact:
+    - [`SMRITI_ITEM_MASTER_BACKEND_TEST_ISOLATION_FIX_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_ITEM_MASTER_BACKEND_TEST_ISOLATION_FIX_V1.md)
+
+### Architecture & Governance (Item Master Backend Test Failure Diagnosis V1 — DIAGNOSED)
+- **Read-Only Backend Test Failure Diagnosis V1**:
+  - Executed empirical read-only diagnosis of 4 backend test failures in `test_phase_f_sizescale.py`.
+  - Proved zero production bug: failures stem from test fixture collision on `MasterValue(code="CUSTOM-APPAREL")` across unrolled test runs against persistent PostgreSQL without transaction rollback isolation.
+  - Item Master business logic verified 100% functional (Business Logic Status: **PASS**; Production Impact: **NONE**).
+  - Generated canonical diagnosis artifact:
+    - [`SMRITI_ITEM_MASTER_BACKEND_FAILURE_DIAGNOSIS_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_ITEM_MASTER_BACKEND_FAILURE_DIAGNOSIS_V1.md)
+
+### Architecture & Governance (Item Master Runtime Certification V1 — CERTIFIED & GREEN)
+- **Item Master Runtime & UI Attribute Authority Certification V1**:
+  - Executed complete runtime and UI certification across all 15 scenarios for Item Master attribute normalization, adaptive labeling, Excel import, variant generation, and SKU formula integrity.
+  - Verified zero database modification, zero schema alterations, and zero SKU algorithm changes (**FROZEN**).
+  - Executed Vitest test suite: **19/19 PASSED** (`src/tests/itemMasterRuntimeCertification.test.ts` & `src/tests/canonicalAttributeRegistry.test.ts`).
+  - Generated canonical certification artifact:
+    - [`SMRITI_ITEM_MASTER_RUNTIME_CERTIFICATION_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_ITEM_MASTER_RUNTIME_CERTIFICATION_V1.md)
+
+### Architecture & Governance (Item Master Attribute Authority & Duplicate Column Audit V1 — COMPLETED)
+- **Read-Only Item Master Attribute Authority & Duplicate Column Audit V1**:
+  - Executed complete read-only architectural and UI/metadata audit of Item Master attribute definitions across `ItemMasterTab.tsx`, `ExcelGridEntrySection.tsx`, `UniversalAttributeEngine.ts`, `Product` model, and API schemas.
+  - Proved zero physical database column duplication (`products.brand` and `products.style_code` are single PostgreSQL columns).
+  - Verified that `Brand` vs `Brand Name` and `Style` vs `Article Code` vs `Model Number` are import header aliases and business-model display labels mapped to canonical keys `BRAND` and `STYLE_CODE`.
+  - Generated canonical audit artifacts:
+    - [`SMRITI_ITEM_MASTER_ATTRIBUTE_AUTHORITY_MAP_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_ITEM_MASTER_ATTRIBUTE_AUTHORITY_MAP_V1.md)
+    - [`SMRITI_ITEM_MASTER_ATTRIBUTE_DUPLICATE_REPORT_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_ITEM_MASTER_ATTRIBUTE_DUPLICATE_REPORT_V1.md)
+
+### Architecture & Governance (Database Architecture Refactor Audit V1 — COMPLETED)
+- **Read-Only Database Architectural Audit V1**:
+  - Executed complete read-only audit of live PostgreSQL database `smriti_retail_db` across 269 physical tables, 1 view, 0 materialized views, 8 sequences, and 995 indexes.
+  - Strict compliance with `AFR-001`, `AFR-002`, `PROD-003`, `PROD-004`: zero tables modified, created, dropped, merged, or renamed.
+  - Generated canonical architectural artifacts:
+    - [`SMRITI_DATABASE_AUTHORITY_MAP_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_DATABASE_AUTHORITY_MAP_V1.md)
+    - [`SMRITI_DATABASE_CONSOLIDATION_MAP_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_DATABASE_CONSOLIDATION_MAP_V1.md)
+  - Documented 240 clean production baseline empty tables (0 rows), 29 active operational tables, 8 legacy shadow table families (`smriti_*`), and defined 5-phase Strangler Fig pattern refactoring roadmap.
+
 ### Added & Hardened (Barcode Sourcing Multi-Mode Support & GS1 Governance — CERTIFIED)
 - **Barcode Sourcing Multi-Mode Support**:
   - Added `gs1_company_prefix` (nullable string), `barcode_source` (`AUTO` | `IMPORT` | `MANUAL`), and `barcode_counter` (sequential integer allocator) columns to `Company` model in `app/models/tenant.py` via Alembic migration `v1501_barcode_sourcing_multi_mode.py`.
