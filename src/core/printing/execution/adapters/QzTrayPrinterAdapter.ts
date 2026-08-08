@@ -10,6 +10,7 @@
 import { IPrinterAdapter, TransportDispatchResult } from "./PrinterAdapter.ts";
 import { UniversalPrintJob, PrintTransportType } from "../UniversalPrintJob.ts";
 import { PrinterProfile } from "../../models/PrinterProfile.ts";
+// @ts-ignore
 import { WebSocket } from "ws";
 
 export interface QzConnectionConfig {
@@ -38,10 +39,10 @@ export class QzTrayPrinterAdapter implements IPrinterAdapter {
   /**
    * Connects to QZ Tray WebSocket on localhost ports.
    */
-  public async connect(): Promise<{ socket: WebSocket; port: number }> {
+  public async connect(): Promise<{ socket: any; port: number }> {
     for (const port of this.ports) {
       try {
-        const socket = await new Promise<WebSocket>((resolve, reject) => {
+        const socket = await new Promise<any>((resolve, reject) => {
           const ws = new WebSocket(`ws://${this.host}:${port}`);
           const timer = setTimeout(() => {
             try { ws.close(); } catch {}
@@ -53,7 +54,7 @@ export class QzTrayPrinterAdapter implements IPrinterAdapter {
             resolve(ws);
           });
 
-          ws.on("error", (err) => {
+          ws.on("error", (err: any) => {
             clearTimeout(timer);
             reject(err);
           });
@@ -81,7 +82,7 @@ export class QzTrayPrinterAdapter implements IPrinterAdapter {
           uid: reqId,
         });
 
-        socket.on("message", (data) => {
+        socket.on("message", (data: any) => {
           try {
             const resp = JSON.parse(data.toString());
             const printers: string[] = Array.isArray(resp.result) ? resp.result : [];
@@ -146,7 +147,7 @@ export class QzTrayPrinterAdapter implements IPrinterAdapter {
         const rawPrintPayload = {
           call: "print",
           params: {
-            printer: targetPrinterName,
+            printer: { name: targetPrinterName },
             options: { copies: job.copies },
             data: [
               {
@@ -169,7 +170,7 @@ export class QzTrayPrinterAdapter implements IPrinterAdapter {
           });
         }, 10000);
 
-        socket.on("message", (msgData) => {
+        socket.on("message", (msgData: any) => {
           clearTimeout(timer);
           try {
             const resp = JSON.parse(msgData.toString());

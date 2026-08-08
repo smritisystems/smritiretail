@@ -21,7 +21,13 @@ export type TransportResultCode =
   | "TEMPORARY_SPOOLER_ERROR"
   | "UNSUPPORTED_TRANSPORT"
   | "INVALID_PAYLOAD"
-  | "FAILED";
+  | "FAILED"
+  | "QZ_ACCEPTED"
+  | "QZ_TRAY_NOT_CONNECTED"
+  | "QZ_TIMEOUT"
+  | "QZ_SIGNING_REQUIRED"
+  | "QZ_ERROR"
+  | "QZ_RESPONSE_PARSE_ERROR";
 
 export interface TransportDispatchResult {
   success: boolean;
