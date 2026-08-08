@@ -31,6 +31,8 @@ from ...schemas.attributes import (
     VariantTemplateCreate, VariantTemplateUpdate, VariantTemplateResponse,
     CategoryMappingCreate, CategoryMappingResponse
 )
+from ...models.tenant import Company
+from ...services.identity_service import ProductIdentityService
 from ...services.attributes import AttributesService
 
 router = APIRouter()
@@ -424,6 +426,12 @@ async def generate_variants(
         if defn and not defn.is_deleted:
             attr_def_list.append(defn)
 
+    identity_service = ProductIdentityService()
+    comp_res = await db.execute(select(Company).where(Company.is_active == True))
+    company_rec = comp_res.scalars().first()
+    b_source = (company_rec.barcode_source if company_rec else "AUTO").upper()
+    gs1_pref = company_rec.gs1_company_prefix if company_rec else None
+
     for index, v in enumerate(variants_list):
         code_parts = [template.style_code]
         for defn in attr_def_list:
@@ -434,7 +442,21 @@ async def generate_variants(
                     code_parts.append(code_val)
 
         constructed_code = v.get("sku") or "-".join(code_parts)
-        barcode = v.get("barcode") or f"SMR-B{random.randint(100000, 999999)}"
+        
+        supplied_b = v.get("barcode")
+        if supplied_b and str(supplied_b).strip():
+            barcode = str(supplied_b).strip()
+        elif b_source == "AUTO":
+            s_num = await identity_service.get_next_barcode_sequence(db, company_rec.id if company_rec else None)
+            barcode = ProductIdentityService.generate_ean13_barcode(gs1_pref, s_num)
+        elif b_source in ("IMPORT", "MANUAL"):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Barcode is required under {b_source} mode for variant row {index + 1}"
+            )
+        else:
+            s_num = await identity_service.get_next_barcode_sequence(db, company_rec.id if company_rec else None)
+            barcode = ProductIdentityService.generate_ean13_barcode(gs1_pref, s_num)
 
         # Check existing product code
         q = select(Product).where(Product.code == constructed_code, Product.is_deleted == False)
@@ -696,6 +718,12 @@ async def import_commit(
 
     created_products = []
 
+    identity_svc = ProductIdentityService()
+    company_res = await db.execute(select(Company).where(Company.is_active == True))
+    company_obj = company_res.scalars().first()
+    barcode_policy = (company_obj.barcode_source if company_obj else "AUTO").upper()
+    gs1_company_prefix = company_obj.gs1_company_prefix if company_obj else None
+
     for index, row in enumerate(rows):
         style_code = row.get("TemplateStyleCode")
         
@@ -735,7 +763,21 @@ async def import_commit(
                     code_parts.append(str(val).upper().strip().replace(" ", ""))
 
         constructed_code = "-".join(code_parts)
-        barcode = row.get("Barcode") or f"SMR-B{random.randint(100000, 999999)}"
+        
+        supplied_bc = row.get("Barcode")
+        if supplied_bc and str(supplied_bc).strip():
+            barcode = str(supplied_bc).strip()
+        elif barcode_policy == "AUTO":
+            seq_n = await identity_svc.get_next_barcode_sequence(db, company_obj.id if company_obj else None)
+            barcode = ProductIdentityService.generate_ean13_barcode(gs1_company_prefix, seq_n)
+        elif barcode_policy in ("IMPORT", "MANUAL"):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Barcode is required under {barcode_policy} mode for row {index + 1} ('{row.get('BaseName', 'Item')}')"
+            )
+        else:
+            seq_n = await identity_svc.get_next_barcode_sequence(db, company_obj.id if company_obj else None)
+            barcode = ProductIdentityService.generate_ean13_barcode(gs1_company_prefix, seq_n)
 
         q_prod = select(Product).where(Product.code == constructed_code, Product.is_deleted == False)
         res_prod = await db.execute(q_prod)

@@ -29,6 +29,20 @@ class ProductIdentityService:
     """
 
     @staticmethod
+    def validate_gs1_company_prefix(prefix: Optional[str]) -> Optional[str]:
+        """
+        Validates GS1 Company Prefix. Must be 6-11 numeric digits if configured.
+        """
+        if not prefix or not str(prefix).strip():
+            return None
+        clean = str(prefix).strip()
+        if not clean.isdigit():
+            raise ValueError(f"Invalid GS1 Company Prefix '{prefix}': must contain only numeric digits.")
+        if not (6 <= len(clean) <= 11):
+            raise ValueError(f"Invalid GS1 Company Prefix '{prefix}': length must be between 6 and 11 digits.")
+        return clean
+
+    @staticmethod
     def calculate_ean13_check_digit(number_12_digits: str) -> str:
         """
         Calculates official GS1 EAN-13 Mod-10 check digit for a 12-digit string.
@@ -44,6 +58,41 @@ class ProductIdentityService:
         remainder = total % 10
         check_digit = (10 - remainder) % 10
         return str(check_digit)
+
+    @staticmethod
+    def generate_ean13_barcode(gs1_company_prefix: Optional[str] = None, seq_num: int = 1) -> str:
+        """
+        Generates official EAN-13 barcode.
+        If gs1_company_prefix is set, constructs official GS1 EAN-13 using the company prefix.
+        If gs1_company_prefix is None, issues restricted-circulation internal EAN-13 starting with prefix '200'.
+        """
+        clean_prefix = ProductIdentityService.validate_gs1_company_prefix(gs1_company_prefix)
+        if clean_prefix:
+            needed_digits = 12 - len(clean_prefix)
+            seq_part = f"{(seq_num % (10 ** needed_digits)):0{needed_digits}d}" if needed_digits > 0 else ""
+            payload_12 = f"{clean_prefix}{seq_part}"[:12]
+        else:
+            # GS1 Restricted Circulation Range (200-299) for internal retail numbering
+            payload_12 = f"200{(seq_num % 1000000000):09d}"
+
+        check_digit = ProductIdentityService.calculate_ean13_check_digit(payload_12)
+        return f"{payload_12}{check_digit}"
+
+    async def get_next_barcode_sequence(self, db: AsyncSession, company_id: Optional[str] = None) -> int:
+        """
+        Fetches and atomically increments the tenant's barcode sequence counter.
+        """
+        if not company_id:
+            return (uuid.uuid4().int % 1000000) + 1
+        from app.models.tenant import Company
+        stmt = select(Company).where(Company.id == company_id).with_for_update()
+        res = await db.execute(stmt)
+        comp = res.scalars().first()
+        if comp:
+            comp.barcode_counter = (comp.barcode_counter or 0) + 1
+            await db.flush()
+            return comp.barcode_counter
+        return (uuid.uuid4().int % 1000000) + 1
 
     @staticmethod
     def generate_fingerprint_hash(name: str, category: str, brand: str) -> str:
@@ -74,17 +123,15 @@ class ProductIdentityService:
         name: str,
         category: str,
         brand: str,
+        gs1_company_prefix: Optional[str] = None,
+        company_id: Optional[str] = None,
     ) -> ProductIdentity:
         """
         Generates EAN-13 barcode, creates canonical ProductIdentity record, and persists to database.
         """
         fingerprint = self.generate_fingerprint_hash(name, category, brand)
-        
-        # Use GS1 India prefix 890 + company code 1000 + sequence
-        seq_part = uuid.uuid4().int % 100000
-        payload_12 = f"8901000{seq_part:05d}"
-        check_digit = self.calculate_ean13_check_digit(payload_12)
-        ean13_barcode = f"{payload_12}{check_digit}"
+        seq_num = await self.get_next_barcode_sequence(db, company_id)
+        ean13_barcode = self.generate_ean13_barcode(gs1_company_prefix, seq_num)
 
         identity = ProductIdentity(
             id=str(uuid.uuid4()),
@@ -138,6 +185,8 @@ class ProductIdentityService:
         parent_product_id: str,
         parent_sku: str,
         variants: list[dict[str, str]],
+        gs1_company_prefix: Optional[str] = None,
+        company_id: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         """
         Generates child variant SKUs and assigned EAN-13 barcodes for matrix dimensions (e.g. Size, Color).
@@ -154,10 +203,8 @@ class ProductIdentityService:
 
             child_sku = f"{parent_sku}{attr_part}"
             
-            seq_part = (uuid.uuid4().int + idx) % 100000
-            payload_12 = f"8901000{seq_part:05d}"
-            check_digit = self.calculate_ean13_check_digit(payload_12)
-            child_barcode = f"{payload_12}{check_digit}"
+            seq_num = await self.get_next_barcode_sequence(db, company_id)
+            child_barcode = self.generate_ean13_barcode(gs1_company_prefix, seq_num)
 
             created_variants.append({
                 "parent_product_id": parent_product_id,

@@ -18,7 +18,7 @@ ADR-015: Extended with Foundation Platform v3.0 additive fields (AOP-004).
 
 import uuid as uuid_pkg
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Boolean, DateTime, SmallInteger, Date, ForeignKey
+from sqlalchemy import Column, String, Boolean, DateTime, SmallInteger, Integer, Date, ForeignKey
 from sqlalchemy.orm import relationship
 from ..db.base import Base
 
@@ -130,6 +130,9 @@ class Company(Base):
     timezone                = Column(String(50), nullable=True, default="Asia/Kolkata")
     language_code           = Column(String(10), nullable=True, default="en-IN")
     description             = Column(String(1000), nullable=True)
+    gs1_company_prefix      = Column(String(20), nullable=True)
+    barcode_source          = Column(String(30), nullable=False, default="AUTO")  # AUTO | IMPORT | MANUAL
+    barcode_counter         = Column(Integer, nullable=False, default=0)
 
     # Relationships
     organization = relationship("Organization", back_populates="companies")
