@@ -26,3 +26,26 @@
 7. Re-ran complete relevant backend pytest suite: **176/176 PASSED**, **0 FAILED**.
 
 ---
+
+## ISSUE 2026-08-08-02: Phase F SizeScale Adoption & Schema Integrity Certification
+
+**Severity:** HIGH (Schema Evolution & Data Safety Verification)  
+**Status:** CERTIFIED & RESOLVED  
+**Date:** 2026-08-08  
+
+### Symptom
+1. Requirement to adopt multi-region `SizeScale` and `SizeValue` without compromising `Product.size` canonical display/sellable size authority or modifying core product SKU and fingerprint generation algorithms.
+
+### Root Cause / Risk Analysis
+1. Risk of creating competing size authorities between `Product.size` and `SizeScale`.
+2. Potential `NOT NULL` constraint violations on existing products (`size_scale_id=NULL`).
+3. Database orphan foreign key risk on `SizeScale` deletion.
+
+### Resolution
+1. Added Alembic migration `v1500_phase_f_sizescale_adoption.py` introducing nullable `products.size_scale_id` foreign key referencing `size_scales(id)` with `ON DELETE SET NULL`.
+2. Verified PostgreSQL `smriti_retail_db` constraint `fk_products_size_scale_id` with `confdeltype='n'` (SET NULL).
+3. Added PVE validation rule `SMRITI-VAL-SIZE-001` checking tenant authorization and confirming `Product.size` exists in `SizeValue` under the referenced `SizeScale`.
+4. Added `SizeMasterService.resolve_conversions()` for multi-region conversion resolution (read-only).
+5. Created comprehensive test suite `app/tests/test_phase_f_sizescale.py` (15/15 passed).
+6. Executed full relevant backend test suite: **184/184 PASSED**, **0 FAILED**, **0 ERRORS**.
+

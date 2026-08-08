@@ -379,6 +379,55 @@ class PlatformValidationEngine:
                         }
                     )
 
+        # ── Step 4: SizeScale Validation ──
+        size_scale_id = data_copy.get("size_scale_id")
+        if size_scale_id:
+            from app.models.size_master import SizeScale, SizeValue
+            scale_stmt = select(SizeScale).where(
+                SizeScale.id == str(size_scale_id),
+                SizeScale.is_deleted.is_(False)
+            )
+            if tenant_id:
+                scale_stmt = scale_stmt.where(
+                    or_(
+                        SizeScale.company_id.is_(None),
+                        SizeScale.company_id == tenant_id,
+                        SizeScale.tenant_id == tenant_id
+                    )
+                )
+            scale_res = await db.execute(scale_stmt)
+            scale_obj = scale_res.scalar_one_or_none()
+            if not scale_obj:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "title": "Invalid Size Scale",
+                        "explanation": f"SizeScale with ID '{size_scale_id}' not found or not authorized for tenant.",
+                        "reference_id": "SMRITI-VAL-SIZE-001",
+                        "field": "size_scale_id",
+                    }
+                )
+
+            prod_size = data_copy.get("size")
+            if prod_size:
+                sval_stmt = select(SizeValue).where(
+                    SizeValue.size_scale_id == scale_obj.id,
+                    SizeValue.is_deleted.is_(False),
+                    func.upper(SizeValue.display_size) == str(prod_size).strip().upper()
+                )
+                sval_res = await db.execute(sval_stmt)
+                sval_obj = sval_res.scalar_one_or_none()
+                if not sval_obj:
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "title": "Invalid Size for Scale",
+                            "explanation": f"Size '{prod_size}' is not valid for SizeScale '{scale_obj.name}'.",
+                            "reference_id": "SMRITI-VAL-SIZE-001",
+                            "field": "size",
+                        }
+                    )
+
         return ValidationResult(
             valid=True,
             normalized_data=data_copy,

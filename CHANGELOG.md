@@ -30,6 +30,17 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Hardened (Phase F SizeScale Adoption — CERTIFIED)
+- **Phase F SizeScale Adoption & Schema Integrity**:
+  - `Product.size` preserved as canonical product display/sellable size value across all billing, POS, and inventory workflows.
+  - Added optional `size_scale_id` foreign key reference to `products` table (`ForeignKey("size_scales.id", ondelete="SET NULL")`) via Alembic migration `v1500_phase_f_sizescale_adoption.py`.
+  - Updated `Product` model relationship `size_scale` (`lazy="selectin"`).
+  - PlatformValidationEngine (`PVE`) updated to validate `size_scale_id` tenant authorization and verify `Product.size` belongs to `SizeValue.display_size` for that scale, raising HTTP 422 `SMRITI-VAL-SIZE-001` on invalid size combination or scale ID.
+  - Added `SizeMasterService.resolve_conversions(scale_id, display_size)` multi-region resolution engine returning mapped regional size labels (e.g. `{"UK": "7", "US": "8", "EU": "41"}`) without region fabrication. Read-only.
+  - Added comprehensive automated test suite `app/tests/test_phase_f_sizescale.py` verifying aggregate creation, PVE validation, multi-region resolution, tenant isolation, DB `ON DELETE SET NULL` behavior, and algorithm preservation.
+  - Core identity algorithms `generate_sku_business_key()` and `generate_fingerprint_hash()` 100% unedited and preserved.
+  - Verified 100% test pass rate across complete relevant backend test suite (`184/184 PASSED`, `0 FAILED`).
+
 ### Hardened (Phase E Authority Hardening — CERTIFIED)
 - **Product Category & Attribute Authority Reconciliation (Phase E)**:
   - Hardened product update path: `Product.category` and `Product.brand` frozen at creation (`422 Unprocessable Entity` on update attempt). `style_code` frozen for variant products.

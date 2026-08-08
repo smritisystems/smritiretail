@@ -44,7 +44,7 @@ class Product(RowSecuredMixin, BaseEntity):
     pricing_mode = Column(String(30), default="Fixed")
     tracking_mode = Column(String(30), default="Standard")
     variant_template_id = Column(String(50), nullable=True, index=True)
-    size_scale_id = Column(String(50), nullable=True, index=True)
+    size_scale_id = Column(String(50), ForeignKey("size_scales.id", ondelete="SET NULL"), nullable=True, index=True)
     sourcing_mode_override = Column(String(30), nullable=True)
     weight_grams = Column(Numeric(10, 2), default=0.00)
     cbm_m3 = Column(Numeric(10, 4), nullable=True)  # Phase E10: typed CBM for landed-cost allocation
@@ -58,6 +58,7 @@ class Product(RowSecuredMixin, BaseEntity):
     tax_profiles = relationship("ProductTaxProfile", back_populates="product", cascade="all, delete-orphan", order_by="desc(ProductTaxProfile.effective_from)", lazy="selectin")
     inventory_policy = relationship("ProductInventoryPolicy", back_populates="product", uselist=False, cascade="all, delete-orphan", lazy="selectin")
     variant_template = relationship("VariantTemplate", primaryjoin="foreign(Product.variant_template_id) == VariantTemplate.id", backref="products", lazy="selectin")
+    size_scale = relationship("SizeScale", primaryjoin="foreign(Product.size_scale_id) == SizeScale.id", lazy="selectin")
 
     @property
     def secondary_barcodes(self) -> list[str]:
