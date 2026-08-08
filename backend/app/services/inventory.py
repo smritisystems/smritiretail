@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.8.0
+Version      : 3.9.0
 Created      : 2026-07-11
-Modified     : 2026-07-11
+Modified     : 2026-08-09
 Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -198,48 +198,16 @@ class InventoryService:
         )
 
     async def create_product(self, product_in: ProductCreate) -> Product:
+        """
+        Create a new product.
 
-        # Check for duplicate code
-        existing_code = await self.db.execute(
-            select(Product).filter(
-                Product.code == product_in.code,
-                Product.is_deleted == False,
-                Product.company_id == self.tenant_ctx.company_id,
-                Product.branch_id == self.tenant_ctx.branch_id
-            )
-        )
-        if existing_code.scalars().first():
-            raise HTTPException(status_code=400, detail="Product with this code already exists")
-
-        # Check for duplicate barcode across primary and secondary barcode tables
-        barcodes_to_check = [product_in.barcode] + (product_in.secondary_barcodes or [])
-        for bc in barcodes_to_check:
-            if not bc or not str(bc).strip():
-                continue
-            bc_str = str(bc).strip()
-            # Primary check
-            p_exist = await self.db.execute(
-                select(Product).filter(
-                    Product.barcode == bc_str,
-                    Product.is_deleted == False,
-                    Product.company_id == self.tenant_ctx.company_id,
-                    Product.branch_id == self.tenant_ctx.branch_id
-                )
-            )
-            if p_exist.scalars().first():
-                raise HTTPException(status_code=400, detail=f"Product with barcode '{bc_str}' already exists")
-
-            # Secondary check
-            sec_exist = await self.db.execute(
-                select(ProductBarcode).filter(
-                    ProductBarcode.barcode == bc_str,
-                    ProductBarcode.company_id == self.tenant_ctx.company_id,
-                    ProductBarcode.branch_id == self.tenant_ctx.branch_id
-                )
-            )
-            if sec_exist.scalars().first():
-                raise HTTPException(status_code=400, detail=f"Secondary barcode '{bc_str}' is already assigned to another product")
-
+        Concurrency safety (v3.9.0 — P0 Hardening):
+        - Pre-check SELECT→raise pattern REMOVED (TOCTOU race condition).
+        - Database is the sole uniqueness authority via UNIQUE constraints.
+        - A begin_nested() savepoint wraps the insert so that an IntegrityError
+          from a concurrent duplicate leaves the outer session intact.
+        - IntegrityError.orig message is parsed to produce specific 409 fields.
+        """
         tenant_id = getattr(self.tenant_ctx, "tenant_id", None) or getattr(self.tenant_ctx, "company_id", None)
 
         from ..core.validation import get_validation_engine
@@ -264,10 +232,10 @@ class InventoryService:
             size_val = product_data.get("size")
             if color_val:
                 attrs["Color"] = color_val
-                attrs.pop("color", None)  # Remove legacy lowercase key
+                attrs.pop("color", None)
             if size_val:
                 attrs["Size"] = size_val
-                attrs.pop("size", None)   # Remove legacy lowercase key
+                attrs.pop("size", None)
             product_data["attributes"] = attrs
 
         db_product = Product(
@@ -275,76 +243,83 @@ class InventoryService:
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id
         )
-        self.db.add(db_product)
 
-        from ..models.inventory import ProductVendor, ProductTaxProfile, ProductInventoryPolicy
-        for vdata in vendors_data:
-            v_dict = vdata.model_dump() if hasattr(vdata, "model_dump") else dict(vdata)
-            if not v_dict.get("workflow_status"):
-                v_dict["workflow_status"] = "Approved"
-            pv_obj = ProductVendor(
-                id=f"pv-{uuid.uuid4().hex[:12]}",
-                uuid=str(uuid.uuid4()),
-                product_id=db_product.id,
-                tenant_id=tenant_id,
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id,
-                **v_dict
-            )
-            self.db.add(pv_obj)
-
-        for tpdata in tax_profiles_data:
-            tp_dict = tpdata.model_dump() if hasattr(tpdata, "model_dump") else dict(tpdata)
-            if not tp_dict.get("workflow_status"):
-                tp_dict["workflow_status"] = "Approved"
-            tp_obj = ProductTaxProfile(
-                id=f"ptp-{uuid.uuid4().hex[:12]}",
-                uuid=str(uuid.uuid4()),
-                product_id=db_product.id,
-                tenant_id=tenant_id,
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id,
-                **tp_dict
-            )
-            self.db.add(tp_obj)
-
-        if inventory_policy_data:
-            ip_dict = inventory_policy_data.model_dump() if hasattr(inventory_policy_data, "model_dump") else dict(inventory_policy_data)
-            if not ip_dict.get("workflow_status"):
-                ip_dict["workflow_status"] = "Approved"
-            ip_obj = ProductInventoryPolicy(
-                id=f"pip-{uuid.uuid4().hex[:12]}",
-                uuid=str(uuid.uuid4()),
-                product_id=db_product.id,
-                tenant_id=tenant_id,
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id,
-                **ip_dict
-            )
-            self.db.add(ip_obj)
-
-        for sbc in sec_barcodes:
-            if sbc and str(sbc).strip():
-                bc_obj = ProductBarcode(
-                    id=f"BC-{uuid.uuid4().hex[:8]}",
-                    uuid=str(uuid.uuid4()),
-                    product_id=db_product.id,
-                    barcode=str(sbc).strip(),
-                    is_primary=False,
-                    tenant_id=tenant_id,
-                    company_id=self.tenant_ctx.company_id,
-                    branch_id=self.tenant_ctx.branch_id
-                )
-                self.db.add(bc_obj)
-
+        # ── Concurrency-safe insert: savepoint + IntegrityError handling ──
         try:
-            await self.db.commit()
-        except IntegrityError:
-            await self.db.rollback()
-            raise HTTPException(
-                status_code=400,
-                detail="Product with this code or barcode already exists"
-            )
+            async with self.db.begin_nested():
+                self.db.add(db_product)
+
+                from ..models.inventory import ProductVendor, ProductTaxProfile, ProductInventoryPolicy
+                for vdata in vendors_data:
+                    v_dict = vdata.model_dump() if hasattr(vdata, "model_dump") else dict(vdata)
+                    if not v_dict.get("workflow_status"):
+                        v_dict["workflow_status"] = "Approved"
+                    self.db.add(ProductVendor(
+                        id=f"pv-{uuid.uuid4().hex[:12]}",
+                        uuid=str(uuid.uuid4()),
+                        product_id=db_product.id,
+                        tenant_id=tenant_id,
+                        company_id=self.tenant_ctx.company_id,
+                        branch_id=self.tenant_ctx.branch_id,
+                        **v_dict
+                    ))
+
+                for tpdata in tax_profiles_data:
+                    tp_dict = tpdata.model_dump() if hasattr(tpdata, "model_dump") else dict(tpdata)
+                    if not tp_dict.get("workflow_status"):
+                        tp_dict["workflow_status"] = "Approved"
+                    self.db.add(ProductTaxProfile(
+                        id=f"ptp-{uuid.uuid4().hex[:12]}",
+                        uuid=str(uuid.uuid4()),
+                        product_id=db_product.id,
+                        tenant_id=tenant_id,
+                        company_id=self.tenant_ctx.company_id,
+                        branch_id=self.tenant_ctx.branch_id,
+                        **tp_dict
+                    ))
+
+                if inventory_policy_data:
+                    ip_dict = inventory_policy_data.model_dump() if hasattr(inventory_policy_data, "model_dump") else dict(inventory_policy_data)
+                    if not ip_dict.get("workflow_status"):
+                        ip_dict["workflow_status"] = "Approved"
+                    self.db.add(ProductInventoryPolicy(
+                        id=f"pip-{uuid.uuid4().hex[:12]}",
+                        uuid=str(uuid.uuid4()),
+                        product_id=db_product.id,
+                        tenant_id=tenant_id,
+                        company_id=self.tenant_ctx.company_id,
+                        branch_id=self.tenant_ctx.branch_id,
+                        **ip_dict
+                    ))
+
+                for sbc in sec_barcodes:
+                    if sbc and str(sbc).strip():
+                        self.db.add(ProductBarcode(
+                            id=f"BC-{uuid.uuid4().hex[:8]}",
+                            uuid=str(uuid.uuid4()),
+                            product_id=db_product.id,
+                            barcode=str(sbc).strip(),
+                            is_primary=False,
+                            tenant_id=tenant_id,
+                            company_id=self.tenant_ctx.company_id,
+                            branch_id=self.tenant_ctx.branch_id
+                        ))
+
+        except IntegrityError as exc:
+            # Parse the PostgreSQL constraint name from the error to give a specific message.
+            orig = str(getattr(exc, "orig", exc)).lower()
+            if "uq_products_company_code" in orig or "products_code" in orig:
+                raise HTTPException(status_code=409, detail=f"A product with code '{product_in.code}' already exists for this company.")
+            if "products_barcode_key" in orig or "product.barcode" in orig:
+                raise HTTPException(status_code=409, detail=f"Barcode '{product_in.barcode}' is already assigned to another product.")
+            if "product_barcodes_barcode_key" in orig:
+                raise HTTPException(status_code=409, detail="One of the secondary barcodes is already assigned to another product.")
+            if "uq_products_company_sku" in orig or "products_sku" in orig:
+                raise HTTPException(status_code=409, detail=f"A product with SKU '{product_in.code}' already exists for this company.")
+            # Generic fallback — re-raise to avoid swallowing unrelated IntegrityErrors
+            raise HTTPException(status_code=409, detail="Product could not be created due to a uniqueness conflict.")
+
+        await self.db.commit()
         await self.db.refresh(db_product)
         return db_product
 

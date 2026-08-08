@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.17.0
 Created      : 2026-07-12
-Modified     : 2026-07-19
+Modified     : 2026-08-09
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.exc import IntegrityError
 
 from ...api.deps import get_db, get_current_user, require_permission, get_current_tenant, TenantContext
 from ...models.auth import User
@@ -403,6 +404,7 @@ async def generate_variants(
     body: Dict[str, Any] = Body(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     Generate product variants under a template style.
@@ -458,8 +460,12 @@ async def generate_variants(
             s_num = await identity_service.get_next_barcode_sequence(db, company_rec.id if company_rec else None)
             barcode = ProductIdentityService.generate_ean13_barcode(gs1_pref, s_num)
 
-        # Check existing product code
-        q = select(Product).where(Product.code == constructed_code, Product.is_deleted == False)
+        # Check existing product code — TENANT-SCOPED (P0 fix: was cross-tenant)
+        q = select(Product).where(
+            Product.code == constructed_code,
+            Product.is_deleted == False,
+            Product.company_id == (tenant.company_id if tenant else None),
+        )
         res = await db.execute(q)
         existing = res.scalars().first()
 
@@ -516,13 +522,28 @@ async def generate_variants(
                 pricing_mode=template.pricing_mode,
                 tracking_mode=template.tracking_mode,
                 variant_template_id=template.id,
+                # P0 fix: stamp tenant identity on every generated variant
+                company_id=tenant.company_id if tenant else None,
+                branch_id=tenant.branch_id if tenant else None,
+                tenant_id=tenant.company_id if tenant else None,
                 created_by=current_user.username,
                 updated_by=current_user.username
             )
             db.add(new_prod)
             created_variants.append(new_prod)
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        orig = str(getattr(exc, "orig", exc)).lower()
+        if "uq_products_company_code" in orig or "products_code" in orig:
+            raise HTTPException(status_code=409, detail="One or more variant codes conflict with an existing product for this company.")
+        if "products_barcode_key" in orig:
+            raise HTTPException(status_code=409, detail="One or more variant barcodes conflict with an existing product.")
+        if "uq_products_company_sku" in orig or "products_sku" in orig:
+            raise HTTPException(status_code=409, detail="One or more variant SKUs conflict with an existing product for this company.")
+        raise HTTPException(status_code=409, detail="Variant generation failed due to a uniqueness conflict. Please retry.")
     
     # Return count and list
     serialized = []

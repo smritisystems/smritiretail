@@ -15,7 +15,7 @@ Classification: Internal
 from datetime import datetime, timezone
 from decimal import Decimal
 from ..db.base import BaseEntity, RowSecuredMixin
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text, DateTime
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text, DateTime, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import relationship, foreign
 from .attributes import VariantTemplate
@@ -23,7 +23,7 @@ from .attributes import VariantTemplate
 class Product(RowSecuredMixin, BaseEntity):
     __tablename__ = "products"
 
-    code = Column(String(50), nullable=False, unique=True)
+    code = Column(String(50), nullable=False)
     name = Column(String(255), nullable=False)
     price = Column(Numeric(15, 2), nullable=False, default=0.00)
     stock = Column(Integer, nullable=False, default=0)
@@ -39,7 +39,7 @@ class Product(RowSecuredMixin, BaseEntity):
     gst_percentage = Column(Numeric(5, 2), nullable=True)
     style_code = Column(String(100))
     cost_price = Column(Numeric(15, 2))
-    sku = Column(String(100), unique=True)
+    sku = Column(String(100))
     hsn_code = Column(String(15))
     pricing_mode = Column(String(30), default="Fixed")
     tracking_mode = Column(String(30), default="Standard")
@@ -94,6 +94,9 @@ class Product(RowSecuredMixin, BaseEntity):
                 self.barcodes.remove(bc)
 
     __table_args__ = (
+        # AP-008: code/sku uniqueness is tenant-scoped (per company) — see migration v1502
+        UniqueConstraint("company_id", "code", name="uq_products_company_code"),
+        UniqueConstraint("company_id", "sku",  name="uq_products_company_sku"),
         Index("idx_products_attributes", "attributes", postgresql_using="gin"),
     )
 
