@@ -20,7 +20,8 @@ export type PrintJobStatus =
   | "FAILED"
   | "CANCELLED"
   | "RETRYING"
-  | "SENT_UNKNOWN_RESULT";
+  | "SENT_UNKNOWN_RESULT"
+  | "FILE_GENERATED";
 
 export type PrintTransportType =
   | "USB"
@@ -171,7 +172,7 @@ export class UniversalPrintJob {
     if (status === "PRINTING" && !this.startedAt) {
       this.startedAt = new Date().toISOString();
     }
-    if (status === "COMPLETED" || status === "FAILED" || status === "CANCELLED") {
+    if (status === "COMPLETED" || status === "FAILED" || status === "CANCELLED" || status === "FILE_GENERATED") {
       this.completedAt = new Date().toISOString();
     }
     if (errorMsg) {

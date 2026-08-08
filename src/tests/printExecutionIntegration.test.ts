@@ -268,7 +268,7 @@ describe("Print Execution Integration & Orchestration Test Suite (Phase H)", () 
       records: [{}],
     });
 
-    expect(res.job.status).toBe("COMPLETED");
+    expect(res.job.status).toBe("FILE_GENERATED");
     expect(res.job.renderedPayload?.includes("FILE_OUTPUT")).toBe(true);
   });
 

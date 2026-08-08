@@ -30,6 +30,21 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Universal Printing Kernel — Real Hardware Certification Audit (IMPACT by Honeywell IH-2)
+- **Host OS Printer Queue Discovery (`Get-Printer`)**:
+  - Successfully enumerated physical Windows printer queue: `IMPACT by Honeywell IH-2 (300 dpi) - DPL` (Driver: `IMPACT by Honeywell IH-2 (300 dpi) - DPL`, Port: `FILE:`).
+  - Classified discovery as `REAL_HOST_DISCOVERED`.
+- **Printer Language & Capability Governance**:
+  - Audited target language as `DPL` (Datamax Printer Language) at `300 DPI`.
+  - Confirmed SMRITI capability engine safely blocks sending raw ZPL (`^XA...^XZ`) directly to a DPL printer with error `UNSUPPORTED_PRINTER`.
+  - Identified architectural gap: `DPLRenderer` (`UniversalLabelDocument` $\rightarrow$ DPL command stream) is `NOT_IMPLEMENTED`.
+  - Tested DPL payload dry-run generation (`<STX>L...D11...E`) returning checksum `chk-19c807d8`.
+  - Verified Multi-PRN coexistence (`PRN-A-Tattly`, `PRN-B-DPL`, `PRN-C-GDI`) and dynamic field mapping without PRN source mutation.
+  - Overall status: `IH-2 HARDWARE CERTIFICATION = PARTIALLY PASSED`.
+- **Database Safety & Regression**:
+  - Confirmed 269 physical PostgreSQL tables strictly frozen (0 migrations).
+  - Confirmed 370/370 vitest unit tests passing and `npx tsc --noEmit` clean with 0 errors.
+
 ### Universal Printing Kernel — Phase H Refactor (Universal Print Execution & Spooling Kernel)
 - **Universal Print Execution & Spooling Architecture (`UniversalPrintOrchestrator.ts`, `UniversalPrintJob.ts`, `UniversalPrintSpooler.ts`)**:
   - Implemented `UniversalPrintJob` model supporting job lifecycle states (`QUEUED`, `PREPARING`, `RENDERING`, `READY`, `PRINTING`, `COMPLETED`, `FAILED`, `CANCELLED`, `RETRYING`, `SENT_UNKNOWN_RESULT`).

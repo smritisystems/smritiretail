@@ -54,6 +54,8 @@ export interface DryRunResult {
   };
 }
 
+import { QzTrayPrinterAdapter } from "./adapters/QzTrayPrinterAdapter.ts";
+
 export class UniversalPrintOrchestratorService {
   private adapters: Map<PrintTransportType, IPrinterAdapter> = new Map();
   private spooler: UniversalPrintSpoolerService;
@@ -67,6 +69,7 @@ export class UniversalPrintOrchestratorService {
     this.adapters.set("WINDOWS_SPOOLER", new WindowsSpoolerPrinterAdapter());
     this.adapters.set("LOCAL_AGENT", new LocalAgentPrinterAdapter());
     this.adapters.set("FILE", new FilePrinterAdapter());
+    this.adapters.set("QZ", new QzTrayPrinterAdapter());
   }
 
   public registerAdapter(transport: PrintTransportType, adapter: IPrinterAdapter): void {
@@ -201,7 +204,15 @@ export class UniversalPrintOrchestratorService {
     const { template, canvas, printer, records, copies = 1, dryRunOnly = false } = options;
 
     const jobId = `job-exec-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const transportType = options.overrideTransport || printer.connectionType || "TCP";
+
+    const isFilePort =
+      options.overrideTransport === "FILE" ||
+      printer.connectionType === "FILE" ||
+      printer.connection?.interfaceType === "FILE" ||
+      (printer.connection?.spoolerName && printer.connection.spoolerName.includes("FILE:")) ||
+      (printer.host && printer.host.includes("FILE:"));
+
+    const transportType: PrintTransportType = options.overrideTransport || (isFilePort ? "FILE" : printer.connectionType || "TCP");
     const canvasId = canvas.id || "default-canvas";
 
     // 1. Compatibility check
@@ -278,7 +289,11 @@ export class UniversalPrintOrchestratorService {
     const dispatchRes = await adapter.dispatch(job, printer);
 
     if (dispatchRes.success) {
-      await this.spooler.markJobCompleted(job.jobId);
+      if (job.status === "FILE_GENERATED" || job.transport === "FILE") {
+        await this.spooler.markJobFileGenerated(job.jobId);
+      } else {
+        await this.spooler.markJobCompleted(job.jobId);
+      }
     } else {
       // Retry governance: Retry ONLY transport-level failures
       const isRetryable =

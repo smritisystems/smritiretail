@@ -113,6 +113,15 @@ export class UniversalPrintSpoolerService {
     this.activeJobs.delete(jobId);
   }
 
+  public async markJobFileGenerated(jobId: string): Promise<void> {
+    const job = await this.store.get(jobId);
+    if (job) {
+      job.updateStatus("FILE_GENERATED");
+      await this.store.save(job);
+    }
+    this.activeJobs.delete(jobId);
+  }
+
   public async markJobFailed(jobId: string, errorMsg: string, retryable: boolean): Promise<void> {
     const job = await this.store.get(jobId);
     if (!job) return;
