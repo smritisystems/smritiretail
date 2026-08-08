@@ -50,6 +50,7 @@ import {
   Lightbulb,
   FileText,
   AlertCircle,
+  AlertTriangle,
   HelpCircle,
   CheckCircle2,
   Database,
@@ -716,13 +717,13 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
                     activeModules: Object.keys(modules).filter(m => modules[m]),
                     healthChecks: [
                       { id: "db", name: "Database Subsystem", status: isFallbackMode ? "WARNING" : "PASS", durationMs: Math.round(duration * 0.15), details: isFallbackMode ? `Fallback active (${fallbackMessage || "Upstream notice"})` : "PostgreSQL dialect active" },
-                      { id: "tenant", name: "Tenant Isolation", status: "PASS", durationMs: Math.round(duration * 0.10), details: `Tenant ${tenantCode || "SMS"} scoped` },
+                      { id: "tenant", name: "Tenant Isolation", status: isFallbackMode ? "WARNING" : "PASS", durationMs: Math.round(duration * 0.10), details: isFallbackMode ? `Local fallback tenant scope (${tenantCode || "SMS"})` : `Tenant ${tenantCode || "SMS"} scoped` },
                       { id: "company", name: "Company Entity", status: isFallbackMode ? "WARNING" : "PASS", durationMs: Math.round(duration * 0.25), details: isFallbackMode ? "Local fallback provisioning mode" : "Company created" },
-                      { id: "tax", name: "Tax Profile", status: "PASS", durationMs: Math.round(duration * 0.10), details: "1:1 profile linked" },
-                      { id: "wh", name: "Warehouse Subsystem", status: "PASS", durationMs: Math.round(duration * 0.10), details: "WH-MAIN created" },
-                      { id: "fy", name: "Financial Year", status: "PASS", durationMs: Math.round(duration * 0.08), details: "FY 2026-27 OPEN" },
-                      { id: "coa", name: "Chart of Accounts", status: "PASS", durationMs: Math.round(duration * 0.12), details: "Standard COA ledgers present" },
-                      { id: "users", name: "User Account", status: "PASS", durationMs: Math.round(duration * 0.10), details: "super account created" },
+                      { id: "tax", name: "Tax Profile", status: isFallbackMode ? "WARNING" : "PASS", durationMs: Math.round(duration * 0.10), details: isFallbackMode ? "Local fallback tax profile linked" : "1:1 profile linked" },
+                      { id: "wh", name: "Warehouse Subsystem", status: isFallbackMode ? "WARNING" : "PASS", durationMs: Math.round(duration * 0.10), details: isFallbackMode ? "Local fallback warehouse scope" : "WH-MAIN created" },
+                      { id: "fy", name: "Financial Year", status: isFallbackMode ? "WARNING" : "PASS", durationMs: Math.round(duration * 0.08), details: isFallbackMode ? "Local fallback FY initialized" : "FY 2026-27 OPEN" },
+                      { id: "coa", name: "Chart of Accounts", status: isFallbackMode ? "WARNING" : "PASS", durationMs: Math.round(duration * 0.12), details: isFallbackMode ? "Local fallback COA template" : "Standard COA ledgers present" },
+                      { id: "users", name: "User Account", status: isFallbackMode ? "WARNING" : "PASS", durationMs: Math.round(duration * 0.10), details: isFallbackMode ? "Local fallback admin credentials" : "super account created" },
                     ],
                     installationTimestamp: new Date().toISOString()
                   });

@@ -92,11 +92,11 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
   const handleSave = async () => {
     if (!activeProduct) return;
 
-    setIsSaving(true);
+    setInternalSaving(true);
     try {
       await onSaveProduct({ ...activeProduct });
     } finally {
-      setIsSaving(false);
+      setInternalSaving(false);
     }
   };
 

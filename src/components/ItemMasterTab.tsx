@@ -97,7 +97,8 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   onRefreshProducts,
   onNotification,
   currentUser
-})  // Safe Notification Dispatcher (Guards against missing onNotification prop drops)
+}) => {
+  // Safe Notification Dispatcher (Guards against missing onNotification prop drops)
   const notify = useCallback(
     (title: string, message: string, type: "success" | "error" = "success") => {
       if (onNotification) {
@@ -627,9 +628,6 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
               isReadOnly={isReadOnly}
               isSaving={isSavingProduct}
               isDeleting={isDeletingProduct}
-            />
-          </div>
-        );y}
             />
           </div>
         );
