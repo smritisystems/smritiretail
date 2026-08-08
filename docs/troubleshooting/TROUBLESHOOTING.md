@@ -36,7 +36,12 @@ This document details common operational issues and resolutions.
 
 ---
 
-## 1. Setup Wizard Fallback Mode & Upstream Python Core Notice
+## 1. Organization Studio Company Provisioning
+- **Symptom:** Clicking "Create New Company" in Organization Studio used to set a string banner notice.
+- **Cause:** Button was previously a dead-end placeholder setter instead of an interactive action handler.
+- **Resolution:** Clicking "Create New Company" opens the modal `SetupWizardTab` Company Provisioning Wizard overlay directly in `OrganizationStudio.tsx`.
+
+## 2. Setup Wizard Fallback Mode & Upstream Python Core Notice
 - **Symptom:** Setup Wizard completes with an Amber warning badge (`Status: LOCAL FALLBACK MODE — Pending Backend Confirmation`).
 - **Cause:** Upstream Python backend core service was unreachable or returned a notice during `/company/setup` provisioning.
 - **Resolution:** Setup details are provisioned locally (`smriti_setup_fallback_mode: true`). Verify backend API connectivity and run database verification via Administrative Modules.

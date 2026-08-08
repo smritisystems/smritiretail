@@ -31,6 +31,10 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [Unreleased]
 
 ### Fixed
+- **Organization Studio & OLE Lifecycle Event Architecture (`Company Provisioning Wizard → SPK.events → OLE`)**:
+  - Replaced the placeholder string notice on the **Create New Company** button in [OrganizationStudio.tsx](file:///f:/SMRITRretailNXmgrt/src/components/admin/OrganizationStudio.tsx) with a modal overlay launching [SetupWizardTab.tsx](file:///f:/SMRITRretailNXmgrt/src/components/SetupWizard/SetupWizardTab.tsx) (provisioning UI/workflow).
+  - Emits standard infrastructure-neutral domain events (`Company.Provisioning.Started.v1`, `Company.Provisioning.Completed.v1`, `Company.Activated.v1`, `Company.Provisioning.Failed.v1`) through `SPK.events` carrying explicit `oleState` lifecycle metadata (`Draft ──► Provisioning ──► Active / ProvisionedWithWarning / Failed`).
+  - Automatically closes modal and refetches registered entities upon completion.
 - **Setup Wizard Fallback Transparency & PDF Health Check Hardening (Rule PROD-006 Compliance)**:
   - Eliminated silent masking of backend company creation failures when the `"Upstream python-core"` fallback triggers in `SetupWizardTab.tsx`.
   - Added `isFallbackMode` state tracking and persistent Amber alert badge (`Status: LOCAL FALLBACK MODE — Pending Backend Confirmation`) on the success screen and stored explicit `smriti_setup_fallback_mode` metadata in `localStorage`.

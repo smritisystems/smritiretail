@@ -26,6 +26,7 @@
 import React, { useState, useEffect } from "react";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
 import { DemoDataRegistry } from "../../kernel/config/SmritiDemoDataRegistry.js";
+import { SPK } from "../../kernel/SPK.ts";
 import { FLAGS } from "../../config/flags";
 import { motion, AnimatePresence } from "motion/react";
 import { SEDSWizard } from "../../design-system/components/SEDSWizard.tsx";
@@ -460,6 +461,15 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
     setIsFallbackMode(false);
     setFallbackMessage(null);
     const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const tCode = tenantCode || "SMS";
+
+    // OLE Lifecycle State 1: Provisioning Started
+    SPK.events.emit("Company.Provisioning.Started.v1", tCode, {
+      tenantCode: tCode,
+      businessName,
+      oleState: "Provisioning",
+      timestamp: new Date().toISOString()
+    });
 
     try {
       const response = await apiFetchV1("/company/setup", {
@@ -468,7 +478,7 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
           businessInfo: {
             name: businessName,
             tenantName: tenantName || businessName,
-            tenantCode: tenantCode || "SMS",
+            tenantCode: tCode,
             tenantSlug: tenantSlug || "smriti-systems",
             legalEntity: legalEntity || "Private Limited Company",
             industryPack: industryPack || "general_retail",
@@ -536,6 +546,23 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
         if (pinCode) localStorage.setItem("smriti_pincode", pinCode);
       }
 
+      // OLE Lifecycle State 2: Verified Provisioning & Activation
+      SPK.events.emit("Company.Provisioning.Completed.v1", tCode, {
+        tenantCode: tCode,
+        businessName,
+        isFallbackMode: false,
+        oleState: "Active",
+        setupDurationMs: elapsed,
+        timestamp: new Date().toISOString()
+      });
+      SPK.events.emit("Company.Activated.v1", tCode, {
+        tenantCode: tCode,
+        companyName: businessName,
+        status: "ACTIVE",
+        oleState: "Active",
+        timestamp: new Date().toISOString()
+      });
+
       setTimeout(() => {
         if (onComplete) {
           onComplete();
@@ -559,12 +586,39 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
           localStorage.setItem("smriti_setup_fallback_warning", msg);
           if (businessName) localStorage.setItem("smriti_company_name", businessName);
         }
+
+        // OLE Lifecycle State 3: Fallback Pending Verification
+        SPK.events.emit("Company.Provisioning.Completed.v1", tCode, {
+          tenantCode: tCode,
+          businessName,
+          isFallbackMode: true,
+          oleState: "ProvisionedWithWarning",
+          warningNotice: msg,
+          setupDurationMs: elapsed,
+          timestamp: new Date().toISOString()
+        });
+        SPK.events.emit("Company.Activated.v1", tCode, {
+          tenantCode: tCode,
+          companyName: businessName,
+          status: "LOCAL_FALLBACK_PENDING",
+          oleState: "ProvisionedWithWarning",
+          timestamp: new Date().toISOString()
+        });
+
         setTimeout(() => {
           if (onComplete) onComplete();
           else window.location.reload();
         }, 1500);
         return;
       }
+
+      // OLE Lifecycle State 4: Provisioning Failure
+      SPK.events.emit("Company.Provisioning.Failed.v1", tCode, {
+        tenantCode: tCode,
+        error: msg,
+        oleState: "Failed",
+        timestamp: new Date().toISOString()
+      });
 
       if (msg.toLowerCase().includes("locked") || msg.toLowerCase().includes("re-executed")) {
         setIsLocked(true);

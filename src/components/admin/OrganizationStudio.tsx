@@ -14,6 +14,8 @@ import React, { useState, useEffect } from "react";
 import { SWC } from "../../kernel/SWC.js";
 import { IndustryRegistry, IndustryPluginPackage } from "../../kernel/plugins/IndustryRegistry.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
+import { SetupWizardTab } from "../SetupWizard/SetupWizardTab.tsx";
+import { X, Plus, Building2 } from "lucide-react";
 
 type ActiveStudioTab = "companies" | "branches" | "warehouses" | "users" | "licensing" | "financial_years";
 
@@ -31,6 +33,7 @@ export const OrganizationStudio: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [activeCompanyId, setActiveCompanyId] = useState<string>("");
   const [statusMessage, setStatusMessage] = useState<string>("");
+  const [isProvisioningWizardOpen, setIsProvisioningWizardOpen] = useState<boolean>(false);
 
   const activeBizCtx = SWC.business.current();
   const plugins = IndustryRegistry.getAll();
@@ -136,10 +139,11 @@ export const OrganizationStudio: React.FC = () => {
             <div className="flex justify-between items-center">
               <h2 className="text-sm font-semibold text-[var(--theme-body)]">Registered Legal Entities ({companies.length})</h2>
               <button
-                onClick={() => setStatusMessage("Please use Company Provisioning Wizard to onboard new legal entity.")}
-                className="px-3.5 py-1.5 text-xs font-semibold rounded bg-[var(--theme-primary)] text-white hover:opacity-90 transition-opacity flex items-center space-x-1.5"
+                onClick={() => setIsProvisioningWizardOpen(true)}
+                className="px-3.5 py-1.5 text-xs font-semibold rounded bg-[var(--theme-primary)] text-white hover:opacity-90 transition-opacity flex items-center space-x-1.5 cursor-pointer shadow-xs"
+                aria-label="Create New Company"
               >
-                <span>➕</span>
+                <Plus className="w-3.5 h-3.5" />
                 <span>Create New Company</span>
               </button>
             </div>
@@ -241,6 +245,37 @@ export const OrganizationStudio: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Company Provisioning Wizard Modal */}
+      {isProvisioningWizardOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[var(--theme-surface-1)] border border-[var(--theme-divider)] rounded-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden shadow-2xl relative">
+            <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--theme-divider)] bg-[var(--theme-surface-2)]">
+              <div className="flex items-center space-x-2">
+                <Building2 className="w-4 h-4 text-blue-400" />
+                <span className="text-xs font-mono font-bold text-[var(--theme-body)]">COMPANY PROVISIONING WIZARD</span>
+                <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded font-mono border border-blue-500/30">Legal Entity Onboarding</span>
+              </div>
+              <button
+                onClick={() => setIsProvisioningWizardOpen(false)}
+                className="p-1.5 text-[var(--theme-muted)] hover:text-[var(--theme-body)] hover:bg-[var(--theme-surface-hover)] rounded-lg transition-colors cursor-pointer"
+                aria-label="Close Company Provisioning Wizard"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <SetupWizardTab
+                onComplete={() => {
+                  setIsProvisioningWizardOpen(false);
+                  setStatusMessage("New legal entity provisioned successfully!");
+                  fetchOrganizationData();
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

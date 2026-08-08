@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { generateSetupReportHTML, SetupReportData } from "../utils/setupReportGenerator.ts";
+import { SPK } from "../kernel/SPK.js";
 
 describe("SetupWizard Fallback Mode & Setup Report PDF", () => {
   it("evaluates canIgnore boolean logic correctly for error messages", () => {
@@ -50,5 +51,27 @@ describe("SetupWizard Fallback Mode & Setup Report PDF", () => {
     expect(html).toContain("45 ms");
     expect(html).toContain("75 ms");
     expect(html).toContain("Fallback active: Upstream notice");
+  });
+
+  it("verifies Platform Event Service (SPK.events) emits OLE lifecycle events", () => {
+    const emittedEvents: string[] = [];
+
+    const unsub1 = SPK.events.on("Company.Provisioning.Started.v1", (e: any) => emittedEvents.push(e.eventType));
+    const unsub2 = SPK.events.on("Company.Provisioning.Completed.v1", (e: any) => emittedEvents.push(e.eventType));
+    const unsub3 = SPK.events.on("Company.Activated.v1", (e: any) => emittedEvents.push(e.eventType));
+
+    SPK.events.emit("Company.Provisioning.Started.v1", "TEST-01", { tenantCode: "TEST-01", oleState: "Provisioning" });
+    SPK.events.emit("Company.Provisioning.Completed.v1", "TEST-01", { tenantCode: "TEST-01", oleState: "Active" });
+    SPK.events.emit("Company.Activated.v1", "TEST-01", { tenantCode: "TEST-01", oleState: "Active" });
+
+    expect(emittedEvents).toEqual([
+      "Company.Provisioning.Started.v1",
+      "Company.Provisioning.Completed.v1",
+      "Company.Activated.v1"
+    ]);
+
+    unsub1();
+    unsub2();
+    unsub3();
   });
 });
