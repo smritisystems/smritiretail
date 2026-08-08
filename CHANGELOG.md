@@ -31,6 +31,11 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [Unreleased]
 
 ### Fixed
+- **API Fetch Live Backend Direct Dispatch (`apiFetchV1.ts`)**:
+  - Removed `isLocalMockToken` short-circuit return (`if (isLocalMockToken(token)) return []`) in [src/lib/apiFetchV1.ts](file:///f:/SMRITRretailNXmgrt/src/lib/apiFetchV1.ts).
+  - Ensures requests executed under developer/quick-fill sessions (`super` / `manager` / `cashier`) dispatch directly to the live FastAPI backend server (`/api/v1/*`) to create and read real PostgreSQL database records.
+- **Backend Multi-Company Provisioning Lock (`system.py`)**:
+  - Updated `/company/setup` in [backend/app/api/v1/system.py](file:///f:/SMRITRretailNXmgrt/backend/app/api/v1/system.py) to allow onboarding additional legal entities when executed by authenticated admin users or when `ignoreWarnings=true`.
 - **Backend FastAPI `main.py` Exchange Router Module Import**:
   - Fixed `NameError: name 'exchange' is not defined` at line 271 of [backend/app/main.py](file:///f:/SMRITRretailNXmgrt/backend/app/main.py) by adding `exchange` to the `from .api.v1 import (...)` module list.
 - **Backend FastAPI `smriti-api-prod` Container Circular Import Fix (`PROD-004`)**:

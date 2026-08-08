@@ -36,7 +36,16 @@ This document details common operational issues and resolutions.
 
 ---
 
-## 1. Container `smriti-api-prod` NameError `name 'exchange' is not defined`
+## 1. Newly Created Company Not Showing in Organization Studio
+- **Symptom:** Creating a company in Organization Studio succeeded in UI, but the company did not show up in the legal entity list.
+- **Cause:**
+  1. `apiFetchV1.ts` had a mock token guard (`if (isLocalMockToken(token)) return []`) that intercepted API calls during dev quick-fill sessions (`super`) and returned empty arrays instead of calling the live backend.
+  2. `/company/setup` rejected subsequent company creation once initial setup was locked (`SETUP_COMPLETED_KEY`).
+- **Resolution:**
+  1. Removed mock token API interception in `apiFetchV1.ts` to dispatch all calls directly to FastAPI backend.
+  2. Updated `/company/setup` in `backend/app/api/v1/system.py` to allow multi-company provisioning when `ignoreWarnings=true` or when called by authenticated admin users.
+
+## 2. Container `smriti-api-prod` NameError `name 'exchange' is not defined`
 - **Symptom:** `smriti-api-prod` crashes during boot with `NameError: name 'exchange' is not defined` at line 271 of `app/main.py`.
 - **Cause:** `exchange` router module was mounted with `app.include_router(exchange.router, ...)` but was omitted from the top `from .api.v1 import (...)` tuple.
 - **Resolution:** Added `exchange` to `from .api.v1 import (...)` in `backend/app/main.py`.

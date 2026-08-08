@@ -718,13 +718,12 @@ async def company_setup(
     company_gstin = business_info.gstin or None
     branch_entries = org_structure.stores or []
 
-    existing_setup = await get_system_config(db, SETUP_COMPLETED_KEY)
-    existing_state = await get_system_config(db, SETUP_STATE_KEY)
+    allow_subsequent = (business_info and getattr(business_info, "ignoreWarnings", False)) or (current_user is not None)
 
-    if (existing_setup and existing_setup.value == "true") or (existing_state and existing_state.value in ["INITIALIZED", "LOCKED"]):
+    if not allow_subsequent and ((existing_setup and existing_setup.value == "true") or (existing_state and existing_state.value in ["INITIALIZED", "LOCKED"])):
         raise HTTPException(
             status_code=400,
-            detail="Company setup is locked and cannot be re-executed from the onboarding wizard. Please use Administrative Modules for structural changes."
+            detail="Initial company setup is locked. To onboard additional legal entities, execute provisioning with ignoreWarnings=true or authenticate as an admin user."
         )
 
 

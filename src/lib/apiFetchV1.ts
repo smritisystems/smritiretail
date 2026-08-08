@@ -43,9 +43,6 @@ export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit
     if (!token) {
       throw new Error("Unauthenticated session. Please log in to access protected enterprise API.");
     }
-    if (isLocalMockToken(token)) {
-      return [] as unknown as T;
-    }
   }
 
   const headers = new Headers(options.headers || {});
