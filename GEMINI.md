@@ -103,6 +103,10 @@ Whenever the platform operates in local mock, cached fallback, or offline bypass
 Always authenticate the **user first**. Never ask for Company, Database, or Infrastructure selection on login forms.
 `Authenticate User ──► Resolve Assigned Tenant ──► Resolve Company ──► Resolve Branch ──► Load Permissions ──► Open Workspace`.
 - **Single Assignment:** If user has access to 1 company/branch, auto-select and open dashboard (Zero Prompts).
+## Rule AP-008 – Item Attribute Snapshot Governance (MANDATORY P0 — FROZEN)
+
+String equality between Product attribute values and `MasterValue.name` does NOT constitute persistent identity linkage. `MasterValue` governs future item creation, Excel import validation, and selection dropdowns; `Product` retains its point-in-time historical item snapshot. Master lookup value updates MUST NOT retroactively mutate existing item attributes, SKUs, barcodes, or transaction document ledgers. E8 Edit-Time Synchronization is **CLOSED BY ARCHITECTURAL DESIGN**.
+
 ## Rule DOC-001 – Automatic Documentation Maintenance (MANDATORY P0)
 
 AI agents must automatically append and synchronize all respective documentation files (`SYSTEM_TROUBLESHOOTING_LOG.md`, `CHANGELOG.md`, `AGENTS.md`, `GEMINI.md`, and architectural specs) whenever code changes, bug fixes, or design standards are implemented. Never wait for or ask the user for explicit instructions to update documentation.

@@ -30,6 +30,25 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Architecture & Governance (Item Master E8 Business Semantics Decision Audit — CLOSED BY DESIGN)
+- **SMRITI Business Semantics Audit V1**:
+  - Audited SMRITI Retail OS business requirements across 15 domains (Item Master, SKU, Variants, Barcodes, Invoices, POs, Sales, Stock, Import, Attributes, Industry Packs, Master Lookup, Multi-Tenant, Auditability, Reporting).
+  - Confirmed `Product` attribute storage (`color`, `size`, `brand`, `category`, `attributes` JSONB) is intentionally designed as Model B (Item Snapshot Value) to preserve historical document integrity, SKU/Barcode immutability, and statutory tax compliance.
+  - Established Architectural Principle AP-008: String snapshot equality is NOT identity reference. MasterValue provides entry-time validation; Product stores point-in-time item snapshots.
+  - Governed decision: **E8 = CLOSED — SNAPSHOT SEMANTICS ARE CORRECT** (STATUS: CLOSED BY ARCHITECTURAL DESIGN).
+  - Generated canonical decision deliverable artifact:
+    - [`SMRITI_E8_BUSINESS_SEMANTICS_DECISION_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_E8_BUSINESS_SEMANTICS_DECISION_V1.md)
+
+### Architecture & Governance (Item Master E8 Identity Linkage Review & Gate — BLOCKED)
+- **Empirical Database Identity Linkage Audit V1**:
+  - Executed empirical database audit on live PostgreSQL (`smriti_retail_db`).
+  - Proved zero persistent `master_value_id` or FK linkage on `Product` table (columns `color`, `size`, `brand`, `category`, and `attributes` JSONB behave as text snapshots).
+  - Enforced absolute prohibition on heuristic text-based updates (`WHERE product.color = old_name`), preventing catalog data corruption.
+  - Created empirical test `test_e8_identity_linkage_verification.py` (**PASSED**).
+  - Governed decision: **E8 = BLOCKED — NO SAFE PERSISTENT MASTER-VALUE IDENTITY LINKAGE**.
+  - Generated canonical audit deliverable artifact:
+    - [`SMRITI_E8_IDENTITY_LINKAGE_AUDIT_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_E8_IDENTITY_LINKAGE_AUDIT_V1.md)
+
 ### Architecture & Governance (Item Master Attribute Governance V2 — PASSED)
 - **Presentation-Level Attribute Deduplication & Industry Pack Resolution V2**:
   - Implemented presentation-level attribute deduplication in `UniversalAttributeEngine.resolveDeduplicatedColumns` enforcing `new Set(columns.map(c => c.canonicalKey)).size === columns.length`.

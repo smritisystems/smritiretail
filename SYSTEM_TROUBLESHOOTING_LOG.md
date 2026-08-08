@@ -173,3 +173,37 @@
 6. Generated canonical governance deliverable artifact:
    - `SMRITI_ITEM_MASTER_ATTRIBUTE_GOVERNANCE_V2.md`
 7. Final Status: **PASS** (DATABASE: FROZEN, ITEM MASTER: GREEN, SKU: FROZEN, ATTRIBUTE AUTHORITY: FROZEN, E8: CONFIRMED OPEN).
+
+---
+
+## ISSUE 2026-08-08-10: SMRITI Item Master E8 Identity Linkage Review & Gate Assessment
+
+**Severity:** ARCHITECTURE & GOVERNANCE GATE (Identity Linkage Audit)  
+**Status:** AUDITED & GOVERNED AS BLOCKED  
+**Date:** 2026-08-08  
+
+### Overview
+1. Executed empirical database schema audit on live PostgreSQL (`smriti_retail_db`).
+2. Confirmed `Product` table does NOT contain `master_value_id`, `color_master_value_id`, `size_master_value_id`, `brand_master_value_id`, or `category_master_value_id`.
+3. Confirmed 0 physical foreign keys exist from `products` to `master_values` or `master_types`.
+4. Enforced absolute prohibition on heuristic text-based updates (`WHERE product.color = old_name`), which would cause silent catalog corruption.
+5. Created empirical test `test_e8_identity_linkage_verification.py` (**PASSED**).
+6. Generated canonical audit deliverable artifact:
+   - `SMRITI_E8_IDENTITY_LINKAGE_AUDIT_V1.md`
+7. Final Decision: **E8 = BLOCKED — NO SAFE PERSISTENT MASTER-VALUE IDENTITY LINKAGE** (DATABASE: FROZEN, PRODUCT SCHEMA: FROZEN, SKU: FROZEN, BARCODE: FROZEN, ATTRIBUTE AUTHORITY: FROZEN).
+
+---
+
+## ISSUE 2026-08-08-11: SMRITI Item Master E8 Business Semantics Decision Audit
+
+**Severity:** ARCHITECTURAL & BUSINESS SEMANTICS AUDIT  
+**Status:** CLOSED BY ARCHITECTURAL DESIGN  
+**Date:** 2026-08-08  
+
+### Overview
+1. Audited SMRITI Retail OS business requirements across 15 domains (Item Master, SKU, Variants, Barcodes, Invoices, POs, Sales, Stock, Import, Attributes, Industry Packs, Master Lookup, Multi-Tenant, Auditability, Reporting).
+2. Confirmed `Product` attribute storage (`color`, `size`, `brand`, `category`, `attributes` JSONB) is intentionally designed as Model B (Item Snapshot Value) to preserve historical document integrity, SKU/Barcode immutability, and statutory tax compliance.
+3. Established Architectural Principle AP-008: String snapshot equality is NOT identity reference. MasterValue provides entry-time validation; Product stores point-in-time item snapshots.
+4. Generated canonical decision deliverable artifact:
+   - `SMRITI_E8_BUSINESS_SEMANTICS_DECISION_V1.md`
+5. Final Decision: **E8 = CLOSED — SNAPSHOT SEMANTICS ARE CORRECT** (STATUS: CLOSED BY ARCHITECTURAL DESIGN, DATABASE: FROZEN, PRODUCT SCHEMA: FROZEN, SKU: FROZEN, BARCODE: FROZEN, ATTRIBUTE AUTHORITY: FROZEN).
