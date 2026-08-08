@@ -34,9 +34,9 @@ async def _make_tenant_ctx(db_session, company_code: str = "COMP_F") -> TenantCo
     br = Branch(id=f"b_{company_code}_{uid}", company_id=comp.id, name=f"Branch {company_code} {uid}", code=f"BR-{company_code}-{uid}", is_active=True)
     db_session.add_all([comp, br])
 
-    # Clean up test-created custom master values to maintain strict test isolation across unrolled test runs
+    # Clean up master values created by synthetic test companies (tenant_id LIKE 'c_%') to maintain strict test isolation across unrolled test runs
     from sqlalchemy import text
-    await db_session.execute(text("DELETE FROM master_values WHERE code LIKE 'CUSTOM-%'"))
+    await db_session.execute(text("DELETE FROM master_values WHERE tenant_id LIKE 'c_%' AND code LIKE 'CUSTOM-%'"))
 
     await db_session.commit()
     return TenantContext(

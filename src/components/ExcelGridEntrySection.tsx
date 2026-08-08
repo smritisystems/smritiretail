@@ -790,6 +790,12 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
     const isHeaderRow = matchedHeadersCount >= 2;
 
     if (isHeaderRow) {
+      const dupCheck = UniversalAttributeEngine.validateDuplicateCanonicalHeaders(firstRow);
+      if (!dupCheck.valid) {
+        onNotification("Duplicate Column Error", dupCheck.duplicateError || "Duplicate header detected mapping to same canonical attribute.", "error");
+        return;
+      }
+
       const dataRows = pastedRows.slice(1);
       setRows(prev => {
         const copy = [...prev];

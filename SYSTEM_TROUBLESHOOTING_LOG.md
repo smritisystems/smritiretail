@@ -136,3 +136,40 @@
 6. Generated canonical fix deliverable artifact:
    - `SMRITI_ITEM_MASTER_BACKEND_TEST_ISOLATION_FIX_V1.md`
 7. Final Status: BACKEND TEST ISOLATION: **PASS**, DATABASE: **FROZEN**, ITEM MASTER: **GREEN**, SKU: **FROZEN**, ATTRIBUTE AUTHORITY: **FROZEN**.
+
+---
+
+## ISSUE 2026-08-08-08: SMRITI Item Master Backend Test Isolation Fix V2 Final Validation
+
+**Severity:** AUDIT & VALIDATION (Backend Test Isolation Safety)  
+**Status:** CERTIFIED & PASS  
+**Date:** 2026-08-08  
+
+### Overview
+1. Performed thorough safety audit of test isolation query in `_make_tenant_ctx`, hardening it to `DELETE FROM master_values WHERE tenant_id LIKE 'c_%' AND code LIKE 'CUSTOM-%'`, strictly scoping deletion to test tenant IDs starting with `c_`.
+2. Verified zero risk of deleting pre-existing production master data or system master values (`tenant_id IS NULL`).
+3. Executed pytest collection check: **7 tests collected** in `test_phase_f_sizescale.py`.
+4. Executed backend test suite: **7/7 PASSED** in `test_phase_f_sizescale.py`; **11/11 PASSED** in full relevant backend regression suite.
+5. Executed frontend typecheck (`tsc --noEmit`) and Vitest suite: **19/19 PASSED**.
+6. Verified database safety on PostgreSQL: 269 physical base tables intact, 0 duplicate custom codes, all system master values preserved.
+7. Generated canonical V2 deliverable artifact:
+   - `SMRITI_ITEM_MASTER_BACKEND_TEST_ISOLATION_FIX_V2.md`
+8. Final Decision: **PASS** (DATABASE: FROZEN, ITEM MASTER: GREEN, SKU: FROZEN, ATTRIBUTE AUTHORITY: FROZEN).
+
+---
+
+## ISSUE 2026-08-08-09: SMRITI Item Master Attribute Governance V2 (Presentation Deduplication)
+
+**Severity:** ARCHITECTURE & UI GOVERNANCE (Presentation Deduplication)  
+**Status:** RESOLVED & PASS  
+**Date:** 2026-08-08  
+
+### Overview
+1. Implemented presentation-level attribute deduplication in `UniversalAttributeEngine.resolveDeduplicatedColumns` ensuring `new Set(columns.map(c => c.canonicalKey)).size === columns.length`.
+2. Added import duplicate header guard `UniversalAttributeEngine.validateDuplicateCanonicalHeaders(headers)` returning deterministic `DUPLICATE_CANONICAL_COLUMN` validation error if two headers map to the same canonical key.
+3. Integrated header validation into `ExcelGridEntrySection.tsx` paste and mapping handlers.
+4. Verified all 14 certification scenarios across Apparel, Footwear, Electronics, Jewellery, Medical, and FMCG industry packs.
+5. Executed Vitest certification suite: **20/20 PASSED**. Executed `tsc --noEmit`: **0 ERRORS**. Executed backend regression suite: **11/11 PASSED**.
+6. Generated canonical governance deliverable artifact:
+   - `SMRITI_ITEM_MASTER_ATTRIBUTE_GOVERNANCE_V2.md`
+7. Final Status: **PASS** (DATABASE: FROZEN, ITEM MASTER: GREEN, SKU: FROZEN, ATTRIBUTE AUTHORITY: FROZEN, E8: CONFIRMED OPEN).

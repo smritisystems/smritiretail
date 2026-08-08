@@ -273,4 +273,83 @@ export class UniversalAttributeEngine {
 
     return resolved;
   }
+
+  /**
+   * Deduplicates column registry ensuring new Set(canonicalKeys).size === columns.length.
+   * If multiple raw headers or columns resolve to the same canonical key, it keeps only 1
+   * with the active industry pack display label.
+   */
+  static resolveDeduplicatedColumns<T extends { canonicalKey?: string; label?: string }>(
+    rawColumns: T[],
+    industry?: IndustryType | "footwear"
+  ): T[] {
+    const seenCanonicalKeys = new Set<string>();
+    const deduplicated: T[] = [];
+
+    for (const col of rawColumns) {
+      const rawKey = col.canonicalKey || col.label || "";
+      const canonicalKey = this.resolveCanonicalKey(rawKey);
+
+      if (canonicalKey) {
+        if (seenCanonicalKeys.has(canonicalKey)) {
+          // Skip duplicate column mapping to same canonical key
+          continue;
+        }
+        seenCanonicalKeys.add(canonicalKey);
+        const resolvedLabel = this.getDisplayLabel(canonicalKey, industry);
+        deduplicated.push({
+          ...col,
+          canonicalKey,
+          label: resolvedLabel,
+        });
+      } else {
+        deduplicated.push(col);
+      }
+    }
+
+    return deduplicated;
+  }
+
+  /**
+   * Validates Excel/CSV import headers for duplicate canonical column mappings.
+   * If two headers in the same file map to the same canonical key (e.g. Brand and Brand Name),
+   * returns a deterministic DUPLICATE_CANONICAL_COLUMN error.
+   */
+  static validateDuplicateCanonicalHeaders(headers: string[]): {
+    valid: boolean;
+    duplicateError?: string;
+    duplicates?: Array<{ header1: string; header2: string; canonicalKey: string }>;
+  } {
+    const seen = new Map<string, string>(); // canonicalKey -> firstHeader
+    const duplicates: Array<{ header1: string; header2: string; canonicalKey: string }> = [];
+
+    for (const rawHeader of headers) {
+      if (!rawHeader || !rawHeader.trim()) continue;
+      const canonicalKey = this.resolveCanonicalKey(rawHeader);
+      if (!canonicalKey) continue;
+
+      if (seen.has(canonicalKey)) {
+        const firstHeader = seen.get(canonicalKey)!;
+        duplicates.push({
+          header1: firstHeader,
+          header2: rawHeader,
+          canonicalKey,
+        });
+      } else {
+        seen.set(canonicalKey, rawHeader);
+      }
+    }
+
+    if (duplicates.length > 0) {
+      const dup = duplicates[0];
+      return {
+        valid: false,
+        duplicateError: `DUPLICATE_CANONICAL_COLUMN: Header '${dup.header2}' and '${dup.header1}' both map to canonical attribute ${dup.canonicalKey}. Please keep only one column.`,
+        duplicates,
+      };
+    }
+
+    return { valid: true };
+  }
 }
+

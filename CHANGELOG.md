@@ -30,6 +30,26 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Architecture & Governance (Item Master Attribute Governance V2 — PASSED)
+- **Presentation-Level Attribute Deduplication & Industry Pack Resolution V2**:
+  - Implemented presentation-level attribute deduplication in `UniversalAttributeEngine.resolveDeduplicatedColumns` enforcing `new Set(columns.map(c => c.canonicalKey)).size === columns.length`.
+  - Added import duplicate header guard `UniversalAttributeEngine.validateDuplicateCanonicalHeaders(headers)` returning deterministic `DUPLICATE_CANONICAL_COLUMN` validation error if two headers map to the same canonical key.
+  - Integrated header validation into `ExcelGridEntrySection.tsx` paste and mapping handlers.
+  - Verified all 14 certification scenarios across Apparel, Footwear, Electronics, Jewellery, Medical, and FMCG industry packs.
+  - Executed Vitest certification suite: **20/20 PASSED**. Executed `tsc --noEmit`: **0 ERRORS**. Executed backend regression suite: **11/11 PASSED**.
+  - Generated canonical governance deliverable artifact:
+    - [`SMRITI_ITEM_MASTER_ATTRIBUTE_GOVERNANCE_V2.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_ITEM_MASTER_ATTRIBUTE_GOVERNANCE_V2.md)
+
+### Architecture & Governance (Item Master Backend Test Isolation Fix V2 Final Validation — PASSED)
+- **Backend Scoped Test Isolation Safety Audit & Validation V2**:
+  - Performed safety audit of test isolation query in `_make_tenant_ctx`, hardening it to `DELETE FROM master_values WHERE tenant_id LIKE 'c_%' AND code LIKE 'CUSTOM-%'`, strictly scoping cleanup to synthetic test tenant IDs starting with `c_`.
+  - Verified zero risk of deleting pre-existing production master data or system master values (`tenant_id IS NULL`).
+  - Verified exact collected test count: **7 tests collected** in `test_phase_f_sizescale.py`.
+  - Executed backend test suite: **7/7 PASSED** in `test_phase_f_sizescale.py`; **11/11 PASSED** in full relevant backend regression suite.
+  - Executed frontend typecheck (`tsc --noEmit`) and Vitest suite: **19/19 PASSED**.
+  - Generated canonical V2 deliverable artifact:
+    - [`SMRITI_ITEM_MASTER_BACKEND_TEST_ISOLATION_FIX_V2.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_ITEM_MASTER_BACKEND_TEST_ISOLATION_FIX_V2.md)
+
 ### Architecture & Governance (Item Master Backend Test Isolation Fix V1 — PASSED & GREEN)
 - **Backend Test Isolation Hardening V1**:
   - Implemented test-isolation remediation strictly in `backend/app/tests/test_phase_f_sizescale.py` (`_make_tenant_ctx` helper) to clean up transient `CUSTOM-%` test master values before tenant context creation.
