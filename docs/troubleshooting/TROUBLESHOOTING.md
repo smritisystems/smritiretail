@@ -36,7 +36,12 @@ This document details common operational issues and resolutions.
 
 ---
 
-## 1. Newly Created Company Not Showing in Organization Studio
+## 1. Console Error `401 (Unauthorized)` on API Requests
+- **Symptom:** `GET /api/v1/pos/profiles/`, `/pos/shifts/`, `/inventory/`, `/psv/parties` return `401 (Unauthorized)`.
+- **Cause:** `ApiAuthProvider.ts` only looked for `data.token` from login responses. Because FastAPI returned `access_token`, `ApiAuthProvider` fell back to a mock string (`smriti_jwt_*`). Sending mock token headers to FastAPI failed signature verification.
+- **Resolution:** Updated `ApiAuthProvider.ts` to map `access_token` and `refresh_token` from FastAPI login responses, storing real signed JWTs in `localStorage`.
+
+## 2. Newly Created Company Not Showing in Organization Studio
 - **Symptom:** Creating a company in Organization Studio succeeded in UI, but the company did not show up in the legal entity list.
 - **Cause:**
   1. `apiFetchV1.ts` had a mock token guard (`if (isLocalMockToken(token)) return []`) that intercepted API calls during dev quick-fill sessions (`super`) and returned empty arrays instead of calling the live backend.

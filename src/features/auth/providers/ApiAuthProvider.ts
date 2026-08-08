@@ -37,6 +37,9 @@ export class ApiAuthProvider implements IAuthProvider {
       const data = await apiFetchV1<{
         success?: boolean;
         token?: string;
+        access_token?: string;
+        refreshToken?: string;
+        refresh_token?: string;
         user?: {
           id?: string;
           username: string;
@@ -53,7 +56,10 @@ export class ApiAuthProvider implements IAuthProvider {
         })
       });
 
-      if (data && (data.user || data.token)) {
+      const rawToken = data?.token || (data as any)?.access_token;
+      const rawRefreshToken = data?.refreshToken || (data as any)?.refresh_token;
+
+      if (data && (data.user || rawToken)) {
         const user: User = {
           id: data.user?.id || `usr_${username.trim()}`,
           username: data.user?.username || username.trim(),
@@ -65,8 +71,8 @@ export class ApiAuthProvider implements IAuthProvider {
         return {
           success: true,
           user,
-          token: data.token || `smriti_jwt_${Date.now()}`,
-          refreshToken: `smriti_rf_${Date.now()}`,
+          token: rawToken || `smriti_jwt_${Date.now()}`,
+          refreshToken: rawRefreshToken || `smriti_rf_${Date.now()}`,
         };
       }
 

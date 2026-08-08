@@ -31,6 +31,9 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [Unreleased]
 
 ### Fixed
+- **Authentication JWT `access_token` Field Mapping (`ApiAuthProvider.ts`)**:
+  - Updated [src/features/auth/providers/ApiAuthProvider.ts](file:///f:/SMRITRretailNXmgrt/src/features/auth/providers/ApiAuthProvider.ts) to extract `access_token` and `refresh_token` from FastAPI `/api/v1/auth/login` responses.
+  - Eliminates `401 (Unauthorized)` errors caused by falling back to mock token strings (`smriti_jwt_*`) during real backend authentication sessions.
 - **API Fetch Live Backend Direct Dispatch (`apiFetchV1.ts`)**:
   - Removed `isLocalMockToken` short-circuit return (`if (isLocalMockToken(token)) return []`) in [src/lib/apiFetchV1.ts](file:///f:/SMRITRretailNXmgrt/src/lib/apiFetchV1.ts).
   - Ensures requests executed under developer/quick-fill sessions (`super` / `manager` / `cashier`) dispatch directly to the live FastAPI backend server (`/api/v1/*`) to create and read real PostgreSQL database records.
