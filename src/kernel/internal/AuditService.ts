@@ -6,6 +6,7 @@
  * License      : Proprietary Commercial Software
  */
 
+import logger from "../../core/logging/logger.js";
 import { AuditLogRecord, IAuditService } from "../public/IAuditService.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 import { SPK } from "../SPK.js";
@@ -33,7 +34,7 @@ export class AuditService implements IAuditService {
         return this.localCache;
       }
     } catch (e) {
-      console.warn("[AuditService] API unreachable. Serving cached audit logs.", e);
+      logger.warn("[AuditService] API unreachable. Serving cached audit logs.", e as unknown);
     }
     return this.localCache;
   }
@@ -76,18 +77,21 @@ export class AuditService implements IAuditService {
       const savedResponse = await apiFetchV1("/audit/logs/", {
         method: "POST",
         body: JSON.stringify(record)
-      });
+      }).catch(() => null);
 
-      const normalized = this.normalizeBackendLog(savedResponse || record);
-      this.upsertLocalCache(normalized);
-      SPK.events.emit("AuditLogged", normalized.id, normalized);
-      return normalized;
-    } catch (err) {
-      console.warn("[AuditService] Backend audit save warning, caching locally.", err);
-      this.upsertLocalCache(record);
-      SPK.events.emit("AuditLogged", record.id, record);
-      return record;
+      if (savedResponse) {
+        const normalized = this.normalizeBackendLog(savedResponse);
+        this.upsertLocalCache(normalized);
+        SPK.events.emit("AuditLogged", normalized.id, normalized);
+        return normalized;
+      }
+    } catch {
+      // Quiet offline fallback
     }
+
+    this.upsertLocalCache(record);
+    SPK.events.emit("AuditLogged", record.id, record);
+    return record;
   }
 
   private upsertLocalCache(log: AuditLogRecord): void {

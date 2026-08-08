@@ -93,7 +93,7 @@ export const FieldExplorerTab: React.FC<FieldExplorerTabProps> = ({ fields }) =>
         {/* Fields list */}
         <div className="space-y-3 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
           {filteredFields.map(f => (
-            <div key={f.id} className="bg-theme-surface-3 p-3 rounded-lg border border-theme-divider flex justify-between items-start hover:border-[#2563EB] transition-colors">
+            <div key={f.id} className="bg-theme-surface-3 p-3 rounded-lg border border-theme-divider flex justify-between items-start hover:border-[var(--c-seef-accent)] transition-colors">
               <div className="space-y-1">
                 <div className="flex items-center space-x-2">
                   <span className="font-mono text-theme-body text-xs font-semibold">{f.fieldName}</span>
@@ -117,8 +117,8 @@ export const FieldExplorerTab: React.FC<FieldExplorerTabProps> = ({ fields }) =>
                   onClick={() => toggleFieldSelect(f.fieldName)}
                   className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${
                     selectedFields.includes(f.fieldName)
-                      ? "bg-[#2563EB] text-theme-body hover:bg-opacity-95"
-                      : "bg-theme-surface-1 text-theme-muted border border-theme-divider hover:border-[#2563EB] hover:text-theme-body"
+                      ? "bg-[var(--c-seef-accent)] text-theme-body hover:bg-opacity-95"
+                      : "bg-theme-surface-1 text-theme-muted border border-theme-divider hover:border-[var(--c-seef-accent)] hover:text-theme-body"
                   }`}
                 >
                   {selectedFields.includes(f.fieldName) ? "Included" : "Add to Label"}
@@ -171,21 +171,21 @@ export const FieldExplorerTab: React.FC<FieldExplorerTabProps> = ({ fields }) =>
           {/* Sticker Preview Container */}
           <div>
             <label className="block text-xs font-semibold text-theme-muted uppercase font-display mb-2">Live print mockup render:</label>
-            <div className="bg-white rounded-lg p-5 border border-gray-300 text-gray-900 flex flex-col items-center justify-between min-h-[220px]">
+            <div className="bg-theme-surface-2 rounded-lg p-5 border border-theme-divider text-theme-heading flex flex-col items-center justify-between min-h-[220px]">
               
               {/* Header */}
-              <div className="w-full text-center border-b border-gray-300 pb-1.5">
+              <div className="w-full text-center border-b border-theme-divider pb-1.5">
                 <span className="text-[10px] font-mono tracking-widest font-bold">SMRITI RETAIL SYSTEM</span>
               </div>
 
               {/* Dynamic Metadata Fields */}
-              <div className="w-full grid grid-cols-2 gap-1 text-[10px] font-mono border-b border-gray-100 pb-2 pt-2">
+              <div className="w-full grid grid-cols-2 gap-1 text-[10px] font-mono border-b border-theme-divider pb-2 pt-2">
                 {selectedFields.map(fName => {
                   const fObj = fields.find(item => item.fieldName === fName);
                   if (!fObj) return null;
                   return (
-                    <div key={fName} className="flex justify-between border-r border-gray-100 pr-2 last:border-0 last:pl-2">
-                      <span className="text-gray-400 lowercase">{fObj.label.slice(0, 6)}:</span>
+                    <div key={fName} className="flex justify-between border-r border-theme-divider pr-2 last:border-0 last:pl-2">
+                      <span className="text-theme-muted lowercase">{fObj.label.slice(0, 6)}:</span>
                       <span className="font-bold">{fObj.sampleValue}</span>
                     </div>
                   );
@@ -225,7 +225,7 @@ export const FieldExplorerTab: React.FC<FieldExplorerTabProps> = ({ fields }) =>
         {/* Action triggers */}
         <button
           onClick={() => alert("Simulated print payload dispatched to Brother/Zebra TCP raw channel.")}
-          className="w-full bg-[#2563EB] hover:bg-opacity-95 text-theme-body font-bold uppercase py-2.5 rounded-lg transition-all flex items-center justify-center space-x-2 mt-4"
+          className="w-full bg-[var(--c-seef-accent)] hover:bg-opacity-95 text-theme-body font-bold uppercase py-2.5 rounded-lg transition-all flex items-center justify-center space-x-2 mt-4"
         >
           <span className="material-symbols-outlined text-sm">print</span>
           <span>Dispatch Print Test (.PRN)</span>

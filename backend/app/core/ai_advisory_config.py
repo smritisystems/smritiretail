@@ -32,6 +32,7 @@ class AiProvider(str, Enum):
     GEMINI = "GEMINI"
     OPENAI = "OPENAI"
     ANTHROPIC = "ANTHROPIC"
+    OPENROUTER = "OPENROUTER"
     LOCAL_OLLAMA = "LOCAL_OLLAMA"
 
 

@@ -23,8 +23,9 @@
  * * License    : Proprietary Commercial Software
  */
 
-import pg from "pg";
-import dotenv from "dotenv";
+import * as pg from "pg";
+import * as dotenv from "dotenv";
+import logger from "../core/logging/logger.js";
 
 dotenv.config();
 
@@ -38,5 +39,5 @@ export const pool = new pg.Pool({
 });
 
 pool.on("error", (err: Error) => {
-  console.error("Unexpected error on idle PostgreSQL client:", err);
+  logger.error("Unexpected error on idle PostgreSQL client:", err);
 });

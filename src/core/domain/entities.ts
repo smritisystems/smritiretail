@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -29,6 +29,8 @@ export interface ProductBatch {
   stock: number;
 }
 
+export type ProductStatus = "Draft" | "Active" | "Inactive" | "Blocked" | "Discontinued";
+
 export interface Product {
   id: string;
   code: string;
@@ -47,8 +49,12 @@ export interface Product {
   gstPercentage?: number;
   styleCode?: string;
   costPrice?: number;
+  purchasePrice?: number;
+  unit?: string;
   sku?: string;
   hsnCode?: string;
+  warehouse?: string;
+  status?: ProductStatus;
   attributes?: Record<string, string>;
   pricingMode?: "Fixed" | "Weight-based" | "Negotiated" | "Service";
   trackingMode?: "Standard" | "Batch" | "Serial" | "No-stock";

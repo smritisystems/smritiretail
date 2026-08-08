@@ -1,26 +1,16 @@
 """
-Project      : SMRITI Retail OS
-Repository   : SMRITIRetailNX
-Organization : AITDL NETWORKS
-
-Founders
-
-* Pushpa Devi Jawahar Mallah
-  * Founder & Chairperson
-  * Phone: +91 9324117007
-  * Email: founder@aitdl.com
-
-* Jawahar Ramkripal Mallah
-  * Founder, Chief Executive Officer (CEO) & Chief Software Architect
-  * Email: founder@aitdl.com
-
-* Websites: aitdl.com | erpnbook.com | smritibooks.com
-
-* Version    : 3.31.0
-* Created    : 2026-07-11
-* Modified   : 2026-07-19
-* Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
-* License    : Proprietary Commercial Software
+Project         : SMRITI Retail OS
+Organization    : SmritiSys
+Author          : Jawahar Ramkripal Mallah
+Designation     : Chief Systems Architect & Creator
+Email           : support@smritibooks.com
+Websites        : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version         : 3.32.0
+Created         : 2026-07-11
+Modified        : 2026-08-04
+Copyright       : © SMRITIBooks.com. All Rights Reserved.
+License         : Proprietary Commercial Software
+Classification  : Internal
 """
 
 from contextvars import ContextVar
@@ -46,6 +36,7 @@ async_session = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False
 )
+AsyncSessionLocal = async_session
 
 # Context variable to hold active request-scoped TenantContext
 active_tenant_ctx: ContextVar = ContextVar("active_tenant_ctx", default=None)

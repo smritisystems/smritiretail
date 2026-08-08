@@ -6,6 +6,7 @@
  * License      : Proprietary Commercial Software
  */
 
+import logger from "../../core/logging/logger.js";
 import { ICommand, ICommandHandler, ITenantContext, SPK } from "../SPK.js";
 import { IAccountingService, JournalVoucherRecord } from "../public/IAccountingService.js";
 
@@ -18,7 +19,7 @@ export class PostJournalVoucherCommandHandler implements ICommandHandler<PostJou
   async execute(command: PostJournalVoucherCommand, context: ITenantContext): Promise<JournalVoucherRecord> {
     const data = command.payload;
 
-    console.log(`[SPK Command] Executing PostJournalVoucherCommand for tenant: ${context.tenantId}, operator: ${context.userName}`);
+    logger.debug(`[SPK Command] Executing PostJournalVoucherCommand for tenant: ${context.tenantId}, operator: ${context.userName}`);
 
     const accountingService = SPK.services.resolve<IAccountingService>("ACCOUNTING");
     const saved = await accountingService.postJournalVoucher(data);

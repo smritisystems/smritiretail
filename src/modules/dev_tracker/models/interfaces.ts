@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -22,6 +22,58 @@
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
+
+export interface EvidenceItem {
+  id: string;
+  category: "frontend" | "backend" | "api" | "database" | "tests" | "docs";
+  file: string;
+  symbol?: string;
+  confidence: "100% Verified" | "75% Indirect" | "50% Heuristic";
+}
+
+export interface ModuleEvidence {
+  frontend: EvidenceItem[];
+  backend: EvidenceItem[];
+  api: EvidenceItem[];
+  database: EvidenceItem[];
+  tests: EvidenceItem[];
+  docs: EvidenceItem[];
+}
+
+export interface AdapterStatus {
+  name: string;
+  status: "active" | "disabled" | "failed";
+}
+
+export interface ScannerFingerprint {
+  version: string;
+  build: string;
+  gitCommit: string;
+  rulesHash: string;
+  adapters: AdapterStatus[];
+}
+
+export interface ScannerHealth {
+  filesScanned: number;
+  filesSkipped: number;
+  pythonFiles: number;
+  tsFiles: number;
+  routesDiscovered: number;
+  modelsDiscovered: number;
+  testsDiscovered: number;
+  durationMs: number;
+  adapterStats?: AdapterStatistics[];
+  pipelineTimings?: PipelineTimings;
+}
+
+export interface ArchitectureCoverage {
+  frontendCoverage: number;
+  backendCoverage: number;
+  databaseCoverage: number;
+  apiCoverage: number;
+  testsCoverage: number;
+  documentationCoverage: number;
+}
 
 export interface ModuleStatus {
   id: string;
@@ -60,6 +112,7 @@ export interface ModuleStatus {
   recommendations: string[];
   riskRating: "Critical" | "High" | "Medium" | "Low";
   overallPercentage: number;
+  evidence: ModuleEvidence;
 }
 
 export interface CodeHealth {
@@ -116,6 +169,8 @@ export interface ScanHistoryEntry {
   documentation: number;
 }
 
+import { ScanDiff, ImpactAnalysisResult, DependencyGraphResult, ArchitectureFitnessData, ASTAnalysisResult, AdapterStatistics, PipelineTimings } from "../scanner/adapters/types.ts";
+
 export interface ScanResult {
   timestamp: string;
   gitInfo: GitInfo;
@@ -124,4 +179,12 @@ export interface ScanResult {
   codeHealth: CodeHealth;
   modules: ModuleStatus[];
   history: ScanHistoryEntry[];
+  fingerprint: ScannerFingerprint;
+  scannerHealth: ScannerHealth;
+  architectureCoverage: ArchitectureCoverage;
+  scanDiff?: ScanDiff;
+  impactAnalysis?: ImpactAnalysisResult;
+  dependencyGraph?: DependencyGraphResult;
+  fitnessData?: ArchitectureFitnessData;
+  astAnalysis?: ASTAnalysisResult;
 }

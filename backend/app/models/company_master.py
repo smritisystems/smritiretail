@@ -1,21 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Version      : 7.1.0
-Created      : 2026-07-28
-Modified     : 2026-07-28
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
-Classification: ADR-015 — Company Master Satellite ORM Models
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-company_master.py — Company-specific satellite models that do NOT fit
-the generic Foundation Engine pattern (they are inherently company-scoped):
-  1. Organization           : Organization (optional root entity)
-  2. CompanyTaxProfile      : GSTIN, PAN, TAN, CIN, MSME, IEC, LUT
-  3. CompanyFinancialYear   : FY definition and status lifecycle
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 from datetime import datetime, timezone

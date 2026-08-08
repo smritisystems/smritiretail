@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS v5.0
  * Module       : Item Master Variant Inventory Breakdown Table
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com and AITDL.com. All Rights Reserved.
  * Version      : 5.6.0
  */
 
@@ -109,9 +109,9 @@ export const ItemMasterVariantTable: React.FC<ItemMasterVariantTableProps> = ({
       {/* Header Metric Banner */}
       <div className="p-3 bg-theme-surface-2/60 border border-theme-divider rounded-xl flex items-center justify-between text-xs">
         <div className="flex items-center gap-2 font-bold text-theme-heading">
-          <Grid className="w-4 h-4 text-[#0a6ed1]" />
-          <span>Color × Size Variant Inventory Matrix</span>
-          <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#0a6ed1]/10 text-[#0a6ed1] border border-[#0a6ed1]/20">
+          <Grid className="w-4 h-4 text-[var(--c-seef-accent)]" />
+          <span>Color Ã— Size Variant Inventory Matrix</span>
+          <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)] border border-[var(--c-seef-accent)]/20">
             {variants.length} Active Variants
           </span>
         </div>
@@ -125,7 +125,7 @@ export const ItemMasterVariantTable: React.FC<ItemMasterVariantTableProps> = ({
         <table className="w-full text-left text-xs">
           <thead className="bg-theme-surface-2 text-theme-muted font-bold uppercase tracking-wider text-[10px] border-b border-theme-divider">
             <tr>
-              <th className="p-3">Color × Size</th>
+              <th className="p-3">Color Ã— Size</th>
               <th className="p-3">Variant SKU</th>
               <th className="p-3">Barcode</th>
               <th className="p-3">On-Hand Stock</th>
@@ -179,7 +179,7 @@ export const ItemMasterVariantTable: React.FC<ItemMasterVariantTableProps> = ({
                   <td className="p-3 text-right">
                     <button
                       onClick={() => onOpenBarcodeDialog(v)}
-                      className="px-2.5 py-1 text-[10px] font-bold bg-theme-surface-2 text-[#0a6ed1] border border-[#0a6ed1]/30 rounded-md hover:bg-[#0a6ed1] hover:text-white transition-colors cursor-pointer inline-flex items-center gap-1"
+                      className="px-2.5 py-1 text-[10px] font-bold bg-theme-surface-2 text-[var(--c-seef-accent)] border border-[var(--c-seef-accent)]/30 rounded-md hover:bg-[var(--c-seef-accent)] hover:text-white transition-colors cursor-pointer inline-flex items-center gap-1"
                     >
                       <Printer className="w-3 h-3" /> Print Label
                     </button>

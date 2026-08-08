@@ -41,6 +41,46 @@ def event_loop():
 @pytest.fixture
 async def db_engine():
     engine = create_async_engine(settings.DATABASE_URL, echo=True)
+    from sqlalchemy import text
+    async with engine.begin() as conn:
+        await conn.execute(text("""
+            CREATE OR REPLACE FUNCTION inventory_state_reconciliation_trigger()
+            RETURNS TRIGGER AS $$
+            DECLARE
+                delta            numeric := 0;
+                movement_type    text;
+                physical_inbound  text[] := ARRAY[
+                    'PURCHASE', 'SALE_RETURN',
+                    'TRANSFER_IN', 'PRODUCTION', 'OPENING',
+                    'IN', 'RETURN'
+                ];
+                physical_outbound text[] := ARRAY[
+                    'SALE', 'POS_SALE', 'PURCHASE_RETURN', 'TRANSFER_OUT',
+                    'OUT', 'TRANSFER'
+                ];
+                physical_adjustment text[] := ARRAY['ADJUSTMENT'];
+            BEGIN
+                IF TG_OP = 'INSERT' THEN
+                    movement_type := COALESCE(UPPER(NEW.movement_type), '');
+                    IF movement_type = ANY(physical_inbound) THEN
+                        delta := ABS(NEW.quantity);
+                    ELSIF movement_type = ANY(physical_outbound) THEN
+                        delta := -ABS(NEW.quantity);
+                    ELSIF movement_type = ANY(physical_adjustment) THEN
+                        delta := NEW.quantity;
+                    END IF;
+                    IF delta <> 0 AND NEW.product_id IS NOT NULL THEN
+                        UPDATE products
+                        SET stock = COALESCE(stock, 0) + delta,
+                            modified_at = NOW()
+                        WHERE id = NEW.product_id;
+                    END IF;
+                    RETURN NEW;
+                END IF;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+        """))
     yield engine
     await engine.dispose()
 
@@ -57,6 +97,38 @@ async def db_session(db_engine) -> AsyncSession:
         await session.rollback()
     active_tenant_ctx.set(None)
     active_security_context.set(None)
+
+
+@pytest.fixture
+async def auth_headers(db_session: AsyncSession):
+    """Create a real test session for protected API integration tests."""
+    import uuid
+
+    from app.core.security import create_access_token, hash_password
+    from app.models.auth import User, UserRole
+
+    user = User(
+        id=f"usr-api-{uuid.uuid4().hex[:10]}",
+        username=f"api_test_{uuid.uuid4().hex[:8]}",
+        hashed_password=hash_password("Test@1234"),
+        role=UserRole.SYSADMIN,
+        is_active=True,
+        is_deleted=False,
+        company_id="comp-default",
+        branch_id="br-default",
+    )
+    db_session.add(user)
+    await db_session.commit()
+
+    token = create_access_token({
+        "sub": user.id,
+        "username": user.username,
+        "role": user.role.value,
+        "company_id": user.company_id,
+        "branch_id": user.branch_id,
+        "jti": str(uuid.uuid4()),
+    })
+    return {"Authorization": f"Bearer {token}"}
 
 async def clear_db(db_session: AsyncSession):
     """
@@ -136,10 +208,50 @@ async def clear_db(db_session: AsyncSession):
 
 async def seed_security_data(db_session: AsyncSession):
     """
-    Populates role-permission security matrices inside the active test transaction.
+    Populates role-permission security matrices and updates state reconciliation trigger inside active test transaction.
     """
     from sqlalchemy import text
     import uuid
+
+    # 0. Ensure evolved DB trigger function matches physical taxonomy (PURCHASE_RETURN is outbound)
+    await db_session.execute(text("""
+        CREATE OR REPLACE FUNCTION inventory_state_reconciliation_trigger()
+        RETURNS TRIGGER AS $$
+        DECLARE
+            delta            numeric := 0;
+            movement_type    text;
+            physical_inbound  text[] := ARRAY[
+                'PURCHASE', 'SALE_RETURN',
+                'TRANSFER_IN', 'PRODUCTION', 'OPENING',
+                'IN', 'RETURN'
+            ];
+            physical_outbound text[] := ARRAY[
+                'SALE', 'PURCHASE_RETURN', 'TRANSFER_OUT',
+                'OUT', 'TRANSFER'
+            ];
+            physical_adjustment text[] := ARRAY['ADJUSTMENT'];
+        BEGIN
+            IF TG_OP = 'INSERT' THEN
+                movement_type := COALESCE(UPPER(NEW.movement_type), '');
+                IF movement_type = ANY(physical_inbound) THEN
+                    delta := ABS(NEW.quantity);
+                ELSIF movement_type = ANY(physical_outbound) THEN
+                    delta := -ABS(NEW.quantity);
+                ELSIF movement_type = ANY(physical_adjustment) THEN
+                    delta := NEW.quantity;
+                END IF;
+                IF delta <> 0 AND NEW.product_id IS NOT NULL THEN
+                    UPDATE products
+                    SET stock = COALESCE(stock, 0) + delta,
+                        modified_at = NOW()
+                    WHERE id = NEW.product_id;
+                END IF;
+                RETURN NEW;
+            END IF;
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+    """))
 
     # 1. Insert default company and branch
     await db_session.execute(text(

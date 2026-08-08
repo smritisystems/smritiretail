@@ -68,10 +68,10 @@ async def test_screen_studio_service_save_and_list(db_session):
 
 
 @pytest.mark.asyncio
-async def test_screen_studio_rest_api_save_and_list(db_session):
+async def test_screen_studio_rest_api_save_and_list(db_session, auth_headers):
     """Verifies REST endpoints under /api/v1/screen-studio/*."""
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test", headers=auth_headers) as ac:
         # 1. Save template endpoint
         res_save = await ac.post(
             "/api/v1/screen-studio/templates/save",

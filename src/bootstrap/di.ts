@@ -23,7 +23,8 @@
  * * License    : Proprietary Commercial Software
  */
 
-import dotenv from "dotenv";
+import * as dotenv from "dotenv";
+import logger from "../core/logging/logger.js";
 import { IProductRepository, ICustomerRepository, IShiftRepository, ISalesInvoiceRepository, IAuditRepository, ISyncRepository, IUserRepository, IPOSProfileRepository, IPurchaseRepository, IStateRepository } from "../core/interfaces/db.js";
 import { PostgresProductRepository, PostgresCustomerRepository, PostgresShiftRepository, PostgresSalesInvoiceRepository, PostgresAuditRepository, PostgresSyncRepository, PostgresUserRepository, PostgresPOSProfileRepository, PostgresPurchaseRepository, PostgresStateRepository } from "../db/postgres/PostgresRepositories.js";
 import { SqliteProductRepository, SqliteCustomerRepository, SqliteShiftRepository, SqliteSalesInvoiceRepository, SqliteAuditRepository, SqliteSyncRepository, SqliteUserRepository, SqlitePOSProfileRepository, SqlitePurchaseRepository, SqliteStateRepository } from "../db/sqlite/SqliteRepositories.js";
@@ -32,6 +33,7 @@ import { MemoryProductRepository, MemoryCustomerRepository, MemoryShiftRepositor
 import { SyncEngine } from "../core/sync/SyncEngine.js";
 import { BillingService } from "../core/services/BillingService.js";
 import { SPK } from "../kernel/SPK.js";
+import { PlatformKernelValidator } from "../kernel/PlatformKernelValidator.js";
 import { ItemService } from "../kernel/internal/ItemService.js";
 import { CreateItemCommandHandler } from "../kernel/commands/CreateItemCommand.js";
 import { ItemLookupProvider } from "../kernel/ule/ItemLookupProvider.js";
@@ -41,6 +43,7 @@ import { CustomerLookupProvider } from "../kernel/ule/CustomerLookupProvider.js"
 import { SupplierService } from "../kernel/internal/SupplierService.js";
 import { CreateSupplierCommandHandler } from "../kernel/commands/CreateSupplierCommand.js";
 import { SupplierLookupProvider } from "../kernel/ule/SupplierLookupProvider.js";
+import { InventoryService } from "../kernel/internal/InventoryService.js";
 import { TaxResolutionEngine } from "../kernel/internal/TaxResolutionEngine.js";
 import { ResolveTaxCommandHandler } from "../kernel/commands/ResolveTaxCommand.js";
 import { PurchaseService } from "../kernel/internal/PurchaseService.js";
@@ -82,7 +85,14 @@ export function bootstrapDI(): DIContainer {
     return instances as DIContainer;
   }
 
-  console.log(`[SMRITI Bootstrap] Initializing Platform Abstraction Layer (PAL) with DATABASE_PROVIDER: ${dbProvider}`);
+  logger.info(`[SMRITI Bootstrap] Initializing Platform Abstraction Layer (PAL) with DATABASE_PROVIDER: ${dbProvider}`);
+
+  /* Validate the platform kernel and document orchestration metadata before SPK startup */
+  const startupValidation = PlatformKernelValidator.validate();
+  if (!startupValidation.valid) {
+    logger.error("[SPK Kernel Validation] startup halted due to kernel policy validation errors:", startupValidation.errors as unknown);
+    throw new Error("Platform kernel validation failed. See logs for details.");
+  }
 
   /* Initialize SMRITI Platform Kernel (SPK) */
   SPK.start();
@@ -125,6 +135,9 @@ export function bootstrapDI(): DIContainer {
   SPK.services.register("ACCOUNTING", accountingServiceInstance);
   SPK.commands.registerHandler("POST_JOURNAL_VOUCHER", new PostJournalVoucherCommandHandler());
   SPK.ule.registerProvider(new AccountingLookupProvider());
+
+  const inventoryServiceInstance = new InventoryService();
+  SPK.services.register("INVENTORY", inventoryServiceInstance);
 
   if (dbProvider === "postgres") {
     instances.products = new PostgresProductRepository();

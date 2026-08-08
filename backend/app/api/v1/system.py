@@ -21,17 +21,20 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Body
 from pydantic import BaseModel
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
+from ...core.config import settings
 from ...api.deps import get_db, get_current_user, get_current_user_optional, require_role
-from ...core.security import hash_password
+from ...core.security import hash_password, generate_compliant_password
 from ...models.auth import User, UserRole
 from ...models.psv import PSVParty, PSVPartySkuTracking
 from ...models.system import TallyConfig, SystemConfig
-from ...models.tenant import Company, Branch
-from ...models.inventory import Store
+from ...models.tenant import Company, Branch, Tenant, TenantSettings, TenantProvisionProfile, TenantLifecycleState
+from ...models.company_master import CompanyTaxProfile, CompanyFinancialYear
+from ...models.inventory import Store, Warehouse
 from ...schemas.psv import PSVPartyResponse
 from ...schemas.system import (
     TallyConfigCreate, TallyConfigUpdate, TallyConfigResponse,
@@ -521,6 +524,58 @@ async def get_setup_status(
     return {"setupCompleted": setup_config is not None and setup_config.value == "true"}
 
 
+@router.post(
+    "/setup/reset",
+)
+@router.post(
+    "/system/setup/reset",
+)
+async def reset_setup_status(
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+):
+    """
+    Reset / unlock setup status for development, testing, or re-configuration.
+    """
+    actor_name = current_user.username if current_user and getattr(current_user, "username", None) else "system"
+    await set_system_config(db, SETUP_COMPLETED_KEY, "false", current_user, actor_name=actor_name)
+    await set_system_config(db, SETUP_STATE_KEY, "UNINITIALIZED", current_user, actor_name=actor_name)
+    await db.commit()
+    return {"success": True, "message": "Company setup lock cleared. Onboarding wizard re-enabled."}
+
+
+class WorkspaceSwitchRequest(BaseModel):
+    companyId: str
+    branchId: Optional[str] = None
+    warehouseId: Optional[str] = None
+
+
+@router.post(
+    "/workspace/switch",
+)
+@router.post(
+    "/system/workspace/switch",
+)
+async def switch_workspace(
+    payload: WorkspaceSwitchRequest = Body(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+):
+    """
+    SCS-WSC-001 Workspace Switch Endpoint.
+    Resolves rich workspace payload returning workspace, permissions, features, policies, industryPack, and branding.
+    """
+    from app.services.workspace_resolver import resolve_workspace_context
+    user_role = current_user.role.value if current_user and getattr(current_user, "role", None) else "SYSADMIN"
+    return await resolve_workspace_context(
+        db,
+        company_id=payload.companyId,
+        branch_id=payload.branchId,
+        warehouse_id=payload.warehouseId,
+        user_role=user_role
+    )
+
+
 @router.get(
     "/doctor",
     response_model=SystemDoctorResponse,
@@ -643,6 +698,80 @@ def normalize_branch_code(code: str | None, idx: int) -> str:
     return f"BR-{idx + 1:02d}"
 
 
+@router.get("/company/code/availability")
+async def check_company_code_availability(
+    code: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Checks if a Company Code is available for provisioning.
+    Returns strictly { "available": boolean } without exposing tenant or system secrets.
+    """
+    if not code or not code.strip():
+        return {"available": False}
+
+    cleaned_code = code.strip().upper()
+    res_tenant = await db.execute(select(Tenant.id).where(Tenant.tenant_code == cleaned_code))
+    if res_tenant.scalar_one_or_none():
+        return {"available": False}
+
+    res_comp = await db.execute(select(Company.id).where(Company.code == cleaned_code))
+    if res_comp.scalar_one_or_none():
+        return {"available": False}
+
+    return {"available": True}
+
+
+@router.get("/company/code/suggest")
+async def suggest_company_code(
+    city: str = "",
+    pin: str = "",
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generates CITY(3) + PIN_LAST3(3) + SEQUENCE(3) suggestion (e.g. MUM067001).
+    UX convenience only. Database UNIQUE constraint remains the final authority.
+    """
+    city_map = {
+        "MUMBAI": "MUM", "PUNE": "PUN", "DELHI": "DEL", "NEW DELHI": "DEL",
+        "BENGALURU": "BLR", "BANGALORE": "BLR", "HYDERABAD": "HYD", "CHENNAI": "CHE",
+        "MADRAS": "CHE", "KOLKATA": "KOL", "CALCUTTA": "KOL", "AHMEDABAD": "AMD",
+        "JAIPUR": "JAI", "NAGPUR": "NAG", "NASHIK": "NSK", "SURAT": "SUR"
+    }
+    city_clean = city.strip().upper() if city else ""
+    city_code = city_map.get(city_clean)
+    if not city_code:
+        alpha_only = "".join([c for c in city_clean if c.isalnum()])
+        city_code = (alpha_only[:3] if len(alpha_only) >= 3 else (alpha_only + "XXX")[:3]) if alpha_only else "XXX"
+
+    pin_clean = "".join([c for c in (pin or "") if c.isdigit()])
+    if len(pin_clean) != 6:
+        return {"suggestedCode": None, "error": "Invalid 6-digit PIN code."}
+
+    pin_last3 = pin_clean[3:]
+    prefix = f"{city_code}{pin_last3}"
+
+    res = await db.execute(select(Tenant.tenant_code).where(Tenant.tenant_code.like(f"{prefix}%")))
+    existing_codes = set(res.scalars().all())
+
+    for seq in range(1, 1000):
+        candidate = f"{prefix}{seq:03d}"
+        if candidate not in existing_codes:
+            return {
+                "suggestedCode": candidate,
+                "prefix": prefix,
+                "sequence": seq,
+                "exhausted": False
+            }
+
+    return {
+        "suggestedCode": None,
+        "prefix": prefix,
+        "exhausted": True,
+        "message": f"All sequences (001-999) for prefix '{prefix}' are occupied. Please enter a custom code."
+    }
+
+
 @router.post(
     "/company/setup",
 )
@@ -660,17 +789,32 @@ async def company_setup(
     org_structure = payload.orgStructure
     users_payload = payload.users
 
+    raw_code = (business_info.tenantCode or getattr(business_info, "companyCode", None) or "").strip().upper() if business_info else ""
+    if not raw_code:
+        raise HTTPException(
+            status_code=400,
+            detail="Company Code is required for legal entity provisioning."
+        )
+    tenant_code = raw_code
+
+    # Pre-flight Uniqueness check for Company Code
+    existing_tenant_res = await db.execute(select(Tenant.id).where(Tenant.tenant_code == tenant_code))
+    if existing_tenant_res.scalar_one_or_none():
+        raise HTTPException(
+            status_code=409,
+            detail=f'Company Code "{tenant_code}" is already in use. Please choose another Company Code.'
+        )
+
     company_name = business_info.name or "SMRITI Retail Company"
     company_gstin = business_info.gstin or None
     branch_entries = org_structure.stores or []
 
-    existing_setup = await get_system_config(db, SETUP_COMPLETED_KEY)
-    existing_state = await get_system_config(db, SETUP_STATE_KEY)
+    allow_subsequent = (business_info and getattr(business_info, "ignoreWarnings", False)) or (current_user is not None)
 
-    if (existing_setup and existing_setup.value == "true") or (existing_state and existing_state.value in ["INITIALIZED", "LOCKED"]):
+    if not allow_subsequent and ((existing_setup and existing_setup.value == "true") or (existing_state and existing_state.value in ["INITIALIZED", "LOCKED"])):
         raise HTTPException(
             status_code=400,
-            detail="Company setup is locked and cannot be re-executed from the onboarding wizard. Please use Administrative Modules for structural changes."
+            detail="Initial company setup is locked. To onboard additional legal entities, execute provisioning with ignoreWarnings=true or authenticate as an admin user."
         )
 
 
@@ -706,6 +850,10 @@ async def company_setup(
     )
 
     timestamp_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    tenant_code = (business_info.tenantCode or "SMS").strip().upper()
+    tenant_slug = (business_info.tenantSlug or "smriti-systems").strip().lower()
+    tenant_name = (business_info.tenantName or "Smriti Systems Group").strip()
+    tenant_id = f"tent-{timestamp_ms}"
     company_id = f"comp-{timestamp_ms}"
     created_branches = []
     created_stores = []
@@ -714,16 +862,45 @@ async def company_setup(
 
     staff_entries = users_payload.staff or []
 
-
-
-
     try:
         # 1. State Machine: Transition to BOOTSTRAPPING
         await set_system_config(db, SETUP_STATE_KEY, "BOOTSTRAPPING", current_user, commit=False, actor_name=actor_username)
 
-        # 2. Company Creation
+        # 2. Tenant & TenantSettings Creation
+        tenant_record = Tenant(
+            id=tenant_id,
+            uuid=str(uuid.uuid4()),
+            tenant_code=tenant_code,
+            tenant_slug=tenant_slug,
+            name=tenant_name,
+            lifecycle_state=TenantLifecycleState.PROVISIONING.value,
+            is_active=True,
+            is_deleted=False,
+        )
+        db.add(tenant_record)
+        await db.flush()
+
+        tenant_settings = TenantSettings(
+            id=f"tset-{uuid.uuid4().hex[:12]}",
+            tenant_id=tenant_id,
+            language_code="en-IN",
+            locale="en-IN",
+            currency_code="INR",
+            timezone="Asia/Kolkata",
+            date_format="DD/MM/YYYY",
+            number_format="Indian",
+            decimal_precision=2,
+            ai_enabled=True,
+            sms_enabled=True,
+            email_enabled=True,
+        )
+        db.add(tenant_settings)
+        await db.flush()
+
+        # 3. Company Creation (linked to tenant_id)
         company = Company(
             id=company_id,
+            tenant_id=tenant_id,
             name=company_name,
             gst_number=company_gstin,
             is_active=True,
@@ -732,13 +909,29 @@ async def company_setup(
         db.add(company)
         await db.flush()
 
-        # 3. Branch Creation
+        # 4. Company Tax Profile Creation (1:1 with Company)
+        tax_profile = CompanyTaxProfile(
+            id=f"ctax-{uuid.uuid4().hex[:12]}",
+            company_id=company_id,
+            gstin=company_gstin,
+            gstin_state_code=company_gstin[:2] if company_gstin and len(company_gstin) >= 2 else None,
+            gst_registration_type="REGULAR" if company_gstin else "UNREGISTERED",
+            pan_number=business_pan or (company_gstin[2:12] if company_gstin and len(company_gstin) >= 12 else None),
+            msme_registration_no=getattr(business_info, "msme", None),
+            cin_number=getattr(business_info, "cin", None),
+            created_by=actor_username,
+        )
+        db.add(tax_profile)
+        await db.flush()
+
+        # 5. Branch Creation
         for idx, store in enumerate(branch_entries):
             branch_name = store.name or store.code or f"Branch {idx + 1}"
             branch_code = normalize_branch_code(store.code, idx)
             branch_id = f"br-{timestamp_ms + idx}"
             branch = Branch(
                 id=branch_id,
+                tenant_id=tenant_id,
                 company_id=company_id,
                 name=branch_name,
                 code=branch_code,
@@ -750,7 +943,7 @@ async def company_setup(
 
         await db.flush()
 
-        # 4. Store Creation
+        # 6. Store & Warehouse Creation
         for idx, store in enumerate(branch_entries):
             branch_name = created_branches[idx].name
             branch_code = created_branches[idx].code
@@ -759,6 +952,7 @@ async def company_setup(
             store_id = f"stor-{timestamp_ms + idx}"
             store_record = Store(
                 id=store_id,
+                tenant_id=tenant_id,
                 company_id=company_id,
                 branch_id=branch_id,
                 code=branch_code,
@@ -773,29 +967,113 @@ async def company_setup(
             db.add(store_record)
             created_stores.append(store_record)
 
+            # Create corresponding Warehouse
+            wh_record = Warehouse(
+                id=f"wh-{timestamp_ms + idx}",
+                tenant_id=tenant_id,
+                company_id=company_id,
+                branch_id=branch_id,
+                code=f"WH-{branch_code}",
+                name=f"Main Warehouse ({branch_name})",
+                is_transit=False,
+                address=store.address or "",
+                created_by=actor_username,
+                updated_by=actor_username,
+            )
+            db.add(wh_record)
+
         await db.flush()
 
-        # 5. User Creation
+        # 7. Financial Year Creation
+        start_year = int(business_financial_year.split("-")[0]) if "-" in business_financial_year else 2026
+        fy_record = CompanyFinancialYear(
+            id=f"cfy-{uuid.uuid4().hex[:12]}",
+            company_id=company_id,
+            year_label=f"FY {business_financial_year}",
+            start_date=datetime.strptime(f"{start_year}-04-01", "%Y-%m-%d").date(),
+            end_date=datetime.strptime(f"{start_year + 1}-03-31", "%Y-%m-%d").date(),
+            status="OPEN",
+            is_active=True,
+        )
+        db.add(fy_record)
+        await db.flush()
+
+        # 8. User Creation (Super Admin 'super' with 'Shpr0128vdq!@')
+        dev_mode = str(getattr(settings, "ENVIRONMENT", "")).lower() in {"development", "dev", "test", "demo"} or getattr(settings, "ENABLE_DEV_LOGIN", False)
+        super_admin_pass = "Shpr0128vdq!@" if dev_mode else generate_compliant_password(12)
+
+        # Create or update super user
+        existing_super = await db.execute(
+            select(User).where(
+                (User.username == "super") | (User.email == "super@smritibooks.com"),
+                User.is_deleted == False
+            )
+        )
+        super_user = existing_super.scalars().first()
+        if not super_user:
+            super_user = User(
+                id=f"usr-{uuid.uuid4().hex[:6]}",
+                username="super",
+                email="super@smritibooks.com",
+                hashed_password=hash_password(super_admin_pass),
+                role=UserRole.SYSADMIN,
+                is_active=True,
+                is_deleted=False,
+                is_platform_admin=True,
+                tenant_id=tenant_id,
+                company_id=company_id,
+                branch_id=created_branches[0].id if created_branches else None,
+                status="PendingPasswordChange",
+            )
+            db.add(super_user)
+            await db.flush()
+        else:
+            super_user.tenant_id = tenant_id
+            super_user.company_id = company_id
+            super_user.branch_id = created_branches[0].id if created_branches else None
+            await db.flush()
+        created_users.append({
+            "id": super_user.id,
+            "username": super_user.username,
+            "role": super_user.role.value,
+            "company_id": company_id,
+            "branch_id": super_user.branch_id,
+            "temp_password": super_admin_pass,
+        })
+
         for idx, staff in enumerate(staff_entries):
-            username = (staff.username or "").strip()
-            display_name = (staff.name or username or f"user{idx + 1}").strip()
+            raw_username = (staff.username or "").strip()
+            display_name = (staff.name or raw_username or f"staffuser{idx + 1}").strip()
             role = normalize_staff_role(staff.role or "Cashier")
             email = staff.email or None
             mobile = staff.mobile or None
             assigned_branch = created_branches[0] if created_branches else None
 
+            username = raw_username
             if not username:
-                username = re.sub(r"[^a-z0-9]", "", display_name.lower()) or f"user{idx + 1}"
+                username = re.sub(r"[^a-z0-9]", "", display_name.lower()) or f"staffuser{idx + 1}"
 
-            import random
-            import string
-            temp_password = (
-                random.choice(string.ascii_uppercase) +
-                random.choice(string.ascii_lowercase) +
-                random.choice(string.digits) +
-                random.choice("!@#$%^&*") +
-                "".join(random.choices(string.ascii_letters + string.digits, k=8))
-            )
+            if username == "super":
+                continue
+
+            # Check if user already exists
+            existing_usr_q = await db.execute(select(User).where(User.username == username, User.is_deleted == False))
+            existing_usr = existing_usr_q.scalars().first()
+            if existing_usr:
+                existing_usr.company_id = company_id
+                existing_usr.tenant_id = tenant_id
+                existing_usr.branch_id = assigned_branch.id if assigned_branch else None
+                created_users.append({
+                    "id": existing_usr.id,
+                    "username": existing_usr.username,
+                    "role": existing_usr.role.value if hasattr(existing_usr.role, "value") else str(existing_usr.role),
+                    "company_id": company_id,
+                    "branch_id": existing_usr.branch_id,
+                    "temp_password": "***",
+                })
+                continue
+
+            temp_password = generate_compliant_password(12)
             user_req = UserCreate(
                 username=username,
                 password=temp_password,
@@ -806,16 +1084,17 @@ async def company_setup(
                 branch_id=assigned_branch.id if assigned_branch is not None else None,
             )
             created_user = await user_service.create_user(user_req, commit=False)
+            created_user.tenant_id = tenant_id
             created_users.append({
                 "id": created_user.id,
                 "username": created_user.username,
-                "role": created_user.role.value,
+                "role": created_user.role.value if hasattr(created_user.role, "value") else str(created_user.role),
                 "company_id": created_user.company_id,
                 "branch_id": created_user.branch_id,
                 "temp_password": temp_password,
             })
 
-        # 6. Document Series Creation
+        # 9. Document Series Creation
         numbering_service = NumberingService(db)
         numbering_templates = payload.numbering or []
 
@@ -866,7 +1145,28 @@ async def company_setup(
 
             await numbering_service.create_series(series_req, actor_username, commit=False)
 
-        # 7. System Configurations & State Machine Completion
+        # 10. Tenant Provision Profile & System Configs
+        ind_pack = getattr(business_info, "industryPack", "general_retail") or "general_retail"
+        prov_profile = TenantProvisionProfile(
+            id=f"tprof-{uuid.uuid4().hex[:12]}",
+            tenant_id=tenant_id,
+            setup_version="1.0.0",
+            schema_version="3.1.0",
+            platform_version="1.0.0",
+            industry_pack=ind_pack,
+            industry_pack_version="1.0.0",
+            license_tier=license_type,
+            created_by=actor_username,
+        )
+        db.add(prov_profile)
+
+        # Generate Configurable Setup ID: {TENANT_CODE}-{YYYYMMDD}-001
+        date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+        setup_id_str = f"{tenant_code}-{date_str}-001"
+
+        await set_system_config(db, "setup_id", setup_id_str, current_user, commit=False, actor_name=actor_username, company_id=company.id)
+        await set_system_config(db, "tenant_code", tenant_code, current_user, commit=False, actor_name=actor_username, company_id=company.id)
+        await set_system_config(db, "tenant_slug", tenant_slug, current_user, commit=False, actor_name=actor_username, company_id=company.id)
         await set_system_config(db, CURRENT_FINANCIAL_YEAR_KEY, business_financial_year, current_user, commit=False, actor_name=actor_username, company_id=company.id)
         await set_system_config(db, BOOKS_START_DATE_KEY, books_start_date, current_user, commit=False, actor_name=actor_username, company_id=company.id)
         await set_system_config(db, BUSINESS_TRADE_NAME_KEY, trade_name, current_user, commit=False, actor_name=actor_username, company_id=company.id)
@@ -880,11 +1180,21 @@ async def company_setup(
         await set_system_config(db, SETUP_COMPLETED_KEY, "true", current_user, commit=False, actor_name=actor_username, company_id=company.id)
         await set_system_config(db, SETUP_STATE_KEY, "LOCKED", current_user, commit=False, actor_name=actor_username, company_id=company.id)
 
+        # Transition Tenant lifecycle_state to ACTIVE
+        tenant_record.lifecycle_state = TenantLifecycleState.ACTIVE.value
 
-
-        # 8. Explicit Atomic Commit
+        # Explicit Atomic Commit
         await db.commit()
 
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f'Company Code "{tenant_code}" is already in use. Please choose another Company Code.'
+        )
+    except HTTPException:
+        await db.rollback()
+        raise
     except Exception as setup_err:
         await db.rollback()
         import traceback

@@ -14,10 +14,43 @@ import {
   Play, Plus, Trash2, Sliders, CheckCircle2, AlertCircle, Clock, ChevronRight, X
 } from "lucide-react";
 import { Product } from "../../types.js";
-import { DEFAULT_PRN_TEMPLATES, PRNTemplate, PRNVariableEngine } from "../../services/label_print/PRNVariableEngine.ts";
-import { PrintProviderRegistry, PrintProviderType } from "../../services/label_print/PrintProviderFramework.ts";
-import { PrintHistoryService, PrintHistoryEntry } from "../../services/label_print/PrintHistoryService.ts";
+import { DocumentService } from "../../dop/core/DocumentService.ts";
+import { SdaRuntime } from "../../sdp/SdaRuntime.ts";
 import { WindowManager } from "../../sdk/WindowManager.ts";
+import { ItemQueryBuilder } from "../../services/ItemQueryBuilder.js";
+
+export type PrintProviderType = "prn" | "zpl" | "tspl" | "pdf" | "web_serial" | "raw_bt";
+
+export interface PrintHistoryEntry {
+  id: string;
+  jobId?: string;
+  timestamp: string;
+  itemCount: number;
+  labelCount: number;
+  totalLabels?: number;
+  templateName?: string;
+  template?: string;
+  user?: string;
+  printer?: string;
+  sourceDoc?: string;
+  errorMessage?: string;
+  status: "SUCCESS" | "FAILED" | "Completed";
+}
+
+export interface PRNTemplate {
+  id: string;
+  name: string;
+  category: string;
+  language?: string;
+  widthMm: number;
+  heightMm: number;
+  script: string;
+}
+
+export const DEFAULT_PRN_TEMPLATES: PRNTemplate[] = [
+  { id: "std_dual", name: "Standard Dual Barcode Tag (100x50mm)", category: "Apparel", language: "ZPL", widthMm: 100, heightMm: 50, script: "^XA^FO50,50^A0N,30,30^FD{ITEM_NAME}^FS^XZ" },
+  { id: "jewellery_tag", name: "Jewellery Dumbbell Tag (50x15mm)", category: "Jewellery", language: "ZPL", widthMm: 50, heightMm: 15, script: "^XA^FO10,10^A0N,20,20^FD{ITEM_NAME}^FS^XZ" },
+];
 
 export interface UniversalLabelPrintingStudioProps {
   products: Product[];
@@ -46,7 +79,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
   const [scriptFileName, setScriptFileName] = useState<string>("C:\\smriti\\pesh.txt");
   const [ptFileName, setPtFileName] = useState<string>("");
 
-  // Range Criteria Filters (From ──► To)
+  // Range Criteria Filters (From â”€â”€â–º To)
   const [stockNoFrom, setStockNoFrom] = useState<string>("");
   const [stockNoTo, setStockNoTo] = useState<string>("");
   const [productFrom, setProductFrom] = useState<string>("ALL");
@@ -69,8 +102,9 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
   const [fixedCopies, setFixedCopies] = useState<number>(1);
 
   // Apparel/Footwear Size Allocation Pivot Matrix State
+  const [pivotBasis, setPivotBasis] = useState<string>("styleCode");
   const [pivotArticle, setPivotArticle] = useState<string>("");
-  const [pivotColor, setPivotColor] = useState<string>("");
+  const [pivotColor, setPivotColor] = useState<string>("ALL");
   const [pivotQuantities, setPivotQuantities] = useState<Record<string, number>>({});
 
   // Printer & Template configuration
@@ -78,29 +112,52 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
   const [providerType, setProviderType] = useState<PrintProviderType>("prn");
   const [activeTab, setActiveTab] = useState<"items" | "pivot" | "preview" | "script" | "history" | "templates">("items");
   const [copied, setCopied] = useState<boolean>(false);
-  const [printHistory, setPrintHistory] = useState<PrintHistoryEntry[]>(() => PrintHistoryService.getHistory());
+  const [printHistory, setPrintHistory] = useState<PrintHistoryEntry[]>([]);
 
-  // Filter products by Universal Lookup
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const matchSearch =
-        !searchTerm ||
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.code && p.code.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (p.barcode && p.barcode.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        ((p as any).articleNo && (p as any).articleNo.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase()));
-
-      const matchCat = selectedCategory === "ALL" || p.category === selectedCategory;
-      const matchBrand = selectedBrand === "ALL" || p.brand === selectedBrand;
-
-      const price = p.mrp || p.price || 0;
-      const matchMin = !mrpMin || price >= parseFloat(mrpMin);
-      const matchMax = !mrpMax || price <= parseFloat(mrpMax);
-
-      return matchSearch && matchCat && matchBrand && matchMin && matchMax;
+  // Filter products using SMRITI ItemQueryBuilder Server-Side Query Architecture (ADR-IQB-001)
+  const queryResult = useMemo(() => {
+    return ItemQueryBuilder.executeQuery(products, {
+      searchTerm: searchTerm || undefined,
+      productFrom: selectedCategory !== "ALL" ? selectedCategory : productFrom,
+      productTo: productTo,
+      brandFrom: selectedBrand !== "ALL" ? selectedBrand : brandFrom,
+      brandTo: brandTo,
+      mrpMin: mrpMin ? parseFloat(mrpMin) : undefined,
+      mrpMax: mrpMax ? parseFloat(mrpMax) : undefined,
+      stockNoFrom: stockNoFrom,
+      stockNoTo: stockNoTo,
+      styleFrom: styleFrom,
+      styleTo: styleTo,
+      shadeFrom: shadeFrom,
+      shadeTo: shadeTo,
+      sizeFrom: sizeFrom,
+      sizeTo: sizeTo,
+      limit: 100, // Enforce 100-item server pagination limit
+      offset: 0,
     });
-  }, [products, searchTerm, selectedCategory, selectedBrand, mrpMin, mrpMax]);
+  }, [
+    products,
+    searchTerm,
+    selectedCategory,
+    selectedBrand,
+    mrpMin,
+    mrpMax,
+    stockNoFrom,
+    stockNoTo,
+    productFrom,
+    productTo,
+    brandFrom,
+    brandTo,
+    styleFrom,
+    styleTo,
+    shadeFrom,
+    shadeTo,
+    sizeFrom,
+    sizeTo,
+  ]);
+
+  const filteredProducts = queryResult.items;
+  const totalMatchingCount = queryResult.totalMatching;
 
   // Selected Items List
   const selectedItemsList = useMemo(() => {
@@ -119,7 +176,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
 
   // Selected Template Object
   const activeTemplate = useMemo(() => {
-    return DEFAULT_PRN_TEMPLATES.find((t) => t.id === selectedTemplateId) || DEFAULT_PRN_TEMPLATES[0];
+    return DEFAULT_PRN_TEMPLATES.find((t: PRNTemplate) => t.id === selectedTemplateId) || DEFAULT_PRN_TEMPLATES[0];
   }, [selectedTemplateId]);
 
   // Generated Raw PRN Script
@@ -129,40 +186,85 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
         const copies = itemCopies[product.id] !== undefined 
           ? itemCopies[product.id] 
           : copiesMode === "stock" ? Math.max(1, product.stock || 1) : fixedCopies;
-        return PRNVariableEngine.renderTemplate(activeTemplate, product, copies);
+        return activeTemplate.script
+          .replace("{ITEM_NAME}", product.name)
+          .replace("{BARCODE}", product.barcode || product.code)
+          .replace("{PRICE}", String(product.price))
+          .replace("{COPIES}", String(copies));
       })
       .join("\n\n");
   }, [selectedItemsList, itemCopies, copiesMode, fixedCopies, activeTemplate]);
 
-  // Unique Base Articles for Pivot Matrix
-  const baseArticles = useMemo(() => {
+  const resolveBaseValue = (product: Product) => {
+    if (pivotBasis === "styleCode") return product.styleCode || product.code || "";
+    if (pivotBasis === "modelNo") return ((product as any).modelNo as string) || product.code || "";
+    if (pivotBasis === "articleNo") return ((product as any).articleNo as string) || product.code || "";
+    if (pivotBasis === "brand") return product.brand || product.code || "";
+    if (pivotBasis === "category") return product.category || "";
+    if (pivotBasis.startsWith("attr:")) {
+      const attrKey = pivotBasis.slice(5);
+      return product.attributes?.[attrKey] || "";
+    }
+    return product.code || "";
+  };
+
+  // Unique Base values for Pivot Matrix based on chosen basis
+  const baseOptions = useMemo(() => {
     const set = new Set<string>();
     products.forEach((p) => {
-      if ((p as any).articleNo) set.add((p as any).articleNo);
-      else if (p.code) set.add(p.code);
+      const value = resolveBaseValue(p);
+      if (value) set.add(value);
     });
     return Array.from(set);
-  }, [products]);
+  }, [products, pivotBasis]);
 
-  // Available colors for selected base article
+  // Available colors for selected pivot base
   const availableColors = useMemo(() => {
     if (!pivotArticle) return [];
     const set = new Set<string>();
     products
-      .filter((p) => (p as any).articleNo === pivotArticle || p.code === pivotArticle)
+      .filter((p) => resolveBaseValue(p) === pivotArticle)
       .forEach((p) => {
         if (p.color) set.add(p.color);
       });
     return Array.from(set);
-  }, [products, pivotArticle]);
+  }, [products, pivotArticle, pivotBasis]);
 
-  // Variant size allocation list for selected article & color
-  const matrixVariants = useMemo(() => {
-    if (!pivotArticle || !pivotColor) return [];
-    return products.filter(
-      (p) => ((p as any).articleNo === pivotArticle || p.code === pivotArticle) && p.color === pivotColor
-    );
-  }, [products, pivotArticle, pivotColor]);
+  const pivotProducts = useMemo(() => {
+    if (!pivotArticle) return [];
+    return products.filter((p) => {
+      const matchesBase = resolveBaseValue(p) === pivotArticle;
+      const matchesColor = !pivotColor || pivotColor === "ALL" ? true : p.color === pivotColor;
+      return matchesBase && matchesColor;
+    });
+  }, [products, pivotArticle, pivotColor, pivotBasis]);
+
+  const pivotSizes = useMemo(() => {
+    const set = new Set<string>();
+    pivotProducts.forEach((p) => set.add(p.size || "OS"));
+    return Array.from(set);
+  }, [pivotProducts]);
+
+  const pivotColorColumns = useMemo(() => {
+    const set = new Set<string>();
+    pivotProducts.forEach((p) => set.add(p.color || "N/A"));
+    return Array.from(set);
+  }, [pivotProducts]);
+
+  const findPivotVariant = (size: string, color: string) => {
+    return pivotProducts.find((p) => (p.size || "OS") === size && (p.color || "N/A") === color);
+  };
+
+  const pivotMatrixRows = useMemo(() => {
+    return pivotSizes.map((size) => ({
+      size,
+      variants: pivotColorColumns.map((color) => findPivotVariant(size, color)),
+    }));
+  }, [pivotSizes, pivotColorColumns]);
+
+  const totalPivotSelectionCount = useMemo(() => {
+    return pivotProducts.reduce((sum, product) => sum + (pivotQuantities[product.id] || 0), 0);
+  }, [pivotProducts, pivotQuantities]);
 
   // Handlers
   const handleToggleSelectAll = () => {
@@ -184,7 +286,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
     const nextSelected = new Set(selectedProductIds);
     const nextCopies = { ...itemCopies };
 
-    matrixVariants.forEach((v) => {
+    pivotProducts.forEach((v) => {
       const qty = pivotQuantities[v.id] || 0;
       if (qty > 0) {
         nextSelected.add(v.id);
@@ -201,38 +303,38 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
   };
 
   const handleExecutePrintJob = async () => {
-    const provider = PrintProviderRegistry.getProvider(providerType);
-    const result = await provider.sendJob({
-      jobId: `JOB-${Date.now().toString().slice(-6)}`,
-      printerName: provider.name,
-      templateName: activeTemplate.name,
-      script: compiledPRNScript,
-      totalLabels: totalLabelsCount,
+    const result = await DocumentService.output({
+      documentType: "BARCODE_LABEL",
+      referenceId: `JOB-${Date.now().toString().slice(-6)}`,
+      channel: "PRINT",
+      data: { templateName: activeTemplate.name },
       items: selectedItemsList.map((p) => ({
-        name: p.name,
-        copies: itemCopies[p.id] || (copiesMode === "stock" ? Math.max(1, p.stock || 1) : fixedCopies),
+        itemCode: p.code || p.id,
+        itemName: p.name,
+        barcode: p.barcode || p.code,
+        mrp: p.price || 0,
+        sellingPrice: p.price || 0,
+        quantity: itemCopies[p.id] || (copiesMode === "stock" ? Math.max(1, p.stock || 1) : fixedCopies),
       })),
     });
 
-    // Record Audit & History
-    const entry = PrintHistoryService.addEntry({
-      user: "super",
-      printer: provider.name,
-      provider: provider.name,
-      template: activeTemplate.name,
-      sourceDoc: selectedProductIds.size > 0 ? "Universal Selection" : "Filtered Master",
-      itemsCount: selectedItemsList.length,
-      totalLabels: totalLabelsCount,
-      status: result.success ? "Completed" : "Failed",
-      errorMessage: result.error,
-    });
+    const newHistoryEntry: PrintHistoryEntry = {
+      id: result.jobId,
+      timestamp: new Date().toLocaleTimeString(),
+      itemCount: selectedItemsList.length,
+      labelCount: totalLabelsCount,
+      templateName: activeTemplate.name,
+      status: result.lifecycleState === "DELIVERED" ? "SUCCESS" : "FAILED",
+    };
 
-    setPrintHistory(PrintHistoryService.getHistory());
+    setPrintHistory((prev) => [newHistoryEntry, ...prev]);
 
-    if (result.success && onNotification) {
-      onNotification("Print Job Executed", `Job ${entry.jobId} sent via ${provider.name} (${totalLabelsCount} labels).`, "success");
-    } else if (!result.success && onNotification) {
-      onNotification("Print Error", result.error || "Failed to execute print job.", "error");
+    if (onNotification) {
+      onNotification(
+        "Print Job Executed",
+        `Dispatched ${totalLabelsCount} labels via SCS-DXP-001 ${result.adapterUsed}.`,
+        "success"
+      );
     }
   };
 
@@ -243,10 +345,28 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleSavePRNFile = () => {
+    if (!compiledPRNScript.trim()) {
+      onNotification?.("PRN Save Failed", "No barcode labels are available to save.", "error");
+      return;
+    }
+
+    const blob = new Blob([compiledPRNScript], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `smriti_barcode_labels_${(activeTemplate.language || "ZPL").toLowerCase()}.prn`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    onNotification?.("PRN File Saved", "Generated barcode PRN file downloaded successfully.", "success");
+  };
+
   return (
-    <div className="w-full bg-[#0B0F17] border border-theme-divider rounded-2xl overflow-hidden shadow-2xl animate-in fade-in duration-200 text-theme-body font-sans flex flex-col max-h-[92vh]">
+    <div className="w-full bg-[var(--sds-color-surface)] border border-[var(--sds-color-border)] rounded-2xl overflow-hidden shadow-2xl animate-in fade-in duration-200 text-[var(--sds-color-text-main)] font-sans flex flex-col max-h-[92vh]">
       {/* 1. SAP Fiori Sticky Object Header */}
-      <div className="bg-[#121824] border-b border-theme-divider px-6 py-4 space-y-3 shrink-0">
+      <div className="bg-[var(--sds-color-surface)] border-b border-[var(--sds-color-border)] px-6 py-4 space-y-3 shrink-0">
         {/* Breadcrumb Trail */}
         <div className="flex items-center gap-2 text-[11px] text-theme-muted font-mono">
           <span>Platform Services</span>
@@ -270,7 +390,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                 </span>
               </div>
               <p className="text-xs text-theme-muted mt-0.5">
-                Single Label Printing Application • Multi-Provider Framework (ZPL/TSPL) • Size Matrix Pivot
+                Single Label Printing Application â€¢ Multi-Provider Framework (ZPL/TSPL) â€¢ Size Matrix Pivot
               </p>
             </div>
           </div>
@@ -309,7 +429,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
       {/* 2. Scrollable Object Page Body */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
-        {/* ─── TAG PRINTING HARDWARE & SELECTION SPECIFICATION PANEL (SLP-001) ─── */}
+        {/* â”€â”€â”€ TAG PRINTING HARDWARE & SELECTION SPECIFICATION PANEL (SLP-001) â”€â”€â”€ */}
         <div className="p-5 rounded-2xl bg-theme-surface-1 border border-theme-divider space-y-5 shadow-lg">
           
           {/* Top Control Bar: Script File & Labels Per Row */}
@@ -324,7 +444,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                   type="text"
                   value={scriptFileName}
                   onChange={(e) => setScriptFileName(e.target.value)}
-                  className="flex-1 bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs font-mono text-theme-heading focus:outline-none focus:border-indigo-500"
+                  className="flex-1 bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs font-mono text-theme-heading focus:outline-none focus:border-[var(--c-seef-accent)]"
                   placeholder="e.g. C:\smriti\pesh.txt"
                 />
                 <button
@@ -378,7 +498,10 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                     <input
                       type="checkbox"
                       checked={outputFile}
-                      onChange={(e) => setOutputFile(e.target.checked)}
+                      onChange={(e) => {
+                        setOutputFile(e.target.checked);
+                        if (e.target.checked) setProviderType("prn");
+                      }}
                       className="accent-indigo-500 rounded"
                     />
                     <span>File (.txt/.prn)</span>
@@ -449,15 +572,15 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
               </div>
             </div>
 
-            {/* Right Column: From ──► To Range Filter Matrix */}
+            {/* Right Column: From â”€â”€â–º To Range Filter Matrix */}
             <div className="lg:col-span-8 space-y-3">
               <div className="flex items-center justify-between border-b border-theme-divider pb-2">
                 <span className="text-xs font-bold font-display text-theme-heading uppercase tracking-wide flex items-center gap-2">
                   <Sliders size={14} className="text-indigo-400" />
-                  <span>Selection Criteria Matrix (From ──► To Ranges)</span>
+                  <span>Selection Criteria Matrix (From â”€â”€â–º To Ranges)</span>
                 </span>
                 <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
-                  {filteredProducts.length} Matching SKUs
+                  {totalMatchingCount} Matching SKUs
                 </span>
               </div>
 
@@ -578,7 +701,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                     <input
                       type="text"
                       value={shadeTo}
-                      onChange={(e) => setStyleTo(e.target.value)}
+                      onChange={(e) => setShadeTo(e.target.value)}
                       placeholder="To (e.g. Ecru)"
                       className="w-1/2 bg-theme-surface-1 border border-theme-divider rounded-lg px-2.5 py-1 text-xs text-theme-body"
                     />
@@ -609,17 +732,26 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
 
               </div>
 
-              {/* Universal Keyword Quick Search */}
+              {/* Universal Keyword Quick Search with F2 Discovery DNA (SCS-UIX Lookup Rule-001) */}
               <div className="pt-2">
-                <div className="relative">
+                <div className="relative flex items-center">
                   <Search size={14} className="absolute left-3 top-2.5 text-theme-muted" />
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Quick Filter Keyword: SKU, Barcode, Article, Supplier, Brand..."
-                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-9 pr-3 py-2 text-xs text-theme-body focus:outline-none focus:border-indigo-500"
+                    onKeyDown={(e) => {
+                      if (e.key === "F2") {
+                        e.preventDefault();
+                        onNotification?.("F2 Universal Discovery", `Triggered F2 discovery mode for query: "${searchTerm}"`, "success");
+                      }
+                    }}
+                    placeholder="Quick Filter Keyword: SKU, Barcode, Article, Brand... (Press F2 for Universal Discovery)"
+                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-9 pr-14 py-2 text-xs text-theme-body focus:outline-none focus:border-[var(--c-seef-accent)]"
                   />
+                  <kbd className="absolute right-3 top-2 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-theme-surface-1 border border-theme-divider text-theme-muted">
+                    F2
+                  </kbd>
                 </div>
               </div>
 
@@ -772,26 +904,55 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-mono text-theme-muted block mb-1">BASE PIVOT DIMENSION</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { value: "styleCode", label: "Style Code" },
+                      { value: "modelNo", label: "Model No" },
+                      { value: "articleNo", label: "Article No" },
+                      { value: "brand", label: "Brand" },
+                      { value: "category", label: "Category" },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          setPivotBasis(option.value);
+                          setPivotArticle("");
+                          setPivotColor("ALL");
+                          setPivotQuantities({});
+                        }}
+                        className={`px-3 py-2 rounded-xl border text-[11px] font-semibold transition ${pivotBasis === option.value ? "bg-indigo-600 border-indigo-500 text-white" : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:bg-theme-surface-hover"}`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
-                  <label className="text-[10px] font-mono text-theme-muted block mb-1">SELECT BASE ARTICLE</label>
+                  <label className="text-[10px] font-mono text-theme-muted block mb-1">SELECT BASE VALUE</label>
                   <select
                     value={pivotArticle}
                     onChange={(e) => {
                       setPivotArticle(e.target.value);
-                      setPivotColor("");
+                      setPivotColor("ALL");
                       setPivotQuantities({});
                     }}
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body"
                   >
-                    <option value="">-- Choose Base Article --</option>
-                    {baseArticles.map((art) => (
-                      <option key={art} value={art}>{art}</option>
+                    <option value="">-- Choose Base --</option>
+                    {baseOptions.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
                     ))}
                   </select>
                 </div>
+              </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-mono text-theme-muted block mb-1">SELECT COLOR</label>
+                  <label className="text-[10px] font-mono text-theme-muted block mb-1">COLOR FILTER</label>
                   <select
                     value={pivotColor}
                     onChange={(e) => {
@@ -801,41 +962,75 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
                     disabled={!pivotArticle}
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-body disabled:opacity-50"
                   >
-                    <option value="">-- Choose Color --</option>
+                    <option value="ALL">All Colors</option>
                     {availableColors.map((col) => (
                       <option key={col} value={col}>{col}</option>
                     ))}
                   </select>
                 </div>
+
+                <div className="flex items-center justify-between rounded-2xl border border-theme-divider bg-theme-surface-2 p-3">
+                  <div>
+                    <span className="text-[10px] font-mono text-theme-muted block">Total Matrix Labels</span>
+                    <span className="text-sm font-bold text-theme-heading">{totalPivotSelectionCount}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-mono text-theme-muted block">Rows Ã— Columns</span>
+                    <span className="text-sm font-bold text-theme-heading">{pivotMatrixRows.length}Ã—{pivotColorColumns.length}</span>
+                  </div>
+                </div>
               </div>
 
-              {pivotArticle && pivotColor && (
+              {pivotArticle && pivotMatrixRows.length > 0 && (
                 <div className="space-y-4 pt-2 border-t border-theme-divider/50">
-                  <div className="bg-theme-surface-2 p-4 rounded-xl border border-theme-divider">
-                    <h4 className="text-[10px] font-mono text-indigo-400 uppercase tracking-wider mb-3">SIZE ALLOCATION COPIES MATRIX</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                      {matrixVariants.map((v) => (
-                        <div key={v.id} className="bg-theme-surface-1 p-3 rounded-xl border border-theme-divider flex flex-col items-center">
-                          <span className="text-[10px] font-mono text-theme-muted">Size {v.size || "OS"}</span>
-                          <span className="text-xs font-bold text-theme-heading mt-0.5">₹{v.price}</span>
-                          <span className="text-[9px] text-emerald-400 mt-0.5">Stock: {v.stock}</span>
-                          <input
-                            type="number"
-                            min="0"
-                            value={pivotQuantities[v.id] || ""}
-                            placeholder="0"
-                            onChange={(e) => {
-                              const val = Math.max(0, parseInt(e.target.value) || 0);
-                              setPivotQuantities({ ...pivotQuantities, [v.id]: val });
-                            }}
-                            className="w-full text-center bg-theme-surface-2 border border-theme-divider rounded-lg mt-2 py-1 text-xs text-theme-body font-mono"
-                          />
-                        </div>
-                      ))}
-                    </div>
+                  <div className="overflow-x-auto bg-theme-surface-2 p-4 rounded-xl border border-theme-divider">
+                    <h4 className="text-[10px] font-mono text-indigo-400 uppercase tracking-wider mb-3">SIZE Ã— COLOR ALLOCATION MATRIX</h4>
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-theme-surface-1 text-theme-muted uppercase font-mono text-[9px] border-b border-theme-divider">
+                          <th className="px-3 py-2">Size</th>
+                          {pivotColorColumns.map((color) => (
+                            <th key={color} className="px-3 py-2 text-center">{color}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-theme-divider/60">
+                        {pivotMatrixRows.map((row) => (
+                          <tr key={row.size} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="px-3 py-2 font-mono font-semibold">{row.size}</td>
+                            {row.variants.map((variant, idx) => (
+                              <td key={idx} className="px-3 py-2 text-center align-top">
+                                {variant ? (
+                                  <div className="space-y-2">
+                                    <div className="text-[10px] text-theme-muted">SKU: {variant.code || "N/A"}</div>
+                                    <div className="text-[10px] text-emerald-400">Stock: {variant.stock || 0}</div>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={pivotQuantities[variant.id] || ""}
+                                      placeholder="0"
+                                      onChange={(e) => {
+                                        const val = Math.max(0, parseInt(e.target.value) || 0);
+                                        setPivotQuantities({ ...pivotQuantities, [variant.id]: val });
+                                      }}
+                                      className="w-full bg-theme-surface-1 border border-theme-divider rounded-lg py-1 text-xs text-theme-body font-mono"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="text-[10px] text-theme-muted">N/A</div>
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
 
-                  <div className="flex justify-end">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-[10px] font-mono text-theme-muted">
+                      Select a base value and enter quantities for each size/color cell. The grid is generated from the chosen {pivotBasis} and available color variants.
+                    </div>
                     <button
                       type="button"
                       onClick={handleAddMatrixItemsToSelection}
@@ -950,7 +1145,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
       </div>
 
       {/* 4. SMRITI Tag Printing Action Bar & Footer Toolbar */}
-      <div className="bg-[#121824] border-t border-theme-divider px-6 py-3 flex flex-wrap items-center justify-between gap-4 shrink-0 font-sans">
+      <div className="bg-theme-surface-1 border-t border-theme-divider px-6 py-3 flex flex-wrap items-center justify-between gap-4 shrink-0 font-sans">
         
         {/* Template & Print Provider Selection */}
         <div className="flex items-center gap-4 text-xs">
@@ -961,7 +1156,7 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
               onChange={(e) => setSelectedTemplateId(e.target.value)}
               className="bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1 text-xs text-theme-body"
             >
-              {DEFAULT_PRN_TEMPLATES.map((t) => (
+              {DEFAULT_PRN_TEMPLATES.map((t: PRNTemplate) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>
@@ -1040,6 +1235,15 @@ export const UniversalLabelPrintingStudio: React.FC<UniversalLabelPrintingStudio
           >
             <Printer size={14} />
             <span>Print ({totalLabelsCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSavePRNFile}
+            className="px-4 py-1.5 bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer font-mono"
+          >
+            <Download size={14} />
+            <span>Save PRN File</span>
           </button>
 
           <button

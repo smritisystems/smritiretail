@@ -5,9 +5,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.0.0  (SEEF Phase 4)
+ * Version      : 2.0.0  (SXP v1.0 — GlobalSearchEngine integration)
  * Created      : 2026-07-26
- * Modified     : 2026-07-27
+ * Modified     : 2026-08-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  *
@@ -18,25 +18,29 @@
  * Keyboard-first: entire interaction via keyboard, no mouse required.
  * Searches across: all registered workspaces, recently used, favorites,
  * SEEF quick-actions (theme switch, density toggle).
+ * SXP v1.0: federated results from GlobalSearchEngine (products, customers,
+ * SXP actions, SXP workspaces) merged in on every non-empty query.
  *
- * AOP-001: No AI features in v1. Navigation + actions only.
+ * AOP-001: No AI auto-execution. Navigation + actions only.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Search, Clock, Star, ArrowRight, Command, Hash,
-  Palette, Sun, Moon, LayoutGrid, Zap
+  Palette, Sun, Moon, LayoutGrid, Zap, Box
 } from "lucide-react";
 import { useSEEF } from "./SEEFContext.tsx";
 import { useLayoutEngine } from "./layout_store.tsx";
+import { GlobalSearchEngine, SearchResult } from "./GlobalSearchEngine.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface PaletteItem {
   id: string;
   label: string;
-  category: "workspace" | "recent" | "favorite" | "action" | "seef";
+  subtitle?: string;
+  category: "workspace" | "recent" | "favorite" | "action" | "seef" | "sxp";
   icon?: React.ReactNode;
   iconText?: string;           // material symbol name
   keywords?: string[];
@@ -77,6 +81,27 @@ export const SEEFCommandPalette: React.FC<SEEFCommandPaletteProps> = ({
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // ── SXP GlobalSearchEngine async results ──────────────────────────────────
+  const [sxpResults, setSxpResults] = useState<SearchResult[]>([]);
+  const [sxpLoading, setSxpLoading] = useState(false);
+
+  useEffect(() => {
+    if (!query.trim()) {
+      setSxpResults([]);
+      return;
+    }
+    setSxpLoading(true);
+    const timer = setTimeout(() => {
+      GlobalSearchEngine.search(query)
+        .then((results) => {
+          setSxpResults(results.slice(0, 6));
+          setSxpLoading(false);
+        })
+        .catch(() => setSxpLoading(false));
+    }, 120); // 120ms debounce — within SXP 150ms perf budget
+    return () => clearTimeout(timer);
+  }, [query]);
 
   // ── Build palette items ───────────────────────────────────────────────────
   const allItems = useMemo<PaletteItem[]>(() => {
@@ -194,7 +219,20 @@ export const SEEFCommandPalette: React.FC<SEEFCommandPaletteProps> = ({
     return items;
   }, [registeredWorkspaces, recentlyUsed, preferences.favorites, config, updateSEEF, onNavigate, onClose]);
 
-  // ── Filtered results ──────────────────────────────────────────────────────
+  // ── SXP results mapped to PaletteItems ───────────────────────────────────
+  const sxpItems = useMemo<PaletteItem[]>(() =>
+    sxpResults.map((r) => ({
+      id: r.id,
+      label: r.title,
+      subtitle: r.subtitle,
+      category: "sxp" as const,
+      icon: r.icon ? <span style={{ fontSize: 15 }}>{r.icon}</span> : <Box size={14} />,
+      onSelect: () => { r.onSelect(); onClose(); },
+    })),
+    [sxpResults, onClose]
+  );
+
+  // ── Filtered results — SEEF items ─────────────────────────────────────────
   const filtered = useMemo(() => {
     if (!query) return allItems.slice(0, 12);
     return allItems
@@ -202,11 +240,17 @@ export const SEEFCommandPalette: React.FC<SEEFCommandPaletteProps> = ({
         fuzzyMatch(query, item.label) ||
         (item.keywords ?? []).some((kw) => fuzzyMatch(query, kw))
       )
-      .slice(0, 12);
+      .slice(0, 8); // reduced to 8 when SXP results also shown
   }, [allItems, query]);
 
+  // Merged list for keyboard navigation (SEEF first, SXP federated after)
+  const allVisible = useMemo(
+    () => (query.trim() ? [...filtered, ...sxpItems] : filtered),
+    [filtered, sxpItems, query]
+  );
+
   // Reset selection when results change
-  useEffect(() => setSelectedIndex(0), [filtered.length, query]);
+  useEffect(() => setSelectedIndex(0), [allVisible.length, query]);
 
   // Focus input on open & bind global Escape key listener
   useEffect(() => {
@@ -232,7 +276,7 @@ export const SEEFCommandPalette: React.FC<SEEFCommandPaletteProps> = ({
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
-          setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
+          setSelectedIndex((i) => Math.min(i + 1, allVisible.length - 1));
           break;
         case "ArrowUp":
           e.preventDefault();
@@ -240,7 +284,7 @@ export const SEEFCommandPalette: React.FC<SEEFCommandPaletteProps> = ({
           break;
         case "Enter":
           e.preventDefault();
-          filtered[selectedIndex]?.onSelect();
+          allVisible[selectedIndex]?.onSelect();
           break;
         case "Escape":
           e.preventDefault();
@@ -248,7 +292,7 @@ export const SEEFCommandPalette: React.FC<SEEFCommandPaletteProps> = ({
           break;
       }
     },
-    [filtered, selectedIndex, onClose]
+    [allVisible, selectedIndex, onClose]
   );
 
   if (!isOpen) return null;
@@ -259,6 +303,7 @@ export const SEEFCommandPalette: React.FC<SEEFCommandPaletteProps> = ({
     workspace: "All Modules",
     action: "Actions",
     seef: "Experience Settings",
+    sxp: "Products, Customers & More",
   };
 
   const categoryIcon: Record<PaletteItem["category"], React.ReactNode> = {
@@ -267,16 +312,17 @@ export const SEEFCommandPalette: React.FC<SEEFCommandPaletteProps> = ({
     workspace: <Hash size={11} />,
     action:    <ArrowRight size={11} />,
     seef:      <Palette size={11} />,
+    sxp:       <Box size={11} />,
   };
 
   // Group items by category
-  const grouped = filtered.reduce<Record<string, PaletteItem[]>>((acc, item) => {
+  const grouped = allVisible.reduce<Record<string, PaletteItem[]>>((acc, item) => {
     const key = item.category;
     if (!acc[key]) acc[key] = [];
     acc[key].push(item);
     return acc;
   }, {});
-  const categoryOrder: PaletteItem["category"][] = ["recent", "favorite", "workspace", "action", "seef"];
+  const categoryOrder: PaletteItem["category"][] = ["recent", "favorite", "workspace", "action", "seef", "sxp"];
   let flatIndex = 0;
 
   return (
@@ -325,7 +371,7 @@ export const SEEFCommandPalette: React.FC<SEEFCommandPaletteProps> = ({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search modules, actions, settings…"
+            placeholder="Search modules, actions, products, customers, settings…"
             style={{
               flex: 1,
               border: "none",
@@ -354,7 +400,7 @@ export const SEEFCommandPalette: React.FC<SEEFCommandPaletteProps> = ({
 
         {/* Results */}
         <div style={{ maxHeight: "420px", overflowY: "auto" }}>
-          {filtered.length === 0 ? (
+          {allVisible.length === 0 && !sxpLoading ? (
             <div style={{
               padding: "32px 16px",
               textAlign: "center",
@@ -427,7 +473,14 @@ export const SEEFCommandPalette: React.FC<SEEFCommandPaletteProps> = ({
                             </span>
                           )}
                         </span>
-                        <span style={{ flex: 1 }}>{item.label}</span>
+                        <span style={{ flex: 1 }}>
+                          {item.label}
+                          {item.subtitle && (
+                            <span style={{ display: "block", fontSize: 10, color: "var(--c-theme-muted)", marginTop: 1 }}>
+                              {item.subtitle}
+                            </span>
+                          )}
+                        </span>
                         {isSelected && (
                           <kbd style={{
                             padding: "1px 5px",
@@ -447,7 +500,14 @@ export const SEEFCommandPalette: React.FC<SEEFCommandPaletteProps> = ({
               );
             })
           )}
-        </div>
+        {/* SXP loading spinner (inline, below all results) */}
+        {sxpLoading && query.trim() && (
+          <div style={{ padding: "6px 16px", fontSize: 11, color: "var(--c-theme-muted)", display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", border: "2px solid var(--c-seef-accent)", borderTopColor: "transparent", animation: "spin 0.6s linear infinite" }} />
+            Searching products &amp; customers…
+          </div>
+        )}
+      </div>
 
         {/* Footer hint */}
         <div style={{
@@ -466,7 +526,7 @@ export const SEEFCommandPalette: React.FC<SEEFCommandPaletteProps> = ({
             <span><kbd style={kbdStyle}>Esc</kbd> Close</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-            <Command size={10} /> SEEF v1.0
+            <Command size={10} /> SXP v1.0
           </div>
         </div>
       </div>

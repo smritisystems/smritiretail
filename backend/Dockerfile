@@ -10,7 +10,7 @@
 # Classification: Internal
 
 FROM python:3.11-slim AS runtime
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -25,6 +25,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN chmod +x entrypoint.sh
+RUN chmod +x entrypoint.sh worker_entrypoint.sh
 EXPOSE 8000
 ENTRYPOINT ["./entrypoint.sh"]

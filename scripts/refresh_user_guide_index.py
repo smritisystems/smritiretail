@@ -1,4 +1,25 @@
 """
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+"""
+
+"""
 Script to refresh the end-user guide index section in docs/user_guide/USER_GUIDE.md.
 
 The script scans all Markdown files in docs/user_guide/ except USER_GUIDE.md

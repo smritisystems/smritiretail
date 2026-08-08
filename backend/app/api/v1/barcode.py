@@ -13,6 +13,8 @@ License      : Proprietary Commercial Software
 
 import json
 import socket
+import platform
+import subprocess
 from typing import List, Dict, Any
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Body
@@ -733,6 +735,45 @@ async def list_registered_printers(
         "success": True,
         "printers": BarcodeEngineService.list_printers()
     }
+
+
+@router.get("/local-printers")
+async def list_local_printers(
+    current_user: User = Depends(get_current_user)
+):
+    """Discover printers installed in the Windows spooler on the backend desktop."""
+    if platform.system() != "Windows":
+        return {"success": True, "printers": [], "source": "unsupported_platform"}
+
+    command = (
+        "Get-Printer | Select-Object Name,DriverName,PortName,PrinterStatus,Default "
+        "| ConvertTo-Json -Compress"
+    )
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=True,
+        )
+        raw = json.loads(result.stdout) if result.stdout.strip() else []
+        entries = raw if isinstance(raw, list) else [raw]
+        printers = [
+            {
+                "name": entry.get("Name"),
+                "driver": entry.get("DriverName"),
+                "port": entry.get("PortName"),
+                "connection": "SPOOLER",
+                "isDefault": bool(entry.get("Default")),
+                "status": entry.get("PrinterStatus"),
+            }
+            for entry in entries
+            if entry.get("Name")
+        ]
+        return {"success": True, "printers": printers, "source": "windows_spooler"}
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
+        return {"success": False, "printers": [], "source": "windows_spooler", "error": str(exc)}
 
 
 @router.post("/generate-prn")

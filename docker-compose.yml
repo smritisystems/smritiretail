@@ -1,16 +1,12 @@
 # Project      : SMRITI Retail OS
-# Author       : Jawahar Ramkripal Mallah
-# Email        : support@smritibooks.com
-# Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-# Version      : 3.15.0
-# Created      : 2026-07-11
-# Modified     : 2026-07-12
-# Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
-# License      : Proprietary Commercial Software
-# Classification: Internal
+# Architecture : Platform OS v4.2 & DDS v1.0 Standard 5-Container Runtime Stack
+# Description  : Production-ready Docker Compose for SMRITI Platform OS
+# Copyright    : © SMRITIBooks.com. All Rights Reserved.
+# Version      : 4.2.0
 
 services:
-  db:
+  # Container 5: smriti-db (PostgreSQL 15 Database)
+  smriti-db:
     image: postgres:15-alpine
     container_name: smriti-db
     restart: unless-stopped
@@ -22,44 +18,41 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - smriti_db_volume:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d smriti_retail_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-smriti_retail_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
 
-  workspace:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: smriti-workspace
+  # Container 4: smriti-redis (Redis Queue Broker & Cache)
+  smriti-redis:
+    image: redis:7-alpine
+    container_name: smriti-redis
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:3000"
-    environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smriti_retail_db}"
-      DATABASE_PROVIDER: "postgres"
-      SYNC_PROVIDER: "postgres"
-      CACHE_PROVIDER: "memory"
-      STORAGE_PROVIDER: "filesystem"
-      GEMINI_API_KEY: "${GEMINI_API_KEY}"
-      PYTHON_CORE_HOST: "api:8000"
-      SMRITI_API_HOST: "api:8000"
-      INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:-smriti_test_internal_key_do_not_use_in_production}"
-    depends_on:
-      db:
-        condition: service_healthy
-      api:
-        condition: service_healthy
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - smriti_redis_volume:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
-  api:
+  # Container 2: smriti-api (FastAPI REST API & Business Kernels)
+  smriti-api:
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -68,19 +61,26 @@ services:
     ports:
       - "${BACKEND_API_PORT:-8000}:8000"
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smriti_retail_db}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@smriti-db:5432/${POSTGRES_DB:-smriti_retail_db}"
+      REDIS_HOST: "smriti-redis"
+      REDIS_PORT: "6379"
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
       JWT_SECRET_KEY: "${JWT_SECRET_KEY:-CHANGE_ME_FOR_DEVELOPMENT_ONLY_JWT}"
       SGIP_VAULT_MASTER_KEY: "${SGIP_VAULT_MASTER_KEY:-CHANGE_ME_FOR_DEVELOPMENT_ONLY_VAULT}"
       INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:-smriti_test_internal_key_do_not_use_in_production}"
-      # When true, the container will skip running Alembic migrations on startup.
-      # Recommended long-term: run migrations as a one-off job from CI or an init container.
       SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-false}"
     volumes:
       - ./backend:/app
       - ./CHANGELOG.md:/app/CHANGELOG.md
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
     depends_on:
-      db:
+      smriti-db:
+        condition: service_healthy
+      smriti-redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
@@ -89,6 +89,80 @@ services:
       retries: 5
       start_period: 90s
 
+  # Container 3: smriti-worker (Python Background Job Queue Processor)
+  smriti-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smriti-worker
+    entrypoint: ["./worker_entrypoint.sh"]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@smriti-db:5432/${POSTGRES_DB:-smriti_retail_db}"
+      REDIS_HOST: "smriti-redis"
+      REDIS_PORT: "6379"
+      INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:-smriti_test_internal_key_do_not_use_in_production}"
+    volumes:
+      - ./backend:/app
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 1.5G
+    depends_on:
+      smriti-db:
+        condition: service_healthy
+      smriti-redis:
+        condition: service_healthy
+      smriti-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q 'READY' /tmp/smriti-worker/status || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # Container 1: smriti-web (React/Vite Frontend UI)
+  smriti-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smriti-web
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@smriti-db:5432/${POSTGRES_DB:-smriti_retail_db}"
+      DATABASE_PROVIDER: "postgres"
+      SYNC_PROVIDER: "postgres"
+      CACHE_PROVIDER: "redis"
+      REDIS_HOST: "smriti-redis"
+      REDIS_PORT: "6379"
+      PYTHON_CORE_HOST: "smriti-api:8000"
+      SMRITI_API_HOST: "smriti-api:8000"
+      INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:-smriti_test_internal_key_do_not_use_in_production}"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+    depends_on:
+      smriti-db:
+        condition: service_healthy
+      smriti-redis:
+        condition: service_healthy
+      smriti-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
 volumes:
   smriti_db_volume:
     name: smriti_db_volume
+  smriti_redis_volume:
+    name: smriti_redis_volume

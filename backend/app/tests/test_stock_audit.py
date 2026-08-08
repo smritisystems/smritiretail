@@ -24,7 +24,7 @@ from sqlalchemy.future import select
 
 from app.db.session import active_tenant_ctx
 from app.api.deps import TenantContext
-from app.models.inventory import Product, StockCount, StockAdjustment
+from app.models.inventory import Product, StockCount, StockAdjustment, StockMovement
 from app.services.inventory import InventoryService
 from app.schemas.inventory import ProductCreate
 from app.services.stock_audit_engine import StockAuditEngine
@@ -65,9 +65,28 @@ async def _make_product(db, tenant_ctx, stock=50, price=Decimal("100.00"), code_
         cost_price=price
     )
     product = await inv_service.create_product(p_in)
-    product.stock = stock
-    db.add(product)
-    await db.flush()
+    if stock > 0:
+        movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+        sm = StockMovement(
+            id=movement_id,
+            uuid=str(uuid.uuid4()),
+            product_id=product.id,
+            product_name=product.name,
+            sku=product.sku or product.code,
+            quantity=stock,
+            movement_type="OPENING",
+            reference_doc_type="OPENING_BALANCE",
+            reference_doc_id=product.id,
+            warehouse="Default Warehouse",
+            unit_cost=price,
+            remarks="Opening stock fixture",
+            source_module="StockAudit",
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+        )
+        db.add(sm)
+        await db.flush()
+        await db.refresh(product)
     return product
 
 
@@ -161,6 +180,8 @@ async def test_reconcile_stock_count_updates_product_stock(db_session):
     # Verify Product.stock updated directly
     up1 = (await db_session.execute(select(Product).where(Product.id == p1.id))).scalars().first()
     up2 = (await db_session.execute(select(Product).where(Product.id == p2.id))).scalars().first()
+    await db_session.refresh(up1)
+    await db_session.refresh(up2)
 
     assert up1.stock == 45  # Updated from 50 to 45
     assert up2.stock == 35  # Updated from 30 to 35

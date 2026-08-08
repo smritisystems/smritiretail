@@ -101,7 +101,7 @@ export const PosProfilesTab: React.FC<PosProfilesTabProps> = ({
 
         <button
           onClick={() => setShowAddModal(true)}
-          className="bg-[#2563EB] hover:bg-opacity-95 text-theme-body text-xs font-bold uppercase px-4 py-2.5 rounded-lg transition-all flex items-center space-x-1.5 shrink-0"
+          className="bg-[var(--c-seef-accent)] hover:bg-opacity-95 text-theme-body text-xs font-bold uppercase px-4 py-2.5 rounded-lg transition-all flex items-center space-x-1.5 shrink-0"
         >
           <span className="material-symbols-outlined text-sm">add_circle</span>
           <span>Register Terminal</span>
@@ -150,8 +150,8 @@ export const PosProfilesTab: React.FC<PosProfilesTabProps> = ({
                 onClick={() => handleToggleLockProfile(p.id)}
                 className={`flex-1 font-semibold py-1.5 px-2 rounded flex items-center justify-center space-x-1 border transition-colors ${
                   p.isLocked
-                    ? "bg-emerald-500 bg-opacity-20 border-emerald-500 text-emerald-400 hover:bg-[#2563EB] hover:text-white hover:border-[#2563EB]"
-                    : "bg-rose-500 bg-opacity-20 border-rose-500 text-rose-400 hover:bg-rose-500 hover:text-white"
+                    ? "bg-emerald-500 bg-opacity-20 border-emerald-500 text-emerald-400 hover:bg-[var(--c-seef-accent)] hover:text-theme-heading hover:border-[var(--c-seef-accent)]"
+                    : "bg-rose-500 bg-opacity-20 border-rose-500 text-rose-400 hover:bg-rose-500 hover:text-theme-heading"
                 }`}
               >
                 <span className="material-symbols-outlined text-sm">{p.isLocked ? "lock_open" : "lock"}</span>
@@ -239,7 +239,7 @@ export const PosProfilesTab: React.FC<PosProfilesTabProps> = ({
               </button>
               <button
                 type="submit"
-                className="bg-[#2563EB] hover:bg-opacity-95 text-theme-body px-4 py-2 rounded text-xs font-semibold transition-colors"
+                className="bg-[var(--c-seef-accent)] hover:bg-opacity-95 text-theme-body px-4 py-2 rounded text-xs font-semibold transition-colors"
               >
                 Register
               </button>

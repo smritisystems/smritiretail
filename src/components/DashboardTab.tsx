@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -16,10 +16,10 @@
  *
  * * Websites: smritisys.com | aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 4.0.0  (SEEF Phase 6 — SEEFCard KPI Upgrade)
+ * * Version    : 4.0.0  (SEEF Phase 6 â€” SEEFCard KPI Upgrade)
  * * Created    : 2026-07-10
  * * Modified   : 2026-07-26
- * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+ * * Copyright  : Â© AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
 
@@ -65,10 +65,10 @@ const TrendSalesTooltip = ({ active, payload, label }: any) => {
     const estMargin = Math.round(displayRevenue * 0.72); // 72% Margin estimate
 
     return (
-      <div className="bg-theme-surface-3 border border-[#2a3a5c] rounded-xl p-4 shadow-xl backdrop-blur-md min-w-[240px] text-xs font-sans">
-        <div className="flex items-center justify-between border-b border-[#2a3a5c] pb-2 mb-2">
+      <div className="bg-theme-surface-3 border border-theme-divider rounded-xl p-4 shadow-xl backdrop-blur-md min-w-[240px] text-xs font-sans">
+        <div className="flex items-center justify-between border-b border-theme-divider pb-2 mb-2">
           <span className="font-semibold text-theme-body flex items-center">
-            <span className="material-symbols-outlined text-[#2563EB] text-sm mr-1">calendar_today</span>
+            <span className="material-symbols-outlined text-[var(--c-seef-accent)] text-sm mr-1">calendar_today</span>
             {label}
           </span>
           <span className={`text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border ${
@@ -98,7 +98,7 @@ const TrendSalesTooltip = ({ active, payload, label }: any) => {
               {displayInvoices}
             </span>
           </div>
-          <div className="border-t border-[#2a3a5c]/50 my-1.5 pt-1.5 space-y-1 text-[11px] font-mono text-theme-muted">
+          <div className="border-t border-theme-divider/50 my-1.5 pt-1.5 space-y-1 text-[11px] font-mono text-theme-muted">
             <div className="flex justify-between">
               <span>{isForecastPoint ? "Proj. Avg / Invoice:" : "Avg / Invoice:"}</span>
               <span className="text-theme-body font-semibold">₹{avgRevenue.toLocaleString("en-IN")}</span>
@@ -111,7 +111,7 @@ const TrendSalesTooltip = ({ active, payload, label }: any) => {
             </div>
           </div>
         </div>
-        <div className="mt-2.5 pt-2 border-t border-[#2a3a5c]/50 text-[10px] text-theme-muted font-mono flex items-center justify-between">
+        <div className="mt-2.5 pt-2 border-t border-theme-divider/50 text-[10px] text-theme-muted font-mono flex items-center justify-between">
           <span>{isForecastPoint ? "SMRITI PROJECTION" : "SMRITI ENGINE"}</span>
           <span>v2.1.2</span>
         </div>
@@ -139,11 +139,11 @@ const DistributorStockTooltip = ({ active, payload, label }: any) => {
     const statusColor = statusColors[data.status] || "bg-theme-surface-2 text-theme-muted border-theme-divider";
 
     return (
-      <div className="bg-theme-surface-3 border border-[#2a3a5c] rounded-xl p-4 shadow-xl backdrop-blur-md min-w-[260px] text-xs font-sans">
-        <div className="flex items-center justify-between border-b border-[#2a3a5c] pb-2 mb-2">
+      <div className="bg-theme-surface-3 border border-theme-divider rounded-xl p-4 shadow-xl backdrop-blur-md min-w-[260px] text-xs font-sans">
+        <div className="flex items-center justify-between border-b border-theme-divider pb-2 mb-2">
           <div className="flex flex-col">
             <span className="font-semibold text-theme-body flex items-center">
-              <span className="material-symbols-outlined text-[#2563EB] text-sm mr-1">hub</span>
+              <span className="material-symbols-outlined text-[var(--c-seef-accent)] text-sm mr-1">hub</span>
               {data.name}
             </span>
             <span className="text-[10px] text-theme-muted mt-0.5 flex items-center">
@@ -174,7 +174,7 @@ const DistributorStockTooltip = ({ active, payload, label }: any) => {
               {sellThrough}%
             </span>
           </div>
-          <div className="border-t border-[#2a3a5c]/50 my-1.5 pt-1.5 space-y-1 text-[11px] font-mono text-theme-muted">
+          <div className="border-t border-theme-divider/50 my-1.5 pt-1.5 space-y-1 text-[11px] font-mono text-theme-muted">
             <div className="flex justify-between">
               <span>Weeks of Cover:</span>
               <span className="text-theme-body font-semibold">{data.weeksOfCover} weeks</span>
@@ -185,7 +185,7 @@ const DistributorStockTooltip = ({ active, payload, label }: any) => {
             </div>
           </div>
         </div>
-        <div className="mt-2.5 pt-2 border-t border-[#2a3a5c]/50 text-[10px] text-theme-muted font-mono flex items-center justify-between">
+        <div className="mt-2.5 pt-2 border-t border-theme-divider/50 text-[10px] text-theme-muted font-mono flex items-center justify-between">
           <span>CHANNEL LEDGER</span>
           <span>PSV INTEGRATED</span>
         </div>
@@ -204,7 +204,7 @@ const SalesGrowthTooltip = ({ active, payload, label }: any) => {
       <div className="bg-theme-surface-3 border border-theme-divider rounded-xl p-4 shadow-xl backdrop-blur-md min-w-[220px] text-xs font-sans">
         <div className="flex items-center justify-between border-b border-theme-divider pb-2 mb-2">
           <span className="font-semibold text-theme-body flex items-center">
-            <span className="material-symbols-outlined text-[#2563EB] text-sm mr-1">trending_up</span>
+            <span className="material-symbols-outlined text-[var(--c-seef-accent)] text-sm mr-1">trending_up</span>
             {data.label}
           </span>
           <span className={`text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border ${
@@ -701,7 +701,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       <div className="bg-theme-surface-1 rounded-xl p-5 border border-theme-divider shadow-md flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
-            <span className="material-symbols-outlined text-[#2563EB]">calendar_month</span>
+            <span className="material-symbols-outlined text-[var(--c-seef-accent)]">calendar_month</span>
             <h3 className="font-display font-semibold text-base text-theme-body">
               Temporal Operational Scope
             </h3>
@@ -730,7 +730,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   }}
                   className={`px-3 py-1.5 rounded-md font-medium transition-all cursor-pointer ${
                     isActive
-                      ? "bg-[#2563EB] text-white shadow-sm"
+                      ? "bg-[var(--c-seef-accent)] text-white shadow-sm"
                       : "text-theme-muted hover:text-theme-body"
                   }`}
                 >
@@ -751,7 +751,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 className="bg-transparent text-xs font-mono text-theme-body focus:outline-none border-none cursor-pointer [color-scheme:dark]"
               />
             </div>
-            <span className="text-theme-muted text-xs font-mono">→</span>
+            <span className="text-theme-muted text-xs font-mono">â†’</span>
             <div className="flex items-center space-x-1.5">
               <span className="text-[10px] uppercase font-mono text-theme-muted">End</span>
               <input
@@ -772,9 +772,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </div>
       </div>
 
-      {/* KPI Section — SEEFCard wrappers (SEEF Phase 6) */}
+      {/* KPI Section â€” SEEFCard wrappers (SEEF Phase 6) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1 — Outlet Health Score */}
+        {/* Metric 1 â€” Outlet Health Score */}
         <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-theme-muted uppercase font-display">
@@ -785,7 +785,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 const f = formulas.find((f) => f.id === "for-3");
                 if (f) onSelectFormula(f);
               }}
-              className="text-theme-muted hover:text-[#2563EB] flex items-center space-x-0.5"
+              className="text-theme-muted hover:text-[var(--c-seef-accent)] flex items-center space-x-0.5"
             >
               <span className="material-symbols-outlined text-sm">info</span>
               <span className="text-xs font-medium">Explain</span>
@@ -809,7 +809,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </p>
         </SEEFCard>
 
-        {/* Metric 2 — Weeks of Cover */}
+        {/* Metric 2 â€” Weeks of Cover */}
         <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-theme-muted uppercase font-display">
@@ -820,7 +820,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 const f = formulas.find((f) => f.id === "for-1");
                 if (f) onSelectFormula(f);
               }}
-              className="text-theme-muted hover:text-[#2563EB] flex items-center space-x-0.5"
+              className="text-theme-muted hover:text-[var(--c-seef-accent)] flex items-center space-x-0.5"
             >
               <span className="material-symbols-outlined text-sm">info</span>
               <span className="text-xs font-medium">Explain</span>
@@ -841,7 +841,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </p>
         </SEEFCard>
 
-        {/* Metric 3 — Dead Stock % */}
+        {/* Metric 3 â€” Dead Stock % */}
         <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-theme-muted uppercase font-display">
@@ -852,7 +852,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 const f = formulas.find((f) => f.id === "for-2");
                 if (f) onSelectFormula(f);
               }}
-              className="text-theme-muted hover:text-[#2563EB] flex items-center space-x-0.5"
+              className="text-theme-muted hover:text-[var(--c-seef-accent)] flex items-center space-x-0.5"
             >
               <span className="material-symbols-outlined text-sm">info</span>
               <span className="text-xs font-medium">Explain</span>
@@ -876,7 +876,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </p>
         </SEEFCard>
 
-        {/* Metric 4 — Live Sales Value */}
+        {/* Metric 4 â€” Live Sales Value */}
         <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <span className="text-xs font-semibold text-theme-muted uppercase font-display block">
             Live Sales Value
@@ -894,7 +894,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </p>
         </SEEFCard>
 
-        {/* Metric 5 — Channel Capital */}
+        {/* Metric 5 â€” Channel Capital */}
         <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-theme-muted uppercase font-display">
@@ -905,7 +905,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 const f = formulas.find((f) => f.id === "for-4");
                 if (f) onSelectFormula(f);
               }}
-              className="text-theme-muted hover:text-[#2563EB] flex items-center space-x-0.5"
+              className="text-theme-muted hover:text-[var(--c-seef-accent)] flex items-center space-x-0.5"
             >
               <span className="material-symbols-outlined text-sm">info</span>
               <span className="text-xs font-medium">Explain</span>
@@ -924,7 +924,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </p>
         </SEEFCard>
 
-        {/* Metric 6 — Daily Revenue */}
+        {/* Metric 6 â€” Daily Revenue */}
         <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-theme-muted uppercase font-display">
@@ -948,7 +948,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <p className="mt-2 text-xs text-theme-muted">Today's total revenue</p>
         </SEEFCard>
 
-        {/* Metric 7 — Total Sales */}
+        {/* Metric 7 â€” Total Sales */}
         <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-theme-muted uppercase font-display">
@@ -969,7 +969,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <p className="mt-2 text-xs text-theme-muted">Products sold today</p>
         </SEEFCard>
 
-        {/* Metric 8 — Low-Stock Items */}
+        {/* Metric 8 â€” Low-Stock Items */}
         <SEEFCard interactive style={{ padding: "var(--seef-space-lg)" }}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-theme-muted uppercase font-display">
@@ -1005,7 +1005,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
               <div>
                 <div className="flex items-center space-x-2">
-                  <span className="material-symbols-outlined text-[#2563EB]">
+                  <span className="material-symbols-outlined text-[var(--c-seef-accent)]">
                     show_chart
                   </span>
                   <h3 className="font-display font-semibold text-lg text-theme-body">
@@ -1017,7 +1017,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 </p>
               </div>
               <div className="flex items-center space-x-2 text-xs font-mono">
-                <span className="w-2 h-2 rounded-full bg-[#2563EB] animate-pulse"></span>
+                <span className="w-2 h-2 rounded-full bg-[var(--c-seef-accent)] animate-pulse"></span>
                 <span className="text-theme-muted">Model: SMRITI Velocity</span>
               </div>
             </div>
@@ -1098,7 +1098,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               </ResponsiveContainer>
             </div>
             
-            <div className="mt-4 pt-3 border-t border-[#2a3a5c]/40 flex justify-between items-center text-[10px] font-mono text-theme-muted">
+            <div className="mt-4 pt-3 border-t border-theme-divider/40 flex justify-between items-center text-[10px] font-mono text-theme-muted">
               <span>SMRITI AUTOMATED AGGREGATIONS</span>
               <span className="text-emerald-400 font-semibold flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -1161,7 +1161,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   </h3>
                 </div>
                 <p className="text-xs text-theme-muted mt-1">
-                  Identify peak transaction times and optimize staffing • Live synced with checkout events
+                  Identify peak transaction times and optimize staffing â€¢ Live synced with checkout events
                 </p>
               </div>
               <div className="flex items-center space-x-2 text-xs font-mono text-theme-muted">
@@ -1202,11 +1202,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                     return (
                       <div key={day} className="grid grid-cols-[80px_1fr] gap-2 items-center">
                         <div className="flex items-center justify-between pr-2">
-                          <span className={`text-xs font-semibold font-sans ${isToday ? "text-[#2563EB] font-bold" : "text-theme-body"}`}>
+                          <span className={`text-xs font-semibold font-sans ${isToday ? "text-[var(--c-seef-accent)] font-bold" : "text-theme-body"}`}>
                             {day}
                           </span>
                           {isToday && (
-                            <span className="text-[9px] bg-blue-500/20 text-[#2563EB] border border-blue-500/40 px-1 rounded scale-90">
+                            <span className="text-[9px] bg-blue-500/20 text-[var(--c-seef-accent)] border border-blue-500/40 px-1 rounded scale-90">
                               Today
                             </span>
                           )}
@@ -1251,7 +1251,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                               <button
                                 key={slot}
                                 onClick={() => setSelectedCell({ day, slot })}
-                                className={`h-11 rounded-lg transition-all flex flex-col justify-center items-center text-center cursor-pointer select-none relative focus:outline-none focus:ring-2 focus:ring-[#2563EB] ${cellBg}`}
+                                className={`h-11 rounded-lg transition-all flex flex-col justify-center items-center text-center cursor-pointer select-none relative focus:outline-none focus:ring-2 focus:ring-[var(--c-seef-accent)] ${cellBg}`}
                                 title={`${day} ${slot}: ${val.count} bills, ₹${val.revenue.toLocaleString()}`}
                               >
                                 <span className="text-[11px] font-bold tracking-tight font-mono">
@@ -1275,7 +1275,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </div>
 
             {/* Heatmap Legend */}
-            <div className="flex flex-wrap items-center justify-between mt-4 pt-3 border-t border-[#2a3a5c] gap-3 text-xs">
+            <div className="flex flex-wrap items-center justify-between mt-4 pt-3 border-t border-theme-divider gap-3 text-xs">
               <div className="flex items-center space-x-1.5 font-mono text-[10px] text-theme-muted">
                 <span>Density Key (Orders):</span>
                 <span className="flex items-center space-x-1 pl-1">
@@ -1309,13 +1309,13 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               const info = getCellInsights(selectedCell.day, selectedCell.slot);
               return (
                 <div className="mt-5 p-4 bg-theme-surface-3 rounded-lg border border-theme-divider animate-fadeIn">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3 border-b border-[#2a3a5c] pb-2">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3 border-b border-theme-divider pb-2">
                     <div>
                       <h4 className="text-xs font-semibold uppercase tracking-wider text-theme-muted font-mono">
                         Active Intelligence Block
                       </h4>
                       <div className="text-sm font-semibold font-display text-theme-body flex items-center mt-0.5">
-                        <span className="text-[#2563EB] font-bold mr-1">{selectedCell.day}</span> • {info.timeLabel}
+                        <span className="text-[var(--c-seef-accent)] font-bold mr-1">{selectedCell.day}</span> â€¢ {info.timeLabel}
                       </div>
                     </div>
                     <div className="flex items-center space-x-4">
@@ -1379,7 +1379,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   </h3>
                 </div>
                 <p className="text-xs text-theme-muted mt-1">
-                  Active Shift tracking • Live updates every 5s
+                  Active Shift tracking â€¢ Live updates every 5s
                 </p>
               </div>
               <div className="flex bg-theme-surface-3 p-1 rounded-lg border border-theme-divider">
@@ -1387,7 +1387,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   onClick={() => setTrendView("weekly")}
                   className={`text-xs px-3 py-1.5 rounded-md font-semibold transition-all ${
                     trendView === "weekly"
-                      ? "bg-[#2563EB] text-theme-body shadow-sm"
+                      ? "bg-[var(--c-seef-accent)] text-theme-body shadow-sm"
                       : "text-theme-muted hover:text-theme-body"
                   }`}
                 >
@@ -1397,7 +1397,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   onClick={() => setTrendView("hourly")}
                   className={`text-xs px-3 py-1.5 rounded-md font-semibold transition-all ${
                     trendView === "hourly"
-                      ? "bg-[#2563EB] text-theme-body shadow-sm"
+                      ? "bg-[var(--c-seef-accent)] text-theme-body shadow-sm"
                       : "text-theme-muted hover:text-theme-body"
                   }`}
                 >
@@ -1485,7 +1485,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               </ResponsiveContainer>
             </div>
             
-            <div className="flex flex-wrap justify-between items-center mt-4 pt-4 border-t border-[#2a3a5c] text-xs text-theme-muted font-mono gap-y-2">
+            <div className="flex flex-wrap justify-between items-center mt-4 pt-4 border-t border-theme-divider text-xs text-theme-muted font-mono gap-y-2">
               <div className="flex items-center space-x-4">
                 <span className="flex items-center">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
@@ -1579,7 +1579,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   
           <div className="px-5 py-4 border-b border-theme-divider flex justify-between items-center bg-theme-surface-3 rounded-t-xl">
             <div className="flex items-center space-x-2">
-              <span className="material-symbols-outlined text-[#2563EB] animate-pulse">
+              <span className="material-symbols-outlined text-[var(--c-seef-accent)] animate-pulse">
                 psychology
               </span>
               <h4 className="font-semibold text-theme-body font-display">
@@ -1601,7 +1601,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 <div
                   className={`max-w-[85%] rounded-lg p-3 ${
                     reply.sender === "user"
-                      ? "bg-[#2563EB] text-theme-body"
+                      ? "bg-[var(--c-seef-accent)] text-theme-body"
                       : "bg-theme-surface-3 text-theme-primary border border-theme-divider whitespace-pre-wrap leading-relaxed"
                   }`}
                 >
@@ -1634,7 +1634,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   "How do I reduce Southern Logistics' capital exposure?",
                 )
               }
-              className="shrink-0 text-[10px] bg-theme-surface-1 hover:bg-[#2563EB] text-theme-primary font-semibold px-2 py-1 rounded border border-theme-divider transition-colors"
+              className="shrink-0 text-[10px] bg-theme-surface-1 hover:bg-[var(--c-seef-accent)] text-theme-primary font-semibold px-2 py-1 rounded border border-theme-divider transition-colors"
             >
               Expose Southern Capital
             </button>
@@ -1642,7 +1642,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               onClick={() =>
                 handleSendMessage("Explain the WOC formula and target levels.")
               }
-              className="shrink-0 text-[10px] bg-theme-surface-1 hover:bg-[#2563EB] text-theme-primary font-semibold px-2 py-1 rounded border border-theme-divider transition-colors"
+              className="shrink-0 text-[10px] bg-theme-surface-1 hover:bg-[var(--c-seef-accent)] text-theme-primary font-semibold px-2 py-1 rounded border border-theme-divider transition-colors"
             >
               Analyze Weeks of Cover
             </button>
@@ -1656,12 +1656,12 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               value={chatMessage}
               onChange={(e) => setChatMessage(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-              className="flex-1 bg-theme-surface-1 border border-theme-divider text-theme-body text-xs px-3 py-2 rounded focus:outline-none focus:border-[#2563EB]"
+              className="flex-1 bg-theme-surface-1 border border-theme-divider text-theme-body text-xs px-3 py-2 rounded focus:outline-none focus:border-[var(--c-seef-accent)]"
               disabled={isSending}
             />
             <button
               onClick={() => handleSendMessage()}
-              className="bg-[#2563EB] hover:bg-opacity-95 text-theme-body p-2 rounded flex items-center justify-center transition-colors shrink-0"
+              className="bg-[var(--c-seef-accent)] hover:bg-opacity-95 text-theme-body p-2 rounded flex items-center justify-center transition-colors shrink-0"
               disabled={isSending}
             >
               <span className="material-symbols-outlined text-sm">send</span>

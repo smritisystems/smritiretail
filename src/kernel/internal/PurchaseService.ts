@@ -6,7 +6,8 @@
  * License      : Proprietary Commercial Software
  */
 
-import { IPurchaseService, PurchaseOrderRecord } from "../public/IPurchaseService.js";
+import logger from "../../core/logging/logger.js";
+import { IPurchaseService, PurchaseOrderRecord, PurchaseOrderStatus } from "../public/IPurchaseService.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 import { SPK } from "../SPK.js";
 
@@ -21,7 +22,7 @@ export class PurchaseService implements IPurchaseService {
       expectedDeliveryDate: "2025-05-20",
       warehouseId: "wh-main",
       paymentTerms: "Net 30 Days",
-      status: "Approved",
+      status: "Approved" as PurchaseOrderStatus,
       totalAmount: 150000,
       totalTaxAmount: 27000,
       netPayable: 177000,
@@ -51,7 +52,7 @@ export class PurchaseService implements IPurchaseService {
         return this.localCache;
       }
     } catch (e) {
-      console.warn("[PurchaseService] API unreachable. Serving cached purchase orders.", e);
+      logger.warn("[PurchaseService] API unreachable. Serving cached purchase orders.", e as unknown);
     }
     return this.localCache;
   }
@@ -65,6 +66,11 @@ export class PurchaseService implements IPurchaseService {
     const list = await this.getAllPOs();
     const clean = poNumber.trim().toLowerCase();
     return list.find((po) => po.poNumber.toLowerCase() === clean) || null;
+  }
+
+  public async getBySupplier(supplierId: string): Promise<PurchaseOrderRecord[]> {
+    const list = await this.getAllPOs();
+    return list.filter((po) => po.supplierId === supplierId);
   }
 
   public async searchPOs(query: string, limit = 50): Promise<PurchaseOrderRecord[]> {
@@ -117,7 +123,7 @@ export class PurchaseService implements IPurchaseService {
       SPK.events.emit(isNew ? "PurchaseOrderCreated" : "PurchaseOrderUpdated", normalized.id, normalized);
       return normalized;
     } catch (err) {
-      console.warn("[PurchaseService] Backend save warning, caching locally.", err);
+      logger.warn("[PurchaseService] Backend save warning, caching locally.", err as unknown);
       this.upsertLocalCache(record);
       SPK.events.emit(isNew ? "PurchaseOrderCreated" : "PurchaseOrderUpdated", record.id, record);
       return record;
@@ -128,6 +134,10 @@ export class PurchaseService implements IPurchaseService {
     const po = await this.getPOById(poId);
     if (!po) {
       throw new Error(`[PurchaseService Error] Purchase Order ${poId} not found.`);
+    }
+
+    if (po.status === "Cancelled") {
+      throw new Error(`[PurchaseService Error] Cannot receive goods against Cancelled PO ${poId}.`);
     }
 
     po.lines = po.lines.map((l) => {
@@ -144,6 +154,76 @@ export class PurchaseService implements IPurchaseService {
     const updated = await this.savePO(po);
     SPK.events.emit("GRNPosted", poId, { poId, receivedLines, status: updated.status });
     return updated;
+  }
+
+  public async cancelPO(id: string, reason: string, cancelledBy?: string): Promise<PurchaseOrderRecord> {
+    if (!reason || reason.trim().length < 3) {
+      throw new Error("[PurchaseService Error] Cancellation reason is mandatory and must be at least 3 characters.");
+    }
+
+    const po = await this.getPOById(id);
+    if (!po) {
+      throw new Error(`[PurchaseService Error] Purchase Order ${id} not found.`);
+    }
+
+    // AUD-004 / GAP-4: Lifecycle Guard — only cancellable if not already received or cancelled
+    const nonCancellableStatuses: PurchaseOrderStatus[] = ["Received", "Cancelled"];
+    if (nonCancellableStatuses.includes(po.status as PurchaseOrderStatus)) {
+      throw new Error(
+        `[PurchaseService Error] Purchase Order ${po.poNumber} is in status "${po.status}" and cannot be cancelled. Only Draft, Submitted, or Approved POs may be cancelled.`
+      );
+    }
+
+    const cancelledRecord: PurchaseOrderRecord = {
+      ...po,
+      status: "Cancelled",
+      cancellationReason: reason.trim(),
+      cancelledAt: new Date().toISOString(),
+      cancelledBy: cancelledBy || "System",
+    };
+
+    try {
+      await apiFetchV1(`/purchase/orders/${id}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ reason: cancelledRecord.cancellationReason, cancelledBy: cancelledRecord.cancelledBy })
+      });
+    } catch (err) {
+      logger.warn("[PurchaseService] Backend cancel API unreachable. Updating local cache only.", err as unknown);
+    }
+
+    this.upsertLocalCache(cancelledRecord);
+    SPK.events.emit("PurchaseOrderCancelled", id, { poId: id, poNumber: po.poNumber, reason: cancelledRecord.cancellationReason });
+    return cancelledRecord;
+  }
+
+  public async allocateLandedCost(poId: string, additionalCosts: { freightAmount?: number; customsDuty?: number; insurance?: number; handlingFee?: number }): Promise<{ poId: string; totalLandedCost: number; itemsLandedUnitCost: Record<string, number> }> {
+    const po = await this.getPOById(poId);
+    if (!po) {
+      throw new Error(`[PurchaseService] PO ${poId} not found for landed cost allocation.`);
+    }
+
+    const freight = additionalCosts.freightAmount || 0;
+    const customs = additionalCosts.customsDuty || 0;
+    const insurance = additionalCosts.insurance || 0;
+    const handling = additionalCosts.handlingFee || 0;
+    const totalAdditionalCost = freight + customs + insurance + handling;
+
+    const totalPoQty = po.lines.reduce((acc, line) => acc + (line.receivedQty || line.orderedQty || 1), 0);
+    const costPerUnitAdd = totalPoQty > 0 ? totalAdditionalCost / totalPoQty : 0;
+
+    const itemsLandedUnitCost: Record<string, number> = {};
+    for (const line of po.lines) {
+      const sku = line.itemId || line.itemCode;
+      const baseUnitCost = line.unitPrice || 0;
+      itemsLandedUnitCost[sku] = parseFloat((baseUnitCost + costPerUnitAdd).toFixed(2));
+    }
+
+    logger.info(`[PurchaseService] Allocated ₹${totalAdditionalCost} landed cost across ${po.lines.length} items for PO ${poId}.`);
+    return {
+      poId,
+      totalLandedCost: po.totalAmount + totalAdditionalCost,
+      itemsLandedUnitCost,
+    };
   }
 
   private upsertLocalCache(po: PurchaseOrderRecord): void {

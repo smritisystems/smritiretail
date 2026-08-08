@@ -8,6 +8,8 @@
  * Classification: SMRITI Platform Core Service
  */
 
+import logger from "../core/logging/logger.js";
+
 export type TransactionType =
   | "SalesQuotation"
   | "SalesOrder"
@@ -103,7 +105,7 @@ export class WindowManager {
     try {
       channel.postMessage(message);
     } catch (err) {
-      console.error("[SAWF Broadcast Error]:", err);
+      logger.error("[SAWF Broadcast Error]:", err as unknown);
     }
   }
 

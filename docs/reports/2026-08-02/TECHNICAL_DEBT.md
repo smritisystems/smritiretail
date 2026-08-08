@@ -1,0 +1,27 @@
+<!--
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+-->
+
+# Technical Debt Analysis
+
+*Generated: Sun 08/02/2026*
+
+- **Code Quality Score:** 20
+- **Large/Bloated Code Files:** src/components/AboutSmritiTab.tsx (1068 lines), src/components/AdvancedBillingEngine.tsx (1704 lines), src/components/ApiKeyManagementSection.tsx (518 lines), src/components/ApprovalMatrixTab.tsx (520 lines), src/components/AttributeManagerSection.tsx (706 lines), src/components/ConsignmentStudioTab.tsx (1217 lines), src/components/CustomerDashboardTab.tsx (551 lines), src/components/CustomerMasterTab.tsx (731 lines), src/components/DashboardTab.tsx (1677 lines), src/components/DataExchangeTab.tsx (1261 lines), src/components/DocumentSeriesTab.tsx (858 lines), src/components/ExcelGridEntrySection.tsx (1880 lines), src/components/ExpandedCellEditor.tsx (529 lines), src/components/FloatingWindowHost.tsx (526 lines), src/components/ItemMasterTab.tsx (595 lines), src/components/LoginScreen.tsx (623 lines), src/components/MasterManagementTab.tsx (968 lines), src/components/PrintPreviewModal.tsx (2134 lines), src/components/PurchaseStudioTab.tsx (1769 lines), src/components/QuickReportsWidget.tsx (1416 lines), src/components/ReportDesignerTab.tsx (1516 lines), src/components/SalesStudioTab.tsx (3726 lines), src/components/SCDMStudioTab.tsx (810 lines), src/components/ShortcutPalette.tsx (533 lines), src/components/StaffManagementTab.tsx (1113 lines), src/components/SupplierDashboardTab.tsx (2244 lines), src/components/TermsEngineTab.tsx (1459 lines), src/components/UserProfileTab.tsx (790 lines), src/components/VariantTemplateSection.tsx (695 lines), src/components/WorkspaceTaskbar.tsx (867 lines), src/components/common/SEEFDataTable.tsx (702 lines), src/components/drilldown/DrillDownSidePanel.tsx (713 lines), src/components/label_print/UniversalLabelPrintingStudio.tsx (1226 lines), src/components/printing/PrintLabelsStudio.tsx (2262 lines), src/components/printing/PRNTemplateStudio.tsx (570 lines), src/components/purchase/PurchaseOperationsStudio.tsx (2078 lines), src/components/sales/SalesBillingStudio.tsx (960 lines), src/components/sales/SalesTaxInvoiceFioriObjectPage.tsx (594 lines), src/components/SetupWizard/SetupWizardTab.tsx (1296 lines)

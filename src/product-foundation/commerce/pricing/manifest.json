@@ -1,0 +1,25 @@
+{
+  "id": "commerce.pricing",
+  "owner": "Commerce Foundation",
+  "maturity": "CML-3",
+  "releaseRing": "Pilot",
+  "version": "0.2.0",
+  "studios": ["POS", "Sales"],
+  "dependencies": {
+    "runtime": ["workflow.approval"],
+    "business": [],
+    "optional": []
+  },
+  "dependsOn": ["workflow.approval"],
+  "consumedBy": ["studio.sales", "studio.pos"],
+  "provides": ["PriceCalculation", "DiscountApplication", "CustomerPricing"],
+  "events": {
+    "publishes": ["pricing.completed"],
+    "subscribes": ["workflow.approved"],
+    "lifecycle": {
+      "workflow.approved": "Publishable",
+      "pricing.completed": "Publishable"
+    }
+  },
+  "publicApi": true
+}

@@ -3,6 +3,7 @@
  * Decoupled Event Bus
  */
 
+import logger from "../../../core/logging/logger.js";
 import { SAWFEvent, SAWFEventHandler } from "../types/sawf.ts";
 
 class SAWFEventBusImpl {
@@ -35,7 +36,7 @@ class SAWFEventBusImpl {
         try {
           handler(event);
         } catch (err) {
-          console.error(`[SAWFEventBus] Error handling event ${eventType}:`, err);
+          logger.error(`[SAWFEventBus] Error handling event ${eventType}:`, err as unknown);
         }
       });
     }

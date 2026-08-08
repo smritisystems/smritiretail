@@ -1,10 +1,12 @@
 /**
- * Project      : SMRITI Retail OS v5.0
- * Module       : Item Master Contextual Sidebar (SAP Fiori Accordion Tree Pattern)
+ * Project      : SMRITI Retail OS
+ * Module       : Item Master Dockable Filter Panel (WNG-003 compliant)
+ * Change       : v5.7 — Removed AnimatePresence/fixed-overlay. Now renders as an inline
+ *                dockable aside column. Removed duplicate studioLayers block (owned by toolbar).
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
- * Version      : 5.6.0
+ * Version      : 5.7.0
  */
 
 import React, { useState } from "react";
@@ -20,9 +22,12 @@ import {
   ChevronDown,
   ChevronRight,
   Filter,
-  Check
+  X,
+  RotateCcw,
 } from "lucide-react";
 import { Product } from "../../types.js";
+// ItemMasterViewMode kept for prop compatibility — onModeChange no longer used in this panel
+import type { ItemMasterViewMode } from "./ItemMasterToolbar.tsx";
 
 export interface ContextFilterState {
   type: "ALL" | "LOW_STOCK" | "FAVORITES" | "RECENT" | "CATEGORY" | "BRAND" | "DEPARTMENT" | "SUPPLIER" | "WAREHOUSE";
@@ -39,6 +44,10 @@ interface ItemMasterContextSidebarProps {
   suppliers?: string[];
   warehouses?: string[];
   lowStockCount: number;
+  activeMode?: ItemMasterViewMode;
+  onModeChange?: (mode: ItemMasterViewMode) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> = ({
@@ -50,15 +59,19 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
   departments = ["Apparel & Fashion", "Footwear", "Electronics", "General Retail"],
   suppliers = ["V-001 (Smriti Mills)", "V-002 (Royal Crafts)", "V-003 (Apex Logistics)"],
   warehouses = ["Main Store (BR-01)", "Central Warehouse (WH-01)", "Bin Area A1"],
-  lowStockCount
+  lowStockCount,
+  activeMode = "overview",
+  onModeChange,
+  isOpen = true,
+  onClose
 }) => {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     quick: true,
     categories: true,
-    brands: false,
+    brands: true,
     departments: false,
     suppliers: false,
-    warehouses: false
+    warehouses: false,
   });
 
   const toggleSection = (section: string) => {
@@ -68,20 +81,57 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
   const isSelected = (type: ContextFilterState["type"], value: string) =>
     activeFilter.type === type && activeFilter.value === value;
 
-  return (
-    <aside className="w-64 h-full bg-theme-surface-1 border-r border-theme-divider flex flex-col select-none text-xs">
-      {/* Header */}
-      <div className="p-3 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2/50">
-        <span className="font-bold text-theme-heading flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
-          <Filter className="w-3.5 h-3.5 text-[#0a6ed1]" /> Master Registry Tree
-        </span>
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-theme-surface-2 text-theme-muted">
-          {products.length} SKUs
-        </span>
-      </div>
+  const isFilterActive = activeFilter.type !== "ALL";
 
-      {/* Accordion Tree Scroll Container */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-3 scrollbar-thin">
+  if (!isOpen) return null;
+
+  return (
+    <aside className="w-72 flex-shrink-0 bg-theme-surface-1 border border-theme-divider rounded-xl shadow-xs flex flex-col text-xs overflow-hidden select-none font-sans">
+          {/* Header */}
+          <div className="p-3.5 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)] border border-[var(--c-seef-accent)]/20">
+                <Filter className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-bold text-theme-heading text-xs tracking-wide uppercase">
+                  Filters & Categories
+                </h3>
+                <span className="text-[10px] text-theme-muted font-mono">
+                  {products.length} SKUs Available
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {isFilterActive && (
+                <button
+                  onClick={() => onFilterChange({ type: "ALL", value: "ALL" })}
+                  className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 flex items-center gap-1 text-[10px] font-bold cursor-pointer transition-colors"
+                  title="Reset All Filters"
+                  aria-label="Reset All Filters"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset</span>
+                </button>
+              )}
+
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  className="p-1.5 rounded-lg text-theme-muted hover:text-theme-heading hover:bg-theme-surface-hover transition-colors cursor-pointer"
+                  title="Close Filters Drawer"
+                  aria-label="Close Filters Drawer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Accordion Scroll Container */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin">
+
         {/* Quick Views */}
         <div>
           <button
@@ -98,7 +148,7 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
                 onClick={() => onFilterChange({ type: "ALL", value: "ALL" })}
                 className={`w-full flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
                   isSelected("ALL", "ALL")
-                    ? "bg-[#0a6ed1] text-white font-bold"
+                    ? "bg-[var(--c-seef-accent)] text-white font-bold"
                     : "text-theme-heading hover:bg-theme-surface-2"
                 }`}
               >
@@ -128,7 +178,7 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
                 onClick={() => onFilterChange({ type: "FAVORITES", value: "FAVORITES" })}
                 className={`w-full flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
                   isSelected("FAVORITES", "FAVORITES")
-                    ? "bg-[#0a6ed1] text-white font-bold"
+                    ? "bg-[var(--c-seef-accent)] text-white font-bold"
                     : "text-theme-heading hover:bg-theme-surface-2"
                 }`}
               >
@@ -141,7 +191,7 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
                 onClick={() => onFilterChange({ type: "RECENT", value: "RECENT" })}
                 className={`w-full flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
                   isSelected("RECENT", "RECENT")
-                    ? "bg-[#0a6ed1] text-white font-bold"
+                    ? "bg-[var(--c-seef-accent)] text-white font-bold"
                     : "text-theme-heading hover:bg-theme-surface-2"
                 }`}
               >
@@ -173,12 +223,12 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
                     onClick={() => onFilterChange({ type: "CATEGORY", value: cat })}
                     className={`w-full flex items-center justify-between p-1.5 rounded-md cursor-pointer transition-colors text-left ${
                       isSelected("CATEGORY", cat)
-                        ? "bg-[#0a6ed1] text-white font-bold"
+                        ? "bg-[var(--c-seef-accent)] text-white font-bold"
                         : "text-theme-heading hover:bg-theme-surface-2"
                     }`}
                   >
                     <span className="flex items-center gap-2 truncate">
-                      <Layers className="w-3.5 h-3.5 text-[#0a6ed1]" /> {cat}
+                      <Layers className="w-3.5 h-3.5 text-[var(--c-seef-accent)]" /> {cat}
                     </span>
                     <span className="font-mono text-[10px] opacity-75">{count}</span>
                   </button>
@@ -206,7 +256,7 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
                   onClick={() => onFilterChange({ type: "BRAND", value: b })}
                   className={`w-full flex items-center justify-between p-1.5 rounded-md cursor-pointer transition-colors text-left ${
                     isSelected("BRAND", b)
-                      ? "bg-[#0a6ed1] text-white font-bold"
+                      ? "bg-[var(--c-seef-accent)] text-white font-bold"
                       : "text-theme-heading hover:bg-theme-surface-2"
                   }`}
                 >
@@ -237,7 +287,7 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
                   onClick={() => onFilterChange({ type: "DEPARTMENT", value: d })}
                   className={`w-full flex items-center justify-between p-1.5 rounded-md cursor-pointer transition-colors text-left ${
                     isSelected("DEPARTMENT", d)
-                      ? "bg-[#0a6ed1] text-white font-bold"
+                      ? "bg-[var(--c-seef-accent)] text-white font-bold"
                       : "text-theme-heading hover:bg-theme-surface-2"
                   }`}
                 >
@@ -268,7 +318,7 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
                   onClick={() => onFilterChange({ type: "WAREHOUSE", value: w })}
                   className={`w-full flex items-center justify-between p-1.5 rounded-md cursor-pointer transition-colors text-left ${
                     isSelected("WAREHOUSE", w)
-                      ? "bg-[#0a6ed1] text-white font-bold"
+                      ? "bg-[var(--c-seef-accent)] text-white font-bold"
                       : "text-theme-heading hover:bg-theme-surface-2"
                   }`}
                 >

@@ -55,7 +55,7 @@ async def test_matrix_variant_sku_and_barcode_generation(db_session):
     assert created[1]["variant_sku"] == "SKU-APP-NIK-00001-BLUE-L"
     assert created[2]["variant_sku"] == "SKU-APP-NIK-00001-RED-M"
     assert len(created[0]["barcode"]) == 13
-    assert created[0]["barcode"].startswith("8901000")
+    assert created[0]["barcode"].startswith("200")
 
 
 @pytest.mark.asyncio

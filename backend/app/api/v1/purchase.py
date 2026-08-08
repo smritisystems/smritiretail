@@ -102,6 +102,19 @@ async def list_purchase_orders_contract(
     return await PurchaseService(db, tenant_ctx).list_purchase_orders()
 
 
+@router.get(
+    "/reports/size-pivot",
+    summary="Purchase Order Size Pivot",
+    dependencies=[Depends(require_permission("PURCHASE.VIEW"))],
+)
+async def purchase_order_size_pivot(
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Return ordered quantity and value grouped by product size."""
+    return await PurchaseService(db, tenant_ctx).purchase_order_size_pivot()
+
+
 @router.post(
     "/orders/",
     response_model=PurchaseOrderResponse,

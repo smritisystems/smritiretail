@@ -1,26 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Repository   : SMRITIRetailNX
-Organization : AITDL NETWORKS
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-Founders
+Founder:
+SmritiSys
+AITDL Networks
 
-* Pushpa Devi Jawahar Mallah
-  * Founder & Chairperson
-  * Phone: +91 9324117007
-  * Email: founder@aitdl.com
+Role:
+Chief Systems Architect
 
-* Jawahar Ramkripal Mallah
-  * Founder, Chief Executive Officer (CEO) & Chief Software Architect
-  * Email: founder@aitdl.com
+Web:
+smritisys.com | smritibooks.com | aitdl.com
 
-* Websites: aitdl.com | erpnbook.com | smritibooks.com
+Email:
+jawahar.mallah@gmail.com
 
-* Version    : 3.9.0
-* Created    : 2026-07-11
-* Modified   : 2026-07-11
-* Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
-* License    : Proprietary Commercial Software
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 import uuid
@@ -123,7 +119,7 @@ async def test_dev_login_bootstraps_default_admin_when_no_users_exist(db_session
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post("/api/v1/auth/login", json={
             "username": "super",
-            "password": "whynothing",
+            "password": "Shpr0128vdq!@",
         })
 
     assert res.status_code == 200
@@ -145,7 +141,7 @@ async def test_dev_login_bootstraps_super_when_other_users_exist(db_session, mon
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post("/api/v1/auth/login", json={
             "username": "super",
-            "password": "whynothing",
+            "password": "Shpr0128vdq!@",
         })
 
     assert res.status_code == 200
@@ -179,12 +175,12 @@ async def test_dev_login_reconciles_existing_super_account_password(db_session, 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post("/api/v1/auth/login", json={
             "username": "super",
-            "password": "whynothing",
+            "password": "Shpr0128vdq!@",
         })
 
     assert res.status_code == 200
     await db_session.refresh(user)
-    assert verify_password("whynothing", user.hashed_password) is True
+    assert verify_password("Shpr0128vdq!@", user.hashed_password) is True
 
 
 async def test_production_install_prevents_convenience_login(db_session, monkeypatch):
@@ -197,7 +193,7 @@ async def test_production_install_prevents_convenience_login(db_session, monkeyp
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post("/api/v1/auth/login", json={
             "username": "super",
-            "password": "whynothing",
+            "password": "Shpr0128vdq!@",
         })
 
     assert res.status_code == 401
@@ -646,7 +642,7 @@ async def test_role_guard_cashier_cannot_create_product(db_session):
         )
     assert res.status_code == 403
     detail = res.json()["detail"]
-    assert "CASHIER" in detail or "ITEM.CREATE" in str(detail)
+    assert "CASHIER" in str(detail) or "ITEM.CREATE" in str(detail)
 
 
 async def test_role_guard_manager_can_create_product(db_session):

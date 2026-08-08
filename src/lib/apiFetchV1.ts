@@ -11,14 +11,44 @@
  * License      : Proprietary Commercial Software
  */
 
+export const isLocalMockToken = (t: string | null): boolean => {
+  if (!t) return true;
+  return (
+    t.startsWith("smriti_jwt_") ||
+    t.startsWith("demo_") ||
+    t.startsWith("smriti_rf_") ||
+    t === "token_demo" ||
+    t === "dev-bypass-token" ||
+    t === "mock-jwt-provider"
+  );
+};
+
 /**
  * Universal client fetch helper for FastAPI Core API (/api/v1/*)
  */
 export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof localStorage !== 'undefined'
-    ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
-    : null;
-  
+  const requestHeaders = new Headers(options.headers || {});
+  const authHeader = requestHeaders.get("Authorization");
+  const token = authHeader
+    ? authHeader.replace(/^Bearer\s+/i, "")
+    : typeof localStorage !== 'undefined'
+      ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
+      : null;
+
+  let path = endpoint.startsWith("/") ? endpoint : "/" + endpoint;
+  const isAuthCheckEndpoint =
+    path.includes("/auth/me") ||
+    path.includes("/auth/login") ||
+    path.includes("/auth/token") ||
+    path.includes("/admin/environment/profile");
+
+  // Centralized Authentication Guard (P0 Security Compliance):
+  if (!isAuthCheckEndpoint) {
+    if (!token) {
+      throw new Error("Unauthenticated session. Please log in to access protected enterprise API.");
+    }
+  }
+
   const headers = new Headers(options.headers || {});
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
@@ -36,16 +66,24 @@ export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit
     headers.set("traceparent", `00-${traceId}-${spanId}-01`);
   }
 
-  const response = await fetch(`/api/v1${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`, {
+  if (!path.startsWith("/api/v1") && !path.startsWith("http://") && !path.startsWith("https://")) {
+    path = `/api/v1${path}`;
+  }
+
+  const baseUrl = typeof window !== "undefined" && window.location?.origin
+    ? window.location.origin
+    : "http://localhost:8000";
+
+  const fullUrl = path.startsWith("http://") || path.startsWith("https://")
+    ? path
+    : `${baseUrl}${path}`;
+
+  const response = await fetch(fullUrl, {
     ...options,
     headers
   });
 
   if (!response.ok) {
-    if (response.status === 401 && typeof localStorage !== 'undefined') {
-      localStorage.removeItem("smriti_jwt_token");
-      localStorage.removeItem("smriti_session_token");
-    }
     let errorData: any;
     try {
       errorData = await response.json();

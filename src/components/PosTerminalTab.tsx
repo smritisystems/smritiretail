@@ -19,6 +19,9 @@ import { UniversalSearchModal } from "./terminal/UniversalSearchModal";
 import { HardwareAdapterRegistry } from "../hardware/HardwareAdapterRegistry";
 import { Search, ShoppingBag, CreditCard, User, PauseCircle, PlayCircle, Trash2, Printer, Zap, CheckCircle2 } from "lucide-react";
 import { SEDSStatusBadge } from "../design-system/components/SEDSStatusBadge";
+import { VariantPivotMatrix } from "./common/VariantPivotMatrix";
+import { TransactionEngine, TransactionStepProgress, TransactionResult } from "../kernel/transaction/TransactionEngine";
+import { TransactionSuccessModal } from "./pos/TransactionSuccessModal";
 
 interface PosTerminalTabProps {
   products: Product[];
@@ -60,6 +63,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
   const [cashTendered, setCashTendered] = useState("");
   const [discountPercent, setDiscountPercent] = useState<number>(0);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [showVariantMatrix, setShowVariantMatrix] = useState(false);
 
   // Search input ref for instant F1 focus
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -162,12 +166,12 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
     onNotification("Bill Recalled", `Slot ${held.id} loaded back to terminal`, "success");
   }, [onNotification]);
 
-  // Terminal Hotkey Registration
+  // Terminal Hotkey Registration (SCS-UIX Lookup Rule-001 & Universal Keyboard Standard)
   useTerminalShortcuts({
-    "F1": () => { searchInputRef.current?.focus(); },
-    "F2": () => { handleHoldBill(); },
+    "F2": () => { searchInputRef.current?.focus(); },
+    "F3": () => { setIsCheckoutModalOpen(false); },
     "F4": () => { setIsCheckoutModalOpen(true); },
-    "F6": () => { setDiscountPercent((prev) => (prev === 0 ? 10 : 0)); },
+    "F6": () => { handleHoldBill(); },
     "F12": () => {
       if (cart.length > 0) {
         setIsCheckoutModalOpen(true);
@@ -180,14 +184,65 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
     }
   });
 
+  // Transaction Reliability Engine State (IPS-002)
+  const [isPosting, setIsPosting] = useState(false);
+  const [postingProgress, setPostingProgress] = useState<TransactionStepProgress | null>(null);
+  const [transactionResult, setTransactionResult] = useState<TransactionResult | null>(null);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+
   const handleCheckoutComplete = async () => {
+    setIsCheckoutModalOpen(false);
+    setIsPosting(true);
+    setIsSuccessModalOpen(true);
+
     try {
       HardwareAdapterRegistry.openCashDrawer();
-      onNotification("Sale Completed", `Thermal receipt printed for ₹${grandTotal.toFixed(2)}`, "success");
-      setCart([]);
-      setIsCheckoutModalOpen(false);
-      setCashTendered("");
+
+      const payload = {
+        invoiceNumber: `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        customerName: customerName.split(" (")[0] || "Walk-In Customer",
+        customerMobile: "9876543210",
+        paymentMode: paymentMode,
+        itemsTotal: subtotal,
+        discountTotal: discountAmount,
+        netPayable: grandTotal,
+        lines: cart.map((item, idx) => ({
+          id: `line_${idx + 1}`,
+          itemId: item.product.id,
+          itemCode: item.product.code,
+          itemName: item.product.name,
+          hsnCode: (item.product as any).hsn || (item.product as any).hsnCode || "9999",
+          qty: item.quantity,
+          uom: "NOS",
+          rate: item.product.price,
+          discountPct: 0,
+          discountAmount: 0,
+          taxableValue: (item.product.price * item.quantity) / 1.18,
+          gstRate: 18,
+          cgstAmount: (item.product.price * item.quantity * 0.09) / 1.18,
+          sgstAmount: (item.product.price * item.quantity * 0.09) / 1.18,
+          igstAmount: 0,
+          totalTaxAmount: (item.product.price * item.quantity * 0.18) / 1.18,
+          lineTotal: item.product.price * item.quantity
+        }))
+      };
+
+      const result = await TransactionEngine.processCheckout(payload, (progress) => {
+        setPostingProgress(progress);
+      });
+
+      setIsPosting(false);
+      setTransactionResult(result);
+
+      if (result.success) {
+        setCart([]);
+        setCashTendered("");
+        onNotification("Invoice Posted Successfully", `Invoice ${result.invoiceNo} committed to stock and ledger ✓`, "success");
+      } else {
+        onNotification("Transaction Draft Saved", result.error || "Saved to local draft recovery", "error");
+      }
     } catch (err: any) {
+      setIsPosting(false);
       onNotification("Checkout Error", err?.message || "Failed to process payment", "error");
     }
   };
@@ -195,20 +250,51 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
   return (
     <div className="flex flex-col h-full bg-[var(--sds-color-background)] text-[var(--sds-color-text-main)] font-[var(--sds-font-family)] overflow-hidden">
       {/* Top Cockpit Header */}
-      <div className="flex items-center justify-between px-6 py-3 bg-[var(--sds-color-surface)] border-b border-[var(--sds-color-border)] shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-3 bg-[var(--sds-color-surface)] border-b border-[var(--sds-color-border)] gap-2 shadow-xs">
         <div className="flex items-center gap-3">
           <Zap className="w-5 h-5 text-[var(--sds-color-primary)]" />
           <h1 className="text-lg font-bold tracking-tight">POS Billing Cockpit Studio</h1>
           <SEDSStatusBadge status="Active">Terminal #01 (ONLINE)</SEDSStatusBadge>
         </div>
 
-        {/* Speed Budget KPI Badges */}
-        <div className="flex items-center gap-4 text-xs font-mono">
-          <div className="px-2.5 py-1 rounded bg-[var(--sds-color-background)] border border-[var(--sds-color-border-subtle)] text-[var(--sds-color-text-secondary)]">
-            Scan Speed: <span className="font-bold text-green-600">&lt;100ms</span>
+        {/* Customer & Sales Executive Selectors (IPS-001 Universal Person Master Integration) */}
+        <div className="flex items-center gap-3 text-xs font-sans">
+          <div className="flex items-center gap-1.5 bg-[var(--sds-color-background)] px-2.5 py-1.5 rounded-lg border border-[var(--sds-color-border)]">
+            <User className="w-3.5 h-3.5 text-indigo-500" />
+            <span className="text-[10px] uppercase font-bold text-[var(--sds-color-text-muted)]">Customer:</span>
+            <select
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="bg-transparent font-semibold text-xs text-[var(--sds-color-text-main)] focus:outline-none cursor-pointer"
+            >
+              <option value="Walk-In Customer (Cash)">Walk-In Customer (Cash)</option>
+              <option value="Jawahar Mallah (VIP)">Jawahar Mallah (VIP)</option>
+              <option value="Anand Patel (Retail)">Anand Patel (Retail)</option>
+              <option value="Sneha Rao (Corporate)">Sneha Rao (Corporate)</option>
+            </select>
           </div>
-          <div className="px-2.5 py-1 rounded bg-[var(--sds-color-background)] border border-[var(--sds-color-border-subtle)] text-[var(--sds-color-text-secondary)]">
-            SUXG Checkout Budget: <span className="font-bold text-[var(--sds-color-primary)]">&lt;10s</span>
+
+          <div className="flex items-center gap-1.5 bg-[var(--sds-color-background)] px-2.5 py-1.5 rounded-lg border border-[var(--sds-color-border)]">
+            <User className="w-3.5 h-3.5 text-emerald-500" />
+            <span className="text-[10px] uppercase font-bold text-[var(--sds-color-text-muted)]">Salesperson:</span>
+            <select
+              value={selectedSalespersonId}
+              onChange={(e) => setSelectedSalespersonId(e.target.value)}
+              className="bg-transparent font-semibold text-xs text-[var(--sds-color-text-main)] focus:outline-none cursor-pointer"
+            >
+              {SALESPERSONS.map((sp) => (
+                <option key={sp.id} value={sp.id}>
+                  {sp.name} ({sp.code})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Speed Budget KPI Badges */}
+          <div className="hidden lg:flex items-center gap-2 font-mono">
+            <div className="px-2.5 py-1 rounded bg-[var(--sds-color-background)] border border-[var(--sds-color-border-subtle)] text-[var(--sds-color-text-secondary)]">
+              Scan Speed: <span className="font-bold text-green-600">&lt;100ms</span>
+            </div>
           </div>
         </div>
       </div>
@@ -230,7 +316,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
                 className="w-full pl-9 pr-4 py-2.5 text-sm bg-[var(--sds-color-surface)] border border-[var(--sds-color-border)] rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-[var(--sds-color-primary)]"
               />
             </div>
-            <button type="submit" className="px-4 py-2.5 bg-[var(--sds-color-primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--sds-color-primary-hover)]">
+            <button type="submit" aria-label="Scan barcode or search item" className="px-4 py-2.5 bg-[var(--sds-color-primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--sds-color-primary-hover)]">
               Scan
             </button>
           </form>
@@ -263,14 +349,31 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
               <ShoppingBag className="w-4 h-4 text-[var(--sds-color-primary)]" />
               <h2 className="text-sm font-bold">Active Cart ({cart.length} Items)</h2>
             </div>
-            <button onClick={() => setCart([])} className="text-xs text-red-600 hover:underline flex items-center gap-1">
-              <Trash2 className="w-3.5 h-3.5" /> Clear [ESC]
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowVariantMatrix((visible) => !visible)} aria-label={showVariantMatrix ? "Switch to cart grid view" : "Switch to color and size pivot view"} className="rounded border border-[var(--sds-color-border)] px-2 py-1 text-[10px] font-bold text-[var(--sds-color-primary)]">
+                {showVariantMatrix ? "Cart Grid" : "Color x Size"}
+              </button>
+              <button onClick={() => setCart([])} aria-label="Clear all items from active cart" className="text-xs text-red-600 hover:underline flex items-center gap-1">
+                <Trash2 className="w-3.5 h-3.5" /> Clear [ESC]
+              </button>
+            </div>
           </div>
 
           {/* Cart Items List */}
           <div className="flex-1 overflow-y-auto py-3 space-y-2">
-            {cart.length === 0 ? (
+            {showVariantMatrix ? (
+              <VariantPivotMatrix
+                compact
+                items={cart.map((item) => ({
+                  id: item.product.id,
+                  label: item.product.name,
+                  color: item.product.color,
+                  size: item.product.size,
+                  quantity: item.quantity,
+                  unitValue: item.product.price,
+                }))}
+              />
+            ) : cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-xs text-[var(--sds-color-text-muted)] font-mono">
                 Cart is empty. Scan barcode or click items on the left to add.
               </div>
@@ -398,6 +501,28 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Transaction Success & Stepped Posting Modal (IPS-002) */}
+      <TransactionSuccessModal
+        isOpen={isSuccessModalOpen}
+        isPosting={isPosting}
+        progress={postingProgress}
+        result={transactionResult}
+        onClose={() => setIsSuccessModalOpen(false)}
+        onNewBill={() => {
+          setIsSuccessModalOpen(false);
+          setCart([]);
+          searchInputRef.current?.focus();
+        }}
+        onPrint={() => {
+          window.print();
+        }}
+        onViewInvoiceList={(invNo) => {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("smriti_navigate_sales_invoice", { detail: { invoiceNo: invNo } }));
+          }
+        }}
+      />
     </div>
   );
 };

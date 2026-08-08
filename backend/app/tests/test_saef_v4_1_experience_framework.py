@@ -80,10 +80,10 @@ async def test_communicator_busy_json_protocol():
 
 
 @pytest.mark.asyncio
-async def test_communicator_rest_api_integration(db_session):
+async def test_communicator_rest_api_integration(db_session, auth_headers):
     """Verifies REST endpoints under /api/v1/communicator/*."""
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test", headers=auth_headers) as ac:
         res = await ac.post(
             "/api/v1/communicator/tally/export",
             json={

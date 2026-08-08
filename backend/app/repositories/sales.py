@@ -15,7 +15,8 @@ from typing import List, Optional
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from ..models.sales import SalesInvoice
+from sqlalchemy.orm import selectinload
+from ..models.sales import SalesInvoice, SalesQuotation, SalesQuotationItem
 from .base import BaseRepository
 from ..api.deps import TenantContext
 
@@ -55,3 +56,49 @@ class SalesInvoiceRepository(BaseRepository[SalesInvoice]):
         stmt = stmt.offset(skip).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
+
+
+class SalesQuotationRepository(BaseRepository[SalesQuotation]):
+    def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
+        super().__init__(SalesQuotation, db, tenant_ctx)
+
+    async def create(self, obj_in: SalesQuotation) -> SalesQuotation:
+        self.db.add(obj_in)
+        await self.db.commit()
+        # Refresh the object and ensure related items are eagerly loaded
+        result = await self.db.execute(
+            select(SalesQuotation)
+            .options(selectinload(SalesQuotation.items))
+            .where(SalesQuotation.id == obj_in.id)
+        )
+        return result.scalars().first()
+
+    async def get_all(self, skip: int = 0, limit: int = 100) -> List[SalesQuotation]:
+        from sqlalchemy.orm import selectinload
+        stmt = select(SalesQuotation).filter(SalesQuotation.is_deleted == False)
+        stmt = self._apply_tenant_filter(stmt)
+        stmt = stmt.options(selectinload(SalesQuotation.items))
+        stmt = stmt.offset(skip).limit(limit)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_with_items(self, quotation_id: str) -> Optional[SalesQuotation]:
+        from sqlalchemy.orm import selectinload
+        stmt = select(SalesQuotation).options(selectinload(SalesQuotation.items))
+        stmt = stmt.filter(
+            SalesQuotation.id == quotation_id,
+            SalesQuotation.company_id == self.tenant_ctx.company_id,
+            SalesQuotation.branch_id == self.tenant_ctx.branch_id,
+            SalesQuotation.is_deleted == False,
+        )
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
+
+    async def exists_by_quotation_no(self, quotation_no: str) -> bool:
+        stmt = select(SalesQuotation).filter(
+            SalesQuotation.quotation_no == quotation_no,
+            SalesQuotation.is_deleted == False,
+        )
+        stmt = self._apply_tenant_filter(stmt)
+        result = await self.db.execute(stmt)
+        return result.scalars().first() is not None

@@ -38,12 +38,16 @@ import {
   EyeOff,
   Keyboard,
   Printer,
-  Paintbrush
+  Paintbrush,
+  PanelLeft,
+  PanelRight,
+  PanelTop,
+  PanelBottom,
+  MoreHorizontal
 } from "lucide-react";
 import { useWorkspace } from "../contexts/WorkspaceContext.tsx";
 import { useLayoutEngine } from "../layout_engine/layout_store.tsx";
 import { useShortcuts } from "../contexts/ShortcutContext.tsx";
-import { AdaptiveWorkspaceHeader } from "./common/AdaptiveWorkspaceHeader.tsx";
 import { SEEFAdminConfigurator } from "../layout_engine/SEEFAdminConfigurator.tsx";
 
 interface WorkspaceToolbarProps {
@@ -73,9 +77,17 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
     snapWindow
   } = useWorkspace();
 
-  const { registeredWorkspaces } = useLayoutEngine();
+  const {
+    registeredWorkspaces,
+    preferences,
+    setLayout,
+    toggleNavbar,
+    toggleSidebarVisibility,
+    toggleBottombar,
+  } = useLayoutEngine();
   const { setPaletteOpen } = useShortcuts();
   const [seefOpen, setSeefOpen] = useState(false);
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   
   // Find current tab details
   const tabConfig = registeredWorkspaces.find((w) => w.id === currentTabId);
@@ -136,17 +148,10 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
         <h2 className="text-xs font-display font-semibold text-theme-body tracking-wide">
           {title}
         </h2>
-        
-        {/* Adaptive Workspace Mode Switcher (Simple / Hybrid / Advanced) */}
-        {!isFloating && (
-          <div className="ml-3">
-            <AdaptiveWorkspaceHeader />
-          </div>
-        )}
       </div>
 
       {/* Control Actions Panel */}
-      <div className="flex items-center space-x-1.5">
+      <div className="hidden md:flex items-center space-x-1.5 shrink-0">
         {/* Workspace Layout Arrangement (Only show in main area if floating windows exist) */}
         {!isFloating && floatingWindows.length > 0 && (
           <div className="flex items-center space-x-1 pr-3 mr-3 border-r border-theme-divider">
@@ -168,6 +173,47 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
         )}
 
         {/* Zoom Level Indicator */}
+        {!isFloating && (
+          <div className="flex items-center gap-1 border-r border-theme-divider pr-2 mr-1.5">
+            <select
+              value={preferences.position}
+              onChange={(e) => setLayout(e.target.value as "left" | "right" | "top" | "bottom")}
+              className="bg-theme-surface-2 border border-theme-divider rounded px-1.5 py-1 text-[10px] text-theme-body cursor-pointer"
+              aria-label="Navigation dock position"
+              title="Navigation dock position"
+            >
+              <option value="left">Left dock</option>
+              <option value="right">Right dock</option>
+              <option value="top">Top dock</option>
+              <option value="bottom">Bottom dock</option>
+            </select>
+            <button
+              onClick={toggleNavbar}
+              className="p-1.5 rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-all cursor-pointer"
+              title={preferences.hideNavbar ? "Show top bar" : "Hide top bar"}
+              aria-label={preferences.hideNavbar ? "Show top bar" : "Hide top bar"}
+            >
+              <PanelTop size={14} />
+            </button>
+            <button
+              onClick={toggleSidebarVisibility}
+              className="p-1.5 rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-all cursor-pointer"
+              title={preferences.hideSidebar ? "Show side bar" : "Hide side bar"}
+              aria-label={preferences.hideSidebar ? "Show side bar" : "Hide side bar"}
+            >
+              {preferences.position === "right" ? <PanelRight size={14} /> : <PanelLeft size={14} />}
+            </button>
+            <button
+              onClick={toggleBottombar}
+              className="p-1.5 rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-all cursor-pointer"
+              title={preferences.hideBottombar ? "Show bottom bar" : "Hide bottom bar"}
+              aria-label={preferences.hideBottombar ? "Show bottom bar" : "Hide bottom bar"}
+            >
+              <PanelBottom size={14} />
+            </button>
+          </div>
+        )}
+
         <div className="text-[10px] font-mono text-theme-muted bg-theme-surface-2 px-2 py-1 rounded border border-theme-divider mr-1.5">
           Zoom: <strong className="text-theme-body">{(zoomValue * 100).toFixed(0)}%</strong>
         </div>
@@ -278,6 +324,31 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
               <Minimize2 size={14} />
             </button>
           </>
+        )}
+      </div>
+
+      <div className="relative md:hidden">
+        <button
+          onClick={() => setMobileActionsOpen((open) => !open)}
+          className="min-w-[var(--sds-touch-target-min)] min-h-[var(--sds-touch-target-min)] rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-all cursor-pointer flex items-center justify-center"
+          title="Workspace actions"
+          aria-label="Workspace actions"
+          aria-expanded={mobileActionsOpen}
+        >
+          <MoreHorizontal size={18} />
+        </button>
+
+        {mobileActionsOpen && (
+          <div className="absolute right-0 top-full mt-1 z-50 w-56 p-1.5 bg-theme-surface-1 border border-theme-divider rounded-lg shadow-xl flex flex-col gap-1">
+            <button onClick={handleZoomOut} disabled={zoomValue <= 0.5} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2 disabled:opacity-40">Zoom out</button>
+            <button onClick={handleZoomIn} disabled={zoomValue >= 2.0} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2 disabled:opacity-40">Zoom in</button>
+            <button onClick={handleResetZoom} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2">Reset zoom</button>
+            {!isFloating && <button onClick={toggleFocusMode} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2">{focusMode ? "Exit focus mode" : "Focus mode"}</button>}
+            {!isFloating && <button onClick={() => window.dispatchEvent(new CustomEvent("smriti_open_print_preview"))} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2">Print preview</button>}
+            <button onClick={handleFullScreenToggle} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2">Fullscreen</button>
+            <button onClick={() => setPaletteOpen(true)} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2">Keyboard shortcuts</button>
+            {!isFloating && <button onClick={() => setSeefOpen(true)} className="min-h-[var(--sds-touch-target-min)] px-3 rounded text-left text-xs text-theme-body hover:bg-theme-surface-2">Experience settings</button>}
+          </div>
         )}
       </div>
     </div>

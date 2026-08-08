@@ -1,17 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Module       : Customer Loyalty & Rewards REST API Gateway (Milestone 5 — Tasks H-1 to H-5)
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Version      : 22.2.0
-Created      : 2026-07-28
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-Purpose:
-    REST API endpoints for customer loyalty accounts, point accrual, and point redemption.
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 from typing import Dict, Any

@@ -43,13 +43,16 @@ export const StandardDocumentToolbar: React.FC<StandardDocumentToolbarProps> = (
   onCheckout
 }) => {
   return (
-    // SEEF Phase 8: bg-[#1e293b] → bg-theme-surface-1; border-theme-divider → border-theme-divider
-    <div className="h-12 bg-theme-surface-1 border-b border-theme-divider px-4 flex items-center justify-between shrink-0 font-sans select-none">
+    // POS Reference Header: taller, glassy, soft shadow (design freeze for POS)
+    <div
+      style={{ height: 56, background: 'var(--workspace-toolbar-bg)', backdropFilter: 'blur(6px)', boxShadow: '0 8px 20px rgba(2,8,20,0.45)' }}
+      className="px-4 flex items-center justify-between shrink-0 font-sans select-none"
+    >
       {/* Primary Actions */}
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-3">
         <button
           onClick={onNew}
-          className="flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors"
+          className="flex items-center space-x-1.5 bg-[var(--sds-color-primary)] hover:bg-[var(--sds-color-primary-hover)] text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors"
           title="New Document (ESC / Alt+N)"
         >
           <span className="material-symbols-outlined text-sm">add</span>
@@ -80,18 +83,17 @@ export const StandardDocumentToolbar: React.FC<StandardDocumentToolbarProps> = (
 
         <button
           onClick={onSearchClick}
-          className="flex items-center space-x-1.5 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider text-theme-body text-xs font-semibold px-3 py-1.5 rounded transition-colors"
-          title="Universal Search (Ctrl+K)"
+          className="flex items-center space-x-1.5 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider text-theme-body text-xs font-semibold px-3 py-1.5 rounded transition-colors cursor-pointer"
+          title="Universal Search"
         >
           <span className="material-symbols-outlined text-sm text-emerald-400">search</span>
           <span>Search</span>
-          <kbd className="bg-theme-base px-1 py-0.5 rounded text-[9px] font-mono text-theme-muted border border-theme-divider">Ctrl+K</kbd>
         </button>
       </div>
 
       {/* Drawer Triggers */}
       {onToggleDrawer && (
-        <div className="flex items-center space-x-1.5">
+        <div className="flex items-center space-x-2">
           {[
             { id: "transport",   icon: "local_shipping", label: "Transport",   title: "Transport & E-Way Bill Details" },
             { id: "gst",         icon: "receipt",        label: "GST",         title: "GSTIN & Tax Details" },
@@ -121,15 +123,16 @@ export const StandardDocumentToolbar: React.FC<StandardDocumentToolbarProps> = (
         <button
           disabled={!canCheckout}
           onClick={onCheckout}
-          className={`flex items-center space-x-1.5 text-xs font-bold uppercase px-4 py-1.5 rounded transition-colors ${
+          style={{ boxShadow: canCheckout ? '0 8px 30px rgba(16,185,129,0.16)' : undefined }}
+          className={`flex items-center space-x-1.5 text-sm font-bold uppercase px-4 py-2 rounded-lg transition-colors ${
             canCheckout
-              ? "bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-lg shadow-emerald-900/30"
+              ? "bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
               : "bg-theme-surface-2 text-theme-muted border border-theme-divider cursor-not-allowed"
           }`}
           title="Checkout & Pay (F12)"
         >
           <span className="material-symbols-outlined text-sm">check_circle</span>
-          <span>Checkout (F12)</span>
+          <span>Checkout</span>
         </button>
       )}
     </div>

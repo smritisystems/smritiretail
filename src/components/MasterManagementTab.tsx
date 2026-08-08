@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +7,7 @@
  * Version      : 3.17.0
  * Created      : 2026-07-10
  * Modified     : 2026-07-14
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 
@@ -416,7 +416,7 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
                         className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between transition-colors ${
                           selectedMasterId === master.id
                             ? "bg-blue-600/20 border border-blue-500/30 text-blue-400"
-                            : "text-theme-muted hover:bg-theme-surface-3 hover:text-white border border-transparent"
+                            : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-heading border border-transparent"
                         }`}
                       >
                         <div className="flex items-center gap-3 truncate">
@@ -463,7 +463,7 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
               </h1>
               <div className="text-xs text-theme-muted flex items-center gap-2 mt-0.5">
                 <span className="font-mono">{selectedMaster.category}</span>
-                <span>•</span>
+                <span>â€¢</span>
                 <span>{selectedMaster.status === "planned" ? "0" : filteredData.length} active records</span>
               </div>
             </div>
@@ -687,7 +687,7 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
         </div>
       </div>
 
-      {/* ─── ULR DEPENDENCY PROTECTION DEACTIVATION MODAL ─── */}
+      {/* â”€â”€â”€ ULR DEPENDENCY PROTECTION DEACTIVATION MODAL â”€â”€â”€ */}
       <AnimatePresence>
         {deactivationTarget && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
@@ -695,7 +695,7 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="w-full max-w-md bg-[#121824] border border-amber-500/40 rounded-2xl p-6 shadow-2xl space-y-4 font-sans text-theme-body"
+              className="w-full max-w-md bg-theme-surface-1 border border-amber-500/40 rounded-2xl p-6 shadow-2xl space-y-4 font-sans text-theme-body"
             >
               <div className="flex items-start gap-3">
                 <div className="p-2.5 bg-amber-950/80 border border-amber-500/50 text-amber-400 rounded-xl">
@@ -703,7 +703,7 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-theme-heading font-display">Cannot Delete Referenced Lookup Entry</h3>
-                  <p className="text-xs text-amber-300 font-mono mt-1 font-semibold">{deactivationTarget.code} — {deactivationTarget.name}</p>
+                  <p className="text-xs text-amber-300 font-mono mt-1 font-semibold">{deactivationTarget.code} â€” {deactivationTarget.name}</p>
                 </div>
               </div>
 

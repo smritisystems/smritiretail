@@ -1,11 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Module       : SCDM Service Unit Tests
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 import pytest
@@ -65,7 +76,11 @@ async def test_create_channel_dispatch_customer_disabled():
 @pytest.mark.asyncio
 async def test_get_visibility_kpis_empty_projection():
     """KPI calculation with empty stock projection returns zeroes and default status."""
-    mock_db = AsyncMock()
+    mock_db = MagicMock()
+    mock_db.add = MagicMock()
+    mock_db.add_all = MagicMock()
+    mock_db.flush = AsyncMock()
+    mock_db.execute = AsyncMock()
     svc = SCDMService(db=mock_db, tenant_ctx=None)
 
     # Mock empty projection
@@ -84,7 +99,11 @@ async def test_get_visibility_kpis_empty_projection():
 @pytest.mark.asyncio
 async def test_get_visibility_kpis_with_projection():
     """KPI calculation with active channel stock projection."""
-    mock_db = AsyncMock()
+    mock_db = MagicMock()
+    mock_db.add = MagicMock()
+    mock_db.add_all = MagicMock()
+    mock_db.flush = AsyncMock()
+    mock_db.execute = AsyncMock()
     svc = SCDMService(db=mock_db, tenant_ctx=None)
 
     mock_row = {

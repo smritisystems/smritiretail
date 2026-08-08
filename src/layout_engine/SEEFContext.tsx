@@ -89,6 +89,22 @@ function applyConfigToDOM(config: SEEFConfig): void {
   // Theme — activates correct color palette in CSS
   html.setAttribute("data-seef-theme", config.theme);
 
+  // Legacy data-theme bridge — maps SEEFTheme → legacy [data-theme="X"] selectors
+  // in smriti-theme-*.css (SDS v1.0 token namespace).
+  const SEEF_TO_LEGACY_THEME: Record<string, string> = {
+    "dark":          "dark",
+    "light":         "light",
+    "enterprise":    "fiori-lite",
+    "fiori-light":   "fiori-lite",
+    "high-contrast": "high-contrast",
+    "corporate":     "dark",   // closest SDS v1.0 token set
+    "minimal":       "light",  // closest SDS v1.0 token set
+    "custom":        "dark",
+  };
+  const legacyTheme = SEEF_TO_LEGACY_THEME[config.theme] ?? "dark";
+  html.setAttribute("data-theme", legacyTheme);
+
+
   // Density — activates spacing/typography scale overrides
   html.setAttribute("data-seef-density", config.density);
 
@@ -140,7 +156,23 @@ function detectAccessibilitySignals(): Pick<SEEFConfig, "reducedMotion" | "highC
 function loadPersistedConfig(): SEEFConfig {
   try {
     const raw = localStorage.getItem(SEEF_STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_SEEF_CONFIG };
+    if (!raw) {
+      const legacyTheme = localStorage.getItem("smriti-theme");
+      const validLegacyThemes = [
+        "dark",
+        "light",
+        "enterprise",
+        "fiori-light",
+        "high-contrast",
+        "corporate",
+        "minimal",
+        "custom",
+      ];
+      if (legacyTheme && validLegacyThemes.includes(legacyTheme)) {
+        return { ...DEFAULT_SEEF_CONFIG, theme: legacyTheme as SEEFTheme };
+      }
+      return { ...DEFAULT_SEEF_CONFIG };
+    }
     const parsed = JSON.parse(raw) as Partial<SEEFConfig>;
     return { ...DEFAULT_SEEF_CONFIG, ...parsed };
   } catch {

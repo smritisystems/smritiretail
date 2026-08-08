@@ -24,7 +24,7 @@
  */
 
 import { Buffer } from "buffer";
-
+import logger from "./core/logging/logger.js";
 
 if (typeof window !== "undefined") {
   (window as any).Buffer = (window as any).Buffer || Buffer;
@@ -77,7 +77,7 @@ try {
       enumerable: true
     });
   } catch (err) {
-    console.warn("Failed to patch window.fetch directly, using a custom global reference:", err);
+    logger.warn("Failed to patch window.fetch directly, using a custom global reference:", err as unknown);
   }
 }
 

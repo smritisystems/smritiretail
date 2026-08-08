@@ -3,22 +3,66 @@
 */
 
 [data-theme="dark"] {
-  --sds-color-primary: #388bfd;
-  --sds-color-primary-hover: #58a6ff;
-  --sds-color-primary-active: #1f6beb;
-  --sds-color-primary-light: #1c2d42;
+  /* Real Dark Mode — redesigned surfaces for clear hierarchy */
+  --sds-color-primary: #2e6ef6;          /* single strong blue accent for interactions */
+  --sds-color-primary-hover: #4b8dff;
+  --sds-color-primary-active: #1748d6;
 
-  --sds-color-surface: #161b22;
-  --sds-color-surface-hover: #21262d;
-  --sds-color-background: #0d1117;
-  --sds-color-background-alt: #161b22;
+  /* Surface hierarchy (deliberately stepped; not gradients of white) */
+  --sds-color-background: #05070a;       /* Surface 0 - deep charcoal app background */
+  --sds-color-background-alt: #0b1116;   /* Surface 1 - workspace canvas */
+  --sds-color-surface: #0f1720;          /* Surface 2 - cards / panels */
+  --sds-color-surface-3: #111823;        /* Surface 3 - inputs, tables */
+  --sds-color-surface-4: #162028;        /* Surface 4 - floating UI, dialogs */
 
-  --sds-color-text-main: #c9d1d9;
-  --sds-color-text-secondary: #8b949e;
-  --sds-color-text-muted: #6e7681;
-  --sds-color-text-inverse: #0d1117;
+  /* Text tones tuned for hierarchy */
+  --sds-color-text-main: #eaf3ff;        /* primary readable text */
+  --sds-color-text-secondary: #9fb5c8;   /* secondary labels */
+  --sds-color-text-muted: #7b8896;       /* muted helper text */
 
-  --sds-color-border: #30363d;
-  --sds-color-border-subtle: #21262d;
-  --sds-color-border-focus: #58a6ff;
+  /* Borders and focus (use extremely subtle borders; prefer elevation) */
+  --sds-color-border: rgba(255,255,255,0.03);
+  --sds-color-border-subtle: rgba(255,255,255,0.015);
+  --sds-color-border-focus: rgba(78,141,255,0.9);
+
+  /* Status accents */
+  --c-seef-success: #14b57a;
+  --c-seef-warning: #ffb020;
+  --c-seef-error: #ff5c6c;
+  --c-seef-accent: var(--sds-color-primary);
+
+  /* Component-level: use the surface tokens, not bright gradients */
+  --smriti-card-bg: var(--sds-color-surface);
+  --smriti-card-border: var(--sds-color-border-subtle);
+  --smriti-card-radius: 14px;
+  --smriti-card-shadow: 0 10px 30px rgba(2,8,20,0.6);
+
+  --workspace-toolbar-bg: rgba(255,255,255,0.02);
+  --workspace-bottom-nav-bg: rgba(255,255,255,0.02);
+
+  /* Buttons: primary kept as interaction-only accent */
+  --smriti-button-primary-bg: var(--sds-color-primary);
+  --smriti-button-primary-fg: #ffffff;
+
+  /* Table / form surface separation (darker rows, subtle separators) */
+  --sds-color-surface-2: var(--sds-color-surface);
+  --sds-color-surface-3: var(--sds-color-surface-3);
+}
+
+/* Surface hierarchy for dark theme — use these five surfaces consistently across components */
+[data-theme="dark"] {
+  --smriti-surface-0: var(--sds-color-background);      /* App background */
+  --smriti-surface-1: var(--sds-color-background-alt);  /* Workspace / page canvas */
+  --smriti-surface-2: var(--smriti-card-bg);            /* Cards */
+  --smriti-surface-3: rgba(255,255,255,0.02);           /* Inputs & tables */
+  --smriti-surface-4: rgba(255,255,255,0.03);           /* Floating UI: dialogs, sheets */
+
+  /* Input and control sizing */
+  --smriti-input-height: 52px; /* touch target */
+  --smriti-mobile-header-height: 42px; /* reduced by ~25% */
+
+  /* Icon system */
+  --smriti-icon-size: 20px;
+  --smriti-icon-stroke: 2px;
+  --smriti-icon-opacity: 0.9;
 }

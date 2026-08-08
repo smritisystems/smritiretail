@@ -60,52 +60,49 @@ export const SMRITIGrid: React.FC<SMRITIGridProps> = ({
 
   return (
     // SEEF Phase 8: all hardcoded slate-* and hex colors replaced with theme tokens
-    <div className="w-full h-full bg-theme-base border border-theme-divider rounded-xl overflow-hidden flex flex-col font-sans select-none">
+    <div className="w-full h-full bg-theme-base rounded-xl overflow-hidden flex flex-col font-sans select-none">
       <div className="overflow-x-auto flex-1 w-full custom-scrollbar">
         <table className={`w-full text-left text-xs text-theme-body ${fitToWidth ? "table-fixed" : ""}`}>
-          <thead className="bg-theme-surface-1 text-[10px] uppercase font-bold font-display tracking-wider text-theme-muted border-b border-theme-divider sticky top-0 z-10">
+          <thead className="bg-theme-surface-1 text-[10px] uppercase font-bold font-display tracking-wider text-theme-muted sticky top-0 z-10" style={{borderBottom: '1px solid var(--smriti-table-separator)'}}>
             <tr>
-              <th className="py-3 px-4 w-12 text-center">#</th>
-              <th className="py-3 px-4">Item Code &amp; Description</th>
-              <th className="py-3 px-4 text-right w-28">Price (₹)</th>
-              <th className="py-3 px-4 text-center w-36">Qty</th>
+              <th className={fitToWidth ? "py-4 px-3 sm:px-4 w-[6%] text-center" : "py-4 px-4 w-12 text-center"}>#</th>
+              <th className={fitToWidth ? `py-4 px-3 sm:px-4 ${salespersonMode === "line" ? "w-[20%]" : "w-[40%]"}` : "py-4 px-4"}>Item Code &amp; Description</th>
+              <th className={fitToWidth ? "py-4 px-3 sm:px-4 w-[14%] text-right" : "py-4 px-4 text-right w-28"}>Price (₹)</th>
+              <th className={fitToWidth ? "py-4 px-3 sm:px-4 w-[18%] text-center" : "py-4 px-4 text-center w-36"}>Qty</th>
               {salespersonMode === "line" && (
-                <th className="py-3 px-4 text-center w-40">Salesperson</th>
+                <th className={fitToWidth ? "py-4 px-3 sm:px-4 w-[18%] text-center" : "py-4 px-4 text-center w-40"}>Salesperson</th>
               )}
-              <th className="py-3 px-4 text-right w-32">Total (₹)</th>
-              <th className="py-3 px-4 text-center w-14">Actions</th>
+              <th className={fitToWidth ? "py-4 px-3 sm:px-4 w-[14%] text-right" : "py-4 px-4 text-right w-32"}>Total (₹)</th>
+              <th className={fitToWidth ? "py-4 px-3 sm:px-4 w-[8%] text-center" : "py-4 px-4 text-center w-14"}>Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-theme-divider font-mono">
+          <tbody className="font-mono">
             {cart.map((item, index) => {
               const price = Number(item.product?.price ?? 0);
               const lineTotal = price * (item.quantity || 0);
               const productId = item.product?.id || `item-${index}`;
               return (
-                <tr key={productId} className="hover:bg-theme-surface-2 transition-colors group">
-                  <td className="py-3 px-4 text-center text-theme-muted font-semibold">{index + 1}</td>
-                  <td className="py-3 px-4 truncate max-w-0">
+                <tr key={productId} className="group transition-colors hover:bg-theme-surface-2/80" style={{ borderBottom: '1px solid var(--smriti-table-separator)' }}>
+                  <td className="py-4 px-4 text-center text-theme-muted font-semibold">{index + 1}</td>
+                  <td className="py-3 px-2 sm:px-4 truncate max-w-0 overflow-hidden">
                     <div className="font-semibold text-theme-heading text-xs truncate">{item.product?.name || "Unknown SKU"}</div>
-                    <div className="text-[10px] text-theme-muted flex items-center space-x-2 truncate">
+                    <div className="text-[10px] text-theme-muted flex flex-wrap items-center gap-2 truncate">
                       <span>Code: {item.product?.code || "N/A"}</span>
                       <span>•</span>
                       <span>BC: {item.product?.barcode || "N/A"}</span>
                       {item.product?.gstPercentage && (
-                        <>
-                          <span>•</span>
-                          <span className="text-blue-400">GST {item.product.gstPercentage}%</span>
-                        </>
+                        <span className="text-[10px] text-theme-muted">GST {item.product.gstPercentage}%</span>
                       )}
                     </div>
                   </td>
                   <td className="py-3 px-4 text-right font-bold text-theme-body">
                     ₹{price.toFixed(2)}
                   </td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center justify-center space-x-1 bg-theme-surface-2 rounded border border-theme-divider p-0.5 max-w-[120px] mx-auto">
+                  <td className="py-3 px-2 sm:px-4">
+                    <div className="flex items-center justify-center space-x-1 rounded-xl bg-theme-surface-3 px-1 py-1 max-w-[120px] mx-auto">
                       <button
                         onClick={() => onUpdateQuantity(productId, (item.quantity || 1) - 1)}
-                        className="w-6 h-6 rounded bg-theme-surface-3 hover:bg-blue-600/20 text-theme-body flex items-center justify-center font-bold text-xs transition-colors"
+                        className="w-8 h-8 rounded-full bg-theme-surface-1 text-theme-body hover:bg-theme-surface-2 transition-flex text-sm"
                       >
                         -
                       </button>
@@ -113,11 +110,11 @@ export const SMRITIGrid: React.FC<SMRITIGridProps> = ({
                         type="number"
                         value={item.quantity || 0}
                         onChange={(e) => onUpdateQuantity(productId, parseInt(e.target.value) || 0)}
-                        className="w-10 text-center bg-transparent text-xs font-bold text-theme-heading focus:outline-none"
+                        className="w-12 bg-transparent text-center text-xs font-bold text-theme-heading focus:outline-none"
                       />
                       <button
                         onClick={() => onUpdateQuantity(productId, (item.quantity || 0) + 1)}
-                        className="w-6 h-6 rounded bg-theme-surface-3 hover:bg-blue-600/20 text-theme-body flex items-center justify-center font-bold text-xs transition-colors"
+                        className="w-8 h-8 rounded-full bg-theme-surface-1 text-theme-body hover:bg-theme-surface-2 transition-flex text-sm"
                       >
                         +
                       </button>
@@ -125,7 +122,7 @@ export const SMRITIGrid: React.FC<SMRITIGridProps> = ({
                   </td>
 
                   {salespersonMode === "line" && (
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-3 px-2 sm:px-4 text-center">
                       <select
                         value={item.salespersonId || ""}
                         onChange={(e) => onUpdateSalesperson && onUpdateSalesperson(productId, e.target.value)}
@@ -138,16 +135,16 @@ export const SMRITIGrid: React.FC<SMRITIGridProps> = ({
                     </td>
                   )}
 
-                  <td className="py-3 px-4 text-right font-bold text-emerald-400">
+                  <td className="py-3 px-4 text-right font-bold text-theme-heading">
                     ₹{lineTotal.toFixed(2)}
                   </td>
                   <td className="py-3 px-4 text-center">
                     <button
                       onClick={() => onRemoveItem(productId)}
-                      className="text-theme-muted hover:text-rose-400 p-1 rounded transition-colors"
+                      className="text-theme-muted hover:text-rose-400 p-2 rounded-full transition-colors"
                       title="Remove Item"
                     >
-                      <span className="material-symbols-outlined text-sm">delete</span>
+                      <span className="material-symbols-outlined text-base">delete</span>
                     </button>
                   </td>
                 </tr>

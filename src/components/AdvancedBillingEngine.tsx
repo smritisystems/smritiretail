@@ -5,10 +5,10 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.1.0  (SEEF Phase 6 — Density + Animation Cascade)
+ * Version      : 5.4.0  (SXP-CS-007 â€” Return/Exchange wizard wired)
  * Created      : 2026-07-10
  * Modified     : 2026-07-20
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 import React, { useState, useEffect, useMemo } from "react";
@@ -18,14 +18,28 @@ import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { getCustomers, getCustomerGroups, updateCustomerOutstanding } from "../services/customerStore.ts";
 import { checkCreditStatus } from "../services/customerPolicyEngine.ts";
 import { apiFetchV1 } from "../lib/apiFetchV1";
+import { DocumentService } from "../dop/core/DocumentService.ts";
 import { useTerminalShortcuts } from "./terminal/KeyboardEngine";
 import { SMRITIGrid } from "./terminal/SMRITIGrid";
-import { StandardDocumentToolbar } from "./terminal/StandardDocumentToolbar";
 import { RightDrawerHost } from "./terminal/RightDrawerHost";
 import { UniversalSearchModal } from "./terminal/UniversalSearchModal";
 import { STRE, TaxContext } from "../sdk";
-// SEEF Phase 6 — surgical cascade integration (POS grid untouched)
+import { POSReferenceHeader } from "./pos/POSReferenceHeader";
+import { POSReferenceSidebar } from "./pos/POSReferenceSidebar";
+import { POSCustomerCard } from "./pos/POSCustomerCard";
+import { POSBillingCard } from "./pos/POSBillingCard";
+import { POSTaxSummary } from "./pos/POSTaxSummary";
+import { POSBillSummary } from "./pos/POSBillSummary";
+import { POSReferenceActionBar } from "./pos/POSReferenceActionBar";
+import "../styles/pos-reference-tokens.css";
+// SEEF Phase 6 â€” surgical cascade integration (POS grid untouched)
 import { useSEEF } from "../layout_engine/SEEFContext.tsx";
+// SXP v1.0 â€” POS Studio manifest (side-effect import: auto-registers actions + workspaces)
+import "./pos/pos.manifest.js";
+import { useSmritiExperience } from "../context/SmritiExperienceContext.js";
+// SXP-CS-007 â€” Return/Exchange scanner_action wizard (3-step, SWEF P-007)
+import { buildReturnExchangeWizard } from "./pos/POSReturnWizard.js";
+import { OperationDef, OperationWizard } from "./shared/OperationLauncher.js";
 
 // Types for Advanced Billing
 export interface AdvancedCustomer {
@@ -185,12 +199,16 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     policy: "Returns accepted within 7 days on clothing and accessories only if tags are intact."
   };
 
-  // SEEF Phase 6 — density cascade (compact: tighter POS rows, spacious: more breathing room)
-  // AOP-001: useSEEF is advisory only — POS workflow never depends on AI or cascade availability
+  // SEEF Phase 6 â€” density cascade (compact: tighter POS rows, spacious: more breathing room)
+  // AOP-001: useSEEF is advisory only â€” POS workflow never depends on AI or cascade availability
   const { config: seefConfig } = useSEEF();
   const posRowPadding = seefConfig.density === "compact" ? "py-1.5" : seefConfig.density === "spacious" ? "py-3" : "py-2";
   // Gate motion/react transitions on SEEF animation config (respects reducedMotion user preference)
   const motionProps = (seefConfig.animationPolicy === "none" || seefConfig.reducedMotion) ? {} : { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } };
+
+  // SXP v1.0 â€” zone-aware animation suppression (SWEF P-007: scanner zone = zero animations during active billing)
+  // This is advisory â€” existing motionProps already handles animation gating from SEEF config
+  const { mode: workspaceMode } = useSmritiExperience();
 
   // Local Cart State when cart prop is empty
   const [localCart, setLocalCart] = useState<{ product: Product; quantity: number }[]>([
@@ -246,7 +264,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       handleAddToCart(found, 1);
       setScanInput("");
     } else {
-      onNotification("SKU Not Found", `No product matches "${scanInput}". Use Quick Catalog or Search (Ctrl+K).`, "error");
+      onNotification("SKU Not Found", `No product matches "${scanInput}". Use Quick Catalog or Search.`, "error");
     }
   };
 
@@ -342,11 +360,23 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
   // Active edit item-level discount modal
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
 
+  // SXP-CS-007 â€” Return/Exchange wizard state
+  const [returnWizardDef, setReturnWizardDef] = useState<OperationDef | null>(null);
+
+  const openReturnWizard = () => {
+    setReturnWizardDef(
+      buildReturnExchangeWizard(
+        "pos.billing",
+        activeShift?.id ?? "default",
+        customer.name || "Cashier",
+      )
+    );
+  };
+
   // Keyboard shortcuts register via KeyboardEngine
   useTerminalShortcuts({
-    "ESC": () => {
-      onClose();
-    }
+    "ESC": () => { onClose(); },
+    "F12": () => { openReturnWizard(); },
   });
 
   // Synchronize activeCart with internal editable itemDetailsList
@@ -726,7 +756,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     };
 
     try {
-      // Migrated: POST /api/pos/checkout (Express — unmounted) → POST /api/v1/pos/checkout (FastAPI)
+      // Migrated: POST /api/pos/checkout (Express â€” unmounted) â†’ POST /api/v1/pos/checkout (FastAPI)
       await apiFetchV1("/pos/checkout", {
         method: "POST",
         body: JSON.stringify({
@@ -758,217 +788,153 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    if (!finalizedInvoice) {
+      window.print();
+      return;
+    }
+    const res = await DocumentService.output({
+      documentType: "RECEIPT",
+      referenceId: finalizedInvoice.invoiceNo || `POS-${Date.now()}`,
+      channel: "PRINT",
+      data: {
+        customerName: finalizedInvoice.customer?.name || "Cash Customer",
+        salesperson: finalizedInvoice.salesperson,
+        grandTotal: finalizedInvoice.totals?.grandTotal || 0,
+        paymentMode: finalizedInvoice.payment?.mode || "Cash",
+      },
+      items: (finalizedInvoice.cart || []).map((item: any) => ({
+        itemCode: item.code || item.productId,
+        itemName: item.name,
+        sellingPrice: item.price,
+        quantity: item.quantity,
+      })),
+    });
+    onNotification("Receipt Dispatched", `POS receipt printed via SCS-DXP-001 ${res.adapterUsed}.`, "success");
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#0b1329] text-gray-200 overflow-hidden font-sans select-none relative">
-      {/* SMRITI RETAIL TERMINAL HEADER BAR (TOP CONTROL ROW) */}
-      <div className="px-4 py-2 bg-[#0f172a] border-b border-theme-divider flex items-center justify-between text-xs font-mono">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <span className="text-theme-muted font-bold">Bill Type:</span>
-            <span className="bg-blue-600/30 text-blue-300 px-2 py-0.5 rounded border border-blue-500/40 font-bold uppercase">Tax Invoice</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-theme-muted font-bold">Type:</span>
-            <span className="bg-emerald-600/30 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/40 font-bold">{paymentMode === "Single" ? primaryPaymentMethod.toUpperCase() : "SPLIT"}</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-theme-muted font-bold">Customer:</span>
-            <button
-              onClick={() => {
-                setTempCustomer(customer);
-                setIsCustomerModalOpen(true);
-              }}
-              className="text-amber-300 hover:text-amber-200 font-bold underline cursor-pointer flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
-              title="Click to Edit Customer & B2B GSTIN Details"
-            >
-              <span className="material-symbols-outlined text-xs">person_add</span>
-              <span>{customer.name} ({customer.type === "Registered" ? customer.gstin || "B2B" : "B2C"})</span>
-            </button>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-theme-muted font-bold">Sales Staff:</span>
-            <span className="text-theme-heading">{SALESPERSONS.find(s => s.id === globalSalespersonId)?.name || "Counter Clerk"}</span>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <span className="text-theme-muted">Shift: <strong className="text-white">{activeShift?.id || "SHIFT-01"}</strong></span>
-          <span className="text-theme-muted">Desk: <strong className="text-white">{activeProfile?.name || "LANE-01"}</strong></span>
-          <button 
-            onClick={onClose}
-            className="text-theme-muted hover:text-white p-1 rounded hover:bg-theme-surface-hover transition-colors"
-          >
-            <span className="material-symbols-outlined text-lg">close</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Standardized Operational Toolbar with Drawer Triggers */}
-      <StandardDocumentToolbar
-        onNew={handleClearLocalCart}
-        onSearchClick={() => setIsSearchOpen(true)}
-        onToggleDrawer={(id) => setActiveDrawerId(prev => prev === id ? null : id)}
-        activeDrawerId={activeDrawerId}
-        canCheckout={activeCart.length > 0}
-        onCheckout={handleFinalCheckout}
+    <div
+      className="w-full h-full flex flex-col bg-theme-surface-1 text-gray-200 overflow-hidden font-sans select-none relative"
+      data-sxp-zone="scanner"
+      data-sxp-workspace="pos.billing"
+      data-sxp-mode={workspaceMode}
+    >
+      <POSReferenceHeader
+        billType="Tax Invoice"
+        paymentModeLabel={paymentMode === "Single" ? primaryPaymentMethod : "Split"}
+        activeProfileName={activeProfile?.name || "LANE-01"}
+        activeShiftId={activeShift?.id}
+        searchValue={scanInput}
+        onSearchChange={setScanInput}
+        onSearchSubmit={handleScanSubmit}
+        onClose={onClose}
       />
 
       {/* Workspace Body */}
       {!showInvoicePreview ? (
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-          
-          {/* LEFT COLUMN: SMRITI RETAIL TERMINAL DETAIL SECTION (SMRITI ITEM GRID - 75% WIDTH) */}
-          <div className="flex-1 flex flex-col overflow-hidden border-r border-theme-divider p-4 space-y-3">
-            {/* Quick Barcode Scanner / SKU Search Bar */}
-            <form onSubmit={handleScanSubmit} className="flex items-center gap-3 bg-[#1e293b] p-2.5 rounded-lg border border-theme-divider">
-              <span className="material-symbols-outlined text-blue-400 text-xl">qr_code_scanner</span>
-              <input
-                type="text"
-                value={scanInput}
-                onChange={(e) => setScanInput(e.target.value)}
-                placeholder="Scan barcode or type SKU / Item Name (e.g. 8901234567890, Shirt, Denim, Belt) & press Enter..."
-                className="flex-1 bg-theme-surface-2 border border-theme-divider rounded px-3 py-1.5 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-blue-500"
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col xl:flex-row overflow-hidden">
+            <div className="hidden xl:block xl:w-[280px] p-4">
+              <POSReferenceSidebar
+                actions={[
+                  { id: "new_bill", label: "New Bill", icon: "receipt_long", onClick: handleClearLocalCart, active: true },
+                  { id: "hold_bill", label: "Hold", icon: "pause_circle", onClick: () => { handleClearLocalCart(); onNotification("Held", "Bill put on hold (placeholder)", "success"); }, active: false },
+                  { id: "checkout", label: "Checkout", icon: "check_circle", onClick: handleFinalCheckout, active: false },
+                  { id: "returns", label: "Return", icon: "undo", onClick: openReturnWizard, active: false }
+                ]}
               />
-              <button
-                type="submit"
-                className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1 font-mono cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-sm">add_shopping_cart</span>
-                Add Item
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsSearchOpen(true)}
-                className="bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1 font-mono border border-theme-divider cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-sm">search</span>
-                Catalog (Ctrl+K)
-              </button>
-            </form>
-
-            {/* Quick Catalog Chips Bar for Instant 1-Click Item Additions */}
-            <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1 text-[11px] font-mono">
-              <span className="text-theme-muted font-bold flex items-center gap-1 shrink-0">
-                <span className="material-symbols-outlined text-xs text-emerald-400">add_circle</span>
-                Quick Add Items:
-              </span>
-              {DEMO_TAX_PRODUCTS.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => handleAddToCart(p, 1)}
-                  className="bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading hover:text-white px-2.5 py-1 rounded border border-theme-divider hover:border-theme-divider font-semibold transition-all shrink-0 flex items-center gap-1 cursor-pointer"
-                >
-                  <span>+ {p.name.split(" ")[0]}</span>
-                  <span className="text-emerald-400 font-bold">₹{p.price}</span>
-                </button>
-              ))}
             </div>
 
-            {/* SMRITI High-Speed Item Details Grid */}
-            <div className="flex-1 overflow-hidden">
-              <SMRITIGrid
-                cart={activeCart}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemoveItem={handleRemoveItem}
-              />
+            <div className="flex-1 p-4 overflow-hidden space-y-4">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] h-full">
+                <div className="space-y-4">
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,22rem)]">
+                    <POSCustomerCard
+                      customer={customer}
+                      matchedCustomerName={matchedCustomer?.name || null}
+                      onEdit={() => {
+                        setTempCustomer(customer);
+                        setIsCustomerModalOpen(true);
+                      }}
+                    />
+                    <POSBillingCard
+                      paymentMode={paymentMode}
+                      primaryPaymentMethod={primaryPaymentMethod}
+                      loyaltyPoints={openingLoyaltyPoints}
+                      billDiscount={totals.totalBillDiscounts}
+                    />
+                  </div>
+
+                  <div className="pos-reference-card bg-theme-surface-2/95 border border-theme-divider/60 p-4 space-y-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.25em] text-theme-muted font-semibold">Quick Actions</p>
+                        <h3 className="mt-2 text-base font-bold text-theme-heading">Cart Controls</h3>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsSearchOpen(true)}
+                          className="rounded-full px-4 py-3 bg-theme-surface-1 border border-theme-divider text-sm font-semibold text-theme-body hover:bg-theme-surface-3 transition"
+                        >
+                          Catalog
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddToCart(DEMO_TAX_PRODUCTS[0], 1)}
+                          className="rounded-full px-4 py-3 bg-theme-surface-1 border border-theme-divider text-sm font-semibold text-theme-body hover:bg-theme-surface-3 transition"
+                        >
+                          Quick Add
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="overflow-hidden rounded-[24px] border border-theme-divider bg-theme-surface-1 shadow-sm">
+                      <SMRITIGrid
+                        cart={activeCart}
+                        onUpdateQuantity={handleUpdateQuantity}
+                        onRemoveItem={handleRemoveItem}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <POSTaxSummary
+                    isInterstate={totals.isInterstate}
+                    cgstTotal={totals.cgstTotal}
+                    sgstTotal={totals.sgstTotal}
+                    igstTotal={totals.igstTotal}
+                    tcsAmount={totals.tcsAmount}
+                  />
+                  <POSBillSummary
+                    grossAmount={totals.grossAmount}
+                    discounts={totals.totalBillDiscounts}
+                    gstAmount={totals.totalGstTax}
+                    tcsAmount={totals.tcsAmount}
+                    roundOff={totals.roundOff}
+                    grandTotal={totals.grandTotal}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* RIGHT COLUMN: SMRITI RETAIL TERMINAL FOOTER NET VALUES BREAKDOWN (25% WIDTH) */}
-          <div className="w-full lg:w-80 bg-[#0f172a] border-l border-theme-divider flex flex-col p-4 space-y-4 font-mono">
-            <div className="border-b border-theme-divider pb-2 flex items-center justify-between">
-              <h4 className="font-bold text-theme-heading text-xs uppercase tracking-wide font-display">Net Values Sheet</h4>
-              <span className="text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 font-bold">GST Live</span>
-            </div>
-
-            <div className="flex-1 space-y-2.5 text-xs overflow-y-auto custom-scrollbar">
-              <div className="flex justify-between text-theme-muted">
-                <span>Gross Sales:</span>
-                <span className="font-bold text-theme-heading">₹{(Number(totals.grossAmount) || 0).toFixed(2)}</span>
-              </div>
-
-              {(totals.itemDiscountsTotal || 0) > 0 && (
-                <div className="flex justify-between text-amber-400">
-                  <span>Item Discounts:</span>
-                  <span className="font-bold">-₹{(Number(totals.itemDiscountsTotal) || 0).toFixed(2)}</span>
-                </div>
-              )}
-
-              {(totals.totalBillDiscounts || 0) > 0 && (
-                <div className="flex justify-between text-amber-400">
-                  <span>Bill Discounts & Promo:</span>
-                  <span className="font-bold">-₹{(Number(totals.totalBillDiscounts) || 0).toFixed(2)}</span>
-                </div>
-              )}
-
-              <div className="flex justify-between text-theme-body border-t border-theme-divider pt-2 font-bold">
-                <span>Taxable Base Value:</span>
-                <span className="text-white">₹{(Number(totals.totalTaxableAmount) || 0).toFixed(2)}</span>
-              </div>
-
-              {!totals.isInterstate ? (
-                <>
-                  <div className="flex justify-between text-theme-muted pl-2 text-[11px]">
-                    <span>Sales Tax (CGST):</span>
-                    <span className="text-blue-400 font-bold">₹{(Number(totals.cgstTotal) || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-theme-muted pl-2 text-[11px]">
-                    <span>Sales Tax (SGST):</span>
-                    <span className="text-blue-400 font-bold">₹{(Number(totals.sgstTotal) || 0).toFixed(2)}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-between text-theme-muted pl-2 text-[11px]">
-                  <span>Sales Tax (IGST):</span>
-                  <span className="text-blue-400 font-bold">₹{(Number(totals.igstTotal) || 0).toFixed(2)}</span>
-                </div>
-              )}
-
-              {(totals.tcsAmount || 0) > 0 && (
-                <div className="flex justify-between text-purple-400 pl-2 text-[11px]">
-                  <span>Statutory TCS:</span>
-                  <span className="font-bold">+₹{(Number(totals.tcsAmount) || 0).toFixed(2)}</span>
-                </div>
-              )}
-
-              <div className="flex justify-between text-theme-muted border-t border-theme-divider pt-2 text-[11px]">
-                <span>Round Off:</span>
-                <span className="text-theme-body font-bold">{(totals.roundOff || 0) >= 0 ? `+₹${(Number(totals.roundOff) || 0).toFixed(2)}` : `-₹${Math.abs(Number(totals.roundOff) || 0).toFixed(2)}`}</span>
-              </div>
-
-              <div className="bg-emerald-950/60 border border-emerald-500/50 p-3.5 rounded-xl space-y-1 text-center mt-3 shadow-lg">
-                <span className="text-[10px] text-emerald-400 uppercase tracking-widest font-bold">Net Amount Payable</span>
-                <p className="text-2xl font-bold text-emerald-300 font-mono">
-                  ₹{(Number(totals.grandTotal) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={handleFinalCheckout}
-              disabled={cart.length === 0}
-              className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider font-display transition-all flex items-center justify-center gap-2 ${
-                cart.length > 0
-                  ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 cursor-pointer"
-                  : "bg-theme-surface-2 text-theme-muted cursor-not-allowed border border-theme-divider"
-              }`}
-            >
-              <span className="material-symbols-outlined text-base">task_alt</span>
-              Register & Print Invoice (F4)
-            </button>
-          </div>
-
+          <POSReferenceActionBar
+            onMenu={() => onNotification("Menu", "Menu opened", "success")}
+            onHold={() => { handleClearLocalCart(); onNotification("Held", "Bill put on hold (placeholder)", "success"); }}
+            onSave={() => onNotification("Saved", "Bill saved (placeholder)", "success")}
+            onPreview={() => setShowInvoicePreview(true)}
+            onPay={handleFinalCheckout}
+          />
         </div>
       ) : (
           /* SECTION 4: INTERACTIVE PRINT TEMPLATE VIEWER */
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-theme-surface-2">
             
             {/* Left selector menu */}
-            <div className="w-full md:w-64 bg-[#0e172a] border-b md:border-b-0 md:border-r border-theme-divider p-4 space-y-4">
+            <div className="w-full md:w-64 bg-theme-surface-1 border-b md:border-b-0 md:border-r border-theme-divider p-4 space-y-4">
               <h5 className="font-semibold text-xs text-blue-400 font-mono uppercase tracking-wider">Configure Print Queue</h5>
               
               <div className="space-y-2">
@@ -1052,6 +1018,19 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
               </div>
             </div>
 
+
+          {/* Floating Bottom Action Bar - POS Reference */}
+          {!showInvoicePreview && (
+            <div style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: 18, zIndex: 60 }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--smriti-bottom-nav-bg)', padding: '10px 14px', borderRadius: '20px', boxShadow: 'var(--smriti-bottom-nav-shadow)' }}>
+                <button onClick={() => { onNotification('Menu', 'Menu opened', 'success'); }} className="px-3 py-2 rounded-md text-sm text-theme-muted">☰</button>
+                <button onClick={() => { handleClearLocalCart(); onNotification('Held', 'Bill put on hold (placeholder)', 'success'); }} className="px-3 py-2 rounded-md text-sm bg-theme-surface-2 hover:bg-theme-surface-hover">Hold</button>
+                <button onClick={() => { onNotification('Saved', 'Bill saved (placeholder)', 'success'); }} className="px-3 py-2 rounded-md text-sm bg-theme-surface-2 hover:bg-theme-surface-hover">Save</button>
+                <button onClick={() => setShowInvoicePreview(true)} className="px-3 py-2 rounded-md text-sm bg-theme-surface-2 hover:bg-theme-surface-hover">Preview</button>
+                <button onClick={handleFinalCheckout} className="px-4 py-2 rounded-xl text-sm font-bold text-white" style={{ background: 'var(--sds-color-primary)' }}>Pay</button>
+              </div>
+            </div>
+          )}
             {/* Right side live layout canvas frame */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-8 flex justify-center bg-theme-surface-3">
               
@@ -1064,7 +1043,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
                       <h1 className="text-base font-bold tracking-tight text-gray-900 uppercase">{storeInfo.name}</h1>
                       <p className="text-[10px] text-gray-500 mt-1 max-w-sm leading-relaxed">{storeInfo.address}</p>
                       <p className="font-mono mt-1 text-[10px]">
-                        <strong>GSTIN:</strong> {storeInfo.gstin} • <strong>FSSAI:</strong> {storeInfo.fssai}
+                        <strong>GSTIN:</strong> {storeInfo.gstin} â€¢ <strong>FSSAI:</strong> {storeInfo.fssai}
                       </p>
                     </div>
                     <div className="text-right">
@@ -1453,7 +1432,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
         </AnimatePresence>
 
       {/* SMRITI RETAIL TERMINAL BOTTOM SUMMARY BAR (FOOTER SECTION) */}
-      <footer className="h-10 bg-[#1e293b] border-t border-theme-divider px-4 flex items-center justify-between font-mono text-xs text-theme-body">
+      <footer className="h-10 bg-theme-surface-2 border-t border-theme-divider px-4 flex items-center justify-between font-mono text-xs text-theme-body">
         <div className="flex items-center space-x-6">
           <div>Total Items: <span className="text-white font-bold">{cart.length}</span></div>
           <div>Total Qty: <span className="text-white font-bold">{totals.totalQty || 0}</span></div>
@@ -1486,9 +1465,9 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       {/* Customer Master Details Modal */}
       {isCustomerModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0f172a] border border-theme-divider rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl font-sans text-xs">
+          <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl font-sans text-xs">
             {/* Modal Header */}
-            <div className="px-5 py-4 border-b border-theme-divider flex items-center justify-between bg-[#1e293b] rounded-t-2xl">
+            <div className="px-5 py-4 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2 rounded-t-2xl">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-amber-400 text-xl">person_add</span>
                 <div>
@@ -1498,7 +1477,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
               </div>
               <button
                 onClick={() => setIsCustomerModalOpen(false)}
-                className="text-theme-muted hover:text-white p-1 rounded hover:bg-theme-surface-hover transition-colors"
+                className="text-theme-muted hover:text-theme-heading p-1 rounded hover:bg-theme-surface-hover transition-colors"
               >
                 <span className="material-symbols-outlined text-lg">close</span>
               </button>
@@ -1670,9 +1649,9 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
             </div>
 
             {/* Modal Actions */}
-            <div className="px-5 py-3 border-t border-theme-divider flex items-center justify-between bg-[#1e293b] rounded-b-2xl">
+            <div className="px-5 py-3 border-t border-theme-divider flex items-center justify-between bg-theme-surface-2 rounded-b-2xl">
               <span className="text-[10px] text-theme-muted font-mono">
-                STRE Auto-Applied Tax: <strong className="text-emerald-400">✔ Automatically Applied ({tempCustomer.gstin && !tempCustomer.gstin.startsWith("27") ? "Interstate IGST 18%" : "Intrastate CGST 9% + SGST 9%"})</strong>
+                STRE Auto-Applied Tax: <strong className="text-emerald-400">âœ” Automatically Applied ({tempCustomer.gstin && !tempCustomer.gstin.startsWith("27") ? "Interstate IGST 18%" : "Intrastate CGST 9% + SGST 9%"})</strong>
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -1698,6 +1677,14 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* SXP-CS-007 â€” Return/Exchange wizard overlay (scanner_action, â‰¤3 steps) */}
+      {returnWizardDef && (
+        <OperationWizard
+          operation={returnWizardDef}
+          onClose={() => setReturnWizardDef(null)}
+        />
       )}
     </div>
   );

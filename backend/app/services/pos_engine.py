@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import TenantContext
 from app.models.inventory import Product
+from app.services.inventory.facades import InventoryCommandFacade
 from app.models.pos import PosSession, PosTransaction, PosTransactionItem, PosOfflineSyncQueue
 # ADR-007: Domain Event Bus — SaleCompleted + StockAdjusted publishers
 from app.core.events.domain_events import publish_sale_completed, publish_stock_adjusted
@@ -146,10 +147,6 @@ class PosEngine:
             line_tot = (qty * unit_price).quantize(Decimal("0.01"))
             subtotal += line_tot
 
-            # Deduct stock directly
-            prod.stock -= qty
-            self.db.add(prod)
-
             tx_item = PosTransactionItem(
                 id=f"pos-item-{uuid.uuid4().hex[:12]}",
                 uuid=str(uuid.uuid4()),
@@ -165,6 +162,16 @@ class PosEngine:
                 line_total=line_tot
             )
             tx_items.append(tx_item)
+
+        # Issue POS SALE movements via InventoryCommandFacade
+        command_facade = InventoryCommandFacade(self.db, self.tenant)
+        pos_items = [{"product_id": line.get("product_id"), "quantity": line.get("quantity", 1)} for line in items]
+        await command_facade.issue_pos_sale(
+            receipt_id=tx_id,
+            receipt_no=tx_id,
+            items=pos_items,
+            warehouse="Default Warehouse",
+        )
 
         grand_total = max(Decimal("0.00"), subtotal - discount_amount).quantize(Decimal("0.01"))
 

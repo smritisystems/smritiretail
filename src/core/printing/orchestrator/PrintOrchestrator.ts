@@ -14,10 +14,13 @@ import { PrintDocument, PrintJob, PrintResult } from "../models/PrintDocument.js
 import { PrintVariableResolver } from "../rendering/PrintVariableResolver.js";
 import { PrintDriverRegistry } from "../drivers/PrintDriverRegistry.js";
 import { PrintProviderRegistry } from "../providers/PrintProviderRegistry.js";
+import logger from "../../logging/logger.js";
 import { PrintingEventBus } from "../events/PrintingEventBus.js";
 
 export interface DispatchOptions {
   printerName?: string;
+  printerIp?: string;
+  printerPort?: number;
   driverId?: string; // e.g. "zpl", "tspl", "esc_pos", "epl", "raw"
   providerId?: string; // e.g. "qz_tray", "windows_spooler", "network"
   copies?: number;
@@ -51,6 +54,8 @@ export class PrintOrchestrator {
       documentId: document.id,
       document: { ...document, immutable: true },
       printerName: targetPrinter,
+      printerIp: options.printerIp,
+      printerPort: options.printerPort,
       driverId,
       providerId: options.providerId || "qz_tray",
       priority: options.priority || "BARCODE",
@@ -94,7 +99,7 @@ export class PrintOrchestrator {
 
     // Automatic Provider Fallback Chain (Primary Provider Failed -> Windows Spooler Fallback)
     if (!result.success && job.providerId !== "windows_spooler") {
-      console.warn(`[PrintOrchestrator] Provider ${job.providerId} failed after ${maxRetries} retries. Initiating fallback to Windows Spooler.`);
+      logger.warn(`[PrintOrchestrator] Provider ${job.providerId} failed after ${maxRetries} retries. Initiating fallback to Windows Spooler.`, result);
       const fallbackProvider = PrintProviderRegistry.getProvider("windows_spooler");
       job.providerId = "windows_spooler";
       result = await fallbackProvider.sendJob(job);

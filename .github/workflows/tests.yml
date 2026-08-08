@@ -23,7 +23,7 @@
 
 name: Tests & Verification Gate
 
-on:
+"on":
   push:
     branches: [ main, develop, smritiNX ]
   pull_request:
@@ -40,7 +40,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies

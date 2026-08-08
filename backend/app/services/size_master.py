@@ -150,6 +150,31 @@ class SizeMasterService:
             raise HTTPException(status_code=404, detail="Size scale not found")
         return scale
 
+    async def resolve_conversions(self, scale_id: str, display_size: str) -> dict[str, str]:
+        """
+        Resolves multi-region size conversions (e.g. UK, US, EU, JP, CM) for a given SizeScale ID and display size.
+        Returns a dictionary mapping region_code -> converted_size_label.
+        Read-only. Does NOT modify Product.size, SKU, or fingerprint.
+        """
+        if not scale_id or not display_size:
+            return {}
+
+        scale = await self.repo.get(scale_id)
+        if not scale or scale.is_deleted:
+            return {}
+
+        result = {}
+        if scale.base_region_id:
+            result[scale.base_region_id.upper()] = display_size
+
+        for sval in scale.size_values or []:
+            if sval.display_size.strip().upper() == display_size.strip().upper():
+                for conv in sval.conversions or []:
+                    result[conv.region_code.upper()] = conv.converted_size_label
+                break
+
+        return result
+
     async def resolve_size_conversion(self, scale_id: str, display_size: str, target_region: str) -> Optional[str]:
         """
         Resolves normalized size conversion for a target region (e.g. UK 8 -> EU 42).

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -19,7 +19,7 @@
  * * Version      : 3.21.1
  * * Created    : 2026-07-10
  * * Modified     : 2026-07-18
- * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+ * * Copyright  : Â© AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
 
@@ -172,7 +172,7 @@ export const UserProfileTab: React.FC = () => {
 
       setSessions([]);
 
-      // Fetch recent audit log activity for this user (system route — not yet migrated)
+      // Fetch recent audit log activity for this user (system route â€” not yet migrated)
       try {
         const auditData = await apiFetchV1("/audit-logs");
         const logsData = Array.isArray(auditData) ? auditData : auditData?.logs || [];
@@ -227,7 +227,7 @@ export const UserProfileTab: React.FC = () => {
 
     setSaving(true);
     try {
-      // Migrated: PUT /api/users/{id} (Express) → PATCH /api/v1/users/{id} (FastAPI)
+      // Migrated: PUT /api/users/{id} (Express) â†’ PATCH /api/v1/users/{id} (FastAPI)
       await apiFetchV1(`/users/${currentUser.id}`, {
         method: "PATCH",
         body: JSON.stringify({ displayName, mobile, email }),
@@ -257,7 +257,7 @@ export const UserProfileTab: React.FC = () => {
     if (!currentUser) return;
     setSaving(true);
     try {
-      // Migrated: PUT /api/users/{id}/preferences (Express) → PUT /api/v1/users/{id}/preferences (FastAPI)
+      // Migrated: PUT /api/users/{id}/preferences (Express) â†’ PUT /api/v1/users/{id}/preferences (FastAPI)
       await apiFetchV1(`/users/${currentUser.id}/preferences`, {
         method: "PUT",
         body: JSON.stringify({ theme, language, timeZone }),
@@ -288,7 +288,7 @@ export const UserProfileTab: React.FC = () => {
     setNotificationSettings(updated);
 
     try {
-      // Migrated: PUT /api/users/{id}/notifications (Express) → PUT /api/v1/users/{id}/notifications (FastAPI)
+      // Migrated: PUT /api/users/{id}/notifications (Express) â†’ PUT /api/v1/users/{id}/notifications (FastAPI)
       await apiFetchV1(`/users/${currentUser.id}/notifications`, {
         method: "PUT",
         body: JSON.stringify(updated),
@@ -394,12 +394,12 @@ export const UserProfileTab: React.FC = () => {
             My Operator Profile
           </h2>
           <p className="text-xs text-theme-muted mt-1 font-mono uppercase tracking-wide">
-            Corporate Ledger Node ID: {currentUser.id} • Assigned Staff ID: {currentUser.employeeId}
+            Corporate Ledger Node ID: {currentUser.id} â€¢ Assigned Staff ID: {currentUser.employeeId}
           </p>
         </div>
         <div className="flex gap-2">
           <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-full font-bold uppercase tracking-wide">
-            ● Session Active
+            â— Session Active
           </span>
           <span className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs rounded-full font-bold uppercase tracking-wide">
             {currentUser.role}
@@ -460,14 +460,14 @@ export const UserProfileTab: React.FC = () => {
                   }`}
                   title={branch === currentUser.branch ? "Primary Active Branch" : "Secondary Branch Jurisdiction"}
                 >
-                  {branch} {branch === currentUser.branch && "★"}
+                  {branch} {branch === currentUser.branch && "â˜…"}
                 </span>
               ))}
             </div>
           </div>
 
           {/* Recent Activity Widget */}
-          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-5 space-y-3 shadow-sm hover:shadow-md hover:border-[#2563EB] transition-all">
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-5 space-y-3 shadow-sm hover:shadow-md hover:border-[var(--c-seef-accent)] transition-all">
             <h4 className="text-xs font-bold uppercase tracking-wide text-theme-muted flex items-center gap-2">
               <Activity size={14} className="text-blue-500" />
               Recent Activity Ledger
@@ -486,7 +486,7 @@ export const UserProfileTab: React.FC = () => {
                     </div>
                     <p className="text-theme-muted text-[11px] mt-0.5">
                       <span className="text-blue-400 font-mono text-[10px] uppercase">{log.module}</span>
-                      {log.targetName ? ` • ${log.targetName}` : log.targetId ? ` • ID: ${log.targetId}` : ""}
+                      {log.targetName ? ` â€¢ ${log.targetName}` : log.targetId ? ` â€¢ ID: ${log.targetId}` : ""}
                     </p>
                   </div>
                 ))}
@@ -639,7 +639,7 @@ export const UserProfileTab: React.FC = () => {
                   </p>
                 </div>
 
-                {/* JWT migration placeholder — sessions UI retired in v3.21.0 */}
+                {/* JWT migration placeholder â€” sessions UI retired in v3.21.0 */}
                 <div className="flex flex-col items-center justify-center py-10 gap-4 text-center">
                   <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
                     <Shield size={28} className="text-blue-400" />
@@ -679,7 +679,7 @@ export const UserProfileTab: React.FC = () => {
                     <div 
                       key={key} 
                       onClick={() => handleToggleNotification(key as keyof User["notificationSettings"])}
-                      className="flex items-center justify-between p-3.5 bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider rounded-lg cursor-pointer shadow-sm hover:shadow-md hover:border-[#2563EB] transition-all"
+                      className="flex items-center justify-between p-3.5 bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider rounded-lg cursor-pointer shadow-sm hover:shadow-md hover:border-[var(--c-seef-accent)] transition-all"
                     >
                       <div>
                         <span className="text-xs font-bold text-theme-body capitalize block">
@@ -743,9 +743,9 @@ export const UserProfileTab: React.FC = () => {
                       className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded text-sm text-theme-body focus:outline-none focus:border-blue-500 font-medium"
                     >
                       <option value="English">English (International)</option>
-                      <option value="Hindi">Hindi (हिन्दी)</option>
-                      <option value="Marathi">Marathi (मराठी)</option>
-                      <option value="Gujarati">Gujarati (ગુજરાતી)</option>
+                      <option value="Hindi">Hindi (à¤¹à¤¿à¤¨à¥à¤¦à¥€)</option>
+                      <option value="Marathi">Marathi (à¤®à¤°à¤¾à¤ à¥€)</option>
+                      <option value="Gujarati">Gujarati (àª—à«àªœàª°àª¾àª¤à«€)</option>
                     </select>
                   </div>
 

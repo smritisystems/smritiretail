@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SMRITI Adaptive Workspace Framework (SAWF v1.1)
  * Metadata-Driven Document Accordion Panels
  */
@@ -49,11 +49,11 @@ export const DocumentPanels: React.FC<DocumentPanelsProps> = ({
       case "accounting":
         return <FileText size={15} className="text-purple-400" />;
       case "shipping":
-        return <Truck size={15} className="text-blue-400" />;
+        return <Truck size={15} className="text-[var(--c-seef-accent)]" />;
       case "compliance":
         return <ShieldCheck size={15} className="text-rose-400" />;
       default:
-        return <Layers size={15} className="text-slate-400" />;
+        return <Layers size={15} className="text-theme-muted" />;
     }
   };
 
@@ -64,28 +64,28 @@ export const DocumentPanels: React.FC<DocumentPanelsProps> = ({
         return (
           <div
             key={panel.id}
-            className="bg-[#161E2E] border border-[#1E293B] rounded-2xl overflow-hidden shadow-lg transition-all"
+            className="bg-theme-surface-2 border border-theme-divider rounded-2xl overflow-hidden shadow-lg transition-all"
           >
             {/* Accordion Header */}
             <button
               type="button"
               onClick={() => togglePanel(panel.id)}
-              className="w-full bg-[#121824] px-5 py-3.5 flex items-center justify-between hover:bg-[#1A2333] transition cursor-pointer select-none"
+              className="w-full bg-theme-surface-1 px-5 py-3.5 flex items-center justify-between hover:bg-theme-surface-2 transition cursor-pointer select-none"
             >
               <div className="flex items-center space-x-3">
                 {getPanelIcon(panel.id)}
-                <span className="font-bold text-xs font-display text-slate-100 uppercase tracking-wider">
+                <span className="font-bold text-xs font-display text-theme-heading uppercase tracking-wider">
                   {panel.label}
                 </span>
               </div>
-              <div className="text-slate-400">
+              <div className="text-theme-muted">
                 {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
               </div>
             </button>
 
             {/* Accordion Content */}
             {isExpanded && (
-              <div className="p-5 border-t border-[#1E293B] animate-in fade-in duration-150">
+              <div className="p-5 border-t border-theme-divider animate-in fade-in duration-150">
                 {renderPanelContent(panel.id)}
               </div>
             )}

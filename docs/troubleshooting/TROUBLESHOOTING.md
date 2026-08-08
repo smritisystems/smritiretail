@@ -1,4 +1,4 @@
-﻿<!--
+<!--
   Project      : SMRITI Retail OS
   Repository   : SMRITIRetailNX
   Organization : AITDL NETWORKS
@@ -36,7 +36,76 @@ This document details common operational issues and resolutions.
 
 ---
 
-## 1. CRM Server Sync Discrepancies
+## 1. Split-Brain Environment State & Pre-Resolution Dev Credential Exposure
+- **Symptom:** Brief flash of Dev Credentials on page load, or split-brain environment state between header badge and login card.
+- **Cause:**
+  1. `EnvironmentBadge` fetched backend environment profile, but `LoginCard` called `EnvironmentResolver.resolve()` independently without backend environment parameters.
+  2. Initial state evaluated client-side hostname heuristic (`DEVELOPMENT`) before backend profile API response returned.
+- **Resolution:**
+  1. Built `EnvironmentContext.tsx` (`EnvironmentProvider` / `useEnvironmentContext`) to query backend environment ONCE pre-login and propagate single `EnvironmentInfo` state.
+  2. Configured initial provider state to `EnvironmentResolver.unresolved()` (`mode: "UNKNOWN"`, `showDevCredentials: false`).
+  3. Implemented strict **Fail-Closed Security** in `EnvironmentResolver.shouldShowDevCredentials()`, ensuring dev credentials remain hidden during `UNKNOWN` / pre-resolution loading states.
+
+## 2. Session Expired & Workspace Lock Server-Side Password Verification
+- **Symptom:** Entering an incorrect or arbitrary password previously allowed users to unlock the session or workspace overlay.
+- **Cause:** `SessionExpiredDialog.tsx` and `LockService.ts` called `authStore.setAuthState("Authenticated")` unconditionally upon form submission or non-empty input without verifying credentials server-side.
+- **Resolution:**
+  1. Implemented `POST /api/v1/auth/session/resume` to enforce authoritative server-side password verification against trusted user context (`current_user` / `refresh_token`).
+  2. Refactored `LockService.unlockWorkspace(password)` and `SessionService.resumeSession(password)` to be asynchronous and fail-closed on 401, 403, 429, 500, or malformed HTTP 200 payloads.
+  3. Implemented server-side rate limiting in `AuthService.resume_session()` (returns `HTTP 429 Too Many Requests` after 5 failed password attempts).
+  4. Added automated security test suite in `src/tests/sessionExpiryAuth.test.ts` covering 14 security test scenarios.
+
+## 2. Company Code Provisioning, Sequence Exhaustion & Duplicate Code Race
+- **Symptom:** User sees duplicate code error (`HTTP 409 Conflict`), or automated Company Code suggestion stops.
+- **Cause:**
+  1. Company Code sequence `01..99` for a city+pin prefix (e.g. `MUM0067`) was fully occupied.
+  2. A race condition occurred where two users attempted to provision the same Company Code simultaneously.
+- **Resolution:**
+  1. `CompanyCodeSuggestionService.ts` automatically extracts `CITY(3) + PIN_LAST4(4)` and queries `/api/v1/company/code/suggest` for next available 2-digit sequence (`01..99`).
+  2. When all 99 sequences are occupied, automatic suggestion stops and prompts the user to enter a custom code.
+  3. Backend `/company/setup` handles database `IntegrityError` by rolling back atomically, publishing `Company.Provisioning.Failed.v1`, and returning `HTTP 409 Conflict` with message `Company Code "MUM067001" is already in use. Please choose another Company Code.`
+  4. Async race protection in `SetupWizardTab.tsx` ensures user manual overrides take absolute precedence over late-arriving async suggestion fetches.
+
+## 2. Console Error `401 (Unauthorized)` on API Requests
+- **Symptom:** `GET /api/v1/pos/profiles/`, `/pos/shifts/`, `/inventory/`, `/psv/parties` return `401 (Unauthorized)`.
+- **Cause:** `ApiAuthProvider.ts` only looked for `data.token` from login responses. Because FastAPI returned `access_token`, `ApiAuthProvider` fell back to a mock string (`smriti_jwt_*`). Sending mock token headers to FastAPI failed signature verification.
+- **Resolution:** Updated `ApiAuthProvider.ts` to map `access_token` and `refresh_token` from FastAPI login responses, storing real signed JWTs in `localStorage`.
+
+## 2. Newly Created Company Not Showing in Organization Studio
+- **Symptom:** Creating a company in Organization Studio succeeded in UI, but the company did not show up in the legal entity list.
+- **Cause:**
+  1. `apiFetchV1.ts` had a mock token guard (`if (isLocalMockToken(token)) return []`) that intercepted API calls during dev quick-fill sessions (`super`) and returned empty arrays instead of calling the live backend.
+  2. `/company/setup` rejected subsequent company creation once initial setup was locked (`SETUP_COMPLETED_KEY`).
+- **Resolution:**
+  1. Removed mock token API interception in `apiFetchV1.ts` to dispatch all calls directly to FastAPI backend.
+  2. Updated `/company/setup` in `backend/app/api/v1/system.py` to allow multi-company provisioning when `ignoreWarnings=true` or when called by authenticated admin users.
+
+## 2. Container `smriti-api-prod` NameError `name 'exchange' is not defined`
+- **Symptom:** `smriti-api-prod` crashes during boot with `NameError: name 'exchange' is not defined` at line 271 of `app/main.py`.
+- **Cause:** `exchange` router module was mounted with `app.include_router(exchange.router, ...)` but was omitted from the top `from .api.v1 import (...)` tuple.
+- **Resolution:** Added `exchange` to `from .api.v1 import (...)` in `backend/app/main.py`.
+
+## 2. Container `smriti-api-prod` Failed to Start (Circular Import Error)
+- **Symptom:** `smriti-api-prod` container fails health check and exits with `ImportError: cannot import name 'environment_router' from partially initialized module 'app.api.v1'`.
+- **Cause:** `environment_router.py` was located under `app/api/v1/endpoints/environment_router.py`, but `app/api/v1/__init__.py` attempted to import `environment_router` directly from `app.api.v1`.
+- **Resolution:** Initialized `app/api/v1/endpoints/__init__.py` as a Python package and updated `app/api/v1/__init__.py` to import `from .endpoints import environment_router`.
+
+## 2. Organization Studio Company Provisioning
+- **Symptom:** Clicking "Create New Company" in Organization Studio used to set a string banner notice.
+- **Cause:** Button was previously a dead-end placeholder setter instead of an interactive action handler.
+- **Resolution:** Clicking "Create New Company" opens the modal `SetupWizardTab` Company Provisioning Wizard overlay directly in `OrganizationStudio.tsx`.
+
+## 3. Setup Wizard Fallback Mode & Upstream Python Core Notice
+- **Symptom:** Setup Wizard completes with an Amber warning badge (`Status: LOCAL FALLBACK MODE — Pending Backend Confirmation`).
+- **Cause:** Upstream Python backend core service was unreachable or returned a notice during `/company/setup` provisioning.
+- **Resolution:** Setup details are provisioned locally (`smriti_setup_fallback_mode: true`). Verify backend API connectivity and run database verification via Administrative Modules.
+
+## 4. Item Master Notification Prop Drop & Silent Failures
+- **Symptom:** Catalog creation, save, or delete errors do not display toast notifications if the host workspace omitted `onNotification`.
+- **Cause:** Direct unguarded calls to `if (onNotification) onNotification(...)` caused errors to vanish silently without logging.
+- **Resolution:** `ItemMasterTab` and child components use the safe `notify` dispatcher wrapper. If `onNotification` is missing, notifications fall back automatically to `console.log('[ItemMaster Notification - ERROR/SUCCESS]: ...')`.
+
+## 2. CRM Server Sync Discrepancies
 - **Symptom:** Customers modified in the CRM tab do not show up immediately in other registers.
 - **Cause:** Network offline state or pending sync queue failure.
 - **Resolution:**

@@ -1,0 +1,13 @@
+/* SMRITI Motion Tokens */
+:root {
+  --smriti-motion-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --smriti-motion-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --smriti-motion-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  --smriti-motion-hover: var(--smriti-motion-fast);
+  --smriti-motion-page: var(--smriti-motion-normal);
+  --smriti-motion-card-expand: var(--smriti-motion-normal);
+  --smriti-motion-drawer-slide: var(--smriti-motion-normal);
+  --smriti-motion-bottom-sheet: var(--smriti-motion-normal);
+  --smriti-motion-dialog: var(--smriti-motion-normal);
+}

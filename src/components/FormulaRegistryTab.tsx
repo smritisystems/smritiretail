@@ -78,8 +78,8 @@ export const FormulaRegistryTab: React.FC<FormulaRegistryTabProps> = ({
               onClick={() => setSelectedCategory(cat)}
               className={`text-xs px-3.5 py-2 rounded font-semibold border transition-all ${
                 selectedCategory === cat 
-                  ? "bg-[#2563EB] border-[#2563EB] text-theme-body" 
-                  : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:border-[#2563EB]"
+                  ? "bg-[var(--c-seef-accent)] border-[var(--c-seef-accent)] text-theme-body" 
+                  : "bg-theme-surface-1 border-theme-divider text-theme-muted hover:border-[var(--c-seef-accent)]"
               }`}
             >
               {cat}
@@ -91,7 +91,7 @@ export const FormulaRegistryTab: React.FC<FormulaRegistryTabProps> = ({
       {/* Grid of registered formula cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredFormulas.map(f => (
-          <div key={f.id} className="bg-theme-surface-1 rounded-xl p-5 border border-theme-divider flex flex-col justify-between hover:border-[#2563EB] transition-all">
+          <div key={f.id} className="bg-theme-surface-1 rounded-xl p-5 border border-theme-divider flex flex-col justify-between hover:border-[var(--c-seef-accent)] transition-all">
             <div className="space-y-3">
               <div className="flex justify-between items-start">
                 <span className="text-[10px] bg-theme-surface-3 text-theme-muted px-2 py-0.5 rounded border border-theme-divider">
@@ -106,7 +106,7 @@ export const FormulaRegistryTab: React.FC<FormulaRegistryTabProps> = ({
               </div>
 
               {/* Expression */}
-              <div className="bg-theme-surface-3 p-3 rounded font-mono text-xs text-[#2563EB] flex items-center justify-center text-center">
+              <div className="bg-theme-surface-3 p-3 rounded font-mono text-xs text-[var(--c-seef-accent)] flex items-center justify-center text-center">
                 {f.expression}
               </div>
             </div>
@@ -119,7 +119,7 @@ export const FormulaRegistryTab: React.FC<FormulaRegistryTabProps> = ({
 
               <button
                 onClick={() => onSelectFormula(f)}
-                className="bg-[#2563EB] hover:bg-opacity-95 text-theme-body text-xs font-semibold px-3 py-1.5 rounded flex items-center space-x-1"
+                className="bg-[var(--c-seef-accent)] hover:bg-opacity-95 text-theme-body text-xs font-semibold px-3 py-1.5 rounded flex items-center space-x-1"
               >
                 <span className="material-symbols-outlined text-xs">info</span>
                 <span>ⓘ Explain</span>

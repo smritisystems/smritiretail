@@ -13,7 +13,7 @@ License      : Proprietary Commercial Software
 
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, ValidationInfo
 
 
 class TallyConfigCreate(BaseModel):
@@ -177,13 +177,29 @@ class StoreConfig(BaseModel):
 
 class BusinessInfo(BaseModel):
     name: str
+    tenantName: Optional[str] = Field("Smriti Systems Group", alias="tenantName")
+    tenantCode: Optional[str] = Field("SMS", alias="tenantCode")
+    tenantSlug: Optional[str] = Field("smriti-systems", alias="tenantSlug")
+    legalEntity: Optional[str] = Field("Private Limited Company", alias="legalEntity")
+    industryPack: Optional[str] = Field("general_retail", alias="industryPack")
     tradeName: Optional[str] = Field("", alias="tradeName")
     businessType: Optional[str] = Field("retail", alias="businessType")
     gstin: Optional[str] = ""
     pan: Optional[str] = ""
+    msme: Optional[str] = ""
+    cin: Optional[str] = ""
+    pinCode: Optional[str] = Field("273016", alias="pinCode")
+    country: Optional[str] = Field("India", alias="country")
     state: Optional[str] = ""
+    district: Optional[str] = Field("", alias="district")
+    city: Optional[str] = Field("", alias="city")
+    area: Optional[str] = Field("", alias="area")
+    locality: Optional[str] = Field("", alias="locality")
+    addressLine1: Optional[str] = Field("", alias="addressLine1")
+    isDemoMode: Optional[bool] = Field(False, alias="isDemoMode")
     financialYear: Optional[str] = Field("2026-2027", alias="financialYear")
     booksStartDate: Optional[str] = Field("2026-04-01", alias="booksStartDate")
+    ignoreWarnings: Optional[bool] = Field(False, alias="ignoreWarnings")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -214,11 +230,14 @@ class BusinessInfo(BaseModel):
 
     @field_validator("gstin")
     @classmethod
-    def validate_gstin(cls, value: Optional[str]) -> str:
+    def validate_gstin(cls, value: Optional[str], info: ValidationInfo) -> str:
         if not value:
             return ""
+        ignore_checksum = False
+        if info.data and info.data.get("ignoreWarnings"):
+            ignore_checksum = True
         from app.core.gstin import validate_gstin_format
-        return validate_gstin_format(value)
+        return validate_gstin_format(value, ignore_checksum=ignore_checksum)
 
     @field_validator("pan")
     @classmethod

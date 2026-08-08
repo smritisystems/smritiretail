@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import TenantContext
 from app.models.inventory import Product, StockCount, StockCountItem, StockAdjustment
+from app.services.inventory.facades import InventoryCommandFacade
 # ADR-007: Domain Event Bus — StockAdjusted publisher
 from app.core.events.domain_events import publish_stock_adjusted
 
@@ -183,15 +184,25 @@ class StockAuditEngine:
         if stock_count.status == "Completed":
             raise HTTPException(status_code=400, detail="Stock count session is already completed and reconciled.")
 
-        # Update Product.stock to physical count for all counted lines
+        # Reconcile physical count via ADJUSTMENT StockMovement via InventoryCommandFacade
+        command_facade = InventoryCommandFacade(self.db, self.tenant)
+        audit_items = []
         for item in stock_count.items:
             if item.physical_count is not None:
                 p_stmt = select(Product).where(Product.id == item.product_id)
                 product = (await self.db.execute(p_stmt)).scalars().first()
                 if product:
-                    product.stock = int(Decimal(str(item.physical_count)))
-                    self.db.add(product)
+                    phys_count = int(Decimal(str(item.physical_count)))
+                    variance_qty = phys_count - (product.stock or 0)
+                    audit_items.append({"product_id": product.id, "variance_quantity": variance_qty})
             item.status = "Reconciled"
+
+        await command_facade.adjust_stock(
+            audit_id=count_id,
+            audit_no=count_id,
+            items=audit_items,
+            warehouse="Default Warehouse",
+        )
 
         # Create StockAdjustment voucher
         adj_id = f"adj-{uuid.uuid4().hex[:12]}"

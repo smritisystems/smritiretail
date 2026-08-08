@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user, require_permission
+from ...api.deps import get_db, get_current_user, require_permission, get_current_tenant, TenantContext
 from ...models.auth import User
 from ...models.attributes import (
     AttributeDefinition, AttributeGroup, VariantTemplate, CategoryAttributeGroupMapping
@@ -31,6 +31,8 @@ from ...schemas.attributes import (
     VariantTemplateCreate, VariantTemplateUpdate, VariantTemplateResponse,
     CategoryMappingCreate, CategoryMappingResponse
 )
+from ...models.tenant import Company
+from ...services.identity_service import ProductIdentityService
 from ...services.attributes import AttributesService
 
 router = APIRouter()
@@ -45,12 +47,14 @@ router = APIRouter()
 async def list_definitions(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     List all active attribute definitions.
     """
     service = AttributesService(db)
-    defns = await service.list_definitions()
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    defns = await service.list_definitions(company_id=company_id)
     res = []
     for d in defns:
         res.append(AttributeDefinitionResponse(
@@ -86,12 +90,14 @@ async def create_definition(
     req: AttributeDefinitionCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     Create a new custom attribute definition.
     """
     service = AttributesService(db)
-    d = await service.create_definition(req, current_user.username)
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    d = await service.create_definition(req, current_user.username, company_id=company_id)
     return AttributeDefinitionResponse(
         id=d.id,
         name=d.name,
@@ -179,12 +185,14 @@ async def delete_definition(
 async def list_groups(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     List all active attribute groups.
     """
     service = AttributesService(db)
-    groups = await service.list_groups()
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    groups = await service.list_groups(company_id=company_id)
     res = []
     for g in groups:
         res.append(AttributeGroupResponse(
@@ -207,12 +215,14 @@ async def create_group(
     req: AttributeGroupCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     Create a new attribute group.
     """
     service = AttributesService(db)
-    g = await service.create_group(req, current_user.username)
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    g = await service.create_group(req, current_user.username, company_id=company_id)
     return AttributeGroupResponse(
         id=g.id,
         name=g.name,
@@ -273,12 +283,14 @@ async def delete_group(
 async def list_templates(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     List all active style variant templates.
     """
     service = AttributesService(db)
-    templates = await service.list_templates()
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    templates = await service.list_templates(company_id=company_id)
     res = []
     for t in templates:
         res.append(VariantTemplateResponse(
@@ -308,12 +320,14 @@ async def create_template(
     req: VariantTemplateCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     Create a new variant template.
     """
     service = AttributesService(db)
-    t = await service.create_template(req, current_user.username)
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    t = await service.create_template(req, current_user.username, company_id=company_id)
     return VariantTemplateResponse(
         id=t.id,
         styleCode=t.style_code,
@@ -412,6 +426,12 @@ async def generate_variants(
         if defn and not defn.is_deleted:
             attr_def_list.append(defn)
 
+    identity_service = ProductIdentityService()
+    comp_res = await db.execute(select(Company).where(Company.is_active == True))
+    company_rec = comp_res.scalars().first()
+    b_source = (company_rec.barcode_source if company_rec else "AUTO").upper()
+    gs1_pref = company_rec.gs1_company_prefix if company_rec else None
+
     for index, v in enumerate(variants_list):
         code_parts = [template.style_code]
         for defn in attr_def_list:
@@ -422,7 +442,21 @@ async def generate_variants(
                     code_parts.append(code_val)
 
         constructed_code = v.get("sku") or "-".join(code_parts)
-        barcode = v.get("barcode") or f"SMR-B{random.randint(100000, 999999)}"
+        
+        supplied_b = v.get("barcode")
+        if supplied_b and str(supplied_b).strip():
+            barcode = str(supplied_b).strip()
+        elif b_source == "AUTO":
+            s_num = await identity_service.get_next_barcode_sequence(db, company_rec.id if company_rec else None)
+            barcode = ProductIdentityService.generate_ean13_barcode(gs1_pref, s_num)
+        elif b_source in ("IMPORT", "MANUAL"):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Barcode is required under {b_source} mode for variant row {index + 1}"
+            )
+        else:
+            s_num = await identity_service.get_next_barcode_sequence(db, company_rec.id if company_rec else None)
+            barcode = ProductIdentityService.generate_ean13_barcode(gs1_pref, s_num)
 
         # Check existing product code
         q = select(Product).where(Product.code == constructed_code, Product.is_deleted == False)
@@ -440,6 +474,29 @@ async def generate_variants(
             created_variants.append(existing)
         else:
             # Create new product item
+            raw_attrs = v.get("attributes", {})
+
+            # ── Phase E8: Bidirectional color/size sync (JSONB → column) ──
+            # Variant engine writes to JSONB; we must also populate the canonical columns.
+            variant_color = (
+                raw_attrs.get("Color") or raw_attrs.get("color")
+                or raw_attrs.get("Colour") or raw_attrs.get("colour")
+            )
+            variant_size = (
+                raw_attrs.get("Size") or raw_attrs.get("size")
+            )
+
+            # Normalize JSONB keys to canonical uppercase
+            normalized_attrs = {}
+            for k, val in raw_attrs.items():
+                k_lower = k.lower()
+                if k_lower in ("color", "colour"):
+                    normalized_attrs["Color"] = val  # Canonical uppercase key
+                elif k_lower == "size":
+                    normalized_attrs["Size"] = val  # Canonical uppercase key
+                else:
+                    normalized_attrs[k] = val
+
             new_prod = Product(
                 id=f"p-var-{int(datetime.now(timezone.utc).timestamp())}-{index}",
                 code=constructed_code,
@@ -453,7 +510,9 @@ async def generate_variants(
                 barcode=barcode,
                 style_code=template.style_code,
                 gst_percentage=template.gst_percentage,
-                attributes=v.get("attributes", {}),
+                color=variant_color,        # Phase E8: JSONB → column sync
+                size=variant_size,           # Phase E8: JSONB → column sync
+                attributes=normalized_attrs, # Phase E8: normalized uppercase keys
                 pricing_mode=template.pricing_mode,
                 tracking_mode=template.tracking_mode,
                 variant_template_id=template.id,
@@ -491,16 +550,19 @@ async def generate_variants(
 async def list_category_mappings(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     List all category to attribute group association mappings.
     """
     service = AttributesService(db)
-    mappings = await service.list_category_mappings()
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    mappings = await service.list_category_mappings(company_id=company_id)
     res = []
     for m in mappings:
         res.append(CategoryMappingResponse(
             category=m.category,
+            categoryCode=m.category_code,
             attributeGroupId=m.attribute_group_id
         ))
     return res
@@ -515,14 +577,20 @@ async def save_category_mapping(
     req: CategoryMappingCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ):
     """
     Save category to attribute group mapping registry.
     """
     service = AttributesService(db)
-    m = await service.save_category_mapping(req.category, req.attributeGroupId, current_user.username)
+    company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
+    m = await service.save_category_mapping(
+        req.category, req.attributeGroupId, current_user.username,
+        company_id=company_id, category_code=req.categoryCode
+    )
     return CategoryMappingResponse(
         category=m.category,
+        categoryCode=m.category_code,
         attributeGroupId=m.attribute_group_id
     )
 
@@ -650,8 +718,23 @@ async def import_commit(
 
     created_products = []
 
+    identity_svc = ProductIdentityService()
+    company_res = await db.execute(select(Company).where(Company.is_active == True))
+    company_obj = company_res.scalars().first()
+    barcode_policy = (company_obj.barcode_source if company_obj else "AUTO").upper()
+    gs1_company_prefix = company_obj.gs1_company_prefix if company_obj else None
+
     for index, row in enumerate(rows):
-        style_code = row.get("TemplateStyleCode")
+        style_code = (
+            row.get("TemplateStyleCode") or
+            row.get("StyleCode") or
+            row.get("STYLE/ARTICLE CODE") or
+            row.get("Style/Article Code") or
+            row.get("Style Code") or
+            row.get("Style") or
+            row.get("Article Code") or
+            row.get("Model")
+        )
         
         # Check if template exists, create if not
         q = select(VariantTemplate).where(
@@ -661,16 +744,23 @@ async def import_commit(
         res = await db.execute(q)
         template = res.scalars().first()
         if not template:
+            brand_val = (
+                row.get("Brand") or
+                row.get("Brand Name") or
+                row.get("BRAND NAME") or
+                row.get("Manufacturer") or
+                "SMRITI"
+            )
             template = VariantTemplate(
                 id=f"vt-{int(datetime.now(timezone.utc).timestamp())}-{index}",
                 style_code=style_code,
-                name=row.get("BaseName"),
-                brand=row.get("Brand") or "SMRITI",
-                category=row.get("Category") or "General",
-                hsn_code=row.get("HSN") or "61091000",
-                base_price=int(float(row.get("Price") or 0)),
-                base_mrp=int(float(row.get("MRP") or row.get("Price") or 0)),
-                gst_percentage=int(float(row.get("GST_Percentage") or 18)),
+                name=row.get("BaseName") or row.get("Item Name") or row.get("Description"),
+                brand=brand_val,
+                category=row.get("Category") or row.get("Merchandise Category") or "General",
+                hsn_code=row.get("HSN") or row.get("HSN Code") or "61091000",
+                base_price=int(float(row.get("Price") or row.get("Selling Price") or 0)),
+                base_mrp=int(float(row.get("MRP") or row.get("Price") or row.get("Selling Price") or 0)),
+                gst_percentage=int(float(row.get("GST_Percentage") or row.get("GST %") or 18)),
                 attribute_group_id=group.id,
                 pricing_mode=row.get("PricingMode") or "Fixed",
                 tracking_mode=row.get("TrackingMode") or "Standard",
@@ -689,7 +779,21 @@ async def import_commit(
                     code_parts.append(str(val).upper().strip().replace(" ", ""))
 
         constructed_code = "-".join(code_parts)
-        barcode = row.get("Barcode") or f"SMR-B{random.randint(100000, 999999)}"
+        
+        supplied_bc = row.get("Barcode")
+        if supplied_bc and str(supplied_bc).strip():
+            barcode = str(supplied_bc).strip()
+        elif barcode_policy == "AUTO":
+            seq_n = await identity_svc.get_next_barcode_sequence(db, company_obj.id if company_obj else None)
+            barcode = ProductIdentityService.generate_ean13_barcode(gs1_company_prefix, seq_n)
+        elif barcode_policy in ("IMPORT", "MANUAL"):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Barcode is required under {barcode_policy} mode for row {index + 1} ('{row.get('BaseName', 'Item')}')"
+            )
+        else:
+            seq_n = await identity_svc.get_next_barcode_sequence(db, company_obj.id if company_obj else None)
+            barcode = ProductIdentityService.generate_ean13_barcode(gs1_company_prefix, seq_n)
 
         q_prod = select(Product).where(Product.code == constructed_code, Product.is_deleted == False)
         res_prod = await db.execute(q_prod)

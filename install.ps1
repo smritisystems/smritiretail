@@ -1,3 +1,22 @@
+# Author & Creator:
+# Jawahar Ramkripal Mallah
+#
+# Founder:
+# SmritiSys
+# AITDL Networks
+#
+# Role:
+# Chief Systems Architect
+#
+# Web:
+# smritisys.com | smritibooks.com | aitdl.com
+#
+# Email:
+# jawahar.mallah@gmail.com
+#
+# Copyright © 2026 SmritiSys.
+# All Rights Reserved.
+
 <#
 .SYNOPSIS
     SMRITI Retail OS - Enterprise One-Click Docker Installer (PowerShell)
@@ -298,11 +317,11 @@ function Initialize-Database {
     $MigrateOut | Out-File -FilePath $LogFile -Append
     Write-Log "Database schema migrations applied." -Level "SUCCESS"
 
-    # Database Seed
-    Write-Log "Seeding system default master tables & admin accounts..." -Level "INFO"
+    # Database Seed (PROD-003 Clean Production Installation Standard)
+    Write-Log "Seeding system metadata, roles, permissions, tax rates & admin accounts (Clean Production Baseline)..." -Level "INFO"
     $SeedOut = docker exec smriti-api python -m app.db.seed 2>&1
     $SeedOut | Out-File -FilePath $LogFile -Append
-    Write-Log "Default database seeding complete." -Level "SUCCESS"
+    Write-Log "Default database seeding complete (0 business items/invoices seeded)." -Level "SUCCESS"
 }
 
 # -----------------------------------------------------------------------------
@@ -363,7 +382,7 @@ try {
     Write-Host "   - API Health Monitoring Status       : http://localhost:8000/health" -ForegroundColor Cyan
     Write-Host ""
     Write-Host " Default System Authentication Credentials:" -ForegroundColor Yellow
-    Write-Host "   Username: super     Password: Smriti@1234   Role: System Admin" -ForegroundColor Green
+    Write-Host "   Username: super     Password: Shpr0128vdq!@   Role: System Admin" -ForegroundColor Green
     Write-Host "   Username: manager   Password: Password@123  Role: Store Manager" -ForegroundColor Green
     Write-Host "   Username: cashier   Password: Cashier@1234  Role: POS Cashier" -ForegroundColor Green
     Write-Host ""

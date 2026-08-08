@@ -1,0 +1,9 @@
+/* SMRITI Z-Index Tokens */
+:root {
+  --smriti-z-base: 0;
+  --smriti-z-dropdown: 1000;
+  --smriti-z-sticky: 1100;
+  --smriti-z-modal: 1200;
+  --smriti-z-toast: 1300;
+  --smriti-z-overlay: 1400;
+}

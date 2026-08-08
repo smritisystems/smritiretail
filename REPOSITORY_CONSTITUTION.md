@@ -465,6 +465,12 @@ To prevent governance rot while avoiding ad hoc churn:
 
 ---
 
+## 30. Responsive UX Constitution
+
+The approved Layer 1 responsive UX standard is maintained in [SMRITI Responsive UX Constitution v1.0](docs/SMRITI_RESPONSIVE_UX_CONSTITUTION.md). It governs shared responsive components, design tokens, accessibility, viewport validation, controlled module exceptions, migration, performance, and print integrity.
+
+---
+
 ## Appendix: Automated CI Checklist
 
 The following checks are executed on every Pull Request. A failure in any step blocks merging:

@@ -10,6 +10,7 @@
  * SPF PlatformBootstrap calls initSWSDKRegistry() at Boot Stage 8.
  */
 
+import logger from "../../core/logging/logger.js";
 import { WorkspaceRegistry } from "./runtime/WorkspaceRegistry.js";
 
 // ── First-party workspace bundles ──────────────────────────────────────────
@@ -155,12 +156,12 @@ export function initSWSDKRegistry(): void {
 
   try {
     registry.registerWorkspace(printStudioBundle);
-    console.info("[SWSDK] ✅ Registered workspace: platform.print-studio");
+    logger.info("[SWSDK] ✅ Registered workspace: platform.print-studio");
 
     registry.registerWorkspace(scdmChannelDistributionBundle);
-    console.info("[SWSDK] ✅ Registered workspace: scdm.channel-distribution");
+    logger.info("[SWSDK] ✅ Registered workspace: scdm.channel-distribution");
   } catch (err) {
-    console.error("[SWSDK] ❌ Failed to register workspace:", err);
+    logger.error("[SWSDK] ❌ Failed to register workspace:", err);
   }
 }
 

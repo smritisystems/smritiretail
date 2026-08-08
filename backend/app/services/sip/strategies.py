@@ -45,9 +45,14 @@ class GS1Strategy(BaseIdentifierStrategy):
         remainder = total % 10
         return str((10 - remainder) % 10)
 
-    def generate_barcode(self, sequence_num: int) -> str:
-        seq_5 = f"{(sequence_num % 100000):05d}"
-        payload_12 = f"8901000{seq_5}"
+    def generate_barcode(self, sequence_num: int, gs1_company_prefix: str | None = None) -> str:
+        if gs1_company_prefix and str(gs1_company_prefix).strip().isdigit():
+            clean_prefix = str(gs1_company_prefix).strip()
+            needed = 12 - len(clean_prefix)
+            seq_part = f"{(sequence_num % (10 ** needed)):0{needed}d}" if needed > 0 else ""
+            payload_12 = f"{clean_prefix}{seq_part}"[:12]
+        else:
+            payload_12 = f"200{(sequence_num % 1000000000):09d}"
         check = self.calculate_mod10_check_digit(payload_12)
         return f"{payload_12}{check}"
 

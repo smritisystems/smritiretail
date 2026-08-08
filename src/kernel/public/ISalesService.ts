@@ -8,6 +8,8 @@
 
 import { DocumentTaxSnapshot } from "./ITaxResolutionEngine.js";
 
+export type SalesInvoiceStatus = "Paid" | "Credit" | "Cancelled" | "Refunded";
+
 export interface SalesInvoiceLineItem {
   id: string;
   itemId: string;
@@ -49,7 +51,10 @@ export interface SalesInvoiceRecord {
   roundedAmount: number;
   taxSnapshot?: DocumentTaxSnapshot;
   lines: SalesInvoiceLineItem[];
-  status: "Paid" | "Credit" | "Cancelled" | string;
+  status: SalesInvoiceStatus;
+  cancellationReason?: string;
+  cancelledAt?: string;
+  cancelledBy?: string;
 }
 
 export interface ISalesService {
@@ -64,6 +69,11 @@ export interface ISalesService {
   getByInvoiceNumber(invoiceNumber: string): Promise<SalesInvoiceRecord | null>;
 
   /**
+   * Resolve all invoices for a customer by Customer ID or Mobile Number
+   */
+  getByCustomer(customerMobileOrId: string): Promise<SalesInvoiceRecord[]>;
+
+  /**
    * Search sales invoices by Invoice Number, Customer Name, or Mobile
    */
   searchInvoices(query: string, limit?: number): Promise<SalesInvoiceRecord[]>;
@@ -72,6 +82,11 @@ export interface ISalesService {
    * Save or post a new sales invoice through UVE validation and Command Bus
    */
   saveInvoice(invoice: Partial<SalesInvoiceRecord>): Promise<SalesInvoiceRecord>;
+
+  /**
+   * Cancel / Void a sales invoice with mandatory reason code and audit trail
+   */
+  cancelInvoice(id: string, reason: string, cancelledBy?: string): Promise<SalesInvoiceRecord>;
 
   /**
    * Fetch all sales invoices from SSOT

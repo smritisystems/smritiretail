@@ -31,7 +31,7 @@ This document describes the manual step-by-step installation instructions for in
 
 ## 1. System Requirements
 * **OS:** Linux (Ubuntu 22.04 LTS recommended), macOS, or Windows 11.
-* **Node.js:** Version 18.x or 20.x.
+* **Node.js:** Version 22.x.
 * **Python:** Version 3.11.x.
 * **Database:** PostgreSQL v16+.
 

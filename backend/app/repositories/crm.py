@@ -1,22 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Module       : CRM Repository (ADR-006 — Repository Pattern)
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Version      : 1.0.0
-Created      : 2026-07-28
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-ADR Reference : ADR-006 (Repository Pattern)
-DBP Reference : SMRITI_DATABASE_BLUEPRINT_v1.0.md §2.3 — CRM
+Founder:
+SmritiSys
+AITDL Networks
 
-Purpose:
-    Canonical data access layer for CRM module.
-    Customer aggregate (Customer + addresses + contacts + profiles) is
-    accessed exclusively through CustomerRepository.
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 from typing import Optional

@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Module       : Inventory KPI Plugin Widget (Rule SLP-002 Compliant)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * Version      : 5.4.0
  */
 
@@ -17,11 +17,11 @@ export const InventoryKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> =
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <div
         onClick={() => onSelectTab("item-master")}
-        className="bg-theme-surface-1 border border-theme-divider hover:border-[#0a6ed1] p-3.5 rounded-lg cursor-pointer transition-all shadow-xs"
+        className="bg-theme-surface-1 border border-theme-divider hover:border-[var(--c-seef-accent)] p-3.5 rounded-lg cursor-pointer transition-all shadow-xs"
       >
         <div className="flex items-center justify-between text-xs text-theme-muted mb-1">
           <span>Total SKUs</span>
-          <Package className="w-3.5 h-3.5 text-[#0a6ed1]" />
+          <Package className="w-3.5 h-3.5 text-[var(--c-seef-accent)]" />
         </div>
         <div className="text-lg font-bold text-theme-heading font-mono">1,420 Active</div>
         <div className="text-[10px] text-theme-muted mt-1">Master Database</div>
@@ -41,7 +41,7 @@ export const InventoryKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> =
 
       <div
         onClick={() => onSelectTab("stock-ledger")}
-        className="bg-theme-surface-1 border border-theme-divider hover:border-[#0a6ed1] p-3.5 rounded-lg cursor-pointer transition-all shadow-xs"
+        className="bg-theme-surface-1 border border-theme-divider hover:border-[var(--c-seef-accent)] p-3.5 rounded-lg cursor-pointer transition-all shadow-xs"
       >
         <div className="flex items-center justify-between text-xs text-theme-muted mb-1">
           <span>Stock Valuation</span>
@@ -52,8 +52,8 @@ export const InventoryKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> =
       </div>
 
       <div
-        onClick={() => onSelectTab("print-studio")}
-        className="bg-theme-surface-1 border border-theme-divider hover:border-[#0a6ed1] p-3.5 rounded-lg cursor-pointer transition-all shadow-xs"
+        onClick={() => onSelectTab("barcode")}
+        className="bg-theme-surface-1 border border-theme-divider hover:border-[var(--c-seef-accent)] p-3.5 rounded-lg cursor-pointer transition-all shadow-xs"
       >
         <div className="flex items-center justify-between text-xs text-theme-muted mb-1">
           <span>Labels Printed Today</span>

@@ -1,18 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Module       : Customer Loyalty Tiers & Rewards Redemption Engine (Task H-1 to H-5)
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Version      : 22.2.0
-Created      : 2026-07-28
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-Purpose:
-    Handles loyalty points earning, redemption, and automatic tier calculation
-    (BRONZE < ₹50k, SILVER < ₹2L, GOLD < ₹5L, PLATINUM >= ₹5L).
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 import uuid

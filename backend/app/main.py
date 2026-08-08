@@ -1,26 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Repository   : SMRITIRetailNX
-Organization : AITDL NETWORKS
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-Founders
+Founder:
+SmritiSys
+AITDL Networks
 
-* Pushpa Devi Jawahar Mallah
-  * Founder & Chairperson
-  * Phone: +91 9324117007
-  * Email: founder@aitdl.com
+Role:
+Chief Systems Architect
 
-* Jawahar Ramkripal Mallah
-  * Founder, Chief Executive Officer (CEO) & Chief Software Architect
-  * Email: founder@aitdl.com
+Web:
+smritisys.com | smritibooks.com | aitdl.com
 
-* Websites: aitdl.com | erpnbook.com | smritibooks.com
+Email:
+jawahar.mallah@gmail.com
 
-* Version      : 3.31.0
-Created      : 2026-07-11
-Modified     : 2026-08-20
-Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 import datetime
@@ -48,9 +44,14 @@ from .api.v1 import (
     crm,
     dev_tracker,
     docs,
+    environment_router,
     exchange,
     health_flags,
     inventory,
+    inventory_availability,
+    inventory_reservation,
+    inventory_state,
+    inventory_trace,
     master_lookup,
     masters,
     metadata,
@@ -109,6 +110,7 @@ from .api.v1 import (
     ecosystem,
     scp,
     scdm,
+    size_master,
 )
 
 
@@ -230,6 +232,12 @@ app.include_router(auth.router,      prefix=settings.API_V1_STR + "/auth",      
 app.include_router(users.router,     prefix=settings.API_V1_STR + "/users",         tags=["User Management"])
 app.include_router(inventory.router, prefix=settings.API_V1_STR + "/inventory",      tags=["Inventory"])  # Canonical route
 app.include_router(inventory.router, prefix=settings.API_V1_STR + "/products",       tags=["Products"])   # Dual-mounted route alias (Phase 2)
+app.include_router(inventory_trace.router, prefix=settings.API_V1_STR + "/inventory/trace", tags=["Inventory Trace"])  # Backward-compatible route
+app.include_router(inventory_trace.router, prefix=settings.API_V1_STR + "/inventory-trace", tags=["Inventory Trace"])  # Canonical trace route
+app.include_router(inventory_trace.router, prefix=settings.API_V1_STR + "/inventory-timeline", tags=["Inventory Timeline"])  # Timeline alias route
+app.include_router(inventory_state.router, prefix=settings.API_V1_STR + "/inventory-state", tags=["Inventory State Engine"])  # Canonical inventory state engine
+app.include_router(inventory_availability.router, prefix=settings.API_V1_STR + "/inventory-availability", tags=["Inventory Availability Engine"])
+app.include_router(inventory_reservation.router, prefix=settings.API_V1_STR + "/inventory-reservation", tags=["Inventory Reservation Engine"])
 app.include_router(crm.router,       prefix=settings.API_V1_STR,                    tags=["CRM"])
 app.include_router(sales.router,     prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Canonical route (Phase 4A)
 app.include_router(sales_fulfillment.router, prefix=settings.API_V1_STR,                 tags=["Sales Orders & Outbound Fulfillment"])
@@ -251,12 +259,14 @@ app.include_router(procurement_qc.router, prefix=settings.API_V1_STR,           
 app.include_router(procurement_scorecard.router, prefix=settings.API_V1_STR,          tags=["Procurement Supplier Performance Scorecards"])
 app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,                    tags=["Supplier Payments"])
 app.include_router(reports.router,          prefix=settings.API_V1_STR,                    tags=["Reports"])
+app.include_router(master_lookup.router,    prefix=settings.API_V1_STR,                    tags=["Master Lookups Root"])
 app.include_router(master_lookup.router,    prefix=settings.API_V1_STR + "/masters",       tags=["Masters"])
 app.include_router(masters.router,          prefix=settings.API_V1_STR + "/masters",       tags=["Masters"])
 app.include_router(assignments.router,      prefix=settings.API_V1_STR,                      tags=["Assignments"])
 app.include_router(numbering.router,        prefix=settings.API_V1_STR + "/numbering",     tags=["Numbering Engine"])
 app.include_router(terms.router,            prefix=settings.API_V1_STR + "/terms",         tags=["Terms & Conditions"])
 app.include_router(attributes.router,       prefix=settings.API_V1_STR + "/attributes",    tags=["Attributes & Variants"])  # noqa: E501
+app.include_router(size_master.router,      prefix=settings.API_V1_STR + "/item-master",   tags=["Item Master Size Scales"])
 app.include_router(barcode.router,          prefix=settings.API_V1_STR + "/barcode",       tags=["Barcode Studio"])
 app.include_router(product_identity.router, prefix=settings.API_V1_STR + "/product-identity", tags=["Product Identity Engine"])
 app.include_router(exchange.router,         prefix=settings.API_V1_STR + "/exchange",      tags=["Data Exchange Hub"])
@@ -268,6 +278,7 @@ app.include_router(system.router,           prefix=settings.API_V1_STR,         
 app.include_router(roles.router,            prefix=settings.API_V1_STR + "/roles",         tags=["Role Matrix"])
 app.include_router(security.router,         prefix=settings.API_V1_STR + "/security",      tags=["Security Engine"])
 app.include_router(compliance_router,       prefix=settings.API_V1_STR)
+app.include_router(environment_router.router, prefix=settings.API_V1_STR + "/admin/environment", tags=["Environment Manager"])
 app.include_router(consignment.router,       prefix=settings.API_V1_STR + "/consignment", tags=["Consignment"])
 app.include_router(sre.router,               prefix=settings.API_V1_STR + "/sre",         tags=["SMRITI Regulatory Engine"])
 app.include_router(dispatch.router,          prefix=settings.API_V1_STR + "/dispatch",    tags=["Stock Dispatch Engine"])

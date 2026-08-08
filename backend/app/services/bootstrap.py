@@ -1,13 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Repository   : SMRITIRetailNX
-Organization : AITDL NETWORKS
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-Version      : 3.31.0
-Created      : 2026-07-29
-Modified     : 2026-07-29
-Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 import logging
@@ -180,7 +189,7 @@ class BootstrapService:
             id=f"usr-{uuid.uuid4().hex[:6]}",
             username="super",
             email="super@smritibooks.com",
-            hashed_password=hash_password("whynothing"),
+            hashed_password=hash_password("Shpr0128vdq!@"),
             role=UserRole.SYSADMIN,
             is_active=True,
             is_deleted=False,
@@ -214,21 +223,21 @@ class BootstrapService:
             logger.info("[Bootstrap] Super administrator account not found for legacy reconciliation")
             return "Complete", "No super user found"
 
-        if verify_password("whynothing", user.hashed_password):
+        if verify_password("Shpr0128vdq!@", user.hashed_password):
             logger.info("[Bootstrap] Super administrator already using convenience password")
             return "Complete", "Already using convenience password"
 
         legacy_candidates = getattr(
             settings,
             "BOOTSTRAP_LEGACY_PASSWORDS",
-            ["Smriti@1234", "Password@123", "Admin@123", "TempPass@123"]
+            ["whynothing", "Smriti@1234", "Password@123", "Admin@123", "TempPass@123"]
         )
 
         if not any(verify_password(candidate, user.hashed_password) for candidate in legacy_candidates):
             logger.info("[Bootstrap] Super administrator has custom password; reconciliation skipped")
             return "Complete", "Custom password present; skipped reconciliation"
 
-        user.hashed_password = hash_password("whynothing")
+        user.hashed_password = hash_password("Shpr0128vdq!@")
         user.status = "Active"
         self.db.add(user)
         await self.db.flush()

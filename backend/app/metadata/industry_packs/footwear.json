@@ -1,0 +1,29 @@
+{
+  "id": "footwear",
+  "name": "Footwear Store",
+  "version": "1.0.0",
+  "description": "Footwear retail pack preconfigured with Size Matrix, Color Matrix, Brand Masters, and POS.",
+  "recommended_modules": [
+    "pos",
+    "inventory",
+    "purchase",
+    "sales",
+    "crm",
+    "barcode",
+    "terms",
+    "size_matrix",
+    "color_matrix"
+  ],
+  "default_uoms": ["Pair", "Box", "Nos", "Set"],
+  "barcode_parameters": {
+    "symbology": "CODE128",
+    "auto_generate": true,
+    "prefix": "FT"
+  },
+  "default_reports": [
+    "size_wise_stock_matrix",
+    "brand_sales_performance",
+    "color_variant_analysis",
+    "fast_moving_footwear"
+  ]
+}

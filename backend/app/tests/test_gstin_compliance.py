@@ -22,9 +22,9 @@ def test_valid_gstin_format():
     # Valid GSTIN: 27 (Maharashtra) + ABCDE1234F (PAN) + 1 (entity) + Z (default) + 5 (checksum)
     info = BusinessInfo(
         name="Valid Corp",
-        gstin="27ABCDE1234F1Z5"
+        gstin="27AAXFT2508H1ZR"
     )
-    assert info.gstin == "27ABCDE1234F1Z5"
+    assert info.gstin == "27AAXFT2508H1ZR"
 
 def test_invalid_gstin_length():
     # Less than 15 characters
@@ -71,11 +71,11 @@ def test_deliberately_wrong_checksum_digit():
 def test_sre_schemas_gstin_validation():
     # Valid
     registry = CorporateGstinRegistryBase(
-        gstin="27ABCDE1234F1Z5",
+        gstin="27AAXFT2508H1ZR",
         state_code="27",
         warehouse_name="Mumbai WH"
     )
-    assert registry.gstin == "27ABCDE1234F1Z5"
+    assert registry.gstin == "27AAXFT2508H1ZR"
     
     # Invalid checksum in registry
     with pytest.raises(ValidationError) as excinfo:
@@ -93,7 +93,7 @@ def test_sre_statutory_ledger_gstin_validation():
         batch_no="B-1",
         dispatch_id="DISP-1",
         origin_gstin_id="ORIG-1",
-        destination_gstin="27ABCDE1234F1Z5",
+        destination_gstin="27AAXFT2508H1ZR",
         total_qty=Decimal("10.0"),
         approved_qty=Decimal("10.0"),
         returned_qty=Decimal("0.0"),
@@ -105,7 +105,7 @@ def test_sre_statutory_ledger_gstin_validation():
         expiry_date=date(2027, 7, 19),
         is_asset_on_balance_sheet=True
     )
-    assert ledger.destination_gstin == "27ABCDE1234F1Z5"
+    assert ledger.destination_gstin == "27AAXFT2508H1ZR"
 
     # Invalid destination_gstin
     with pytest.raises(ValidationError) as excinfo:

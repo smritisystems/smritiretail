@@ -1,18 +1,20 @@
 /**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
- * Module       : SAP Fiori Enterprise Slim Header (WNG-002 Compliant)
+ * Module       : SMRITI Fiori OS Shell Header (WNG-002 / SCS-SHL-001 Compliant)
+ * Standard     : SCS-SHL-001 — SMRITI Shell Constitution v1.0
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * Version      : 5.1.0 (SEEF Phase 8 — Token Upgrade)
+ * Version      : 7.0.0 (Operating System Shell Architecture)
  */
 
-import React from "react";
-import { Search, Bell, Sparkles, User, HelpCircle, Shield, Sun, Moon, Palette } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Search, Bell, HelpCircle, LogOut, Lock, Shield, User, RefreshCw } from "lucide-react";
+import { notificationService } from "../../workspace/services/NotificationService";
 import { useSEEF } from "../../layout_engine/SEEFContext.tsx";
 import { SEEFTheme } from "../../layout_engine/SEEFTypes.ts";
-import { SUNEFNavigationBar } from "../../navigation/SUNEFNavigationBar.tsx";
+import { UserProfileMenu } from "../../features/auth/components/UserProfileMenu";
 
 interface AdaptiveWorkspaceHeaderProps {
   currentUser?: {
@@ -22,6 +24,7 @@ interface AdaptiveWorkspaceHeaderProps {
   onOpenGlobalSearch?: () => void;
   onOpenNotifications?: () => void;
   onOpenHelp?: () => void;
+  onLogout?: () => void;
 }
 
 export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = ({
@@ -29,98 +32,138 @@ export const AdaptiveWorkspaceHeader: React.FC<AdaptiveWorkspaceHeaderProps> = (
   onOpenGlobalSearch,
   onOpenNotifications,
   onOpenHelp,
+  onLogout,
 }) => {
   const { config, updateSEEF } = useSEEF();
   const activeTheme = config.theme;
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showAiCopilot, setShowAiCopilot] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(() => notificationService.getUnreadCount());
+
+  useEffect(() => {
+    return notificationService.subscribe((list) => {
+      setUnreadCount(list.filter((n) => !n.read).length);
+    });
+  }, []);
 
   const handleThemeChange = (newTheme: SEEFTheme) => {
     updateSEEF({ theme: newTheme });
   };
 
+  const isLight = activeTheme === "enterprise" || activeTheme === "light" || activeTheme === "minimal";
+
   return (
-    <header className="h-12 bg-[#354a5e] border-b border-white/10 px-4 flex items-center justify-between text-xs select-none z-30 shadow-md">
-      {/* 1. SMRITI Brand & Waffle Matrix App Launcher */}
+    <header
+      className="h-13 border-b px-5 flex items-center justify-between text-xs select-none z-30 shadow-xs transition-colors duration-300 relative"
+      style={{
+        background: "var(--c-theme-surface-1)",
+        borderColor: "var(--c-theme-divider)",
+        color: "var(--c-theme-body)",
+      }}
+    >
+      {/* Zone A: Logo & OS Identity */}
       <div className="flex items-center gap-3">
-        <div className="grid grid-cols-3 gap-[3px] w-4 h-4 opacity-90 cursor-pointer hover:opacity-100 transition-opacity" title="SMRITI Launchpad Matrix">
+        <div
+          className="grid grid-cols-3 gap-[3px] w-4 h-4 opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+          title="Launchpad Matrix"
+        >
           {Array.from({ length: 9 }).map((_, i) => (
-            <div key={i} className="w-[4px] h-[4px] rounded-[1px] bg-white" />
+            <div key={i} className="w-[4px] h-[4px] rounded-[1px]" style={{ background: "var(--c-theme-body)" }} />
           ))}
         </div>
-        <span className="seds-text-title text-white flex items-center gap-2">
-          SMRITI <span className="text-[#6fa8dc] font-mono text-xs">Retail OS</span>
-        </span>
-        <span className="px-2 py-0.5 rounded bg-white/12 text-white border border-white/10 seds-text-overline hidden sm:inline-block">
-          v5.3 Enterprise
-        </span>
-        {/* SUNE In-App Control Bar (Back, Forward, Refresh, Home) */}
-        <SUNEFNavigationBar />
+
+        <div className="flex items-center gap-2">
+          <span className="font-display font-extrabold text-sm tracking-wide text-theme-heading">SMRITI</span>
+          <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-theme-surface-2 border border-theme-divider text-indigo-300">
+            Enterprise OS
+          </span>
+        </div>
       </div>
 
-      {/* 2. Center Global Search Input Trigger (Ctrl+K) */}
-      <div className="flex-1 max-w-md mx-4">
+      {/* Zone B: Universal Search */}
+      <div className="flex-1 max-w-lg mx-2 sm:mx-6 flex justify-center sm:justify-start">
+        {/* Desktop Full Search Bar */}
         <button
+          type="button"
           onClick={onOpenGlobalSearch}
-          className="w-full flex items-center justify-between bg-[#243343] border border-white/15 hover:border-white/30 rounded-xl px-3 py-1.5 text-blue-200/60 hover:text-white transition-all seds-text-small"
+          className="hidden sm:flex w-full items-center justify-between rounded-xl px-3.5 py-1.5 transition-all seds-text-small cursor-pointer shadow-xs bg-theme-surface-2 border border-theme-divider text-theme-muted hover:bg-theme-surface-hover"
         >
-          <div className="flex items-center gap-2">
-            <Search size={14} className="text-blue-200/60" />
-            <span className="seds-text-small">Search applications, SKU, customers...</span>
+          <div className="flex items-center gap-2 overflow-hidden">
+            <Search size={14} className="shrink-0 text-theme-muted" />
+            <span className="truncate text-xs text-theme-muted font-sans">Search products, customers, invoices...</span>
           </div>
-          <kbd className="px-1.5 py-0.2 seds-text-overline rounded bg-white/10 border border-white/15 text-blue-200/80">
-            Ctrl+K
-          </kbd>
+        </button>
+
+        {/* Mobile Compact Search Icon Button */}
+        <button
+          type="button"
+          onClick={onOpenGlobalSearch}
+          className="sm:hidden p-2.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-colors cursor-pointer"
+          title="Universal Search"
+          aria-label="Universal Search"
+        >
+          <Search size={16} />
         </button>
       </div>
 
-      {/* 3. Right Enterprise Actions & User Profile */}
-      <div className="flex items-center gap-2">
-        {/* SAP Fiori Interactive Theme Switcher */}
-        <div className="flex items-center gap-1 bg-white/10 border border-white/15 rounded-lg p-1">
-          <Palette size={14} className="text-[#6fa8dc] ml-1 shrink-0" />
-          <select
-            value={activeTheme}
-            onChange={(e) => handleThemeChange(e.target.value as SEEFTheme)}
-            className="bg-transparent text-white seds-text-caption font-semibold focus:outline-none cursor-pointer pr-1"
-            title="Switch SAP Fiori Theme"
-          >
-            <option value="dark" className="bg-[#1c222b] text-white">🌙 Quartz Dark</option>
-            <option value="enterprise" className="bg-white text-[#1d2d3e]">☀️ Horizon Light (Fiori)</option>
-            <option value="corporate" className="bg-[#0f1d2a] text-white">🏢 Corporate Navy</option>
-          </select>
+      {/* Zone E: Status Controls (Notifications, Sync & User Profile) */}
+      <div className="flex items-center gap-2.5">
+        {/* Sync Status Badge */}
+        <div className="hidden lg:flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-[10px] font-bold">
+          <RefreshCw size={11} className="animate-spin" />
+          <span>Live</span>
         </div>
 
-        {/* Help Portal */}
+        {/* Help Center */}
         <button
+          type="button"
           onClick={onOpenHelp}
-          className="p-1.5 rounded-lg text-blue-200/80 hover:text-white hover:bg-white/10 transition-colors"
-          title="SMRITI Documentation & Help"
+          className="p-2.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
+          title="Documentation & Help"
         >
           <HelpCircle size={16} />
         </button>
 
-        {/* Notifications Trigger */}
+        {/* Notifications */}
         <button
+          type="button"
           onClick={onOpenNotifications}
-          className="p-1.5 rounded-lg text-blue-200/80 hover:text-white hover:bg-white/10 transition-colors relative"
+          className="p-2.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors relative cursor-pointer"
           title="Notifications"
         >
           <Bell size={16} />
-          <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-400" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 px-1 min-w-[14px] h-3.5 rounded-full bg-rose-500 text-white text-[9px] font-mono font-bold flex items-center justify-center shadow-xs">
+              {unreadCount}
+            </span>
+          )}
         </button>
 
-        {/* User Profile Pill */}
-        <div className="flex items-center gap-2 pl-2 border-l border-white/15">
-          <div className="w-7 h-7 rounded-full bg-[#1a73e8] border border-white/20 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-            {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "U"}
-          </div>
-          <div className="hidden md:flex flex-col text-left">
-            <span className="font-bold text-white text-xs leading-tight">
-              {currentUser?.name || "Cashier"}
-            </span>
-            <span className="text-[10px] text-[#6fa8dc] font-mono leading-tight">
-              {currentUser?.role || "Staff"}
-            </span>
-          </div>
+        {/* User Profile Pill & Dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="flex items-center gap-2.5 pl-2 hover:opacity-90 transition-opacity cursor-pointer"
+          >
+            <div className="w-8 h-8 rounded-full border text-white flex items-center justify-center font-bold text-xs shadow-xs bg-indigo-600 border-indigo-400">
+              {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "S"}
+            </div>
+            <div className="hidden md:flex flex-col text-left">
+              <span className="font-bold text-xs leading-tight text-theme-heading">{currentUser?.name || "Super Admin"}</span>
+              <span className="text-[10px] font-mono leading-tight text-indigo-400 font-semibold">{currentUser?.role || "SYSADMIN"}</span>
+            </div>
+          </button>
+
+          {/* User Profile Menu Component */}
+          <UserProfileMenu
+            isOpen={showUserMenu}
+            onClose={() => setShowUserMenu(false)}
+            onOpenLogoutModal={() => {
+              setShowUserMenu(false);
+              onLogout?.();
+            }}
+          />
         </div>
       </div>
     </header>

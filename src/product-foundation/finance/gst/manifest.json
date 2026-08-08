@@ -1,0 +1,25 @@
+{
+  "id": "finance.gst",
+  "owner": "Finance Foundation",
+  "maturity": "CML-4",
+  "releaseRing": "General Availability",
+  "version": "1.0.0",
+  "studios": ["Sales", "Purchase", "Accounting"],
+  "dependencies": {
+    "runtime": ["commerce.pricing"],
+    "business": [],
+    "optional": []
+  },
+  "dependsOn": ["commerce.pricing"],
+  "consumedBy": ["studio.sales", "studio.purchase", "studio.accounting"],
+  "provides": ["TaxCalculation", "GSTValidation", "TaxBreakdown"],
+  "events": {
+    "publishes": ["gst.calculated"],
+    "subscribes": ["pricing.completed"],
+    "lifecycle": {
+      "pricing.completed": "Publishable",
+      "gst.calculated": "Publishable"
+    }
+  },
+  "publicApi": true
+}

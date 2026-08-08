@@ -12,6 +12,8 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { visualizer } from "rollup-plugin-visualizer";
+import path from "node:path";
 
 const apiTarget = process.env.SMRITI_API_HOST
   ? `http://${process.env.SMRITI_API_HOST}`
@@ -19,36 +21,27 @@ const apiTarget = process.env.SMRITI_API_HOST
   ? `http://${process.env.PYTHON_CORE_HOST}`
   : process.env.VITE_API_HOST
   ? `http://${process.env.VITE_API_HOST}`
-  : "http://smriti-api-prod:8000";
+  : "http://localhost:8000";
 
 const manualChunksHandler = (id: string) => {
   if (id.includes("node_modules")) {
-    if (id.includes("recharts") || id.includes("d3")) {
-      return "vendor-charts";
-    }
-    if (id.includes("lucide-react") || id.includes("lucide")) {
-      return "vendor-icons";
-    }
-    if (id.includes("react") || id.includes("react-dom")) {
-      return "vendor-react";
-    }
-    return "vendor-common";
-  }
-  if (id.includes("SalesStudioTab") || id.includes("PurchaseStudioTab") || id.includes("ConsignmentStudioTab")) {
-    return "smriti-heavy-studios";
-  }
-  if (id.includes("OperationalWorkspacesTab") || id.includes("TransactionWorkspacesTab") || id.includes("BiReportingAndPrintingTab")) {
-    return "smriti-workspaces";
+    return "vendor";
   }
 };
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
   define: {
     global: "globalThis",
     "process.env": {},
     "process.browser": true,
     "process.version": '"v20.0.0"',
+  },
+
+  optimizeDeps: {
+    // Force Vite to pre-bundle `buffer` so it is resolved synchronously
+    // before any module-graph code executes — eliminates the race condition
+    // between the deferred polyfill.ts module and vendor chunk loading.
+    include: ["buffer"],
   },
 
   server: {
@@ -96,6 +89,8 @@ export default defineConfig({
   resolve: {
     alias: {
       buffer: "buffer/",
+      pg: path.resolve(__dirname, "src/lib/pg_browser_stub.ts"),
+      dotenv: path.resolve(__dirname, "src/lib/dotenv_browser_stub.ts"),
     },
   },
   build: {
@@ -104,11 +99,68 @@ export default defineConfig({
     chunkSizeWarningLimit: 1600,
     rollupOptions: {
       output: {
-        banner: "if (typeof globalThis !== 'undefined') { globalThis.global = globalThis.global || globalThis; }",
+        banner: [
+          // ── Global polyfills injected at the top of every output chunk ──────────
+          // This banner runs before any module-level code in the chunk executes.
+          // /buffer.min.js (loaded via a sync <script> in index.html) has already
+          // set window.Buffer = BufferModule.Buffer. We copy it to globalThis here
+          // so that vendor libraries that reference bare `Buffer` (replaced by Vite's
+          // define: { Buffer: "globalThis.Buffer" }) always find it defined.
+          "if (typeof globalThis !== 'undefined') {",
+          "  globalThis.global = globalThis.global || globalThis;",
+          "  if (typeof globalThis.Buffer === 'undefined') {",
+          "    var _wb = (typeof window !== 'undefined' && window.Buffer) || null;",
+          "    if (_wb) globalThis.Buffer = _wb;",
+          "  }",
+          "}"
+        ].join(" "),
         manualChunks: manualChunksHandler
       }
     }
-  }
+  },
+  plugins: [
+    // Inject Buffer polyfill at the top of every module entry so it is
+    // guaranteed to be defined before any vendor library code runs.
+    {
+      name: "smriti-buffer-inject",
+      transformIndexHtml: {
+        order: "pre",
+        handler() {
+          return [
+            {
+              tag: "script",
+              attrs: { type: "text/javascript" },
+              children: [
+                "(function(){",
+                "  var _b = (typeof window !== 'undefined' && window.Buffer) || (typeof globalThis !== 'undefined' && globalThis.Buffer);",
+                "  if (!_b) {",
+                "    try {",
+                "      var bm = window.BufferModule || (typeof BufferModule !== 'undefined' ? BufferModule : null);",
+                "      _b = bm && bm.Buffer ? bm.Buffer : null;",
+                "    } catch(e) {}",
+                "  }",
+                "  if (_b) {",
+                "    if (typeof window !== 'undefined') window.Buffer = _b;",
+                "    if (typeof globalThis !== 'undefined') globalThis.Buffer = _b;",
+                "  }",
+                "})();"
+              ].join("\n"),
+              injectTo: "head-prepend",
+            },
+          ];
+        },
+      },
+    },
+    react(),
+    tailwindcss(),
+    visualizer({
+      filename: "dist/stats.html",
+      title: "SMRITI Retail OS Bundle Analysis",
+      open: false,
+      gzipSize: true,
+      brotliSize: true,
+    }),
+  ],
 });
 
 

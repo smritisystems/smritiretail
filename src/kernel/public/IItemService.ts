@@ -43,4 +43,9 @@ export interface IItemService {
    * Fetch all active items from Item Master SSOT
    */
   getAll(): Promise<Product[]>;
+
+  /**
+   * Single source of truth lifecycle status validator for POS, Sales, and Purchase
+   */
+  validateStatus(product: Product | Partial<Product>): { allowed: boolean; reason?: string };
 }

@@ -1,0 +1,8 @@
+/* SMRITI Radius Tokens */
+:root {
+  --smriti-radius-xs: var(--sds-radius-xs);
+  --smriti-radius-sm: var(--sds-radius-sm);
+  --smriti-radius-md: var(--sds-radius-md);
+  --smriti-radius-lg: var(--sds-radius-lg);
+  --smriti-radius-full: var(--sds-radius-full);
+}

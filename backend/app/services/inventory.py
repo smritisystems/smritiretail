@@ -168,33 +168,34 @@ class InventoryService:
         if product.tracking_mode == "No-stock":
             return
 
-        # Update product stock
-        if movement_type == "IN":
-            product.stock += int(quantity)
-        elif movement_type == "OUT":
-            product.stock -= int(quantity)
-        elif movement_type == "ADJUSTMENT":
-            product.stock += int(quantity) # Quantity can be negative for adjustments
-        
-        self.db.add(product)
+        # Rule 1 & Rule 2: Route all movements through InventoryCommandFacade → ITEX → ILG.
+        # Direct StockMovement writes are prohibited outside the Inventory Ledger Engine.
+        from app.services.inventory.facades import InventoryCommandFacade
+        command_facade = InventoryCommandFacade(self.db, self.tenant_ctx)
 
-        # Create StockMovement record
-        movement = StockMovement(
-            product_id=product.id,
-            product_name=product.name,
-            sku=_build_sku(product),
-            quantity=quantity,
+        sku = _build_sku(product)
+        item_dict = {
+            "product_id": product.id,
+            "quantity": abs(quantity),
+            "sku": sku,
+            "product_name": product.name,
+            "unit_cost": float(unit_cost or product.cost_price or product.price or 0),
+            "reference_doc_type": reference_doc_type,
+            "source_module": source_module,
+        }
+
+        # Determine direction: positive quantity = inbound (TO location), negative = outbound (FROM location)
+        from_loc = reference_doc_id if quantity < 0 else None
+        to_loc   = reference_doc_id if quantity >= 0 else None
+
+        await command_facade.move_inventory(
+            transaction_id=f"TX-{movement_type}-{reference_doc_id}",
+            from_location_id=from_loc,
+            to_location_id=to_loc,
+            items=[item_dict],
             movement_type=movement_type,
-            reference_doc_type=reference_doc_type,
-            reference_doc_id=reference_doc_id,
-            unit_cost=unit_cost,
             remarks=remarks,
-            branch=self.tenant_ctx.branch_id,
-            source_module=source_module,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id,
         )
-        self.db.add(movement)
 
     async def create_product(self, product_in: ProductCreate) -> Product:
 
@@ -255,6 +256,19 @@ class InventoryService:
         vendors_data = product_data.pop("vendors", None) or []
         tax_profiles_data = product_data.pop("tax_profiles", None) or []
         inventory_policy_data = product_data.pop("inventory_policy", None)
+
+        # ── Phase E8: Column→JSONB mirror sync for direct product creation ──
+        attrs = product_data.get("attributes", {}) or {}
+        if isinstance(attrs, dict):
+            color_val = product_data.get("color")
+            size_val = product_data.get("size")
+            if color_val:
+                attrs["Color"] = color_val
+                attrs.pop("color", None)  # Remove legacy lowercase key
+            if size_val:
+                attrs["Size"] = size_val
+                attrs.pop("size", None)   # Remove legacy lowercase key
+            product_data["attributes"] = attrs
 
         db_product = Product(
             **product_data,
@@ -333,6 +347,16 @@ class InventoryService:
             )
         await self.db.refresh(db_product)
         return db_product
+
+    async def get_product(self, product_id: str) -> Product | None:
+        stmt = select(Product).filter(
+            Product.id == product_id,
+            Product.is_deleted == False,
+            Product.company_id == self.tenant_ctx.company_id,
+            Product.branch_id == self.tenant_ctx.branch_id
+        )
+        res = await self.db.execute(stmt)
+        return res.scalars().first()
 
     async def check_stock_availability(self, product_id: str, quantity: float) -> bool:
         stmt = select(Product).filter(

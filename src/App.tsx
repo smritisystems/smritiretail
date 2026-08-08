@@ -8,13 +8,14 @@
  * Version      : 5.0.0
  * Created      : 2026-07-10
  * Modified     : 2026-07-20
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { apiFetch, apiFetchV1 } from "./lib/apiFetch.ts";
 import { FLAGS } from "./config/flags";
 import { motion, AnimatePresence } from "motion/react";
+import { syncCustomersWithBackend } from "./services/customerStore.ts";
 import {
   Product,
   POSProfile,
@@ -31,6 +32,8 @@ import {
   useLayoutEngine,
 } from "./layout_engine/layout_store.tsx";
 import { LayoutManager } from "./layout_engine/layout_manager.tsx";
+import { EnvironmentProvider } from "./kernel/config/EnvironmentContext.tsx";
+import { LockScreen, LogoutDialog, SessionExpiredDialog, authStore, authEvents } from "./features/auth";
 
 // Import tabs components
 import { DashboardTab } from "./components/DashboardTab.tsx";
@@ -40,30 +43,34 @@ import { FormulaRegistryTab } from "./components/FormulaRegistryTab.tsx";
 import { PsvTab } from "./components/PsvTab.tsx";
 import { PosProfilesTab } from "./components/PosProfilesTab.tsx";
 import { SharedTerminalFramework } from "./components/terminal/SharedTerminalFramework.tsx";
-import { AdvancedBillingEngine } from "./components/AdvancedBillingEngine.tsx";
-import { SalesStudioTab } from "./components/SalesStudioTab.tsx";
-import { SalesBillingStudio } from "./components/sales/SalesBillingStudio.tsx";
+const AdvancedBillingEngine = React.lazy(() => import("./components/AdvancedBillingEngine.tsx").then((module) => ({ default: module.AdvancedBillingEngine })));
+const SalesStudioTab = React.lazy(() => import("./components/SalesStudioTab.tsx").then((module) => ({ default: module.SalesStudioTab })));
+const SalesBillingStudio = React.lazy(() => import("./components/sales/SalesBillingStudio.tsx").then((module) => ({ default: module.SalesBillingStudio })));
 import { ItemMasterTab } from "./components/ItemMasterTab.tsx";
+import { MasterReferenceStudio } from "./features/masters/components/MasterReferenceStudio.tsx";
 import { WikiTab } from "./components/WikiTab.tsx";
-import { PurchaseStudioTab } from "./components/PurchaseStudioTab.tsx";
+const PurchaseStudioTab = React.lazy(() => import("./components/PurchaseStudioTab.tsx").then((module) => ({ default: module.PurchaseStudioTab })));
 import { MasterManagementTab } from "./components/MasterManagementTab.tsx";
 import { AIConfigurationTab } from "./components/AIConfigurationTab.tsx";
-import { LaunchpadConfigTab } from "./launchpad/index.ts";
-import { CustomerMasterTab } from "./components/CustomerMasterTab.tsx";
-import { CustomerDashboardTab } from "./components/CustomerDashboardTab.tsx";
-import { WorkspaceLabTab } from "./components/WorkspaceLabTab.tsx";
-import { OperationalWorkspacesTab } from "./components/OperationalWorkspacesTab.tsx";
-import { TransactionWorkspacesTab } from "./components/TransactionWorkspacesTab.tsx";
-import { BiReportingAndPrintingTab } from "./components/BiReportingAndPrintingTab.tsx";
-import { PrintLabelsStudio } from "./components/printing/PrintLabelsStudio.tsx";
-import { ConsignmentStudioTab } from "./components/ConsignmentStudioTab.tsx";
-import { SCDMStudioTab } from "./components/SCDMStudioTab.tsx";
+const LaunchpadConfigTab = React.lazy(() => import("./launchpad/index.ts").then((module) => ({ default: module.LaunchpadConfigTab })));
+const CustomerMasterTab = React.lazy(() => import("./components/CustomerMasterTab.tsx").then((module) => ({ default: module.CustomerMasterTab })));
+const CustomerDashboardTab = React.lazy(() => import("./components/CustomerDashboardTab.tsx").then((module) => ({ default: module.CustomerDashboardTab })));
+const WorkspaceLabTab = React.lazy(() => import("./components/WorkspaceLabTab.tsx").then((module) => ({ default: module.WorkspaceLabTab })));
+const OperationalWorkspacesTab = React.lazy(() => import("./components/OperationalWorkspacesTab.tsx").then((module) => ({ default: module.OperationalWorkspacesTab })));
+const TransactionWorkspacesTab = React.lazy(() => import("./components/TransactionWorkspacesTab.tsx").then((module) => ({ default: module.TransactionWorkspacesTab })));
+const BiReportingAndPrintingTab = React.lazy(() => import("./components/BiReportingAndPrintingTab.tsx").then((module) => ({ default: module.BiReportingAndPrintingTab })));
+const PrintLabelsStudio = React.lazy(() => import("./components/printing/PrintLabelsStudio.tsx").then((module) => ({ default: module.PrintLabelsStudio })));
+const UniversalLabelPrintingStudio = React.lazy(() => import("./components/label_print/UniversalLabelPrintingStudio.tsx").then((module) => ({ default: module.UniversalLabelPrintingStudio })));
+const ConsignmentStudioTab = React.lazy(() => import("./components/ConsignmentStudioTab.tsx").then((module) => ({ default: module.ConsignmentStudioTab })));
+const SCDMStudioTab = React.lazy(() => import("./components/SCDMStudioTab.tsx").then((module) => ({ default: module.SCDMStudioTab })));
+const EcommerceStudioTab = React.lazy(() => import("./components/ecommerce/EcommerceStudioTab.tsx").then((module) => ({ default: module.EcommerceStudioTab })));
 
-import { CrmStudioTab } from "./components/CrmStudioTab.tsx";
-import { LoyaltyStudioTab } from "./components/LoyaltyStudioTab.tsx";
-import { SupplierDashboardTab } from "./components/SupplierDashboardTab.tsx";
+const CrmStudioTab = React.lazy(() => import("./components/CrmStudioTab.tsx").then((module) => ({ default: module.CrmStudioTab })));
+const LoyaltyStudioTab = React.lazy(() => import("./components/LoyaltyStudioTab.tsx").then((module) => ({ default: module.LoyaltyStudioTab })));
+const SupplierDashboardTab = React.lazy(() => import("./components/SupplierDashboardTab.tsx").then((module) => ({ default: module.SupplierDashboardTab })));
 import { ScreenStudioTab } from "./components/ScreenStudioTab.tsx";
-import { ReportDesignerTab } from "./components/ReportDesignerTab.tsx";
+const ReportDesignerTab = React.lazy(() => import("./components/ReportDesignerTab.tsx").then((module) => ({ default: module.ReportDesignerTab })));
+const OrganizationStudio = React.lazy(() => import("./components/admin/OrganizationStudio.tsx").then((module) => ({ default: module.OrganizationStudio })));
 import { ExplainModal } from "./components/ExplainModal.tsx";
 import { DrillDownProvider } from "./components/drilldown/drilldown_store.tsx";
 import { DrillDownBreadcrumbs } from "./components/drilldown/DrillDownBreadcrumbs.tsx";
@@ -81,7 +88,6 @@ import { ContextRenderer } from "./context-actions/ContextRenderer.tsx";
 import { registerAllDefaultActions } from "./context-actions/providers/SMRITIModuleActions.ts";
 import { PrintProvider } from "./print_engine/print_store.tsx";
 import { PrintStudioTab } from "./print_engine/PrintStudioTab.tsx";
-import { PrintHistoryTab } from "./print_engine/PrintHistoryTab.tsx";
 import { AboutSmritiTab } from "./components/AboutSmritiTab.tsx";
 import { DevTrackerTab } from "./modules/dev_tracker/ui/DevTrackerTab.tsx";
 import { AccountingSyncTab } from "./components/AccountingSyncTab.tsx";
@@ -93,11 +99,13 @@ import { DataExchangeTab } from "./components/DataExchangeTab.tsx";
 import { useLayoutModuleRegistration } from "./components/SmritiBaseModule.tsx";
 import { WorkspaceProvider, useWorkspace } from "./contexts/WorkspaceContext.tsx";
 import { FloatingWindowHost } from "./components/FloatingWindowHost.tsx";
+import { Suspense } from "react";
 import { ShortcutProvider } from "./contexts/ShortcutContext.tsx";
 import { ShortcutPalette } from "./components/ShortcutPalette.tsx";
 import { WorkspaceTaskbar } from "./components/WorkspaceTaskbar.tsx";
 import { SetupWizardTab } from "./components/SetupWizard/SetupWizardTab.tsx";
 import { PasswordResetScreen } from "./components/PasswordResetScreen.tsx";
+import { resolveSetupCompletionStatus } from "./utils/setupBootstrap";
 import { PrintPreviewModal } from "./components/PrintPreviewModal.tsx";
 import { SmritiOfficialWebsite } from "./components/website/SmritiOfficialWebsite.tsx";
 import { SmritiLiveDocsPortal } from "./components/documentation/SmritiLiveDocsPortal.tsx";
@@ -106,10 +114,10 @@ import { SmritiEcosystemHub } from "./components/SmritiEcosystemHub.tsx";
 import { LoginScreen } from "./components/LoginScreen.tsx";
 import { SmritiErrorBoundary } from "./components/SmritiErrorBoundary.tsx";
 import { Launchpad } from "./components/Launchpad.tsx";
-import { SEEFCommandPalette, useSEEFCommandPaletteShortcut } from "./layout_engine/SEEFCommandPalette.tsx";
 import { WorkspaceTabsBar } from "./components/common/WorkspaceTabsBar.tsx";
 import { CommandPaletteModal } from "./components/common/CommandPaletteModal.tsx";
 import { StatutoryComplianceWorkspace } from "./components/compliance/StatutoryComplianceWorkspace.tsx";
+import { EnvironmentManagerTab } from "./components/EnvironmentManagerTab.tsx";
 
 
 interface AppNotification {
@@ -178,14 +186,14 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
   };
 
   return (
-    <div className="relative w-screen h-screen bg-[#0B0F17] overflow-hidden flex flex-col m-0 p-0 font-sans border border-slate-800">
+    <div className="relative w-screen h-screen bg-[var(--sds-color-background)] overflow-hidden flex flex-col m-0 p-0 font-[var(--sds-font-family)] border border-[var(--sds-color-border)] text-[var(--sds-color-text-main)]">
       {/* SMRITI Desktop Workspace v1.0 Header Bar */}
-      <div className="h-10 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between shrink-0 select-none text-slate-200">
+      <div className="h-10 bg-[var(--sds-color-surface)] border-b border-[var(--sds-color-border)] px-4 flex items-center justify-between shrink-0 select-none text-[var(--sds-color-text-main)]">
         {/* Left Section: Document Title & Badges */}
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-1.5">
             <span className="material-symbols-outlined text-indigo-400 text-base">desktop_windows</span>
-            <span className="text-xs font-bold tracking-wide uppercase text-slate-200">{popoutTitle}</span>
+            <span className="text-xs font-bold tracking-wide uppercase text-theme-primary">{popoutTitle}</span>
           </div>
 
           <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono font-medium">
@@ -212,18 +220,18 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
         {/* Right Section: Toolbar Controls */}
         <div className="flex items-center space-x-2">
           {/* Zoom Controls */}
-          <div className="flex items-center bg-slate-800/80 rounded border border-slate-700/60 px-1 py-0.5 text-xs text-slate-300 space-x-1">
+          <div className="flex items-center bg-[var(--sds-color-surface)] rounded border border-[var(--sds-color-border)] px-1 py-0.5 text-xs text-[var(--sds-color-text-secondary)] space-x-1">
             <button
               onClick={() => setZoom((z) => Math.max(70, z - 10))}
-              className="px-1 hover:text-white transition font-bold"
+              className="px-1 hover:text-[var(--sds-color-text-main)] transition font-bold"
               title="Zoom Out"
             >
               -
             </button>
-            <span className="font-mono text-[11px] w-8 text-center text-indigo-300">{zoom}%</span>
+            <span className="font-mono text-[11px] w-8 text-center text-[var(--sds-color-primary)]">{zoom}%</span>
             <button
               onClick={() => setZoom((z) => Math.min(150, z + 10))}
-              className="px-1 hover:text-white transition font-bold"
+              className="px-1 hover:text-[var(--sds-color-text-main)] transition font-bold"
               title="Zoom In"
             >
               +
@@ -233,7 +241,7 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
           {/* Fullscreen Button */}
           <button
             onClick={toggleFullscreen}
-            className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition flex items-center text-xs space-x-1"
+            className="p-1 hover:bg-[var(--sds-color-surface-hover)] rounded text-[var(--sds-color-text-secondary)] hover:text-[var(--sds-color-text-main)] transition flex items-center text-xs space-x-1"
             title="Toggle Fullscreen (Ctrl+Shift+F or F11)"
           >
             <span className="material-symbols-outlined text-sm">
@@ -244,7 +252,7 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
           {/* Lock Workspace Button */}
           <button
             onClick={() => setIsLocked(true)}
-            className="px-2 py-1 hover:bg-amber-900/40 text-amber-400 hover:text-amber-300 rounded border border-amber-800/30 transition flex items-center text-xs space-x-1"
+            className="px-2 py-1 hover:bg-[var(--sds-color-surface-hover)] text-[var(--sds-color-text-secondary)] hover:text-[var(--sds-color-text-main)] rounded border border-[var(--sds-color-border)] transition flex items-center text-xs space-x-1"
             title="Lock Workspace Session"
           >
             <span className="material-symbols-outlined text-sm">lock</span>
@@ -254,7 +262,7 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
           {/* Refresh Data Button */}
           <button
             onClick={() => WindowManager.broadcast("REFRESH_SYSTEM_STATE", popoutTab, {})}
-            className="px-2 py-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition flex items-center text-xs space-x-1"
+            className="px-2 py-1 hover:bg-[var(--sds-color-surface-hover)] rounded text-[var(--sds-color-text-secondary)] hover:text-[var(--sds-color-text-main)] transition flex items-center text-xs space-x-1"
             title="Refresh Studio Data"
           >
             <span className="material-symbols-outlined text-sm">refresh</span>
@@ -264,7 +272,7 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
           {/* Print Button */}
           <button
             onClick={() => window.print()}
-            className="px-2 py-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition flex items-center text-xs space-x-1"
+            className="px-2 py-1 hover:bg-[var(--sds-color-surface-hover)] rounded text-[var(--sds-color-text-secondary)] hover:text-[var(--sds-color-text-main)] transition flex items-center text-xs space-x-1"
             title="Print Document"
           >
             <span className="material-symbols-outlined text-sm">print</span>
@@ -274,7 +282,7 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
           {/* Close Window Button */}
           <button
             onClick={() => window.close()}
-            className="px-2 py-1 hover:bg-rose-900/50 hover:text-rose-300 rounded text-slate-400 transition flex items-center text-xs space-x-1"
+            className="px-2 py-1 hover:bg-[var(--sds-color-surface-hover)] hover:text-[var(--sds-color-text-main)] rounded text-[var(--sds-color-text-secondary)] transition flex items-center text-xs space-x-1"
             title="Close Workspace Window"
           >
             <span className="material-symbols-outlined text-sm">close</span>
@@ -285,7 +293,7 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
 
       {/* Studio Content Canvas with Dynamic Zoom Scaling */}
       <div
-        className="flex-1 overflow-auto p-2 bg-[#0B0F17] transition-all duration-150"
+        className="flex-1 overflow-auto p-2 bg-[var(--sds-color-background)] transition-all duration-150"
         style={{ zoom: `${zoom}%` }}
       >
         {renderTabSafe(popoutTab)}
@@ -293,14 +301,14 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
 
       {/* SAWF Workspace Security Lock Overlay */}
       {isLocked && (
-        <div className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center text-slate-200">
-          <div className="w-full max-w-sm p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col items-center text-center space-y-4">
-            <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+        <div className="absolute inset-0 z-50 bg-[rgba(15,23,42,0.92)] backdrop-blur-md flex flex-col items-center justify-center text-[var(--sds-color-text-main)]">
+          <div className="w-full max-w-sm p-6 bg-[var(--sds-color-surface)] border border-[var(--sds-color-border)] rounded-2xl shadow-2xl flex flex-col items-center text-center space-y-4">
+            <div className="w-14 h-14 rounded-full bg-[var(--sds-color-primary-light)] border border-[var(--sds-color-primary)] flex items-center justify-center text-[var(--sds-color-primary)]">
               <span className="material-symbols-outlined text-3xl">lock</span>
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-100 uppercase tracking-wide">Workspace Locked</h3>
-              <p className="text-xs text-slate-400 mt-1">Transaction context preserved. Enter PIN to unlock.</p>
+              <h3 className="text-base font-bold text-[var(--sds-color-text-main)] uppercase tracking-wide">Workspace Locked</h3>
+              <p className="text-xs text-[var(--sds-color-text-secondary)] mt-1">Transaction context preserved. Enter PIN to unlock.</p>
             </div>
             <form onSubmit={handleUnlock} className="w-full space-y-3">
               <input
@@ -308,13 +316,13 @@ const StandaloneWorkspaceWindow: React.FC<StandaloneWorkspaceProps> = ({ popoutT
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
                 placeholder="Enter Staff PIN (e.g. 1234)"
-                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-center text-lg tracking-widest font-mono text-white focus:outline-none focus:border-amber-500 transition"
+                className="w-full px-4 py-2.5 bg-[var(--sds-color-surface)] border border-[var(--sds-color-border)] rounded-xl text-center text-lg tracking-widest font-mono text-[var(--sds-color-text-main)] focus:outline-none focus:border-[var(--sds-color-primary)] transition"
                 autoFocus
               />
-              {pinError && <p className="text-xs text-rose-400">{pinError}</p>}
+              {pinError && <p className="text-xs text-[var(--c-seef-error)]">{pinError}</p>}
               <button
                 type="submit"
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 font-semibold text-xs uppercase tracking-wider rounded-xl transition shadow-lg shadow-indigo-600/30"
+                className="w-full py-2.5 bg-[var(--sds-color-primary)] hover:bg-[var(--sds-color-primary-hover)] font-semibold text-xs uppercase tracking-wider rounded-xl transition shadow-lg shadow-[rgba(0,86,179,0.18)]"
               >
                 Unlock Session
               </button>
@@ -333,10 +341,7 @@ const AppContent: React.FC = () => {
   const { globalZoom, popOutTab } = useWorkspace();
   const { addNotification: addSystemNotification } = useNotifications();
 
-  // SEEF Command Palette (Ctrl+K)
-  const [seefPaletteOpen, setSeefPaletteOpen] = useState(false);
-  useSEEFCommandPaletteShortcut(setSeefPaletteOpen);
-  
+  // User Session & Auth Context
   const [currentUser, setCurrentUser] = useState<{ role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string } | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [terminalParam, setTerminalParam] = useState<string | null>(() => {
@@ -348,57 +353,101 @@ const AppContent: React.FC = () => {
     }
   });
 
+const isLocalMockToken = (t: string | null): boolean => {
+  if (!t) return true;
+  return (
+    t.startsWith("smriti_jwt_") ||
+    t.startsWith("demo_") ||
+    t.startsWith("smriti_rf_") ||
+    t === "token_demo" ||
+    t === "dev-bypass-token" ||
+    t === "mock-jwt-provider"
+  );
+};
+
   const checkAuth = async () => {
     try {
+      setCheckingAuth(true);
       const token = typeof localStorage !== 'undefined'
         ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
         : null;
 
-      if (token === "dev-bypass-token" && !FLAGS.ENABLE_DEV_LOGIN) {
+      const savedName = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_name") : null;
+      const savedRole = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_user_role") : null;
+
+      // Case 1: No session token exists -> Immediately show Login Screen, do NOT call protected APIs
+      if (!token) {
         if (typeof localStorage !== 'undefined') {
-          localStorage.removeItem("smriti_jwt_token");
-          localStorage.removeItem("smriti_session_token");
+          localStorage.removeItem("smriti_user_name");
+          localStorage.removeItem("smriti_user_role");
         }
         setCurrentUser(null);
+        authStore.setCurrentUser(null);
+        authStore.setAuthState("Unauthenticated");
         setCheckingAuth(false);
         return;
       }
 
-      if (!token) {
-        if (terminalParam) {
-          setCurrentUser({ role: "SYSADMIN", name: "System Admin" });
+      // Case 2: Local Mock/Demo Token -> Validate local mock session
+      if (isLocalMockToken(token)) {
+        if (savedName && savedRole) {
+          const uObj = { role: savedRole, name: savedName };
+          setCurrentUser(uObj);
+          authStore.setCurrentUser({ ...uObj, username: savedName });
+          authStore.setAuthState("Authenticated");
         } else {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem("smriti_jwt_token");
+            localStorage.removeItem("smriti_session_token");
+            localStorage.removeItem("smriti_user_name");
+            localStorage.removeItem("smriti_user_role");
+          }
           setCurrentUser(null);
+          authStore.setCurrentUser(null);
+          authStore.setAuthState("Unauthenticated");
         }
         setCheckingAuth(false);
         return;
       }
 
-      if (token === "dev-bypass-token" && FLAGS.ENABLE_DEV_LOGIN) {
-        setCurrentUser({ role: "SYSADMIN", name: "System Admin" });
-        setCheckingAuth(false);
-        return;
-      }
-
-      const data = await apiFetchV1("/auth/me");
-      if (data) {
-        setCurrentUser({
-          role: data.role ?? "",
-          name: data.display_name || data.full_name || data.username || "",
+      // Case 3: Real Backend JWT Token -> Validate via GET /api/v1/auth/me
+      const data = await apiFetchV1("/auth/me").catch(() => null);
+      if (data && (data.username || data.id || data.role)) {
+        const verifiedUser = {
+          role: data.role ?? savedRole ?? "SYSADMIN",
+          name: data.display_name || data.full_name || data.username || savedName || "System Operator",
           companyId: data.company_id ?? undefined,
           branchId: data.branch_id ?? undefined,
           passwordResetRequired: data.password_reset_required ?? false,
-        });
+        };
+        setCurrentUser(verifiedUser);
+        authStore.setCurrentUser({ ...verifiedUser, username: data.username || verifiedUser.name });
+        authStore.setAuthState("Authenticated");
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem("smriti_user_name", verifiedUser.name);
+          localStorage.setItem("smriti_user_role", verifiedUser.role);
+        }
       } else {
+        // Backend Token 401 Unauthorized / Expired -> Clear session & show login screen
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem("smriti_jwt_token");
+          localStorage.removeItem("smriti_session_token");
+          localStorage.removeItem("smriti_user_name");
+          localStorage.removeItem("smriti_user_role");
+        }
         setCurrentUser(null);
+        authStore.setCurrentUser(null);
+        authStore.setAuthState("Unauthenticated");
       }
-    } catch {
-      const token = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_jwt_token") : null;
-      if ((token === "dev-bypass-token" && FLAGS.ENABLE_DEV_LOGIN) || terminalParam) {
-        setCurrentUser({ role: "SYSADMIN", name: "System Admin" });
-      } else {
-        setCurrentUser(null);
+    } catch (e) {
+      console.warn("[SMRITI Auth] Session validation error:", e);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem("smriti_jwt_token");
+        localStorage.removeItem("smriti_session_token");
       }
+      setCurrentUser(null);
+      authStore.setCurrentUser(null);
+      authStore.setAuthState("Unauthenticated");
     } finally {
       setCheckingAuth(false);
     }
@@ -406,24 +455,50 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     checkAuth();
+    const unsub = authEvents.subscribe((event) => {
+      if (event.eventType === "UserLoggedOut") {
+        setCurrentUser(null);
+        authStore.setAuthState("Unauthenticated");
+      }
+    });
+
+    // Work Protection: Warn operator on accidental tab closure or navigation
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const heldBills = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem("smriti_held_bills") : null;
+      if (heldBills && heldBills !== "[]") {
+        e.preventDefault();
+        e.returnValue = "You have active transaction bills in your workspace. Are you sure you want to leave?";
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      unsub();
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
   }, []);
 
   const handleLoginSuccess = (user: { role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string }) => {
     setCurrentUser(user);
+    authStore.setCurrentUser({ ...user, username: user.name });
+    authStore.setAuthState("Authenticated");
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem("smriti_user_name", user.name);
+      localStorage.setItem("smriti_user_role", user.role);
+    }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("smriti_session_token");
-    localStorage.removeItem("smriti_jwt_token");
-    setCurrentUser(null);
+    authStore.setLogoutModalOpen(true);
   };
 
+  // Protected Resource Loading: ONLY invoke when user is strictly authenticated
   useEffect(() => {
-    if (!currentUser) return;
-    import("./services/customerStore.js").then((m) => {
-      m.syncCustomersWithBackend();
-    });
-  }, [currentUser]);
+    if (!currentUser || checkingAuth) return;
+    syncCustomersWithBackend();
+  }, [currentUser, checkingAuth]);
 
   useEffect(() => {
     if (currentUser && !currentUser.passwordResetRequired) {
@@ -431,7 +506,12 @@ const AppContent: React.FC = () => {
     }
   }, [currentUser]);
 
-  const [isSetupCompleted, setIsSetupCompleted] = useState<boolean | null>(null);
+  const [isSetupCompleted, setIsSetupCompleted] = useState<boolean | null>(() => {
+    const localCompleted = typeof localStorage !== 'undefined'
+      ? localStorage.getItem("smriti_setup_completed") === "true"
+      : false;
+    return localCompleted;
+  });
 
   const markSetupCompleted = () => {
     setIsSetupCompleted(true);
@@ -445,16 +525,19 @@ const AppContent: React.FC = () => {
   };
 
   const refreshSetupStatus = async () => {
-    const localCompleted = typeof localStorage !== 'undefined' ? localStorage.getItem("smriti_setup_completed") === "true" : false;
+    const localCompleted = typeof localStorage !== 'undefined'
+      ? localStorage.getItem("smriti_setup_completed") === "true"
+      : false;
+
     try {
       const data = await apiFetchV1("/setup-status");
       if (data && typeof data.setupCompleted === "boolean") {
-        setIsSetupCompleted(data.setupCompleted);
+        setIsSetupCompleted(resolveSetupCompletionStatus(localCompleted, data.setupCompleted));
       } else {
-        setIsSetupCompleted(localCompleted);
+        setIsSetupCompleted(resolveSetupCompletionStatus(localCompleted, null));
       }
     } catch {
-      setIsSetupCompleted(localCompleted || true);
+      setIsSetupCompleted(resolveSetupCompletionStatus(localCompleted, null));
     }
   };
 
@@ -478,6 +561,7 @@ const AppContent: React.FC = () => {
 
   const safeLastWorkspace =
     initialTabFromUrl ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem("smriti_default_terminal") === "pos" ? "pos" : null) ||
     (isSetupCompleted && preferences.lastWorkspace === "company-setup"
       ? "launchpad"
       : preferences.lastWorkspace);
@@ -494,9 +578,13 @@ const AppContent: React.FC = () => {
       setActiveTab("company-setup");
       return;
     }
+    if (currentUser?.role?.toUpperCase() === "CASHIER" && !initialTabFromUrl) {
+      setActiveTab("pos");
+      return;
+    }
     const resolvedTab = normalizeTab(safeLastWorkspace || "launchpad") || "launchpad";
     setActiveTab(resolvedTab);
-  }, [isSetupCompleted, safeLastWorkspace]);
+  }, [isSetupCompleted, safeLastWorkspace, currentUser]);
 
   const setActiveWorkspace = (tab: string) => {
     if (!isSetupCompleted && tab !== "company-setup") {
@@ -505,7 +593,13 @@ const AppContent: React.FC = () => {
     const resolvedTab = normalizeTab(
       isSetupCompleted && tab === "company-setup" ? "launchpad" : tab,
     ) || "dashboard";
-    setActiveTab(resolvedTab);
+
+    if (SUNEFKernel.isReady()) {
+      SUNEFKernel.navigateWorkspace(resolvedTab, resolvedTab);
+    } else {
+      setActiveTab(resolvedTab);
+    }
+
     addToRecentlyUsed(resolvedTab);
   };
 
@@ -582,41 +676,63 @@ const AppContent: React.FC = () => {
     });
   };
 
+  const initialHistorySynced = useRef(false);
+
   useEffect(() => {
-    SUNEFKernel.initialize((t) => setActiveWorkspace(t), addNotification);
+    SUNEFKernel.initialize(setActiveTab, addNotification);
     registerAllDefaultActions((n: any) => {
       addNotification(n.title, n.message, n.type === "alert" || n.type === "error" ? "error" : "success");
     });
   }, []);
 
+  useEffect(() => {
+    if (initialHistorySynced.current) return;
+    if (!isSetupCompleted) return;
+    if (!SUNEFKernel.isReady()) return;
+    if (activeTab && activeTab !== "dashboard") {
+      SUNEFKernel.navigateWorkspace(activeTab, activeTab);
+    }
+    initialHistorySynced.current = true;
+  }, [activeTab, isSetupCompleted]);
+
   // Fetch initial system state
   const fetchSystemState = async () => {
+    const token = typeof localStorage !== 'undefined'
+      ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
+      : null;
+
+    const isDemo = !token || token === "demo_access_token_jwt" || token === "token_demo";
+
+    // In demo/offline mode, bypass backend network queries silently
+    if (isDemo) {
+      setFields([]);
+      setFormulas([]);
+      setPsvParties([]);
+      return;
+    }
+
     try {
-      // Migrated: /pos/registers/ → /pos/profiles/ (returns camelCase POSProfileResponse)
-      // Migrated: /pos/shifts/ (FastAPI list endpoint — v3.22.0, replaces broken Express stub)
       const [profData, shiftsData] = await Promise.all([
-        apiFetchV1("/pos/profiles/"),
-        apiFetchV1("/pos/shifts/").catch(() => []),  // graceful fallback if no shifts yet
+        apiFetchV1("/pos/profiles/").catch(() => []),
+        apiFetchV1("/pos/shifts/").catch(() => []),
       ]);
 
       if (Array.isArray(profData)) setProfiles(profData);
       if (Array.isArray(shiftsData)) setShifts(shiftsData);
 
-      // Legacy Express placeholder routes are currently not implemented on the backend.
-      // Avoid calling them here so the page does not produce auth/501 errors during startup.
       setFields([]);
       setFormulas([]);
       setPsvParties([]);
 
       // Fetch products from FastAPI backend
-      try {
-        const prodData = await apiFetchV1("/inventory/");
+      const prodData = await apiFetchV1("/inventory/").catch(() => null);
+      if (Array.isArray(prodData) && prodData.length > 0) {
         const mappedProducts = prodData.map((p: any) => ({
           id: p.id,
           code: p.code,
           name: p.name,
-          price: parseFloat(p.price),
-          stock: p.stock,
+          price: parseFloat(p.price) || 0,
+          stock: p.stock || 0,
           category: p.category,
           isFavorite: p.is_favorite,
           barcode: p.barcode,
@@ -641,20 +757,14 @@ const AppContent: React.FC = () => {
           weightGrams: p.weight_grams ? parseFloat(p.weight_grams) : 0
         }));
         setProducts(mappedProducts);
-      } catch (err) {
-        console.error("Failed to load products from FastAPI:", err);
       }
 
-      try {
-        const psvData = await apiFetchV1("/psv/parties");
-        if (Array.isArray(psvData)) {
-          setPsvParties(psvData);
-        }
-      } catch (err) {
-        console.error("Failed to load PSV parties from FastAPI:", err);
+      const psvData = await apiFetchV1("/psv/parties").catch(() => null);
+      if (Array.isArray(psvData)) {
+        setPsvParties(psvData);
       }
-    } catch (error) {
-      console.error("Critical error syncing system data:", error);
+    } catch (e) {
+      console.warn("[SMRITI Bootstrap] Offline system sync note:", e);
     }
   };
 
@@ -684,11 +794,19 @@ const AppContent: React.FC = () => {
       const icon = tabConfig ? tabConfig.icon : "description";
       popOutTab(activeTab, title, icon);
     };
+    const handleNavigateEvent = (e: CustomEvent<string> | any) => {
+      const targetTab = e?.detail ?? e;
+      if (typeof targetTab === "string" && targetTab) {
+        setActiveWorkspace(targetTab);
+      }
+    };
     window.addEventListener("smriti_popout_current_tab", handlePopoutEvent);
+    window.addEventListener("smriti_navigate_tab", handleNavigateEvent as EventListener);
     return () => {
       window.removeEventListener("smriti_popout_current_tab", handlePopoutEvent);
+      window.removeEventListener("smriti_navigate_tab", handleNavigateEvent as EventListener);
     };
-  }, [activeTab, registeredWorkspaces, popOutTab]);
+  }, [activeTab, registeredWorkspaces, popOutTab, setActiveWorkspace]);
 
   const renderTab = (tabId: string) => {
     switch (tabId) {
@@ -711,7 +829,7 @@ const AppContent: React.FC = () => {
       case "pos":
       case "billing":
       case "quick-billing":
-        return <SalesBillingStudio products={products} onRefreshProducts={fetchSystemState} />;
+        return <SalesBillingStudio products={products} onRefreshProducts={fetchSystemState} currentUser={currentUser} onNotification={addNotification} />;
       case "crm":
       case "crm-studio":
         return <CrmStudioTab currentUser={currentUser} onNotification={addNotification} />;
@@ -730,10 +848,22 @@ const AppContent: React.FC = () => {
       case "channel-distribution":
       case "scdm_channel_distribution":
         return <SCDMStudioTab />;
+      case "ecommerce":
+      case "ecommerce-studio":
+      case "commerce":
+      case "commerce-studio":
+        return <EcommerceStudioTab />;
 
       case "loyalty":
         return <LoyaltyStudioTab currentUser={currentUser} />;
       case "compliance":
+      case "company-management":
+      case "organization-studio":
+      case "org-studio":
+      case "organization":
+      case "companies":
+      case "company":
+        return <OrganizationStudio />;
       case "statutory":
       case "statutory-compliance":
       case "gst":
@@ -803,6 +933,10 @@ const AppContent: React.FC = () => {
         return <WikiTab onNotification={addNotification} />;
       case "masters":
         return <MasterManagementTab onNotification={addNotification} />;
+      case "master-studio":
+      case "master-reference-studio":
+      case "masters-reference":
+        return <MasterReferenceStudio />;
       case "ai-config":
       case "ai-configuration":
         return <AIConfigurationTab onNotification={addNotification} />;
@@ -820,18 +954,24 @@ const AppContent: React.FC = () => {
         return <DocumentSeriesTab />;
       case "approval-matrix":
         return <ApprovalMatrixTab />;
+      case "document-studio":
       case "print-labels":
       case "print-studio":
-      case "barcode-printing":
       case "label-printing":
       case "universal-label":
-        return <PrintLabelsStudio products={products} />;
+      case "universal-label-printer":
+      case "barcode":
+      case "barcode-studio":
+      case "tag-printing":
+      case "barcode-printing":
       case "print-history":
-        return <PrintHistoryTab />;
+        return <PrintStudioTab />;
       case "about-smriti":
         return <AboutSmritiTab />;
       case "dev-tracker":
         return <DevTrackerTab />;
+      case "environment-manager":
+        return <EnvironmentManagerTab />;
       case "accounting-sync":
         return <AccountingSyncTab />;
       case "business-ledger":
@@ -878,7 +1018,7 @@ const AppContent: React.FC = () => {
   if (checkingAuth) {
     return (
       <div className="min-h-screen w-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
-        <div className="w-10 h-10 rounded-xl bg-[#2563EB] flex items-center justify-center font-bold text-lg text-white border border-theme-divider shadow-lg animate-pulse">
+        <div className="w-10 h-10 rounded-xl bg-[var(--c-seef-accent)] flex items-center justify-center font-bold text-lg text-white border border-theme-divider shadow-lg animate-pulse">
           S
         </div>
         <p className="mt-4 text-[10px] font-mono text-theme-muted tracking-widest uppercase">
@@ -942,6 +1082,16 @@ const AppContent: React.FC = () => {
           </div>
         )}
       </SharedTerminalFramework>
+    );
+  }
+
+  if (checkingAuth) {
+    return (
+      <div className="w-screen h-screen flex flex-col items-center justify-center bg-slate-900 text-white font-sans">
+        <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3" />
+        <div className="text-sm font-bold tracking-wider">SMRITI RETAIL OS</div>
+        <div className="text-xs text-slate-400 font-mono mt-1">Verifying Session Security Credentials...</div>
+      </div>
     );
   }
 
@@ -1009,10 +1159,10 @@ const AppContent: React.FC = () => {
         </AnimatePresence>
       </div>
 
-      {/* SMRITI Layout Manager Shell */}
+      {/* SMRITI Layout Manager Shell (ADR-UX-003 SWS Compliant) */}
       <LayoutManager 
         activeTab={activeTab} 
-        onTabSelect={setActiveTab}
+        onTabSelect={setActiveWorkspace}
         currentUser={currentUser}
         onLogout={handleLogout}
       >
@@ -1043,13 +1193,17 @@ const AppContent: React.FC = () => {
       {/* Floating Workspace Windows Host */}
       <FloatingWindowHost renderTab={(id) => renderTabSafe(id)} />
 
+      {/* Auth System Modals & Workflows (ADR-AUTH-001) */}
+      <LogoutDialog />
+      <SessionExpiredDialog />
+
       {/* Formula Explanation drawer portal overlay */}
       <ExplainModal
         formula={selectedFormula}
         onClose={() => setSelectedFormula(null)}
       />
 
-      {/* SMRITI Global Interactive Print Preview Engine Modal — conditional mount only when active */}
+      {/* SMRITI Global Interactive Print Preview Engine Modal â€” conditional mount only when active */}
       {isPrintPreviewOpen && (
         <PrintPreviewModal
           isOpen={isPrintPreviewOpen}
@@ -1057,42 +1211,42 @@ const AppContent: React.FC = () => {
           activeTabId={activeTab}
         />
       )}
-
-      {/* SEEF Command Palette — Ctrl+K global keyboard launcher */}
-      <SEEFCommandPalette
-        isOpen={seefPaletteOpen}
-        onClose={() => setSeefPaletteOpen(false)}
-        onNavigate={(id) => {
-          addToRecentlyUsed(id);
-          setActiveWorkspace(id);
-        }}
-      />
     </div>
   );
 };
 
 const App: React.FC = () => {
   return (
-    <PrintProvider>
-      <NotificationProvider>
-        <DrillDownProvider>
-          <LayoutEngineProvider>
-            <WorkspaceProvider>
-              <ShortcutProvider>
-                <ContextProvider>
-                  <AppContent />
-                  <ContextRenderer />
-                  <GlobalSearch />
-                  <DrillDownSidePanel />
-                  <ShortcutPalette />
-                  <WorkspaceTaskbar />
-                </ContextProvider>
-              </ShortcutProvider>
-            </WorkspaceProvider>
-          </LayoutEngineProvider>
-        </DrillDownProvider>
-      </NotificationProvider>
-    </PrintProvider>
+    <Suspense
+      fallback={
+        <div className="fixed inset-0 flex items-center justify-center bg-theme-surface text-theme-primary">
+          <div className="text-sm font-semibold">Loading SMRITI workspace...</div>
+        </div>
+      }
+    >
+      <EnvironmentProvider>
+        <PrintProvider>
+          <NotificationProvider>
+            <DrillDownProvider>
+              <LayoutEngineProvider>
+                <WorkspaceProvider>
+                  <ShortcutProvider>
+                    <ContextProvider>
+                      <AppContent />
+                      <ContextRenderer />
+                      <GlobalSearch />
+                      <DrillDownSidePanel />
+                      <ShortcutPalette />
+                      <WorkspaceTaskbar />
+                    </ContextProvider>
+                  </ShortcutProvider>
+                </WorkspaceProvider>
+              </LayoutEngineProvider>
+            </DrillDownProvider>
+          </NotificationProvider>
+        </PrintProvider>
+      </EnvironmentProvider>
+    </Suspense>
   );
 };
 

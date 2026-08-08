@@ -1,13 +1,16 @@
 """
-Project      : SMRITI Retail OS
-Author       : Jawahar Ramkripal Mallah
-Email        : support@smritibooks.com
-Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.31.0
-Created      : 2026-07-19
-Modified     : 2026-07-19
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+Project         : SMRITI Retail OS
+Organization    : SmritiSys
+Author          : Jawahar Ramkripal Mallah
+Designation     : Chief Systems Architect & Creator
+Email           : support@smritibooks.com
+Websites        : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version         : 3.31.0
+Created         : 2026-07-19
+Modified        : 2026-08-04
+Copyright       : © SMRITIBooks.com. All Rights Reserved.
+License         : Proprietary Commercial Software
+Classification  : Internal
 
 Alembic Migration: Add missing BaseEntity columns (workflow_status, document_number)
 Revision: 5922562b72ad
@@ -33,8 +36,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def get_all_base_entity_tablenames() -> list:
     from app.db.base import BaseEntity
-    # Trigger model imports so subclasses are populated
-    from app.main import app
+    # Import model modules directly to register subclasses cleanly without instantiating FastAPI web routes
+    import app.models.crm
+    import app.models.inventory
+    import app.models.sales
+    import app.models.purchase
+    import app.models.tenant
+    import app.models.auth
+    import app.models.pos
     return [m.__tablename__ for m in BaseEntity.__subclasses__() if hasattr(m, '__tablename__')]
 
 

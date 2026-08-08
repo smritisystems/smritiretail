@@ -41,6 +41,8 @@ export interface PrintJob {
   documentId: string;
   document: PrintDocument;
   printerName: string;
+  printerIp?: string;
+  printerPort?: number;
   profileId?: string;
   driverId: string; // e.g. "zpl", "tspl", "esc_pos"
   providerId: string; // e.g. "qz_tray", "windows_spooler", "web_usb", "network"
@@ -61,6 +63,10 @@ export interface PrinterCapability {
   name: string;
   manufacturer?: string;
   model?: string;
+  vendorId?: number;
+  productId?: number;
+  transport?: "USB" | "SERIAL" | "NETWORK" | "SPOOLER" | "VIRTUAL";
+  protocols?: Array<"ZPL" | "TSPL" | "EPL" | "ESC_POS" | "RAW" | "PDF">;
   dpi: number;
   paperWidthMm: number;
   paperHeightMm: number;

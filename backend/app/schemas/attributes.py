@@ -182,6 +182,7 @@ class GenerateVariantsRequest(BaseModel):
 
 class CategoryMappingCreate(BaseModel):
     category: str
+    categoryCode: Optional[str] = Field(None, alias="categoryCode")  # Phase E6: stable MasterValue.code
     attributeGroupId: str = Field(..., alias="attributeGroupId")
 
     model_config = ConfigDict(populate_by_name=True)
@@ -189,6 +190,7 @@ class CategoryMappingCreate(BaseModel):
 
 class CategoryMappingResponse(BaseModel):
     category: str
+    categoryCode: Optional[str] = Field(None, serialization_alias="categoryCode")  # Phase E6
     attributeGroupId: str = Field(..., serialization_alias="attributeGroupId")
 
     model_config = {

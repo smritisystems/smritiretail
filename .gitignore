@@ -25,7 +25,7 @@ wheels/
 .installed.cfg
 *.egg
 tags
-MANIFEST
+/MANIFEST
 
 # Environments
 .env
@@ -68,3 +68,11 @@ smriti_retail_os/public/extracted_images/
 # Local Dev Directories
 apps/
 scratch/
+
+# Temporary and error files
+tmp_*.txt
+*.err
+*.stackdump
+
+# Ignore junction to external SMRITI folder
+smriti/

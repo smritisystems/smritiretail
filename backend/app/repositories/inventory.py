@@ -1,23 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Module       : Inventory Repository (ADR-006 — Repository Pattern)
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Version      : 1.0.0
-Created      : 2026-07-28
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-ADR Reference : ADR-006 (Repository Pattern)
-GR Reference  : GR-001 (SSOT), GR-014 (Code-First Review)
-DBP Reference : SMRITI_DATABASE_BLUEPRINT_v1.0.md §2.5 — Inventory
+Founder:
+SmritiSys
+AITDL Networks
 
-Purpose:
-    Canonical data access layer for Inventory module.
-    All Inventory service methods MUST use these repositories.
-    Direct session.execute(select(Product)...) in service layer is prohibited.
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 from typing import Optional
@@ -144,6 +143,22 @@ class StockMovementRepository(BaseRepository[StockMovement]):
                 StockMovement.reference_doc_id == reference_doc_id,
                 StockMovement.company_id == self.tenant_ctx.company_id,
             )
+            .order_by(StockMovement.created_at.desc())
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_by_sku(self, sku: str, limit: int = 100) -> list[StockMovement]:
+        """Return movement history for a specific SKU, newest first."""
+        stmt = (
+            select(StockMovement)
+            .filter(
+                StockMovement.sku == sku,
+                StockMovement.company_id == self.tenant_ctx.company_id,
+                StockMovement.branch_id == self.tenant_ctx.branch_id,
+            )
+            .order_by(StockMovement.created_at.desc())
+            .limit(limit)
         )
         result = await self.db.execute(stmt)
         return list(result.scalars().all())

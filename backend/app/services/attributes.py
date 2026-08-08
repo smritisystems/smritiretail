@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -25,16 +25,20 @@ from ..models.attributes import (
 from ..models.inventory import Product
 
 
+from typing import Optional, List
+
 class AttributesService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def list_definitions(self) -> list[AttributeDefinition]:
+    async def list_definitions(self, company_id: Optional[str] = None) -> list[AttributeDefinition]:
         q = select(AttributeDefinition).where(AttributeDefinition.is_deleted == False)
+        if company_id and company_id != "comp-default":
+            q = q.where((AttributeDefinition.company_id == company_id) | (AttributeDefinition.company_id == None))
         res = await self.db.execute(q)
         return list(res.scalars().all())
 
-    async def create_definition(self, data, creator: str) -> AttributeDefinition:
+    async def create_definition(self, data, creator: str, company_id: Optional[str] = None) -> AttributeDefinition:
         new_id = f"attr-{data.name.lower().replace(' ', '')}-{uuid.uuid4().hex[:4]}"
         
         # Serialize valid values
@@ -42,6 +46,7 @@ class AttributesService:
 
         defn = AttributeDefinition(
             id=new_id,
+            company_id=company_id,
             name=data.name,
             label=data.label,
             data_type=data.dataType,
@@ -110,15 +115,18 @@ class AttributesService:
         defn.deleted_by = operator
         await self.db.commit()
 
-    async def list_groups(self) -> list[AttributeGroup]:
+    async def list_groups(self, company_id: Optional[str] = None) -> list[AttributeGroup]:
         q = select(AttributeGroup).where(AttributeGroup.is_deleted == False)
+        if company_id and company_id != "comp-default":
+            q = q.where((AttributeGroup.company_id == company_id) | (AttributeGroup.company_id == None))
         res = await self.db.execute(q)
         return list(res.scalars().all())
 
-    async def create_group(self, data, creator: str) -> AttributeGroup:
+    async def create_group(self, data, creator: str, company_id: Optional[str] = None) -> AttributeGroup:
         new_id = f"grp-{data.name.lower().replace(' ', '')}-{uuid.uuid4().hex[:4]}"
         group = AttributeGroup(
             id=new_id,
+            company_id=company_id,
             name=data.name,
             attribute_ids=json.dumps(data.attributeIds),
             grid_column_attribute_id=data.gridColumnAttributeId,
@@ -157,12 +165,14 @@ class AttributesService:
         group.deleted_by = operator
         await self.db.commit()
 
-    async def list_templates(self) -> list[VariantTemplate]:
+    async def list_templates(self, company_id: Optional[str] = None) -> list[VariantTemplate]:
         q = select(VariantTemplate).where(VariantTemplate.is_deleted == False)
+        if company_id and company_id != "comp-default":
+            q = q.where((VariantTemplate.company_id == company_id) | (VariantTemplate.company_id == None))
         res = await self.db.execute(q)
         return list(res.scalars().all())
 
-    async def create_template(self, data, creator: str) -> VariantTemplate:
+    async def create_template(self, data, creator: str, company_id: Optional[str] = None) -> VariantTemplate:
         # Check if style code exists
         q = select(VariantTemplate).where(
             VariantTemplate.style_code == data.styleCode,
@@ -175,6 +185,7 @@ class AttributesService:
         new_id = f"vt-{uuid.uuid4().hex[:8]}"
         template = VariantTemplate(
             id=new_id,
+            company_id=company_id,
             style_code=data.styleCode,
             name=data.name,
             brand=data.brand or "SMRITI",
@@ -227,31 +238,53 @@ class AttributesService:
         template.deleted_by = operator
         await self.db.commit()
 
-    async def list_category_mappings(self) -> list[CategoryAttributeGroupMapping]:
+    async def list_category_mappings(self, company_id: Optional[str] = None) -> list[CategoryAttributeGroupMapping]:
         q = select(CategoryAttributeGroupMapping).where(CategoryAttributeGroupMapping.is_deleted == False)
+        if company_id and company_id != "comp-default":
+            q = q.where((CategoryAttributeGroupMapping.company_id == company_id) | (CategoryAttributeGroupMapping.company_id == None))
         res = await self.db.execute(q)
         return list(res.scalars().all())
 
-    async def save_category_mapping(self, category: str, attribute_group_id: str, creator: str) -> CategoryAttributeGroupMapping:
-        q = select(CategoryAttributeGroupMapping).where(
-            CategoryAttributeGroupMapping.category == category,
-            CategoryAttributeGroupMapping.is_deleted == False
-        )
+    async def save_category_mapping(
+        self, category: str, attribute_group_id: str, creator: str,
+        company_id: Optional[str] = None, category_code: Optional[str] = None
+    ) -> CategoryAttributeGroupMapping:
+        """Save a category-to-attribute-group mapping.
+
+        Phase E6: Uses category_code as the stable reference when available.
+        Falls back to category name for backward compatibility.
+        Multi-group behavior preserved: same category_code + different group_id → new mapping.
+        """
+        # Phase E7: prefer category_code for lookup when available
+        if category_code:
+            q = select(CategoryAttributeGroupMapping).where(
+                CategoryAttributeGroupMapping.category_code == category_code,
+                CategoryAttributeGroupMapping.attribute_group_id == attribute_group_id,
+                CategoryAttributeGroupMapping.is_deleted == False
+            )
+        else:
+            q = select(CategoryAttributeGroupMapping).where(
+                CategoryAttributeGroupMapping.category == category,
+                CategoryAttributeGroupMapping.attribute_group_id == attribute_group_id,
+                CategoryAttributeGroupMapping.is_deleted == False
+            )
         res = await self.db.execute(q)
         existing = res.scalars().first()
 
         if existing:
-            existing.attribute_group_id = attribute_group_id
-            existing.updated_by = creator
-            existing.modified_at = datetime.now(timezone.utc)
-            await self.db.commit()
-            await self.db.refresh(existing)
+            # Phase E6: backfill category_code on existing mapping if missing
+            if category_code and not existing.category_code:
+                existing.category_code = category_code
+                await self.db.commit()
+                await self.db.refresh(existing)
             return existing
 
         new_id = f"map-{uuid.uuid4().hex[:8]}"
         mapping = CategoryAttributeGroupMapping(
             id=new_id,
+            company_id=company_id,
             category=category,
+            category_code=category_code,  # Phase E6: stable MasterValue.code
             attribute_group_id=attribute_group_id,
             created_by=creator,
             updated_by=creator

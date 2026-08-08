@@ -23,7 +23,7 @@
 
 name: Governance Validation Gate
 
-on:
+"on":
   push:
     branches: [ main, develop, smritiNX ]
   pull_request:

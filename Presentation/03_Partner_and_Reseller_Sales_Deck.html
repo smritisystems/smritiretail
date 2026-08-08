@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMRITI Retail OS — Partner & Reseller Sales Deck</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0b0f19 0%, #111827 100%);
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-border: rgba(255, 255, 255, 0.12);
+            --accent-indigo: #6366f1;
+            --accent-cyan: #06b6d4;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .progress-bar { height: 4px; background: rgba(255, 255, 255, 0.1); width: 100%; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-indigo), var(--accent-cyan)); width: 20%; transition: width 0.3s ease; }
+
+        .slide-viewport { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+        .slide { display: none; width: 100%; max-width: 1100px; animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .slide.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        .slide-badge { display: inline-block; padding: 0.35rem 1rem; background: rgba(99, 102, 241, 0.15); border: 1px solid var(--accent-indigo); border-radius: 50px; font-size: 0.8rem; font-weight: 700; color: #a5b4fc; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 1rem; }
+        h2 { font-family: 'Outfit', sans-serif; font-size: 2.6rem; font-weight: 800; background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 1.5rem; }
+
+        .tier-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 1.5rem; }
+        .tier-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 1.8rem; text-align: center; position: relative; }
+        .tier-card.featured { border-color: var(--accent-indigo); box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3); }
+        .tier-title { font-family: 'Outfit', sans-serif; font-size: 1.4rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
+        .tier-margin { font-size: 2.2rem; font-weight: 800; color: var(--accent-emerald); margin: 0.8rem 0; }
+        .tier-desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; }
+
+        .controls { height: 70px; background: rgba(15, 23, 42, 0.9); border-top: 1px solid var(--card-border); display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; }
+        .nav-btn { background: var(--card-bg); border: 1px solid var(--card-border); color: #fff; padding: 0.6rem 1.4rem; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+        .nav-btn:hover { background: var(--accent-indigo); border-color: var(--accent-indigo); }
+        .slide-counter { font-size: 0.9rem; color: var(--text-muted); font-weight: 600; }
+        .home-link { color: var(--accent-cyan); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+
+    <div class="slide-viewport">
+
+        <!-- Slide 1 -->
+        <section class="slide active">
+            <span class="slide-badge">Slide 1 of 5 • Partner Opportunity</span>
+            <h2>Build a High-Margin Software Business</h2>
+            <p style="color: var(--text-muted); font-size: 1.1rem; line-height: 1.7; margin-bottom: 2rem;">Partner with SMRITI Retail OS to deliver next-generation enterprise retail software to merchants across India while building predictable recurring revenue.</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 14px; border: 1px solid var(--card-border);">
+                    <strong style="color: var(--accent-emerald); font-size: 1.2rem;">💰 High-Margin Recurring Income</strong>
+                    <p style="color: var(--text-muted); margin-top: 0.5rem; font-size: 0.9rem;">Earn 30% to 50% margin on annual software subscriptions with zero inventory cost.</p>
+                </div>
+                <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 14px; border: 1px solid var(--card-border);">
+                    <strong style="color: var(--accent-cyan); font-size: 1.2rem;">🛠️ 100% Implementation Retention</strong>
+                    <p style="color: var(--text-muted); margin-top: 0.5rem; font-size: 0.9rem;">Keep 100% of local hardware installation, network setup, and cashier training fees.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 2 -->
+        <section class="slide">
+            <span class="slide-badge">Slide 2 of 5 • Partner Tiers</span>
+            <h2>Partner Margin & Tier Structure</h2>
+            <div class="tier-grid">
+                <div class="tier-card">
+                    <div class="tier-title">🥈 Silver VAR</div>
+                    <div class="tier-margin">30% Margin</div>
+                    <div class="tier-desc">Authorized Reseller<br>Min 5 Licenses / Month<br>Standard Partner Portal</div>
+                </div>
+                <div class="tier-card featured">
+                    <div class="tier-title">🥇 Gold VAR</div>
+                    <div class="tier-margin">40% Margin</div>
+                    <div class="tier-desc">Value-Added Reseller<br>Min 15 Licenses / Month<br>Dedicated Account Manager</div>
+                </div>
+                <div class="tier-card">
+                    <div class="tier-title">👑 Master Distributor</div>
+                    <div class="tier-margin">50% Margin</div>
+                    <div class="tier-desc">Regional Territory Rights<br>Sub-dealer Network Control<br>Priority Engineering SLA</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 3 -->
+        <section class="slide">
+            <span class="slide-badge">Slide 3 of 5 • Additional Revenue</span>
+            <h2>5 Streams of Partner Revenue</h2>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1.5rem;">
+                <div style="background: rgba(255,255,255,0.04); padding: 1rem 1.5rem; border-radius: 12px;">
+                    <strong style="color:#fff;">1. License Margin:</strong> 30% to 50% recurring margin per software user.
+                </div>
+                <div style="background: rgba(255,255,255,0.04); padding: 1rem 1.5rem; border-radius: 12px;">
+                    <strong style="color:#fff;">2. Setup & Training:</strong> 100% retained by partner for local deployment.
+                </div>
+                <div style="background: rgba(255,255,255,0.04); padding: 1rem 1.5rem; border-radius: 12px;">
+                    <strong style="color:#fff;">3. Annual AMC Share:</strong> 30% annual renewal revenue share on software contracts.
+                </div>
+                <div style="background: rgba(255,255,255,0.04); padding: 1rem 1.5rem; border-radius: 12px;">
+                    <strong style="color:#fff;">4. Hardware Margins:</strong> Sales of printers, scanners, cash drawers, touch POS terminals.
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 4 -->
+        <section class="slide">
+            <span class="slide-badge">Slide 4 of 5 • Partner Support</span>
+            <h2>Co-Marketing & Tier-2 Support SLA</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem;">
+                <div style="background: var(--card-bg); padding: 1.8rem; border-radius: 16px; border: 1px solid var(--card-border);">
+                    <h3 style="color: var(--accent-cyan); margin-bottom: 0.8rem;">🎓 Smriti Academy & NFR</h3>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">Get free Not-For-Resale (NFR) demonstration licenses and complete technical certification for your sales and deployment engineers.</p>
+                </div>
+                <div style="background: var(--card-bg); padding: 1.8rem; border-radius: 16px; border: 1px solid var(--card-border);">
+                    <h3 style="color: var(--accent-emerald); margin-bottom: 0.8rem;">📣 Inbound Lead Sharing</h3>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">Regional customer inquiries generated from digital marketing campaigns are assigned directly to certified Gold & Master partners.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 5 -->
+        <section class="slide">
+            <span class="slide-badge">Slide 5 of 5 • Onboarding Roadmap</span>
+            <h2>4-Step Fast-Track Partner Launch</h2>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-top: 2rem; text-align: center;">
+                <div style="background: rgba(255,255,255,0.04); padding: 1.2rem; border-radius: 12px; border-top: 3px solid var(--accent-indigo);">
+                    <strong style="color: var(--accent-indigo);">Step 1</strong><br><span style="font-size:0.9rem; color:#fff;">Register Account</span>
+                </div>
+                <div style="background: rgba(255,255,255,0.04); padding: 1.2rem; border-radius: 12px; border-top: 3px solid var(--accent-cyan);">
+                    <strong style="color: var(--accent-cyan);">Step 2</strong><br><span style="font-size:0.9rem; color:#fff;">Complete Workshop</span>
+                </div>
+                <div style="background: rgba(255,255,255,0.04); padding: 1.2rem; border-radius: 12px; border-top: 3px solid var(--accent-amber);">
+                    <strong style="color: var(--accent-amber);">Step 3</strong><br><span style="font-size:0.9rem; color:#fff;">Setup NFR Demo</span>
+                </div>
+                <div style="background: rgba(255,255,255,0.04); padding: 1.2rem; border-radius: 12px; border-top: 3px solid var(--accent-emerald);">
+                    <strong style="color: var(--accent-emerald);">Step 4</strong><br><span style="font-size:0.9rem; color:#fff;">Launch & Earn</span>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <footer class="controls">
+        <a href="index.html" class="home-link">⬅ Exit to Portal</a>
+        <div class="slide-counter" id="counter">Slide 1 / 5</div>
+        <div>
+            <button class="nav-btn" onclick="changeSlide(-1)">Previous</button>
+            <button class="nav-btn" onclick="changeSlide(1)">Next</button>
+        </div>
+    </footer>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const progress = document.getElementById('progress');
+        const counter = document.getElementById('counter');
+
+        function updateSlide() {
+            slides.forEach((s, idx) => s.classList.toggle('active', idx === currentSlide));
+            progress.style.width = ((currentSlide + 1) / slides.length * 100) + '%';
+            counter.innerText = `Slide ${currentSlide + 1} / ${slides.length}`;
+        }
+
+        function changeSlide(dir) {
+            currentSlide = (currentSlide + dir + slides.length) % slides.length;
+            updateSlide();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') changeSlide(1);
+            if (e.key === 'ArrowLeft') changeSlide(-1);
+        });
+    </script>
+</body>
+</html>

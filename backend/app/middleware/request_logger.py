@@ -1,26 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Repository   : SMRITIRetailNX
-Organization : AITDL NETWORKS
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-Founders
+Founder:
+SmritiSys
+AITDL Networks
 
-* Pushpa Devi Jawahar Mallah
-  * Founder & Chairperson
-  * Phone: +91 9324117007
-  * Email: founder@aitdl.com
+Role:
+Chief Systems Architect
 
-* Jawahar Ramkripal Mallah
-  * Founder, Chief Executive Officer (CEO) & Chief Software Architect
-  * Email: founder@aitdl.com
+Web:
+smritisys.com | smritibooks.com | aitdl.com
 
-* Websites: aitdl.com | erpnbook.com | smritibooks.com
+Email:
+jawahar.mallah@gmail.com
 
-* Version    : 1.0.0
-* Created    : 2026-07-11
-* Modified   : 2026-07-11
-* Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
-* License    : Proprietary Commercial Software
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 import time
@@ -32,7 +28,7 @@ from ..core.logging import logger
 class RequestLoggerMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         # 1. Attach Request ID
-        request_id = str(uuid.uuid4())
+        request_id = getattr(request.state, "request_id", None) or f"req_{uuid.uuid4().hex[:12]}"
         request.state.request_id = request_id
         
         start_time = time.time()
@@ -46,7 +42,7 @@ class RequestLoggerMiddleware(BaseHTTPMiddleware):
         
         # 4. Attach request ID to response header
         response.headers["X-Request-ID"] = request_id
-        response.headers["X-Process-Time"] = formatted_process_time
+        response.headers["X-Response-Time-Ms"] = formatted_process_time.removesuffix("ms")
         
         # 5. Log metrics
         logger.info(

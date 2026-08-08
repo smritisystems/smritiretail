@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
- * Module       : Zone C — Favorites Bar Component
+ * Module       : Zone C â€” Favorites Bar Component
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * Version      : 5.4.0
  */
 
@@ -35,7 +35,7 @@ export const FavoritesBar: React.FC<FavoritesBarProps> = ({
           <button
             key={tile.id}
             onClick={() => onSelectTab(tile.targetTab)}
-            className="px-3 py-1.5 rounded-md bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider hover:border-[#0a6ed1] text-xs font-semibold text-theme-heading flex items-center gap-1.5 transition-all shrink-0 cursor-pointer shadow-xs"
+            className="px-3 py-1.5 rounded-md bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider hover:border-[var(--c-seef-accent)] text-xs font-semibold text-theme-heading flex items-center gap-1.5 transition-all shrink-0 cursor-pointer shadow-xs"
           >
             <span>{tile.title}</span>
             <ChevronRight className="w-3.5 h-3.5 text-theme-muted" />

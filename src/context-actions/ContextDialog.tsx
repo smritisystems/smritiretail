@@ -80,13 +80,13 @@ export const ContextDialog: React.FC<ContextDialogProps> = ({ isOpen, onClose, i
         aria-label="ACAS Configuration Dashboard"
       >
         {/* Top Header */}
-        <div className="px-6 py-4 border-b border-theme-divider flex justify-between items-center bg-slate-50 dark:bg-slate-900/40">
+        <div className="px-6 py-4 border-b border-theme-divider flex justify-between items-center bg-theme-surface-1">
           <div className="flex items-center gap-2">
             <span className="p-1.5 bg-blue-500/10 text-blue-500 rounded-lg">
               <ShieldCheck size={18} />
             </span>
             <div>
-              <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+              <h3 className="text-base font-semibold text-theme-primary">
                 Adaptive Context Action System (ACAS) Control Panel
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -96,20 +96,20 @@ export const ContextDialog: React.FC<ContextDialogProps> = ({ isOpen, onClose, i
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition"
+            className="p-1.5 rounded-full hover:bg-theme-surface-2 text-theme-muted hover:text-theme-primary transition"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Tab navigation bar */}
-        <div className="flex border-b border-theme-divider bg-slate-50/50 dark:bg-slate-900/20 px-4 gap-2">
+        <div className="flex border-b border-theme-divider bg-theme-surface-1 px-4 gap-2">
           <button
             onClick={() => setActiveTab("shortcuts")}
             className={`px-4 py-3 text-xs font-semibold border-b-2 transition ${
               activeTab === "shortcuts"
                 ? "border-blue-500 text-blue-500"
-                : "border-transparent text-slate-500 hover:text-slate-800"
+                : "border-transparent text-theme-muted hover:text-theme-primary"
             }`}
           >
             <div className="flex items-center gap-1.5">
@@ -124,7 +124,7 @@ export const ContextDialog: React.FC<ContextDialogProps> = ({ isOpen, onClose, i
               className={`px-4 py-3 text-xs font-semibold border-b-2 transition ${
                 activeTab === "audit"
                   ? "border-blue-500 text-blue-500"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
+                  : "border-transparent text-theme-muted hover:text-theme-primary"
               }`}
             >
               <div className="flex items-center gap-1.5">
@@ -139,7 +139,7 @@ export const ContextDialog: React.FC<ContextDialogProps> = ({ isOpen, onClose, i
             className={`px-4 py-3 text-xs font-semibold border-b-2 transition ${
               activeTab === "favorites"
                 ? "border-blue-500 text-blue-500"
-                : "border-transparent text-slate-500 hover:text-slate-800"
+                : "border-transparent text-theme-muted hover:text-theme-primary"
             }`}
           >
             <div className="flex items-center gap-1.5">
@@ -157,12 +157,12 @@ export const ContextDialog: React.FC<ContextDialogProps> = ({ isOpen, onClose, i
                 Responsive Devices Shortcuts Configuration
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800/50 flex items-start gap-2.5">
+                <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-start gap-2.5">
                   <div className="p-1 bg-purple-500/10 text-purple-500 rounded">
                     <Keyboard size={14} />
                   </div>
                   <div>
-                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    <div className="text-xs font-semibold text-theme-primary">
                       Open Context Operations
                     </div>
                     <div className="text-[11px] text-slate-400 mt-1">
@@ -171,12 +171,12 @@ export const ContextDialog: React.FC<ContextDialogProps> = ({ isOpen, onClose, i
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800/50 flex items-start gap-2.5">
+                <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-start gap-2.5">
                   <div className="p-1 bg-blue-500/10 text-blue-500 rounded">
                     <Keyboard size={14} />
                   </div>
                   <div>
-                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    <div className="text-xs font-semibold text-theme-primary">
                       Menu Traversal & Action
                     </div>
                     <div className="text-[11px] text-slate-400 mt-1">
@@ -185,12 +185,12 @@ export const ContextDialog: React.FC<ContextDialogProps> = ({ isOpen, onClose, i
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800/50 flex items-start gap-2.5">
+                <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-start gap-2.5">
                   <div className="p-1 bg-amber-500/10 text-amber-500 rounded">
                     <Keyboard size={14} />
                   </div>
                   <div>
-                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    <div className="text-xs font-semibold text-theme-primary">
                       Mobile & Tablet Swiping
                     </div>
                     <div className="text-[11px] text-slate-400 mt-1">
@@ -199,12 +199,12 @@ export const ContextDialog: React.FC<ContextDialogProps> = ({ isOpen, onClose, i
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800/50 flex items-start gap-2.5">
+                <div className="p-3 bg-theme-surface-2 rounded-xl border border-theme-divider flex items-start gap-2.5">
                   <div className="p-1 bg-green-500/10 text-green-500 rounded">
                     <Keyboard size={14} />
                   </div>
                   <div>
-                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    <div className="text-xs font-semibold text-theme-primary">
                       Haptic Buzz Confirmation
                     </div>
                     <div className="text-[11px] text-slate-400 mt-1">
@@ -237,10 +237,10 @@ export const ContextDialog: React.FC<ContextDialogProps> = ({ isOpen, onClose, i
                   {auditLogs.map((log, idx) => (
                     <div
                       key={idx}
-                      className="p-2.5 bg-slate-100 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800 rounded-lg flex items-start justify-between text-[11px]"
+                      className="p-2.5 bg-theme-surface-2 border border-theme-divider rounded-lg flex items-start justify-between text-[11px]"
                     >
                       <div className="space-y-0.5">
-                        <div className="flex items-center gap-1.5 font-mono font-medium text-slate-800 dark:text-slate-200">
+                        <div className="flex items-center gap-1.5 font-mono font-medium text-theme-primary">
                           <span
                             className={`w-1.5 h-1.5 rounded-full ${
                               log.event === "ACAS_ACTION_EXECUTE" ? "bg-green-500" : "bg-blue-500"
@@ -263,7 +263,7 @@ export const ContextDialog: React.FC<ContextDialogProps> = ({ isOpen, onClose, i
                 </div>
               ) : (
                 <div className="py-8 text-center text-slate-400 text-xs flex flex-col items-center gap-1">
-                  <Terminal size={18} className="text-slate-300 dark:text-slate-800" />
+                  <Terminal size={18} className="text-theme-muted" />
                   <span>No audit entries recorded yet. Try triggering some menu actions.</span>
                 </div>
               )}
@@ -278,8 +278,8 @@ export const ContextDialog: React.FC<ContextDialogProps> = ({ isOpen, onClose, i
               <p className="text-xs text-slate-500">
                 You can mark highly repetitive operations as favorites (★) or pin them (📌) to place them permanently in easily accessible areas of contextual menus on all devices.
               </p>
-              <div className="p-4 bg-slate-50 dark:bg-slate-800/20 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center justify-between text-xs">
-                <span className="text-slate-600 dark:text-slate-300">Offline Preference Synchronization:</span>
+              <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl flex items-center justify-between text-xs">
+                <span className="text-theme-primary">Offline Preference Synchronization:</span>
                 <span className="font-semibold text-green-500 font-mono">ACTIVE (Syncs to localStorage)</span>
               </div>
             </div>
@@ -287,7 +287,7 @@ export const ContextDialog: React.FC<ContextDialogProps> = ({ isOpen, onClose, i
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 border-t border-theme-divider flex justify-end bg-slate-50 dark:bg-slate-900/20 text-xs text-slate-400">
+        <div className="px-6 py-3.5 border-t border-theme-divider flex justify-end bg-theme-surface-1 text-xs text-theme-muted">
           Governance service powered by SMRITI Retail OS Core V2
         </div>
       </motion.div>

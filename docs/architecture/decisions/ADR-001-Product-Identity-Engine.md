@@ -1,13 +1,22 @@
 <!--
-  Project      : SMRITI Retail OS
-  Repository   : SMRITRretailNX
-  Organization : AITDL NETWORKS
-  Version      : 1.0
-  Created      : 2026-07-18
-  Status       : Draft
-  Owner        : Enterprise Architecture
-  Reviewers    : Product, Architecture, Engineering
-  Related Docs : PRODUCT_IDENTITY_ENGINE.md, PRODUCT_IDENTITY_ENGINE_API_SPEC.md
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 -->
 
 # ADR-001: Product Identity Engine

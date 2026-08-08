@@ -6,7 +6,8 @@
  * License      : Proprietary Commercial Software
  */
 
-import { ISalesService, SalesInvoiceRecord } from "../public/ISalesService.js";
+import logger from "../../core/logging/logger.js";
+import { ISalesService, SalesInvoiceRecord, SalesInvoiceStatus } from "../public/ISalesService.js";
 import { IAccountingService } from "../public/IAccountingService.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 import { SPK } from "../SPK.js";
@@ -63,7 +64,7 @@ export class SalesService implements ISalesService {
         return this.localCache;
       }
     } catch (e) {
-      console.warn("[SalesService] API unreachable. Serving cached sales invoices.", e);
+      logger.warn("[SalesService] API unreachable. Serving cached sales invoices.", e as unknown);
     }
     return this.localCache;
   }
@@ -77,6 +78,16 @@ export class SalesService implements ISalesService {
     const list = await this.getAllInvoices();
     const clean = invoiceNumber.trim().toLowerCase();
     return list.find((inv) => inv.invoiceNumber.toLowerCase() === clean) || null;
+  }
+
+  public async getByCustomer(customerMobileOrId: string): Promise<SalesInvoiceRecord[]> {
+    const list = await this.getAllInvoices();
+    const clean = customerMobileOrId.trim().toLowerCase();
+    return list.filter((inv) =>
+      inv.customerMobile.toLowerCase() === clean ||
+      inv.customerName.toLowerCase().includes(clean) ||
+      inv.id.toLowerCase() === clean
+    );
   }
 
   public async searchInvoices(query: string, limit = 50): Promise<SalesInvoiceRecord[]> {
@@ -133,23 +144,71 @@ export class SalesService implements ISalesService {
 
       const normalized = this.normalizeBackendInvoice(savedResponse || record);
       this.upsertLocalCache(normalized);
-
-      /* Rule 18: Automatic Silent Accounting Journal Posting */
-      try {
-        const accountingService = SPK.services.resolve<IAccountingService>("ACCOUNTING");
-        accountingService.postSalesInvoiceJournal(normalized.invoiceNumber, normalized.customerName, normalized.netPayable, normalized.taxTotal);
-      } catch (aErr) {
-        console.warn("[SalesService] Silent accounting journal posting skipped:", aErr);
-      }
-
+      this.triggerSilentAccountingJournal(normalized);
       SPK.events.emit("InvoiceCreated", normalized.id, normalized);
       return normalized;
     } catch (err) {
-      console.warn("[SalesService] Backend save warning, caching locally.", err);
+      logger.warn("[SalesService] Backend save warning, caching locally.", err as unknown);
       this.upsertLocalCache(record);
+      this.triggerSilentAccountingJournal(record);
       SPK.events.emit("InvoiceCreated", record.id, record);
       return record;
     }
+  }
+
+  private triggerSilentAccountingJournal(invoice: SalesInvoiceRecord): void {
+    /* Rule 18: Automatic Silent Accounting Journal Posting */
+    try {
+      const accountingService = SPK.services.resolve<IAccountingService>("ACCOUNTING");
+      accountingService.postSalesInvoiceJournal(invoice.invoiceNumber, invoice.customerName, invoice.netPayable, invoice.taxTotal);
+    } catch (aErr) {
+      logger.warn("[SalesService] Silent accounting journal posting skipped:", aErr as unknown);
+    }
+  }
+
+  public async cancelInvoice(id: string, reason: string, cancelledBy = "System"): Promise<SalesInvoiceRecord> {
+    if (!reason || reason.trim().length < 3) {
+      throw new Error("[SalesService Error] Cancellation reason is mandatory and must be at least 3 characters.");
+    }
+
+    const invoice = await this.getInvoiceById(id);
+    if (!invoice) {
+      throw new Error(`[SalesService Error] Sales Invoice ${id} not found.`);
+    }
+
+    const nonCancellableStatuses: SalesInvoiceStatus[] = ["Cancelled", "Refunded"];
+    if (nonCancellableStatuses.includes(invoice.status as SalesInvoiceStatus)) {
+      throw new Error(
+        `[SalesService Error] Invoice ${invoice.invoiceNumber} is in status "${invoice.status}" and cannot be cancelled.`
+      );
+    }
+
+    const cancelledRecord: SalesInvoiceRecord = {
+      ...invoice,
+      status: "Cancelled",
+      cancellationReason: reason.trim(),
+      cancelledAt: new Date().toISOString(),
+      cancelledBy,
+    };
+
+    try {
+      await apiFetchV1(`/sales/invoices/${id}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ reason: cancelledRecord.cancellationReason, cancelledBy: cancelledRecord.cancelledBy }),
+      });
+    } catch (err) {
+      logger.warn("[SalesService] Backend cancel API unreachable. Updating local cache only.", err as unknown);
+    }
+
+    this.upsertLocalCache(cancelledRecord);
+    SPK.events.emit("InvoiceCancelled", id, {
+      invoiceId: id,
+      invoiceNumber: invoice.invoiceNumber,
+      reason: cancelledRecord.cancellationReason,
+      cancelledBy: cancelledRecord.cancelledBy,
+    });
+
+    return cancelledRecord;
   }
 
   private upsertLocalCache(inv: SalesInvoiceRecord): void {

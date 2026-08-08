@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Business OS
  * Component    : ExceptionWorkbenchModal (SCP Exception Manager Studio)
  * Author       : Jawahar Ramkripal Mallah
@@ -134,9 +134,9 @@ export const ExceptionWorkbenchModal: React.FC<ExceptionWorkbenchModalProps> = (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-5xl bg-[#0B0F17] border border-indigo-500/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="relative w-full max-w-5xl bg-[var(--sds-color-surface)] border border-[var(--sds-color-border)] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-theme-divider flex items-center justify-between bg-[#121824]">
+        <div className="px-6 py-4 border-b border-[var(--sds-color-border)] flex items-center justify-between bg-[var(--sds-color-surface)]">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-indigo-950/60 border border-indigo-500/30 rounded-xl text-indigo-400">
               <AlertTriangle size={20} />
@@ -176,7 +176,7 @@ export const ExceptionWorkbenchModal: React.FC<ExceptionWorkbenchModalProps> = (
         </div>
 
         {/* Telemetry Tabs Bar */}
-        <div className="px-6 py-3 border-b border-theme-divider/60 bg-[#0E131F] flex items-center justify-between gap-4">
+        <div className="px-6 py-3 border-b border-theme-divider/60 bg-theme-surface-1 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActiveTab("ALL")}
@@ -224,7 +224,7 @@ export const ExceptionWorkbenchModal: React.FC<ExceptionWorkbenchModalProps> = (
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search voucher, title, category..."
-              className="pl-9 pr-3 py-1.5 bg-theme-surface-2 border border-theme-divider rounded-xl text-xs text-theme-body focus:border-indigo-500 outline-none w-64"
+              className="pl-9 pr-3 py-1.5 bg-theme-surface-2 border border-theme-divider rounded-xl text-xs text-theme-body focus:border-[var(--c-seef-accent)] outline-none w-64"
             />
           </div>
         </div>
@@ -321,7 +321,7 @@ export const ExceptionWorkbenchModal: React.FC<ExceptionWorkbenchModalProps> = (
                     type="text"
                     value={correctionValue}
                     onChange={(e) => setCorrectionValue(e.target.value)}
-                    className="w-full px-3 py-2 bg-theme-surface-1 border border-indigo-500/40 rounded-xl text-xs text-theme-heading outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-mono"
+                    className="w-full px-3 py-2 bg-theme-surface-1 border border-indigo-500/40 rounded-xl text-xs text-theme-heading outline-none focus:border-[var(--c-seef-accent)] focus:ring-2 focus:ring-indigo-500/20 font-mono"
                     placeholder="Enter corrected value..."
                   />
                 </div>

@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
- * Module       : Zone G — Activity & Pending Work Panel (Rule SLP-002 & SLP-003 Compliant)
+ * Module       : Zone G â€” Activity & Pending Work Panel (Rule SLP-002 & SLP-003 Compliant)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * Version      : 5.4.0
  */
 
@@ -30,7 +30,7 @@ export const ActivityAndWorkPanel: React.FC<ActivityAndWorkPanelProps> = ({ onSe
       <div className="bg-theme-surface-1 border border-theme-divider rounded-lg p-5 shadow-xs space-y-3">
         <div className="flex items-center justify-between border-b border-theme-divider pb-2">
           <h3 className="text-xs font-bold uppercase tracking-wider text-theme-heading flex items-center gap-2">
-            <CheckSquare className="w-4 h-4 text-[#0a6ed1]" /> My Pending Work
+            <CheckSquare className="w-4 h-4 text-[var(--c-seef-accent)]" /> My Pending Work
           </h3>
           <span className="text-[11px] font-mono text-theme-muted">{pendingWorkItems.length} Items</span>
         </div>
@@ -40,15 +40,15 @@ export const ActivityAndWorkPanel: React.FC<ActivityAndWorkPanelProps> = ({ onSe
             <div
               key={item.id}
               onClick={() => onSelectTab(item.tab)}
-              className="p-3 rounded-lg bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider hover:border-[#0a6ed1] flex items-center justify-between cursor-pointer transition-all shadow-xs group"
+              className="p-3 rounded-lg bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider hover:border-[var(--c-seef-accent)] flex items-center justify-between cursor-pointer transition-all shadow-xs group"
             >
               <div className="space-y-0.5">
-                <h4 className="text-xs font-bold text-theme-heading group-hover:text-[#0a6ed1] transition-colors">
+                <h4 className="text-xs font-bold text-theme-heading group-hover:text-[var(--c-seef-accent)] transition-colors">
                   {item.title}
                 </h4>
                 <p className="text-[11px] text-theme-muted">{item.subtitle}</p>
               </div>
-              <ArrowRight className="w-4 h-4 text-theme-muted group-hover:text-[#0a6ed1] group-hover:translate-x-1 transition-all shrink-0" />
+              <ArrowRight className="w-4 h-4 text-theme-muted group-hover:text-[var(--c-seef-accent)] group-hover:translate-x-1 transition-all shrink-0" />
             </div>
           ))}
         </div>
@@ -81,7 +81,7 @@ export const ActivityAndWorkPanel: React.FC<ActivityAndWorkPanelProps> = ({ onSe
                   <span className="text-[10px] font-mono text-theme-muted">{act.timestamp}</span>
                 </div>
               </div>
-              <span className="text-[11px] font-mono text-[#0a6ed1] group-hover:underline">Open →</span>
+              <span className="text-[11px] font-mono text-[var(--c-seef-accent)] group-hover:underline">Open â†’</span>
             </div>
           ))}
         </div>

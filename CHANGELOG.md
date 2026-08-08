@@ -28,6 +28,233 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [Unreleased]
+
+### Architecture & Governance (Item Master E8 Business Semantics Decision Audit — CLOSED BY DESIGN)
+- **SMRITI Business Semantics Audit V1**:
+  - Audited SMRITI Retail OS business requirements across 15 domains (Item Master, SKU, Variants, Barcodes, Invoices, POs, Sales, Stock, Import, Attributes, Industry Packs, Master Lookup, Multi-Tenant, Auditability, Reporting).
+  - Confirmed `Product` attribute storage (`color`, `size`, `brand`, `category`, `attributes` JSONB) is intentionally designed as Model B (Item Snapshot Value) to preserve historical document integrity, SKU/Barcode immutability, and statutory tax compliance.
+  - Established Architectural Principle AP-008: String snapshot equality is NOT identity reference. MasterValue provides entry-time validation; Product stores point-in-time item snapshots.
+  - Governed decision: **E8 = CLOSED — SNAPSHOT SEMANTICS ARE CORRECT** (STATUS: CLOSED BY ARCHITECTURAL DESIGN).
+  - Generated canonical decision deliverable artifact:
+    - [`SMRITI_E8_BUSINESS_SEMANTICS_DECISION_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_E8_BUSINESS_SEMANTICS_DECISION_V1.md)
+
+### Architecture & Governance (Item Master E8 Identity Linkage Review & Gate — BLOCKED)
+- **Empirical Database Identity Linkage Audit V1**:
+  - Executed empirical database audit on live PostgreSQL (`smriti_retail_db`).
+  - Proved zero persistent `master_value_id` or FK linkage on `Product` table (columns `color`, `size`, `brand`, `category`, and `attributes` JSONB behave as text snapshots).
+  - Enforced absolute prohibition on heuristic text-based updates (`WHERE product.color = old_name`), preventing catalog data corruption.
+  - Created empirical test `test_e8_identity_linkage_verification.py` (**PASSED**).
+  - Governed decision: **E8 = BLOCKED — NO SAFE PERSISTENT MASTER-VALUE IDENTITY LINKAGE**.
+  - Generated canonical audit deliverable artifact:
+    - [`SMRITI_E8_IDENTITY_LINKAGE_AUDIT_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_E8_IDENTITY_LINKAGE_AUDIT_V1.md)
+
+### Architecture & Governance (Item Master Attribute Governance V2 — PASSED)
+- **Presentation-Level Attribute Deduplication & Industry Pack Resolution V2**:
+  - Implemented presentation-level attribute deduplication in `UniversalAttributeEngine.resolveDeduplicatedColumns` enforcing `new Set(columns.map(c => c.canonicalKey)).size === columns.length`.
+  - Added import duplicate header guard `UniversalAttributeEngine.validateDuplicateCanonicalHeaders(headers)` returning deterministic `DUPLICATE_CANONICAL_COLUMN` validation error if two headers map to the same canonical key.
+  - Integrated header validation into `ExcelGridEntrySection.tsx` paste and mapping handlers.
+  - Verified all 14 certification scenarios across Apparel, Footwear, Electronics, Jewellery, Medical, and FMCG industry packs.
+  - Executed Vitest certification suite: **20/20 PASSED**. Executed `tsc --noEmit`: **0 ERRORS**. Executed backend regression suite: **11/11 PASSED**.
+  - Generated canonical governance deliverable artifact:
+    - [`SMRITI_ITEM_MASTER_ATTRIBUTE_GOVERNANCE_V2.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_ITEM_MASTER_ATTRIBUTE_GOVERNANCE_V2.md)
+
+### Architecture & Governance (Item Master Backend Test Isolation Fix V2 Final Validation — PASSED)
+- **Backend Scoped Test Isolation Safety Audit & Validation V2**:
+  - Performed safety audit of test isolation query in `_make_tenant_ctx`, hardening it to `DELETE FROM master_values WHERE tenant_id LIKE 'c_%' AND code LIKE 'CUSTOM-%'`, strictly scoping cleanup to synthetic test tenant IDs starting with `c_`.
+  - Verified zero risk of deleting pre-existing production master data or system master values (`tenant_id IS NULL`).
+  - Verified exact collected test count: **7 tests collected** in `test_phase_f_sizescale.py`.
+  - Executed backend test suite: **7/7 PASSED** in `test_phase_f_sizescale.py`; **11/11 PASSED** in full relevant backend regression suite.
+  - Executed frontend typecheck (`tsc --noEmit`) and Vitest suite: **19/19 PASSED**.
+  - Generated canonical V2 deliverable artifact:
+    - [`SMRITI_ITEM_MASTER_BACKEND_TEST_ISOLATION_FIX_V2.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_ITEM_MASTER_BACKEND_TEST_ISOLATION_FIX_V2.md)
+
+### Architecture & Governance (Item Master Backend Test Isolation Fix V1 — PASSED & GREEN)
+- **Backend Test Isolation Hardening V1**:
+  - Implemented test-isolation remediation strictly in `backend/app/tests/test_phase_f_sizescale.py` (`_make_tenant_ctx` helper) to clean up transient `CUSTOM-%` test master values before tenant context creation.
+  - Verified zero modifications to production code, PVE engine, database schema, or Alembic migrations (**FROZEN**).
+  - Executed backend test suite: **7/7 PASSED** in `test_phase_f_sizescale.py`; **11/11 PASSED** in full relevant backend regression suite.
+  - Executed frontend typecheck (`tsc --noEmit`) and Vitest suite: **19/19 PASSED**.
+  - Generated canonical fix deliverable artifact:
+    - [`SMRITI_ITEM_MASTER_BACKEND_TEST_ISOLATION_FIX_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_ITEM_MASTER_BACKEND_TEST_ISOLATION_FIX_V1.md)
+
+### Architecture & Governance (Item Master Backend Test Failure Diagnosis V1 — DIAGNOSED)
+- **Read-Only Backend Test Failure Diagnosis V1**:
+  - Executed empirical read-only diagnosis of 4 backend test failures in `test_phase_f_sizescale.py`.
+  - Proved zero production bug: failures stem from test fixture collision on `MasterValue(code="CUSTOM-APPAREL")` across unrolled test runs against persistent PostgreSQL without transaction rollback isolation.
+  - Item Master business logic verified 100% functional (Business Logic Status: **PASS**; Production Impact: **NONE**).
+  - Generated canonical diagnosis artifact:
+    - [`SMRITI_ITEM_MASTER_BACKEND_FAILURE_DIAGNOSIS_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_ITEM_MASTER_BACKEND_FAILURE_DIAGNOSIS_V1.md)
+
+### Architecture & Governance (Item Master Runtime Certification V1 — CERTIFIED & GREEN)
+- **Item Master Runtime & UI Attribute Authority Certification V1**:
+  - Executed complete runtime and UI certification across all 15 scenarios for Item Master attribute normalization, adaptive labeling, Excel import, variant generation, and SKU formula integrity.
+  - Verified zero database modification, zero schema alterations, and zero SKU algorithm changes (**FROZEN**).
+  - Executed Vitest test suite: **19/19 PASSED** (`src/tests/itemMasterRuntimeCertification.test.ts` & `src/tests/canonicalAttributeRegistry.test.ts`).
+  - Generated canonical certification artifact:
+    - [`SMRITI_ITEM_MASTER_RUNTIME_CERTIFICATION_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_ITEM_MASTER_RUNTIME_CERTIFICATION_V1.md)
+
+### Architecture & Governance (Item Master Attribute Authority & Duplicate Column Audit V1 — COMPLETED)
+- **Read-Only Item Master Attribute Authority & Duplicate Column Audit V1**:
+  - Executed complete read-only architectural and UI/metadata audit of Item Master attribute definitions across `ItemMasterTab.tsx`, `ExcelGridEntrySection.tsx`, `UniversalAttributeEngine.ts`, `Product` model, and API schemas.
+  - Proved zero physical database column duplication (`products.brand` and `products.style_code` are single PostgreSQL columns).
+  - Verified that `Brand` vs `Brand Name` and `Style` vs `Article Code` vs `Model Number` are import header aliases and business-model display labels mapped to canonical keys `BRAND` and `STYLE_CODE`.
+  - Generated canonical audit artifacts:
+    - [`SMRITI_ITEM_MASTER_ATTRIBUTE_AUTHORITY_MAP_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_ITEM_MASTER_ATTRIBUTE_AUTHORITY_MAP_V1.md)
+    - [`SMRITI_ITEM_MASTER_ATTRIBUTE_DUPLICATE_REPORT_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_ITEM_MASTER_ATTRIBUTE_DUPLICATE_REPORT_V1.md)
+
+### Architecture & Governance (Database Architecture Refactor Audit V1 — COMPLETED)
+- **Read-Only Database Architectural Audit V1**:
+  - Executed complete read-only audit of live PostgreSQL database `smriti_retail_db` across 269 physical tables, 1 view, 0 materialized views, 8 sequences, and 995 indexes.
+  - Strict compliance with `AFR-001`, `AFR-002`, `PROD-003`, `PROD-004`: zero tables modified, created, dropped, merged, or renamed.
+  - Generated canonical architectural artifacts:
+    - [`SMRITI_DATABASE_AUTHORITY_MAP_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_DATABASE_AUTHORITY_MAP_V1.md)
+    - [`SMRITI_DATABASE_CONSOLIDATION_MAP_V1.md`](file:///f:/SMRITRretailNXmgrt/SMRITI_DATABASE_CONSOLIDATION_MAP_V1.md)
+  - Documented 240 clean production baseline empty tables (0 rows), 29 active operational tables, 8 legacy shadow table families (`smriti_*`), and defined 5-phase Strangler Fig pattern refactoring roadmap.
+
+### Added & Hardened (Barcode Sourcing Multi-Mode Support & GS1 Governance — CERTIFIED)
+- **Barcode Sourcing Multi-Mode Support**:
+  - Added `gs1_company_prefix` (nullable string), `barcode_source` (`AUTO` | `IMPORT` | `MANUAL`), and `barcode_counter` (sequential integer allocator) columns to `Company` model in `app/models/tenant.py` via Alembic migration `v1501_barcode_sourcing_multi_mode.py`.
+  - Added `ProductIdentityService.validate_gs1_company_prefix()` strictly enforcing digits-only format and 6–11 character length constraint.
+  - Eliminated hardcoded `"8901000"` fake prefix across `identity_service.py` and `sip/strategies.py`.
+  - Implemented multi-tenant GS1 company prefix formatting (`{gs1_company_prefix}{item_ref}{check_digit}`) when configured.
+  - Implemented GS1 restricted-circulation range (`200` series, e.g. `200{seq:09d}{check_digit}`) for internal retail numbering when `gs1_company_prefix` is None.
+  - Updated `/attributes/import-commit` and variant creation endpoints to enforce `barcode_source` company policy (`AUTO` auto-generates; `IMPORT` and `MANUAL` preserve supplied barcode or raise HTTP 422 if missing).
+  - Added comprehensive backend test suite `app/tests/test_barcode_sourcing_multi_mode.py` (4/4 passed).
+
+### Hardened (Phase F SizeScale Adoption — CERTIFIED)
+- **Phase F SizeScale Adoption & Schema Integrity**:
+  - `Product.size` preserved as canonical product display/sellable size value across all billing, POS, and inventory workflows.
+  - Added optional `size_scale_id` foreign key reference to `products` table (`ForeignKey("size_scales.id", ondelete="SET NULL")`) via Alembic migration `v1500_phase_f_sizescale_adoption.py`.
+  - Updated `Product` model relationship `size_scale` (`lazy="selectin"`).
+  - PlatformValidationEngine (`PVE`) updated to validate `size_scale_id` tenant authorization and verify `Product.size` belongs to `SizeValue.display_size` for that scale, raising HTTP 422 `SMRITI-VAL-SIZE-001` on invalid size combination or scale ID.
+  - Added `SizeMasterService.resolve_conversions(scale_id, display_size)` multi-region resolution engine returning mapped regional size labels (e.g. `{"UK": "7", "US": "8", "EU": "41"}`) without region fabrication. Read-only.
+  - Added comprehensive automated test suite `app/tests/test_phase_f_sizescale.py` verifying aggregate creation, PVE validation, multi-region resolution, tenant isolation, DB `ON DELETE SET NULL` behavior, and algorithm preservation.
+
+### Fixed & Hardened (MasterReferenceStudio UI/UX & Attribute Governance — CERTIFIED)
+- **MasterReferenceStudio (8 UI/UX Hardening Fixes)**:
+  - **FIX 1:** Category mapping creation now binds category `code` (`value={cat.code}`) rather than display name, aligning with backend schema constraints.
+  - **FIX 2:** Corrected datatype option value typo from `"Text font-sans"` to `"Text"`.
+  - **FIX 3:** Implemented full JSX Groups tab panel and `CreateGroupForm` helper component for creating and displaying attribute groups (`POST /attributes/groups`).
+  - **FIX 4:** Enforced UI action lock for `SYSTEM` category types (`disabled={selectedType?.is_system}`) rendering `<ShieldAlert />` icon, tooltip, and cursor lock.
+  - **FIX 5:** Integrated toast notification system (`{toast && ...}`) with auto-dismiss timer and added `isSaving` loading spinners (`<Loader2 className="animate-spin" />`) on submit actions.
+  - **FIX 6:** Category mappings table primary column now resolves human-readable Attribute Group Name via `groups.find(...)?.name`.
+  - **FIX 7:** Removed hardcoded fallback master types array; implemented explicit `<ShieldAlert />` error container (`masterTypesError`) when server returns empty/error response.
+  - **FIX 8:** Added advanced flags section exposing `is_searchable`, `is_filterable`, `is_printable`, `is_barcode_enabled`, `is_enabled`, and `display_order` to attribute definition POST body.
+  - Verified with `npx tsc --noEmit` (0 errors) and Vitest frontend test suite (137/137 files passed, 685/685 tests passed).
+  - Core identity algorithms `generate_sku_business_key()` and `generate_fingerprint_hash()` 100% unedited and preserved.
+  - Verified 100% test pass rate across complete relevant backend test suite (`184/184 PASSED`, `0 FAILED`).
+
+### Hardened (Phase E Authority Hardening — CERTIFIED)
+- **Product Category & Attribute Authority Reconciliation (Phase E)**:
+  - Hardened product update path: `Product.category` and `Product.brand` frozen at creation (`422 Unprocessable Entity` on update attempt). `style_code` frozen for variant products.
+  - Added PostgreSQL DB constraint `UniqueConstraint('master_type_id', 'code', name='uq_master_value_type_code')` on `master_values` via Alembic migration `v1400_phase_e_authority_hardening.py`.
+  - Added indexed nullable `category_code` `String(50)` column to `products` table and `category_attribute_group_mappings` table, backed by tenant-scoped SQL backfill `v1401_phase_e_backfill.py`.
+  - PlatformValidationEngine (`PVE`) captures and populates `category_code` from authoritative `MasterValue.code` during product validation and auto-creation.
+  - Standardized JSONB mirror keys to canonical uppercase `"Color"` and `"Size"`. Direct and variant product creation paths perform bidirectional sync (`Product.color`/`Product.size` DB columns <-> `attributes["Color"]`/`attributes["Size"]` JSONB mirror), stripping legacy lowercase keys.
+  - PVE enforces strict non-negative, finite numeric validation for `attributes["cbm"]` (`SMRITI-VAL-CBM-001`/`002`). Added typed `cbm_m3` `NUMERIC(10,4)` column to `products`.
+  - `LandedCostEngine` upgraded to three-tier CBM resolution: (1) `Product.cbm_m3` typed column -> (2) `attributes["cbm"]` JSONB fallback -> (3) `Decimal("0.01")` default.
+  - `LookupRepository.atomic_replace_value()` updated to assign a collision-safe historical code to superseded records before inserting the new active record, preserving `UNIQUE(master_type_id, code)` DB constraint and full versioning history.
+  - 100% test pass rate achieved across complete relevant backend test suite (`176/176 PASSED`, `0 FAILED`).
+  - `generate_sku_business_key()` and `generate_fingerprint_hash()` 100% unedited and preserved.
+  - SizeScale adoption explicitly deferred to Phase F.
+
+### Added
+- **Master & Reference Studio & Dynamic Attribute Architecture (`MasterReferenceStudio.tsx` / `ItemMasterStudio.tsx` / `NavigationRegistry.ts` / `attributes.py`)**:
+  - Implemented unified `MasterReferenceStudio.tsx` in [src/features/masters/components/MasterReferenceStudio.tsx](file:///f:/SMRITRretailNXmgrt/src/features/masters/components/MasterReferenceStudio.tsx) adhering to Single Workspace Principle (Rule PROD-002 / SWP-001) and Promote Before Create (Rule PBC-001).
+  - Mounted `MasterReferenceStudio` in `src/App.tsx` under switch cases (`master-studio`, `master-reference-studio`, `masters-reference`).
+  - Hardened tenant isolation in `AttributesService` (`list_definitions`, `list_groups`, `list_templates`, `list_category_mappings`) with mandatory `company_id` filter.
+  - Replaced single `unique=True` on `CategoryAttributeGroupMapping.category` with composite `UniqueConstraint('category', 'attribute_group_id')` allowing multi-group category mappings, supported by Alembic migration [v900_multi_group_category_mapping.py](file:///f:/SMRITRretailNXmgrt/backend/alembic/versions/v900_multi_group_category_mapping.py).
+  - Replaced free-text category and attribute group inputs in `MasterReferenceStudio.tsx` with `<select>` dropdowns populated from `product_category` master values and loaded `AttributeGroup` records.
+  - Corrected `apiFetchV1` import path in `MasterReferenceStudio.tsx` to `../../../lib/apiFetchV1`.
+  - Registered `NAV_MASTER_STUDIO` in [NavigationRegistry.ts](file:///f:/SMRITRretailNXmgrt/src/kernel/upr/navigation/NavigationRegistry.ts).
+  - Verified 100% clean test suite in [attributeCategoryMaster.test.ts](file:///f:/SMRITRretailNXmgrt/src/tests/attributeCategoryMaster.test.ts) (56/56 total passed).
+- **Company Code Provisioning & Intelligent Suggestion Engine (`CompanyCodeSuggestionService.ts` / `system.py` / `SetupWizardTab.tsx`)**:
+  - Refactored Enterprise Organization Studio & Company Provisioning Wizard so Company Code is explicitly visible in UX/UI, suggested from `CITY(3) + PIN_LAST3(3) + SEQUENCE(3)` (e.g. `MUM067001`), and overridable by users.
+  - Implemented `GET /api/v1/company/code/availability` returning strictly `{ "available": boolean }` without exposing tenant secrets.
+  - Implemented `GET /api/v1/company/code/suggest` calculating sequence `01..99` for city+pin prefixes and stopping automatic suggestion when all 99 sequences are occupied.
+  - Hardened backend `POST /api/v1/company/setup` with pre-flight uniqueness checks and `IntegrityError` handling, returning `HTTP 409 Conflict` on duplicate codes.
+  - Enforced OLE event ordering: duplicate failures emit `Company.Provisioning.Started.v1` ──► `Company.Provisioning.Failed.v1` (NEVER `Activated`).
+  - Added full test suite in [companyCodeProvisioning.test.ts](file:///f:/SMRITRretailNXmgrt/src/tests/companyCodeProvisioning.test.ts) covering all 15 test scenarios (including sequence exhaustion and async race protection).
+
+### Fixed
+- **Session Expiry & Workspace Unlock Server-Side Password Verification (`SessionExpiredDialog.tsx` / `LockScreen.tsx` / `LockService.ts` / `SessionService.ts` / `auth.py`)**:
+  - Eliminated critical security vulnerability where entering an incorrect or arbitrary password unlocked the session/workspace.
+  - Implemented `POST /api/v1/auth/session/resume` enforcing authoritative server-side password verification and identity resolution.
+  - Enforced server-side rate limiting (returns `HTTP 429 Too Many Requests` after 5 failed password attempts).
+  - Enforced fail-closed security invariants: session remains locked on 401, 403, 429, 500, network errors, or malformed HTTP 200 payloads.
+  - Added comprehensive automated security test suite in [sessionExpiryAuth.test.ts](file:///f:/SMRITRretailNXmgrt/src/tests/sessionExpiryAuth.test.ts) covering 14 security test scenarios.
+- **Fail-Closed Pre-Resolution Security & Pre-Login Environment Discovery (`EnvironmentContext.tsx` / `EnvironmentResolver.ts` / `apiFetchV1.ts`)**:
+  - `EnvironmentProvider` initializes state as `EnvironmentResolver.unresolved()` (`mode: "UNKNOWN"`, `showDevCredentials: false`, `badgeLabel: "RESOLVING..."`), completely eliminating brief dev credential exposure flashes on page load.
+  - Configured `apiFetchV1.ts` to allow pre-login access to `/admin/environment/profile` (public bootstrap environment profile metadata) without throwing unauthenticated errors.
+  - Added unit test cases in [environmentResolver.test.ts](file:///f:/SMRITRretailNXmgrt/src/tests/environmentResolver.test.ts) verifying pre-resolution fail-closed security.
+- **Unified Environment Context & Shared State Propagation (`EnvironmentContext.tsx` — Rule PROD-004 & PROD-005 Compliance)**:
+  - Created [src/kernel/config/EnvironmentContext.tsx](file:///f:/SMRITRretailNXmgrt/src/kernel/config/EnvironmentContext.tsx) (`EnvironmentProvider` / `useEnvironmentContext`) to propagate one authoritative backend-resolved `EnvironmentInfo` state across the application.
+  - Mounted `<EnvironmentProvider>` at application root in [App.tsx](file:///f:/SMRITRretailNXmgrt/src/App.tsx), eliminating split-brain environment states between [EnvironmentBadge.tsx](file:///f:/SMRITRretailNXmgrt/src/components/EnvironmentBadge.tsx) and [LoginCard.tsx](file:///f:/SMRITRretailNXmgrt/src/features/auth/components/LoginCard.tsx).
+  - Implemented **Fail-Closed Security Rule** in [EnvironmentResolver.ts](file:///f:/SMRITRretailNXmgrt/src/kernel/config/EnvironmentResolver.ts) (`shouldShowDevCredentials()`), ensuring dev credentials are automatically hidden whenever environment state is pending, unknown, staging, or production.
+- **Authentication JWT `access_token` Field Mapping (`ApiAuthProvider.ts`)**:
+  - Updated [src/features/auth/providers/ApiAuthProvider.ts](file:///f:/SMRITRretailNXmgrt/src/features/auth/providers/ApiAuthProvider.ts) to extract `access_token` and `refresh_token` from FastAPI `/api/v1/auth/login` responses.
+  - Eliminates `401 (Unauthorized)` errors caused by falling back to mock token strings (`smriti_jwt_*`) during real backend authentication sessions.
+- **API Fetch Live Backend Direct Dispatch (`apiFetchV1.ts`)**:
+  - Removed `isLocalMockToken` short-circuit return (`if (isLocalMockToken(token)) return []`) in [src/lib/apiFetchV1.ts](file:///f:/SMRITRretailNXmgrt/src/lib/apiFetchV1.ts).
+  - Ensures requests executed under developer/quick-fill sessions (`super` / `manager` / `cashier`) dispatch directly to the live FastAPI backend server (`/api/v1/*`) to create and read real PostgreSQL database records.
+- **Backend Multi-Company Provisioning Lock (`system.py`)**:
+  - Updated `/company/setup` in [backend/app/api/v1/system.py](file:///f:/SMRITRretailNXmgrt/backend/app/api/v1/system.py) to allow onboarding additional legal entities when executed by authenticated admin users or when `ignoreWarnings=true`.
+- **Backend FastAPI `main.py` Exchange Router Module Import**:
+  - Fixed `NameError: name 'exchange' is not defined` at line 271 of [backend/app/main.py](file:///f:/SMRITRretailNXmgrt/backend/app/main.py) by adding `exchange` to the `from .api.v1 import (...)` module list.
+- **Backend FastAPI `smriti-api-prod` Container Circular Import Fix (`PROD-004`)**:
+  - Fixed `ImportError: cannot import name 'environment_router' from partially initialized module 'app.api.v1'` in [backend/app/api/v1/__init__.py](file:///f:/SMRITRretailNXmgrt/backend/app/api/v1/__init__.py).
+  - Created [backend/app/api/v1/endpoints/__init__.py](file:///f:/SMRITRretailNXmgrt/backend/app/api/v1/endpoints/__init__.py) package initializer and updated `__init__.py` to import `environment_router` from `.endpoints`, allowing Gunicorn / Uvicorn workers in Docker container `smriti-api-prod` to boot cleanly and pass health checks.
+- **Organization Studio & OLE Lifecycle Event Architecture (`Company Provisioning Wizard → SPK.events → OLE`)**:
+  - Replaced the placeholder string notice on the **Create New Company** button in [OrganizationStudio.tsx](file:///f:/SMRITRretailNXmgrt/src/components/admin/OrganizationStudio.tsx) with a modal overlay launching [SetupWizardTab.tsx](file:///f:/SMRITRretailNXmgrt/src/components/SetupWizard/SetupWizardTab.tsx) (provisioning UI/workflow).
+  - Emits standard infrastructure-neutral domain events (`Company.Provisioning.Started.v1`, `Company.Provisioning.Completed.v1`, `Company.Activated.v1`, `Company.Provisioning.Failed.v1`) through `SPK.events` carrying explicit `oleState` lifecycle metadata (`Draft ──► Provisioning ──► Active / ProvisionedWithWarning / Failed`).
+  - Automatically closes modal and refetches registered entities upon completion.
+- **Setup Wizard Fallback Transparency & PDF Health Check Hardening (Rule PROD-006 Compliance)**:
+  - Eliminated silent masking of backend company creation failures when the `"Upstream python-core"` fallback triggers in `SetupWizardTab.tsx`.
+  - Added `isFallbackMode` state tracking and persistent Amber alert badge (`Status: LOCAL FALLBACK MODE — Pending Backend Confirmation`) on the success screen and stored explicit `smriti_setup_fallback_mode` metadata in `localStorage`.
+  - Replaced hardcoded literal health checks (`{ status: "PASS", durationMs: 14 }`) in `downloadSetupReportPDF` with dynamic, truthfully measured execution metrics (`performance.now()`) and dynamic statuses (`PASS` vs `WARNING` depending on fallback mode).
+  - Fixed `setSetupNotice({ message: msg, canIgnore })` to use the computed `canIgnore` boolean instead of hardcoding `true`, preventing non-skippable critical system errors from being offered as skippable.
+- **Item Master Accessibility & Notification Hardening**:
+  - Wrapped all 12 `onNotification` calls in `ItemMasterTab.tsx` and `BarcodePrintDialog.tsx` with a safe dispatcher (`notify`) and console fallback logger (`[ItemMaster Notification - ERROR/SUCCESS]: ...`) to eliminate silent data integrity failures on catalog CRUD operations ("Creation Failed", "Save Failed", "Delete Failed").
+  - Added explicit `aria-label` attributes to icon-only buttons across `ItemMasterTab`, `ItemMasterToolbar`, `ItemMasterContextSidebar`, `ItemMasterBatchBar`, `ItemMasterFormInspector`, and `FioriObjectPage`.
+  - Added async loading states (`isSavingProduct`, `isDeletingProduct`, `isExporting`) with visual spinners and disabled button states for catalog save, delete, item creation, and batch export actions.
+  - Scoped backlog tickets `IM-TICK-001` (Grid Keyboard & Clipboard Paste Support) and `IM-TICK-002` (Product Master Visual Image & Variant Thumbnail Gallery).
+
+### Security
+- Migrated JWT authentication engine from legacy `python-jose` to `PyJWT` (`pyjwt[crypto]>=2.13.0`), achieving **0 known vulnerabilities** in `pip-audit`.
+- Updated FastAPI/Starlette dependencies (`fastapi>=0.115.11`, `starlette>=0.47.2`, `python-multipart>=0.0.20`).
+
+### Fixed
+- Exported `AsyncSessionLocal` in `backend/app/db/session.py` and resolved MyPy type errors across backend services.
+- Enhanced `apiFetchV1` to inspect `Authorization` headers in request options prior to `localStorage` lookup, enabling clean API execution in server-side/headless test environments.
+- Aligned `NAV_IDS.POS` mapping in `NavigationRegistry.ts` to `sales-billing-studio` (SWP-001 Single Workspace Principle compliance).
+- Verified full test suite headlessly (131/131 test files passed, 630/630 unit tests passed).
+
+
+
+### Added
+- **SRUX-001 to SRUX-012 Responsive UX Foundation**:
+  - Added the approved responsive UX constitution and linked it from repository governance.
+  - Added shared responsive breakpoints, container, touch-target, dialog-margin, and density tokens.
+  - Added mobile-safe shared dialog sizing and a responsive workspace-toolbar overflow menu.
+  - Updated the shared workspace shell for dynamic viewport height, safe-area insets, min-width containment, and page-level horizontal overflow protection.
+  - Removed the redundant outer workspace scrollbar and kept module content as the single vertical scroll owner.
+  - Restricted the Layout Inspector to development builds so its debug trigger cannot overlap production content.
+  - Added responsive scrollbar behavior: touch-sized viewports hide the visual scrollbar while retaining full scrolling interaction.
+  - Added a shared mobile navigation drawer with backdrop dismissal and touch-safe menu controls.
+  - Updated shared SEEF form tabs with 44px touch targets, mobile scrollbar hiding, and width containment.
+  - Removed the empty workspace-tab strip that rendered as a black bar when no workspace tabs were open.
+
+### Added
+- Added governance artifacts for Stage 3B registration runtime, including ADR-0006 and a stage-3B registration exit-evidence document.
+- Documented the Stage 3B scope boundary, lifecycle policy, compatibility policy, and deferred work.
+
+### Modern Trade
+- Added the SCDM customer `billing_policy` field with `InvoiceOnDispatch` as the backward-compatible default.
+- Added additive migration `v1330_scdm_billing_policy` for configurable InvoiceOnDispatch, InvoiceOnSellOut, InvoiceWeekly, InvoiceMonthly, and Hybrid policies.
+- Policy storage is now available for partner configuration; invoice-posting enforcement remains a follow-up integration step.
+- SCDM dispatches now snapshot the active billing policy for audit and reconciliation without creating additional accounting entries.
+
 ## [3.39.0] — 2026-07-30
 
 ### Fixed

@@ -1,3 +1,24 @@
+"""
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+"""
+
 #!/usr/bin/env python3
 """
 Project      : SMRITI Business OS
@@ -9,8 +30,11 @@ Classification: Internal CI/CD Governance Linter
 """
 
 import os
-import re
 import sys
+import re
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 TARGET_DIR = os.path.join(os.path.dirname(__file__), "..", "src", "components")
 

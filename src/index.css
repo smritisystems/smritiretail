@@ -32,6 +32,18 @@
  */
 
 @import './styles/smriti-tokens.css';
+@import './styles/smriti-brand-tokens.css';
+@import './styles/smriti-typography-tokens.css';
+@import './styles/smriti-spacing-tokens.css';
+@import './styles/smriti-radius-tokens.css';
+@import './styles/smriti-shadow-tokens.css';
+@import './styles/smriti-zindex-tokens.css';
+@import './styles/smriti-mobile-tokens.css';
+@import './styles/sxp-tokens.css';
+@import './styles/smriti-semantic-tokens.css';
+@import './styles/smriti-component-tokens.css';
+@import './styles/smriti-motion-tokens.css';
+@import './styles/motion-tokens.css';
 @import './styles/smriti-theme-light.css';
 @import './styles/smriti-theme-fiori-lite.css';
 @import './styles/smriti-theme-dark.css';
@@ -106,26 +118,27 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 @layer base {
 	:root {
-		/* ── Legacy Surface Tokens (preserved — light baseline) ──────────────── */
-		--c-theme-base:          #f1f5f9;
-		--c-theme-surface-1:     #ffffff;
-		--c-theme-surface-2:     #f8fafc;
-		--c-theme-surface-3:     #ffffff;
-		--c-theme-surface-4:     #f1f5f9;
-		--c-theme-surface-hover: #e2e8f0;
-		--c-theme-divider:       #e2e8f0;
-		--c-theme-muted:         #64748b;
-		--c-theme-primary:       #0f172a;
-		--c-theme-body:          #0f172a;
+		/* ── SEEF Unified Surface Tokens (Dark Slate Baseline matching Login) ─ */
+		--c-theme-base:          #0b132e;
+		--c-theme-surface-1:     #111c3a;
+		--c-theme-surface-2:     #182548;
+		--c-theme-surface-3:     #1e2d54;
+		--c-theme-surface-4:     #0f1733;
+		--c-theme-surface-hover: #1f2e59;
+		--c-theme-divider:       rgba(255, 255, 255, 0.12);
+		--c-theme-muted:         #94a3b8;
+		--c-theme-primary:       #f8fafc;
+		--c-theme-body:          #f8fafc;
+		--c-theme-heading:       #ffffff;
 
-		/* ── SEEF Status / Brand Tokens (light baseline) ─────────────────────── */
-		--c-seef-success: #188038;
-		--c-seef-warning: #f29900;
-		--c-seef-error:   #bb0000;
-		--c-seef-info:    #0854a0;
-		--c-seef-brand:   #354a5e;
-		--c-seef-accent:  #1a73e8;
-		--c-seef-neutral: #89919a;
+		/* ── SEEF Status / Brand Tokens ─────────────────────────────────────── */
+		--c-seef-success: #10b981;
+		--c-seef-warning: #f59e0b;
+		--c-seef-error:   #ef4444;
+		--c-seef-info:    #3b82f6;
+		--c-seef-brand:   #6366f1;
+		--c-seef-accent:  #6366f1;
+		--c-seef-neutral: #94a3b8;
 		--c-seef-overlay: rgba(0, 0, 0, 0.5);
 
 		/* ── SEEF Elevation / Shadow Tokens ──────────────────────────────────── */

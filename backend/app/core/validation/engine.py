@@ -249,6 +249,9 @@ class PlatformValidationEngine:
 
                 if mv:
                     data_copy[field_name] = mv.name  # Canonical DB casing
+                    # Phase E5: capture stable MasterValue.code for category
+                    if field_name == "category":
+                        data_copy["category_code"] = mv.code
                 else:
                     # Option 1: WARNING mode
                     if eff_mode == ValidationMode.WARNING:
@@ -285,6 +288,9 @@ class PlatformValidationEngine:
                                 "id": str(new_val.id)
                             })
                             data_copy[field_name] = new_val.name
+                            # Phase E5: capture stable code for auto-created category
+                            if field_name == "category":
+                                data_copy["category_code"] = new_val.code
                         else:
                             # User unauthorized to AUTO_CREATE → fallback to STRICT failure
                             opts_res = await db.execute(
@@ -340,6 +346,87 @@ class PlatformValidationEngine:
                         )
             else:
                 data_copy[field_name] = normalized_val
+
+        # ── Phase E9: CBM attribute type validation ──
+        # attributes["cbm"] is used by landed_cost_engine for volumetric allocation.
+        # Must be numeric, non-negative, finite. Reject invalid types early.
+        attrs = data_copy.get("attributes")
+        if isinstance(attrs, dict) and "cbm" in attrs:
+            cbm_raw = attrs["cbm"]
+            if cbm_raw is not None:
+                try:
+                    from decimal import Decimal, InvalidOperation
+                    import math
+                    cbm_val = float(cbm_raw)
+                    if math.isnan(cbm_val) or math.isinf(cbm_val):
+                        raise ValueError("NaN/Inf")
+                    if cbm_val < 0:
+                        raise HTTPException(
+                            status_code=422,
+                            detail={
+                                "title": "Invalid CBM Value",
+                                "explanation": f"attributes.cbm must be non-negative. Got: {cbm_raw}",
+                                "reference_id": "SMRITI-VAL-CBM-001",
+                            }
+                        )
+                except (TypeError, ValueError, InvalidOperation):
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "title": "Invalid CBM Value",
+                            "explanation": f"attributes.cbm must be a valid number. Got: '{cbm_raw}' ({type(cbm_raw).__name__})",
+                            "reference_id": "SMRITI-VAL-CBM-002",
+                        }
+                    )
+
+        # ── Step 4: SizeScale Validation ──
+        size_scale_id = data_copy.get("size_scale_id")
+        if size_scale_id:
+            from app.models.size_master import SizeScale, SizeValue
+            scale_stmt = select(SizeScale).where(
+                SizeScale.id == str(size_scale_id),
+                SizeScale.is_deleted.is_(False)
+            )
+            if tenant_id:
+                scale_stmt = scale_stmt.where(
+                    or_(
+                        SizeScale.company_id.is_(None),
+                        SizeScale.company_id == tenant_id,
+                        SizeScale.tenant_id == tenant_id
+                    )
+                )
+            scale_res = await db.execute(scale_stmt)
+            scale_obj = scale_res.scalar_one_or_none()
+            if not scale_obj:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "title": "Invalid Size Scale",
+                        "explanation": f"SizeScale with ID '{size_scale_id}' not found or not authorized for tenant.",
+                        "reference_id": "SMRITI-VAL-SIZE-001",
+                        "field": "size_scale_id",
+                    }
+                )
+
+            prod_size = data_copy.get("size")
+            if prod_size:
+                sval_stmt = select(SizeValue).where(
+                    SizeValue.size_scale_id == scale_obj.id,
+                    SizeValue.is_deleted.is_(False),
+                    func.upper(SizeValue.display_size) == str(prod_size).strip().upper()
+                )
+                sval_res = await db.execute(sval_stmt)
+                sval_obj = sval_res.scalar_one_or_none()
+                if not sval_obj:
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "title": "Invalid Size for Scale",
+                            "explanation": f"Size '{prod_size}' is not valid for SizeScale '{scale_obj.name}'.",
+                            "reference_id": "SMRITI-VAL-SIZE-001",
+                            "field": "size",
+                        }
+                    )
 
         return ValidationResult(
             valid=True,

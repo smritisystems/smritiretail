@@ -1,13 +1,22 @@
 <!--
-  Project      : SMRITI Retail OS
-  Repository   : SMRITIRetailNX
-  Organization : AITDL NETWORKS
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-  Version      : 3.18.0
-  Created      : 2026-07-17
-  Modified     : 2026-07-17
-  Copyright    : © SMRITIBooks.com and SMRITI Retail OS. All Rights Reserved.
-  License      : Proprietary Commercial Software
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 -->
 
 # SMRITI Platform Microservices Roadmap

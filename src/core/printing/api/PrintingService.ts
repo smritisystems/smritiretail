@@ -16,33 +16,12 @@ import { PrintDocumentRegistry, BusinessDocumentDefinition } from "../documents/
 import { PrintTemplateRegistry, PrintTemplateDefinition } from "../templates/PrintTemplateRegistry.js";
 import { PrintTemplateValidator, ValidationResult } from "../templates/PrintTemplateValidator.js";
 import { PrintVariableResolver } from "../rendering/PrintVariableResolver.js";
-import { SystemPrinterDiscovery, SystemPrinterInfo } from "../../../services/label_print/PrintProviderFramework.js";
 import { PrintProviderRegistry } from "../providers/PrintProviderRegistry.js";
+import { PrinterDiscoveryService } from "../discovery/PrinterDiscoveryService.js";
 
 export class PrintingService {
-  /**
-   * Discovers installed desktop and network physical printers across QZ Tray, WebUSB, and WebSerial
-   */
-  static async discoverPrinters(): Promise<PrinterCapability[]> {
-    const rawPrinters: SystemPrinterInfo[] = await SystemPrinterDiscovery.detectPrinters();
-    return rawPrinters.map((p: SystemPrinterInfo) => ({
-      id: `PRN-${p.name.replaceAll(/\s+/g, "-")}`,
-      name: p.name,
-      dpi: p.name.toLowerCase().includes("300") ? 300 : 203,
-      paperWidthMm: 100,
-      paperHeightMm: 50,
-      supportsZPL: p.name.toLowerCase().includes("zebra") || true,
-      supportsTSPL: p.name.toLowerCase().includes("tsc"),
-      supportsEPL: p.name.toLowerCase().includes("tvs"),
-      supportsESC: false,
-      supportsPDF: true,
-      supportsRAW: true,
-      supportsCutter: false,
-      supportsPeeler: false,
-      supportsDrawer: false,
-      connection: p.connection || "SPOOLER",
-      status: "Online",
-    }));
+  static async discoverPrinters(requestUsb = false): Promise<PrinterCapability[]> {
+    return PrinterDiscoveryService.discover(requestUsb);
   }
 
   /**

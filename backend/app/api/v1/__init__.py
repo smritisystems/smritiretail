@@ -29,6 +29,8 @@ from . import (
     docs,
     exchange,
     inventory,
+    inventory_state,
+    inventory_trace,
     master_lookup,
     masters,
     metadata,
@@ -70,7 +72,10 @@ from . import (
     ecosystem,
     scp,
     scdm,
+    size_master,
 )
+
+from .endpoints import environment_router
 
 
 

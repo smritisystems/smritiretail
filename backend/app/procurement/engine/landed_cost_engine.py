@@ -103,7 +103,17 @@ class LandedCostEngine:
                     w = Decimal(str(p.weight_grams)) if p and p.weight_grams else Decimal("1.00")
                     bases[it.id] = w * Decimal(str(it.quantity_received))
                 elif method == "VOLUME":
-                    v_cbm = Decimal(str(p.attributes.get("cbm", 0.01))) if p and isinstance(p.attributes, dict) else Decimal("1.00")
+                    # Phase E12: Three-tier CBM read — column → JSONB → default
+                    v_cbm = None
+                    if p and hasattr(p, "cbm_m3") and p.cbm_m3 is not None:
+                        v_cbm = Decimal(str(p.cbm_m3))  # Tier 1: typed column
+                    elif p and isinstance(p.attributes, dict) and "cbm" in p.attributes:
+                        try:
+                            v_cbm = Decimal(str(p.attributes["cbm"]))  # Tier 2: JSONB fallback
+                        except Exception:
+                            v_cbm = None
+                    if v_cbm is None or v_cbm <= Decimal("0"):
+                        v_cbm = Decimal("0.01")  # Tier 3: existing default
                     bases[it.id] = v_cbm * Decimal(str(it.quantity_received))
                 elif method == "MANUAL":
                     ratio = Decimal(str(manual_ratios.get(it.id, 1.0))) if manual_ratios else Decimal("1.00")

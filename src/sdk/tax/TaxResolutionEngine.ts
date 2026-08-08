@@ -62,6 +62,10 @@ export class TaxResolutionEngine {
     return this.activeTaxPack.calculate(context);
   }
 
+  public calculateTaxes(context: any): TaxResult {
+    return this.activeTaxPack.calculate(context);
+  }
+
   /**
    * Returns rich diagnostic resolution trace
    */

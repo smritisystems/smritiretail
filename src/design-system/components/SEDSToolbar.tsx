@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Business OS
  * Component    : SEDSToolbar (Enforces Max 7 Actions per Screen Rule)
  * Author       : Jawahar Ramkripal Mallah
@@ -77,7 +77,7 @@ export const SEDSToolbar: React.FC<SEDSToolbarProps> = ({
             </button>
 
             {showOverflow && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-[#141720] border border-indigo-500/30 rounded-2xl shadow-2xl z-50 p-2 space-y-1 text-xs">
+              <div className="absolute right-0 top-full mt-2 w-48 bg-theme-surface-1 border border-indigo-500/30 rounded-2xl shadow-2xl z-50 p-2 space-y-1 text-xs">
                 {overflowActions.map((act) => {
                   const Icon = act.icon;
                   return (

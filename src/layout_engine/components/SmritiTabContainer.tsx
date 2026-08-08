@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Module       : Standardized Tabbed Container Component (SLGP-001 v2.0)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * Version      : 5.4.0
  */
 
@@ -45,14 +45,14 @@ export const SmritiTabContainer: React.FC<SmritiTabContainerProps> = ({
                 onClick={() => setActiveTabId(tab.id)}
                 className={`px-4 py-2 text-xs font-bold border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
                   isActive
-                    ? "border-[#0a6ed1] text-[#0a6ed1] bg-theme-surface-2/60"
+                    ? "border-[var(--c-seef-accent)] text-[var(--c-seef-accent)] bg-theme-surface-2/60"
                     : "border-transparent text-theme-muted hover:text-theme-heading hover:bg-theme-surface-hover"
                 }`}
               >
                 {Icon && <Icon className="w-4 h-4" />}
                 <span>{tab.label}</span>
                 {tab.badge && (
-                  <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-[#0a6ed1]/15 text-[#0a6ed1] font-mono">
+                  <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-[var(--c-seef-accent)]/15 text-[var(--c-seef-accent)] font-mono">
                     {tab.badge}
                   </span>
                 )}

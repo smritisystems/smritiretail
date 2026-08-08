@@ -15,9 +15,11 @@
  * License      : Proprietary Commercial Software
  */
 
-import crypto from "crypto";
+import * as crypto from "crypto";
+import logger from "../core/logging/logger.js";
 import { roles, auditLogs, stockLedger } from "../state/store.js";
 import { apiFetchV1 } from "./apiFetchV1";
+import { pool } from "../db/pool.js";
 
 
 // ==========================================
@@ -82,11 +84,11 @@ export function calculateItemGstRate(category: string, price: number, defaultRat
 
 export async function allocateVoucherNumber(docType: string, context?: { branch?: string; fy?: string; user?: string; date?: string; authHeader?: string }): Promise<string> {
   try {
-    const pool = (globalThis as any).pool;
-    if (!pool) {
+    const activePool = pool || (globalThis as any).pool;
+    if (!activePool) {
       return docType.substring(0, 3).toUpperCase() + "-" + Date.now();
     }
-    const dbRes = await pool.query(
+    const dbRes = await activePool.query(
       `SELECT id FROM document_series 
        WHERE document_type = $1 AND is_deleted = false AND is_active = true 
        LIMIT 1`,
@@ -123,7 +125,7 @@ export async function allocateVoucherNumber(docType: string, context?: { branch?
     }
     return docType.substring(0, 3).toUpperCase() + "-" + Date.now();
   } catch (err) {
-    console.error("[SMRITI] Failed to allocate voucher number via python-core:", err);
+    logger.error("[SMRITI] Failed to allocate voucher number via python-core:", err as unknown);
     return docType.substring(0, 3).toUpperCase() + "-" + Date.now();
   }
 }
@@ -249,10 +251,10 @@ export async function recordStockMovement(productId: any, productCode: any, prod
     
     if (!res.ok) {
       const errText = await res.text();
-      console.error(`[SMRITI] FastAPI stock movement registration failed with status ${res.status}: ${errText}`);
+      logger.error(`[SMRITI] FastAPI stock movement registration failed with status ${res.status}: ${errText}`);
     }
   } catch (err) {
-    console.error("[SMRITI] Failed to dispatch stock movement to python-core:", err);
+    logger.error("[SMRITI] Failed to dispatch stock movement to python-core:", err as unknown);
   }
 }
 

@@ -43,8 +43,8 @@
 | `holdBills` | Transient Cache | ⚠ Move to Postgres when POS migrates |
 | `quotations` | Transient Cache | ⚠ Move to Postgres when Sales migrates |
 | `salesOrders` | Transient Cache | ⚠ Move to Postgres when Sales migrates |
-| `salesInvoices` | Transient Cache | ⚠ Move to Postgres when Sales migrates |
-| `salesReturns` | Transient Cache | ⚠ Move to Postgres when Sales migrates |
+| `salesInvoices` | Seed-only bootstrap input | ⚠ Read once during initial PostgreSQL bootstrap; never written at runtime |
+| `salesReturns` | Seed-only bootstrap input | ⚠ Read once during initial PostgreSQL bootstrap; never written at runtime |
 | `fields` | Reference | OK — attribute/field definitions |
 | `formulas` | Reference | OK — pricing formula definitions |
 | `psvParties` | Reference | OK — Party Stock Visibility config |
@@ -67,7 +67,7 @@ The following data types are **permanently prohibited** in `db_store.json`:
 | Stock ledger / inventory balances | Transactional | Postgres `stock_movements` |
 | Barcode print history | Transactional | Postgres `print_history` |
 | Barcode layouts / templates | Transactional | Postgres `barcode_layouts` |
-| Sales invoices (finalized) | Transactional | Postgres `sales_invoices` |
+| Sales invoices (finalized) | Transactional at runtime; seed-only bootstrap input is permitted | Postgres `sales_invoices` |
 | Purchase orders / GRNs (finalized) | Transactional | Postgres `purchase_orders` |
 | User credentials / sessions | Security-critical | Postgres `users` + Redis |
 | Shift / cash register data | Transactional | Postgres `shifts` |
@@ -83,6 +83,13 @@ A key may be **removed from db_store.json** when:
 - ✅ Frontend calls `apiFetchV1` for that data
 - ✅ Full regression suite passes without the key
 - ✅ Walkthrough documents the removal
+
+## Seed-Only Exception
+
+`salesInvoices` and `salesReturns` may remain in this file solely as input to the
+first-run PostgreSQL bootstrap in `src/db/init.ts`. The application must never
+persist runtime invoice or return changes back to `db_store.json`; all runtime
+writes belong in PostgreSQL.
 
 ---
 

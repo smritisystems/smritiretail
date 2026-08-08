@@ -18,6 +18,15 @@ from .crm import (
     Lead, Opportunity, Campaign, SupportTicket, TicketComment, CustomerActivity,
 )
 from .inventory import Product, StockMovement
+from .inventory_kernel import (
+    InventoryLocationNode,
+    InventoryIdentityRecord,
+    InventoryLedgerEntry,
+    ReservationLedgerEntry,
+    CostLayerLedgerEntry,
+    InventorySnapshotRecord,
+    DocumentPostingProfileRecord,
+)
 from .wms import WarehouseZone, WarehouseBin, StockBinAssignment
 from .loyalty import CustomerLoyaltyModel, GiftCardModel, LoyaltyTransactionModel
 
@@ -27,7 +36,7 @@ from .sales import (
     SalesOrder, SalesOrderItem,
     SalesReturn, SalesReturnItem,
 )
-from .tenant import Company, Branch
+from .tenant import Company, Branch, Tenant, TenantSettings, TenantProvisionProfile, TenantProvisionJournal, TenantLifecycleState
 from .auth import User, RefreshTokenBlacklist, UserRole
 from .purchase import (
     Supplier,
@@ -56,6 +65,10 @@ from .security import (
     SMRITIUserRole,
     SMRITIMenu,
     SMRITISecurityAudit,
+    SMRITIUserAssignment,
+    SMRITIWorkspaceProfile,
+    SMRITISecurityPolicy,
+    SMRITIFieldSecurityMask,
 )
 
 from .platform import DocumentNumberSeries, DocumentWorkflow, IntegrationLog

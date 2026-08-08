@@ -1,0 +1,768 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.11, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\netma\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: F:\SMRITRretailNXmgrt\backend
+configfile: pyproject.toml
+plugins: anyio-4.14.2, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+backend\app\tests\test_sales.py::test_create_sales_quotation_as_cashier FAILED [100%]
+
+================================== FAILURES ===================================
+___________________ test_create_sales_quotation_as_cashier ____________________
+  + Exception Group Traceback (most recent call last):
+  |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_utils.py", line 85, in create_collapsing_task_group
+  |     async with anyio.create_task_group() as tg:
+  |                ~~~~~~~~~~~~~~~~~~~~~~~^^
+  |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\anyio\_backends\_asyncio.py", line 815, in __aexit__
+  |     raise BaseExceptionGroup(
+  |         "unhandled errors in a TaskGroup", self._exceptions
+  |     ) from None
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Traceback (most recent call last):
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\runner.py", line 361, in from_call
+    |     result: TResult | None = func()
+    |                              ~~~~^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\runner.py", line 250, in <lambda>
+    |     lambda: runtest_hook(item=item, **kwds),
+    |             ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    |     return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+    |            ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    |     return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+    |            ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 167, in _multicall
+    |     raise exception
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |     ~~~~~~~~~~~~~~^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\logging.py", line 865, in pytest_runtest_call
+    |     yield
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |     ~~~~~~~~~~~~~~^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\capture.py", line 900, in pytest_runtest_call
+    |     return (yield)
+    |             ^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |     ~~~~~~~~~~~~~~^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\skipping.py", line 268, in pytest_runtest_call
+    |     return (yield)
+    |             ^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    |     res = hook_impl.function(*args)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\runner.py", line 184, in pytest_runtest_call
+    |     item.runtest()
+    |     ~~~~~~~~~~~~^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pytest_asyncio\plugin.py", line 569, in runtest
+    |     super().runtest()
+    |     ~~~~~~~~~~~~~~~^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\python.py", line 1707, in runtest
+    |     self.ihook.pytest_pyfunc_call(pyfuncitem=self)
+    |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    |     return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+    |            ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    |     return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+    |            ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 167, in _multicall
+    |     raise exception
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |     ~~~~~~~~~~~~~~^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 53, in run_old_style_hookwrapper
+    |     return result.get_result()
+    |            ~~~~~~~~~~~~~~~~~^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_result.py", line 103, in get_result
+    |     raise exc.with_traceback(tb)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 38, in run_old_style_hookwrapper
+    |     res = yield
+    |           ^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    |     res = hook_impl.function(*args)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\python.py", line 167, in pytest_pyfunc_call
+    |     result = testfunction(**testargs)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\pytest_asyncio\plugin.py", line 905, in inner
+    |     runner.run(coro, context=context)
+    |     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py", line 118, in run
+    |     return self._loop.run_until_complete(task)
+    |            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py", line 725, in run_until_complete
+    |     return future.result()
+    |            ~~~~~~~~~~~~~^^
+    |   File "F:\SMRITRretailNXmgrt\backend\app\tests\test_sales.py", line 236, in test_create_sales_quotation_as_cashier
+    |     resp = await client.post("/api/v1/sales/quotations/", json=payload, headers=headers)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1859, in post
+    |     return await self.request(
+    |            ^^^^^^^^^^^^^^^^^^^
+    |     ...<13 lines>...
+    |     )
+    |     ^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1540, in request
+    |     return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1629, in send
+    |     response = await self._send_handling_auth(
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |     ...<4 lines>...
+    |     )
+    |     ^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1657, in _send_handling_auth
+    |     response = await self._send_handling_redirects(
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |     ...<3 lines>...
+    |     )
+    |     ^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1694, in _send_handling_redirects
+    |     response = await self._send_single_request(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1730, in _send_single_request
+    |     response = await transport.handle_async_request(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_transports\asgi.py", line 170, in handle_async_request
+    |     await self.app(scope, receive, send)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\applications.py", line 1163, in __call__
+    |     await super().__call__(scope, receive, send)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\applications.py", line 90, in __call__
+    |     await self.middleware_stack(scope, receive, send)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    |     raise exc
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    |     await self.app(scope, receive, _send)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py", line 193, in __call__
+    |     response = await self.dispatch_func(request, call_next)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "F:\SMRITRretailNXmgrt\backend\app\middleware\request_logger.py", line 41, in dispatch
+    |     response: Response = await call_next(request)
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    |     raise app_exc from app_exc.__cause__ or app_exc.__context__
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    |     await self.app(scope, receive_or_disconnect, send_no_error)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\cors.py", line 88, in __call__
+    |     await self.app(scope, receive, send)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py", line 193, in __call__
+    |     response = await self.dispatch_func(request, call_next)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "F:\SMRITRretailNXmgrt\backend\app\middleware\request_context.py", line 60, in dispatch
+    |     response = await call_next(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    |     raise app_exc from app_exc.__cause__ or app_exc.__context__
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    |     await self.app(scope, receive_or_disconnect, send_no_error)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    |     raise exc
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    |     await app(scope, receive, sender)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    |     await self.app(scope, receive, send)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 660, in __call__
+    |     await self.middleware_stack(scope, receive, send)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 2734, in app
+    |     await route.handle(scope, receive, send)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 1780, in handle
+    |     await self.original_router.handle(scope, receive, send)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 2789, in handle
+    |     await included_router._handle_selected(scope, receive, send)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 1800, in _handle_selected
+    |     await original_route.handle(scope, receive, send)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 1279, in handle
+    |     await app(scope, receive, send)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 158, in app
+    |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    |     raise exc
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    |     await app(scope, receive, sender)
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 144, in app
+    |     response = await f(request)
+    |                ^^^^^^^^^^^^^^^^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 727, in app
+    |     content = await serialize_response(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |     ...<11 lines>...
+    |     )
+    |     ^
+    |   File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 324, in serialize_response
+    |     raise ResponseValidationError(
+    |     ...<3 lines>...
+    |     )
+    | fastapi.exceptions.ResponseValidationError: 1 validation error:
+    |   {'type': 'get_attribute_error', 'loc': ('response', 'items'), 'msg': "Error extracting attribute: MissingGreenlet: greenlet_spawn has not been called; can't call await_only() here. Was IO attempted in an unexpected place? (Background on this error at: https://sqlalche.me/e/20/xd2s)", 'input': <app.models.sales.SalesQuotation object at 0x000001FD43EC9FD0>, 'ctx': {'error': "MissingGreenlet: greenlet_spawn has not been called; can't call await_only() here. Was IO attempted in an unexpected place? (Background on this error at: https://sqlalche.me/e/20/xd2s)"}}
+    | 
+    |   File "F:\SMRITRretailNXmgrt\backend\app\api\v1\sales.py", line 128, in create_sales_quotation
+    |     POST /api/v1/sales/quotations/
+    +------------------------------------
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "F:\SMRITRretailNXmgrt\backend\app\tests\test_sales.py", line 236, in test_create_sales_quotation_as_cashier
+    resp = await client.post("/api/v1/sales/quotations/", json=payload, headers=headers)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1859, in post
+    return await self.request(
+           ^^^^^^^^^^^^^^^^^^^
+    ...<13 lines>...
+    )
+    ^
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1540, in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_transports\asgi.py", line 170, in handle_async_request
+    await self.app(scope, receive, send)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\applications.py", line 1163, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    raise exc
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\SMRITRretailNXmgrt\backend\app\middleware\request_logger.py", line 41, in dispatch
+    response: Response = await call_next(request)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\cors.py", line 88, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\SMRITRretailNXmgrt\backend\app\middleware\request_context.py", line 60, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 2734, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 1780, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 2789, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 1800, in _handle_selected
+    await original_route.handle(scope, receive, send)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 1279, in handle
+    await app(scope, receive, send)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 158, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 144, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 727, in app
+    content = await serialize_response(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<11 lines>...
+    )
+    ^
+  File "C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 324, in serialize_response
+    raise ResponseValidationError(
+    ...<3 lines>...
+    )
+fastapi.exceptions.ResponseValidationError: 1 validation error:
+  {'type': 'get_attribute_error', 'loc': ('response', 'items'), 'msg': "Error extracting attribute: MissingGreenlet: greenlet_spawn has not been called; can't call await_only() here. Was IO attempted in an unexpected place? (Background on this error at: https://sqlalche.me/e/20/xd2s)", 'input': <app.models.sales.SalesQuotation object at 0x000001FD43EC9FD0>, 'ctx': {'error': "MissingGreenlet: greenlet_spawn has not been called; can't call await_only() here. Was IO attempted in an unexpected place? (Background on this error at: https://sqlalche.me/e/20/xd2s)"}}
+
+  File "F:\SMRITRretailNXmgrt\backend\app\api\v1\sales.py", line 128, in create_sales_quotation
+    POST /api/v1/sales/quotations/
+
+The above exception was the direct cause of the following exception:
+
+db_session = <sqlalchemy.orm.session.AsyncSession object at 0x000001FD426A0D70>
+
+    async def test_create_sales_quotation_as_cashier(db_session):
+        """A CASHIER can create a sales quotation."""
+        suffix = uuid.uuid4().hex[:8]
+        company, branch = await _make_tenant(db_session, suffix)
+        user = await _make_cashier(db_session, suffix, company.id, branch.id)
+        product = await _make_product(db_session, suffix, company.id, branch.id)
+        _set_tenant(company.id, branch.id)
+        headers = _bearer(user, company.id, branch.id)
+    
+        payload = {
+            "id": f"q-{suffix}",
+            "quotation_no": f"QUOT-{suffix}",
+            "customer_name": "Walk-in Customer",
+            "status": "draft",
+            "items": [
+                {
+                    "product_id": product.id,
+                    "code": product.code,
+                    "name": product.name,
+                    "quantity": "2.00",
+                    "price": "100.00",
+                    "gst_rate": "18.00",
+                    "total_amount": "236.00",
+                }
+            ],
+        }
+    
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+>           resp = await client.post("/api/v1/sales/quotations/", json=payload, headers=headers)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend\app\tests\test_sales.py:236: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py:1859: in post
+    return await self.request(
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py:1629: in send
+    response = await self._send_handling_auth(
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_transports\asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\applications.py:90: in __call__
+    await self.middleware_stack(scope, receive, send)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py:193: in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend\app\middleware\request_logger.py:41: in dispatch
+    response: Response = await call_next(request)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py:168: in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py:144: in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\cors.py:88: in __call__
+    await self.app(scope, receive, send)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py:193: in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend\app\middleware\request_context.py:60: in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py:168: in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\base.py:144: in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py:660: in __call__
+    await self.middleware_stack(scope, receive, send)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py:2734: in app
+    await route.handle(scope, receive, send)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py:1780: in handle
+    await self.original_router.handle(scope, receive, send)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py:2789: in handle
+    await included_router._handle_selected(scope, receive, send)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py:1800: in _handle_selected
+    await original_route.handle(scope, receive, send)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py:1279: in handle
+    await app(scope, receive, send)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py:158: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py:144: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py:727: in app
+    content = await serialize_response(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+field = ModelField(field_info=FieldInfo(annotation=SalesQuotationResponse, required=True), name='Response_create_sales_quotation_api_v1_sales_quotations__post', mode='serialization', config=None)
+response_content = <app.models.sales.SalesQuotation object at 0x000001FD43EC9FD0>
+include = None, exclude = None, by_alias = True, exclude_unset = False
+exclude_defaults = False, exclude_none = False, is_coroutine = True
+endpoint_ctx = {'file': 'F:\\SMRITRretailNXmgrt\\backend\\app\\api\\v1\\sales.py', 'line': 128, 'function': 'create_sales_quotation', 'path': 'POST /api/v1/sales/quotations/'}
+dump_json = True
+
+    async def serialize_response(
+        *,
+        field: ModelField | None = None,
+        response_content: Any,
+        include: IncEx | None = None,
+        exclude: IncEx | None = None,
+        by_alias: bool = True,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False,
+        is_coroutine: bool = True,
+        endpoint_ctx: EndpointContext | None = None,
+        dump_json: bool = False,
+    ) -> Any:
+        if field:
+            if is_coroutine:
+                value, errors = field.validate(response_content, {}, loc=("response",))
+            else:
+                value, errors = await run_in_threadpool(
+                    field.validate, response_content, {}, loc=("response",)
+                )
+            if errors:
+                ctx = endpoint_ctx or EndpointContext()
+>               raise ResponseValidationError(
+                    errors=errors,
+                    body=response_content,
+                    endpoint_ctx=ctx,
+                )
+E               fastapi.exceptions.ResponseValidationError: 1 validation error:
+E                 {'type': 'get_attribute_error', 'loc': ('response', 'items'), 'msg': "Error extracting attribute: MissingGreenlet: greenlet_spawn has not been called; can't call await_only() here. Was IO attempted in an unexpected place? (Background on this error at: https://sqlalche.me/e/20/xd2s)", 'input': <app.models.sales.SalesQuotation object at 0x000001FD43EC9FD0>, 'ctx': {'error': "MissingGreenlet: greenlet_spawn has not been called; can't call await_only() here. Was IO attempted in an unexpected place? (Background on this error at: https://sqlalche.me/e/20/xd2s)"}}
+E               
+E                 File "F:\SMRITRretailNXmgrt\backend\app\api\v1\sales.py", line 128, in create_sales_quotation
+E                   POST /api/v1/sales/quotations/
+
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py:324: ResponseValidationError
+---------------------------- Captured stdout setup ----------------------------
+2026-08-01 19:34:46,131 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-08-01 19:34:46,131 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-01 19:34:46,135 INFO sqlalchemy.engine.Engine select current_schema()
+2026-08-01 19:34:46,135 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-01 19:34:46,139 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-08-01 19:34:46,139 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-01 19:34:46,142 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-08-01 19:34:46,143 INFO sqlalchemy.engine.Engine DELETE FROM refresh_token_blacklist
+2026-08-01 19:34:46,144 INFO sqlalchemy.engine.Engine [generated in 0.00030s] ()
+2026-08-01 19:34:46,149 INFO sqlalchemy.engine.Engine DELETE FROM users
+2026-08-01 19:34:46,149 INFO sqlalchemy.engine.Engine [generated in 0.00025s] ()
+2026-08-01 19:34:46,167 INFO sqlalchemy.engine.Engine COMMIT
+----------------------------- Captured log setup ------------------------------
+INFO     sqlalchemy.engine.Engine:base.py:1848 select pg_catalog.version()
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 select current_schema()
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 show standard_conforming_strings
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:2712 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 DELETE FROM refresh_token_blacklist
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00030s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 DELETE FROM users
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00025s] ()
+INFO     sqlalchemy.engine.Engine:base.py:2718 COMMIT
+---------------------------- Captured stdout call -----------------------------
+2026-08-01 19:34:46,804 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-08-01 19:34:46,807 INFO sqlalchemy.engine.Engine INSERT INTO companies (id, uuid, tenant_id, name, gst_number, is_active, is_deleted, created_at, modified_at, organization_id, company_code, legal_name, short_name, company_type, industry_type, is_default, is_gst_registered, incorporation_date, fiscal_year_start_month, currency_code, country_code, timezone, language_code, description) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::BOOLEAN, $7::BOOLEAN, $8::TIMESTAMP WITH TIME ZONE, $9::TIMESTAMP WITH TIME ZONE, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::BOOLEAN, $17::BOOLEAN, $18::DATE, $19::SMALLINT, $20::VARCHAR, $21::VARCHAR, $22::VARCHAR, $23::VARCHAR, $24::VARCHAR)
+2026-08-01 19:34:46,807 INFO sqlalchemy.engine.Engine [generated in 0.00040s] ('comp-sal-ebf348de', '79ab26dd-4f2c-4326-a0d5-06e0b36f332b', None, 'Sales Co ebf348de', '27ABCDE1234F1Z5', True, False, datetime.datetime(2026, 8, 1, 14, 4, 46, 807137), datetime.datetime(2026, 8, 1, 14, 4, 46, 807142), None, None, None, None, 'PRIVATE_LTD', 'RETAIL', False, False, None, 4, 'INR', 'IN', 'Asia/Kolkata', 'en-IN', None)
+2026-08-01 19:34:46,814 INFO sqlalchemy.engine.Engine INSERT INTO branches (id, uuid, tenant_id, company_id, name, code, is_active, is_deleted, created_at, modified_at, branch_type, gstin, phone, email, manager_user_id) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::BOOLEAN, $8::BOOLEAN, $9::TIMESTAMP WITH TIME ZONE, $10::TIMESTAMP WITH TIME ZONE, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR)
+2026-08-01 19:34:46,814 INFO sqlalchemy.engine.Engine [generated in 0.00041s] ('br-sal-ebf348de', '34b1c414-3fb5-4676-a359-db5811569d12', None, 'comp-sal-ebf348de', 'Sales Br ebf348de', 'BRSAL-ebf348de', True, False, datetime.datetime(2026, 8, 1, 14, 4, 46, 813975), datetime.datetime(2026, 8, 1, 14, 4, 46, 813980), 'RETAIL', None, None, None, None)
+2026-08-01 19:34:46,818 INFO sqlalchemy.engine.Engine COMMIT
+2026-08-01 19:34:46,938 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-08-01 19:34:46,941 INFO sqlalchemy.engine.Engine INSERT INTO users (id, uuid, username, email, mobile, hashed_password, role, is_active, is_deleted, is_platform_admin, tenant_id, company_id, branch_id, status, employee_id, employee_code, display_name, full_name, gender, date_of_birth, alternate_mobile, emergency_contact, address, city, state, country, pin_code, department, designation, branch, department_id, designation_id, date_of_joining, reporting_manager, employment_type, allowed_branches, photo, salary_json, payment_json, performance_json, preferences_json, notification_settings_json, created_at, modified_at) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::userrole, $8::BOOLEAN, $9::BOOLEAN, $10::BOOLEAN, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::VARCHAR, $17::VARCHAR, $18::VARCHAR, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::VARCHAR, $23::VARCHAR, $24::VARCHAR, $25::VARCHAR, $26::VARCHAR, $27::VARCHAR, $28::VARCHAR, $29::VARCHAR, $30::VARCHAR, $31::VARCHAR, $32::VARCHAR, $33::VARCHAR, $34::VARCHAR, $35::VARCHAR, $36::VARCHAR, $37::VARCHAR, $38::VARCHAR, $39::VARCHAR, $40::VARCHAR, $41::VARCHAR, $42::VARCHAR, $43::TIMESTAMP WITH TIME ZONE, $44::TIMESTAMP WITH TIME ZONE)
+2026-08-01 19:34:46,941 INFO sqlalchemy.engine.Engine [generated in 0.00041s] ('usr-csh-ebf348de', 'f108717a-aac8-485b-acd5-a175ae9583b9', 'csh_ebf348de', None, None, 'pbkdf2$sha512$100000$abd2fa84e03a2172da8b234930b8a3f1$18fa4232152aa2e2fbc94676a89f4cb386ae3fed1a4bf5758e54a12e4876a735511363b06f9aef747c3b97c4259d6eea8f439225a9f807879d46f093fe02e1ea', 'CASHIER', True, False, False, None, 'comp-sal-ebf348de', 'br-sal-ebf348de', 'Active', None, None, None, None, None, None, None, None, None, None, None, 'India', None, None, None, None, None, None, None, None, 'Permanent', None, None, None, None, None, None, None, datetime.datetime(2026, 8, 1, 14, 4, 46, 941479, tzinfo=datetime.timezone.utc), datetime.datetime(2026, 8, 1, 14, 4, 46, 941481, tzinfo=datetime.timezone.utc))
+2026-08-01 19:34:46,970 INFO sqlalchemy.engine.Engine COMMIT
+2026-08-01 19:34:46,973 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-08-01 19:34:46,976 INFO sqlalchemy.engine.Engine INSERT INTO products (code, name, price, stock, reserved_stock, category, is_favorite, barcode, brand, color, size, mrp, gst_percentage, style_code, cost_price, sku, hsn_code, pricing_mode, tracking_mode, variant_template_id, size_scale_id, sourcing_mode_override, weight_grams, attributes, primary_image_url, id, uuid, tenant_id, company_id, branch_id, created_at, modified_at, created_by, updated_by, is_active, is_deleted, deleted_at, deleted_by, version, workflow_status, document_number) VALUES ($1::VARCHAR, $2::VARCHAR, $3::NUMERIC(15, 2), $4::INTEGER, $5::NUMERIC(12, 4), $6::VARCHAR, $7::BOOLEAN, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::NUMERIC(15, 2), $13::NUMERIC(5, 2), $14::VARCHAR, $15::NUMERIC(15, 2), $16::VARCHAR, $17::VARCHAR, $18::VARCHAR, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::VARCHAR, $23::NUMERIC(10, 2), $24::JSONB, $25::VARCHAR, $26::VARCHAR, $27::VARCHAR, $28::VARCHAR, $29::VARCHAR, $30::VARCHAR, $31::TIMESTAMP WITH TIME ZONE, $32::TIMESTAMP WITH TIME ZONE, $33::VARCHAR, $34::VARCHAR, $35::BOOLEAN, $36::BOOLEAN, $37::TIMESTAMP WITH TIME ZONE, $38::VARCHAR, $39::INTEGER, $40::VARCHAR, $41::VARCHAR) RETURNING products.gallery_images
+2026-08-01 19:34:46,976 INFO sqlalchemy.engine.Engine [generated in 0.00048s] ('PSAL-ebf348de', 'Sales Product ebf348de', Decimal('100.00'), 20, 0.0, 'General', False, 'BCSALebf348de', None, None, None, None, None, None, None, None, None, 'Fixed', 'Standard', None, None, None, 0.0, '{}', None, 'prod-sal-ebf348de', 'aed75492-4e49-4139-8e89-23bc9107659d', None, 'comp-sal-ebf348de', 'br-sal-ebf348de', datetime.datetime(2026, 8, 1, 14, 4, 46, 976114, tzinfo=datetime.timezone.utc), datetime.datetime(2026, 8, 1, 14, 4, 46, 976117, tzinfo=datetime.timezone.utc), None, None, True, False, None, None, 1, None, None)
+2026-08-01 19:34:46,992 INFO sqlalchemy.engine.Engine COMMIT
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='ALL', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,160 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-08-01 19:34:47,167 INFO sqlalchemy.engine.Engine SELECT users.id, users.uuid, users.username, users.email, users.mobile, users.hashed_password, users.role, users.is_active, users.is_deleted, users.is_platform_admin, users.tenant_id, users.company_id, users.branch_id, users.status, users.employee_id, users.employee_code, users.display_name, users.full_name, users.gender, users.date_of_birth, users.alternate_mobile, users.emergency_contact, users.address, users.city, users.state, users.country, users.pin_code, users.department, users.designation, users.branch, users.department_id, users.designation_id, users.date_of_joining, users.reporting_manager, users.employment_type, users.allowed_branches, users.photo, users.salary_json, users.payment_json, users.performance_json, users.preferences_json, users.notification_settings_json, users.created_at, users.modified_at 
+FROM users 
+WHERE users.id = $1::VARCHAR AND users.is_deleted = false
+2026-08-01 19:34:47,167 INFO sqlalchemy.engine.Engine [generated in 0.00026s] ('usr-csh-ebf348de',)
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='ALL', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,175 INFO sqlalchemy.engine.Engine SELECT users.id, users.uuid, users.username, users.email, users.mobile, users.hashed_password, users.role, users.is_active, users.is_deleted, users.is_platform_admin, users.tenant_id, users.company_id, users.branch_id, users.status, users.employee_id, users.employee_code, users.display_name, users.full_name, users.gender, users.date_of_birth, users.alternate_mobile, users.emergency_contact, users.address, users.city, users.state, users.country, users.pin_code, users.department, users.designation, users.branch, users.department_id, users.designation_id, users.date_of_joining, users.reporting_manager, users.employment_type, users.allowed_branches, users.photo, users.salary_json, users.payment_json, users.performance_json, users.preferences_json, users.notification_settings_json, users.created_at, users.modified_at 
+FROM users 
+WHERE users.id = $1::VARCHAR
+2026-08-01 19:34:47,175 INFO sqlalchemy.engine.Engine [generated in 0.00021s] ('usr-csh-ebf348de',)
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='ALL', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,181 INFO sqlalchemy.engine.Engine SELECT smriti_user_roles.user_id, smriti_user_roles.role_id, smriti_user_roles.id, smriti_user_roles.uuid, smriti_user_roles.tenant_id, smriti_user_roles.company_id, smriti_user_roles.branch_id, smriti_user_roles.created_at, smriti_user_roles.modified_at, smriti_user_roles.created_by, smriti_user_roles.updated_by, smriti_user_roles.is_active, smriti_user_roles.is_deleted, smriti_user_roles.deleted_at, smriti_user_roles.deleted_by, smriti_user_roles.version, smriti_user_roles.workflow_status, smriti_user_roles.document_number 
+FROM smriti_user_roles 
+WHERE smriti_user_roles.user_id = $1::VARCHAR
+2026-08-01 19:34:47,182 INFO sqlalchemy.engine.Engine [generated in 0.00028s] ('usr-csh-ebf348de',)
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='ALL', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,185 INFO sqlalchemy.engine.Engine SELECT users.id, users.uuid, users.username, users.email, users.mobile, users.hashed_password, users.role, users.is_active, users.is_deleted, users.is_platform_admin, users.tenant_id, users.company_id, users.branch_id, users.status, users.employee_id, users.employee_code, users.display_name, users.full_name, users.gender, users.date_of_birth, users.alternate_mobile, users.emergency_contact, users.address, users.city, users.state, users.country, users.pin_code, users.department, users.designation, users.branch, users.department_id, users.designation_id, users.date_of_joining, users.reporting_manager, users.employment_type, users.allowed_branches, users.photo, users.salary_json, users.payment_json, users.performance_json, users.preferences_json, users.notification_settings_json, users.created_at, users.modified_at 
+FROM users 
+WHERE users.id = $1::VARCHAR
+2026-08-01 19:34:47,185 INFO sqlalchemy.engine.Engine [cached since 0.01008s ago] ('usr-csh-ebf348de',)
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='ALL', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,189 INFO sqlalchemy.engine.Engine SELECT smriti_roles.code, smriti_roles.name, smriti_roles.description, smriti_roles.parent_role_id, smriti_roles.is_system_role, smriti_roles.id, smriti_roles.uuid, smriti_roles.tenant_id, smriti_roles.company_id, smriti_roles.branch_id, smriti_roles.created_at, smriti_roles.modified_at, smriti_roles.created_by, smriti_roles.updated_by, smriti_roles.is_active, smriti_roles.is_deleted, smriti_roles.deleted_at, smriti_roles.deleted_by, smriti_roles.version, smriti_roles.workflow_status, smriti_roles.document_number 
+FROM smriti_roles 
+WHERE smriti_roles.code = $1::VARCHAR
+2026-08-01 19:34:47,189 INFO sqlalchemy.engine.Engine [generated in 0.00021s] ('CASHIER',)
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='ALL', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,196 INFO sqlalchemy.engine.Engine SELECT smriti_roles.code, smriti_roles.name, smriti_roles.description, smriti_roles.parent_role_id, smriti_roles.is_system_role, smriti_roles.id, smriti_roles.uuid, smriti_roles.tenant_id, smriti_roles.company_id, smriti_roles.branch_id, smriti_roles.created_at, smriti_roles.modified_at, smriti_roles.created_by, smriti_roles.updated_by, smriti_roles.is_active, smriti_roles.is_deleted, smriti_roles.deleted_at, smriti_roles.deleted_by, smriti_roles.version, smriti_roles.workflow_status, smriti_roles.document_number 
+FROM smriti_roles 
+WHERE smriti_roles.id IN ($1::VARCHAR)
+2026-08-01 19:34:47,196 INFO sqlalchemy.engine.Engine [generated in 0.00033s] ('role-cashier',)
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='ALL', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,201 INFO sqlalchemy.engine.Engine SELECT smriti_role_permission_sets.role_id, smriti_role_permission_sets.permission_set_id, smriti_role_permission_sets.id, smriti_role_permission_sets.uuid, smriti_role_permission_sets.tenant_id, smriti_role_permission_sets.company_id, smriti_role_permission_sets.branch_id, smriti_role_permission_sets.created_at, smriti_role_permission_sets.modified_at, smriti_role_permission_sets.created_by, smriti_role_permission_sets.updated_by, smriti_role_permission_sets.is_active, smriti_role_permission_sets.is_deleted, smriti_role_permission_sets.deleted_at, smriti_role_permission_sets.deleted_by, smriti_role_permission_sets.version, smriti_role_permission_sets.workflow_status, smriti_role_permission_sets.document_number 
+FROM smriti_role_permission_sets 
+WHERE smriti_role_permission_sets.role_id IN ($1::VARCHAR)
+2026-08-01 19:34:47,202 INFO sqlalchemy.engine.Engine [generated in 0.00028s] ('role-cashier',)
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='ALL', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,210 INFO sqlalchemy.engine.Engine SELECT smriti_permission_set_permissions.permission_set_id, smriti_permission_set_permissions.permission_id, smriti_permission_set_permissions.permission_type, smriti_permission_set_permissions.id, smriti_permission_set_permissions.uuid, smriti_permission_set_permissions.tenant_id, smriti_permission_set_permissions.company_id, smriti_permission_set_permissions.branch_id, smriti_permission_set_permissions.created_at, smriti_permission_set_permissions.modified_at, smriti_permission_set_permissions.created_by, smriti_permission_set_permissions.updated_by, smriti_permission_set_permissions.is_active, smriti_permission_set_permissions.is_deleted, smriti_permission_set_permissions.deleted_at, smriti_permission_set_permissions.deleted_by, smriti_permission_set_permissions.version, smriti_permission_set_permissions.workflow_status, smriti_permission_set_permissions.document_number 
+FROM smriti_permission_set_permissions 
+WHERE smriti_permission_set_permissions.permission_set_id IN ($1::VARCHAR, $2::VARCHAR)
+2026-08-01 19:34:47,210 INFO sqlalchemy.engine.Engine [generated in 0.00034s] ('pol-sales-ops', 'pol-crm-mgmt')
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='ALL', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,227 INFO sqlalchemy.engine.Engine SELECT smriti_permissions.id AS smriti_permissions_id, smriti_permissions.code AS smriti_permissions_code, smriti_permissions.resource AS smriti_permissions_resource, smriti_permissions.action AS smriti_permissions_action, smriti_permissions.scope AS smriti_permissions_scope, smriti_permissions.module AS smriti_permissions_module, smriti_permissions.description AS smriti_permissions_description, smriti_permissions.uuid AS smriti_permissions_uuid, smriti_permissions.tenant_id AS smriti_permissions_tenant_id, smriti_permissions.company_id AS smriti_permissions_company_id, smriti_permissions.branch_id AS smriti_permissions_branch_id, smriti_permissions.created_at AS smriti_permissions_created_at, smriti_permissions.modified_at AS smriti_permissions_modified_at, smriti_permissions.created_by AS smriti_permissions_created_by, smriti_permissions.updated_by AS smriti_permissions_updated_by, smriti_permissions.is_active AS smriti_permissions_is_active, smriti_permissions.is_deleted AS smriti_permissions_is_deleted, smriti_permissions.deleted_at AS smriti_permissions_deleted_at, smriti_permissions.deleted_by AS smriti_permissions_deleted_by, smriti_permissions.version AS smriti_permissions_version, smriti_permissions.workflow_status AS smriti_permissions_workflow_status, smriti_permissions.document_number AS smriti_permissions_document_number 
+FROM smriti_permissions 
+WHERE smriti_permissions.id IN ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR)
+2026-08-01 19:34:47,227 INFO sqlalchemy.engine.Engine [generated in 0.00031s] ('perm-crm-manage_customers', 'perm-crm-view_loyalty', 'perm-pos-checkout', 'perm-pos-close_shift', 'perm-pos-open_shift', 'perm-sales-create', 'perm-sales-view')
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='ALL', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,236 INFO sqlalchemy.engine.Engine SELECT smriti_permissions.scope 
+FROM smriti_permissions 
+WHERE smriti_permissions.code = $1::VARCHAR
+2026-08-01 19:34:47,236 INFO sqlalchemy.engine.Engine [generated in 0.00021s] ('SALES.CREATE',)
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='BRANCH', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,244 INFO sqlalchemy.engine.Engine SELECT sales_quotations.quotation_no, sales_quotations.date, sales_quotations.customer_name, sales_quotations.tax_total, sales_quotations.grand_total, sales_quotations.status, sales_quotations.sales_order_id, sales_quotations.cgst_total, sales_quotations.sgst_total, sales_quotations.igst_total, sales_quotations.id, sales_quotations.uuid, sales_quotations.tenant_id, sales_quotations.company_id, sales_quotations.branch_id, sales_quotations.created_at, sales_quotations.modified_at, sales_quotations.created_by, sales_quotations.updated_by, sales_quotations.is_active, sales_quotations.is_deleted, sales_quotations.deleted_at, sales_quotations.deleted_by, sales_quotations.version, sales_quotations.workflow_status, sales_quotations.document_number 
+FROM sales_quotations 
+WHERE sales_quotations.quotation_no = $1::VARCHAR AND sales_quotations.is_deleted = false AND sales_quotations.company_id = $2::VARCHAR AND sales_quotations.branch_id = $3::VARCHAR
+2026-08-01 19:34:47,245 INFO sqlalchemy.engine.Engine [generated in 0.00048s] ('QUOT-ebf348de', 'comp-sal-ebf348de', 'br-sal-ebf348de')
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='BRANCH', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,254 INFO sqlalchemy.engine.Engine SELECT products.code, products.name, products.price, products.stock, products.reserved_stock, products.category, products.is_favorite, products.barcode, products.brand, products.color, products.size, products.mrp, products.gst_percentage, products.style_code, products.cost_price, products.sku, products.hsn_code, products.pricing_mode, products.tracking_mode, products.variant_template_id, products.size_scale_id, products.sourcing_mode_override, products.weight_grams, products.attributes, products.primary_image_url, products.gallery_images, products.id, products.uuid, products.tenant_id, products.company_id, products.branch_id, products.created_at, products.modified_at, products.created_by, products.updated_by, products.is_active, products.is_deleted, products.deleted_at, products.deleted_by, products.version, products.workflow_status, products.document_number 
+FROM products 
+WHERE products.id = $1::VARCHAR AND products.is_deleted = false AND products.company_id = $2::VARCHAR AND products.branch_id = $3::VARCHAR AND products.branch_id IN ($4::VARCHAR)
+2026-08-01 19:34:47,254 INFO sqlalchemy.engine.Engine [generated in 0.00034s] ('prod-sal-ebf348de', 'comp-sal-ebf348de', 'br-sal-ebf348de', 'br-sal-ebf348de')
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='BRANCH', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,262 INFO sqlalchemy.engine.Engine SELECT product_barcodes.product_id AS product_barcodes_product_id, product_barcodes.barcode AS product_barcodes_barcode, product_barcodes.is_primary AS product_barcodes_is_primary, product_barcodes.id AS product_barcodes_id, product_barcodes.uuid AS product_barcodes_uuid, product_barcodes.tenant_id AS product_barcodes_tenant_id, product_barcodes.company_id AS product_barcodes_company_id, product_barcodes.branch_id AS product_barcodes_branch_id, product_barcodes.created_at AS product_barcodes_created_at, product_barcodes.modified_at AS product_barcodes_modified_at, product_barcodes.created_by AS product_barcodes_created_by, product_barcodes.updated_by AS product_barcodes_updated_by, product_barcodes.is_active AS product_barcodes_is_active, product_barcodes.is_deleted AS product_barcodes_is_deleted, product_barcodes.deleted_at AS product_barcodes_deleted_at, product_barcodes.deleted_by AS product_barcodes_deleted_by, product_barcodes.version AS product_barcodes_version, product_barcodes.workflow_status AS product_barcodes_workflow_status, product_barcodes.document_number AS product_barcodes_document_number 
+FROM product_barcodes 
+WHERE product_barcodes.product_id IN ($1::VARCHAR)
+2026-08-01 19:34:47,262 INFO sqlalchemy.engine.Engine [generated in 0.00033s] ('prod-sal-ebf348de',)
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='BRANCH', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,272 INFO sqlalchemy.engine.Engine SELECT product_vendors.product_id AS product_vendors_product_id, product_vendors.supplier_id AS product_vendors_supplier_id, product_vendors.supplier_product_code AS product_vendors_supplier_product_code, product_vendors.supplier_barcode AS product_vendors_supplier_barcode, product_vendors.purchase_uom_id AS product_vendors_purchase_uom_id, product_vendors.currency_id AS product_vendors_currency_id, product_vendors.cost_price AS product_vendors_cost_price, product_vendors.last_purchase_price AS product_vendors_last_purchase_price, product_vendors.last_purchase_date AS product_vendors_last_purchase_date, product_vendors.discount_percentage AS product_vendors_discount_percentage, product_vendors.tax_inclusive AS product_vendors_tax_inclusive, product_vendors.minimum_order_qty AS product_vendors_minimum_order_qty, product_vendors.maximum_order_qty AS product_vendors_maximum_order_qty, product_vendors.lead_time_days AS product_vendors_lead_time_days, product_vendors.supplier_warranty_days AS product_vendors_supplier_warranty_days, product_vendors.priority AS product_vendors_priority, product_vendors.is_preferred AS product_vendors_is_preferred, product_vendors.approval_status AS product_vendors_approval_status, product_vendors.id AS product_vendors_id, product_vendors.uuid AS product_vendors_uuid, product_vendors.tenant_id AS product_vendors_tenant_id, product_vendors.company_id AS product_vendors_company_id, product_vendors.branch_id AS product_vendors_branch_id, product_vendors.created_at AS product_vendors_created_at, product_vendors.modified_at AS product_vendors_modified_at, product_vendors.created_by AS product_vendors_created_by, product_vendors.updated_by AS product_vendors_updated_by, product_vendors.is_active AS product_vendors_is_active, product_vendors.is_deleted AS product_vendors_is_deleted, product_vendors.deleted_at AS product_vendors_deleted_at, product_vendors.deleted_by AS product_vendors_deleted_by, product_vendors.version AS product_vendors_version, product_vendors.workflow_status AS product_vendors_workflow_status, product_vendors.document_number AS product_vendors_document_number 
+FROM product_vendors 
+WHERE product_vendors.product_id IN ($1::VARCHAR) AND product_vendors.branch_id IN ($2::VARCHAR)
+2026-08-01 19:34:47,272 INFO sqlalchemy.engine.Engine [generated in 0.00046s] ('prod-sal-ebf348de', 'br-sal-ebf348de')
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='BRANCH', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,282 INFO sqlalchemy.engine.Engine SELECT product_tax_profiles.product_id AS product_tax_profiles_product_id, product_tax_profiles.hsn_code AS product_tax_profiles_hsn_code, product_tax_profiles.gst_rate AS product_tax_profiles_gst_rate, product_tax_profiles.cess_rate AS product_tax_profiles_cess_rate, product_tax_profiles.is_inclusive_tax AS product_tax_profiles_is_inclusive_tax, product_tax_profiles.tax_group_id AS product_tax_profiles_tax_group_id, product_tax_profiles.effective_from AS product_tax_profiles_effective_from, product_tax_profiles.effective_to AS product_tax_profiles_effective_to, product_tax_profiles.id AS product_tax_profiles_id, product_tax_profiles.uuid AS product_tax_profiles_uuid, product_tax_profiles.tenant_id AS product_tax_profiles_tenant_id, product_tax_profiles.company_id AS product_tax_profiles_company_id, product_tax_profiles.branch_id AS product_tax_profiles_branch_id, product_tax_profiles.created_at AS product_tax_profiles_created_at, product_tax_profiles.modified_at AS product_tax_profiles_modified_at, product_tax_profiles.created_by AS product_tax_profiles_created_by, product_tax_profiles.updated_by AS product_tax_profiles_updated_by, product_tax_profiles.is_active AS product_tax_profiles_is_active, product_tax_profiles.is_deleted AS product_tax_profiles_is_deleted, product_tax_profiles.deleted_at AS product_tax_profiles_deleted_at, product_tax_profiles.deleted_by AS product_tax_profiles_deleted_by, product_tax_profiles.version AS product_tax_profiles_version, product_tax_profiles.workflow_status AS product_tax_profiles_workflow_status, product_tax_profiles.document_number AS product_tax_profiles_document_number 
+FROM product_tax_profiles 
+WHERE product_tax_profiles.product_id IN ($1::VARCHAR) AND product_tax_profiles.branch_id IN ($2::VARCHAR) ORDER BY product_tax_profiles.effective_from DESC
+2026-08-01 19:34:47,282 INFO sqlalchemy.engine.Engine [generated in 0.00049s] ('prod-sal-ebf348de', 'br-sal-ebf348de')
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='BRANCH', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,291 INFO sqlalchemy.engine.Engine SELECT product_inventory_policies.product_id AS product_inventory_policies_product_id, product_inventory_policies.is_batch_tracked AS product_inventory_policies_is_batch_tracked, product_inventory_policies.is_serial_tracked AS product_inventory_policies_is_serial_tracked, product_inventory_policies.is_expiry_required AS product_inventory_policies_is_expiry_required, product_inventory_policies.is_qc_required AS product_inventory_policies_is_qc_required, product_inventory_policies.allow_negative_stock AS product_inventory_policies_allow_negative_stock, product_inventory_policies.id AS product_inventory_policies_id, product_inventory_policies.uuid AS product_inventory_policies_uuid, product_inventory_policies.tenant_id AS product_inventory_policies_tenant_id, product_inventory_policies.company_id AS product_inventory_policies_company_id, product_inventory_policies.branch_id AS product_inventory_policies_branch_id, product_inventory_policies.created_at AS product_inventory_policies_created_at, product_inventory_policies.modified_at AS product_inventory_policies_modified_at, product_inventory_policies.created_by AS product_inventory_policies_created_by, product_inventory_policies.updated_by AS product_inventory_policies_updated_by, product_inventory_policies.is_active AS product_inventory_policies_is_active, product_inventory_policies.is_deleted AS product_inventory_policies_is_deleted, product_inventory_policies.deleted_at AS product_inventory_policies_deleted_at, product_inventory_policies.deleted_by AS product_inventory_policies_deleted_by, product_inventory_policies.version AS product_inventory_policies_version, product_inventory_policies.workflow_status AS product_inventory_policies_workflow_status, product_inventory_policies.document_number AS product_inventory_policies_document_number 
+FROM product_inventory_policies 
+WHERE product_inventory_policies.product_id IN ($1::VARCHAR) AND product_inventory_policies.branch_id IN ($2::VARCHAR)
+2026-08-01 19:34:47,291 INFO sqlalchemy.engine.Engine [generated in 0.00036s] ('prod-sal-ebf348de', 'br-sal-ebf348de')
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='BRANCH', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,299 INFO sqlalchemy.engine.Engine SELECT product_tax_profiles.product_id, product_tax_profiles.hsn_code, product_tax_profiles.gst_rate, product_tax_profiles.cess_rate, product_tax_profiles.is_inclusive_tax, product_tax_profiles.tax_group_id, product_tax_profiles.effective_from, product_tax_profiles.effective_to, product_tax_profiles.id, product_tax_profiles.uuid, product_tax_profiles.tenant_id, product_tax_profiles.company_id, product_tax_profiles.branch_id, product_tax_profiles.created_at, product_tax_profiles.modified_at, product_tax_profiles.created_by, product_tax_profiles.updated_by, product_tax_profiles.is_active, product_tax_profiles.is_deleted, product_tax_profiles.deleted_at, product_tax_profiles.deleted_by, product_tax_profiles.version, product_tax_profiles.workflow_status, product_tax_profiles.document_number 
+FROM product_tax_profiles 
+WHERE product_tax_profiles.product_id = $1::VARCHAR AND product_tax_profiles.is_active = true AND product_tax_profiles.is_deleted = false AND product_tax_profiles.branch_id IN ($2::VARCHAR) ORDER BY product_tax_profiles.effective_from DESC
+2026-08-01 19:34:47,300 INFO sqlalchemy.engine.Engine [generated in 0.00037s] ('prod-sal-ebf348de', 'br-sal-ebf348de')
+2026-08-01 19:34:47,304 INFO sqlalchemy.engine.Engine INSERT INTO sales_quotations (quotation_no, date, customer_name, tax_total, grand_total, status, sales_order_id, cgst_total, sgst_total, igst_total, id, uuid, tenant_id, company_id, branch_id, created_at, modified_at, created_by, updated_by, is_active, is_deleted, deleted_at, deleted_by, version, workflow_status, document_number) VALUES ($1::VARCHAR, $2::DATE, $3::VARCHAR, $4::NUMERIC(15, 2), $5::NUMERIC(15, 2), $6::VARCHAR, $7::VARCHAR, $8::NUMERIC(15, 2), $9::NUMERIC(15, 2), $10::NUMERIC(15, 2), $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::TIMESTAMP WITH TIME ZONE, $17::TIMESTAMP WITH TIME ZONE, $18::VARCHAR, $19::VARCHAR, $20::BOOLEAN, $21::BOOLEAN, $22::TIMESTAMP WITH TIME ZONE, $23::VARCHAR, $24::INTEGER, $25::VARCHAR, $26::VARCHAR)
+2026-08-01 19:34:47,304 INFO sqlalchemy.engine.Engine [generated in 0.00035s] ('QUOT-ebf348de', datetime.date(2026, 8, 1), 'Walk-in Customer', Decimal('36.00'), Decimal('236.00'), 'draft', None, Decimal('18.00'), Decimal('18.00'), Decimal('0.00'), 'q-ebf348de', '7d6cd3b5-c8ec-4bbf-b28a-a2812c17ab6a', None, 'comp-sal-ebf348de', 'br-sal-ebf348de', datetime.datetime(2026, 8, 1, 14, 4, 47, 304506, tzinfo=datetime.timezone.utc), datetime.datetime(2026, 8, 1, 14, 4, 47, 304508, tzinfo=datetime.timezone.utc), None, None, True, False, None, None, 1, None, None)
+2026-08-01 19:34:47,308 INFO sqlalchemy.engine.Engine INSERT INTO sales_quotation_items (quotation_id, product_id, code, name, quantity, price, hsn_code, gst_rate, tax_amount, total_amount, tenant_id, company_id, branch_id, cgst_amount, sgst_amount, igst_amount) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::NUMERIC(12, 4), $6::NUMERIC(15, 2), $7::VARCHAR, $8::NUMERIC(5, 2), $9::NUMERIC(15, 2), $10::NUMERIC(15, 2), $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::NUMERIC(15, 2), $15::NUMERIC(15, 2), $16::NUMERIC(15, 2)) RETURNING sales_quotation_items.id
+2026-08-01 19:34:47,308 INFO sqlalchemy.engine.Engine [generated in 0.00025s] ('q-ebf348de', 'prod-sal-ebf348de', 'PSAL-ebf348de', 'Sales Product ebf348de', Decimal('2.00'), Decimal('100.00'), None, Decimal('18.0'), Decimal('36.00'), Decimal('236.00'), 'default', 'comp-sal-ebf348de', 'br-sal-ebf348de', Decimal('18.00'), Decimal('18.00'), Decimal('0.00'))
+2026-08-01 19:34:47,313 INFO sqlalchemy.engine.Engine COMMIT
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='BRANCH', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,316 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-08-01 19:34:47,318 INFO sqlalchemy.engine.Engine SELECT sales_quotations.quotation_no, sales_quotations.date, sales_quotations.customer_name, sales_quotations.tax_total, sales_quotations.grand_total, sales_quotations.status, sales_quotations.sales_order_id, sales_quotations.cgst_total, sales_quotations.sgst_total, sales_quotations.igst_total, sales_quotations.id, sales_quotations.uuid, sales_quotations.tenant_id, sales_quotations.company_id, sales_quotations.branch_id, sales_quotations.created_at, sales_quotations.modified_at, sales_quotations.created_by, sales_quotations.updated_by, sales_quotations.is_active, sales_quotations.is_deleted, sales_quotations.deleted_at, sales_quotations.deleted_by, sales_quotations.version, sales_quotations.workflow_status, sales_quotations.document_number 
+FROM sales_quotations 
+WHERE sales_quotations.id = $1::VARCHAR
+2026-08-01 19:34:47,318 INFO sqlalchemy.engine.Engine [generated in 0.00018s] ('q-ebf348de',)
+DEBUG RLS INTERCEPTOR: ctx=SecurityContext(user_id='usr-csh-ebf348de', username='csh_ebf348de', platform_admin=False, tenant_id='default', company_ids=['comp-sal-ebf348de'], branch_ids=['br-sal-ebf348de'], department_ids=[], warehouse_ids=[], cost_center_ids=[], record_scope='BRANCH', license={}, feature_flags={}, session='', api_key='')
+2026-08-01 19:34:47,326 INFO sqlalchemy.engine.Engine SELECT sales_quotation_items.id AS sales_quotation_items_id, sales_quotation_items.quotation_id AS sales_quotation_items_quotation_id, sales_quotation_items.product_id AS sales_quotation_items_product_id, sales_quotation_items.code AS sales_quotation_items_code, sales_quotation_items.name AS sales_quotation_items_name, sales_quotation_items.quantity AS sales_quotation_items_quantity, sales_quotation_items.price AS sales_quotation_items_price, sales_quotation_items.hsn_code AS sales_quotation_items_hsn_code, sales_quotation_items.gst_rate AS sales_quotation_items_gst_rate, sales_quotation_items.tax_amount AS sales_quotation_items_tax_amount, sales_quotation_items.total_amount AS sales_quotation_items_total_amount, sales_quotation_items.tenant_id AS sales_quotation_items_tenant_id, sales_quotation_items.company_id AS sales_quotation_items_company_id, sales_quotation_items.branch_id AS sales_quotation_items_branch_id, sales_quotation_items.cgst_amount AS sales_quotation_items_cgst_amount, sales_quotation_items.sgst_amount AS sales_quotation_items_sgst_amount, sales_quotation_items.igst_amount AS sales_quotation_items_igst_amount 
+FROM sales_quotation_items 
+WHERE $1::VARCHAR = sales_quotation_items.quotation_id
+2026-08-01 19:34:47,326 INFO sqlalchemy.engine.Engine [generated in 0.00022s] ('q-ebf348de',)
+------------------------------ Captured log call ------------------------------
+INFO     sqlalchemy.engine.Engine:base.py:2712 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 INSERT INTO companies (id, uuid, tenant_id, name, gst_number, is_active, is_deleted, created_at, modified_at, organization_id, company_code, legal_name, short_name, company_type, industry_type, is_default, is_gst_registered, incorporation_date, fiscal_year_start_month, currency_code, country_code, timezone, language_code, description) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::BOOLEAN, $7::BOOLEAN, $8::TIMESTAMP WITH TIME ZONE, $9::TIMESTAMP WITH TIME ZONE, $10::VARCHAR, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::BOOLEAN, $17::BOOLEAN, $18::DATE, $19::SMALLINT, $20::VARCHAR, $21::VARCHAR, $22::VARCHAR, $23::VARCHAR, $24::VARCHAR)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00040s] ('comp-sal-ebf348de', '79ab26dd-4f2c-4326-a0d5-06e0b36f332b', None, 'Sales Co ebf348de', '27ABCDE1234F1Z5', True, False, datetime.datetime(2026, 8, 1, 14, 4, 46, 807137), datetime.datetime(2026, 8, 1, 14, 4, 46, 807142), None, None, None, None, 'PRIVATE_LTD', 'RETAIL', False, False, None, 4, 'INR', 'IN', 'Asia/Kolkata', 'en-IN', None)
+INFO     sqlalchemy.engine.Engine:base.py:1848 INSERT INTO branches (id, uuid, tenant_id, company_id, name, code, is_active, is_deleted, created_at, modified_at, branch_type, gstin, phone, email, manager_user_id) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::BOOLEAN, $8::BOOLEAN, $9::TIMESTAMP WITH TIME ZONE, $10::TIMESTAMP WITH TIME ZONE, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00041s] ('br-sal-ebf348de', '34b1c414-3fb5-4676-a359-db5811569d12', None, 'comp-sal-ebf348de', 'Sales Br ebf348de', 'BRSAL-ebf348de', True, False, datetime.datetime(2026, 8, 1, 14, 4, 46, 813975), datetime.datetime(2026, 8, 1, 14, 4, 46, 813980), 'RETAIL', None, None, None, None)
+INFO     sqlalchemy.engine.Engine:base.py:2718 COMMIT
+INFO     sqlalchemy.engine.Engine:base.py:2712 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 INSERT INTO users (id, uuid, username, email, mobile, hashed_password, role, is_active, is_deleted, is_platform_admin, tenant_id, company_id, branch_id, status, employee_id, employee_code, display_name, full_name, gender, date_of_birth, alternate_mobile, emergency_contact, address, city, state, country, pin_code, department, designation, branch, department_id, designation_id, date_of_joining, reporting_manager, employment_type, allowed_branches, photo, salary_json, payment_json, performance_json, preferences_json, notification_settings_json, created_at, modified_at) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::userrole, $8::BOOLEAN, $9::BOOLEAN, $10::BOOLEAN, $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::VARCHAR, $17::VARCHAR, $18::VARCHAR, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::VARCHAR, $23::VARCHAR, $24::VARCHAR, $25::VARCHAR, $26::VARCHAR, $27::VARCHAR, $28::VARCHAR, $29::VARCHAR, $30::VARCHAR, $31::VARCHAR, $32::VARCHAR, $33::VARCHAR, $34::VARCHAR, $35::VARCHAR, $36::VARCHAR, $37::VARCHAR, $38::VARCHAR, $39::VARCHAR, $40::VARCHAR, $41::VARCHAR, $42::VARCHAR, $43::TIMESTAMP WITH TIME ZONE, $44::TIMESTAMP WITH TIME ZONE)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00041s] ('usr-csh-ebf348de', 'f108717a-aac8-485b-acd5-a175ae9583b9', 'csh_ebf348de', None, None, 'pbkdf2$sha512$100000$abd2fa84e03a2172da8b234930b8a3f1$18fa4232152aa2e2fbc94676a89f4cb386ae3fed1a4bf5758e54a12e4876a735511363b06f9aef747c3b97c4259d6eea8f439225a9f807879d46f093fe02e1ea', 'CASHIER', True, False, False, None, 'comp-sal-ebf348de', 'br-sal-ebf348de', 'Active', None, None, None, None, None, None, None, None, None, None, None, 'India', None, None, None, None, None, None, None, None, 'Permanent', None, None, None, None, None, None, None, datetime.datetime(2026, 8, 1, 14, 4, 46, 941479, tzinfo=datetime.timezone.utc), datetime.datetime(2026, 8, 1, 14, 4, 46, 941481, tzinfo=datetime.timezone.utc))
+INFO     sqlalchemy.engine.Engine:base.py:2718 COMMIT
+INFO     sqlalchemy.engine.Engine:base.py:2712 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 INSERT INTO products (code, name, price, stock, reserved_stock, category, is_favorite, barcode, brand, color, size, mrp, gst_percentage, style_code, cost_price, sku, hsn_code, pricing_mode, tracking_mode, variant_template_id, size_scale_id, sourcing_mode_override, weight_grams, attributes, primary_image_url, id, uuid, tenant_id, company_id, branch_id, created_at, modified_at, created_by, updated_by, is_active, is_deleted, deleted_at, deleted_by, version, workflow_status, document_number) VALUES ($1::VARCHAR, $2::VARCHAR, $3::NUMERIC(15, 2), $4::INTEGER, $5::NUMERIC(12, 4), $6::VARCHAR, $7::BOOLEAN, $8::VARCHAR, $9::VARCHAR, $10::VARCHAR, $11::VARCHAR, $12::NUMERIC(15, 2), $13::NUMERIC(5, 2), $14::VARCHAR, $15::NUMERIC(15, 2), $16::VARCHAR, $17::VARCHAR, $18::VARCHAR, $19::VARCHAR, $20::VARCHAR, $21::VARCHAR, $22::VARCHAR, $23::NUMERIC(10, 2), $24::JSONB, $25::VARCHAR, $26::VARCHAR, $27::VARCHAR, $28::VARCHAR, $29::VARCHAR, $30::VARCHAR, $31::TIMESTAMP WITH TIME ZONE, $32::TIMESTAMP WITH TIME ZONE, $33::VARCHAR, $34::VARCHAR, $35::BOOLEAN, $36::BOOLEAN, $37::TIMESTAMP WITH TIME ZONE, $38::VARCHAR, $39::INTEGER, $40::VARCHAR, $41::VARCHAR) RETURNING products.gallery_images
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00048s] ('PSAL-ebf348de', 'Sales Product ebf348de', Decimal('100.00'), 20, 0.0, 'General', False, 'BCSALebf348de', None, None, None, None, None, None, None, None, None, 'Fixed', 'Standard', None, None, None, 0.0, '{}', None, 'prod-sal-ebf348de', 'aed75492-4e49-4139-8e89-23bc9107659d', None, 'comp-sal-ebf348de', 'br-sal-ebf348de', datetime.datetime(2026, 8, 1, 14, 4, 46, 976114, tzinfo=datetime.timezone.utc), datetime.datetime(2026, 8, 1, 14, 4, 46, 976117, tzinfo=datetime.timezone.utc), None, None, True, False, None, None, 1, None, None)
+INFO     sqlalchemy.engine.Engine:base.py:2718 COMMIT
+INFO     sqlalchemy.engine.Engine:base.py:2712 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT users.id, users.uuid, users.username, users.email, users.mobile, users.hashed_password, users.role, users.is_active, users.is_deleted, users.is_platform_admin, users.tenant_id, users.company_id, users.branch_id, users.status, users.employee_id, users.employee_code, users.display_name, users.full_name, users.gender, users.date_of_birth, users.alternate_mobile, users.emergency_contact, users.address, users.city, users.state, users.country, users.pin_code, users.department, users.designation, users.branch, users.department_id, users.designation_id, users.date_of_joining, users.reporting_manager, users.employment_type, users.allowed_branches, users.photo, users.salary_json, users.payment_json, users.performance_json, users.preferences_json, users.notification_settings_json, users.created_at, users.modified_at 
+FROM users 
+WHERE users.id = $1::VARCHAR AND users.is_deleted = false
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00026s] ('usr-csh-ebf348de',)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT users.id, users.uuid, users.username, users.email, users.mobile, users.hashed_password, users.role, users.is_active, users.is_deleted, users.is_platform_admin, users.tenant_id, users.company_id, users.branch_id, users.status, users.employee_id, users.employee_code, users.display_name, users.full_name, users.gender, users.date_of_birth, users.alternate_mobile, users.emergency_contact, users.address, users.city, users.state, users.country, users.pin_code, users.department, users.designation, users.branch, users.department_id, users.designation_id, users.date_of_joining, users.reporting_manager, users.employment_type, users.allowed_branches, users.photo, users.salary_json, users.payment_json, users.performance_json, users.preferences_json, users.notification_settings_json, users.created_at, users.modified_at 
+FROM users 
+WHERE users.id = $1::VARCHAR
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00021s] ('usr-csh-ebf348de',)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT smriti_user_roles.user_id, smriti_user_roles.role_id, smriti_user_roles.id, smriti_user_roles.uuid, smriti_user_roles.tenant_id, smriti_user_roles.company_id, smriti_user_roles.branch_id, smriti_user_roles.created_at, smriti_user_roles.modified_at, smriti_user_roles.created_by, smriti_user_roles.updated_by, smriti_user_roles.is_active, smriti_user_roles.is_deleted, smriti_user_roles.deleted_at, smriti_user_roles.deleted_by, smriti_user_roles.version, smriti_user_roles.workflow_status, smriti_user_roles.document_number 
+FROM smriti_user_roles 
+WHERE smriti_user_roles.user_id = $1::VARCHAR
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00028s] ('usr-csh-ebf348de',)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT users.id, users.uuid, users.username, users.email, users.mobile, users.hashed_password, users.role, users.is_active, users.is_deleted, users.is_platform_admin, users.tenant_id, users.company_id, users.branch_id, users.status, users.employee_id, users.employee_code, users.display_name, users.full_name, users.gender, users.date_of_birth, users.alternate_mobile, users.emergency_contact, users.address, users.city, users.state, users.country, users.pin_code, users.department, users.designation, users.branch, users.department_id, users.designation_id, users.date_of_joining, users.reporting_manager, users.employment_type, users.allowed_branches, users.photo, users.salary_json, users.payment_json, users.performance_json, users.preferences_json, users.notification_settings_json, users.created_at, users.modified_at 
+FROM users 
+WHERE users.id = $1::VARCHAR
+INFO     sqlalchemy.engine.Engine:base.py:1848 [cached since 0.01008s ago] ('usr-csh-ebf348de',)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT smriti_roles.code, smriti_roles.name, smriti_roles.description, smriti_roles.parent_role_id, smriti_roles.is_system_role, smriti_roles.id, smriti_roles.uuid, smriti_roles.tenant_id, smriti_roles.company_id, smriti_roles.branch_id, smriti_roles.created_at, smriti_roles.modified_at, smriti_roles.created_by, smriti_roles.updated_by, smriti_roles.is_active, smriti_roles.is_deleted, smriti_roles.deleted_at, smriti_roles.deleted_by, smriti_roles.version, smriti_roles.workflow_status, smriti_roles.document_number 
+FROM smriti_roles 
+WHERE smriti_roles.code = $1::VARCHAR
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00021s] ('CASHIER',)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT smriti_roles.code, smriti_roles.name, smriti_roles.description, smriti_roles.parent_role_id, smriti_roles.is_system_role, smriti_roles.id, smriti_roles.uuid, smriti_roles.tenant_id, smriti_roles.company_id, smriti_roles.branch_id, smriti_roles.created_at, smriti_roles.modified_at, smriti_roles.created_by, smriti_roles.updated_by, smriti_roles.is_active, smriti_roles.is_deleted, smriti_roles.deleted_at, smriti_roles.deleted_by, smriti_roles.version, smriti_roles.workflow_status, smriti_roles.document_number 
+FROM smriti_roles 
+WHERE smriti_roles.id IN ($1::VARCHAR)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00033s] ('role-cashier',)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT smriti_role_permission_sets.role_id, smriti_role_permission_sets.permission_set_id, smriti_role_permission_sets.id, smriti_role_permission_sets.uuid, smriti_role_permission_sets.tenant_id, smriti_role_permission_sets.company_id, smriti_role_permission_sets.branch_id, smriti_role_permission_sets.created_at, smriti_role_permission_sets.modified_at, smriti_role_permission_sets.created_by, smriti_role_permission_sets.updated_by, smriti_role_permission_sets.is_active, smriti_role_permission_sets.is_deleted, smriti_role_permission_sets.deleted_at, smriti_role_permission_sets.deleted_by, smriti_role_permission_sets.version, smriti_role_permission_sets.workflow_status, smriti_role_permission_sets.document_number 
+FROM smriti_role_permission_sets 
+WHERE smriti_role_permission_sets.role_id IN ($1::VARCHAR)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00028s] ('role-cashier',)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT smriti_permission_set_permissions.permission_set_id, smriti_permission_set_permissions.permission_id, smriti_permission_set_permissions.permission_type, smriti_permission_set_permissions.id, smriti_permission_set_permissions.uuid, smriti_permission_set_permissions.tenant_id, smriti_permission_set_permissions.company_id, smriti_permission_set_permissions.branch_id, smriti_permission_set_permissions.created_at, smriti_permission_set_permissions.modified_at, smriti_permission_set_permissions.created_by, smriti_permission_set_permissions.updated_by, smriti_permission_set_permissions.is_active, smriti_permission_set_permissions.is_deleted, smriti_permission_set_permissions.deleted_at, smriti_permission_set_permissions.deleted_by, smriti_permission_set_permissions.version, smriti_permission_set_permissions.workflow_status, smriti_permission_set_permissions.document_number 
+FROM smriti_permission_set_permissions 
+WHERE smriti_permission_set_permissions.permission_set_id IN ($1::VARCHAR, $2::VARCHAR)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00034s] ('pol-sales-ops', 'pol-crm-mgmt')
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT smriti_permissions.id AS smriti_permissions_id, smriti_permissions.code AS smriti_permissions_code, smriti_permissions.resource AS smriti_permissions_resource, smriti_permissions.action AS smriti_permissions_action, smriti_permissions.scope AS smriti_permissions_scope, smriti_permissions.module AS smriti_permissions_module, smriti_permissions.description AS smriti_permissions_description, smriti_permissions.uuid AS smriti_permissions_uuid, smriti_permissions.tenant_id AS smriti_permissions_tenant_id, smriti_permissions.company_id AS smriti_permissions_company_id, smriti_permissions.branch_id AS smriti_permissions_branch_id, smriti_permissions.created_at AS smriti_permissions_created_at, smriti_permissions.modified_at AS smriti_permissions_modified_at, smriti_permissions.created_by AS smriti_permissions_created_by, smriti_permissions.updated_by AS smriti_permissions_updated_by, smriti_permissions.is_active AS smriti_permissions_is_active, smriti_permissions.is_deleted AS smriti_permissions_is_deleted, smriti_permissions.deleted_at AS smriti_permissions_deleted_at, smriti_permissions.deleted_by AS smriti_permissions_deleted_by, smriti_permissions.version AS smriti_permissions_version, smriti_permissions.workflow_status AS smriti_permissions_workflow_status, smriti_permissions.document_number AS smriti_permissions_document_number 
+FROM smriti_permissions 
+WHERE smriti_permissions.id IN ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00031s] ('perm-crm-manage_customers', 'perm-crm-view_loyalty', 'perm-pos-checkout', 'perm-pos-close_shift', 'perm-pos-open_shift', 'perm-sales-create', 'perm-sales-view')
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT smriti_permissions.scope 
+FROM smriti_permissions 
+WHERE smriti_permissions.code = $1::VARCHAR
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00021s] ('SALES.CREATE',)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT sales_quotations.quotation_no, sales_quotations.date, sales_quotations.customer_name, sales_quotations.tax_total, sales_quotations.grand_total, sales_quotations.status, sales_quotations.sales_order_id, sales_quotations.cgst_total, sales_quotations.sgst_total, sales_quotations.igst_total, sales_quotations.id, sales_quotations.uuid, sales_quotations.tenant_id, sales_quotations.company_id, sales_quotations.branch_id, sales_quotations.created_at, sales_quotations.modified_at, sales_quotations.created_by, sales_quotations.updated_by, sales_quotations.is_active, sales_quotations.is_deleted, sales_quotations.deleted_at, sales_quotations.deleted_by, sales_quotations.version, sales_quotations.workflow_status, sales_quotations.document_number 
+FROM sales_quotations 
+WHERE sales_quotations.quotation_no = $1::VARCHAR AND sales_quotations.is_deleted = false AND sales_quotations.company_id = $2::VARCHAR AND sales_quotations.branch_id = $3::VARCHAR
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00048s] ('QUOT-ebf348de', 'comp-sal-ebf348de', 'br-sal-ebf348de')
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT products.code, products.name, products.price, products.stock, products.reserved_stock, products.category, products.is_favorite, products.barcode, products.brand, products.color, products.size, products.mrp, products.gst_percentage, products.style_code, products.cost_price, products.sku, products.hsn_code, products.pricing_mode, products.tracking_mode, products.variant_template_id, products.size_scale_id, products.sourcing_mode_override, products.weight_grams, products.attributes, products.primary_image_url, products.gallery_images, products.id, products.uuid, products.tenant_id, products.company_id, products.branch_id, products.created_at, products.modified_at, products.created_by, products.updated_by, products.is_active, products.is_deleted, products.deleted_at, products.deleted_by, products.version, products.workflow_status, products.document_number 
+FROM products 
+WHERE products.id = $1::VARCHAR AND products.is_deleted = false AND products.company_id = $2::VARCHAR AND products.branch_id = $3::VARCHAR AND products.branch_id IN ($4::VARCHAR)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00034s] ('prod-sal-ebf348de', 'comp-sal-ebf348de', 'br-sal-ebf348de', 'br-sal-ebf348de')
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT product_barcodes.product_id AS product_barcodes_product_id, product_barcodes.barcode AS product_barcodes_barcode, product_barcodes.is_primary AS product_barcodes_is_primary, product_barcodes.id AS product_barcodes_id, product_barcodes.uuid AS product_barcodes_uuid, product_barcodes.tenant_id AS product_barcodes_tenant_id, product_barcodes.company_id AS product_barcodes_company_id, product_barcodes.branch_id AS product_barcodes_branch_id, product_barcodes.created_at AS product_barcodes_created_at, product_barcodes.modified_at AS product_barcodes_modified_at, product_barcodes.created_by AS product_barcodes_created_by, product_barcodes.updated_by AS product_barcodes_updated_by, product_barcodes.is_active AS product_barcodes_is_active, product_barcodes.is_deleted AS product_barcodes_is_deleted, product_barcodes.deleted_at AS product_barcodes_deleted_at, product_barcodes.deleted_by AS product_barcodes_deleted_by, product_barcodes.version AS product_barcodes_version, product_barcodes.workflow_status AS product_barcodes_workflow_status, product_barcodes.document_number AS product_barcodes_document_number 
+FROM product_barcodes 
+WHERE product_barcodes.product_id IN ($1::VARCHAR)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00033s] ('prod-sal-ebf348de',)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT product_vendors.product_id AS product_vendors_product_id, product_vendors.supplier_id AS product_vendors_supplier_id, product_vendors.supplier_product_code AS product_vendors_supplier_product_code, product_vendors.supplier_barcode AS product_vendors_supplier_barcode, product_vendors.purchase_uom_id AS product_vendors_purchase_uom_id, product_vendors.currency_id AS product_vendors_currency_id, product_vendors.cost_price AS product_vendors_cost_price, product_vendors.last_purchase_price AS product_vendors_last_purchase_price, product_vendors.last_purchase_date AS product_vendors_last_purchase_date, product_vendors.discount_percentage AS product_vendors_discount_percentage, product_vendors.tax_inclusive AS product_vendors_tax_inclusive, product_vendors.minimum_order_qty AS product_vendors_minimum_order_qty, product_vendors.maximum_order_qty AS product_vendors_maximum_order_qty, product_vendors.lead_time_days AS product_vendors_lead_time_days, product_vendors.supplier_warranty_days AS product_vendors_supplier_warranty_days, product_vendors.priority AS product_vendors_priority, product_vendors.is_preferred AS product_vendors_is_preferred, product_vendors.approval_status AS product_vendors_approval_status, product_vendors.id AS product_vendors_id, product_vendors.uuid AS product_vendors_uuid, product_vendors.tenant_id AS product_vendors_tenant_id, product_vendors.company_id AS product_vendors_company_id, product_vendors.branch_id AS product_vendors_branch_id, product_vendors.created_at AS product_vendors_created_at, product_vendors.modified_at AS product_vendors_modified_at, product_vendors.created_by AS product_vendors_created_by, product_vendors.updated_by AS product_vendors_updated_by, product_vendors.is_active AS product_vendors_is_active, product_vendors.is_deleted AS product_vendors_is_deleted, product_vendors.deleted_at AS product_vendors_deleted_at, product_vendors.deleted_by AS product_vendors_deleted_by, product_vendors.version AS product_vendors_version, product_vendors.workflow_status AS product_vendors_workflow_status, product_vendors.document_number AS product_vendors_document_number 
+FROM product_vendors 
+WHERE product_vendors.product_id IN ($1::VARCHAR) AND product_vendors.branch_id IN ($2::VARCHAR)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00046s] ('prod-sal-ebf348de', 'br-sal-ebf348de')
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT product_tax_profiles.product_id AS product_tax_profiles_product_id, product_tax_profiles.hsn_code AS product_tax_profiles_hsn_code, product_tax_profiles.gst_rate AS product_tax_profiles_gst_rate, product_tax_profiles.cess_rate AS product_tax_profiles_cess_rate, product_tax_profiles.is_inclusive_tax AS product_tax_profiles_is_inclusive_tax, product_tax_profiles.tax_group_id AS product_tax_profiles_tax_group_id, product_tax_profiles.effective_from AS product_tax_profiles_effective_from, product_tax_profiles.effective_to AS product_tax_profiles_effective_to, product_tax_profiles.id AS product_tax_profiles_id, product_tax_profiles.uuid AS product_tax_profiles_uuid, product_tax_profiles.tenant_id AS product_tax_profiles_tenant_id, product_tax_profiles.company_id AS product_tax_profiles_company_id, product_tax_profiles.branch_id AS product_tax_profiles_branch_id, product_tax_profiles.created_at AS product_tax_profiles_created_at, product_tax_profiles.modified_at AS product_tax_profiles_modified_at, product_tax_profiles.created_by AS product_tax_profiles_created_by, product_tax_profiles.updated_by AS product_tax_profiles_updated_by, product_tax_profiles.is_active AS product_tax_profiles_is_active, product_tax_profiles.is_deleted AS product_tax_profiles_is_deleted, product_tax_profiles.deleted_at AS product_tax_profiles_deleted_at, product_tax_profiles.deleted_by AS product_tax_profiles_deleted_by, product_tax_profiles.version AS product_tax_profiles_version, product_tax_profiles.workflow_status AS product_tax_profiles_workflow_status, product_tax_profiles.document_number AS product_tax_profiles_document_number 
+FROM product_tax_profiles 
+WHERE product_tax_profiles.product_id IN ($1::VARCHAR) AND product_tax_profiles.branch_id IN ($2::VARCHAR) ORDER BY product_tax_profiles.effective_from DESC
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00049s] ('prod-sal-ebf348de', 'br-sal-ebf348de')
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT product_inventory_policies.product_id AS product_inventory_policies_product_id, product_inventory_policies.is_batch_tracked AS product_inventory_policies_is_batch_tracked, product_inventory_policies.is_serial_tracked AS product_inventory_policies_is_serial_tracked, product_inventory_policies.is_expiry_required AS product_inventory_policies_is_expiry_required, product_inventory_policies.is_qc_required AS product_inventory_policies_is_qc_required, product_inventory_policies.allow_negative_stock AS product_inventory_policies_allow_negative_stock, product_inventory_policies.id AS product_inventory_policies_id, product_inventory_policies.uuid AS product_inventory_policies_uuid, product_inventory_policies.tenant_id AS product_inventory_policies_tenant_id, product_inventory_policies.company_id AS product_inventory_policies_company_id, product_inventory_policies.branch_id AS product_inventory_policies_branch_id, product_inventory_policies.created_at AS product_inventory_policies_created_at, product_inventory_policies.modified_at AS product_inventory_policies_modified_at, product_inventory_policies.created_by AS product_inventory_policies_created_by, product_inventory_policies.updated_by AS product_inventory_policies_updated_by, product_inventory_policies.is_active AS product_inventory_policies_is_active, product_inventory_policies.is_deleted AS product_inventory_policies_is_deleted, product_inventory_policies.deleted_at AS product_inventory_policies_deleted_at, product_inventory_policies.deleted_by AS product_inventory_policies_deleted_by, product_inventory_policies.version AS product_inventory_policies_version, product_inventory_policies.workflow_status AS product_inventory_policies_workflow_status, product_inventory_policies.document_number AS product_inventory_policies_document_number 
+FROM product_inventory_policies 
+WHERE product_inventory_policies.product_id IN ($1::VARCHAR) AND product_inventory_policies.branch_id IN ($2::VARCHAR)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00036s] ('prod-sal-ebf348de', 'br-sal-ebf348de')
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT product_tax_profiles.product_id, product_tax_profiles.hsn_code, product_tax_profiles.gst_rate, product_tax_profiles.cess_rate, product_tax_profiles.is_inclusive_tax, product_tax_profiles.tax_group_id, product_tax_profiles.effective_from, product_tax_profiles.effective_to, product_tax_profiles.id, product_tax_profiles.uuid, product_tax_profiles.tenant_id, product_tax_profiles.company_id, product_tax_profiles.branch_id, product_tax_profiles.created_at, product_tax_profiles.modified_at, product_tax_profiles.created_by, product_tax_profiles.updated_by, product_tax_profiles.is_active, product_tax_profiles.is_deleted, product_tax_profiles.deleted_at, product_tax_profiles.deleted_by, product_tax_profiles.version, product_tax_profiles.workflow_status, product_tax_profiles.document_number 
+FROM product_tax_profiles 
+WHERE product_tax_profiles.product_id = $1::VARCHAR AND product_tax_profiles.is_active = true AND product_tax_profiles.is_deleted = false AND product_tax_profiles.branch_id IN ($2::VARCHAR) ORDER BY product_tax_profiles.effective_from DESC
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00037s] ('prod-sal-ebf348de', 'br-sal-ebf348de')
+INFO     sqlalchemy.engine.Engine:base.py:1848 INSERT INTO sales_quotations (quotation_no, date, customer_name, tax_total, grand_total, status, sales_order_id, cgst_total, sgst_total, igst_total, id, uuid, tenant_id, company_id, branch_id, created_at, modified_at, created_by, updated_by, is_active, is_deleted, deleted_at, deleted_by, version, workflow_status, document_number) VALUES ($1::VARCHAR, $2::DATE, $3::VARCHAR, $4::NUMERIC(15, 2), $5::NUMERIC(15, 2), $6::VARCHAR, $7::VARCHAR, $8::NUMERIC(15, 2), $9::NUMERIC(15, 2), $10::NUMERIC(15, 2), $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::VARCHAR, $15::VARCHAR, $16::TIMESTAMP WITH TIME ZONE, $17::TIMESTAMP WITH TIME ZONE, $18::VARCHAR, $19::VARCHAR, $20::BOOLEAN, $21::BOOLEAN, $22::TIMESTAMP WITH TIME ZONE, $23::VARCHAR, $24::INTEGER, $25::VARCHAR, $26::VARCHAR)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00035s] ('QUOT-ebf348de', datetime.date(2026, 8, 1), 'Walk-in Customer', Decimal('36.00'), Decimal('236.00'), 'draft', None, Decimal('18.00'), Decimal('18.00'), Decimal('0.00'), 'q-ebf348de', '7d6cd3b5-c8ec-4bbf-b28a-a2812c17ab6a', None, 'comp-sal-ebf348de', 'br-sal-ebf348de', datetime.datetime(2026, 8, 1, 14, 4, 47, 304506, tzinfo=datetime.timezone.utc), datetime.datetime(2026, 8, 1, 14, 4, 47, 304508, tzinfo=datetime.timezone.utc), None, None, True, False, None, None, 1, None, None)
+INFO     sqlalchemy.engine.Engine:base.py:1848 INSERT INTO sales_quotation_items (quotation_id, product_id, code, name, quantity, price, hsn_code, gst_rate, tax_amount, total_amount, tenant_id, company_id, branch_id, cgst_amount, sgst_amount, igst_amount) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::NUMERIC(12, 4), $6::NUMERIC(15, 2), $7::VARCHAR, $8::NUMERIC(5, 2), $9::NUMERIC(15, 2), $10::NUMERIC(15, 2), $11::VARCHAR, $12::VARCHAR, $13::VARCHAR, $14::NUMERIC(15, 2), $15::NUMERIC(15, 2), $16::NUMERIC(15, 2)) RETURNING sales_quotation_items.id
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00025s] ('q-ebf348de', 'prod-sal-ebf348de', 'PSAL-ebf348de', 'Sales Product ebf348de', Decimal('2.00'), Decimal('100.00'), None, Decimal('18.0'), Decimal('36.00'), Decimal('236.00'), 'default', 'comp-sal-ebf348de', 'br-sal-ebf348de', Decimal('18.00'), Decimal('18.00'), Decimal('0.00'))
+INFO     sqlalchemy.engine.Engine:base.py:2718 COMMIT
+INFO     sqlalchemy.engine.Engine:base.py:2712 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT sales_quotations.quotation_no, sales_quotations.date, sales_quotations.customer_name, sales_quotations.tax_total, sales_quotations.grand_total, sales_quotations.status, sales_quotations.sales_order_id, sales_quotations.cgst_total, sales_quotations.sgst_total, sales_quotations.igst_total, sales_quotations.id, sales_quotations.uuid, sales_quotations.tenant_id, sales_quotations.company_id, sales_quotations.branch_id, sales_quotations.created_at, sales_quotations.modified_at, sales_quotations.created_by, sales_quotations.updated_by, sales_quotations.is_active, sales_quotations.is_deleted, sales_quotations.deleted_at, sales_quotations.deleted_by, sales_quotations.version, sales_quotations.workflow_status, sales_quotations.document_number 
+FROM sales_quotations 
+WHERE sales_quotations.id = $1::VARCHAR
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00018s] ('q-ebf348de',)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT sales_quotation_items.id AS sales_quotation_items_id, sales_quotation_items.quotation_id AS sales_quotation_items_quotation_id, sales_quotation_items.product_id AS sales_quotation_items_product_id, sales_quotation_items.code AS sales_quotation_items_code, sales_quotation_items.name AS sales_quotation_items_name, sales_quotation_items.quantity AS sales_quotation_items_quantity, sales_quotation_items.price AS sales_quotation_items_price, sales_quotation_items.hsn_code AS sales_quotation_items_hsn_code, sales_quotation_items.gst_rate AS sales_quotation_items_gst_rate, sales_quotation_items.tax_amount AS sales_quotation_items_tax_amount, sales_quotation_items.total_amount AS sales_quotation_items_total_amount, sales_quotation_items.tenant_id AS sales_quotation_items_tenant_id, sales_quotation_items.company_id AS sales_quotation_items_company_id, sales_quotation_items.branch_id AS sales_quotation_items_branch_id, sales_quotation_items.cgst_amount AS sales_quotation_items_cgst_amount, sales_quotation_items.sgst_amount AS sales_quotation_items_sgst_amount, sales_quotation_items.igst_amount AS sales_quotation_items_igst_amount 
+FROM sales_quotation_items 
+WHERE $1::VARCHAR = sales_quotation_items.quotation_id
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00022s] ('q-ebf348de',)
+-------------------------- Captured stdout teardown ---------------------------
+2026-08-01 19:34:48,427 INFO sqlalchemy.engine.Engine ROLLBACK
+---------------------------- Captured log teardown ----------------------------
+INFO     sqlalchemy.engine.Engine:base.py:2715 ROLLBACK
+============================== warnings summary ===============================
+backend\app\schemas\accounting.py:78
+  F:\SMRITRretailNXmgrt\backend\app\schemas\accounting.py:78: PydanticDeprecatedSince20: `min_items` is deprecated and will be removed, use `min_length` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    entries: List[JournalLedgerEntrySchema] = Field(..., min_items=2)
+
+backend\app\api\v1\nic_gst.py:27
+  F:\SMRITRretailNXmgrt\backend\app\api\v1\nic_gst.py:27: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    supplier_gstin: str = Field(..., example="09AAACS1234A1Z1")
+
+backend\app\api\v1\nic_gst.py:28
+  F:\SMRITRretailNXmgrt\backend\app\api\v1\nic_gst.py:28: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    customer_gstin: str = Field(..., example="27AABCU9603R1ZM")
+
+backend\app\api\v1\nic_gst.py:29
+  F:\SMRITRretailNXmgrt\backend\app\api\v1\nic_gst.py:29: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    invoice_no: str = Field(..., example="INV-2026-001")
+
+backend\app\api\v1\nic_gst.py:30
+  F:\SMRITRretailNXmgrt\backend\app\api\v1\nic_gst.py:30: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    invoice_date: str = Field(..., example="28/07/2026")
+
+backend\app\services\approval_resolver.py:90
+  F:\SMRITRretailNXmgrt\backend\app\services\approval_resolver.py:90: DeprecationWarning: ast.Num is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    def visit_Num(self, node: ast.Num) -> Any:  # Py <3.8 fallback compatibility
+
+backend\app\services\approval_resolver.py:93
+  F:\SMRITRretailNXmgrt\backend\app\services\approval_resolver.py:93: DeprecationWarning: ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    def visit_Str(self, node: ast.Str) -> Any:
+
+app/tests/test_sales.py::test_create_sales_quotation_as_cashier
+app/tests/test_sales.py::test_create_sales_quotation_as_cashier
+app/tests/test_sales.py::test_create_sales_quotation_as_cashier
+app/tests/test_sales.py::test_create_sales_quotation_as_cashier
+  C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\sql\schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path F:\SMRITRretailNXmgrt\backend\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'F:\\SMRITRretailNXmgrt\\backend\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path F:\SMRITRretailNXmgrt\backend\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'F:\\SMRITRretailNXmgrt\\backend\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED backend\app\tests\test_sales.py::test_create_sales_quotation_as_cashier
+======================= 1 failed, 13 warnings in 6.87s ========================

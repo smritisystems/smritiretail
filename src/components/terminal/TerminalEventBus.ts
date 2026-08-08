@@ -11,6 +11,8 @@
  * Classification: Internal
  */
 
+import logger from "../../core/logging/logger.js";
+
 type EventCallback = (data?: any) => void;
 
 export class TerminalEventBus {
@@ -38,7 +40,7 @@ export class TerminalEventBus {
         try {
           cb(data);
         } catch (err) {
-          console.error(`[TerminalEventBus] Error in listener for event '${event}':`, err);
+          logger.error(`[TerminalEventBus] Error in listener for event '${event}':`, err as unknown);
         }
       });
     }

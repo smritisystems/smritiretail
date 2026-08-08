@@ -87,15 +87,15 @@ export const ContextBottomSheet: React.FC<ContextBottomSheetProps> = ({ onClose 
       >
         {/* Swipe drag handlebar handle */}
         <div className="flex justify-center py-3">
-          <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 cursor-grab active:cursor-grabbing" />
+          <div className="w-12 h-1.5 rounded-full bg-theme-muted cursor-grab active:cursor-grabbing" />
         </div>
 
         {/* Header containing title and metadata */}
         <div className="px-5 pb-3 border-b border-theme-divider flex justify-between items-center">
           <div>
-            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+            <h2 className="text-base font-semibold text-theme-primary flex items-center gap-1.5">
               <span>{state.context.type.toUpperCase()} Operations</span>
-              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-slate-500">
+              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 bg-theme-surface-2 rounded text-theme-muted">
                 {state.context.module}
               </span>
             </h2>
@@ -105,7 +105,7 @@ export const ContextBottomSheet: React.FC<ContextBottomSheetProps> = ({ onClose 
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 transition"
+            className="p-1.5 rounded-full bg-theme-surface-2 hover:bg-theme-surface-3 text-theme-muted hover:text-theme-primary transition"
           >
             <X size={18} />
           </button>
@@ -121,7 +121,7 @@ export const ContextBottomSheet: React.FC<ContextBottomSheetProps> = ({ onClose 
               placeholder="Search responsive context actions..."
               value={state.searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-9 pr-4 py-2.5 text-sm text-theme-primary focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-theme-muted"
             />
           </div>
         </div>
@@ -143,16 +143,16 @@ export const ContextBottomSheet: React.FC<ContextBottomSheetProps> = ({ onClose 
                     className="w-full flex items-center justify-between p-3.5 bg-amber-500/10 hover:bg-amber-500/20 active:bg-amber-500/30 border border-amber-500/20 rounded-xl transition text-left focus:outline-none focus:ring-2 focus:ring-amber-500 group"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-xl text-amber-600 dark:text-amber-400 material-symbols-outlined">
+                      <span className="text-xl text-amber-600 material-symbols-outlined">
                         {action.icon}
                       </span>
                       <div>
-                        <div className="text-sm font-medium text-amber-800 dark:text-amber-200 flex items-center gap-1.5">
+                        <div className="text-sm font-medium text-amber-800 flex items-center gap-1.5">
                           {action.label}
                           <Zap size={10} className="fill-amber-500 text-amber-500" />
                         </div>
                         {action.description && (
-                          <div className="text-[11px] text-amber-700/70 dark:text-amber-400/70 mt-0.5 leading-relaxed">
+                          <div className="text-[11px] text-amber-700/70 mt-0.5 leading-relaxed">
                             {action.description}
                           </div>
                         )}
@@ -168,7 +168,7 @@ export const ContextBottomSheet: React.FC<ContextBottomSheetProps> = ({ onClose 
           {/* Regular Actions Section */}
           {regularActions.length > 0 && (
             <div>
-              <div className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 pl-1">
+              <div className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider mb-2 pl-1">
                 Standard Operations
               </div>
               <div className="space-y-1.5">
@@ -179,21 +179,21 @@ export const ContextBottomSheet: React.FC<ContextBottomSheetProps> = ({ onClose 
                   return (
                     <div
                       key={action.id}
-                      className="w-full flex items-center justify-between bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800 rounded-xl transition overflow-hidden border border-slate-100 dark:border-slate-800/80"
+                      className="w-full flex items-center justify-between bg-theme-surface-2 hover:bg-theme-surface-3 rounded-xl transition overflow-hidden border border-theme-divider"
                     >
                       <button
                         onClick={() => executeAction(action)}
                         className="flex-1 flex items-center gap-3 p-3.5 text-left focus:outline-none"
                       >
-                        <span className="text-xl text-slate-500 dark:text-slate-400 material-symbols-outlined">
+                        <span className="text-xl text-theme-muted material-symbols-outlined">
                           {action.icon}
                         </span>
                         <div>
-                          <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                          <div className="text-sm font-medium text-theme-primary">
                             {action.label}
                           </div>
                           {action.description && (
-                            <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 leading-relaxed">
+                            <div className="text-[11px] text-theme-muted mt-0.5 leading-relaxed">
                               {action.description}
                             </div>
                           )}
@@ -201,11 +201,11 @@ export const ContextBottomSheet: React.FC<ContextBottomSheetProps> = ({ onClose 
                       </button>
 
                       {/* Side buttons for pin / fav */}
-                      <div className="flex items-center gap-1 pr-3 border-l border-slate-200/60 dark:border-slate-800 pl-2">
+                      <div className="flex items-center gap-1 pr-3 border-l border-theme-divider pl-2">
                         <button
                           onClick={() => toggleFavorite(action.id)}
                           className={`p-2 rounded-lg transition ${
-                            isFav ? "text-yellow-500" : "text-slate-300 dark:text-slate-600 hover:text-slate-400"
+                            isFav ? "text-yellow-500" : "text-theme-muted hover:text-theme-primary"
                           }`}
                           title="Favorite"
                         >
@@ -214,7 +214,7 @@ export const ContextBottomSheet: React.FC<ContextBottomSheetProps> = ({ onClose 
                         <button
                           onClick={() => togglePin(action.id)}
                           className={`p-2 rounded-lg transition ${
-                            isPin ? "text-blue-500" : "text-slate-300 dark:text-slate-600 hover:text-slate-400"
+                            isPin ? "text-blue-500" : "text-theme-muted hover:text-theme-primary"
                           }`}
                           title="Pin Action"
                         >
@@ -231,7 +231,7 @@ export const ContextBottomSheet: React.FC<ContextBottomSheetProps> = ({ onClose 
           {/* Empty state */}
           {filteredActions.length === 0 && (
             <div className="py-8 text-center text-slate-400 text-sm flex flex-col items-center justify-center gap-2">
-              <ShieldAlert size={28} className="text-slate-300 dark:text-slate-700" />
+              <ShieldAlert size={28} className="text-theme-muted" />
               <span>No applicable context actions found.</span>
             </div>
           )}
@@ -246,7 +246,7 @@ const ChevronRightIcon = () => (
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 20 20"
     fill="currentColor"
-    className="w-5 h-5 text-slate-400 dark:text-slate-500 group-hover:translate-x-1 transition-transform"
+    className="w-5 h-5 text-theme-muted group-hover:translate-x-1 transition-transform"
   >
     <path
       fillRule="evenodd"

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Repository   : SMRITIRetailNX
 Organization : AITDL NETWORKS

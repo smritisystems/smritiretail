@@ -1,0 +1,22 @@
+{
+  "name": "SMRITI_POS_REFERENCE_v1",
+  "version": "1.0.0",
+  "frozen": true,
+  "description": "Canonical POS Sales Invoice visual language (light + dark). Use this as the single source of truth for UI tokens, spacing, elevation, and interaction patterns.",
+  "tokensFile": "src/styles/pos-reference-tokens.css",
+  "components": {
+    "Header": "src/components/terminal/StandardDocumentToolbar.tsx",
+    "ItemsGrid": "src/components/terminal/SMRITIGrid.tsx",
+    "CustomerCard": "src/components/pos/CustomerCard.tsx",
+    "BillingCard": "src/components/pos/BillingCard.tsx",
+    "TaxSummary": "src/components/pos/TaxSummary.tsx",
+    "BillSummary": "src/components/pos/BillSummary.tsx",
+    "BottomActionBar": "src/components/AdvancedBillingEngine.tsx"
+  },
+  "notes": [
+    "Do not apply cross-app theme refactors until this manifest is approved and promoted.",
+    "Tokens in `pos-reference-tokens.css` are authoritative for this screen.",
+    "When promoting to production, create a PR that updates other modules to match these tokens.",
+    "Accessibility target: WCAG AA for all critical text + 48px touch targets for action buttons."
+  ]
+}

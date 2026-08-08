@@ -1,0 +1,213 @@
+{
+  "version": "1.1",
+  "status": "active",
+  "generatedAt": "2026-08-07T20:20:09.449Z",
+  "modules": [
+    {
+      "name": "commerce",
+      "owner": "Commerce Foundation",
+      "capabilities": [
+        {
+          "name": "pricing",
+          "type": "capability",
+          "id": "commerce.pricing",
+          "maturity": "CML-3",
+          "owner": "Commerce Foundation",
+          "studios": [
+            "POS",
+            "Sales"
+          ],
+          "version": "0.2.0",
+          "releaseRing": "Pilot",
+          "dependencies": {
+            "runtime": [
+              "workflow.approval"
+            ],
+            "business": [],
+            "optional": []
+          },
+          "dependsOn": [
+            "workflow.approval"
+          ],
+          "consumedBy": [
+            "studio.sales",
+            "studio.pos"
+          ],
+          "provides": [
+            "PriceCalculation",
+            "DiscountApplication",
+            "CustomerPricing"
+          ],
+          "events": {
+            "publishes": [
+              "pricing.completed"
+            ],
+            "subscribes": [
+              "workflow.approved"
+            ],
+            "lifecycle": {
+              "workflow.approved": "Publishable",
+              "pricing.completed": "Publishable"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "inventory",
+      "owner": "Inventory Foundation",
+      "capabilities": [
+        {
+          "name": "stock-ledger",
+          "type": "capability",
+          "id": "inventory.stock-ledger",
+          "maturity": "CML-2",
+          "owner": "Inventory Foundation",
+          "studios": [
+            "Inventory",
+            "POS"
+          ],
+          "version": "0.9.0",
+          "releaseRing": "Pilot",
+          "dependencies": {
+            "runtime": [
+              "commerce.pricing"
+            ],
+            "business": [],
+            "optional": []
+          },
+          "dependsOn": [
+            "commerce.pricing"
+          ],
+          "consumedBy": [
+            "studio.inventory",
+            "studio.pos"
+          ],
+          "provides": [
+            "StockReservation",
+            "MovementLedger",
+            "InventoryAvailability"
+          ],
+          "events": {
+            "publishes": [
+              "inventory.reserved"
+            ],
+            "subscribes": [
+              "pricing.completed"
+            ],
+            "lifecycle": {
+              "pricing.completed": "Publishable",
+              "inventory.reserved": "Publishable"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "finance",
+      "owner": "Finance Foundation",
+      "capabilities": [
+        {
+          "name": "gst",
+          "type": "capability",
+          "id": "finance.gst",
+          "maturity": "CML-4",
+          "owner": "Finance Foundation",
+          "studios": [
+            "Sales",
+            "Purchase",
+            "Accounting"
+          ],
+          "version": "1.0.0",
+          "releaseRing": "General Availability",
+          "dependencies": {
+            "runtime": [
+              "commerce.pricing"
+            ],
+            "business": [],
+            "optional": []
+          },
+          "dependsOn": [
+            "commerce.pricing"
+          ],
+          "consumedBy": [
+            "studio.sales",
+            "studio.purchase",
+            "studio.accounting"
+          ],
+          "provides": [
+            "TaxCalculation",
+            "GSTValidation",
+            "TaxBreakdown"
+          ],
+          "events": {
+            "publishes": [
+              "gst.calculated"
+            ],
+            "subscribes": [
+              "pricing.completed"
+            ],
+            "lifecycle": {
+              "pricing.completed": "Publishable",
+              "gst.calculated": "Publishable"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "workflow",
+      "owner": "Workflow Foundation",
+      "capabilities": [
+        {
+          "name": "approval",
+          "type": "capability",
+          "id": "workflow.approval",
+          "maturity": "CML-2",
+          "owner": "Workflow Foundation",
+          "studios": [
+            "Purchase",
+            "Sales"
+          ],
+          "version": "0.8.0",
+          "releaseRing": "Pilot",
+          "dependencies": {
+            "runtime": [],
+            "business": [],
+            "optional": []
+          },
+          "dependsOn": [],
+          "consumedBy": [
+            "commerce.pricing",
+            "studio.purchase",
+            "studio.sales"
+          ],
+          "provides": [
+            "ApprovalProcess",
+            "WorkflowValidation",
+            "TaskEscalation"
+          ],
+          "events": {
+            "publishes": [
+              "workflow.approved"
+            ],
+            "subscribes": [],
+            "lifecycle": {
+              "workflow.approved": "Publishable"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "document",
+      "owner": "document Foundation",
+      "capabilities": []
+    },
+    {
+      "name": "intelligence",
+      "owner": "intelligence Foundation",
+      "capabilities": []
+    }
+  ]
+}

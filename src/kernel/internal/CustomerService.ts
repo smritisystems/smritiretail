@@ -11,6 +11,7 @@ import { ICustomerService } from "../public/ICustomerService.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 import { getCustomers, addCustomer } from "../../services/customerStore.js";
 import { SPK } from "../SPK.js";
+import logger from "../../core/logging/logger.js";
 
 export class CustomerService implements ICustomerService {
   private localCache: Customer[] = [];
@@ -23,7 +24,7 @@ export class CustomerService implements ICustomerService {
         return this.localCache;
       }
     } catch (e) {
-      console.warn("[CustomerService] Backend API unreachable. Loading from customerStore.", e);
+      logger.warn("[CustomerService] Backend API unreachable. Loading from customerStore.", e as unknown);
     }
     
     // Fallback to customerStore
@@ -103,7 +104,7 @@ export class CustomerService implements ICustomerService {
       SPK.events.emit(isNew ? "CustomerCreated" : "CustomerUpdated", normalized.id, normalized);
       return normalized;
     } catch (err) {
-      console.warn("[CustomerService] Backend save warning, caching locally.", err);
+      logger.warn("[CustomerService] Backend save warning, caching locally.", err as unknown);
       this.upsertLocalCache(cust);
       addCustomer(cust);
       SPK.events.emit(isNew ? "CustomerCreated" : "CustomerUpdated", cust.id, cust);
@@ -115,7 +116,7 @@ export class CustomerService implements ICustomerService {
     try {
       await apiFetchV1(`/customers/${id}`, { method: "DELETE" });
     } catch (e) {
-      console.warn("[CustomerService] Offline delete warning.", e);
+      logger.warn("[CustomerService] Offline delete warning.", e as unknown);
     }
     this.localCache = this.localCache.filter((c) => c.id !== id);
     SPK.events.emit("CustomerDeleted", id, { id });

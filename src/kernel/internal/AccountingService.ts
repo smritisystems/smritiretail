@@ -6,6 +6,7 @@
  * License      : Proprietary Commercial Software
  */
 
+import logger from "../../core/logging/logger.js";
 import { AccountHead, IAccountingService, JournalVoucherRecord } from "../public/IAccountingService.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 import { SPK } from "../SPK.js";
@@ -55,7 +56,7 @@ export class AccountingService implements IAccountingService {
         return this.vouchersCache;
       }
     } catch (e) {
-      console.warn("[AccountingService] API unreachable. Serving cached vouchers.", e);
+      logger.warn("[AccountingService] API unreachable. Serving cached vouchers.", e as unknown);
     }
     return this.vouchersCache;
   }
@@ -100,7 +101,7 @@ export class AccountingService implements IAccountingService {
       SPK.events.emit("JournalPosted", normalized.id, normalized);
       return normalized;
     } catch (err) {
-      console.warn("[AccountingService] Backend voucher save warning, caching locally.", err);
+      logger.warn("[AccountingService] Backend voucher save warning, caching locally.", err as unknown);
       this.upsertLocalVoucher(record);
       SPK.events.emit("JournalPosted", record.id, record);
       return record;

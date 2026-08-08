@@ -365,6 +365,7 @@ export const SEDSWorkspaceShell: React.FC<SEDSWorkspaceShellProps> = ({
         </div>
 
         <div className="flex items-center gap-4 font-mono">
+          <span className="hidden lg:inline text-theme-muted/70 italic text-[9px]">"One Workspace. Infinite Business Scenarios." — SMRITI adapts to the business</span>
           <span>Role: <strong className="text-theme-heading">{currentUserRole}</strong></span>
           <span>SMRITI Business OS <strong className="text-indigo-400">v{version}</strong></span>
         </div>

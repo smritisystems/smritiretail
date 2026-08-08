@@ -1,24 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Organization : SmritiSys
-Module       : SCDM — SMRITI Channel Distribution Management Service
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Version      : 1.0.0
-Created      : 2026-07-30
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-Canonical Owner (GR-011): All channel distribution business logic lives here.
-Do NOT re-implement channel dispatch, stock movement, or projection logic
-in any other module. Extend this service instead.
+Founder:
+SmritiSys
+AITDL Networks
 
-Architecture:
-  - Source of Truth = ChannelStockMovement (immutable, append-only)
-  - Projection = v_scdm_stock_projection (DB view — computed from movements)
-  - ZERO write path to warehouse stock (StockMovement) or accounting tables
-  - Multi-company / multi-branch scoped via tenant_ctx
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 import uuid
@@ -59,6 +57,20 @@ from ..models.scdm_settlement import (
 from .event_bus import event_bus, Events
 
 logger = logging.getLogger("smriti.scdm")
+
+DEFAULT_BILLING_POLICY = "InvoiceOnDispatch"
+VALID_BILLING_POLICIES = {
+    DEFAULT_BILLING_POLICY,
+    "InvoiceOnSellOut",
+    "InvoiceWeekly",
+    "InvoiceMonthly",
+    "Hybrid",
+}
+
+
+def _billing_policy(customer: Optional[Customer]) -> str:
+    policy = getattr(customer, "billing_policy", None) if customer else None
+    return policy if policy in VALID_BILLING_POLICIES else DEFAULT_BILLING_POLICY
 
 
 def _uid(prefix: str = "") -> str:
@@ -146,6 +158,7 @@ class SCDMService:
         total_cost = Decimal("0.00")
         total_inv_val = Decimal("0.00")
 
+        billing_policy = _billing_policy(customer)
         dispatch = ChannelDispatch(
             id=dispatch_id,
             uuid=str(uuid.uuid4()),
@@ -155,10 +168,15 @@ class SCDMService:
             channel_location_id=None,  # resolved later if customer has default location
             dispatch_date=dispatch_date,
             status=ChannelDispatchStatus.POSTED.value,
+            billing_policy=billing_policy,
             tenant_id=getattr(self.tenant_ctx, "tenant_id", None),
             company_id=getattr(self.tenant_ctx, "company_id", None),
             branch_id=getattr(self.tenant_ctx, "branch_id", None),
-            metadata_json={"source": "auto_invoice_posted", "invoice_no": invoice.invoice_no},
+            metadata_json={
+                "source": "auto_invoice_posted",
+                "invoice_no": invoice.invoice_no,
+                "billing_policy": billing_policy,
+            },
         )
 
         lines: list[ChannelDispatchLine] = []
@@ -512,6 +530,12 @@ class SCDMService:
         if import_job.status not in (ImportStatus.PENDING.value, ImportStatus.ERROR.value):
             raise HTTPException(status_code=400, detail=f"Import {import_id} is not in Pending/Error state")
 
+        customer_res = await self.db.execute(
+            select(Customer).where(Customer.id == import_job.customer_id)
+        )
+        customer = customer_res.scalars().first()
+        billing_policy = _billing_policy(customer)
+
         import_job.status = ImportStatus.PROCESSING.value
         self.db.add(import_job)
         await self.db.flush()
@@ -605,6 +629,8 @@ class SCDMService:
                 "import_id": import_job.id,
                 "import_no": import_job.import_no,
                 "customer_id": import_job.customer_id,
+                "billing_policy": billing_policy,
+                "financial_posting": "reconciliation_only",
                 "accepted": accepted,
                 "rejected": rejected,
             },

@@ -1,0 +1,11 @@
+{
+  "name": "smriti-platform-kernel",
+  "version": "1.0.0-dev",
+  "architectureStage": "Stage 4",
+  "status": "Frozen",
+  "spcVersion": "1.0.0",
+  "sdkVersion": "1.x",
+  "freezeDate": "2026-08-01",
+  "testCount": 16,
+  "stage5Dependency": "Notification services must consume Stage 4 events and must not publish directly"
+}

@@ -241,7 +241,7 @@ export const AboutSmritiTab: React.FC = () => {
                       }}
                       className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-3 transition-colors cursor-pointer ${
                         activeSection === section.id 
-                          ? "bg-[#2563EB]/20 border border-[#2563EB]/40 text-blue-400 font-semibold" 
+                          ? "bg-[var(--c-seef-accent)]/20 border border-[var(--c-seef-accent)]/40 text-blue-400 font-semibold" 
                           : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-body"
                       }`}
                     >
@@ -288,7 +288,7 @@ export const AboutSmritiTab: React.FC = () => {
             {activeSection === "dashboard" && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-400">
                 {/* Welcome Banner */}
-                <div className="bg-gradient-to-r from-blue-900/40 via-indigo-900/30 to-theme-surface-1 border border-[#2563EB]/20 rounded-xl p-8 shadow-sm relative overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-900/40 via-indigo-900/30 to-theme-surface-1 border border-[var(--c-seef-accent)]/20 rounded-xl p-8 shadow-sm relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none text-blue-400">
                     <Sparkles size={120} />
                   </div>
@@ -299,7 +299,7 @@ export const AboutSmritiTab: React.FC = () => {
                     Welcome to the SMRITI Reference Desk. This module serves as the primary system registry and operational overview for version controls, author details, architectures, and support.
                   </p>
                   <div className="flex flex-wrap gap-3">
-                    <span className="px-2.5 py-1 text-xs font-bold font-mono tracking-wider uppercase bg-[#2563EB]/15 text-blue-400 rounded border border-[#2563EB]/30">
+                    <span className="px-2.5 py-1 text-xs font-bold font-mono tracking-wider uppercase bg-[var(--c-seef-accent)]/15 text-blue-400 rounded border border-[var(--c-seef-accent)]/30">
                       {metadata?.app.edition}
                     </span>
                     <span className="px-2.5 py-1 text-xs font-bold font-mono tracking-wider uppercase bg-theme-surface-3 rounded border border-theme-divider text-theme-muted">
@@ -383,7 +383,7 @@ export const AboutSmritiTab: React.FC = () => {
                 <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-8 shadow-sm flex flex-col items-center text-center">
                   {/* Glowing SVG Logo */}
                   <div className="relative mb-6">
-                    <div className="absolute inset-0 bg-[#2563EB]/25 blur-xl rounded-full"></div>
+                    <div className="absolute inset-0 bg-[var(--c-seef-accent)]/25 blur-xl rounded-full"></div>
                     <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center font-bold text-5xl font-display text-white shadow-xl relative z-10 ring-4 ring-[#2563EB]/20">
                       S
                     </div>
@@ -391,7 +391,7 @@ export const AboutSmritiTab: React.FC = () => {
                   <h1 className="text-3xl font-bold font-display text-white mb-2">
                     {metadata?.app.productName}
                   </h1>
-                  <span className="px-2.5 py-1 text-xs font-bold font-mono tracking-wider uppercase bg-[#2563EB]/15 text-blue-500 rounded border border-[#2563EB]/25 mb-4">
+                  <span className="px-2.5 py-1 text-xs font-bold font-mono tracking-wider uppercase bg-[var(--c-seef-accent)]/15 text-blue-500 rounded border border-[var(--c-seef-accent)]/25 mb-4">
                     {metadata?.app.edition}
                   </span>
                   <p className="max-w-xl text-theme-muted mb-8 leading-relaxed text-sm">

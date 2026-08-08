@@ -12,9 +12,12 @@
 import { PrintJob, PrinterCapability, PrintResult } from "../models/PrintDocument.js";
 
 export type PrintingEventType =
+  | "PRINTER_DISCOVERED"
   | "PRINTER_CONNECTED"
   | "PRINTER_DISCONNECTED"
   | "PRINTER_OFFLINE"
+  | "USB_PERMISSION_GRANTED"
+  | "USB_PERMISSION_DENIED"
   | "JOB_QUEUED"
   | "JOB_STARTED"
   | "JOB_COMPLETED"
@@ -32,6 +35,8 @@ export interface PrintingEventPayload {
 }
 
 type EventCallback = (payload: PrintingEventPayload) => void;
+
+import logger from "../../logging/logger.js";
 
 export class PrintingEventBus {
   private static listeners: Map<PrintingEventType, Set<EventCallback>> = new Map();
@@ -54,7 +59,7 @@ export class PrintingEventBus {
         try {
           cb(payload);
         } catch (e) {
-          console.error("[PrintingEventBus] Listener error:", e);
+          logger.error("[PrintingEventBus] Listener error:", e as unknown);
         }
       });
     }

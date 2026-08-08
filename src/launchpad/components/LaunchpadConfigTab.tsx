@@ -1,9 +1,9 @@
 /**
  * Project      : SMRITI Retail OS
- * Module       : Launchpad Configuration Tab (Admin Settings — SLP-001 v1.0)
+ * Module       : Launchpad Configuration Tab (Admin Settings â€” SLP-001 v1.0)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * Version      : 5.4.0
  */
 
@@ -41,12 +41,12 @@ export const LaunchpadConfigTab: React.FC<LaunchpadConfigTabProps> = ({ onNotifi
         <div className="bg-theme-surface-1 border border-theme-divider rounded-lg p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 mb-1">
-              <span className="px-2.5 py-0.5 text-xs font-mono rounded bg-[#354a5e] text-white border border-[#4c6680] flex items-center gap-1.5 shadow-xs">
-                <Sparkles className="w-3.5 h-3.5 text-[#6fa8dc]" /> SLP-001 / Rule SLP-002 Certified
+              <span className="px-2.5 py-0.5 text-xs font-mono rounded bg-theme-surface-2 text-theme-body border border-theme-divider flex items-center gap-1.5 shadow-xs">
+                <Sparkles className="w-3.5 h-3.5 text-[var(--c-seef-accent)]" /> SLP-001 / Rule SLP-002 Certified
               </span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-theme-heading flex items-center gap-2">
-              <Grid className="w-6 h-6 text-[#0a6ed1]" /> Launchpad Configuration
+              <Grid className="w-6 h-6 text-[var(--c-seef-accent)]" /> Launchpad Configuration
             </h1>
             <p className="text-sm text-theme-muted">
               Select industry workspace templates and customize digital desktop density.
@@ -58,7 +58,7 @@ export const LaunchpadConfigTab: React.FC<LaunchpadConfigTabProps> = ({ onNotifi
           {/* Workspace Templates Selector */}
           <div className="bg-theme-surface-1 border border-theme-divider rounded-lg p-6 shadow-xs space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-theme-muted flex items-center gap-2 border-b border-theme-divider pb-2">
-              <Layout className="w-4 h-4 text-[#0a6ed1]" /> Industry Workspace Templates
+              <Layout className="w-4 h-4 text-[var(--c-seef-accent)]" /> Industry Workspace Templates
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -70,7 +70,7 @@ export const LaunchpadConfigTab: React.FC<LaunchpadConfigTabProps> = ({ onNotifi
                     onClick={() => setSelectedTemplateId(tmpl.id)}
                     className={`p-4 rounded-lg border cursor-pointer transition-all shadow-xs flex flex-col justify-between ${
                       isSelected
-                        ? "bg-[#0a6ed1]/10 border-[#0a6ed1] ring-1 ring-[#0a6ed1]"
+                        ? "bg-[var(--launchpad-tile-active-border)]/10 border-[var(--launchpad-tile-active-border)] ring-1 ring-[var(--launchpad-tile-active-border)]"
                         : "bg-theme-surface-2 border-theme-divider hover:border-theme-heading"
                     }`}
                   >
@@ -79,7 +79,7 @@ export const LaunchpadConfigTab: React.FC<LaunchpadConfigTabProps> = ({ onNotifi
                         <h3 className="text-sm font-bold text-theme-heading flex items-center gap-2">
                           {tmpl.name}
                         </h3>
-                        {isSelected && <CheckCircle2 className="w-4 h-4 text-[#0a6ed1]" />}
+                        {isSelected && <CheckCircle2 className="w-4 h-4 text-[var(--c-seef-accent)]" />}
                       </div>
                       <p className="text-xs text-theme-muted leading-relaxed">{tmpl.description}</p>
                     </div>
@@ -97,7 +97,7 @@ export const LaunchpadConfigTab: React.FC<LaunchpadConfigTabProps> = ({ onNotifi
           {/* Density Settings */}
           <div className="bg-theme-surface-1 border border-theme-divider rounded-lg p-6 shadow-xs space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-theme-muted flex items-center gap-2 border-b border-theme-divider pb-2">
-              <Sliders className="w-4 h-4 text-[#0a6ed1]" /> UI Layout Density
+              <Sliders className="w-4 h-4 text-[var(--c-seef-accent)]" /> UI Layout Density
             </h2>
 
             <div className="flex items-center gap-4">
@@ -108,7 +108,7 @@ export const LaunchpadConfigTab: React.FC<LaunchpadConfigTabProps> = ({ onNotifi
                   value="comfortable"
                   checked={density === "comfortable"}
                   onChange={() => setDensity("comfortable")}
-                  className="accent-[#0a6ed1]"
+                  className="accent-[var(--c-seef-accent)]"
                 />
                 Comfortable (Standard spacing)
               </label>
@@ -120,7 +120,7 @@ export const LaunchpadConfigTab: React.FC<LaunchpadConfigTabProps> = ({ onNotifi
                   value="compact"
                   checked={density === "compact"}
                   onChange={() => setDensity("compact")}
-                  className="accent-[#0a6ed1]"
+                  className="accent-[var(--c-seef-accent)]"
                 />
                 Compact (High data density)
               </label>
@@ -133,7 +133,7 @@ export const LaunchpadConfigTab: React.FC<LaunchpadConfigTabProps> = ({ onNotifi
             </span>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-lg bg-[#0a6ed1] hover:bg-[#0854a0] text-white text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+              className="px-5 py-2.5 rounded-lg text-white text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer"
             >
               <Save className="w-4 h-4" /> Save Configuration
             </button>

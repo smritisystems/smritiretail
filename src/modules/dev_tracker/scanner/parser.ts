@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -27,7 +27,7 @@ import fs from "fs";
 import path from "path";
 
 // Helper to recursively list all files matching extensions
-export function getFilesRecursively(dir: string, extensions: string[] = [".ts", ".tsx", ".js", ".jsx", ".css", ".sql", ".md", ".json"]): string[] {
+export function getFilesRecursively(dir: string, extensions: string[] = [".ts", ".tsx", ".js", ".jsx", ".css", ".sql", ".md", ".json", ".py"]): string[] {
   let results: string[] = [];
   if (!fs.existsSync(dir)) return results;
 
@@ -36,7 +36,18 @@ export function getFilesRecursively(dir: string, extensions: string[] = [".ts", 
     const filePath = path.join(dir, file);
     const stat = fs.statSync(filePath);
     if (stat && stat.isDirectory()) {
-      if (file !== "node_modules" && file !== "dist" && file !== ".git" && file !== ".gemini" && file !== ".agents") {
+      if (
+        file !== "node_modules" && 
+        file !== "dist" && 
+        file !== ".git" && 
+        file !== ".gemini" && 
+        file !== ".agents" && 
+        file !== ".venv" && 
+        file !== "venv" && 
+        file !== "__pycache__" && 
+        file !== ".pytest_cache" && 
+        file !== ".mypy_cache"
+      ) {
         results = results.concat(getFilesRecursively(filePath, extensions));
       }
     } else {
@@ -48,6 +59,10 @@ export function getFilesRecursively(dir: string, extensions: string[] = [".ts", 
   }
   return results;
 }
+
+import { defaultAdapterRegistry } from "./adapters/AdapterRegistry.ts";
+import { EvidenceGraphContainer } from "./adapters/EvidenceGraph.ts";
+import { EvidenceCacheManager } from "./adapters/EvidenceCacheManager.ts";
 
 export interface ParsedCodebase {
   filesList: string[];
@@ -62,6 +77,7 @@ export interface ParsedCodebase {
   docFiles: string[];
   fileContentsMap: Map<string, string>;
   componentImports: Map<string, string[]>;
+  evidenceGraph: EvidenceGraphContainer;
 }
 
 export function parseCodebase(): ParsedCodebase {
@@ -88,8 +104,15 @@ export function parseCodebase(): ParsedCodebase {
   for (const filePath of allFiles) {
     const relPath = path.relative(rootDir, filePath).replace(/\\/g, "/");
     
-    // Categorize test and doc files
-    if (relPath.startsWith("src/tests/") || relPath.endsWith(".test.ts") || relPath.endsWith(".test.tsx")) {
+    // Categorize test and doc files (both TS/JS vitest and Python pytest)
+    if (
+      relPath.startsWith("src/tests/") || 
+      relPath.endsWith(".test.ts") || 
+      relPath.endsWith(".test.tsx") ||
+      relPath.startsWith("backend/app/tests/") ||
+      relPath.startsWith("backend/tests/") ||
+      relPath.includes("test_")
+    ) {
       testFiles.push(relPath);
     }
     if (relPath.startsWith("docs/") && relPath.endsWith(".md")) {
@@ -128,19 +151,27 @@ export function parseCodebase(): ParsedCodebase {
         }
       }
 
-      // 4. Parse server.ts routes
-      if (relPath === "server.ts") {
-        const routeRegex = /app\.(get|post|put|delete)\(\s*["'](\/api\/.*?)["']/g;
+      // 4. Parse FastAPI backend routes
+      if (relPath.startsWith("backend/app/api/") && relPath.endsWith(".py")) {
+        const pyRouteRegex = /@router\.(get|post|put|delete|patch)\(\s*["'](\/.*?)["']/g;
         let match;
-        while ((match = routeRegex.exec(content)) !== null) {
-          if (!routesInServer.includes(match[2])) {
-            routesInServer.push(match[2]);
+        const prefixMatch = content.match(/APIRouter\([^)]*prefix=["'](\/[^"']+)["']/);
+        const prefix = prefixMatch ? prefixMatch[1] : "";
+        while ((match = pyRouteRegex.exec(content)) !== null) {
+          const rawRoute = `/api/v1${prefix}${match[2]}`.replace(/\/+/g, "/");
+          if (!routesInServer.includes(rawRoute)) {
+            routesInServer.push(rawRoute);
+          }
+          // Also add /api<prefix> alias for route matching flexibility
+          const aliasRoute = `/api${prefix}${match[2]}`.replace(/\/+/g, "/");
+          if (!routesInServer.includes(aliasRoute)) {
+            routesInServer.push(aliasRoute);
           }
         }
       }
 
       // 5. Parse frontend fetched routes
-      if (relPath.startsWith("src/") && (relPath.endsWith(".tsx") || relPath.endsWith(".ts")) && relPath !== "server.ts") {
+      if (relPath.startsWith("src/") && (relPath.endsWith(".tsx") || relPath.endsWith(".ts"))) {
         const fetchRegex = /fetch\(\s*["'](\/api\/.*?)["']/g;
         let match;
         while ((match = fetchRegex.exec(content)) !== null) {
@@ -150,11 +181,11 @@ export function parseCodebase(): ParsedCodebase {
         }
       }
 
-      // 6. Parse Database tables from schema.sql
-      if (relPath === "src/db/schema.sql" || relPath === "server.ts") {
-        const tableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/gi;
+      // 6. Parse Database tables from SQLAlchemy models
+      if (relPath.startsWith("backend/app/models/") && relPath.endsWith(".py")) {
+        const modelRegex = /__tablename__\s*=\s*["'](\w+)["']/g;
         let match;
-        while ((match = tableRegex.exec(content)) !== null) {
+        while ((match = modelRegex.exec(content)) !== null) {
           const tableName = match[1].toLowerCase();
           if (!tablesInDb.includes(tableName)) {
             tablesInDb.push(tableName);
@@ -166,6 +197,26 @@ export function parseCodebase(): ParsedCodebase {
       console.error(`[SDIC Scanner] Failed to parse file ${relPath}:`, e);
     }
   }
+
+  // Execute Pluggable Adapter Registry Pipeline (SDS v2.5 / SADS v1.0 Incremental Engine)
+  const evidenceGraph = new EvidenceGraphContainer();
+  const cacheManager = new EvidenceCacheManager();
+  const cached = cacheManager.loadCache();
+
+  const activeAdaptersObj: Record<string, string> = {};
+  defaultAdapterRegistry.getAdapters().forEach(a => { activeAdaptersObj[a.id] = a.version; });
+
+  if (cached) {
+    const changes = cacheManager.detectFileChanges(fileContentsMap, cached);
+    console.log(`[SDIC Cache] Incremental Scan: ${changes.modified.length} modified, ${changes.added.length} added, ${changes.deleted.length} deleted, ${changes.unchanged.length} unchanged.`);
+    defaultAdapterRegistry.executeIncremental(fileContentsMap, cached, changes, evidenceGraph);
+  } else {
+    console.log("[SDIC Scanner] Performing Full Workspace Scan...");
+    defaultAdapterRegistry.executeAll(fileContentsMap, evidenceGraph);
+  }
+
+  // Save updated persistent SHA-256 evidence cache
+  cacheManager.saveCache(fileContentsMap, evidenceGraph, activeAdaptersObj);
 
   return {
     filesList: allFiles.map(f => path.relative(rootDir, f).replace(/\\/g, "/")),
@@ -179,6 +230,7 @@ export function parseCodebase(): ParsedCodebase {
     testFiles,
     docFiles,
     fileContentsMap,
-    componentImports
+    componentImports,
+    evidenceGraph
   };
 }

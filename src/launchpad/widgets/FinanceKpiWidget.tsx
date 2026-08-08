@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Module       : Finance & Accounting KPI Plugin Widget (Rule SLP-002 Compliant)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * Version      : 5.4.0
  */
 
@@ -17,7 +17,7 @@ export const FinanceKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> = (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <div
         onClick={() => onSelectTab("ledger")}
-        className="bg-theme-surface-1 border border-theme-divider hover:border-[#0a6ed1] p-3.5 rounded-lg cursor-pointer transition-all shadow-xs"
+        className="bg-theme-surface-1 border border-theme-divider hover:border-[var(--c-seef-accent)] p-3.5 rounded-lg cursor-pointer transition-all shadow-xs"
       >
         <div className="flex items-center justify-between text-xs text-theme-muted mb-1">
           <span>Net Cash Balance</span>
@@ -29,7 +29,7 @@ export const FinanceKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> = (
 
       <div
         onClick={() => onSelectTab("ledger")}
-        className="bg-theme-surface-1 border border-theme-divider hover:border-[#0a6ed1] p-3.5 rounded-lg cursor-pointer transition-all shadow-xs"
+        className="bg-theme-surface-1 border border-theme-divider hover:border-[var(--c-seef-accent)] p-3.5 rounded-lg cursor-pointer transition-all shadow-xs"
       >
         <div className="flex items-center justify-between text-xs text-theme-muted mb-1">
           <span>Accounts Receivable</span>
@@ -41,7 +41,7 @@ export const FinanceKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> = (
 
       <div
         onClick={() => onSelectTab("ledger")}
-        className="bg-theme-surface-1 border border-theme-divider hover:border-[#0a6ed1] p-3.5 rounded-lg cursor-pointer transition-all shadow-xs"
+        className="bg-theme-surface-1 border border-theme-divider hover:border-[var(--c-seef-accent)] p-3.5 rounded-lg cursor-pointer transition-all shadow-xs"
       >
         <div className="flex items-center justify-between text-xs text-theme-muted mb-1">
           <span>Accounts Payable</span>
@@ -53,7 +53,7 @@ export const FinanceKpiWidgetComponent: React.FC<LaunchpadWidgetPluginProps> = (
 
       <div
         onClick={() => onSelectTab("reports")}
-        className="bg-theme-surface-1 border border-theme-divider hover:border-[#0a6ed1] p-3.5 rounded-lg cursor-pointer transition-all shadow-xs"
+        className="bg-theme-surface-1 border border-theme-divider hover:border-[var(--c-seef-accent)] p-3.5 rounded-lg cursor-pointer transition-all shadow-xs"
       >
         <div className="flex items-center justify-between text-xs text-theme-muted mb-1">
           <span>GST Liability (Est.)</span>

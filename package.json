@@ -4,7 +4,7 @@
   "description": "Enterprise Retail Experience & Intelligence Layer",
   "homepage": "https://smritisys.com",
   "engines": {
-    "node": ">=20 <21",
+    "node": ">=22 <23",
     "npm": ">=9"
   },
   "author": {
@@ -16,14 +16,13 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/build_buffer_polyfill.js && vite build",
-
-
     "preview": "vite preview",
     "start": "npm run dev",
     "lint": "tsc --noEmit",
     "validate:seds": "node scripts/validate_seds.js",
     "swsdk:create": "node scripts/swsdk/scaffold_workspace.js",
-    "test": "vitest run",
+    "generate:capability-catalog": "node src/product-foundation/scripts/generateCatalog.mjs",
+    "test": "node --max-old-space-size=4096 ./node_modules/vitest/vitest.mjs run --maxWorkers=1",
     "start:fastapi": "python -m uvicorn backend.app.main:app --port 8000 --reload"
   },
   "dependencies": {
@@ -35,6 +34,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.395.0",
+    "markdown-it": "^15.0.0",
     "motion": "^11.2.10",
     "pg": "^8.22.0",
     "qrcode": "^1.5.4",
@@ -52,9 +52,11 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@types/supertest": "^7.2.0",
-    "@vitejs/plugin-react": "^4.3.0",
+    "@vitejs/plugin-react": "^6.0.5",
     "@vitest/coverage-v8": "^4.1.10",
     "esbuild": "^0.28.1",
+    "jsdom": "^30.0.1",
+    "rollup-plugin-visualizer": "^7.0.1",
     "supertest": "^7.2.2",
     "typescript": "^5.4.5",
     "vite": "^8.1.5",

@@ -1,3 +1,24 @@
+<!--
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+-->
+
 # SMRITI Architecture Documentation
 
 This folder contains architecture-level documentation for SMRITI Retail OS.
@@ -8,8 +29,21 @@ The architecture docs provide guidance for enterprise-grade design, governance, 
 
 ## Key Documents
 
+- `SMRITI_EXPERIENCE_PLATFORM_ARCHITECTURE_v1.0.md` — SMRITI Experience Platform product architecture and SEP / SDEF master UX constitution
+- `SMRITI_UX_ARCHITECTURE_v3.0.md` — SMRITI UX architecture and dual experience framework specification
+- `SMRITI_DESIGN_SYSTEM_SPECIFICATION_V1.md` — SMRITI Design System governance and token architecture
+- `SMRITI_DESIGN_STUDIO_SPECIFICATION.md` — SMRITI Design Studio preview, validation, and comparison studio
+- `SMRITI_THEME_ENGINE_SPECIFICATION.md` — SMRITI theme engine runtime and token orchestration
+- `SMRITI_ACCESSIBILITY_STANDARD.md` — SMRITI accessibility rules and certification standard
+- `SMRITI_DESIGN_LANGUAGE_GUIDE.md` — SMRITI visual language philosophy and design rules
+- `SMRITI_COMPONENT_LIBRARY.md` — SMRITI shared UI component contracts and library
+- `SMRITI_RESPONSIVE_RULEBOOK.md` — SMRITI responsive UX rules and business-driven breakpoints
+- `SMRITI_UX_GOVERNANCE.md` — SMRITI UX governance, scoring, and release gate framework
+- `SMRITI_PURCHASE_ORDER_BLUEPRINT_V2.md` — SMRITI Purchase Order v2.0 UX blueprint
 - `SMRITI_BUSINESS_OS_V2_SPECIFICATION.md` — SMRITI Business OS v2.0 Enterprise Architecture Baseline Specification (Frozen)
+- `RC2_EXECUTION_CONTRACT_v1.0.md` — RC2 delivery governance, capability sequencing, business document lifecycle, and exit criteria
 - `PLATFORM_ADAPTER_RULES.md` — platform adapter and PAL guidance
+- `../templates/business-document/README.md` — reusable template for future business-document implementation packages
 - `PLATFORM_MICROSERVICES_ROADMAP.md` — long-term microservices vision
 - `PRODUCT_IDENTITY_ENGINE.md` — core Product Identity Engine design
 - `PRODUCT_IDENTITY_ENGINE_API_SPEC.md` — API contract for identity and barcode services
@@ -25,6 +59,21 @@ The architecture docs provide guidance for enterprise-grade design, governance, 
 - `PRODUCT_IDENTITY_ENGINE_MIGRATION.md` — migration strategy for legacy SKUs and barcodes
 - `PRODUCT_IDENTITY_ENGINE_ROADMAP.md` — phased product roadmap for PIE
 
+## Experience Runtime & UX Governance
+
+- `SMRITI_EXPERIENCE_PLATFORM_ARCHITECTURE_v1.0.md`
+- `SMRITI_UX_ARCHITECTURE_v3.0.md`
+- `SPK_Experience_Runtime_Mapping.md`
+- `SMRITI_ARCHITECTURE_DEPENDENCY_MAP.md`
+- `SMRITI_DESIGN_STUDIO_SPECIFICATION.md`
+- `SMRITI_DESIGN_SYSTEM_SPECIFICATION_V1.md`
+- `SMRITI_DESIGN_LANGUAGE_GUIDE.md`
+- `SMRITI_COMPONENT_LIBRARY.md`
+- `SMRITI_RESPONSIVE_RULEBOOK.md`
+- `SMRITI_THEME_ENGINE_SPECIFICATION.md`
+- `SMRITI_ACCESSIBILITY_STANDARD.md`
+- `SMRITI_UX_GOVERNANCE.md`
+
 ## Architecture Decision Records (ADR)
 
 The `decisions/` subfolder contains architecture decision records that document why key PIE design choices were made:
@@ -34,6 +83,10 @@ The `decisions/` subfolder contains architecture decision records that document 
 - `decisions/ADR-003-GS1-Assignment-Policy.md`
 - `decisions/ADR-004-Event-Sourcing.md`
 - `decisions/ADR-005-Multi-Barcode-Support.md`
+- `adr-0006.md` — Retail OS implementation note for SPK Stage 3B registration integration
+- `SPK-COMPATIBILITY.md` — Retail OS compatibility declaration for the published SPK registration contract
+- For the authoritative ecosystem compatibility dashboard, see: `F:\SMRITI\smriti-architecture\compatibility\PLATFORM-COMPATIBILITY-MATRIX.md`
+- For milestone planning and release sequencing, see: `F:\SMRITRretailNXmgrt\smriti-roadmap\ROADMAP.md`
 
 ## Purpose
 
@@ -42,6 +95,7 @@ These documents capture the target architecture for SMRITI's identity governance
 ## Navigation
 
 - Architecture
+  - `RC2_EXECUTION_CONTRACT_v1.0.md`
   - `PRODUCT_IDENTITY_ENGINE.md`
   - `PRODUCT_IDENTITY_ENGINE_ERD.md`
   - `PRODUCT_IDENTITY_ENGINE_SEQUENCE.md`

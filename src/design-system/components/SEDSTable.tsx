@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Business OS
  * Component    : SEDSTable (SMRITI Enterprise Design System Data Table)
  * Author       : Jawahar Ramkripal Mallah
@@ -210,7 +210,7 @@ export function SEDSTable<T>({
             </button>
 
             {showColumnChooser && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-[#141720] border border-indigo-500/30 rounded-2xl shadow-2xl z-50 p-3 space-y-2 text-xs">
+              <div className="absolute right-0 top-full mt-2 w-56 bg-theme-surface-1 border border-indigo-500/30 rounded-2xl shadow-2xl z-50 p-3 space-y-2 text-xs">
                 <div className="font-bold text-theme-body pb-1 border-b border-theme-divider flex items-center justify-between">
                   <span>Toggle Columns</span>
                   <span className="text-[10px] font-mono text-theme-muted">{activeColumns.length}/{initialColumns.length}</span>
@@ -238,7 +238,7 @@ export function SEDSTable<T>({
       <div className="overflow-x-auto w-full max-h-[600px] overflow-y-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className={`bg-[#181c28] border-b border-theme-divider text-[11px] font-bold text-theme-muted uppercase tracking-wider ${stickyHeader ? "sticky top-0 z-10 bg-[#181c28]" : ""}`}>
+            <tr className={`bg-theme-surface-1 border-b border-theme-divider text-[11px] font-bold text-theme-muted uppercase tracking-wider ${stickyHeader ? "sticky top-0 z-10 bg-theme-surface-1" : ""}`}>
               {selectable && (
                 <th className="w-10 px-4 py-3 text-center">
                   <button onClick={toggleSelectAll} className="text-theme-muted hover:text-theme-body transition">

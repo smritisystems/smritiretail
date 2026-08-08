@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS v5.0
  * Module       : Supplier & Vendor Management Platform
- *                SMRITI Adaptive Form Framework — Quick Add + Advanced Add
+ *                SMRITI Adaptive Form Framework â€” Quick Add + Advanced Add
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com and AITDL.com. All Rights Reserved.
  * Version      : 5.8.0
  */
 
@@ -25,7 +25,7 @@ import {
   Zap, Settings2, RotateCcw, Save, AlertOctagon, Info
 } from "lucide-react";
 
-/* ═══════════════════ TYPES ═══════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• TYPES â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 export interface SupplierContactRole {
   id: string;
   name: string;
@@ -142,7 +142,7 @@ export interface SupplierItem {
   created_by?: string;
 }
 
-/* ═══════════════════ CONSTANTS ═══════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• CONSTANTS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 const DRAFT_KEY = "smriti_supplier_draft_v1";
 const MODE_KEY  = "smriti_supplier_form_mode_v1";
 const GSTIN_STATE_MAP: Record<string, string> = {
@@ -162,7 +162,7 @@ const GSTIN_STATE_MAP: Record<string, string> = {
 const INDIAN_STATES = ["Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal","Andaman and Nicobar Islands","Chandigarh","Dadra and Nagar Haveli","Daman and Diu","Delhi","Jammu & Kashmir","Ladakh","Lakshadweep","Puducherry"];
 const BANKS = ["HDFC Bank","ICICI Bank","State Bank of India","Axis Bank","Kotak Mahindra Bank","Punjab National Bank","Bank of Baroda","Canara Bank","Union Bank of India","Bank of India","IndusInd Bank","Yes Bank","Federal Bank","IDFC First Bank","RBL Bank"];
 
-/* ═══════════════════ BLANK FORM ═══════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• BLANK FORM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 const blankForm = () => ({
   code: `VND-${Math.floor(1000 + Math.random() * 9000)}`,
   name: "", legal_name: "", display_name: "", trade_name: "",
@@ -207,6 +207,7 @@ const blankForm = () => ({
 
 type FormData = ReturnType<typeof blankForm>;
 type FormMode = "quick" | "advanced";
+type WorkspaceMode = "simple" | "advanced";
 type SectionKey = "company" | "gst" | "contacts" | "addresses" | "banking" | "purchase" | "finance" | "logistics" | "documents" | "labels";
 
 interface Props {
@@ -214,16 +215,19 @@ interface Props {
   onNotification?: (title: string, message: string, type?: "success" | "error") => void;
 }
 
-/* ═══════════════════ COMPONENT ═══════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• COMPONENT â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotification }) => {
   const isReadOnly = currentUser?.role === "Report User";
 
-  /* ── Sub tabs ── */
+  /* â”€â”€ Sub tabs â”€â”€ */
   const [activeSubTab, setActiveSubTab] = useState<
     "directory" | "dashboard" | "msme" | "tds" | "expiry" | "performance"
   >("directory");
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() => {
+    try { return (localStorage.getItem("smriti_supplier_workspace_mode_v1") as WorkspaceMode) || "simple"; } catch { return "simple"; }
+  });
 
-  /* ── Seeded suppliers ── */
+  /* â”€â”€ Seeded suppliers â”€â”€ */
   const [suppliers, setSuppliers] = useState<SupplierItem[]>([
     {
       id: "SUP-001", code: "SUP-001", name: "TechCorp Distributors",
@@ -300,10 +304,10 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
     }
   ]);
 
-  /* ── Search ── */
+  /* â”€â”€ Search â”€â”€ */
   const [searchTerm, setSearchTerm] = useState("");
 
-  /* ── Modal state ── */
+  /* â”€â”€ Modal state â”€â”€ */
   const [isModalOpen, setIsModalOpen]   = useState(false);
   const [formMode, setFormMode]         = useState<FormMode>(() => {
     try { return (localStorage.getItem(MODE_KEY) as FormMode) || "quick"; } catch { return "quick"; }
@@ -314,18 +318,18 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-  /* ── Advanced: section open state ── */
+  /* â”€â”€ Advanced: section open state â”€â”€ */
   const [openSections, setOpenSections] = useState<Set<SectionKey>>(
     new Set(["company", "gst"])
   );
 
-  /* ── Dynamic lists ── */
+  /* â”€â”€ Dynamic lists â”€â”€ */
   const [extraAddresses, setExtraAddresses]   = useState<SupplierAddressRecord[]>([]);
   const [extraContacts, setExtraContacts]     = useState<SupplierContactRole[]>([]);
   const [extraBanks, setExtraBanks]           = useState<SupplierBankAccount[]>([]);
   const [attachedDocs, setAttachedDocs]       = useState<SupplierDocumentRecord[]>([]);
 
-  /* ── Studio ── */
+  /* â”€â”€ Studio â”€â”€ */
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierItem | null>(null);
   const [studioTab, setStudioTab] = useState<
     "overview"|"attributes"|"contacts"|"banks"|"addresses"|"gst"|"msme"|
@@ -333,8 +337,12 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
   >("overview");
   const [newLogMessage, setNewLogMessage] = useState("");
   const [logType, setLogType] = useState<"Email"|"WhatsApp"|"Call"|"Payment Reminder">("Call");
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMode, setPaymentMode] = useState<"Cash" | "UPI" | "Bank" | "Cheque">("UPI");
+  const [paymentReference, setPaymentReference] = useState("");
 
-  /* ── Draft auto-save ── */
+  /* â”€â”€ Draft auto-save â”€â”€ */
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const saveDraft = useCallback((data: FormData) => {
@@ -349,7 +357,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
     setHasDraft(false);
   }, []);
 
-  /* ── Field updater ── */
+  /* â”€â”€ Field updater â”€â”€ */
   const set = (field: string, value: any) => {
     setFormData(prev => {
       const next = { ...prev, [field]: value };
@@ -367,14 +375,35 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
     if (validationErrors[field]) setValidationErrors(p => { const n = {...p}; delete n[field]; return n; });
   };
 
-  /* ── Mode switch ── */
+  /* â”€â”€ Mode switch â”€â”€ */
   const switchMode = (mode: FormMode) => {
     setFormMode(mode);
     try { localStorage.setItem(MODE_KEY, mode); } catch { /* ignore */ }
     if (mode === "advanced") setOpenSections(new Set(["company", "gst"]));
   };
 
-  /* ── Section toggle ── */
+  const switchWorkspaceMode = (mode: WorkspaceMode) => {
+    setWorkspaceMode(mode);
+    try { localStorage.setItem("smriti_supplier_workspace_mode_v1", mode); } catch { /* ignore */ }
+  };
+
+  const openPayment = (supplier: SupplierItem) => {
+    setSelectedSupplier(supplier);
+    setPaymentAmount("");
+    setPaymentReference("");
+    setIsPaymentOpen(true);
+  };
+
+  const submitPayment = () => {
+    if (!selectedSupplier || !paymentAmount || Number(paymentAmount) <= 0) {
+      onNotification?.("Payment Amount Required", "Enter an amount greater than zero.", "error");
+      return;
+    }
+    onNotification?.("Payment Recorded", `${paymentMode} payment of ₹${Number(paymentAmount).toLocaleString("en-IN")} recorded for ${selectedSupplier.name}.`, "success");
+    setIsPaymentOpen(false);
+  };
+
+  /* â”€â”€ Section toggle â”€â”€ */
   const toggleSection = (key: SectionKey) => {
     setOpenSections(prev => {
       const next = new Set(prev);
@@ -383,7 +412,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
     });
   };
 
-  /* ── Fetch ── */
+  /* â”€â”€ Fetch â”€â”€ */
   const fetchSuppliers = async () => {
     try {
       const data = await apiFetchV1("/purchase/suppliers/");
@@ -421,7 +450,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
     recordAuditAction("VIEW", "suppliers", activeSubTab, `Switched to: ${activeSubTab}`);
   }, [activeSubTab]);
 
-  /* ── Open modal ── */
+  /* â”€â”€ Open modal â”€â”€ */
   const handleOpenModal = () => {
     if (isReadOnly) { onNotification?.("Access Denied", "Read-Only role.", "error"); return; }
     // Check for draft
@@ -444,7 +473,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
     setIsModalOpen(true);
   };
 
-  /* ── Discard draft ── */
+  /* â”€â”€ Discard draft â”€â”€ */
   const handleDiscardDraft = () => {
     clearDraft();
     setFormData(blankForm());
@@ -452,7 +481,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
     setIsDirty(false);
   };
 
-  /* ── Close with guard ── */
+  /* â”€â”€ Close with guard â”€â”€ */
   const handleCloseModal = () => {
     if (isDirty) {
       const ok = window.confirm("You have unsaved changes. Discard them?");
@@ -463,7 +492,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
     setIsDirty(false);
   };
 
-  /* ── Validate ── */
+  /* â”€â”€ Validate â”€â”€ */
   const validate = (): boolean => {
     const errors: Record<string, string> = {};
     if (!formData.name.trim()) errors.name = "Supplier Name is required.";
@@ -473,7 +502,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
     return Object.keys(errors).length === 0;
   };
 
-  /* ── Submit ── */
+  /* â”€â”€ Submit â”€â”€ */
   const handleSubmit = async (e: React.FormEvent, saveAndNew = false) => {
     e.preventDefault();
     if (!validate()) { onNotification?.("Validation Error", "Please fix highlighted fields.", "error"); return; }
@@ -543,7 +572,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
 
     try {
       await apiFetchV1("/purchase/suppliers/", { method: "POST", body: JSON.stringify({ name: formData.name.trim(), code: formData.code, gst_number: formData.gst_number, mobile: formData.mobile, email: formData.email, city: formData.city, state: formData.state }) });
-      onNotification?.("Vendor Onboarded ✓", `${formData.name} (${formData.code || id}) registered successfully.`, "success");
+      onNotification?.("Vendor Onboarded âœ“", `${formData.name} (${formData.code || id}) registered successfully.`, "success");
     } catch {
       onNotification?.("Vendor Added Locally", `${formData.name} added to directory.`, "success");
     } finally {
@@ -560,13 +589,13 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
     }
   };
 
-  /* ── Studio helpers ── */
+  /* â”€â”€ Studio helpers â”€â”€ */
   const updateStatus = (s: "Approved"|"Blocked"|"Blacklisted"|"Pending Approval") => {
     if (!selectedSupplier) return;
     const u = { ...selectedSupplier, status: s };
     setSuppliers(p => p.map(v => v.id === selectedSupplier.id ? u : v));
     setSelectedSupplier(u);
-    onNotification?.("Status Updated", `${selectedSupplier.name} → ${s}`, "success");
+    onNotification?.("Status Updated", `${selectedSupplier.name} â†’ ${s}`, "success");
   };
   const addLog = () => {
     if (!selectedSupplier || !newLogMessage.trim()) return;
@@ -590,7 +619,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
     onNotification?.("Document Attached", "MSME certificate added to vault.", "success");
   };
 
-  /* ── Computed ── */
+  /* â”€â”€ Computed â”€â”€ */
   const filtered = suppliers.filter(v => {
     if (!searchTerm) return true;
     const q = searchTerm.toLowerCase();
@@ -598,16 +627,17 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
   });
   const totalOutstanding = suppliers.reduce((a, s) => a + (s.outstanding_balance||0), 0);
   const expiryAlerts = suppliers.reduce((a, s) => a + (s.documents?.filter(d => d.status !== "Valid").length||0), 0);
+  const primarySupplier = selectedSupplier || filtered[0] || suppliers[0];
 
-  /* ── Style tokens ── */
-  const inp = "w-full p-2.5 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading text-xs focus:outline-none focus:border-[#0a6ed1] focus:ring-1 focus:ring-[#0a6ed1]/20 transition-all placeholder:text-theme-muted";
+  /* â”€â”€ Style tokens â”€â”€ */
+  const inp = "w-full p-2.5 bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading text-xs focus:outline-none focus:border-[var(--c-seef-accent)] focus:ring-1 focus:ring-[var(--c-seef-accent)]/20 transition-all placeholder:text-theme-muted";
   const inpErr = (f: string) => inp + (validationErrors[f] ? " border-rose-500 ring-1 ring-rose-500/20" : "");
   const inpMono = inp + " font-mono";
   const inpMonoErr = (f: string) => inpMono + (validationErrors[f] ? " border-rose-500 ring-1 ring-rose-500/20" : "");
   const lbl = "block font-bold text-theme-muted mb-1 text-[11px] uppercase tracking-wide";
   const sel = inp + " cursor-pointer";
 
-  /* ────────────────── SECTION PANEL ────────────────── */
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ SECTION PANEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const SectionPanel: React.FC<{
     sectionKey: SectionKey;
     title: string;
@@ -625,10 +655,10 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
           className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-theme-surface-3 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-2.5">
-            <span className="text-[#0a6ed1]">{icon}</span>
+            <span className="text-[var(--c-seef-accent)]">{icon}</span>
             <span className="font-bold text-theme-heading text-xs uppercase tracking-wide font-mono">{title}</span>
             {badge !== undefined && (
-              <span className="px-2 py-0.5 bg-[#0a6ed1]/10 text-[#0a6ed1] rounded-full text-[10px] font-bold">{badge}</span>
+              <span className="px-2 py-0.5 bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)] rounded-full text-[10px] font-bold">{badge}</span>
             )}
           </div>
           {isOpen ? <ChevronUp className="w-4 h-4 text-theme-muted" /> : <ChevronDown className="w-4 h-4 text-theme-muted" />}
@@ -652,9 +682,9 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
     );
   };
 
-  /* ════════════════════════════════════════════════════ */
+  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
   /*                     RENDER                          */
-  /* ════════════════════════════════════════════════════ */
+  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
   return (
     <div className="flex flex-col h-full bg-theme-surface-1 text-theme-primary font-sans select-none">
 
@@ -667,14 +697,14 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
         </div>
       )}
 
-      {/* ── Main Header ── */}
+      {/* â”€â”€ Main Header â”€â”€ */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-theme-divider bg-theme-surface-2 px-6 py-4 gap-4">
         <div>
           <h2 className="text-xl font-bold font-display text-theme-primary tracking-tight flex items-center gap-2">
-            <Building2 className="w-6 h-6 text-[#0a6ed1]" /> Indian Enterprise Supplier Master
+            <Building2 className="w-6 h-6 text-[var(--c-seef-accent)]" /> Indian Enterprise Supplier Master
           </h2>
           <p className="text-xs text-theme-muted mt-1">
-            18-Section Master · MSME Sec 43B(h) · Sec 194Q TDS · Multi-Address · Multi-Bank · Document Expiry Vault
+            18-Section Master Â· MSME Sec 43B(h) Â· Sec 194Q TDS Â· Multi-Address Â· Multi-Bank Â· Document Expiry Vault
           </p>
         </div>
         <div className="flex items-center gap-4 bg-theme-surface-3 px-4 py-2 rounded-xl border border-theme-divider">
@@ -688,16 +718,27 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
             <div className={`text-sm font-bold font-mono ${expiryAlerts > 0 ? "text-amber-400" : "text-emerald-400"}`}>{expiryAlerts} Expiring</div>
           </div>
         </div>
+        <div className="flex items-center gap-1 p-1 bg-theme-surface-3 border border-theme-divider rounded-xl" aria-label="Supplier workspace mode">
+          {(["simple", "advanced"] as const).map(mode => (
+            <button key={mode} type="button" onClick={() => switchWorkspaceMode(mode)}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                workspaceMode === mode
+                  ? mode === "simple" ? "bg-emerald-500 text-white" : "bg-[var(--c-seef-accent)] text-white"
+                  : "text-theme-muted hover:text-theme-heading"}`}>
+              {mode}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* ── Sub-tab bar ── */}
-      <div className="flex items-center justify-between px-6 bg-theme-surface-2 border-b border-theme-divider overflow-x-auto scrollbar-none">
+      {/* â”€â”€ Sub-tab bar â”€â”€ */}
+      {workspaceMode === "advanced" && <div className="flex items-center justify-between px-6 bg-theme-surface-2 border-b border-theme-divider overflow-x-auto scrollbar-none">
         <div className="flex items-center">
           {(["directory","dashboard","msme","tds","expiry","performance"] as const).map(tab => (
             <button key={tab} onClick={() => setActiveSubTab(tab)}
               className={`px-4 py-3 text-xs font-bold uppercase tracking-wider font-mono border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
                 activeSubTab === tab
-                  ? "border-[#0a6ed1] text-[#0a6ed1] bg-theme-surface-3"
+                  ? "border-[var(--c-seef-accent)] text-[var(--c-seef-accent)] bg-theme-surface-3"
                   : "border-transparent text-theme-muted hover:text-theme-primary"
               }`}>
               {tab === "directory" && "Vendor Directory"}
@@ -711,14 +752,56 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
         </div>
         {!isReadOnly && (
           <button onClick={handleOpenModal}
-            className="my-2 px-4 py-2 text-xs font-bold bg-[#0a6ed1] hover:bg-[#085caf] text-white rounded-lg flex items-center gap-1.5 shadow-xs cursor-pointer whitespace-nowrap transition-colors">
+            className="my-2 px-4 py-2 text-xs font-bold bg-[var(--c-seef-accent)] hover:bg-[var(--c-seef-accent)]/90 text-white rounded-lg flex items-center gap-1.5 shadow-xs cursor-pointer whitespace-nowrap transition-colors">
             <Plus className="w-4 h-4" /> Onboard Vendor
           </button>
         )}
-      </div>
+      </div>}
 
-      {/* ── Main content ── */}
+      {/* â”€â”€ Main content â”€â”€ */}
       <SmritiScrollArea className="flex-1 bg-theme-base p-6">
+        {workspaceMode === "simple" ? (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }} className="max-w-6xl mx-auto space-y-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-emerald-400 font-mono font-bold">Daily supplier desk</p>
+                <h3 className="text-lg font-bold text-theme-heading mt-1">Quick operations</h3>
+              </div>
+              <button onClick={handleOpenModal} disabled={isReadOnly} className="px-4 py-2 bg-[var(--c-seef-accent)] hover:bg-[var(--c-seef-accent)]/90 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer">
+                <Plus className="w-4 h-4" /> New Purchase
+              </button>
+            </div>
+
+            {primarySupplier && <>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="md:col-span-2 p-5 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                  <div className="flex items-start justify-between gap-3">
+                    <div><p className="text-xs text-theme-muted">Supplier</p><h4 className="text-xl font-bold text-theme-heading mt-1">{primarySupplier.name}</h4><p className="text-xs text-theme-muted mt-1">{primarySupplier.mobile || "No mobile added"}</p></div>
+                    <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">{primarySupplier.status}</span>
+                  </div>
+                </div>
+                <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl"><p className="text-xs text-theme-muted">Outstanding</p><p className="text-2xl font-bold text-rose-400 font-mono mt-2">{primarySupplier.balance || "₹0"}</p></div>
+                <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl"><p className="text-xs text-theme-muted">Credit limit</p><p className="text-2xl font-bold text-theme-heading font-mono mt-2">₹{(primarySupplier.credit_limit || 0).toLocaleString("en-IN")}</p></div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <button onClick={handleOpenModal} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl text-left hover:border-[var(--c-seef-accent)] cursor-pointer"><PackageCheck className="w-5 h-5 text-[var(--c-seef-accent)]"/><span className="block text-xs font-bold text-theme-heading mt-3">New Purchase</span></button>
+                <button onClick={() => openPayment(primarySupplier)} disabled={isReadOnly} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl text-left hover:border-emerald-500 disabled:opacity-50 cursor-pointer"><CreditCard className="w-5 h-5 text-emerald-400"/><span className="block text-xs font-bold text-theme-heading mt-3">Pay Supplier</span></button>
+                <button onClick={() => { setWorkspaceMode("advanced"); setActiveSubTab("directory"); }} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl text-left hover:border-[var(--c-seef-accent)] cursor-pointer"><History className="w-5 h-5 text-amber-400"/><span className="block text-xs font-bold text-theme-heading mt-3">Purchase History</span></button>
+                <button onClick={() => { setSelectedSupplier(primarySupplier); setStudioTab("overview"); }} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl text-left hover:border-[var(--c-seef-accent)] cursor-pointer"><Receipt className="w-5 h-5 text-purple-400"/><span className="block text-xs font-bold text-theme-heading mt-3">Supplier Ledger</span></button>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                {[{ label: "Pending PO", value: "3" }, { label: "Pending Bills", value: "2" }, { label: "Overdue", value: "₹5,000" }, { label: "Last Payment", value: "₹10,000" }].map(item => <div key={item.label} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl"><p className="text-[10px] uppercase tracking-wider text-theme-muted font-mono">{item.label}</p><p className="text-lg font-bold text-theme-heading font-mono mt-2">{item.value}</p></div>)}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl"><h4 className="text-xs font-bold text-theme-heading uppercase tracking-wider">Payment methods</h4><div className="grid grid-cols-2 gap-3 mt-4">{(["Cash", "UPI", "Bank", "Cheque"] as const).map(mode => <button key={mode} onClick={() => { setPaymentMode(mode); openPayment(primarySupplier); }} disabled={isReadOnly} className="px-3 py-2 text-xs text-left border border-theme-divider rounded-lg hover:border-emerald-500 disabled:opacity-50 cursor-pointer"><span className="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-2" />{mode}</button>)}</div></div>
+                <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl"><h4 className="text-xs font-bold text-theme-heading uppercase tracking-wider">Recent transactions</h4><div className="mt-3 space-y-3">{(primarySupplier.communication_logs || []).slice(0, 3).map(log => <div key={log.id} className="flex items-center justify-between gap-3 text-xs"><span className="text-theme-heading truncate">{log.summary}</span><span className="text-theme-muted font-mono whitespace-nowrap">{log.timestamp.slice(0, 10)}</span></div>)}{!(primarySupplier.communication_logs || []).length && <p className="text-xs text-theme-muted">No recent transactions.</p>}</div></div>
+              </div>
+            </>}
+          </motion.div>
+        ) : (
         <motion.div key={activeSubTab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
 
           {/* DIRECTORY */}
@@ -729,7 +812,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />
                   <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                     placeholder="Search by Name, Code, GSTIN, Contact..."
-                    className="w-full pl-9 pr-3 py-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading placeholder:text-theme-muted focus:outline-none focus:border-[#0a6ed1]" />
+                    className="w-full pl-9 pr-3 py-2 text-xs bg-theme-surface-2 border border-theme-divider rounded-lg text-theme-heading placeholder:text-theme-muted focus:outline-none focus:border-[var(--c-seef-accent)]" />
                 </div>
                 <span className="font-mono text-xs text-theme-muted whitespace-nowrap">
                   {filtered.length} of {suppliers.length} vendors
@@ -756,7 +839,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                       </td></tr>
                     ) : filtered.map(v => (
                       <tr key={v.id} className="hover:bg-theme-surface-hover transition-colors">
-                        <td className="px-4 py-3 font-bold text-[#0a6ed1]">{v.code}</td>
+                        <td className="px-4 py-3 font-bold text-[var(--c-seef-accent)]">{v.code}</td>
                         <td className="px-4 py-3">
                           <button onClick={() => { setSelectedSupplier(v); setStudioTab("overview"); }}
                             className="font-bold text-theme-heading hover:underline text-left font-sans">{v.name}</button>
@@ -771,7 +854,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                             v.status==="Approved"?"bg-emerald-500/10 text-emerald-400 border-emerald-500/30":
                             v.status==="Pending Approval"?"bg-amber-500/10 text-amber-400 border-amber-500/30":
                             v.status==="Blocked"?"bg-rose-500/10 text-rose-400 border-rose-500/30":
-                            "bg-slate-500/10 text-slate-400 border-slate-500/30"}`}>{v.status}</span>
+                            "bg-theme-surface-3/10 text-theme-muted border-theme-divider/30"}`}>{v.status}</span>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase ${
@@ -788,7 +871,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                         </td>
                         <td className="px-4 py-3 text-center">
                           <button onClick={() => { setSelectedSupplier(v); setStudioTab("overview"); }}
-                            className="px-3 py-1 text-[11px] font-bold text-white bg-[#0a6ed1] hover:bg-[#085caf] rounded-md transition-colors cursor-pointer shadow-xs">
+                            className="px-3 py-1 text-[11px] font-bold text-white bg-[var(--c-seef-accent)] hover:bg-[var(--c-seef-accent)]/90 rounded-md transition-colors cursor-pointer shadow-xs">
                             Open Studio
                           </button>
                         </td>
@@ -804,7 +887,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
           {activeSubTab === "dashboard" && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {[
-                {l:"Total Vendors",v:suppliers.length,c:"text-[#0a6ed1]",icon:<Building2 className="w-5 h-5"/>},
+                {l:"Total Vendors",v:suppliers.length,c:"text-[var(--c-seef-accent)]",icon:<Building2 className="w-5 h-5"/>},
                 {l:"Total Payables",v:`₹${totalOutstanding.toLocaleString("en-IN")}`,c:"text-rose-400",icon:<DollarSign className="w-5 h-5"/>},
                 {l:"MSME Vendors",v:suppliers.filter(s=>s.msme_category==="Micro"||s.msme_category==="Small").length,c:"text-amber-400",icon:<Award className="w-5 h-5"/>},
                 {l:"TDS Applicable",v:suppliers.filter(s=>s.is_tds_applicable).length,c:"text-purple-400",icon:<Percent className="w-5 h-5"/>},
@@ -885,12 +968,12 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     <div>
                       <span className="font-bold text-theme-heading font-sans">{(doc as any).sName}</span>
                       <span className="ml-2 text-theme-muted text-xs font-mono">{(doc as any).sCode}</span>
-                      <p className="text-xs text-theme-muted mt-1">{doc.doc_type} — {doc.doc_number} | Expires: {doc.expiry_date}</p>
+                      <p className="text-xs text-theme-muted mt-1">{doc.doc_type} â€” {doc.doc_number} | Expires: {doc.expiry_date}</p>
                     </div>
                     <span className={`px-3 py-1 rounded text-[10px] font-bold uppercase border ${doc.status==="Expiring Soon"?"bg-amber-500/10 text-amber-400 border-amber-500/30":"bg-rose-500/10 text-rose-400 border-rose-500/30"}`}>{doc.status}</span>
                   </div>
                 ))}
-                {expiryAlerts===0&&<div className="text-center text-theme-muted py-12 font-mono">No expiring documents. All documents are valid. ✓</div>}
+                {expiryAlerts===0&&<div className="text-center text-theme-muted py-12 font-mono">No expiring documents. All documents are valid. âœ“</div>}
               </div>
             </div>
           )}
@@ -919,13 +1002,29 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
           )}
 
         </motion.div>
+        )}
       </SmritiScrollArea>
 
-      {/* ════════════════════════════════════════════════ */}
+      {isPaymentOpen && selectedSupplier && (
+        <div className="fixed inset-0 z-50 bg-theme-surface-3 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="w-full max-w-md bg-theme-surface-1 border border-theme-divider rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-theme-divider"><div><p className="text-[10px] uppercase tracking-wider text-emerald-400 font-mono font-bold">Quick payment</p><h3 className="text-base font-bold text-theme-heading mt-1">{selectedSupplier.name}</h3></div><button onClick={() => setIsPaymentOpen(false)} className="p-1.5 text-theme-muted hover:text-theme-heading cursor-pointer"><X className="w-5 h-5" /></button></div>
+            <div className="p-5 space-y-4">
+              <div className="p-3 bg-theme-surface-2 rounded-lg flex items-center justify-between"><span className="text-xs text-theme-muted">Outstanding</span><strong className="text-rose-400 font-mono">{selectedSupplier.balance || "₹0"}</strong></div>
+              <div><label className={lbl}>Amount</label><input autoFocus type="number" min="1" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="Enter amount" className={inpMono} /></div>
+              <div><label className={lbl}>Mode</label><div className="grid grid-cols-4 gap-2">{(["Cash", "UPI", "Bank", "Cheque"] as const).map(mode => <button key={mode} type="button" onClick={() => setPaymentMode(mode)} className={`px-2 py-2 rounded-lg text-xs font-bold border cursor-pointer ${paymentMode === mode ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/40" : "text-theme-muted border-theme-divider"}`}>{mode}</button>)}</div></div>
+              <div><label className={lbl}>Reference</label><input value={paymentReference} onChange={e => setPaymentReference(e.target.value)} placeholder="Optional UTR / receipt number" className={inpMono} /></div>
+              <button onClick={submitPayment} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold cursor-pointer">Pay Supplier</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {/*         ADAPTIVE ONBOARDING MODAL               */}
-      {/* ════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-theme-surface-3 backdrop-blur-sm flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -934,17 +1033,17 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
             className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full shadow-2xl flex flex-col overflow-hidden"
             style={{ maxWidth: formMode === "quick" ? 620 : 860, maxHeight: "94vh" }}
           >
-            {/* ── Modal Header ── */}
+            {/* â”€â”€ Modal Header â”€â”€ */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-theme-divider bg-theme-surface-2">
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-xl ${formMode==="quick"?"bg-[#0a6ed1]/10":"bg-purple-500/10"}`}>
+                <div className={`p-2 rounded-xl ${formMode==="quick"?"bg-[var(--c-seef-accent)]/10":"bg-purple-500/10"}`}>
                   {formMode==="quick"
-                    ? <Zap className="w-5 h-5 text-[#0a6ed1]"/>
+                    ? <Zap className="w-5 h-5 text-[var(--c-seef-accent)]"/>
                     : <Settings2 className="w-5 h-5 text-purple-400"/>}
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-theme-heading font-display">
-                    {formMode==="quick" ? "Quick Add — New Supplier" : "Advanced Onboarding — Enterprise Supplier Master"}
+                    {formMode==="quick" ? "Quick Add â€” New Supplier" : "Advanced Onboarding â€” Enterprise Supplier Master"}
                   </h3>
                   <p className="text-[11px] text-theme-muted font-mono">
                     {formMode==="quick" ? "Essential fields only. Create in under 30 seconds." : "Full 18-section enterprise profile. Expand sections as needed."}
@@ -961,10 +1060,10 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
               </div>
             </div>
 
-            {/* ── Draft Recovery Banner ── */}
+            {/* â”€â”€ Draft Recovery Banner â”€â”€ */}
             {hasDraft && (
-              <div className="px-6 py-2.5 bg-[#0a6ed1]/5 border-b border-[#0a6ed1]/20 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs text-[#0a6ed1]">
+              <div className="px-6 py-2.5 bg-[var(--c-seef-accent)]/5 border-b border-[var(--c-seef-accent)]/20 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs text-[var(--c-seef-accent)]">
                   <Info className="w-4 h-4 flex-shrink-0"/>
                   <span><strong>Draft recovered.</strong> Your previous unsaved data has been restored.</span>
                 </div>
@@ -974,13 +1073,13 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
               </div>
             )}
 
-            {/* ── Mode Switcher Pills ── */}
+            {/* â”€â”€ Mode Switcher Pills â”€â”€ */}
             <div className="px-6 pt-4 pb-2 flex items-center gap-3">
               <button type="button" onClick={() => switchMode("quick")}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
                   formMode==="quick"
-                    ?"bg-[#0a6ed1] text-white border-[#0a6ed1] shadow-xs"
-                    :"bg-theme-surface-2 text-theme-muted border-theme-divider hover:border-[#0a6ed1]/50"}`}>
+                    ?"bg-[var(--c-seef-accent)] text-white border-[var(--c-seef-accent)] shadow-xs"
+                    :"bg-theme-surface-2 text-theme-muted border-theme-divider hover:border-[var(--c-seef-accent)]/50"}`}>
                 <Zap className="w-3.5 h-3.5"/>Quick Add
               </button>
               <button type="button" onClick={() => switchMode("advanced")}
@@ -993,18 +1092,18 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
               <span className="text-theme-muted text-[10px] font-mono ml-1">Data is preserved when switching modes.</span>
             </div>
 
-            {/* ── Form ── */}
+            {/* â”€â”€ Form â”€â”€ */}
             <SmritiScrollArea className="flex-1 overflow-y-auto px-6 pb-2">
               <form id="vendor-form" onSubmit={e => handleSubmit(e, false)} className="space-y-4 text-xs font-sans py-3">
 
-                {/* ══════════ QUICK ADD ══════════ */}
+                {/* â•â•â•â•â•â•â•â•â•â• QUICK ADD â•â•â•â•â•â•â•â•â•â• */}
                 {formMode === "quick" && (
                   <div className="space-y-5">
 
                     {/* Essential Identity */}
                     <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-4">
                       <div className="flex items-center gap-2 mb-1">
-                        <Building2 className="w-4 h-4 text-[#0a6ed1]"/>
+                        <Building2 className="w-4 h-4 text-[var(--c-seef-accent)]"/>
                         <span className="text-xs font-bold text-theme-heading uppercase tracking-wide font-mono">Supplier Identity</span>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1033,7 +1132,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     {/* GST Block with Progressive Disclosure */}
                     <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-4">
                       <div className="flex items-center gap-2 mb-1">
-                        <ShieldCheck className="w-4 h-4 text-[#0a6ed1]"/>
+                        <ShieldCheck className="w-4 h-4 text-[var(--c-seef-accent)]"/>
                         <span className="text-xs font-bold text-theme-heading uppercase tracking-wide font-mono">GST Registration</span>
                       </div>
                       <div className="flex items-center gap-3">
@@ -1044,7 +1143,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                               onClick={() => set("is_gst_registered", opt.v)}
                               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
                                 formData.is_gst_registered === opt.v
-                                  ? opt.v ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/40" : "bg-slate-500/10 text-slate-400 border-slate-500/30"
+                                  ? opt.v ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/40" : "bg-theme-surface-3/10 text-theme-muted border-theme-divider/30"
                                   : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:border-theme-muted"}`}>
                               {opt.l}
                             </button>
@@ -1087,7 +1186,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     {/* Address */}
                     <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-4">
                       <div className="flex items-center gap-2 mb-1">
-                        <MapPin className="w-4 h-4 text-[#0a6ed1]"/>
+                        <MapPin className="w-4 h-4 text-[var(--c-seef-accent)]"/>
                         <span className="text-xs font-bold text-theme-heading uppercase tracking-wide font-mono">Address</span>
                       </div>
                       <div>
@@ -1119,7 +1218,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     {/* Purchase Basics */}
                     <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-4">
                       <div className="flex items-center gap-2 mb-1">
-                        <PackageCheck className="w-4 h-4 text-[#0a6ed1]"/>
+                        <PackageCheck className="w-4 h-4 text-[var(--c-seef-accent)]"/>
                         <span className="text-xs font-bold text-theme-heading uppercase tracking-wide font-mono">Purchase Setup</span>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1147,12 +1246,12 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     {/* Switch to Advanced link */}
                     <button type="button" onClick={() => switchMode("advanced")}
                       className="w-full py-2.5 border border-dashed border-purple-500/40 rounded-xl text-xs font-bold text-purple-400 hover:bg-purple-500/5 transition-colors cursor-pointer flex items-center justify-center gap-2">
-                      <Settings2 className="w-3.5 h-3.5"/>Switch to Advanced Add — Full Enterprise Profile →
+                      <Settings2 className="w-3.5 h-3.5"/>Switch to Advanced Add â€” Full Enterprise Profile â†’
                     </button>
                   </div>
                 )}
 
-                {/* ══════════ ADVANCED ADD ══════════ */}
+                {/* â•â•â•â•â•â•â•â•â•â• ADVANCED ADD â•â•â•â•â•â•â•â•â•â• */}
                 {formMode === "advanced" && (
                   <div className="space-y-3">
 
@@ -1202,8 +1301,8 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                         <div>
                           <label className={lbl}>Preferred Vendor</label>
                           <select value={formData.is_preferred ? "true" : "false"} onChange={e => set("is_preferred", e.target.value === "true")} className={sel}>
-                            <option value="true">Yes — Preferred Supplier</option>
-                            <option value="false">No — Standard</option>
+                            <option value="true">Yes â€” Preferred Supplier</option>
+                            <option value="false">No â€” Standard</option>
                           </select>
                         </div>
                         <div>
@@ -1247,9 +1346,9 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                         {/* GST toggle */}
                         <div className="flex items-center gap-3">
                           <span className={lbl + " mb-0"}>GST Registered?</span>
-                          {[{v:true,l:"Yes — Registered"},{v:false,l:"No / Composition / Unregistered"}].map(opt=>(
+                          {[{v:true,l:"Yes â€” Registered"},{v:false,l:"No / Composition / Unregistered"}].map(opt=>(
                             <button key={opt.l} type="button" onClick={() => set("is_gst_registered", opt.v)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${formData.is_gst_registered===opt.v?(opt.v?"bg-emerald-500/10 text-emerald-400 border-emerald-500/40":"bg-slate-500/10 text-slate-400 border-slate-500/30"):"bg-theme-surface-1 text-theme-muted border-theme-divider"}`}>
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${formData.is_gst_registered===opt.v?(opt.v?"bg-emerald-500/10 text-emerald-400 border-emerald-500/40":"bg-theme-surface-3/10 text-theme-muted border-theme-divider/30"):"bg-theme-surface-1 text-theme-muted border-theme-divider"}`}>
                               {opt.l}
                             </button>
                           ))}
@@ -1263,7 +1362,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                                 className={inpMonoErr("gst_number")} />
                               {validationErrors.gst_number && <p className="text-rose-400 text-[10px] mt-1">{validationErrors.gst_number}</p>}
                               {formData.gst_number.length>=2&&GSTIN_STATE_MAP[formData.gst_number.substring(0,2)]&&(
-                                <p className="text-emerald-400 text-[10px] mt-1">✓ State: {GSTIN_STATE_MAP[formData.gst_number.substring(0,2)]}</p>
+                                <p className="text-emerald-400 text-[10px] mt-1">âœ“ State: {GSTIN_STATE_MAP[formData.gst_number.substring(0,2)]}</p>
                               )}
                             </div>
                             <div>
@@ -1308,8 +1407,8 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                           <div>
                             <label className={lbl}>TDS Applicable</label>
                             <select value={formData.is_tds_applicable ? "true" : "false"} onChange={e => set("is_tds_applicable", e.target.value==="true")} className={sel}>
-                              <option value="true">Yes — Deduct TDS</option>
-                              <option value="false">No — TDS Exempt</option>
+                              <option value="true">Yes â€” Deduct TDS</option>
+                              <option value="false">No â€” TDS Exempt</option>
                             </select>
                           </div>
                           {formData.is_tds_applicable && <>
@@ -1360,7 +1459,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                       <div className="space-y-4">
                         {/* Primary Contact (from Company section) */}
                         <div className="p-3 bg-theme-surface-1 border border-theme-divider rounded-lg flex items-center gap-3">
-                          <div className="w-7 h-7 bg-[#0a6ed1]/10 rounded-full flex items-center justify-center flex-shrink-0"><UserCheck className="w-3.5 h-3.5 text-[#0a6ed1]"/></div>
+                          <div className="w-7 h-7 bg-[var(--c-seef-accent)]/10 rounded-full flex items-center justify-center flex-shrink-0"><UserCheck className="w-3.5 h-3.5 text-[var(--c-seef-accent)]"/></div>
                           <div className="flex-1 min-w-0">
                             <div className="font-bold text-theme-heading text-xs">{formData.contact_person || "Primary Contact"}</div>
                             <div className="text-[10px] text-theme-muted font-mono truncate">{formData.mobile} | {formData.email} | Purchase Manager</div>
@@ -1390,7 +1489,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                           </div>
                         ))}
                         <button type="button" onClick={() => setExtraContacts(p => [...p, {id:`fc-${Date.now()}`,name:"",role:"Purchase Manager",mobile:"",email:"",is_primary:false}])}
-                          className="w-full py-2 border border-dashed border-[#0a6ed1]/40 text-[#0a6ed1] text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#0a6ed1]/5 transition-colors cursor-pointer">
+                          className="w-full py-2 border border-dashed border-[var(--c-seef-accent)]/40 text-[var(--c-seef-accent)] text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[var(--c-seef-accent)]/5 transition-colors cursor-pointer">
                           <Plus className="w-3.5 h-3.5"/> Add Another Contact Role
                         </button>
                       </div>
@@ -1402,7 +1501,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                         {/* Primary Billing Address */}
                         <div className="p-4 bg-theme-surface-1 border border-theme-divider rounded-xl space-y-3">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-[#0a6ed1] font-mono uppercase">Primary Billing Address</span>
+                            <span className="text-xs font-bold text-[var(--c-seef-accent)] font-mono uppercase">Primary Billing Address</span>
                             <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px] font-bold border border-emerald-500/30">Primary</span>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1437,7 +1536,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                         {extraAddresses.map((addr, i) => (
                           <div key={addr.id} className="p-4 bg-theme-surface-1 border border-theme-divider rounded-xl space-y-3">
                             <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-theme-muted font-mono">Location #{i+2} — {addr.address_type}</span>
+                              <span className="text-xs font-bold text-theme-muted font-mono">Location #{i+2} â€” {addr.address_type}</span>
                               <button type="button" onClick={() => setExtraAddresses(p => p.filter((_,j)=>j!==i))} className="p-1 text-rose-400 hover:text-rose-300 cursor-pointer rounded"><Trash2 className="w-3.5 h-3.5"/></button>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1463,7 +1562,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                           </div>
                         ))}
                         <button type="button" onClick={() => setExtraAddresses(p => [...p, {id:`addr-${Date.now()}`,address_type:"Shipping",building_name:"",street:"",area:"",city:formData.city,state:formData.state,pincode:"",country:"India",is_primary:false}])}
-                          className="w-full py-2 border border-dashed border-[#0a6ed1]/40 text-[#0a6ed1] text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#0a6ed1]/5 transition-colors cursor-pointer">
+                          className="w-full py-2 border border-dashed border-[var(--c-seef-accent)]/40 text-[var(--c-seef-accent)] text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[var(--c-seef-accent)]/5 transition-colors cursor-pointer">
                           <Plus className="w-3.5 h-3.5"/> Add Another Address / Warehouse Location
                         </button>
                       </div>
@@ -1476,7 +1575,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                           <div>
                             <label className={lbl}>Bank Name</label>
                             <select value={formData.bank_name} onChange={e => set("bank_name", e.target.value)} className={sel}>
-                              <option value="">— Select Bank —</option>
+                              <option value="">â€” Select Bank â€”</option>
                               {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
                             </select>
                           </div>
@@ -1517,7 +1616,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                               <div>
                                 <label className={lbl}>Bank Name</label>
                                 <select value={b.bank_name} onChange={e=>setExtraBanks(p=>p.map((x,j)=>j===i?{...x,bank_name:e.target.value}:x))} className={sel}>
-                                  <option value="">— Select —</option>{BANKS.map(bk=><option key={bk} value={bk}>{bk}</option>)}
+                                  <option value="">â€” Select â€”</option>{BANKS.map(bk=><option key={bk} value={bk}>{bk}</option>)}
                                 </select>
                               </div>
                               <div>
@@ -1532,7 +1631,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                           </div>
                         ))}
                         <button type="button" onClick={() => setExtraBanks(p=>[...p,{id:`fb-${Date.now()}`,bank_name:"",account_name:formData.name,account_number:"",ifsc_code:"",branch_name:"",upi_id:"",is_primary:false}])}
-                          className="w-full py-2 border border-dashed border-[#0a6ed1]/40 text-[#0a6ed1] text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#0a6ed1]/5 transition-colors cursor-pointer">
+                          className="w-full py-2 border border-dashed border-[var(--c-seef-accent)]/40 text-[var(--c-seef-accent)] text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[var(--c-seef-accent)]/5 transition-colors cursor-pointer">
                           <Plus className="w-3.5 h-3.5"/> Add Another Bank Account
                         </button>
                       </div>
@@ -1583,7 +1682,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                         <div><label className={lbl}>Transporter GSTIN</label><input type="text" placeholder="27AAACV1234F1Z9" value={formData.transporter_gstin} onChange={e=>set("transporter_gstin",e.target.value.toUpperCase())} className={inpMono}/></div>
                         <div><label className={lbl}>Freight Terms</label>
                           <select value={formData.freight_terms} onChange={e=>set("freight_terms",e.target.value)} className={sel}>
-                            {["Prepaid by Supplier","Collect — Paid by Us","FOB Origin","FOB Destination","CIF","DDP","Ex Works"].map(ft=><option key={ft} value={ft}>{ft}</option>)}
+                            {["Prepaid by Supplier","Collect â€” Paid by Us","FOB Origin","FOB Destination","CIF","DDP","Ex Works"].map(ft=><option key={ft} value={ft}>{ft}</option>)}
                           </select>
                         </div>
                         <div><label className={lbl}>Delivery Mode</label>
@@ -1594,8 +1693,8 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                         <div><label className={lbl}>Avg. Transit Days</label><input type="number" min="0" max="90" placeholder="2" value={formData.avg_transit_days} onChange={e=>set("avg_transit_days",e.target.value)} className={inpMono}/></div>
                         <div><label className={lbl}>E-Way Bill Applicable</label>
                           <select value={formData.eway_bill_applicable?"true":"false"} onChange={e=>set("eway_bill_applicable",e.target.value==="true")} className={sel}>
-                            <option value="true">Yes — Required</option>
-                            <option value="false">No — Exempt</option>
+                            <option value="true">Yes â€” Required</option>
+                            <option value="false">No â€” Exempt</option>
                           </select>
                         </div>
                       </div>
@@ -1606,7 +1705,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                       <div className="space-y-4">
                         {attachedDocs.length === 0 && (
                           <div className="p-8 text-center border-2 border-dashed border-theme-divider rounded-xl bg-theme-surface-1 text-theme-muted">
-                            <FileCheck className="w-10 h-10 mx-auto text-[#0a6ed1]/40 mb-3"/>
+                            <FileCheck className="w-10 h-10 mx-auto text-[var(--c-seef-accent)]/40 mb-3"/>
                             <p className="font-bold text-xs text-theme-heading">No Documents Attached</p>
                             <p className="text-[11px] mt-1">Click below to attach GST, FSSAI, MSME, or other certificates.</p>
                           </div>
@@ -1628,13 +1727,13 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                               <input type="date" value={doc.expiry_date} onChange={e=>setAttachedDocs(p=>p.map((x,j)=>j===i?{...x,expiry_date:e.target.value}:x))} className={inpMono}/>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="flex-1 px-2 py-2 bg-[#0a6ed1]/10 text-[#0a6ed1] font-mono text-[10px] rounded truncate">{doc.file_name}</span>
+                              <span className="flex-1 px-2 py-2 bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)] font-mono text-[10px] rounded truncate">{doc.file_name}</span>
                               <button type="button" onClick={()=>setAttachedDocs(p=>p.filter((_,j)=>j!==i))} className="p-1.5 text-rose-400 cursor-pointer rounded"><Trash2 className="w-4 h-4"/></button>
                             </div>
                           </div>
                         ))}
                         <button type="button" onClick={()=>setAttachedDocs(p=>[...p,{id:`doc-${Date.now()}`,doc_type:"GST Certificate",doc_number:"",expiry_date:"2028-12-31",status:"Valid",file_name:`certificate_${Date.now().toString().slice(-4)}.pdf`}])}
-                          className="w-full py-2 border border-dashed border-[#0a6ed1]/40 text-[#0a6ed1] text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#0a6ed1]/5 transition-colors cursor-pointer">
+                          className="w-full py-2 border border-dashed border-[var(--c-seef-accent)]/40 text-[var(--c-seef-accent)] text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[var(--c-seef-accent)]/5 transition-colors cursor-pointer">
                           <UploadCloud className="w-3.5 h-3.5"/> Attach Compliance Document / Certificate
                         </button>
                       </div>
@@ -1655,8 +1754,8 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                         </div>
                         <div><label className={lbl}>Auto-Print on GRN</label>
                           <select value={formData.auto_print_on_grn?"true":"false"} onChange={e=>set("auto_print_on_grn",e.target.value==="true")} className={sel}>
-                            <option value="true">Yes — Auto-Print</option>
-                            <option value="false">No — Manual Only</option>
+                            <option value="true">Yes â€” Auto-Print</option>
+                            <option value="false">No â€” Manual Only</option>
                           </select>
                         </div>
                         <div><label className={lbl}>Label Language</label>
@@ -1669,8 +1768,8 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
 
                     {/* Back to Quick Add */}
                     <button type="button" onClick={() => switchMode("quick")}
-                      className="w-full py-2 border border-dashed border-theme-divider rounded-xl text-xs font-bold text-theme-muted hover:text-[#0a6ed1] hover:border-[#0a6ed1]/40 transition-colors cursor-pointer flex items-center justify-center gap-2">
-                      ← Back to Quick Add
+                      className="w-full py-2 border border-dashed border-theme-divider rounded-xl text-xs font-bold text-theme-muted hover:text-[var(--c-seef-accent)] hover:border-[var(--c-seef-accent)]/40 transition-colors cursor-pointer flex items-center justify-center gap-2">
+                      â† Back to Quick Add
                     </button>
                   </div>
                 )}
@@ -1678,7 +1777,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
               </form>
             </SmritiScrollArea>
 
-            {/* ── Modal Footer ── */}
+            {/* â”€â”€ Modal Footer â”€â”€ */}
             <div className="flex items-center justify-between px-6 py-4 border-t border-theme-divider bg-theme-surface-2">
               <button type="button" onClick={handleCloseModal}
                 className="px-4 py-2 text-xs font-bold text-theme-muted hover:text-theme-heading transition-colors cursor-pointer">
@@ -1690,7 +1789,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                   <Plus className="w-3.5 h-3.5"/> Save &amp; New
                 </button>
                 <button type="submit" form="vendor-form" disabled={isSubmitting}
-                  className="px-5 py-2 text-xs font-bold bg-[#0a6ed1] hover:bg-[#085caf] text-white rounded-lg transition-colors shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-60">
+                  className="px-5 py-2 text-xs font-bold bg-[var(--c-seef-accent)] hover:bg-[var(--c-seef-accent)]/90 text-white rounded-lg transition-colors shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-60">
                   <CheckCircle2 className="w-4 h-4"/>
                   {isSubmitting ? "Saving..." : "Save & Onboard Vendor"}
                 </button>
@@ -1700,22 +1799,22 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {/*          16-TAB ENTERPRISE STUDIO               */}
-      {/* ════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {selectedSupplier && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-theme-surface-3 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl max-w-5xl w-full h-[88vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
 
             {/* Studio Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-theme-divider bg-theme-surface-2">
               <div className="flex items-center gap-3">
-                <Building2 className="w-6 h-6 text-[#0a6ed1]"/>
+                <Building2 className="w-6 h-6 text-[var(--c-seef-accent)]"/>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-sm font-bold text-theme-heading font-display">{selectedSupplier.name}</h3>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${selectedSupplier.status==="Approved"?"bg-emerald-500/10 text-emerald-400 border-emerald-500/30":"bg-amber-500/10 text-amber-400 border-amber-500/30"}`}>{selectedSupplier.status}</span>
-                    {selectedSupplier.is_preferred&&<span className="px-2 py-0.5 bg-[#0a6ed1]/10 text-[#0a6ed1] rounded text-[10px] font-bold border border-[#0a6ed1]/30">★ Preferred</span>}
+                    {selectedSupplier.is_preferred&&<span className="px-2 py-0.5 bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)] rounded text-[10px] font-bold border border-[var(--c-seef-accent)]/30">â˜… Preferred</span>}
                   </div>
                   <span className="font-mono text-[11px] text-theme-muted">{selectedSupplier.code} | {selectedSupplier.gst_number} | {selectedSupplier.city}, {selectedSupplier.state}</span>
                 </div>
@@ -1742,7 +1841,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                 {id:"approvals",l:"Approvals"},{id:"audit",l:"Audit Log"}
               ].map(t=>(
                 <button key={t.id} onClick={()=>setStudioTab(t.id as any)}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer whitespace-nowrap ${studioTab===t.id?"bg-[#0a6ed1] text-white shadow-xs":"text-theme-muted hover:text-theme-heading hover:bg-theme-surface-2"}`}>
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer whitespace-nowrap ${studioTab===t.id?"bg-[var(--c-seef-accent)] text-white shadow-xs":"text-theme-muted hover:text-theme-heading hover:bg-theme-surface-2"}`}>
                   {t.l}
                 </button>
               ))}
@@ -1769,20 +1868,20 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
-                      <h5 className="font-bold text-theme-heading font-display text-sm flex items-center gap-2 mb-3"><Building2 className="w-4 h-4 text-[#0a6ed1]"/>Identity</h5>
+                      <h5 className="font-bold text-theme-heading font-display text-sm flex items-center gap-2 mb-3"><Building2 className="w-4 h-4 text-[var(--c-seef-accent)]"/>Identity</h5>
                       {[["Vendor Code",selectedSupplier.code],["Supplier Type",selectedSupplier.supplier_type_id],["Group",selectedSupplier.group],["GSTIN",selectedSupplier.gst_number],["PAN",selectedSupplier.pan_number],["GST Type",selectedSupplier.gst_type],["Payment Terms",selectedSupplier.payment_terms],["Created By",selectedSupplier.created_by],["Created On",selectedSupplier.created_at]].map(([k,v])=>(
                         <div key={k as string} className="flex justify-between text-xs border-b border-theme-divider/40 pb-1.5">
                           <span className="text-theme-muted font-mono">{k}</span>
-                          <span className="font-bold text-theme-heading">{v||"—"}</span>
+                          <span className="font-bold text-theme-heading">{v||"â€”"}</span>
                         </div>
                       ))}
                     </div>
                     <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
-                      <h5 className="font-bold text-theme-heading font-display text-sm flex items-center gap-2 mb-3"><Phone className="w-4 h-4 text-[#0a6ed1]"/>Contact & Location</h5>
+                      <h5 className="font-bold text-theme-heading font-display text-sm flex items-center gap-2 mb-3"><Phone className="w-4 h-4 text-[var(--c-seef-accent)]"/>Contact & Location</h5>
                       {[["Contact Person",selectedSupplier.contact_person],["Mobile",selectedSupplier.mobile],["Email",selectedSupplier.email],["Website",selectedSupplier.website],["City",selectedSupplier.city],["State",selectedSupplier.state],["PIN Code",selectedSupplier.pincode],["Address",selectedSupplier.address]].map(([k,v])=>(
                         <div key={k as string} className="flex justify-between text-xs border-b border-theme-divider/40 pb-1.5">
                           <span className="text-theme-muted font-mono">{k}</span>
-                          <span className="font-bold text-theme-heading truncate max-w-[55%]">{v||"—"}</span>
+                          <span className="font-bold text-theme-heading truncate max-w-[55%]">{v||"â€”"}</span>
                         </div>
                       ))}
                     </div>
@@ -1803,12 +1902,12 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     {title:"Labels",icon:<Tag className="w-4 h-4"/>,fields:[["Template",selectedSupplier.default_label_template],["Barcode",selectedSupplier.default_barcode_type]]}
                   ].map(sec=>(
                     <div key={sec.title} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                      <h5 className="font-bold text-[#0a6ed1] text-xs uppercase font-mono flex items-center gap-2 mb-3">{sec.icon}{sec.title}</h5>
+                      <h5 className="font-bold text-[var(--c-seef-accent)] text-xs uppercase font-mono flex items-center gap-2 mb-3">{sec.icon}{sec.title}</h5>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                         {sec.fields.map(([k,v])=>(
                           <div key={k as string} className="p-2 bg-theme-surface-1 rounded-lg border border-theme-divider">
                             <div className="text-[9px] font-mono text-theme-muted uppercase mb-0.5">{k}</div>
-                            <div className="font-bold text-theme-heading text-xs truncate">{v||"—"}</div>
+                            <div className="font-bold text-theme-heading text-xs truncate">{v||"â€”"}</div>
                           </div>
                         ))}
                       </div>
@@ -1820,7 +1919,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
               {/* CONTACTS */}
               {studioTab==="contacts"&&(
                 <div className="space-y-4">
-                  <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><UserCheck className="w-5 h-5 text-[#0a6ed1]"/>Multi-Contact Directory</h4>
+                  <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><UserCheck className="w-5 h-5 text-[var(--c-seef-accent)]"/>Multi-Contact Directory</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {(selectedSupplier.contacts||[]).map(c=>(
                       <div key={c.id} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
@@ -1828,7 +1927,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                           <span className="font-bold text-theme-heading font-sans">{c.name}</span>
                           {c.is_primary&&<span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px] font-bold border border-emerald-500/30">Primary</span>}
                         </div>
-                        <span className="px-2 py-0.5 bg-[#0a6ed1]/10 text-[#0a6ed1] rounded text-[10px] font-bold">{c.role}</span>
+                        <span className="px-2 py-0.5 bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)] rounded text-[10px] font-bold">{c.role}</span>
                         <div className="space-y-1 text-theme-muted font-mono text-xs">
                           <div className="flex items-center gap-2"><Phone className="w-3 h-3"/>{c.mobile}</div>
                           <div className="flex items-center gap-2"><Mail className="w-3 h-3"/>{c.email}</div>
@@ -1843,7 +1942,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
               {/* BANKS */}
               {studioTab==="banks"&&(
                 <div className="space-y-4">
-                  <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><CreditCard className="w-5 h-5 text-[#0a6ed1]"/>Bank Accounts</h4>
+                  <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><CreditCard className="w-5 h-5 text-[var(--c-seef-accent)]"/>Bank Accounts</h4>
                   {(selectedSupplier.bank_accounts||[]).map(b=>(
                     <div key={b.id} className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl">
                       <div className="flex items-center justify-between mb-4">
@@ -1851,7 +1950,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                         {b.is_primary&&<span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px] font-bold border border-emerald-500/30">Primary</span>}
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 font-mono text-xs">
-                        {[["Account Holder",b.account_name],["Account No.",b.account_number],["IFSC",b.ifsc_code],["Branch",b.branch_name],["UPI / VPA",b.upi_id||"—"]].map(([k,v])=>(
+                        {[["Account Holder",b.account_name],["Account No.",b.account_number],["IFSC",b.ifsc_code],["Branch",b.branch_name],["UPI / VPA",b.upi_id||"â€”"]].map(([k,v])=>(
                           <div key={k as string} className="p-2 bg-theme-surface-1 rounded-lg border border-theme-divider">
                             <div className="text-[9px] text-theme-muted uppercase mb-0.5">{k}</div>
                             <div className="font-bold text-theme-heading">{v}</div>
@@ -1868,18 +1967,18 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
               {studioTab==="addresses"&&(
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><MapPin className="w-5 h-5 text-[#0a6ed1]"/>Addresses & Locations</h4>
-                    {!isReadOnly&&<button onClick={addAddrStudio} className="px-3 py-1.5 bg-[#0a6ed1] text-white font-bold text-xs rounded-lg cursor-pointer flex items-center gap-1"><Plus className="w-3.5 h-3.5"/>Add Address</button>}
+                    <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><MapPin className="w-5 h-5 text-[var(--c-seef-accent)]"/>Addresses & Locations</h4>
+                    {!isReadOnly&&<button onClick={addAddrStudio} className="px-3 py-1.5 bg-[var(--c-seef-accent)] text-white font-bold text-xs rounded-lg cursor-pointer flex items-center gap-1"><Plus className="w-3.5 h-3.5"/>Add Address</button>}
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {(selectedSupplier.addresses_list||[]).map(addr=>(
                       <div key={addr.id} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#0a6ed1]/10 text-[#0a6ed1]">{addr.address_type}</span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)]">{addr.address_type}</span>
                           {addr.is_primary&&<span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Primary</span>}
                         </div>
                         {addr.building_name&&<p className="font-bold text-theme-heading font-sans">{addr.building_name}</p>}
-                        <p className="text-theme-muted font-mono text-xs">{[addr.street,addr.area,addr.city,addr.state].filter(Boolean).join(", ")} — {addr.pincode}</p>
+                        <p className="text-theme-muted font-mono text-xs">{[addr.street,addr.area,addr.city,addr.state].filter(Boolean).join(", ")} â€” {addr.pincode}</p>
                       </div>
                     ))}
                     {(selectedSupplier.addresses_list||[]).length===0&&<p className="text-theme-muted col-span-2 text-center py-8 font-mono">No addresses registered.</p>}
@@ -1890,7 +1989,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
               {/* GST */}
               {studioTab==="gst"&&(
                 <div className="space-y-5">
-                  <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-[#0a6ed1]"/>GST, TAN, PAN & Tax</h4>
+                  <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-[var(--c-seef-accent)]"/>GST, TAN, PAN & Tax</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {[
                       {title:"GST Registration",fields:[["GSTIN",selectedSupplier.gst_number],["GST Type",selectedSupplier.gst_type],["Place of Supply",selectedSupplier.place_of_supply],["GSTR-2B Status",selectedSupplier.gstr2b_status]]},
@@ -1902,7 +2001,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                         {sec.fields.map(([k,v])=>(
                           <div key={k as string} className="flex justify-between text-xs border-b border-theme-divider/40 pb-1.5 font-mono">
                             <span className="text-theme-muted">{k}</span>
-                            <span className="font-bold text-theme-heading">{v||"—"}</span>
+                            <span className="font-bold text-theme-heading">{v||"â€”"}</span>
                           </div>
                         ))}
                       </div>
@@ -1919,7 +2018,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     <div className="p-5 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-2">
                       {[["MSME Category",selectedSupplier.msme_category],["Udyam No.",selectedSupplier.msme_number],["43B(h) Payment Limit","45 Days"],["Outstanding",selectedSupplier.balance]].map(([k,v])=>(
                         <div key={k as string} className="flex justify-between text-xs border-b border-theme-divider/40 pb-1.5 font-mono">
-                          <span className="text-theme-muted">{k}</span><span className="font-bold text-theme-heading">{v||"—"}</span>
+                          <span className="text-theme-muted">{k}</span><span className="font-bold text-theme-heading">{v||"â€”"}</span>
                         </div>
                       ))}
                     </div>
@@ -1935,18 +2034,18 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
               {studioTab==="documents"&&(
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><FileText className="w-5 h-5 text-[#0a6ed1]"/>Document Vault & Expiry Tracker</h4>
-                    {!isReadOnly&&<button onClick={addDocStudio} className="px-3 py-1.5 bg-[#0a6ed1] text-white font-bold text-xs rounded-lg cursor-pointer flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5"/>Upload</button>}
+                    <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><FileText className="w-5 h-5 text-[var(--c-seef-accent)]"/>Document Vault & Expiry Tracker</h4>
+                    {!isReadOnly&&<button onClick={addDocStudio} className="px-3 py-1.5 bg-[var(--c-seef-accent)] text-white font-bold text-xs rounded-lg cursor-pointer flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5"/>Upload</button>}
                   </div>
                   <div className="space-y-3">
                     {(selectedSupplier.documents||[]).map(d=>(
                       <div key={d.id} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <FileCheck className="w-8 h-8 text-[#0a6ed1]/60"/>
+                          <FileCheck className="w-8 h-8 text-[var(--c-seef-accent)]/60"/>
                           <div>
                             <strong className="font-sans text-theme-heading block">{d.doc_type}</strong>
                             <span className="text-theme-muted text-xs font-mono">{d.doc_number} | Expires: {d.expiry_date}</span>
-                            {d.file_name&&<span className="block text-[#0a6ed1] text-[10px] mt-0.5 font-mono">{d.file_name}</span>}
+                            {d.file_name&&<span className="block text-[var(--c-seef-accent)] text-[10px] mt-0.5 font-mono">{d.file_name}</span>}
                           </div>
                         </div>
                         <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase border ${d.status==="Valid"?"bg-emerald-500/10 text-emerald-400 border-emerald-500/30":d.status==="Expiring Soon"?"bg-amber-500/10 text-amber-400 border-amber-500/30":"bg-rose-500/10 text-rose-400 border-rose-500/30"}`}>{d.status}</span>
@@ -1960,13 +2059,13 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
               {/* PURCHASE ORDERS */}
               {studioTab==="pos"&&(
                 <div className="space-y-4">
-                  <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><PackageCheck className="w-5 h-5 text-[#0a6ed1]"/>Purchase Orders</h4>
+                  <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><PackageCheck className="w-5 h-5 text-[var(--c-seef-accent)]"/>Purchase Orders</h4>
                   <div className="bg-theme-surface-2 border border-theme-divider rounded-xl overflow-hidden">
                     <table className="w-full text-xs font-mono">
                       <thead><tr className="border-b border-theme-divider bg-theme-surface-3 text-[10px] uppercase text-theme-muted"><th className="px-4 py-3">PO No.</th><th className="px-4 py-3">Date</th><th className="px-4 py-3">Items</th><th className="px-4 py-3 text-right">Amount</th><th className="px-4 py-3">Status</th></tr></thead>
                       <tbody className="divide-y divide-theme-divider">
                         {[{po:"PO-2026-0089",date:"2026-07-28",items:12,amt:"₹1,20,000",st:"Delivered"},{po:"PO-2026-0045",date:"2026-06-10",items:5,amt:"₹45,500",st:"Delivered"}].map(r=>(
-                          <tr key={r.po} className="hover:bg-theme-surface-hover"><td className="px-4 py-3 font-bold text-[#0a6ed1]">{r.po}</td><td className="px-4 py-3 text-theme-muted">{r.date}</td><td className="px-4 py-3">{r.items}</td><td className="px-4 py-3 text-right font-bold">{r.amt}</td><td className="px-4 py-3"><span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px] font-bold border border-emerald-500/30">{r.st}</span></td></tr>
+                          <tr key={r.po} className="hover:bg-theme-surface-hover"><td className="px-4 py-3 font-bold text-[var(--c-seef-accent)]">{r.po}</td><td className="px-4 py-3 text-theme-muted">{r.date}</td><td className="px-4 py-3">{r.items}</td><td className="px-4 py-3 text-right font-bold">{r.amt}</td><td className="px-4 py-3"><span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px] font-bold border border-emerald-500/30">{r.st}</span></td></tr>
                         ))}
                       </tbody>
                     </table>
@@ -1983,7 +2082,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                       <thead><tr className="border-b border-theme-divider bg-theme-surface-3 text-[10px] uppercase text-theme-muted"><th className="px-4 py-3">GRN No.</th><th className="px-4 py-3">Date</th><th className="px-4 py-3">PO Ref</th><th className="px-4 py-3 text-right">Value</th><th className="px-4 py-3">QC</th></tr></thead>
                       <tbody className="divide-y divide-theme-divider">
                         {[{grn:"GRN-2026-0052",date:"2026-07-30",po:"PO-2026-0089",val:"₹1,20,000",qc:"Accepted"}].map(r=>(
-                          <tr key={r.grn} className="hover:bg-theme-surface-hover"><td className="px-4 py-3 font-bold text-emerald-400">{r.grn}</td><td className="px-4 py-3 text-theme-muted">{r.date}</td><td className="px-4 py-3 text-[#0a6ed1]">{r.po}</td><td className="px-4 py-3 text-right font-bold">{r.val}</td><td className="px-4 py-3"><span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px] font-bold border border-emerald-500/30">{r.qc}</span></td></tr>
+                          <tr key={r.grn} className="hover:bg-theme-surface-hover"><td className="px-4 py-3 font-bold text-emerald-400">{r.grn}</td><td className="px-4 py-3 text-theme-muted">{r.date}</td><td className="px-4 py-3 text-[var(--c-seef-accent)]">{r.po}</td><td className="px-4 py-3 text-right font-bold">{r.val}</td><td className="px-4 py-3"><span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px] font-bold border border-emerald-500/30">{r.qc}</span></td></tr>
                         ))}
                       </tbody>
                     </table>
@@ -2017,7 +2116,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                       <thead><tr className="border-b border-theme-divider bg-theme-surface-3 text-[10px] uppercase text-theme-muted"><th className="px-4 py-3">Payment Ref</th><th className="px-4 py-3">Date</th><th className="px-4 py-3">Mode</th><th className="px-4 py-3 text-right">Amount</th><th className="px-4 py-3">Invoice</th></tr></thead>
                       <tbody className="divide-y divide-theme-divider">
                         {[{ref:"PAY-2026-0044",date:"2026-07-10",mode:"NEFT",amt:"₹53,690",inv:"INV-TC-2026-045"}].map(r=>(
-                          <tr key={r.ref} className="hover:bg-theme-surface-hover"><td className="px-4 py-3 font-bold text-emerald-400">{r.ref}</td><td className="px-4 py-3 text-theme-muted">{r.date}</td><td className="px-4 py-3"><span className="px-2 py-0.5 bg-theme-surface-3 rounded text-[10px] font-bold">{r.mode}</span></td><td className="px-4 py-3 text-right font-bold">{r.amt}</td><td className="px-4 py-3 text-[#0a6ed1]">{r.inv}</td></tr>
+                          <tr key={r.ref} className="hover:bg-theme-surface-hover"><td className="px-4 py-3 font-bold text-emerald-400">{r.ref}</td><td className="px-4 py-3 text-theme-muted">{r.date}</td><td className="px-4 py-3"><span className="px-2 py-0.5 bg-theme-surface-3 rounded text-[10px] font-bold">{r.mode}</span></td><td className="px-4 py-3 text-right font-bold">{r.amt}</td><td className="px-4 py-3 text-[var(--c-seef-accent)]">{r.inv}</td></tr>
                         ))}
                       </tbody>
                     </table>
@@ -2050,7 +2149,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
               {/* COMMUNICATION LOG */}
               {studioTab==="timeline"&&(
                 <div className="space-y-5">
-                  <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><MessageSquare className="w-5 h-5 text-[#0a6ed1]"/>Communication Log</h4>
+                  <h4 className="font-bold text-sm text-theme-heading font-display flex items-center gap-2"><MessageSquare className="w-5 h-5 text-[var(--c-seef-accent)]"/>Communication Log</h4>
                   {!isReadOnly&&(
                     <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl space-y-3">
                       <h5 className="font-bold text-xs text-theme-muted font-mono uppercase">Log Interaction</h5>
@@ -2058,15 +2157,15 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                         <select value={logType} onChange={e=>setLogType(e.target.value as any)} className="p-2 bg-theme-surface-1 border border-theme-divider rounded-lg text-xs font-mono text-theme-heading">
                           {["Call","Email","WhatsApp","Payment Reminder"].map(t=><option key={t} value={t}>{t}</option>)}
                         </select>
-                        <input type="text" placeholder="Log interaction summary..." value={newLogMessage} onChange={e=>setNewLogMessage(e.target.value)} className="flex-1 p-2 bg-theme-surface-1 border border-theme-divider rounded-lg text-xs text-theme-heading focus:outline-none focus:border-[#0a6ed1]"/>
-                        <button onClick={addLog} className="px-4 py-2 bg-[#0a6ed1] text-white font-bold text-xs rounded-lg cursor-pointer flex items-center gap-1"><Send className="w-3.5 h-3.5"/>Log</button>
+                        <input type="text" placeholder="Log interaction summary..." value={newLogMessage} onChange={e=>setNewLogMessage(e.target.value)} className="flex-1 p-2 bg-theme-surface-1 border border-theme-divider rounded-lg text-xs text-theme-heading focus:outline-none focus:border-[var(--c-seef-accent)]"/>
+                        <button onClick={addLog} className="px-4 py-2 bg-[var(--c-seef-accent)] text-white font-bold text-xs rounded-lg cursor-pointer flex items-center gap-1"><Send className="w-3.5 h-3.5"/>Log</button>
                       </div>
                     </div>
                   )}
                   <div className="space-y-3">
                     {(selectedSupplier.communication_logs||[]).map(log=>(
                       <div key={log.id} className="p-4 bg-theme-surface-2 border border-theme-divider rounded-xl flex items-start gap-3">
-                        <div className="p-2 bg-[#0a6ed1]/10 rounded-lg mt-0.5"><MessageSquare className="w-4 h-4 text-[#0a6ed1]"/></div>
+                        <div className="p-2 bg-[var(--c-seef-accent)]/10 rounded-lg mt-0.5"><MessageSquare className="w-4 h-4 text-[var(--c-seef-accent)]"/></div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="px-2 py-0.5 bg-theme-surface-3 rounded text-[10px] font-bold font-mono">{log.type}</span>
@@ -2090,7 +2189,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                       {(["Draft","Pending Approval","Approved","Blocked","Blacklisted"] as const).map((stage,i,arr)=>(
                         <React.Fragment key={stage}>
                           <div className={`flex flex-col items-center gap-1 ${selectedSupplier.status===stage?"opacity-100":"opacity-40"}`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${selectedSupplier.status===stage?"bg-[#0a6ed1] text-white":"bg-theme-surface-3 text-theme-muted"}`}>{i+1}</div>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${selectedSupplier.status===stage?"bg-[var(--c-seef-accent)] text-white":"bg-theme-surface-3 text-theme-muted"}`}>{i+1}</div>
                             <span className="text-[9px] font-mono text-theme-muted text-center whitespace-nowrap">{stage}</span>
                           </div>
                           {i<arr.length-1&&<ChevronRight className="w-4 h-4 text-theme-divider flex-shrink-0"/>}
@@ -2100,7 +2199,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                     {!isReadOnly&&(
                       <div className="flex gap-2 flex-wrap pt-2 border-t border-theme-divider">
                         {(["Approved","Pending Approval","Blocked","Blacklisted"] as const).map(s=>(
-                          <button key={s} onClick={()=>updateStatus(s)} className={`px-3 py-1.5 text-xs font-bold rounded-lg border cursor-pointer transition-colors ${s==="Approved"?"bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20":s==="Blocked"?"bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20":s==="Blacklisted"?"bg-slate-500/10 text-slate-400 border-slate-500/30":"bg-amber-500/10 text-amber-400 border-amber-500/30"}`}>{s}</button>
+                          <button key={s} onClick={()=>updateStatus(s)} className={`px-3 py-1.5 text-xs font-bold rounded-lg border cursor-pointer transition-colors ${s==="Approved"?"bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20":s==="Blocked"?"bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20":s==="Blacklisted"?"bg-theme-surface-3/10 text-theme-muted border-theme-divider/30":"bg-amber-500/10 text-amber-400 border-amber-500/30"}`}>{s}</button>
                         ))}
                       </div>
                     )}
@@ -2122,7 +2221,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
                       <div key={i} className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl flex items-start gap-3 font-mono text-xs">
                         <div className="p-1.5 bg-theme-surface-3 rounded-lg flex-shrink-0"><History className="w-3.5 h-3.5 text-theme-muted"/></div>
                         <div>
-                          <span className="px-2 py-0.5 bg-[#0a6ed1]/10 text-[#0a6ed1] rounded text-[10px] font-bold">{log.action}</span>
+                          <span className="px-2 py-0.5 bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)] rounded text-[10px] font-bold">{log.action}</span>
                           <span className="ml-2 text-theme-muted text-[10px]">{log.ts} | by {log.user}</span>
                           <p className="text-theme-heading mt-1 text-xs">{log.note}</p>
                         </div>
@@ -2135,7 +2234,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
             </SmritiScrollArea>
 
             <div className="flex justify-end p-4 border-t border-theme-divider bg-theme-surface-2">
-              <button onClick={()=>setSelectedSupplier(null)} className="px-5 py-2 bg-[#0a6ed1] text-white font-bold text-xs rounded-lg cursor-pointer">Close Enterprise Studio</button>
+              <button onClick={()=>setSelectedSupplier(null)} className="px-5 py-2 bg-[var(--c-seef-accent)] text-white font-bold text-xs rounded-lg cursor-pointer">Close Enterprise Studio</button>
             </div>
           </div>
         </div>

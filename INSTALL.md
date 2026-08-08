@@ -56,7 +56,7 @@ Once the installer completes, access the application services at:
 
 | Username | Password | Assigned System Role |
 | :--- | :--- | :--- |
-| `super` | `Smriti@1234` | **System Administrator** (Full Permissions) |
+| `super` | `Shpr0128vdq!@` | **System Administrator** (Full Permissions) |
 | `manager` | `Password@123` | **Store Manager** (Operations & Reports) |
 | `cashier` | `Cashier@1234` | **POS Cashier** (POS & Sales) |
 

@@ -6,6 +6,7 @@
  * License      : Proprietary Commercial Software
  */
 
+import logger from "../../core/logging/logger.js";
 import { ICommand, ICommandHandler, ITenantContext, SPK } from "../SPK.js";
 import { ISalesService, SalesInvoiceRecord } from "../public/ISalesService.js";
 
@@ -26,7 +27,7 @@ export class CreateSalesInvoiceCommandHandler implements ICommandHandler<CreateS
       throw new Error("[UVE Validation Error] Sales Invoice net payable amount must be greater than zero.");
     }
 
-    console.log(`[SPK Command] Executing CreateSalesInvoiceCommand for tenant: ${context.tenantId}, operator: ${context.userName}`);
+    logger.debug(`[SPK Command] Executing CreateSalesInvoiceCommand for tenant: ${context.tenantId}, operator: ${context.userName}`);
 
     const salesService = SPK.services.resolve<ISalesService>("SALES");
     const saved = await salesService.saveInvoice(data);

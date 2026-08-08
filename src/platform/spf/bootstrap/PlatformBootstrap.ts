@@ -7,9 +7,12 @@
  */
 
 import { initSWSDKRegistry } from "../../../sdk/swsdk/SWSDKEntrypoint.js";
+import { PlatformKernelValidator } from "../../../kernel/PlatformKernelValidator.js";
+import { bootstrapDI } from "../../../bootstrap/di.ts";
 
 export type BootStage =
   | "Bootstrap"
+  | "KernelValidation"
   | "Configuration"
   | "License"
   | "Identity"
@@ -33,6 +36,7 @@ export interface BootStageProgress {
 export class PlatformBootstrap {
   private static stages: BootStage[] = [
     "Bootstrap",
+    "KernelValidation",
     "Configuration",
     "License",
     "Identity",
@@ -80,7 +84,8 @@ export class PlatformBootstrap {
   private static async executeStage(stage: BootStage): Promise<void> {
     switch (stage) {
       case "Bootstrap":
-        // Base environment bootstrap
+        // Base environment bootstrap & SPK Command Handlers registration
+        bootstrapDI();
         break;
       case "Configuration":
         // System configuration loading
@@ -100,6 +105,15 @@ export class PlatformBootstrap {
       case "Localization":
         // i18n & locale formatting initialization
         break;
+      case "KernelValidation": {
+        const validation = PlatformKernelValidator.validate();
+        if (!validation.valid) {
+          throw new Error(
+            `[PlatformBootstrap] Kernel validation failed: ${validation.errors.join('; ')}`
+          );
+        }
+        break;
+      }
       case "SWSDKRegistry":
         // Load and validate declarative workspace manifests (Rule SWSDK-001)
         initSWSDKRegistry();

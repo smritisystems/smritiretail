@@ -24,12 +24,12 @@
  */
 
 export type WorkflowStatus = "Draft" | "Submitted" | "Approved" | "Rejected" | "Cancelled";
-export type DocumentType = "PurchaseOrder" | "SalesOrder" | "Quotation" | "SalesInvoice" | "SalesReturn";
+export type DocumentType = "PurchaseOrder" | "SalesOrder" | "Quotation" | "SalesInvoice" | "PurchaseInvoice" | "SalesReturn" | "PurchaseReturn" | "StockTransfer" | "PhysicalStock";
 
 export interface WorkflowTransition {
   action: string;
-  from: string[];
-  to: string;
+  from: WorkflowStatus[];
+  to: WorkflowStatus;
   roles?: string[];
 }
 
@@ -59,7 +59,19 @@ export class WorkflowEngine {
       { action: "reject", from: ["Submitted"], to: "Rejected", roles: ["Manager", "Admin", "Store Manager"] },
       { action: "cancel", from: ["Draft", "Submitted", "Approved"], to: "Cancelled" }
     ],
+    PurchaseInvoice: [
+      { action: "submit", from: ["Draft", "Rejected"], to: "Submitted" },
+      { action: "approve", from: ["Submitted"], to: "Approved", roles: ["Manager", "Admin", "Store Manager"] },
+      { action: "reject", from: ["Submitted"], to: "Rejected", roles: ["Manager", "Admin", "Store Manager"] },
+      { action: "cancel", from: ["Draft", "Submitted", "Approved"], to: "Cancelled" }
+    ],
     SalesReturn: [
+      { action: "submit", from: ["Draft", "Rejected"], to: "Submitted" },
+      { action: "approve", from: ["Submitted"], to: "Approved", roles: ["Manager", "Admin", "Store Manager"] },
+      { action: "reject", from: ["Submitted"], to: "Rejected", roles: ["Manager", "Admin", "Store Manager"] },
+      { action: "cancel", from: ["Draft", "Submitted", "Approved"], to: "Cancelled" }
+    ],
+    PurchaseReturn: [
       { action: "submit", from: ["Draft", "Rejected"], to: "Submitted" },
       { action: "approve", from: ["Submitted"], to: "Approved", roles: ["Manager", "Admin", "Store Manager"] },
       { action: "reject", from: ["Submitted"], to: "Rejected", roles: ["Manager", "Admin", "Store Manager"] },
@@ -67,7 +79,7 @@ export class WorkflowEngine {
     ]
   };
 
-  static canTransition(docType: DocumentType, currentStatus: string, action: string, userRole: string = "Admin"): boolean {
+  static canTransition(docType: DocumentType, currentStatus: WorkflowStatus, action: string, userRole: string = "Admin"): boolean {
     const docTransitions = this.transitions[docType];
     if (!docTransitions) return false;
 
@@ -85,7 +97,7 @@ export class WorkflowEngine {
     return true;
   }
 
-  static getNextStatus(docType: DocumentType, action: string): string {
+  static getNextStatus(docType: DocumentType, action: string): WorkflowStatus {
     const docTransitions = this.transitions[docType];
     if (!docTransitions) throw new Error("Invalid document type");
 
@@ -95,7 +107,7 @@ export class WorkflowEngine {
     return transition.to;
   }
   
-  static getAvailableActions(docType: DocumentType, currentStatus: string, userRole: string = "Admin"): string[] {
+  static getAvailableActions(docType: DocumentType, currentStatus: WorkflowStatus, userRole: string = "Admin"): string[] {
     const docTransitions = this.transitions[docType];
     if (!docTransitions) return [];
     

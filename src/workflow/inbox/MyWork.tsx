@@ -1,9 +1,9 @@
-/**
- * Project      : SMRITI Retail OS v6.5 — Platform Architecture Constitution
+﻿/**
+ * Project      : SMRITI Retail OS v6.5 â€” Platform Architecture Constitution
  * Module       : MyWork (Fiori-Style Unified "My Work" Home Studio Component v2.1)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com and AITDL.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com and AITDL.com. All Rights Reserved.
  * Version      : 2.1.0
  */
 
@@ -53,12 +53,12 @@ export const MyWork: React.FC = () => {
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-theme-divider pb-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-[#0a6ed1]/10 text-[#0a6ed1] border border-[#0a6ed1]/30 rounded-xl shadow-xs">
+          <div className="p-3 bg-[var(--c-seef-accent)]/10 text-[var(--c-seef-accent)] border border-[var(--c-seef-accent)]/30 rounded-xl shadow-xs">
             <Inbox className="w-6 h-6" />
           </div>
           <div>
             <h3 className="text-base font-bold text-theme-heading">SUWINE "My Work" Fiori Studio v2.1</h3>
-            <p className="text-xs text-theme-muted font-mono">Polymorphic Universal Work Queue • BPMN Parallel Engine • SUSJE Scheduler Link</p>
+            <p className="text-xs text-theme-muted font-mono">Polymorphic Universal Work Queue â€¢ BPMN Parallel Engine â€¢ SUSJE Scheduler Link</p>
           </div>
         </div>
 
@@ -78,9 +78,9 @@ export const MyWork: React.FC = () => {
         <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl space-y-2 font-mono text-xs text-purple-300">
           <div className="flex justify-between items-center font-bold">
             <span className="flex items-center gap-1.5"><Sparkles className="w-4 h-4" /> Workflow Simulator Active</span>
-            <button onClick={() => setSimulationResult(null)} className="hover:text-white">✕</button>
+            <button onClick={() => setSimulationResult(null)} className="hover:text-white">âœ•</button>
           </div>
-          <div>Execution Path: <strong>{simulationResult.executionPath.join(" → ")}</strong></div>
+          <div>Execution Path: <strong>{simulationResult.executionPath.join(" â†’ ")}</strong></div>
           <div>Estimated SLA: <strong>{simulationResult.slaEstimatedHours} hours</strong></div>
         </div>
       )}
@@ -99,7 +99,7 @@ export const MyWork: React.FC = () => {
               onClick={() => setFilterType(t)}
               className={`px-3 py-1 rounded-lg text-xs font-bold font-mono cursor-pointer transition-colors ${
                 filterType === t
-                  ? "bg-[#0a6ed1] text-white shadow-xs"
+                  ? "bg-[var(--c-seef-accent)] text-white shadow-xs"
                   : "bg-theme-surface-3 text-theme-muted hover:text-theme-heading"
               }`}
             >
@@ -152,7 +152,7 @@ export const MyWork: React.FC = () => {
                   title: item.title
                 }}
               >
-                <span className="mr-2">Drill Item →</span>
+                <span className="mr-2">Drill Item â†’</span>
               </DrillableLink>
 
               {item.status === "Pending" && (

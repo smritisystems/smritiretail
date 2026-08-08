@@ -77,14 +77,30 @@ class SalesPaymentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class CustomerStatementRowResponse(BaseModel):
+    date: datetime
+    document_type: str
+    document_no: str
+    debit: Decimal
+    credit: Decimal
+    running_balance: Decimal
+    reference: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class CustomerStatementResponse(BaseModel):
     customer_id: str
     customer_name: str
     customer_code: str
+    opening_balance: Decimal = Decimal("0.00")
     total_invoices: int
-    total_billed: float
-    total_paid: float
-    total_due: float
-    current_outstanding: float
+    total_billed: Decimal
+    total_paid: Decimal
+    total_due: Decimal
+    total_credit_notes: Decimal = Decimal("0.00")
+    net_outstanding: Decimal = Decimal("0.00")
+    current_outstanding: Decimal
+    ledger: List[CustomerStatementRowResponse] = []
 
     model_config = ConfigDict(from_attributes=True)

@@ -23,6 +23,8 @@
   * License    : Proprietary Commercial Software
 -->
 
+> **SUPERSEDED:** This audit is historical and does not describe the current release. Use the current source, tests, and changelog for present-state verification.
+
 # Retail ERP System - Comprehensive Audit & Integration Report
 
 **Date:** 2026-07-10

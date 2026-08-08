@@ -90,6 +90,217 @@ Every completion claim must be backed by directly observable evidence. If eviden
 3. **Consistent UI Structure**:
    - Master entities MUST implement the **Object Page Pattern** (Fixed summary header + horizontal tabs).
    - Transaction domains MUST implement the **List Report Pattern** (Filter bar + Search + Actionable Data Table).
+4. **Single Persistent Sidebar & Filter Drawer Architecture (WNG-003 — MANDATORY)**:
+   - Primary navigation belongs exclusively to the main left sidebar. Workspaces MUST NEVER render a second persistent navigation sidebar.
+   - UI regions MUST adhere strictly to clear architectural roles:
+     - **Primary Navigation**: Left sidebar ONLY.
+     - **Workspace Navigation**: Top tabs.
+     - **Filtering & Quick Views**: Slide-out drawer, collapsible filter panel, or top filter bar.
+     - **Actions**: Top toolbar.
+     - **Content**: Main grid / list workspace.
+   - Domain filtering (such as Master Registry trees, Categories, Brands, Quick Views) MUST be implemented as a toggleable slide-out filter drawer or collapsible filter bar, granting 100% horizontal width to content when closed.
+5. **Enterprise Context-Aware Domain Navigation Model (WNG-004 — MANDATORY)**:
+   - Navigation MUST adhere strictly to the 5-Level Enterprise Navigation Hierarchy:
+     `Level 1 (Launchpad) ──► Level 2 (Business Domain) ──► Level 3 (Business Module) ──► Level 4 (Workspace Tabs) ──► Level 5 (Task / Form Inspector)`.
+   - **Context-Aware Left Sidebar**: The left navigation sidebar MUST NEVER display all system modules simultaneously. It MUST render exclusively the modules belonging to the currently active business domain (e.g. Sales, Purchase, Inventory, Accounting, CRM, Reports).
+   - **Domain Switching**: Selecting or switching business domains (via Launchpad or Domain Switcher) immediately updates the left sidebar to show only that domain's modules.
+   - **Module Workspace Scoping**: Workspace top tabs belong exclusively to the selected module (e.g., Master Registry, Spreadsheet Studio, Dynamic Attributes, Variant Templates, Analytics).
+6. **Declarative UPR Navigation Architecture (WNG-005 — MANDATORY)**:
+   - Navigation MUST NEVER be constructed procedurally or using hardcoded `if (domain === "...")` branches in UI components.
+   - All domain metadata, icons, emojis, ordering, permissions, feature flags, and module relationships MUST be declared through metadata in the Universal Platform Registry (`UPR` / `SPK.navigation`).
+   - Renderer components MUST act strictly as generic consumers of UPR metadata facade (`SPK.navigation.getSidebar(activeDomain)`).
+   - Plugins and Industry Packs (e.g. Manufacturing, Restaurant, Medical, Jewellery) MUST extend navigation by registering domain metadata with UPR without modifying React UI component code.
+7. **Navigation Standard v1.0 Status (FROZEN)**:
+   - Rules `WNG-001` through `WNG-005` are officially **FROZEN v1.0**.
+   - No structural or procedural changes to navigation are permitted without an approved Architecture Decision Record (`docs/adr/ADR-xxx.md`).
+8. **Universal Platform Registry (UPR) Capability Naming Matrix**:
+   - `WNG`: Workspace Navigation Governance (`SPK.navigation`)
+   - `UFR`: Universal Form Registry (`SPK.forms`)
+   - `USR`: Universal Security Registry (`SPK.security`)
+   - `URR`: Universal Report Registry (`SPK.reports`)
+   - `UPRT`: Universal Print Registry (`SPK.printing`)
+   - `UWR`: Universal Workflow Registry (`SPK.workflow`)
+   - `UDR`: Universal Dashboard Registry (`SPK.dashboard`)
+   - `UAR`: Universal AI Skill Registry (`SPK.ai`)
+
+## 12. Universal Form Registry Governance (UFR Standard v1.0 — FROZEN)
+1. **Metadata-Driven Forms Only (UFR-001 — MANDATORY)**:
+   - Forms MUST NEVER be constructed as handcrafted TSX forms. All form sections, field spans, and labels MUST be declared in UPR metadata (`FormRegistry` / `SPK.forms`).
+2. **Universal Entity Definition Framework (UFR-002 — MANDATORY)**:
+   - Business entities, fields, data types, and primary keys MUST be defined exclusively in `EntityRegistry` (`UEDF` / `SPK.entities`).
+3. **Registry-Driven Field Control Resolution (UFR-003 — MANDATORY)**:
+   - UI input controls MUST be resolved exclusively through `FieldRegistry` (`SPK.fields.getFieldControl()`). Handcrafted `switch(field.type)` statements in UI components are strictly prohibited.
+4. **Centralized Validation Engine Execution (UFR-004 — MANDATORY)**:
+   - Form validation rules (required, min, max, email, GSTIN, PAN, mobile, custom) MUST execute exclusively through `ValidationRegistry` (`SPK.validation`).
+5. **Declarative Layout Grid Resolution (UFR-005 — MANDATORY)**:
+   - Form and section responsive grid spans and column breakpoints MUST be resolved exclusively through `LayoutRegistry` (`SPK.layouts`).
+6. **Business-Agnostic Renderer Component (UFR-006 — MANDATORY)**:
+   - `UniversalFormRenderer` MUST remain 100% generic and contain zero domain-specific or hardcoded business logic.
+7. **UFR Standard v1.0 Status (FROZEN)**:
+   - Rules `UFR-001` through `UFR-006` are officially **FROZEN v1.0**.
+
+## 13. Universal Security Governance (USR Standard v1.0 — FROZEN)
+1. **Permission Definitions (USR-001 — MANDATORY)**:
+   - All permissions MUST be defined in `PermissionRegistry` (`SPK.security.permissions`). Handcoded permission string assertions in UI components are strictly prohibited.
+2. **Role Hierarchy & Inheritance (USR-002 — MANDATORY)**:
+   - Roles and parent role inheritance MUST be declared in `RoleRegistry` (`SPK.security.roles`).
+3. **Attribute-Based Policy Authorization (USR-003 — MANDATORY)**:
+   - ABAC authorization rules MUST execute through `PolicyRegistry` (`SPK.security.policies`).
+4. **Licensing & Feature Enablement (USR-004 — MANDATORY)**:
+   - Platform editions and feature flag enablement MUST be verified via `LicenseRegistry` (`SPK.security.licenses`).
+5. **Tenant Isolation & Metadata (USR-005 — MANDATORY)**:
+   - Multi-tenant organization metadata MUST be resolved via `TenantRegistry` (`SPK.security.tenants`).
+6. **Security Audit Logging (USR-006 — MANDATORY)**:
+   - Security access decisions MUST be logged to `AuditRegistry` (`SPK.security.audit`).
+7. **Single Authorization Entry Point (USR-007 — MANDATORY)**:
+   - All workspace access decisions MUST execute exclusively through `SPK.security.evaluateAccess()`.
+8. **USR Standard v1.0 Status (FROZEN)**:
+   - Rules `USR-001` through `USR-007` are officially **FROZEN v1.0**.
+
+## 14. Universal Configuration Governance (UCR Standard v1.0 — FROZEN)
+1. **Branding Metadata Ownership (UCR-001 — MANDATORY)**:
+   - Corporate identity, app logos, themes, and titles MUST be owned by `BrandingRegistry` (`SPK.configuration.branding`).
+2. **Regional Formatting Ownership (UCR-002 — MANDATORY)**:
+   - Currency symbols, date formats, timezones, and number formatting MUST be owned by `RegionalRegistry` (`SPK.configuration.regional`).
+3. **Preference Scope Isolation (UCR-003 — MANDATORY)**:
+   - User, tenant, and workspace preferences MUST be resolved via `PreferenceRegistry` (`SPK.configuration.preferences`).
+4. **Environment & Runtime Metadata (UCR-004 — MANDATORY)**:
+   - Runtime configuration and API endpoints MUST be owned by `EnvironmentRegistry` (`SPK.configuration.environment`).
+5. **Central Configuration Facade (UCR-005 — MANDATORY)**:
+   - All configuration access across platform workspaces MUST execute exclusively through `SPK.configuration`.
+6. **Immutable Execution Context (UCR-006 — MANDATORY)**:
+   - `PlatformContext` MUST remain read-only and immutable for the duration of a request.
+7. **UCR Standard v1.0 Status (FROZEN)**:
+   - Rules `UCR-001` through `UCR-006` are officially **FROZEN v1.0**.
+
+## 15. Universal Workflow Governance (UWR Standard v1.0 — FROZEN)
+1. **Metadata-Driven Workflows (UWR-001 — MANDATORY)**:
+   - All entity state machines, states, and transition flows MUST be declared in UPR metadata (`WorkflowRegistry` / `SPK.workflow`).
+2. **Single Transition Execution Entry Point (UWR-002 — MANDATORY)**:
+   - State transitions MUST execute exclusively through `SPK.workflow.executeTransition()`.
+3. **Delegated Security Authorization (UWR-003 — MANDATORY)**:
+   - Workflow transition role and permission checks MUST delegate exclusively to `SPK.security`.
+4. **Delegated Validation Engine (UWR-004 — MANDATORY)**:
+   - Pre-transition business rule validations MUST delegate exclusively to `SPK.validation`.
+5. **Immutable Context Enforcement (UWR-005 — MANDATORY)**:
+   - Workflow execution MUST consume immutable `PlatformContext`.
+6. **No Custom Workflow Engines (UWR-006 — MANDATORY)**:
+   - Retail business modules MUST NOT implement custom procedural workflow engines or state switch statements.
+7. **UWR Standard v1.0 Status (FROZEN)**:
+   - Rules `UWR-001` through `UWR-006` are officially **FROZEN v1.0**.
+
+## 16. Universal Report Governance (URR Standard v1.0 — FROZEN)
+1. **Metadata-Driven Reports Only (URR-001 — MANDATORY)**:
+   - All report definitions, parameters, and analytical columns MUST be declared in UPR metadata (`ReportRegistry` / `SPK.reports`).
+2. **Single Execution Entry Point (URR-002 — MANDATORY)**:
+   - Reports MUST execute exclusively through `SPK.reports.executeReport()`.
+3. **Delegated Security Authorization (URR-003 — MANDATORY)**:
+   - Report permissions and user access MUST delegate exclusively to `SPK.security`.
+4. **Delegated Parameter Validation (URR-004 — MANDATORY)**:
+   - Report parameter validation MUST delegate exclusively to `SPK.validation`.
+5. **Immutable Context Enforcement (URR-005 — MANDATORY)**:
+   - Report execution MUST consume immutable `PlatformContext`.
+6. **Delegated Exporter Engine (URR-006 — MANDATORY)**:
+   - PDF, Excel, CSV, and JSON export rendering MUST be delegated to registered exporter engines.
+7. **URR Standard v1.0 Status (FROZEN)**:
+   - Rules `URR-001` through `URR-006` are officially **FROZEN v1.0**.
+
+## 17. Universal Print Governance (UPRT Standard v1.0 — FROZEN)
+1. **Metadata-Driven Templates (UPRT-001 — MANDATORY)**:
+   - Print templates, layout schemas, and paper size profiles MUST be declared in UPR metadata (`PrintRegistry` / `SPK.printing`).
+2. **Single Rendering Execution Entry Point (UPRT-002 — MANDATORY)**:
+   - Print document rendering MUST execute exclusively through `SPK.printing.renderDocument()`.
+3. **Automated Placeholder Data Binding (UPRT-003 — MANDATORY)**:
+   - Dynamic parameter substitution MUST be executed by the print engine.
+4. **Delegated Security Authorization (UPRT-004 — MANDATORY)**:
+   - Template printing permissions MUST delegate exclusively to `SPK.security`.
+5. **Immutable Context Enforcement (UPRT-005 — MANDATORY)**:
+   - Document rendering MUST consume immutable `PlatformContext`.
+6. **Delegated Renderers (UPRT-006 — MANDATORY)**:
+   - Output generation (Thermal ESC/POS, HTML, PDF, ZPL) MUST be delegated to registered renderers.
+7. **UPRT Standard v1.0 Status (FROZEN)**:
+   - Rules `UPRT-001` through `UPRT-006` are officially **FROZEN v1.0**.
+
+## 18. Universal Dashboard Governance (UDR Standard v1.0 — FROZEN)
+1. **Metadata-Driven Dashboards (UDR-001 — MANDATORY)**:
+   - Dashboard layouts, widget schemas, and chart parameters MUST be declared in UPR metadata (`DashboardRegistry` / `SPK.dashboard`).
+2. **Single Widget Rendering Entry Point (UDR-002 — MANDATORY)**:
+   - Widget calculations and layout rendering MUST execute exclusively through `SPK.dashboard.renderWidget()`.
+3. **Delegated Security Authorization (UDR-003 — MANDATORY)**:
+   - Dashboard domain and widget access MUST delegate exclusively to `SPK.security`.
+4. **Delegated Layout Grid Resolution (UDR-004 — MANDATORY)**:
+   - Dashboard widget column/row grid spans MUST delegate exclusively to `SPK.layouts`.
+5. **Immutable Context Enforcement (UDR-005 — MANDATORY)**:
+   - Dashboard widget execution MUST consume immutable `PlatformContext`.
+6. **UDR Standard v1.0 Status (FROZEN)**:
+   - Rules `UDR-001` through `UDR-006` are officially **FROZEN v1.0**.
+
+## 19. Universal AI Skill Governance (UAR Standard v1.0 — FROZEN)
+1. **Metadata-Driven AI Skills (UAR-001 — MANDATORY)**:
+   - All AI skills, prompt templates, and advisory schemas MUST be declared in UPR metadata (`AIRegistry` / `SPK.ai`).
+2. **Single Skill Execution Entry Point (UAR-002 — MANDATORY)**:
+   - Skill execution MUST execute exclusively through `SPK.ai.executeSkill()`.
+3. **AI Optionality & Advisory Enforcement (UAR-003 — MANDATORY)**:
+   - In accordance with **Rule AOP-001 (AI Optionality Principle)**, all AI skill recommendations MUST specify `isAdvisoryOnly: true` and NEVER execute financial or core domain transactions automatically.
+4. **Delegated Security Authorization (UAR-004 — MANDATORY)**:
+   - Skill execution permissions MUST delegate exclusively to `SPK.security`.
+5. **Immutable Context Enforcement (UAR-005 — MANDATORY)**:
+   - Skill execution MUST consume immutable `PlatformContext`.
+6. **UAR Standard v1.0 Status (FROZEN)**:
+   - Rules `UAR-001` through `UAR-006` are officially **FROZEN v1.0**.
+
+## 20. Single Workspace Principle (PROD-002 / SWP-001 — FROZEN)
+1. **Four Universal Workspaces Only (SWP-001 — MANDATORY)**:
+   - There shall be exactly one Billing Workspace (`sales-billing-studio`), one Purchase Workspace (`purchase-studio`), one Inventory Workspace (`item-master`), and one Universal Person Workspace (`crm-studio`).
+2. **Policy-Driven Behavior (SWP-002 — MANDATORY)**:
+   - Business behavior MUST be determined by policies, customer/supplier profiles, document type, and configuration—NOT by duplicate screens, menus, or modules.
+3. **Mandatory AI Checklist Before Creating Modules (SWP-003 — MANDATORY)**:
+   - Check if an existing Workspace can adapt through Policy. If YES, extend Policy Engine (`CustomerPolicyEngine`, `SupplierPolicyEngine`, `PersonPolicyEngine`). Do NOT create a duplicate workspace or screen.
+
+## 21. SMRITI Authentication Design Standard (AUTH-001 — FROZEN)
+1. **User-First Authentication Flow (AUTH-001 — MANDATORY)**:
+   - Always authenticate the **user credentials first** (`Username + Password`). Never ask for Company, Database, or Infrastructure selection prior to authentication.
+2. **Access Resolution Chain (AUTH-002 — MANDATORY)**:
+   - `Authenticate User ──► Resolve Assigned Tenant ──► Resolve Company ──► Resolve Branch ──► Load Permissions ──► Open Workspace`.
+3. **Single Assignment Auto-Selection (AUTH-003 — MANDATORY)**:
+   - If the authenticated user has access to exactly 1 company/branch/database, auto-select it and open the dashboard directly without showing any selection screen.
+4. **Multiple Assignments Selector Isolation (AUTH-004 — MANDATORY)**:
+## 22. Automatic Documentation Maintenance (DOC-001 — FROZEN)
+1. **Automatic Documentation Updates (DOC-001 — MANDATORY)**:
+   - AI agents MUST automatically update, append, and synchronize all respective documentation files (`SYSTEM_TROUBLESHOOTING_LOG.md`, `CHANGELOG.md`, `AGENTS.md`, `GEMINI.md`, and architectural specs) whenever code changes, bug fixes, or design standards are introduced or modified.
+2. **Zero Prompting Required (DOC-002 — MANDATORY)**:
+   - Never wait for or require the user to explicitly remind or instruct you to update documentation. Documentation synchronization is an automated, non-negotiable step of every task.
+
+## 23. Production Data Integrity & Clean Installation (PROD-003 — FROZEN)
+1. **Clean Production Baseline (PROD-003 — MANDATORY)**:
+   - A newly installed SMRITI Retail OS production database (`smriti_prod`) MUST contain strictly system metadata (Company/Branch setup, Admin User, System Config, Roles, Permissions, Tax Rates, UOM, Currencies, Countries).
+2. **Zero Sample Business Data (PROD-003 — MANDATORY)**:
+   - Fresh production setup scripts and migrations MUST NEVER seed sample customers, suppliers, items, sales invoices, purchase orders, stock ledger, or payment receipts. Dashboard metrics MUST honestly display 0 records on first installation.
+3. **Opt-In Environment Provisioning (PROD-003 — MANDATORY)**:
+   - Demo, training, sample, and test datasets exist strictly in isolated environments (`smriti_demo`, `smriti_training`, `smriti_test`, `smriti_dev`) and are provisioned strictly via user opt-in via installer or Environment Manager.
+
+## 24. Environment Isolation Governance (PROD-004 — FROZEN)
+1. **Complete Database & Tenant Isolation (PROD-004 — MANDATORY)**:
+   - Production, Demo, Training, Test, and Development environments shall remain completely isolated. Business data, transactions, users, and ledgers shall never be shared automatically across environments.
+2. **Persistent Environment Profile Metadata (PROD-004 — MANDATORY)**:
+   - Every database MUST record its `DatabaseProfile` metadata (`database_id`, `database_name`, `environment_type`, `is_demo`, `created_on`, `version`) and persistently display its environment badge (`PRODUCTION`, `DEMO`, `TRAINING`, `TEST`, `DEVELOPMENT`) on login forms and application top bars.
+
+## 25. Environment Awareness & Statutory Safeguards (PROD-005 — FROZEN)
+1. **Universal Environment Identification (PROD-005 — MANDATORY)**:
+   - Every workspace screen, report, print template, exported data file, and API response MUST clearly identify the active execution environment (`PRODUCTION`, `DEMO`, `TRAINING`, `TEST`, `DEVELOPMENT`).
+2. **Non-Production Statutory Watermarks (PROD-005 — MANDATORY)**:
+   - Invoices, vouchers, labels, and receipts generated from `DEMO` or `TRAINING` environments MUST render a prominent watermark (`DEMO ENVIRONMENT - NOT FOR ACCOUNTING`).
+3. **Immutable Environment Types & Safety Guards (PROD-005 — MANDATORY)**:
+   - Database profile environment types are immutable after creation. Production databases MUST NEVER be converted to Demo, and UI deletion of `PRODUCTION` database instances is strictly prohibited.
+
+## 26. Fallback Session Transparency & Offline Awareness (PROD-006 — FROZEN)
+1. **Offline / Cached Session Badge Rendering (PROD-006 — MANDATORY)**:
+   - Whenever the platform operates in local mock token or offline bypass mode (`smriti_jwt_*`, `demo_*`, `token_demo`, `dev-bypass-token`), the UI MUST render a persistent `OfflineSessionBadge` component (`CACHED OFFLINE` / `DEMO SESSION`) informing the operator of offline fallback operation.
+2. **No Masked Fallback Operations (PROD-006 — MANDATORY)**:
+   - Silent masking of mock API providers or offline local state is strictly prohibited. All fallback branches MUST explicitly declare their mock status to prevent user confusion during live network disruptions.
+
+> **Key Takeaway:** SMRITI Retail OS is built on an unshakable architectural foundation and a customer-first product philosophy. Guided by the Single Workspace Principle (`PROD-002 / SWP-001`), Production Data Integrity (`PROD-003 / PROD-004`), Environment Awareness (`PROD-005`), and Fallback Session Transparency (`PROD-006`), every business process is unified into a single adaptive workspace. A fresh production installation represents a clean business baseline—never a software demo. **One Workspace. Infinite Business Scenarios.**
+
 
 ---
 
@@ -280,6 +491,8 @@ Before writing ANY new code or creating files, all AI agents and engineers MUST 
 - **SLP-006 (Universal Lookup & Range Filtering)**: Label selection must support universal cross-entity lookup (Item, Barcode, Article, Style, Brand, GRN, Invoices, Batches) and range/variant filtering (MRP range, Size matrix).
 - **SLP-007 (Label Profile Auto-Resolution)**: Items automatically resolve to their configured Label Profile ──► PRN Script ──► Printer Language. Manual override is permitted.
 - **SLP-008 (Pluggable Print Provider Framework)**: Printing operations must decouple logic from transport layers via pluggable providers (`BrowserPrintProvider`, `PDFPrintProvider`, `QZTrayProvider`, `NetworkPrintProvider`). Direct unabstracted socket code in UI modules is strictly prohibited.
+- **CON-001 (Constitution Freeze — MANDATORY)**: The SMRITI Developer Operating System Constitution (`ADR-023`, `ADR-024`, `ADR-025`, `ADR-026`) is permanently FROZEN. Direct edits, rewrites, or renumbering of these constitutional ADRs are strictly prohibited. The platform evolution transitions 100% to Product Mode (Business Capabilities, Domain Packs, and Implementation Specifications / IPS).
+- **PROD-001 (Customer Value Priority — MANDATORY)**: If a proposed change does not help a retailer sell faster, buy better, manage inventory more accurately, or comply with regulations, it is not a priority during Product Mode. Architecture refactoring and non-essential infrastructure tasks are prohibited.
 
 ### AI Agent Mandatory 5-Phase Review Protocol (MANDATORY — ALL FEATURES)
 
@@ -1376,8 +1589,90 @@ No file shall be modified until its dependency graph, impact analysis, compatibi
 ## The Guiding Governance Principle
 > **"No code change is complete until its architectural impact has been analyzed, all dependent artifacts have been synchronized, all validation gates have passed, and the platform remains internally consistent."**
 
+
 ## Rule KGF-001 – Persistent Knowledge Graph & Semantic Dependency Engine
 The SMRITI Platform Kernel (SPK) shall maintain a persistent project Knowledge Graph (`KGF`) indexing all Files, Classes, Interfaces, APIs, Domain Events, Database Schemas, Routes, Tests, and Documentation. All ICME dependency scans and impact analyses shall consume `KGF` for semantic dependency resolution and sub-second incremental change evaluation.
+
+---
+
+# 20. Repository-wide Author Signature Standardization & Governance
+
+**Status:** MANDATORY LEVEL-1 CONSTITUTION (2026-08-03)
+
+## Author Signature Policy (ASG-001)
+
+All files maintained in the SMRITI Retail OS repository MUST automatically include the official canonical Author Signature.
+
+### 1. Canonical Author Signature (Full — Public Docs, Architectures, Constitutions, ADRs, Public SDKs, AUTHORS.md)
+
+```markdown
+# AUTHORS
+
+## Author, Creator & Chief Systems Architect
+
+**Jawahar Ramkripal Mallah**
+
+### Founder
+- SmritiSys
+- AITDL Networks
+
+### Creator
+- SMRITI Retail OS
+
+### Responsibilities
+- Product Vision
+- Product Strategy
+- Platform Architecture
+- Enterprise Architecture
+- UX Architecture
+- Inventory Kernel Architecture
+- Platform Constitution
+- Engineering Standards & Governance
+
+### Websites
+- smritisys.com
+- smritibooks.com
+- aitdl.com
+
+### Contact
+- jawahar.mallah@gmail.com
+
+---
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+```
+
+### 2. Short Source Header (Internal Implementation Files: Python, TS/JS/TSX, SQL, Markdown, Shell, YAML)
+
+```text
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+```
+
+### 3. Execution Rules
+- **Rule 1 (Preserve & Standardize)**: Update existing headers to canonical format; never duplicate signatures.
+- **Rule 2 (Comment Syntax)**: Wrap using native comment syntax (`"""` for Python, `/* ... */` for JS/TS, `--` for SQL, `<!-- ... -->` for MD, `#` for Shell/YAML).
+- **Rule 3 (Exclusions)**: Exclude `node_modules`, `vendor`, `third_party`, `dist`, `build`, `coverage`, `.next`, `.venv`, `.git`, `.pytest_cache`, `__pycache__`, framework auto-generated migrations (`alembic/versions`), binary files, and lock files.
+- **Rule 4 (No Code Logic Mutations)**: Never modify program logic, algorithms, imports, or exports during signature standardization.
+- **Rule 5 (New File Generation)**: Every newly created internal source file or architecture document MUST automatically receive the canonical author signature.
+- **Rule 6 (Python Future Import)**: In Python files containing `from __future__ import ...`, the `from __future__` statement MUST remain at line 1, placed immediately BEFORE the author signature docstring.
 
 
 

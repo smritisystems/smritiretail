@@ -28,6 +28,8 @@
 
 This directory contains formal walkthroughs documenting major features, bug fixes, refactoring, and optimizations in SMRITI Retail OS.
 
+- [2026-08-04 DevSecOps JWT Migration & 0-Vulnerability Certification](2026-08-04-devsecops-jwt-remediation.md)
+
 | Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | 2026-07-30 | v3.39.0 | Standalone Buffer/Process Polyfill & Docker Container Resolution | [Walkthrough](./WT-3.39.0-docker-buffer-polyfill-fix.md) | — | Completed |

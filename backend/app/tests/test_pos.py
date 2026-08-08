@@ -25,7 +25,7 @@ from sqlalchemy.future import select
 from app.db.session import active_tenant_ctx
 from app.api.deps import TenantContext
 from app.models.tenant import Company, Branch
-from app.models.inventory import Product
+from app.models.inventory import Product, StockMovement
 from app.models.pos import PosSession, PosTransaction
 from app.services.inventory import InventoryService
 from app.schemas.inventory import ProductCreate
@@ -66,9 +66,28 @@ async def _make_product(db, tenant_ctx, stock=50, price=Decimal("150.00"), code_
         cost_price=price
     )
     product = await inv_service.create_product(p_in)
-    product.stock = stock
-    db.add(product)
-    await db.flush()
+    if stock > 0:
+        movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+        sm = StockMovement(
+            id=movement_id,
+            uuid=str(uuid.uuid4()),
+            product_id=product.id,
+            product_name=product.name,
+            sku=product.sku or product.code,
+            quantity=stock,
+            movement_type="OPENING",
+            reference_doc_type="OPENING_BALANCE",
+            reference_doc_id=product.id,
+            warehouse="Default Warehouse",
+            unit_cost=price,
+            remarks="Opening stock fixture",
+            source_module="POS",
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+        )
+        db.add(sm)
+        await db.flush()
+        await db.refresh(product)
     return product
 
 
@@ -141,6 +160,7 @@ async def test_pos_checkout_deducts_inventory_and_calculates_change(db_session):
 
     # Verify inventory stock deducted from 50 to 48
     up_prod = (await db_session.execute(select(Product).where(Product.id == product.id))).scalars().first()
+    await db_session.refresh(up_prod)
     assert up_prod.stock == 48
 
     print("\n[PASS] Assertion 2: Checkout deducted 2 units from inventory (50 -> 48) and calculated $200 change due")

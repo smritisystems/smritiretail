@@ -9,7 +9,9 @@
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  */
 
+import logger from "../../logging/logger.js";
 import { PrintJob, PrinterCapability, PrintResult } from "../models/PrintDocument.js";
+import { apiFetch } from "../../../lib/apiFetch.js";
 
 export interface IPrintProvider {
   id: string;
@@ -59,7 +61,7 @@ export class QZProvider implements IPrintProvider {
             }
           }
         } catch (e) {
-          console.warn("[QZProvider] Discovery exception:", e);
+          logger.warn("[QZProvider] Discovery exception:", e as unknown);
         }
       }
     }
@@ -83,6 +85,11 @@ export class QZProvider implements IPrintProvider {
     const start = Date.now();
     try {
       const win = window as any;
+      if (win.qz && win.qz.websocket) {
+        if (!win.qz.websocket.isActive()) {
+          await win.qz.websocket.connect({ retries: 2, delay: 1 });
+        }
+      }
       if (win.qz && win.qz.websocket && win.qz.websocket.isActive()) {
         const config = win.qz.configs.create(job.printerName);
         const data = [job.payload];
@@ -172,18 +179,16 @@ export class NetworkProvider implements IPrintProvider {
   async sendJob(job: PrintJob): Promise<PrintResult> {
     const start = Date.now();
     try {
-      const response = await fetch("/api/v1/print/raw-tcp", {
+      const printerIp = job.printerIp || job.printerName || "192.168.1.100";
+      const printerPort = job.printerPort || 9100;
+      await apiFetch("/api/v1/print/raw-tcp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          printerIp: job.printerName || "192.168.1.100",
-          port: 9100,
+          printerIp,
+          port: printerPort,
           rawScript: job.payload,
         }),
       });
-      if (!response.ok) {
-        throw new Error(`TCP Printer raw socket error: HTTP ${response.status}`);
-      }
       return {
         jobId: job.id,
         success: true,

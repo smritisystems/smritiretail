@@ -1,14 +1,16 @@
-﻿"""
-Project      : SMRITI Retail OS
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.21.0
-Created      : 2026-07-15
-Modified     : 2026-07-15
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
+"""
+Project         : SMRITI Retail OS
+Organization    : SmritiSys
+Author          : Jawahar Ramkripal Mallah
+Designation     : Chief Systems Architect & Creator
+Email           : support@smritibooks.com
+Websites        : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version         : 3.21.0
+Created         : 2026-07-15
+Modified        : 2026-08-04
+Copyright       : © SMRITIBooks.com. All Rights Reserved.
+License         : Proprietary Commercial Software
+Classification  : Internal
 
 Core Workflow API — AD-3 resolution.
 Workflow is a cross-module concern and must NOT live in sales.py or purchase.py.
@@ -40,7 +42,7 @@ router = APIRouter()
 _SUPPORTED = {
     "PurchaseOrder":  {"submit", "cancel"},
     "SalesInvoice":   {"approve", "cancel"},
-    "SalesQuotation": {"approve", "cancel"},
+    "SalesQuotation": {"submit", "approve", "reject", "cancel"},
 }
 
 
@@ -172,9 +174,8 @@ async def workflow_action(
             return {"success": True, "invoice_id": inv.id, "status": inv.status}
 
     if doc_type == "SalesQuotation":
-        from sqlalchemy.orm import selectinload
         from app.models.sales import SalesQuotation
-        if action == "approve":
+        if action in {"submit", "approve", "reject", "cancel"}:
             res = await db.execute(
                 select(SalesQuotation)
                 .where(
@@ -187,36 +188,23 @@ async def workflow_action(
             q = res.scalars().first()
             if not q:
                 raise HTTPException(status_code=404, detail="Quotation not found")
-            if q.status not in ("Draft", "Submitted"):
-                raise HTTPException(status_code=400, detail=f"Cannot approve quotation with status '{q.status}'.")
-            prev_status   = q.status
-            q.status      = "Approved"
-            q.modified_at = datetime.now(timezone.utc)
-            db.add(q)
+            prev_status = str(q.status) if q.status is not None else None
+
+            if action == "submit":
+                q = await SalesService(db, tenant_ctx).submit_sales_quotation(doc_id)
+                to_status = "Submitted"
+            elif action == "approve":
+                q = await SalesService(db, tenant_ctx).approve_sales_quotation(doc_id)
+                to_status = "Approved"
+            elif action == "reject":
+                q = await SalesService(db, tenant_ctx).reject_sales_quotation(doc_id)
+                to_status = "Rejected"
+            else:
+                q = await SalesService(db, tenant_ctx).cancel_sales_quotation(doc_id)
+                to_status = "Cancelled"
+
             await _log_event(db, doc_type, doc_id, action,
-                             from_status=prev_status, to_status="Approved",
-                             user=current_user, tenant_ctx=tenant_ctx)
-            await db.commit()
-            return {"success": True, "quotation_id": q.id, "status": q.status}
-        if action == "cancel":
-            res = await db.execute(
-                select(SalesQuotation)
-                .where(
-                    SalesQuotation.id         == doc_id,
-                    SalesQuotation.company_id == tenant_ctx.company_id,
-                    SalesQuotation.branch_id  == tenant_ctx.branch_id,
-                    SalesQuotation.is_deleted == False,
-                )
-            )
-            q = res.scalars().first()
-            if not q:
-                raise HTTPException(status_code=404, detail="Quotation not found")
-            prev_status   = q.status
-            q.status      = "Cancelled"
-            q.modified_at = datetime.now(timezone.utc)
-            db.add(q)
-            await _log_event(db, doc_type, doc_id, action,
-                             from_status=prev_status, to_status="Cancelled",
+                             from_status=prev_status, to_status=to_status,
                              user=current_user, tenant_ctx=tenant_ctx)
             await db.commit()
             return {"success": True, "quotation_id": q.id, "status": q.status}

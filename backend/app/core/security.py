@@ -1,36 +1,28 @@
 """
-Project      : SMRITI Retail OS
-Repository   : SMRITIRetailNX
-Organization : AITDL NETWORKS
-
-Founders
-
-* Pushpa Devi Jawahar Mallah
-  * Founder & Chairperson
-  * Phone: +91 9324117007
-  * Email: founder@aitdl.com
-
-* Jawahar Ramkripal Mallah
-  * Founder, Chief Executive Officer (CEO) & Chief Software Architect
-  * Email: founder@aitdl.com
-
-* Websites: aitdl.com | erpnbook.com | smritibooks.com
-
-* Version    : 3.15.0
-* Created    : 2026-07-11
-* Modified   : 2026-07-12
-* Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
-* License    : Proprietary Commercial Software
+Project         : SMRITI Retail OS
+Organization    : SmritiSys
+Author          : Jawahar Ramkripal Mallah
+Designation     : Chief Systems Architect & Creator
+Email           : support@smritibooks.com
+Websites        : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
+Version         : 3.32.0
+Created         : 2026-07-11
+Modified        : 2026-08-04
+Copyright       : © SMRITIBooks.com. All Rights Reserved.
+License         : Proprietary Commercial Software
+Classification  : Internal
 """
 
 from datetime import datetime, timezone, timedelta
 from typing import Optional
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError
 from fastapi import HTTPException
 from passlib.context import CryptContext
 from passlib.exc import MissingBackendError
 import hashlib
 import binascii
+import secrets
 from .config import settings
 
 pwd_context = CryptContext(
@@ -112,6 +104,34 @@ def validate_password_strength(password: str) -> None:
         )
 
 
+def generate_compliant_password(length: int = 12) -> str:
+    """
+    Generate a random temporary password guaranteed to satisfy
+    validate_password_strength (uppercase, lowercase, digit, special char).
+    """
+    if length < 8:
+        length = 8
+
+    uppercase = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+    lowercase = "abcdefghijkmnopqrstuvwxyz"
+    digits = "23456789"
+    specials = "!@#$%^&*()-_=+"
+    all_chars = uppercase + lowercase + digits + specials
+
+    password_chars = [
+        secrets.choice(uppercase),
+        secrets.choice(lowercase),
+        secrets.choice(digits),
+        secrets.choice(specials),
+    ]
+
+    for _ in range(length - 4):
+        password_chars.append(secrets.choice(all_chars))
+
+    secrets.SystemRandom().shuffle(password_chars)
+    return "".join(password_chars)
+
+
 # ---------------------------------------------------------------------------
 # JWT helpers — python-jose
 # ---------------------------------------------------------------------------
@@ -162,7 +182,7 @@ def decode_token(token: str) -> dict:
             algorithms=[settings.JWT_ALGORITHM],
         )
         return payload
-    except JWTError:
+    except (PyJWTError, Exception):
         raise HTTPException(
             status_code=401,
             detail="Token is invalid or has expired. Please log in again.",

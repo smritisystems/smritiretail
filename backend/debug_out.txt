@@ -1,0 +1,10 @@
+ERROR: file or directory not found: concurrent_reservations_against_final_available_quantity\ --maxfail=1 --tb=long  ; powershell -Command \Get-Content debug_out.txt -TotalCount 200\
+
+
+============================== warnings summary ===============================
+C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\netma\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path F:\SMRITRretailNXmgrt\backend\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'F:\\SMRITRretailNXmgrt\\backend\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 warning in 0.00s

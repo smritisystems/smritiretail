@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -24,15 +24,17 @@
  */
 
 import React from "react";
+import { DemoDataRegistry } from "../../kernel/config/SmritiDemoDataRegistry.js";
 
 export const ThermalReceipt80mm: React.FC<{ data: any }> = ({ data }) => {
   return (
     <div className="w-[80mm] bg-white text-black font-mono text-xs mx-auto p-[4mm]">
       <div className="text-center mb-4 border-b border-dashed border-black pb-4">
-        <h1 className="text-lg font-bold uppercase">{data.storeName || "SMRITI RETAIL"}</h1>
-        <p>{data.storeAddress || "Main Street, City"}</p>
-        <p>GSTIN: {data.gstin || "29XXXXX0000X1Z5"}</p>
-        <p>Tel: {data.phone || "1800-000-0000"}</p>
+        <h1 className="text-lg font-bold uppercase">{data.storeName || data.companyName || DemoDataRegistry.company().name}</h1>
+        <p>{data.storeAddress || data.companyAddress || DemoDataRegistry.getFormattedCompanyAddress()}</p>
+        <p>GSTIN: {data.gstin || data.companyGst || DemoDataRegistry.company().gstin}</p>
+        <p>Tel: {data.phone || data.companyPhone || DemoDataRegistry.company().phone}</p>
+        <p>Website: {data.website || DemoDataRegistry.company().website}</p>
       </div>
 
       <div className="mb-4">

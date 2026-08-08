@@ -1,3 +1,24 @@
+<!--
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
+-->
+
 # Foundation_SEEF_Phase6_Module_Upgrades_v2.0.md
 
 **WGP Walkthrough — SEEF Phase 6 Module Upgrades + SEEFDataTable**

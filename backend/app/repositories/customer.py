@@ -57,6 +57,11 @@ class CustomerRepository(BaseRepository[Customer]):
         res = await self.db.execute(stmt)
         return list(res.scalars().all())
 
+    async def get_by_name(self, name: str) -> Optional[Customer]:
+        stmt = self.get_base_query().filter(Customer.name == name)
+        res = await self.db.execute(stmt)
+        return res.scalars().first()
+
     async def search(
         self, q: Optional[str] = None, skip: int = 0, limit: int = 50
     ) -> List[Customer]:

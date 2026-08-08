@@ -33,7 +33,34 @@ SMRITI Retail OS is an enterprise-grade AI-powered Retail ERP platform built as 
 
 ---
 
+## Product Philosophy & Founder Statement
+**By Jawahar R. Mallah**
+
+> **"Simplicity is the highest form of enterprise software."**
+
+### Design Promise
+> **"A retailer should think about serving customers and selling products—not about which screen to open. SMRITI adapts to the business, so the business never has to adapt to the software."**
+
+### Core Philosophy
+- **One Workspace. Infinite Business Scenarios.**
+- **Policy over Proliferation.**
+- **Configuration over Duplication.**
+- **Reuse before Creation.**
+- **Customer Workflow First.**
+- **Enterprise Power. Consumer Simplicity.**
+
+### Founder Statement
+> **"Software should adapt to people—not force people to adapt to software. Every duplicate screen is a design failure; every unified workflow is a step toward simplicity. That is the philosophy behind SMRITI Retail OS."**
+>
+> — **Jawahar R. Mallah**
+
+---
+
 ## Documentation
+
+### Platform Governance
+- Architecture ADRs: `docs/architecture/adr-0006.md`
+- Stage 3B evidence: `validation/stage-3b-registration-exit-evidence.md`
 
 Long-form documentation is maintained in the GitHub Wiki. Drafts and source pages are available in `docs/wiki/` and can be copied into the Wiki as needed.
 
@@ -65,7 +92,7 @@ After a fresh installation, the following default accounts are automatically cre
 
 | Username  | Password       | Role             | Scope                                   |
 |-----------|----------------|------------------|-----------------------------------------|
-| `super`   | `Smriti@1234`  | System Admin     | Platform-wide root access               |
+| `super`   | `Shpr0128vdq!@`  | System Admin     | Platform-wide root access               |
 | `manager` | `Password@123` | Store Manager    | All modules for `Default Branch`        |
 | `cashier` | `Cashier@1234` | Cashier Operator | POS billing and sales for `Default Branch` |
 
@@ -152,7 +179,7 @@ f:\SMRITRretailNXmgrt\
 ## 6. Installation & Setup
 
 ### Local Prerequisites
-* Node.js v18+
+* Node.js v22.x
 * Python v3.11
 * PostgreSQL v16
 
@@ -181,13 +208,60 @@ f:\SMRITRretailNXmgrt\
 ---
 
 ## 7. Docker & Containerized Running
-Run the entire platform (Frontend, Backend, and Postgres database) using Docker Compose:
+
+### Development & Production Containerized Deployment
+
+Run the containerized stack using Docker Compose with detached mode, rebuild on change, and orphan removal:
 
 ```bash
-docker compose up --build
+docker compose up -d --build --remove-orphans
 ```
-* Frontend Dev Server: `http://localhost:5173`
-* Backend FastAPI Docs: `http://localhost:8000/docs`
+
+| Flag | Description |
+|---|---|
+| `-d` | **Detached mode** — Runs container stack in background. |
+| `--build` | Rebuilds Docker images to incorporate source changes. |
+| `--remove-orphans` | Removes obsolete background containers not in the active Compose spec. |
+
+* **Frontend Workspace UI:** `http://localhost:3000`
+* **Backend FastAPI OpenAPI Specs:** `http://localhost:8000/docs`
+* **PostgreSQL System-of-Record:** `localhost:5432`
+
+---
+
+### Production Mode (Docker)
+
+Production deployments consume the multi-container production stack (`docker-compose.prod.yml`) with PostgreSQL 15, FastAPI, built React static assets, and NGINX reverse proxy.
+
+> [!NOTE]
+> Production containers require a `.env` file for configuration and secret keys. The single-line commands below automatically generate `.env` from `.env.example` if it does not exist.
+
+#### Production Deployment Command:
+```bash
+docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+```
+
+#### 1-Line PowerShell Command (Windows Production):
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }; docker compose -f docker-compose.prod.yml up -d --build --remove-orphans; Start-Sleep -Seconds 5; docker exec smriti-api-prod python -m alembic upgrade head
+```
+
+#### 1-Line Bash Command (Linux / macOS Production):
+```bash
+[ -f .env ] || cp .env.example .env; docker compose -f docker-compose.prod.yml up -d --build --remove-orphans && sleep 5 && docker exec smriti-api-prod python -m alembic upgrade head
+```
+
+#### Production Verification & Diagnostics:
+- **Web App UI (NGINX Proxy):** `http://localhost` (Port 80 / 443)
+- **API Health Spec:** `http://localhost:8000/docs`
+- **Check Production Container Status:**
+  ```powershell
+  docker compose -f docker-compose.prod.yml ps
+  ```
+- **View Production Logs:**
+  ```powershell
+  docker compose -f docker-compose.prod.yml logs -f --tail=100
+  ```
 
 ---
 
@@ -244,8 +318,8 @@ Capability Matrix Status Vocabulary: ✅ Implemented / 🟡 Partial / 🔵 Plann
 
 | Feature Area | Sub-feature / Requirement | Status | Details / Constraints |
 |---|---|---|---|
-| **POS Billing** | Shifts, hold tickets, register checkout, tax calculations | ✅ Implemented | Fully verified via test suite (`test_pos.py`, `test_sales.py`). |
-| **Inventory Management** | Barcode registration, SKU tracking, stock ledger entries | ✅ Implemented | Verified via `test_inventory_endpoint_permissions`. |
+| **POS Billing** | Shifts, hold tickets, register checkout, tax calculations | ✅ Implemented | Verified via FastAPI router (`pos.py`, 92% health score in `DEVELOPMENT_STATUS.md`) and test suite (`test_pos.py`, `test_sales.py`). |
+| **Inventory Management** | Barcode registration, SKU tracking, stock ledger entries | ✅ Implemented | Verified via Item Master (`app/api/v1/inventory.py`, 96% health score in `DEVELOPMENT_STATUS.md`) and `test_inventory_endpoint_permissions`. |
 | **Multi-Tenant Isolation** | Multi-company & multi-branch boundary checks | ✅ Implemented | Enforced in database session filters and checked via `test_tenant_isolation.py`. |
 | **GSTIN Validation** | Structural checksum validation (Luhn mod 36) | ✅ Implemented | Centralized check digit algorithm in `app/core/gstin.py` and covered in `test_gstin_compliance.py`. |
 | **GSTIN Registry** | Active taxpayer registry verification via GSTN/GSP portal | 🔵 Planned | Out of scope for this phase. Requires external API integration. |
@@ -276,3 +350,14 @@ Before automated E-Invoicing can be deployed, the following milestones must be a
 5. **Cancellation & Amendment APIs:** Support automated invoice cancellation within the 24-hour window.
 6. **Retry & Fallback Queue:** Build a background worker retry engine to queue failed registration attempts.
 7. **Production Certification:** Run compliance audits and receive NIC GSP direct integration approval.
+
+---
+
+### Key Takeaway
+> **SMRITI Retail OS is built on an unshakable architectural foundation and a customer-first product philosophy. Guided by the Single Workspace Principle (PROD-002 / SWP-001), every business process is unified into a single adaptive workspace rather than fragmented across duplicate screens, menus, or modules.**
+>
+> **SMRITI adapts to the business—not the other way around. Retailers focus on running their business, while the platform intelligently applies the right policies, pricing, taxation, permissions, and workflows behind the scenes.**
+>
+> **One Workspace. Infinite Business Scenarios.**
+
+

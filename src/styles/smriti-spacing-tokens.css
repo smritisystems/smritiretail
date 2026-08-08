@@ -1,0 +1,12 @@
+/* SMRITI Spacing Tokens */
+:root {
+  --smriti-space-xs: var(--sds-space-xs);
+  --smriti-space-sm: var(--sds-space-sm);
+  --smriti-space-md: var(--sds-space-md);
+  --smriti-space-lg: var(--sds-space-lg);
+  --smriti-space-xl: var(--sds-space-xl);
+  --smriti-space-2xl: var(--sds-space-2xl);
+
+  --smriti-widget-gap: var(--sxp-widget-gap);
+  --smriti-widget-padding: var(--sxp-widget-padding);
+}

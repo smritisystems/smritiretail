@@ -10,7 +10,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from sqlalchemy import Column, String, ForeignKey, Boolean, Integer, Text, Enum
+from sqlalchemy import Column, String, ForeignKey, Boolean, Integer, Text, Enum, DateTime, Numeric
 from sqlalchemy.orm import relationship
 import enum
 
@@ -146,3 +146,76 @@ class SMRITISecurityAudit(BaseEntity):
     reason      = Column(Text, nullable=True)
     ip_address  = Column(String(50), nullable=True)
     device_info = Column(Text, nullable=True)
+
+
+class SMRITIUserAssignment(BaseEntity):
+    """
+    Multi-context, dynamic role & scope assignment table linking users to companies, branches, stores, and roles.
+    Supports temporal valid_from/valid_to bounds for delegations and auditor temporary access.
+    """
+    __tablename__ = "smriti_user_assignments"
+
+    user_id              = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id           = Column(String(50), ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True)
+    branch_id            = Column(String(50), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True, index=True)
+    store_id             = Column(String(50), nullable=True, index=True)
+    warehouse_id         = Column(String(50), nullable=True, index=True)
+    role_id              = Column(String(50), ForeignKey("smriti_roles.id", ondelete="SET NULL"), nullable=True, index=True)
+    permission_set_id    = Column(String(50), ForeignKey("smriti_permission_sets.id", ondelete="SET NULL"), nullable=True)
+    workspace_profile_id = Column(String(50), nullable=True)
+    persona              = Column(String(100), nullable=True)
+    effective_scope      = Column(String(50), nullable=False, default="STORE")  # PLATFORM, TENANT, REGION, COMPANY, BRANCH, STORE, WAREHOUSE, OWN
+    valid_from           = Column(DateTime(timezone=True), nullable=True)
+    valid_to             = Column(DateTime(timezone=True), nullable=True)
+    is_delegated         = Column(Boolean, nullable=False, default=False)
+    delegated_by_user_id = Column(String(50), nullable=True)
+    status               = Column(String(50), nullable=False, default="ACTIVE")  # ACTIVE, DELEGATED, EXPIRED, SUSPENDED
+
+    # Relationships
+    user = relationship("User", backref="user_assignments")
+    role = relationship("SMRITIRole")
+
+
+class SMRITIWorkspaceProfile(BaseEntity):
+    """
+    UX Workspace Profile model defining theme, default workspace, dashboard layout, and shortcuts per Persona.
+    Decoupled from security permissions.
+    """
+    __tablename__ = "smriti_workspace_profiles"
+
+    code                 = Column(String(50), nullable=False, unique=True, index=True)
+    name                 = Column(String(100), nullable=False)
+    persona              = Column(String(100), nullable=False, index=True)
+    default_workspace_id = Column(String(100), nullable=False, default="launchpad")
+    layout_json          = Column(Text, nullable=True)
+    theme                = Column(String(50), nullable=False, default="light")
+    shortcuts_json       = Column(Text, nullable=True)
+    is_default           = Column(Boolean, nullable=False, default=False)
+
+
+class SMRITISecurityPolicy(BaseEntity):
+    """
+    Metadata-driven business authorization and enforcement policies.
+    """
+    __tablename__ = "smriti_security_policies"
+
+    code              = Column(String(100), nullable=False, unique=True, index=True)
+    name              = Column(String(150), nullable=False)
+    description       = Column(Text, nullable=True)
+    category          = Column(String(50), nullable=False, default="AUTHORIZATION")
+    rule_expression   = Column(Text, nullable=False)
+    enforcement_level = Column(String(50), nullable=False, default="BLOCK")  # BLOCK, WARN, AUDIT
+    is_active         = Column(Boolean, nullable=False, default=True)
+
+
+class SMRITIFieldSecurityMask(BaseEntity):
+    """
+    Field-Level Security (FLS) masking definition per resource, field, and role.
+    States: VISIBLE, HIDDEN, READ_ONLY, MASKED, EDITABLE, CALCULATED
+    """
+    __tablename__ = "smriti_field_security_masks"
+
+    resource    = Column(String(100), nullable=False, index=True)
+    field_name  = Column(String(100), nullable=False, index=True)
+    role_id     = Column(String(50), ForeignKey("smriti_roles.id", ondelete="CASCADE"), nullable=True, index=True)
+    field_state = Column(String(50), nullable=False, default="VISIBLE")

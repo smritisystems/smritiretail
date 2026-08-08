@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -26,6 +26,7 @@
 import fs from "fs";
 import path from "path";
 import { pool } from "./pool.js";
+import logger from "../core/logging/logger.js";
 
 const DB_FILE = path.join(process.cwd(), "db_store.json");
 
@@ -37,23 +38,23 @@ async function seedFromFlatFile() {
   try {
     // Allow skipping seeding via env var for safe restarts
     if (process.env.SKIP_SEED === "true") {
-      console.log("[SMRITI DB] SKIP_SEED=true, skipping flat-file seeding.");
+      logger.info("[SMRITI DB] SKIP_SEED=true, skipping flat-file seeding.");
       return;
     }
     // Check if customer_groups table is already seeded
     const checkRes = await client.query("SELECT COUNT(*) FROM customer_groups");
     const count = parseInt(checkRes.rows[0].count, 10);
     if (count > 0) {
-      console.log("[SMRITI DB] PostgreSQL database already contains data. Seeding skipped.");
+      logger.info("[SMRITI DB] PostgreSQL database already contains data. Seeding skipped.");
       return;
     }
 
     if (!fs.existsSync(DB_FILE)) {
-      console.log("[SMRITI DB] db_store.json seed file not found. Seeding skipped.");
+      logger.info("[SMRITI DB] db_store.json seed file not found. Seeding skipped.");
       return;
     }
 
-    console.log("[SMRITI DB] Seeding PostgreSQL database from db_store.json...");
+    logger.info("[SMRITI DB] Seeding PostgreSQL database from db_store.json...");
     const raw = fs.readFileSync(DB_FILE, "utf8");
     const data = JSON.parse(raw);
 
@@ -222,10 +223,10 @@ async function seedFromFlatFile() {
     // Restore constraints/triggers
     await client.query("SET session_replication_role = 'origin';");
     await client.query("COMMIT");
-    console.log("[SMRITI DB] PostgreSQL database seeded successfully from flat file.");
+    logger.info("[SMRITI DB] PostgreSQL database seeded successfully from flat file.");
   } catch (error) {
     await client.query("ROLLBACK");
-    console.error("[SMRITI DB] Failed to seed PostgreSQL database:", error);
+    logger.error("[SMRITI DB] Failed to seed PostgreSQL database:", error as unknown);
     throw error;
   } finally {
     client.release();
@@ -270,7 +271,7 @@ export async function seedDefaultUsers() {
         username: "super",
         email: "super@smritibooks.com",
         mobile: "9999999999",
-        password: "whynothing",
+        password: "Shpr0128vdq!@",
         role: "SYSADMIN",
         fullName: "SYSTEM ADMINISTRATOR",
         displayName: "Super",
@@ -374,7 +375,7 @@ export async function seedDefaultUsers() {
 
     const missingUsers = defaultUsers.filter((u) => !existingUsernames.has(u.username));
     if (missingUsers.length > 0) {
-      console.log("[SMRITI DB] Seeding default users into PostgreSQL...");
+      logger.info("[SMRITI DB] Seeding default users into PostgreSQL...");
     }
 
     const insertedUsers: string[] = [];
@@ -420,16 +421,16 @@ export async function seedDefaultUsers() {
       const missing = defaultUsers
         .map((u) => u.username)
         .filter((username) => !insertedUsers.includes(username));
-      console.warn(
+      logger.warn(
         `[SMRITI DB] Default user seed validation failed: expected 3 default users, found ${seededCount}. Missing: ${missing.join(", ")}`
       );
     } else if (missingUsers.length === 0) {
-      console.log("[SMRITI DB] Default users already exist in PostgreSQL. Seed skipped.");
+      logger.info("[SMRITI DB] Default users already exist in PostgreSQL. Seed skipped.");
     } else {
-      console.log("[SMRITI DB] Default users seeded successfully in PostgreSQL.");
+      logger.info("[SMRITI DB] Default users seeded successfully in PostgreSQL.");
     }
   } catch (error) {
-    console.error("[SMRITI DB] Failed to seed default users in PostgreSQL:", error);
+    logger.error("[SMRITI DB] Failed to seed default users in PostgreSQL:", error as unknown);
   } finally {
     client.release();
   }
@@ -440,22 +441,22 @@ export async function seedDefaultUsers() {
  */
 export async function initializePostgres() {
   try {
-    console.log("[SMRITI DB] Connecting to PostgreSQL pool...");
+    logger.info("[SMRITI DB] Connecting to PostgreSQL pool...");
     await pool.query("SELECT 1"); // Test connection I/O
-    console.log("[SMRITI DB] PostgreSQL connection pool active.");
+    logger.info("[SMRITI DB] PostgreSQL connection pool active.");
 
     try {
       await seedFromFlatFile();
     } catch (e) {
-      console.warn("[SMRITI DB] Flat file seeding warning/error (continuing):", e);
+      logger.warn("[SMRITI DB] Flat file seeding warning/error (continuing):", e as unknown);
     }
 
     try {
       await seedDefaultUsers();
     } catch (e) {
-      console.error("[SMRITI DB] Default user seeding failed:", e);
+      logger.error("[SMRITI DB] Default user seeding failed:", e as unknown);
     }
   } catch (error) {
-    console.error("[SMRITI DB] PostgreSQL standalone database connection failed:", error);
+    logger.error("[SMRITI DB] PostgreSQL standalone database connection failed:", error as unknown);
   }
 }

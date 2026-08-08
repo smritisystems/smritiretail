@@ -1,26 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Repository   : SMRITIRetailNX
-Organization : AITDL NETWORKS
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-Founders
+Founder:
+SmritiSys
+AITDL Networks
 
-* Pushpa Devi Jawahar Mallah
-  * Founder & Chairperson
-  * Phone: +91 9324117007
-  * Email: founder@aitdl.com
+Role:
+Chief Systems Architect
 
-* Jawahar Ramkripal Mallah
-  * Founder, Chief Executive Officer (CEO) & Chief Software Architect
-  * Email: founder@aitdl.com
+Web:
+smritisys.com | smritibooks.com | aitdl.com
 
-* Websites: aitdl.com | erpnbook.com | smritibooks.com
+Email:
+jawahar.mallah@gmail.com
 
-* Version    : 3.11.0
-* Created    : 2026-07-11
-* Modified   : 2026-07-11
-* Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
-* License    : Proprietary Commercial Software
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 import uuid
@@ -91,7 +87,7 @@ async def _make_manager(db_session, suffix: str, company_id: str, branch_id: str
 
 
 async def _make_product(db_session, suffix: str, company_id: str, branch_id: str,
-                        stock: int = 10) -> Product:
+                        stock: int = 10, size: str | None = None) -> Product:
     product = Product(
         id=f"prod-pur-{suffix}",
         code=f"PURCODE-{suffix}",
@@ -100,6 +96,7 @@ async def _make_product(db_session, suffix: str, company_id: str, branch_id: str
         stock=stock,
         category="General",
         barcode=f"PURBC-{suffix}",
+        size=size,
         company_id=company_id,
         branch_id=branch_id,
     )
@@ -864,6 +861,35 @@ async def test_get_pending_delivery_report(db_session):
     assert isinstance(data, list)
     ids = [row["order_id"] for row in data]
     assert po.id in ids
+
+
+async def test_get_purchase_order_size_pivot(db_session):
+    """Size pivot aggregates active PO lines and excludes cancelled orders."""
+    suffix = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, suffix)
+    mgr = await _make_manager(db_session, suffix, comp.id, br.id)
+    supplier = await _make_supplier(db_session, suffix, comp.id, br.id)
+    medium = await _make_product(db_session, f"{suffix}-m", comp.id, br.id, size="M")
+    one_size = await _make_product(db_session, f"{suffix}-os", comp.id, br.id)
+    await _make_po(db_session, f"{suffix}-m", comp.id, br.id, medium, supplier)
+    await _make_po(db_session, f"{suffix}-os", comp.id, br.id, one_size, supplier)
+    cancelled = await _make_po(db_session, f"{suffix}-c", comp.id, br.id, medium, supplier)
+    cancelled.status = "CANCELLED"
+    await db_session.commit()
+    _set_tenant(db_session, comp.id, br.id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        response = await c.get(
+            "/api/v1/purchase/reports/size-pivot",
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+
+    assert response.status_code == 200, response.text
+    rows = {row["size"]: row for row in response.json()}
+    assert Decimal(str(rows["M"]["orderedQty"])) == Decimal("10.00")
+    assert Decimal(str(rows["M"]["orderedValue"])) == Decimal("1180.00")
+    assert rows["M"]["poCount"] == 1
+    assert Decimal(str(rows["OS"]["orderedQty"])) == Decimal("10.00")
 
 
 async def test_purchase_settings_returns_state(db_session):

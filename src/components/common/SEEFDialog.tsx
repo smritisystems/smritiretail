@@ -63,6 +63,12 @@ export interface SEEFDialogProps {
   id?: string;
   /** Whether dialog is in a loading/processing state */
   loading?: boolean;
+  /** Optional icon component shown next to header title */
+  icon?: React.ElementType;
+  /** Optional extra header element (e.g., badges, status) */
+  headerExtra?: React.ReactNode;
+  /** Optional Tailwind max-width class override */
+  maxWidthClass?: string;
 }
 
 // ── Container style per mode ───────────────────────────────────────────────────
@@ -164,6 +170,9 @@ export const SEEFDialog: React.FC<SEEFDialogProps> = ({
   "aria-label": ariaLabel,
   id,
   loading = false,
+  icon: Icon,
+  headerExtra,
+  maxWidthClass,
 }) => {
   const { config } = useSEEF();
   const animPolicy = useSEEFAnimation();
@@ -248,7 +257,8 @@ export const SEEFDialog: React.FC<SEEFDialogProps> = ({
         id={id}
         role="dialog"
         aria-modal="true"
-        aria-label={ariaLabel ?? title}
+        aria-label={ariaLabel ?? (typeof title === "string" ? title : undefined)}
+        className={maxWidthClass}
         style={{
           ...containerStyle,
           background: "var(--c-theme-surface-1)",
@@ -259,7 +269,7 @@ export const SEEFDialog: React.FC<SEEFDialogProps> = ({
         }}
       >
         {/* Header */}
-        {(title || showCloseButton) && (
+        {(title || showCloseButton || headerExtra) && (
           <div style={{
             display: "flex",
             alignItems: "center",
@@ -269,50 +279,68 @@ export const SEEFDialog: React.FC<SEEFDialogProps> = ({
             background: "var(--c-theme-surface-2)",
             flexShrink: 0,
           }}>
-            <div>
-              {title && (
-                <h2 style={{
-                  margin: 0,
-                  fontSize: "var(--seef-font-size-lg)",
-                  fontWeight: 600,
-                  color: "var(--c-theme-body)",
-                  fontFamily: "var(--font-display)",
-                  letterSpacing: "-0.01em",
-                }}>
-                  {title}
-                </h2>
-              )}
-              {subtitle && (
-                <p style={{
-                  margin: "2px 0 0",
-                  fontSize: "var(--seef-font-size-xs)",
-                  color: "var(--c-theme-muted)",
-                }}>
-                  {subtitle}
-                </p>
-              )}
-            </div>
-            {showCloseButton && (
-              <button
-                onClick={!loading ? onClose : undefined}
-                disabled={loading}
-                className="seef-interactive seef-focus-ring"
-                aria-label="Close dialog"
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--c-theme-muted)",
-                  cursor: loading ? "not-allowed" : "pointer",
-                  padding: "6px",
-                  borderRadius: "var(--seef-radius-active-sm)",
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              {Icon && (
+                <div style={{
+                  padding: "8px",
+                  borderRadius: "8px",
+                  background: "var(--c-theme-surface-1)",
+                  border: "1px solid var(--c-theme-divider)",
                   display: "flex",
                   alignItems: "center",
-                  opacity: loading ? 0.4 : 1,
-                }}
-              >
-                <X size={16} />
-              </button>
-            )}
+                  justifyContent: "center",
+                }}>
+                  <Icon style={{ width: "20px", height: "20px", color: "var(--c-seef-accent)" }} />
+                </div>
+              )}
+              <div>
+                {title && (
+                  <h2 style={{
+                    margin: 0,
+                    fontSize: "var(--seef-font-size-lg)",
+                    fontWeight: 600,
+                    color: "var(--c-theme-body)",
+                    fontFamily: "var(--font-display)",
+                    letterSpacing: "-0.01em",
+                  }}>
+                    {title}
+                  </h2>
+                )}
+                {subtitle && (
+                  <p style={{
+                    margin: "2px 0 0",
+                    fontSize: "var(--seef-font-size-xs)",
+                    color: "var(--c-theme-muted)",
+                  }}>
+                    {subtitle}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              {headerExtra}
+              {showCloseButton && (
+                <button
+                  onClick={!loading ? onClose : undefined}
+                  disabled={loading}
+                  className="seef-interactive seef-focus-ring"
+                  aria-label="Close dialog"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--c-theme-muted)",
+                    cursor: loading ? "not-allowed" : "pointer",
+                    padding: "6px",
+                    borderRadius: "var(--seef-radius-active-sm)",
+                    display: "flex",
+                    alignItems: "center",
+                    opacity: loading ? 0.4 : 1,
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
           </div>
         )}
 

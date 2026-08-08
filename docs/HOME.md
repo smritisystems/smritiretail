@@ -29,7 +29,16 @@ Welcome to the **SMRITI Retail OS** integrated knowledge base. This wiki is auto
 
 ---
 
-## 📚 Document Categories
+## � Start Here
+
+If you are new to the repo, use the following two pages first:
+
+- [DOCUMENTATION_MAP.md](DOCUMENTATION_MAP.md) — recommended reading order by role
+- [QUICK_START.md](QUICK_START.md) — rapid local validation and setup path
+
+---
+
+## �📚 Document Categories
 
 | Category | Document | Description |
 | :--- | :--- | :--- |

@@ -283,18 +283,18 @@ export const PRNTemplateStudio: React.FC<PRNTemplateStudioProps> = ({ onNotifica
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-800 p-4 space-y-4">
+    <div className="min-h-screen bg-theme-surface-2 font-sans text-theme-heading p-4 space-y-4">
       {/* ================= HEADER TOOLBAR ================= */}
-      <div className="bg-white border border-slate-200 rounded-xl px-5 py-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white border border-theme-divider rounded-xl px-5 py-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
             <FileCode className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
               SUPP v1.0 / Print Template Studio
             </div>
-            <h1 className="text-lg font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-lg font-extrabold text-theme-heading tracking-tight">
               PRN / ZPL / TSPL Template Authoring & Item Master Mapping Studio
             </h1>
           </div>
@@ -302,14 +302,14 @@ export const PRNTemplateStudio: React.FC<PRNTemplateStudioProps> = ({ onNotifica
 
         {/* Action Controls */}
         <div className="flex items-center space-x-2">
-          <label className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-lg text-xs font-bold flex items-center cursor-pointer">
+          <label className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-body rounded-lg text-xs font-bold flex items-center cursor-pointer">
             <Upload className="w-3.5 h-3.5 mr-1" />
             Import .prn
             <input type="file" accept=".prn,.txt,.zpl,.tspl" onChange={handleImportPRN} className="hidden" />
           </label>
           <button
             onClick={handleExportPRN}
-            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-lg text-xs font-bold flex items-center cursor-pointer"
+            className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-body rounded-lg text-xs font-bold flex items-center cursor-pointer"
           >
             <Download className="w-3.5 h-3.5 mr-1" />
             Export .prn
@@ -336,8 +336,8 @@ export const PRNTemplateStudio: React.FC<PRNTemplateStudioProps> = ({ onNotifica
         {/* ================= LEFT COLUMN (30% WIDTH): TEMPLATES & ITEM MASTER ELEMENTS ================= */}
         <div className="lg:col-span-4 space-y-4">
           {/* ----- 1. REGISTERED PRN TEMPLATES LIST ----- */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div className="bg-white border border-theme-divider rounded-xl p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-theme-divider pb-2">
               <div className="flex items-center space-x-2 text-blue-600 font-bold text-xs uppercase tracking-wide">
                 <Tag className="w-4 h-4" />
                 <span>Registered PRN Templates ({templateList.length})</span>
@@ -352,12 +352,12 @@ export const PRNTemplateStudio: React.FC<PRNTemplateStudioProps> = ({ onNotifica
                   className={`p-2.5 rounded-lg border text-xs font-semibold cursor-pointer transition flex items-center justify-between ${
                     selectedTemplateId === tpl.id
                       ? "bg-blue-50 border-blue-500 text-blue-900 shadow-2xs"
-                      : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700"
+                      : "bg-theme-surface-2 border-theme-divider hover:bg-theme-surface-2 text-theme-body"
                   }`}
                 >
                   <div className="truncate">
                     <div className="font-bold truncate">{tpl.name}</div>
-                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                    <div className="text-[10px] text-theme-muted font-mono mt-0.5">
                       Driver: <span className="uppercase font-bold text-blue-700">{tpl.driverId}</span> | {tpl.widthMm}x{tpl.heightMm} mm
                     </div>
                   </div>
@@ -372,8 +372,8 @@ export const PRNTemplateStudio: React.FC<PRNTemplateStudioProps> = ({ onNotifica
           </div>
 
           {/* ----- 2. ITEM MASTER ELEMENTS INSERTION TOOLBAR ----- */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div className="bg-white border border-theme-divider rounded-xl p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-theme-divider pb-2">
               <div className="flex items-center space-x-2 text-blue-600 font-bold text-xs uppercase tracking-wide">
                 <Box className="w-4 h-4" />
                 <span>Item Master Elements (Click to Insert)</span>
@@ -382,13 +382,13 @@ export const PRNTemplateStudio: React.FC<PRNTemplateStudioProps> = ({ onNotifica
 
             {/* Element Search */}
             <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+              <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-theme-muted" />
               <input
                 type="text"
                 value={elementSearch}
                 onChange={(e) => setElementSearch(e.target.value)}
                 placeholder="Search Item Master elements..."
-                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-medium focus:outline-none focus:border-blue-500"
+                className="w-full pl-8 pr-3 py-1.5 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs font-medium focus:outline-none focus:border-blue-500"
               />
             </div>
 
@@ -401,7 +401,7 @@ export const PRNTemplateStudio: React.FC<PRNTemplateStudioProps> = ({ onNotifica
                   className={`px-2 py-0.5 rounded-md border cursor-pointer ${
                     activeElementCategory === cat
                       ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
+                      : "bg-theme-surface-2 text-theme-muted border-theme-divider hover:bg-theme-surface-2"
                   }`}
                 >
                   {cat}
@@ -421,14 +421,14 @@ export const PRNTemplateStudio: React.FC<PRNTemplateStudioProps> = ({ onNotifica
                 <button
                   key={elem.key}
                   onClick={() => handleInsertElement(elem.key)}
-                  className="w-full text-left p-2 bg-slate-50 hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 rounded-lg text-xs transition flex items-center justify-between group cursor-pointer"
+                  className="w-full text-left p-2 bg-theme-surface-2 hover:bg-blue-50/80 border border-theme-divider hover:border-blue-300 rounded-lg text-xs transition flex items-center justify-between group cursor-pointer"
                 >
                   <div>
-                    <div className="font-bold text-slate-800 group-hover:text-blue-900 flex items-center">
+                    <div className="font-bold text-theme-heading group-hover:text-blue-900 flex items-center">
                       <span className="font-mono text-blue-600 mr-1.5">{`{${elem.key}}`}</span>
                       <span>{elem.label}</span>
                     </div>
-                    <div className="text-[10px] text-slate-400">{elem.description}</div>
+                    <div className="text-[10px] text-theme-muted">{elem.description}</div>
                   </div>
                   <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[9px] font-mono font-bold rounded group-hover:bg-blue-600 group-hover:text-white">
                     + Insert
@@ -442,24 +442,24 @@ export const PRNTemplateStudio: React.FC<PRNTemplateStudioProps> = ({ onNotifica
         {/* ================= RIGHT COLUMN (70% WIDTH): EDITOR, CONFIG & LIVE PREVIEW ================= */}
         <div className="lg:col-span-8 space-y-4">
           {/* ----- TEMPLATE CONFIGURATION BAR ----- */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
+          <div className="bg-white border border-theme-divider rounded-xl p-4 shadow-xs space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 text-xs">
               <div className="md:col-span-4">
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">PRN Template Name *</label>
+                <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">PRN Template Name *</label>
                 <input
                   type="text"
                   value={templateName}
                   onChange={(e) => setTemplateName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-1.5 font-bold text-theme-heading focus:outline-none focus:border-blue-500"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Driver Language</label>
+                <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Driver Language</label>
                 <select
                   value={driverId}
                   onChange={(e) => setDriverId(e.target.value as any)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-800 uppercase focus:outline-none"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-bold text-theme-heading uppercase focus:outline-none"
                 >
                   <option value="zpl">ZPL II (Zebra/Honeywell)</option>
                   <option value="tspl">TSPL (TSC/TVS)</option>
@@ -470,11 +470,11 @@ export const PRNTemplateStudio: React.FC<PRNTemplateStudioProps> = ({ onNotifica
               </div>
 
               <div className="md:col-span-3">
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Category</label>
+                <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Category</label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value as any)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800 focus:outline-none"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 font-semibold text-theme-heading focus:outline-none"
                 >
                   <option value="BARCODE_TAG">Barcode Tag / Label</option>
                   <option value="JEWELLERY_TAG">Jewellery Dumbbell Tag</option>
@@ -485,30 +485,30 @@ export const PRNTemplateStudio: React.FC<PRNTemplateStudioProps> = ({ onNotifica
               </div>
 
               <div className="md:col-span-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Width (mm)</label>
+                <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Width (mm)</label>
                 <input
                   type="number"
                   value={widthMm}
                   onChange={(e) => setWidthMm(parseFloat(e.target.value) || 50)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-center font-bold text-slate-800"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1.5 text-center font-bold text-theme-heading"
                 />
               </div>
 
               <div className="md:col-span-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Height (mm)</label>
+                <label className="text-[10px] font-bold text-theme-muted uppercase block mb-1">Height (mm)</label>
                 <input
                   type="number"
                   value={heightMm}
                   onChange={(e) => setHeightMm(parseFloat(e.target.value) || 25)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-center font-bold text-slate-800"
+                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2 py-1.5 text-center font-bold text-theme-heading"
                 />
               </div>
             </div>
           </div>
 
           {/* ----- LIVE PRN SCRIPT EDITOR ----- */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div className="bg-white border border-theme-divider rounded-xl p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-theme-divider pb-2">
               <div className="flex items-center space-x-2 text-blue-600 font-bold text-xs uppercase tracking-wide">
                 <Code2 className="w-4 h-4" />
                 <span>Live .prn / ZPL / TSPL Code Editor</span>
@@ -532,13 +532,13 @@ export const PRNTemplateStudio: React.FC<PRNTemplateStudioProps> = ({ onNotifica
               onChange={(e) => setScript(e.target.value)}
               placeholder="Enter PRN / ZPL / TSPL printer commands here..."
               rows={12}
-              className="w-full bg-slate-900 text-emerald-400 font-mono text-xs p-3.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-inner leading-relaxed"
+              className="w-full bg-theme-surface-2 text-emerald-400 font-mono text-xs p-3.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-inner leading-relaxed"
             />
           </div>
 
           {/* ----- LIVE VIRTUAL LABEL PREVIEW ----- */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div className="bg-white border border-theme-divider rounded-xl p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-theme-divider pb-2">
               <div className="flex items-center space-x-2 text-blue-600 font-bold text-xs uppercase tracking-wide">
                 <Eye className="w-4 h-4" />
                 <span>Live Virtual Label Preview & Item Master Interpolation</span>
@@ -552,12 +552,12 @@ export const PRNTemplateStudio: React.FC<PRNTemplateStudioProps> = ({ onNotifica
               </button>
             </div>
 
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col items-center justify-center min-h-[140px]">
-              <div className="bg-white border border-slate-300 rounded-lg p-4 shadow-md max-w-md w-full text-center space-y-2">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 border-b pb-1">
+            <div className="p-4 bg-theme-surface-2 border border-theme-divider rounded-lg flex flex-col items-center justify-center min-h-[140px]">
+              <div className="bg-white border border-theme-divider rounded-lg p-4 shadow-md max-w-md w-full text-center space-y-2">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-theme-muted border-b pb-1">
                   Virtual Rendered Tag ({widthMm} x {heightMm} mm)
                 </div>
-                <pre className="text-xs font-mono text-slate-800 text-left bg-slate-100 p-2.5 rounded border border-slate-200 overflow-x-auto whitespace-pre-wrap">
+                <pre className="text-xs font-mono text-theme-heading text-left bg-theme-surface-2 p-2.5 rounded border border-theme-divider overflow-x-auto whitespace-pre-wrap">
                   {previewContent}
                 </pre>
               </div>

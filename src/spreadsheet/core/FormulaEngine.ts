@@ -30,6 +30,8 @@ export function isFormula(val: string): boolean {
  * - =MRP(buy, margin)
  * - =ROUND(val, dec)
  */
+import logger from "../../core/logging/logger.js";
+
 export function evaluateFormula(
   formulaStr: string,
   context: FormulaContext
@@ -85,7 +87,7 @@ export function evaluateFormula(
 
     return evaluateExpression(expr, context);
   } catch (err) {
-    console.warn("[SSP FormulaEngine] Evaluation exception:", err);
+    logger.warn("[SSP FormulaEngine] Evaluation exception:", err as unknown);
     return 0;
   }
 }

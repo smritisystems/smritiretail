@@ -1,39 +1,36 @@
 """
-Project      : SMRITI Retail OS
-Repository   : SMRITIRetailNX
-Organization : AITDL NETWORKS
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-Founders
+Founder:
+SmritiSys
+AITDL Networks
 
-* Pushpa Devi Jawahar Mallah
-  * Founder & Chairperson
-  * Phone: +91 9324117007
-  * Email: founder@aitdl.com
+Role:
+Chief Systems Architect
 
-* Jawahar Ramkripal Mallah
-  * Founder, Chief Executive Officer (CEO) & Chief Software Architect
-  * Email: founder@aitdl.com
+Web:
+smritisys.com | smritibooks.com | aitdl.com
 
-* Websites: aitdl.com | erpnbook.com | smritibooks.com
+Email:
+jawahar.mallah@gmail.com
 
-* Version    : 3.9.0
-* Created    : 2026-07-11
-* Modified   : 2026-07-11
-* Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
-* License    : Proprietary Commercial Software
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user
+from ...api.deps import get_db, get_current_user, get_current_user_optional
 from ...services.auth import AuthService
 from ...schemas.auth import (
     LoginRequest, TokenResponse, AccessTokenResponse,
     RefreshRequest, BootstrapRequest, UserResponse,
+    ResumeSessionRequest,
 )
 from ...schemas.masters_tier2 import CompanyResponse, BranchResponse
 from ...models.auth import User, UserRole
@@ -136,6 +133,27 @@ async def logout(
     service = AuthService(db)
     await service.logout(req.refresh_token, current_user.id)
     return {"message": "You have been logged out successfully."}
+
+
+@router.post("/session/resume", response_model=TokenResponse)
+async def resume_session(
+    req: ResumeSessionRequest,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Re-authenticate and resume a locked or expired session.
+    Identity is established strictly from server-side context (current_user).
+    Enforces server-side rate limiting and password verification.
+    """
+    if not current_user:
+        raise HTTPException(
+            status_code=401,
+            detail="Session has expired. Complete re-authentication required.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    service = AuthService(db)
+    return await service.resume_session(current_user, req.password)
 
 
 @router.get("/me", response_model=UserResponse)

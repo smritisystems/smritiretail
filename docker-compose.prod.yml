@@ -1,3 +1,22 @@
+# Author & Creator:
+# Jawahar Ramkripal Mallah
+#
+# Founder:
+# SmritiSys
+# AITDL Networks
+#
+# Role:
+# Chief Systems Architect
+#
+# Web:
+# smritisys.com | smritibooks.com | aitdl.com
+#
+# Email:
+# jawahar.mallah@gmail.com
+#
+# Copyright © 2026 SmritiSys.
+# All Rights Reserved.
+
 # Project      : SMRITI Retail OS
 # Organization : SmritiSys
 # Author       : Jawahar Ramkripal Mallah
@@ -13,10 +32,24 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-smritidb}
       POSTGRES_USER: ${POSTGRES_USER:-smritiuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_prod_password}
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-smritiuser} -d ${POSTGRES_DB:-smritidb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  smriti-redis-prod:
+    image: redis:7-alpine
+    container_name: smriti-redis-prod
+    restart: always
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -30,6 +63,8 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-smritiuser}:${POSTGRES_PASSWORD:-secure_prod_password}@smriti-db-prod:5432/${POSTGRES_DB:-smritidb}
+      REDIS_HOST: smriti-redis-prod
+      REDIS_PORT: 6379
       ENVIRONMENT: production
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-CHANGE_ME_FOR_DEVELOPMENT_ONLY_JWT}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-CHANGE_ME_FOR_DEVELOPMENT_ONLY_INTERNAL}
@@ -41,11 +76,35 @@ services:
     depends_on:
       smriti-db-prod:
         condition: service_healthy
+      smriti-redis-prod:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')\""]
       interval: 15s
       timeout: 5s
       retries: 3
+
+  smriti-worker-prod:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smriti-worker-prod
+    entrypoint: ["./worker_entrypoint.sh"]
+    restart: always
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-smritiuser}:${POSTGRES_PASSWORD:-secure_prod_password}@smriti-db-prod:5432/${POSTGRES_DB:-smritidb}
+      REDIS_HOST: smriti-redis-prod
+      REDIS_PORT: 6379
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-CHANGE_ME_FOR_DEVELOPMENT_ONLY_INTERNAL}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      smriti-db-prod:
+        condition: service_healthy
+      smriti-redis-prod:
+        condition: service_healthy
+      smriti-api-prod:
+        condition: service_healthy
 
   smriti-workspace-prod:
     build:
@@ -59,6 +118,7 @@ services:
     environment:
       VITE_API_URL: http://localhost:8000
       SMRITI_API_HOST: smriti-api-prod:8000
+      REDIS_HOST: smriti-redis-prod
     depends_on:
       - smriti-api-prod
 
@@ -78,4 +138,5 @@ services:
 
 volumes:
   postgres_prod_data:
+  redis_prod_data:
   certs_data:

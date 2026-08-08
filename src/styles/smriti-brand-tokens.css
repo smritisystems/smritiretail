@@ -1,0 +1,8 @@
+/* SMRITI Brand Tokens */
+:root {
+  --smriti-brand-primary: var(--sds-color-primary);
+  --smriti-brand-primary-hover: var(--sds-color-primary-hover);
+  --smriti-brand-secondary: var(--sds-color-primary-light);
+  --smriti-brand-accent: var(--sds-color-primary);
+  --smriti-brand-neutral: var(--sds-color-text-secondary);
+}

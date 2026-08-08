@@ -109,15 +109,15 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
   const computedGrandTotal = netTaxable + totalGst + roundOff;
 
   return (
-    <div className="w-full bg-[#0E131F] border border-[#1E293B] rounded-2xl overflow-hidden shadow-2xl font-sans text-slate-200 flex flex-col max-h-[92vh]">
+    <div className="w-full bg-theme-surface-1 border border-theme-divider rounded-2xl overflow-hidden shadow-2xl font-sans text-theme-heading flex flex-col max-h-[92vh]">
       
       {/* ─── 1. TOP TITLE HEADER BAR ─── */}
-      <div className="bg-[#161E2E] px-6 py-3 border-b border-[#1E293B] flex items-center justify-between shrink-0">
+      <div className="bg-theme-surface-2 px-6 py-3 border-b border-theme-divider flex items-center justify-between shrink-0">
         <div className="flex items-center space-x-3">
           <button
             type="button"
             onClick={onCancel}
-            className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer"
+            className="p-1 rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-heading transition cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -148,7 +148,7 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
                 action: "create",
               });
             }}
-            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs transition flex items-center space-x-1 cursor-pointer"
+            className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body rounded-lg text-xs transition flex items-center space-x-1 cursor-pointer"
             title="Open in Popout Window"
           >
             <ExternalLink size={13} />
@@ -158,14 +158,14 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
       </div>
 
       {/* ─── 2. TOP FORM CONTROLS ROW ─── */}
-      <div className="bg-[#121824] px-6 py-3 border-b border-[#1E293B] space-y-3 shrink-0 text-xs">
+      <div className="bg-theme-surface-1 px-6 py-3 border-b border-theme-divider space-y-3 shrink-0 text-xs">
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 items-end">
           <div>
-            <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">Customer</label>
+            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Customer</label>
             <select
               value={invoiceCustomerId}
               onChange={(e) => setInvoiceCustomerId(e.target.value)}
-              className="w-full bg-[#1E293B] border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium"
+              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-primary focus:outline-none focus:border-indigo-500 font-medium"
             >
               <option value="">-- Select Customer --</option>
               {customers.map((c) => (
@@ -177,41 +177,41 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
           </div>
 
           <div>
-            <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">Date</label>
+            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Date</label>
             <input
               type="date"
               defaultValue={new Date().toISOString().split("T")[0]}
-              className="w-full bg-[#1E293B] border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none font-mono"
+              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-primary focus:outline-none font-mono"
             />
           </div>
 
           <div>
-            <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">Branch</label>
-            <select className="w-full bg-[#1E293B] border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Branch</label>
+            <select className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-primary focus:outline-none">
               <option>Main Head Office</option>
               <option>Suburban Retail Branch</option>
             </select>
           </div>
 
           <div>
-            <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">Warehouse</label>
-            <select className="w-full bg-[#1E293B] border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Warehouse</label>
+            <select className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-primary focus:outline-none">
               <option>WH-01 Main Store</option>
               <option>WH-02 Dispatch Hub</option>
             </select>
           </div>
 
           <div>
-            <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">Salesperson</label>
-            <select className="w-full bg-[#1E293B] border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Salesperson</label>
+            <select className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-primary focus:outline-none">
               <option>Jawahar Mallah</option>
               <option>Rajesh Kumar</option>
             </select>
           </div>
 
           <div>
-            <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">Payment</label>
-            <select className="w-full bg-[#1E293B] border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-theme-muted block mb-1">Payment</label>
+            <select className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-primary focus:outline-none">
               <option>Net 30 Credit</option>
               <option>UPI / QR Code</option>
               <option>Card Swiper</option>
@@ -223,7 +223,7 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
             <button
               type="button"
               onClick={() => setShowMoreFields(!showMoreFields)}
-              className="w-full py-1.5 bg-[#1E293B] hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 transition cursor-pointer border border-slate-700"
+              className="w-full py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 transition cursor-pointer border border-theme-divider"
             >
               <span>More</span>
               <ChevronDown size={14} className={`transform transition-transform ${showMoreFields ? "rotate-180" : ""}`} />
@@ -233,25 +233,25 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
 
         {/* Collapsible Additional Controls */}
         {showMoreFields && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-[#1E293B] animate-in fade-in duration-150">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-theme-divider animate-in fade-in duration-150">
             <div>
-              <label className="text-[10px] font-mono text-slate-400 block mb-1">eWay Bill Number</label>
+              <label className="text-[10px] font-mono text-theme-muted block mb-1">eWay Bill Number</label>
               <input
                 type="text"
                 value={invoiceEWayBill}
                 onChange={(e) => setInvoiceEWayBill(e.target.value)}
                 placeholder="e.g. 123456789012"
-                className="w-full bg-[#1E293B] border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-primary font-mono"
               />
             </div>
             <div>
-              <label className="text-[10px] font-mono text-slate-400 block mb-1">Transporter Name</label>
+              <label className="text-[10px] font-mono text-theme-muted block mb-1">Transporter Name</label>
               <input
                 type="text"
                 value={transporterName}
                 onChange={(e) => setTransporterName(e.target.value)}
                 placeholder="e.g. VRL Express"
-                className="w-full bg-[#1E293B] border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-primary"
               />
             </div>
             <div className="flex items-center pt-4">
@@ -260,9 +260,9 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
                 id="interstateCheck"
                 checked={invoiceIsInterstate}
                 onChange={(e) => setInvoiceIsInterstate(e.target.checked)}
-                className="rounded bg-[#1E293B] border-slate-700 text-indigo-500 mr-2 h-4 w-4 accent-indigo-500 cursor-pointer"
+                className="rounded bg-theme-surface-2 border-theme-divider text-indigo-500 mr-2 h-4 w-4 accent-indigo-500 cursor-pointer"
               />
-              <label htmlFor="interstateCheck" className="text-xs text-slate-300 font-semibold cursor-pointer">
+              <label htmlFor="interstateCheck" className="text-xs text-theme-body font-semibold cursor-pointer">
                 Interstate Supply (IGST)
               </label>
             </div>
@@ -271,13 +271,13 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
       </div>
 
       {/* ─── 3. ITEM SEARCH / BARCODE SCANNER ROW ─── */}
-      <div className="bg-[#161E2E] px-6 py-3 border-b border-[#1E293B] flex items-center space-x-3 shrink-0">
+      <div className="bg-theme-surface-2 px-6 py-3 border-b border-theme-divider flex items-center space-x-3 shrink-0">
         <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
+          <Search size={16} className="absolute left-3 top-2.5 text-theme-muted" />
           <input
             type="text"
             placeholder="Search Item / Scan Barcode (e.g. SKU-101, Cotton Shirt)..."
-            className="w-full bg-[#0E131F] border border-[#1E293B] rounded-xl pl-9 pr-4 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono placeholder:text-slate-500"
+            className="w-full bg-theme-surface-1 border border-theme-divider rounded-xl pl-9 pr-4 py-2 text-xs text-theme-primary focus:outline-none focus:border-indigo-500 font-mono placeholder:text-theme-muted"
           />
         </div>
 
@@ -285,7 +285,7 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
         <select
           value={selectedProduct}
           onChange={(e) => setSelectedProduct(e.target.value)}
-          className="bg-[#1E293B] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none font-medium max-w-[280px]"
+          className="bg-theme-surface-2 border border-theme-divider rounded-xl px-3 py-2 text-xs text-theme-primary focus:outline-none font-medium max-w-[280px]"
         >
           <option value="">-- Quick Pick Product --</option>
           {products.map((p) => (
@@ -307,10 +307,10 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
 
       {/* ─── 4. ITEMS TABLE ─── */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        <div className="bg-[#121824] border border-[#1E293B] rounded-xl overflow-hidden shadow-md">
+        <div className="bg-theme-surface-1 border border-theme-divider rounded-xl overflow-hidden shadow-md">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-[#161E2E] text-slate-400 uppercase font-mono text-[10px] tracking-wider border-b border-[#1E293B]">
+              <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono text-[10px] tracking-wider border-b border-theme-divider">
                 <th className="px-4 py-3">Code</th>
                 <th className="px-4 py-3">Product</th>
                 <th className="px-4 py-3">Batch</th>
@@ -322,10 +322,10 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
                 <th className="px-4 py-3 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#1E293B]">
+            <tbody className="divide-y divide-theme-divider">
               {invoiceItems.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-slate-500 text-xs italic">
+                  <td colSpan={9} className="px-4 py-12 text-center text-theme-muted text-xs italic">
                     No items added to invoice. Scan barcode or use search bar above to add items.
                   </td>
                 </tr>
@@ -342,15 +342,15 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
                   const amount = taxable + taxAmt;
 
                   return (
-                    <tr key={idx} className="hover:bg-[#161E2E] transition-colors text-slate-200">
+                    <tr key={idx} className="hover:bg-theme-surface-2 transition-colors text-theme-heading">
                       <td className="px-4 py-3 font-mono font-bold text-indigo-400">{item.code || `SKU-${idx + 101}`}</td>
-                      <td className="px-4 py-3 font-semibold text-white">{item.name || item.title || "Item Description"}</td>
-                      <td className="px-4 py-3 font-mono text-slate-400">{item.batch || "BATCH-2026A"}</td>
+                      <td className="px-4 py-3 font-semibold text-theme-primary">{item.name || item.title || "Item Description"}</td>
+                      <td className="px-4 py-3 font-mono text-theme-muted">{item.batch || "BATCH-2026A"}</td>
                       <td className="px-4 py-3 font-mono text-right font-bold text-indigo-300">{qty}</td>
                       <td className="px-4 py-3 font-mono text-right">₹{rate.toLocaleString("en-IN")}</td>
                       <td className="px-4 py-3 font-mono text-right text-amber-400">{disc}%</td>
                       <td className="px-4 py-3 font-mono text-right text-emerald-400">{taxPct}%</td>
-                      <td className="px-4 py-3 font-mono text-right font-bold text-white">
+                      <td className="px-4 py-3 font-mono text-right font-bold text-theme-primary">
                         ₹{Math.round(amount).toLocaleString("en-IN")}
                       </td>
                       <td className="px-4 py-3 text-center">
@@ -374,13 +374,13 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* LEFT COLUMN: NOTES / DELIVERY / ATTACHMENTS */}
-          <div className="bg-[#121824] border border-[#1E293B] rounded-xl p-4 space-y-4">
-            <div className="flex border-b border-[#1E293B] space-x-2 text-xs font-bold">
+          <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-4 space-y-4">
+            <div className="flex border-b border-theme-divider space-x-2 text-xs font-bold">
               <button
                 type="button"
                 onClick={() => setBottomTab("notes")}
                 className={`px-3 py-2 border-b-2 transition cursor-pointer flex items-center space-x-1.5 ${
-                  bottomTab === "notes" ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-400 hover:text-slate-200"
+                  bottomTab === "notes" ? "border-indigo-500 text-indigo-400" : "border-transparent text-theme-muted hover:text-theme-heading"
                 }`}
               >
                 <FileEdit size={14} />
@@ -390,7 +390,7 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
                 type="button"
                 onClick={() => setBottomTab("delivery")}
                 className={`px-3 py-2 border-b-2 transition cursor-pointer flex items-center space-x-1.5 ${
-                  bottomTab === "delivery" ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-400 hover:text-slate-200"
+                  bottomTab === "delivery" ? "border-indigo-500 text-indigo-400" : "border-transparent text-theme-muted hover:text-theme-heading"
                 }`}
               >
                 <Truck size={14} />
@@ -400,7 +400,7 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
                 type="button"
                 onClick={() => setBottomTab("attachments")}
                 className={`px-3 py-2 border-b-2 transition cursor-pointer flex items-center space-x-1.5 ${
-                  bottomTab === "attachments" ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-400 hover:text-slate-200"
+                  bottomTab === "attachments" ? "border-indigo-500 text-indigo-400" : "border-transparent text-theme-muted hover:text-theme-heading"
                 }`}
               >
                 <Paperclip size={14} />
@@ -415,9 +415,9 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
                   value={invoiceNotes}
                   onChange={(e) => setInvoiceNotes(e.target.value)}
                   placeholder="Add customer notes, payment terms, or special instructions..."
-                  className="w-full bg-[#0E131F] border border-[#1E293B] rounded-xl p-3 text-xs text-white focus:outline-none"
+                  className="w-full bg-theme-surface-1 border border-theme-divider rounded-xl p-3 text-xs text-theme-primary focus:outline-none"
                 />
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <p className="text-[11px] text-theme-muted leading-relaxed">
                   Terms: Payment due within 30 days. Statutory GST output tax applied per Government of India rules.
                 </p>
               </div>
@@ -426,32 +426,32 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
             {bottomTab === "delivery" && (
               <div className="space-y-3 text-xs">
                 <div>
-                  <label className="text-[10px] font-mono text-slate-400 block mb-1">Shipping Address</label>
+                  <label className="text-[10px] font-mono text-theme-muted block mb-1">Shipping Address</label>
                   <input
                     type="text"
                     placeholder="Enter destination shipping address..."
-                    className="w-full bg-[#0E131F] border border-[#1E293B] rounded-xl p-2.5 text-xs text-white"
+                    className="w-full bg-theme-surface-1 border border-theme-divider rounded-xl p-2.5 text-xs text-theme-primary"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[10px] font-mono text-slate-400 block mb-1">eWay Bill</label>
+                    <label className="text-[10px] font-mono text-theme-muted block mb-1">eWay Bill</label>
                     <input
                       type="text"
                       value={invoiceEWayBill}
                       onChange={(e) => setInvoiceEWayBill(e.target.value)}
                       placeholder="12-digit number"
-                      className="w-full bg-[#0E131F] border border-[#1E293B] rounded-xl p-2 text-xs text-white font-mono"
+                      className="w-full bg-theme-surface-1 border border-theme-divider rounded-xl p-2 text-xs text-theme-primary font-mono"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-mono text-slate-400 block mb-1">Transporter</label>
+                    <label className="text-[10px] font-mono text-theme-muted block mb-1">Transporter</label>
                     <input
                       type="text"
                       value={transporterName}
                       onChange={(e) => setTransporterName(e.target.value)}
                       placeholder="Carrier name"
-                      className="w-full bg-[#0E131F] border border-[#1E293B] rounded-xl p-2 text-xs text-white"
+                      className="w-full bg-theme-surface-1 border border-theme-divider rounded-xl p-2 text-xs text-theme-primary"
                     />
                   </div>
                 </div>
@@ -460,8 +460,8 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
 
             {bottomTab === "attachments" && (
               <div className="space-y-3 text-xs">
-                <div className="border-2 border-dashed border-[#1E293B] rounded-xl p-6 text-center text-slate-500 hover:border-slate-600 transition cursor-pointer">
-                  <Paperclip size={20} className="mx-auto mb-2 text-slate-400" />
+                <div className="border-2 border-dashed border-theme-divider rounded-xl p-6 text-center text-theme-muted hover:border-theme-divider/60 transition cursor-pointer">
+                  <Paperclip size={20} className="mx-auto mb-2 text-theme-muted" />
                   <span>Click to attach Purchase Order (PO), LR receipt, or documents</span>
                 </div>
               </div>
@@ -469,18 +469,18 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
           </div>
 
           {/* RIGHT COLUMN: INVOICE SUMMARY */}
-          <div className="bg-[#121824] border border-[#1E293B] rounded-xl p-4 space-y-3 text-xs">
-            <h4 className="font-bold text-xs text-indigo-400 font-mono uppercase tracking-wider border-b border-[#1E293B] pb-2">
+          <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-4 space-y-3 text-xs">
+            <h4 className="font-bold text-xs text-indigo-400 font-mono uppercase tracking-wider border-b border-theme-divider pb-2">
               Invoice Summary
             </h4>
 
             <div className="space-y-2.5">
-              <div className="flex justify-between text-slate-300">
+              <div className="flex justify-between text-theme-body">
                 <span>Subtotal:</span>
-                <span className="font-mono font-semibold text-white">₹{invoiceTotals.taxable.toLocaleString("en-IN")}</span>
+                <span className="font-mono font-semibold text-theme-primary">₹{invoiceTotals.taxable.toLocaleString("en-IN")}</span>
               </div>
 
-              <div className="flex justify-between items-center text-slate-300">
+              <div className="flex justify-between items-center text-theme-body">
                 <span>Discount (%):</span>
                 <div className="flex items-center space-x-2">
                   <input
@@ -489,30 +489,30 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
                     max="100"
                     value={discountPercent}
                     onChange={(e) => setDiscountPercent(Math.max(0, parseFloat(e.target.value) || 0))}
-                    className="w-16 bg-[#0E131F] border border-[#1E293B] rounded px-2 py-0.5 text-right font-mono text-xs text-amber-400"
+                    className="w-16 bg-theme-surface-1 border border-theme-divider rounded px-2 py-0.5 text-right font-mono text-xs text-amber-400"
                   />
                   <span className="font-mono font-semibold text-amber-400">₹{totalDiscountAmount.toFixed(2)}</span>
                 </div>
               </div>
 
-              <div className="flex justify-between text-slate-300">
+              <div className="flex justify-between text-theme-body">
                 <span>GST Tax (CGST+SGST/IGST):</span>
                 <span className="font-mono text-emerald-400">₹{totalGst.toLocaleString("en-IN")}</span>
               </div>
 
-              <div className="flex justify-between items-center text-slate-300">
+              <div className="flex justify-between items-center text-theme-body">
                 <span>Round Off:</span>
                 <input
                   type="number"
                   step="0.01"
                   value={roundOff}
                   onChange={(e) => setRoundOff(parseFloat(e.target.value) || 0)}
-                  className="w-20 bg-[#0E131F] border border-[#1E293B] rounded px-2 py-0.5 text-right font-mono text-xs text-white"
+                  className="w-20 bg-theme-surface-1 border border-theme-divider rounded px-2 py-0.5 text-right font-mono text-xs text-theme-primary"
                 />
               </div>
 
-              <div className="pt-3 border-t border-[#1E293B] flex justify-between items-center text-sm font-bold">
-                <span className="text-white">Grand Total:</span>
+              <div className="pt-3 border-t border-theme-divider flex justify-between items-center text-sm font-bold">
+                <span className="text-theme-primary">Grand Total:</span>
                 <span className="font-mono text-xl text-emerald-400">₹{Math.round(computedGrandTotal).toLocaleString("en-IN")}</span>
               </div>
             </div>
@@ -521,12 +521,12 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
       </div>
 
       {/* ─── 6. BOTTOM ACTION COMMAND TOOLBAR ─── */}
-      <div className="bg-[#161E2E] px-6 py-3 border-t border-[#1E293B] flex flex-wrap items-center justify-between gap-3 shrink-0">
+      <div className="bg-theme-surface-2 px-6 py-3 border-t border-theme-divider flex flex-wrap items-center justify-between gap-3 shrink-0">
         <div className="flex items-center space-x-2">
           <button
             type="button"
             onClick={() => setInvoiceStatus("Draft")}
-            className="px-3.5 py-1.5 bg-[#1E293B] hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition cursor-pointer flex items-center space-x-1.5"
+            className="px-3.5 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading text-xs font-semibold rounded-lg transition cursor-pointer flex items-center space-x-1.5"
           >
             <Save size={14} />
             <span>Save</span>
@@ -540,21 +540,21 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
           </button>
           <button
             type="button"
-            className="px-3.5 py-1.5 bg-[#1E293B] hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition cursor-pointer flex items-center space-x-1.5"
+            className="px-3.5 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading text-xs font-semibold rounded-lg transition cursor-pointer flex items-center space-x-1.5"
           >
             <Printer size={14} />
             <span>Print</span>
           </button>
           <button
             type="button"
-            className="px-3.5 py-1.5 bg-[#1E293B] hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition cursor-pointer flex items-center space-x-1.5"
+            className="px-3.5 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading text-xs font-semibold rounded-lg transition cursor-pointer flex items-center space-x-1.5"
           >
             <FileText size={14} />
             <span>PDF</span>
           </button>
           <button
             type="button"
-            className="px-3.5 py-1.5 bg-[#1E293B] hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition cursor-pointer flex items-center space-x-1.5"
+            className="px-3.5 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading text-xs font-semibold rounded-lg transition cursor-pointer flex items-center space-x-1.5"
           >
             <Share2 size={14} />
             <span>WhatsApp</span>
@@ -583,7 +583,7 @@ export const SalesTaxInvoiceFioriObjectPage: React.FC<SalesTaxInvoiceFioriObject
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 bg-[#1E293B] hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-semibold rounded-lg transition cursor-pointer"
+            className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-muted hover:text-theme-primary text-xs font-semibold rounded-lg transition cursor-pointer"
           >
             More ▼
           </button>

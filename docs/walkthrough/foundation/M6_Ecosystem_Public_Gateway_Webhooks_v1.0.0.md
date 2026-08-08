@@ -1,8 +1,22 @@
 <!--
-  Project      : SMRITI Retail OS
-  Organization : SmritiSys
-  Author       : Jawahar Ramkripal Mallah
-  Copyright    : © SMRITIBooks.com. All Rights Reserved.
+Author & Creator:
+Jawahar Ramkripal Mallah
+
+Founder:
+SmritiSys
+AITDL Networks
+
+Role:
+Chief Systems Architect
+
+Web:
+smritisys.com | smritibooks.com | aitdl.com
+
+Email:
+jawahar.mallah@gmail.com
+
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 -->
 
 # Milestone 6 — Ecosystem & External Integrations Walkthrough

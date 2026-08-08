@@ -25,13 +25,14 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { ThemeProvider } from "./contexts/ThemeContext.tsx";
 import { TaxInvoicePrintPage } from "./print_engine/TaxInvoicePrintPage.tsx";
 // SEEF — must be the outermost provider so CSS data-attributes are written
 // to <html> before any child component renders (prevents theme flash).
 import { SEEFProvider } from "./layout_engine/SEEFContext.tsx";
+import { SmritiExperienceProvider } from "./context/SmritiExperienceContext.tsx";
 // SWSDK v1.0 / SPF PlatformBootstrap — 12-stage platform boot sequence (Rule SWSDK-001)
 import { PlatformBootstrap } from "./platform/spf/bootstrap/PlatformBootstrap.ts";
+import { bootstrapDI } from "./bootstrap/di.ts";
 
 const isInvoicePrint =
   window.location.pathname === "/invoice-print" ||
@@ -41,12 +42,10 @@ const isInvoicePrint =
  * SPF Platform Boot — executes the 12-stage boot sequence and AWAITS completion
  * before React hydration. This guarantees SWSDK Registry (Stage 8) has registered
  * all workspace manifests before SUNEF renders navigation or the launchpad.
- *
- * Bug fixed: executeBootSequence() is async — calling it without await caused
- * React to hydrate before Stage 8 (SWSDKRegistry) completed. Wrap in async IIFE.
  */
 (async () => {
   try {
+    bootstrapDI();
     await PlatformBootstrap.executeBootSequence((progress) => {
       if (import.meta.env.DEV) {
         console.info(
@@ -61,9 +60,9 @@ const isInvoicePrint =
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <SEEFProvider>
-        <ThemeProvider>
+        <SmritiExperienceProvider>
           {isInvoicePrint ? <TaxInvoicePrintPage /> : <App />}
-        </ThemeProvider>
+        </SmritiExperienceProvider>
       </SEEFProvider>
     </React.StrictMode>
   );

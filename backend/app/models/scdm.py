@@ -169,6 +169,8 @@ class ChannelDispatch(RowSecuredMixin, BaseEntity):
 
     dispatch_date        = Column(Date, nullable=False, default=date.today)
     status               = Column(String(30), nullable=False, default=ChannelDispatchStatus.DRAFT.value)
+    billing_policy       = Column(String(30), nullable=False, default="InvoiceOnDispatch", server_default="InvoiceOnDispatch")
+    # Snapshot of the customer policy at dispatch time for audit/reconciliation.
 
     # Value fields for reconciliation (Qty + Value model per user review)
     total_dispatch_qty   = Column(Numeric(15, 4), nullable=False, default=Decimal("0.0000"))

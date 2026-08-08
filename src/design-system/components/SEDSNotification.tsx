@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Business OS
  * Component    : SEDSNotification (Notification Center & Popover)
  * Author       : Jawahar Ramkripal Mallah
@@ -47,8 +47,8 @@ export const SEDSNotificationCenter: React.FC<SEDSNotificationProps> = ({
   };
 
   return (
-    <div className="w-80 sm:w-96 bg-[#141720] border border-indigo-500/30 rounded-2xl shadow-2xl overflow-hidden font-sans z-50">
-      <div className="px-4 py-3 bg-[#181c28] border-b border-theme-divider flex items-center justify-between">
+    <div className="w-80 sm:w-96 bg-theme-surface-1 border border-indigo-500/30 rounded-2xl shadow-2xl overflow-hidden font-sans z-50">
+      <div className="px-4 py-3 bg-theme-surface-1 border-b border-theme-divider flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Bell size={16} className="text-blue-400" />
           <h3 className="text-xs font-bold text-theme-body uppercase tracking-wider">Notifications</h3>

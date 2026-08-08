@@ -5,14 +5,15 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.0.0  (SEEF Phase 6 — Density Cascade Integration)
+ * Version      : 4.0.0  (SEEF Phase 6 â€” Density Cascade Integration)
  * Created      : 2026-07-10
  * Modified     : 2026-07-27
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 import React, { useState, useEffect } from "react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
+import { DocumentService } from "../dop/core/DocumentService.ts";
 import { Printer, MessageCircle, Mail,
   ShoppingCart,
   Plus,
@@ -39,19 +40,22 @@ import { Printer, MessageCircle, Mail,
   Info,
   Sliders,
   TrendingDown,
-  Award
+  Award,
+  ExternalLink
 } from "lucide-react";
 import { Product } from "../types.js";
 import { SmartFilter, FilterDefinition } from "./SmartFilter.tsx";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
-// SEEFListReport alias (FioriListReport is the SEEF-upgraded primitive — see FioriListReport.tsx v5.2.0)
+// SEEFListReport alias (FioriListReport is the SEEF-upgraded primitive â€” see FioriListReport.tsx v5.2.0)
 import { FioriListReport, ListReportColumn } from "./common/FioriListReport.tsx";
 export { FioriListReport as SEEFListReport };
 import { useSEEF } from "../layout_engine/SEEFContext.tsx";
+import { WindowManager } from "../sdk/WindowManager.ts";
 import { PurchaseInvoiceRegistry } from "./purchase/PurchaseInvoiceRegistry.tsx";
 import { PurchaseInvoiceStudio } from "./purchase/PurchaseInvoiceStudio.tsx";
 import { PurchaseOperationsStudio } from "./purchase/PurchaseOperationsStudio.tsx";
+import { PurchaseAnalyticsWidget } from "./purchase/PurchaseAnalyticsWidget.tsx";
 
 interface PurchaseStudioTabProps {
   products: Product[];
@@ -71,8 +75,8 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<"create" | "suppliers" | "reorder" | "receive" | "reports">("create");
   const [isCreatingBill, setIsCreatingBill] = useState<boolean>(false);
   
-  // Role selector
-  const userRole = (currentUser?.role as "Store Manager" | "Cashier") || "Store Manager";
+  // Role selector: Defaults to Store Manager for full Admin procurement capabilities
+  const userRole = currentUser?.role === "Report User" ? "Cashier" : "Store Manager";
   
   // Configured Company State Jurisdiction
   const [companyState, setCompanyState] = useState<string | null>("DL");
@@ -84,6 +88,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
   const [reorderSuggestions, setReorderSuggestions] = useState<any[]>([]);
   const [outstandingReport, setOutstandingReport] = useState<any[]>([]);
   const [pendingDeliveryReport, setPendingDeliveryReport] = useState<any[]>([]);
+  const [sizePivotReport, setSizePivotReport] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
   // Selected details
@@ -186,6 +191,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
     } else if (activeSubTab === "reports") {
       fetchOutstandingReport();
       fetchPendingDeliveryReport();
+      fetchSizePivotReport();
       fetchPurchaseOrders();
     }
   }, [activeSubTab]);
@@ -296,6 +302,15 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
     }
   };
 
+  const fetchSizePivotReport = async () => {
+    try {
+      const data = await apiFetchV1("/purchase/reports/size-pivot");
+      setSizePivotReport(data);
+    } catch (e: any) {
+      onNotification("Error", e.message || "Failed to generate purchase size pivot.", "error");
+    }
+  };
+
   // Fetch Default purchase rate for a single variant
   const handleProductSelection = async (productId: string) => {
     setManualProduct(productId);
@@ -344,7 +359,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
     setMatrixSources(newSources);
   };
 
-  // â”€â”€ OPERATIONS â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬ OPERATIONS Ã¢â€â‚¬Ã¢â€â‚¬
 
   // Save/Update Supplier
   const handleSaveSupplier = async (e: React.FormEvent) => {
@@ -631,6 +646,47 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
     }
   };
 
+  const handlePrintPO = async (po: any) => {
+    const res = await DocumentService.output({
+      documentType: "PURCHASE_ORDER",
+      referenceId: po.orderNo || po.id,
+      channel: "PRINT",
+      data: { supplierName: po.supplierName, grandTotal: po.grandTotal },
+      items: (po.items || []).map((i: any) => ({
+        itemCode: i.code || i.productId,
+        itemName: i.name,
+        sellingPrice: i.price,
+        quantity: i.quantity,
+      })),
+    });
+    onNotification(
+      "PO Printed",
+      `Dispatched Purchase Order ${po.orderNo} to printer via SCS-DXP-001 ${res.adapterUsed}.`,
+      "success"
+    );
+  };
+
+  const handleAutoPrintGRNBarcodes = async (po: any) => {
+    const res = await DocumentService.output({
+      documentType: "BARCODE_LABEL",
+      referenceId: `GRN-${po.orderNo}`,
+      channel: "PRINT",
+      data: { supplierName: po.supplierName },
+      items: (po.items || []).map((i: any) => ({
+        itemCode: i.code || i.productId,
+        itemName: i.name,
+        barcode: i.code || i.productId,
+        sellingPrice: i.price,
+        quantity: i.receivedQuantity || i.quantity || 1,
+      })),
+    });
+    onNotification(
+      "GRN Barcodes Dispatched",
+      `Dispatched ${res.labelsOrPagesProcessed} barcode tags for arrived goods via SCS-DXP-001 ${res.adapterUsed}.`,
+      "success"
+    );
+  };
+
   // Outstanding payment registration
   const handleRecordPayment = async () => {
     if (isReadOnly) {
@@ -649,7 +705,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         method: "POST",
         body: JSON.stringify({ amount })
       });
-      onNotification("Payment Settled", `Registered payment of â‚¹${amount} against ${payModalPO.orderNo}.`, "success");
+      onNotification("Payment Settled", `Registered payment of ₹${amount} against ${payModalPO.orderNo}.`, "success");
       setPayModalPO(null);
       setPayAmount("");
       fetchOutstandingReport();
@@ -717,7 +773,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
   );
 
   return (
-    <div id="smriti-purchase-studio-root" className="space-y-6">
+    <div id="smriti-purchase-studio-root" className="space-y-6 smriti-custom-scroll">
       {isReadOnly && (
         <div className="bg-amber-950/40 border border-amber-500/30 rounded-xl px-4 py-3 flex items-center space-x-2 text-amber-400 text-xs shadow-lg">
           <span className="material-symbols-outlined text-[14px]">warning</span>
@@ -726,27 +782,27 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         </div>
       )}
       
-      {/* Dynamic Sourcing Control Header */}
-      <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-            <ShoppingCart className="w-6 h-6" />
+      {/* Dynamic Sourcing Control Header â€” Compact 55px Hero */}
+      <div className="bg-theme-surface-1 border border-theme-divider rounded-xl px-4 py-2.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+            <ShoppingCart className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-bold font-display text-theme-body tracking-wide">SMRITI Purchase Studio</h2>
-              <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-500/30 rounded px-2 py-0.5 font-mono font-bold">REPLENISHMENT DESK</span>
+              <h2 className="text-sm font-bold font-display text-theme-body tracking-wide">SMRITI Purchase Studio</h2>
+              <span className="text-[9px] bg-indigo-950 text-indigo-300 border border-indigo-500/30 rounded px-1.5 py-0.5 font-mono font-bold">REPLENISHMENT DESK</span>
             </div>
-            <p className="text-xs text-theme-muted mt-0.5">Procure inventory, analyze trigger reorders, receive goods and manage suppliers dynamically.</p>
+            <p className="text-[11px] text-theme-muted">Procure inventory, analyze trigger reorders, receive goods and manage suppliers dynamically.</p>
           </div>
         </div>
 
         {/* Security / Simulation Hub Controls */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center space-x-2">
           {/* Active SMRITI Role Badge */}
-          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-1.5 px-3 flex items-center space-x-2.5">
-            <span className="text-[10px] text-theme-muted font-mono uppercase tracking-wider font-bold">DESK ROLE:</span>
-            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1 flex items-center space-x-2">
+            <span className="text-[9px] text-theme-muted font-mono uppercase tracking-wider font-bold">DESK ROLE:</span>
+            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
               userRole === "Store Manager"
                 ? "bg-indigo-950 text-indigo-300 border border-indigo-500/30"
                 : "bg-emerald-950 text-emerald-300 border border-emerald-500/30"
@@ -759,56 +815,56 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
           <button
             onClick={toggleJurisdiction}
             disabled={updatingJurisdiction}
-            className={`px-3 py-2 rounded-xl border text-[11px] font-mono font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer ${
+            className={`px-2.5 py-1 rounded-lg border text-[10px] font-mono font-semibold flex items-center space-x-1 transition-colors cursor-pointer ${
               companyState 
                 ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-300 hover:bg-emerald-950/60" 
                 : "bg-rose-950/40 border-rose-500/30 text-rose-300 hover:bg-rose-950/60"
             }`}
           >
-            <Shield className="w-3.5 h-3.5" />
+            <Shield className="w-3 h-3" />
             <span>Tax Config: {companyState ? "DL (Delhi)" : "UNCONFIGURED"}</span>
           </button>
         </div>
       </div>
 
-      {/* Five Studio Sub-Tabs Grid Selector */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+      {/* Five Studio Sub-Tabs Bar â€” Sleek Single Horizontal Row (42px) */}
+      <div className="flex items-center space-x-1.5 overflow-x-auto smriti-hide-scrollbar py-0.5 bg-theme-surface-2 p-1 border border-theme-divider rounded-xl text-xs font-semibold">
         <button
           onClick={() => setActiveSubTab("create")}
-          className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer ${
+          className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer ${
             activeSubTab === "create"
-              ? "bg-[#2563EB] text-theme-body border-transparent shadow-md"
-              : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:bg-theme-surface-3 hover:text-theme-primary"
+              ? "bg-[var(--c-seef-accent)] text-white shadow-xs font-bold"
+              : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
-          <ShoppingCart className="w-4 h-4" />
+          <ShoppingCart className="w-3.5 h-3.5" />
           <span>Create Order</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab("suppliers")}
-          className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer ${
+          className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer ${
             activeSubTab === "suppliers"
-              ? "bg-[#2563EB] text-theme-body border-transparent shadow-md"
-              : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:bg-theme-surface-3 hover:text-theme-primary"
+              ? "bg-[var(--c-seef-accent)] text-white shadow-xs font-bold"
+              : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
-          <User className="w-4 h-4" />
+          <User className="w-3.5 h-3.5" />
           <span>Suppliers</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab("reorder")}
-          className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all relative cursor-pointer ${
+          className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all relative cursor-pointer ${
             activeSubTab === "reorder"
-              ? "bg-[#2563EB] text-theme-body border-transparent shadow-md"
-              : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:bg-theme-surface-3 hover:text-theme-primary"
+              ? "bg-[var(--c-seef-accent)] text-white shadow-xs font-bold"
+              : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
-          <TrendingDown className="w-4 h-4" />
+          <TrendingDown className="w-3.5 h-3.5" />
           <span>Reorder Suggestions</span>
           {reorderSuggestions.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-rose-600 text-white font-mono font-bold text-[9px] w-5 h-5 rounded-full flex items-center justify-center shadow-lg animate-pulse">
+            <span className="bg-rose-600 text-white font-mono font-bold text-[9px] px-1.5 py-0.2 rounded-full shadow-xs">
               {reorderSuggestions.length}
             </span>
           )}
@@ -816,26 +872,35 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 
         <button
           onClick={() => setActiveSubTab("receive")}
-          className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer ${
+          className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer ${
             activeSubTab === "receive"
-              ? "bg-[#2563EB] text-theme-body border-transparent shadow-md"
-              : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:bg-theme-surface-3 hover:text-theme-primary"
+              ? "bg-[var(--c-seef-accent)] text-white shadow-xs font-bold"
+              : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
-          <Truck className="w-4 h-4" />
+          <Truck className="w-3.5 h-3.5" />
           <span>Receive Goods</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab("reports")}
-          className={`px-4 py-3 rounded-xl border text-xs font-semibold font-display tracking-wider flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer ${
+          className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer ${
             activeSubTab === "reports"
-              ? "bg-[#2563EB] text-theme-body border-transparent shadow-md"
-              : "bg-theme-surface-1 text-theme-muted border-theme-divider hover:bg-theme-surface-3 hover:text-theme-primary"
+              ? "bg-[var(--c-seef-accent)] text-white shadow-xs font-bold"
+              : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-primary"
           }`}
         >
-          <FileText className="w-4 h-4" />
+          <FileText className="w-3.5 h-3.5" />
           <span>Reports & Registers</span>
+        </button>
+
+        <button
+          onClick={() => WindowManager.openTabStandalone("purchase", "SMRITI Procurement Studio")}
+          className="px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer text-theme-muted hover:text-theme-heading hover:bg-theme-surface-hover ml-auto"
+          title="Open Procurement Studio in New Standalone Window (SWMF v1.0)"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          <span>Pop-out Workspace</span>
         </button>
       </div>
 
@@ -854,19 +919,19 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 
       {/* Dynamic Sourcing Workspace Content */}
       <div className="bg-theme-surface-2 border border-theme-divider rounded-2xl p-6 shadow-xl min-h-[450px]">
-        {/* ──── SUB-TAB 1: UNIFIED PURCHASE OPERATIONS STUDIO WORKSPACE ──── */}
+        {/* â”€â”€â”€â”€ SUB-TAB 1: UNIFIED PURCHASE OPERATIONS STUDIO WORKSPACE â”€â”€â”€â”€ */}
         {activeSubTab === "create" && (
           <PurchaseOperationsStudio
             initialDocumentType="PO"
             suppliers={suppliersList}
             products={products}
-            currentUser={currentUser}
+            currentUser={currentUser || { name: "System Admin", role: "Store Manager" }}
             onNotification={onNotification}
           />
         )}
 
 
-        {/* â”€â”€ SUB-TAB 2: SUPPLIERS LEDGER â”€â”€ */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ SUB-TAB 2: SUPPLIERS LEDGER Ã¢â€â‚¬Ã¢â€â‚¬ */}
         {activeSubTab === "suppliers" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
@@ -1126,7 +1191,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         )}
 
 
-        {/* â”€â”€ SUB-TAB 3: REORDER SUGGESTIONS â”€â”€ */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ SUB-TAB 3: REORDER SUGGESTIONS Ã¢â€â‚¬Ã¢â€â‚¬ */}
         {activeSubTab === "reorder" && (
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-theme-divider/60 pb-3">
@@ -1216,7 +1281,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                             <span className="block text-[10px] text-theme-muted font-mono mt-0.5">{s.code}</span>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="text-theme-body">{s.color || "N/A"}</span> • <span className="font-semibold text-theme-muted">{s.size || "OS"}</span>
+                            <span className="text-theme-body">{s.color || "N/A"}</span> â€¢ <span className="font-semibold text-theme-muted">{s.size || "OS"}</span>
                           </td>
                           <td className="px-4 py-3 text-right font-mono font-bold text-rose-400">{s.currentStock} units</td>
                           <td className="px-4 py-3 text-right font-mono text-theme-muted">{s.reorderLevel} units</td>
@@ -1226,7 +1291,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                             <span className="text-theme-body text-xs font-semibold">{s.preferredSupplierName}</span>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <span className="font-mono text-theme-primary">â‚¹{s.lastPurchaseRate}</span>
+                            <span className="font-mono text-theme-primary">₹{s.lastPurchaseRate}</span>
                             <span className="block text-[8px] text-theme-muted font-mono truncate">{s.rateSource}</span>
                           </td>
                         </tr>
@@ -1273,7 +1338,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         )}
 
 
-        {/* â”€â”€ SUB-TAB 4: GOODS RECEIPT (GRN) â”€â”€ */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ SUB-TAB 4: GOODS RECEIPT (GRN) Ã¢â€â‚¬Ã¢â€â‚¬ */}
         {activeSubTab === "receive" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
@@ -1311,7 +1376,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                         </div>
                         <div className="flex items-center justify-between text-[10px] text-theme-muted mt-2 font-mono">
                           <span>{po.supplierName}</span>
-                          <span>Value: â‚¹{po.grandTotal}</span>
+                          <span>Value: ₹{po.grandTotal}</span>
                         </div>
                         <span className="block text-[8px] text-theme-muted font-mono mt-1.5">Expected: {new Date(po.expectedDeliveryDate).toLocaleDateString()}</span>
                       </div>
@@ -1366,7 +1431,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                                   {item.name}
                                   <span className="block text-[10px] text-theme-muted font-mono mt-0.5">{item.code}</span>
                                 </td>
-                                <td className="px-4 py-3 text-right font-mono text-[#cbd5e1]">{item.quantity} units</td>
+                                <td className="px-4 py-3 text-right font-mono text-theme-body">{item.quantity} units</td>
                                 <td className="px-4 py-3 text-right font-mono text-emerald-400">{item.receivedQuantity} units</td>
                                 <td className="px-4 py-3 text-right font-mono font-bold text-amber-300">{pending} units</td>
                                 <td className="px-4 py-3 text-right">
@@ -1394,7 +1459,21 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                       </table>
                     </div>
 
-                    <div className="flex justify-end pt-2">
+                    <div className="flex items-center justify-end space-x-2 pt-2">
+                      <button
+                        onClick={() => handlePrintPO(selectedPO)}
+                        className="px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center space-x-2 cursor-pointer"
+                      >
+                        <Printer className="w-4 h-4" />
+                        <span>Print PO (SCS-DXP-001)</span>
+                      </button>
+                      <button
+                        onClick={() => handleAutoPrintGRNBarcodes(selectedPO)}
+                        className="px-4 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center space-x-2 cursor-pointer"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>Auto-Print Barcode Tags</span>
+                      </button>
                       <button
                         onClick={handleConfirmReceipt}
                         className="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center space-x-2 cursor-pointer"
@@ -1413,9 +1492,64 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         )}
 
 
-        {/* â”€â”€ SUB-TAB 5: REPORTS & REGISTERS â”€â”€ */}
+        {/* ── SUB-TAB 5: REPORTS & REGISTERS ── */}
         {activeSubTab === "reports" && (
           <div className="space-y-8">
+
+            {/* AUD-004 / GAP-5 — Purchase Intelligence Dashboard */}
+            <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5">
+              <PurchaseAnalyticsWidget
+                onViewPO={(poId) => {
+                  // Switch to receive tab and highlight the PO
+                  setActiveSubTab("receive");
+                }}
+              />
+            </div>
+
+            <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 space-y-4">
+              <div className="flex justify-between items-center border-b border-theme-divider/60 pb-3">
+                <div>
+                  <h3 className="text-xs font-mono uppercase tracking-wider text-indigo-400">PURCHASE ORDER SIZE PIVOT</h3>
+                  <p className="text-[10px] text-theme-muted mt-0.5">Ordered quantity and value grouped by product size.</p>
+                </div>
+                <button
+                  onClick={fetchSizePivotReport}
+                  className="p-1 text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
+                  aria-label="Refresh purchase order size pivot"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {sizePivotReport.length === 0 ? (
+                <div className="p-8 text-center text-theme-muted text-xs bg-theme-surface-2 border border-dashed border-theme-divider/60 rounded-lg">
+                  No purchase-order size allocations found.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-theme-divider">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono text-[9px] tracking-wider border-b border-theme-divider">
+                        <th className="px-3 py-2.5">Size</th>
+                        <th className="px-3 py-2.5 text-right">Ordered Qty</th>
+                        <th className="px-3 py-2.5 text-right">Ordered Value</th>
+                        <th className="px-3 py-2.5 text-right">PO Count</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#2a3a5c]/40 font-mono">
+                      {sizePivotReport.map((row) => (
+                        <tr key={row.size} className="hover:bg-theme-surface-3/20">
+                          <td className="px-3 py-2.5 font-sans font-bold text-theme-body">{row.size}</td>
+                          <td className="px-3 py-2.5 text-right text-theme-body">{row.orderedQty}</td>
+                          <td className="px-3 py-2.5 text-right text-emerald-400">₹{row.orderedValue}</td>
+                          <td className="px-3 py-2.5 text-right text-theme-muted">{row.poCount}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
@@ -1453,7 +1587,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                         {outstandingReport.map(r => (
                           <tr key={r.supplierId} className="hover:bg-theme-surface-3/20">
                             <td className="px-3 py-2.5 font-sans font-bold text-theme-body text-xs">{r.name}</td>
-                            <td className="px-3 py-2.5 text-right text-rose-400 font-bold">â‚¹{r.totalOwed}</td>
+                            <td className="px-3 py-2.5 text-right text-rose-400 font-bold">₹{r.totalOwed}</td>
                             <td className="px-3 py-2.5 text-theme-muted">
                               {r.oldestOrderDate === "-" ? "-" : new Date(r.oldestOrderDate).toLocaleDateString()}
                             </td>
@@ -1469,7 +1603,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                                     onNotification("No specific PO found", "Outstanding balance is consolidated. Apply via invoice register payments.", "error");
                                   }
                                 }}
-                                className="px-2 py-0.5 bg-indigo-950 text-indigo-300 border border-indigo-500/20 rounded text-[9px] font-bold hover:bg-indigo-600 hover:text-white transition-all cursor-pointer"
+                                className="px-2 py-0.5 bg-indigo-950 text-indigo-300 border border-indigo-500/20 rounded text-[9px] font-bold hover:bg-indigo-600 hover:text-theme-heading transition-all cursor-pointer"
                               >
                                 REGISTER PAYMENT
                               </button>
@@ -1518,7 +1652,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                           <tr key={item.productId} className="hover:bg-theme-surface-3/20">
                             <td className="px-3 py-2.5 font-sans font-semibold text-theme-body">
                               {item.name}
-                              <span className="block text-[9px] text-theme-muted mt-0.5">{item.color || "N/A"} â€¢ {item.size || "OS"}</span>
+                              <span className="block text-[9px] text-theme-muted mt-0.5">{item.color || "N/A"} ₹ {item.size || "OS"}</span>
                             </td>
                             <td className="px-3 py-2.5 text-right text-theme-body">{item.totalOrdered}</td>
                             <td className="px-3 py-2.5 text-right text-emerald-400">{item.totalReceived}</td>
@@ -1585,7 +1719,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                         <tr key={item.productId} className="hover:bg-theme-surface-3/20">
                           <td className="px-4 py-2.5 font-semibold text-theme-body">
                             {item.name}
-                            <span className="block text-[9px] text-theme-muted font-mono">{item.color || "N/A"} â€¢ Size: {item.size || "OS"}</span>
+                            <span className="block text-[9px] text-theme-muted font-mono">{item.color || "N/A"} ₹ Size: {item.size || "OS"}</span>
                           </td>
                           <td className="px-4 py-2.5 text-right font-mono text-theme-muted">{item.quantity} units</td>
                           <td className="px-4 py-2.5 text-right">
@@ -1654,20 +1788,20 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                 </div>
                 <div className="flex justify-between">
                   <span>Grand Total:</span>
-                  <span className="font-mono text-emerald-400">â‚¹{payModalPO.grandTotal}</span>
+                  <span className="font-mono text-emerald-400">₹{payModalPO.grandTotal}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Paid Balance already:</span>
-                  <span className="font-mono text-theme-muted">â‚¹{payModalPO.paidAmount || 0}</span>
+                  <span className="font-mono text-theme-muted">₹{payModalPO.paidAmount || 0}</span>
                 </div>
                 <div className="border-t border-theme-divider/40 my-2 pt-2 flex justify-between font-bold text-theme-body">
                   <span>Remaining Outstanding:</span>
-                  <span className="font-mono text-rose-400">â‚¹{payModalPO.grandTotal - (payModalPO.paidAmount || 0)}</span>
+                  <span className="font-mono text-rose-400">₹{payModalPO.grandTotal - (payModalPO.paidAmount || 0)}</span>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-mono text-theme-muted block">PAYMENT SETTLEMENT AMOUNT (â‚¹)</label>
+                <label className="text-[10px] font-mono text-theme-muted block">PAYMENT SETTLEMENT AMOUNT (₹)</label>
                 <input
                   type="number"
                   min="1"

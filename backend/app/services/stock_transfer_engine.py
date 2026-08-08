@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import TenantContext
 from app.models.tenant import Branch
 from app.models.inventory import Product, StockTransfer, StockTransferItem, StockTransferShipment
+from app.services.inventory.facades import InventoryCommandFacade
 
 
 class StockTransferEngine:
@@ -183,16 +184,21 @@ class StockTransferEngine:
         if not transfer:
             raise HTTPException(status_code=404, detail=f"Stock transfer order '{transfer_id}' not found.")
 
-        # Deduct stock at source branch
+        # Deduct stock at source branch via InventoryCommandFacade
+        command_facade = InventoryCommandFacade(self.db, self.tenant)
+        xfer_items = []
         for item in transfer.items:
-            p_stmt = select(Product).where(Product.id == item.product_id)
-            product = (await self.db.execute(p_stmt)).scalars().first()
-            if product:
-                product.stock = product.stock - int(Decimal(str(item.requested_qty)))
-                self.db.add(product)
-
+            xfer_items.append({"product_id": item.product_id, "quantity": item.requested_qty})
             item.shipped_qty = item.requested_qty
             item.status = "Shipped"
+
+        await command_facade.transfer_out(
+            transfer_id=transfer_id,
+            transfer_no=transfer_id,
+            items=xfer_items,
+            source_warehouse="Source Branch",
+            target_warehouse="Destination Branch",
+        )
 
         # Create StockTransferShipment
         shipment_id = f"shp-{uuid.uuid4().hex[:12]}"
@@ -245,17 +251,22 @@ class StockTransferEngine:
 
         rcv_map = {r["product_id"]: Decimal(str(r.get("received_qty", 0))) for r in line_receipts if "product_id" in r} if line_receipts else {}
 
-        # Add stock at destination branch
+        # Add stock at destination branch via InventoryCommandFacade
+        command_facade = InventoryCommandFacade(self.db, self.tenant)
+        rcv_items = []
         for item in transfer.items:
             rcv_qty = rcv_map.get(item.product_id, Decimal(str(item.shipped_qty or item.requested_qty)))
             item.received_qty = rcv_qty
             item.status = "Received"
+            rcv_items.append({"product_id": item.product_id, "quantity": rcv_qty})
 
-            p_stmt = select(Product).where(Product.id == item.product_id)
-            product = (await self.db.execute(p_stmt)).scalars().first()
-            if product:
-                product.stock = product.stock + int(rcv_qty)
-                self.db.add(product)
+        await command_facade.transfer_in(
+            transfer_id=transfer_id,
+            transfer_no=transfer_id,
+            items=rcv_items,
+            target_warehouse="Destination Branch",
+            source_warehouse="Source Branch",
+        )
 
         transfer.status = "Received"
         self.db.add(transfer)

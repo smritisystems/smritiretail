@@ -19,7 +19,9 @@ from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.models.inventory import Product, StockMovement
+from app.models.inventory import Product
+from app.services.inventory.facades import InventoryCommandFacade
+from app.api.deps import TenantContext
 from app.models.transfer import (
     StockTransferOrder,
     StockTransferOrderItem,
@@ -176,22 +178,27 @@ class StockRebalancingService:
             item.shipped_qty = item.approved_qty
             total_shipped += item.shipped_qty
 
-            # Log OUT stock movement from source branch
-            mv = StockMovement(
-                id=str(uuid.uuid4()),
-                product_id=item.product_id,
-                product_name=item.product_name,
-                sku=item.sku,
-                quantity=item.shipped_qty,
-                movement_type="TRANSFER",
-                reference_doc_type="StockTransferOrder",
-                reference_doc_id=sto.id,
-                warehouse="SOURCE_MAIN",
-                branch=sto.source_branch_id,
-                user=dispatched_by,
-                remarks=f"Dispatched via STO {sto.transfer_no}",
-            )
-            db.add(mv)
+        # Rule 1: Route TRANSFER_OUT through InventoryCommandFacade → ITEX → ILG
+        tenant_ctx = TenantContext(company_id=sto.company_id if hasattr(sto, 'company_id') else "default", branch_id=sto.source_branch_id or "default")
+        command_facade = InventoryCommandFacade(db, tenant_ctx)
+        dispatch_items = [
+            {
+                "product_id": item.product_id,
+                "quantity": item.shipped_qty,
+                "sku": item.sku or "",
+                "product_name": item.product_name or item.sku,
+                "reference_doc_type": "StockTransferOrder",
+                "source_module": "Rebalancing",
+            }
+            for item in items
+        ]
+        await command_facade.transfer_out(
+            transfer_id=sto.id,
+            transfer_no=sto.transfer_no,
+            items=dispatch_items,
+            source_warehouse=sto.source_branch_id or "SOURCE_MAIN",
+            target_warehouse=sto.target_branch_id or "TARGET_MAIN",
+        )
 
         sto.status = "DISPATCHED"
         sto.total_shipped_qty = total_shipped
@@ -230,22 +237,27 @@ class StockRebalancingService:
             item.received_qty = item.shipped_qty
             total_received += item.received_qty
 
-            # Log IN stock movement to target branch
-            mv = StockMovement(
-                id=str(uuid.uuid4()),
-                product_id=item.product_id,
-                product_name=item.product_name,
-                sku=item.sku,
-                quantity=item.received_qty,
-                movement_type="TRANSFER",
-                reference_doc_type="StockTransferOrder",
-                reference_doc_id=sto.id,
-                warehouse="TARGET_MAIN",
-                branch=sto.target_branch_id,
-                user=received_by,
-                remarks=f"Received via STO {sto.transfer_no}",
-            )
-            db.add(mv)
+        # Rule 1: Route TRANSFER_IN through InventoryCommandFacade → ITEX → ILG
+        tenant_ctx = TenantContext(company_id=sto.company_id if hasattr(sto, 'company_id') else "default", branch_id=sto.target_branch_id or "default")
+        command_facade = InventoryCommandFacade(db, tenant_ctx)
+        receive_items = [
+            {
+                "product_id": item.product_id,
+                "quantity": item.received_qty,
+                "sku": item.sku or "",
+                "product_name": item.product_name or item.sku,
+                "reference_doc_type": "StockTransferOrder",
+                "source_module": "Rebalancing",
+            }
+            for item in items
+        ]
+        await command_facade.transfer_in(
+            transfer_id=sto.id,
+            transfer_no=sto.transfer_no,
+            items=receive_items,
+            target_warehouse=sto.target_branch_id or "TARGET_MAIN",
+            source_warehouse=sto.source_branch_id or "SOURCE_MAIN",
+        )
 
         sto.status = "RECEIVED"
         sto.total_received_qty = total_received

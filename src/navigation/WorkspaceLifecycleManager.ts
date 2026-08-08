@@ -7,6 +7,7 @@
  * Version      : 3.5.0
  */
 
+import logger from "../core/logging/logger.js";
 import { PlatformEventBus } from "../spf/PlatformEventBus.ts";
 
 export type WorkspaceLifecycleStatus = "Created" | "Activated" | "Suspended" | "Restored" | "Closed" | "Archived";
@@ -66,7 +67,7 @@ export class WorkspaceLifecycleManager {
         });
       }
     } catch (e) {
-      console.warn("[SUNEF LifecycleManager] Failed to restore saved workspaces:", e);
+      logger.warn("[SUNEF LifecycleManager] Failed to restore saved workspaces:", e as unknown);
     }
   }
 
@@ -157,7 +158,7 @@ export class WorkspaceLifecycleManager {
       });
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(obj));
     } catch (e) {
-      console.warn("[SUNEF LifecycleManager] Failed to persist workspaces:", e);
+      logger.warn("[SUNEF LifecycleManager] Failed to persist workspaces:", e as unknown);
     }
   }
 }

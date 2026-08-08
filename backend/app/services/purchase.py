@@ -1,27 +1,22 @@
 """
-Project      : SMRITI Retail OS
-Repository   : SMRITIRetailNX
-Organization : AITDL NETWORKS
+Author & Creator:
+Jawahar Ramkripal Mallah
 
-Founders
+Founder:
+SmritiSys
+AITDL Networks
 
-* Pushpa Devi Jawahar Mallah
-  * Founder & Chairperson
-  * Phone: +91 9324117007
-  * Email: founder@aitdl.com
+Role:
+Chief Systems Architect
 
-* Jawahar Ramkripal Mallah
-  * Founder, Chief Executive Officer (CEO) & Chief Software Architect
-  * Email: founder@aitdl.com
+Web:
+smritisys.com | smritibooks.com | aitdl.com
 
-* Websites: aitdl.com | erpnbook.com | smritibooks.com
+Email:
+jawahar.mallah@gmail.com
 
-* Version    : 3.18.0
-* Created    : 2026-07-11
-* Modified   : 2026-07-14
-* Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
-* License    : Proprietary Commercial Software
-Classification: Internal
+Copyright © 2026 SmritiSys.
+All Rights Reserved.
 """
 
 import uuid
@@ -43,7 +38,8 @@ from ..models.purchase import (
     PurchaseReorderConfig, PurchaseJurisdictionConfig,
     VendorContract, VendorContractTier,
 )
-from ..models.inventory import Product, StockMovement
+from ..models.inventory import Product
+from app.services.inventory.facades import InventoryCommandFacade
 from ..api.deps import TenantContext
 from ..core.events.domain_events import publish_purchase_order_created, publish_grn_completed
 from ..schemas.purchase import (
@@ -331,6 +327,48 @@ class PurchaseService:
         )
         return res.scalars().all()
 
+    async def purchase_order_size_pivot(self) -> list[dict]:
+        """Aggregate active purchase-order quantities and value by product size."""
+        res = await self.db.execute(
+            select(
+                Product.size,
+                PurchaseOrderItem.quantity,
+                PurchaseOrderItem.line_total,
+                PurchaseOrderItem.order_id,
+            )
+            .join(PurchaseOrder, PurchaseOrder.id == PurchaseOrderItem.order_id)
+            .join(Product, Product.id == PurchaseOrderItem.product_id)
+            .where(
+                PurchaseOrder.company_id == self.tenant.company_id,
+                PurchaseOrder.branch_id == self.tenant.branch_id,
+                PurchaseOrder.is_deleted == False,
+                PurchaseOrderItem.is_deleted == False,
+                Product.is_deleted == False,
+                PurchaseOrder.status != "CANCELLED",
+            )
+        )
+
+        grouped: dict[str, dict] = {}
+        for size, quantity, line_total, order_id in res.all():
+            size_label = size or "OS"
+            entry = grouped.setdefault(
+                size_label,
+                {"size": size_label, "orderedQty": Decimal("0"), "orderedValue": Decimal("0"), "poCount": set()},
+            )
+            entry["orderedQty"] += Decimal(str(quantity or 0))
+            entry["orderedValue"] += Decimal(str(line_total or 0))
+            entry["poCount"].add(order_id)
+
+        return [
+            {
+                "size": size,
+                "orderedQty": values["orderedQty"].quantize(Decimal("0.01")),
+                "orderedValue": values["orderedValue"].quantize(Decimal("0.01")),
+                "poCount": len(values["poCount"]),
+            }
+            for size, values in sorted(grouped.items(), key=lambda item: item[0])
+        ]
+
     async def get_purchase_order(self, order_id: str) -> tuple[PurchaseOrder, list[PurchaseOrderItem]]:
         res = await self.db.execute(
             select(PurchaseOrder).where(
@@ -448,32 +486,18 @@ class PurchaseService:
         self.db.add(receipt)
         self.db.add_all(item_rows)
 
-        # Apply stock increments, update supplier outstanding, and record stock movements
-        for product, qty in product_stock_updates:
-            product.stock += int(qty)
+        # Apply stock increments, update supplier outstanding, and record stock movements via facade
+        command_facade = InventoryCommandFacade(self.db, self.tenant)
+        grn_items = [{"product_id": p.id, "quantity": q} for p, q in product_stock_updates]
+        await command_facade.receive_purchase(
+            grn_id=receipt.id,
+            grn_no=receipt.receipt_no,
+            items=grn_items,
+            warehouse="Default Warehouse",
+        )
+        for product, _ in product_stock_updates:
             product.modified_at = datetime.now(timezone.utc)
             self.db.add(product)
-
-            # Record StockMovement
-            movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-            db_movement = StockMovement(
-                id=movement_id,
-                uuid=str(uuid.uuid4()),
-                product_id=product.id,
-                product_name=product.name,
-                sku=product.sku or product.code,
-                quantity=qty,  # Positive for IN
-                movement_type="IN",
-                reference_doc_type="Purchase Receipt",
-                reference_doc_id=receipt.id,
-                warehouse="Default Warehouse",
-                unit_cost=product.cost_price,
-                remarks=f"Stock received for purchase receipt: {receipt.receipt_no}",
-                source_module="Purchase",
-                company_id=self.tenant.company_id,
-                branch_id=self.tenant.branch_id
-            )
-            self.db.add(db_movement)
 
         supplier = await self._get_supplier(req.supplier_id)
         current_out = Decimal(str(supplier.outstanding or 0.0))
