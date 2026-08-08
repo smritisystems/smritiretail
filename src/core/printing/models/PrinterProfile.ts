@@ -20,6 +20,7 @@ export type PrinterConnectionType =
 
 export type PrinterStatus =
   | "READY"
+  | "ONLINE"
   | "BUSY"
   | "OFFLINE"
   | "PAPER_OUT"
@@ -47,6 +48,7 @@ export interface PrinterMediaCapability {
   supportsPeeler: boolean;
   supportsBlackMark: boolean;
   supportsGapSensor: boolean;
+  supportedSensors?: string[];
 }
 
 export interface PrinterHardwareCapabilities {
@@ -61,6 +63,13 @@ export interface PrinterHardwareCapabilities {
   supportsStatusQuery: boolean;
   supportsCalibration: boolean;
   supportsRawPrinting: boolean;
+  supportsZPL?: boolean;
+  supportsTSPL?: boolean;
+  supportsEPL?: boolean;
+  supportsCPCL?: boolean;
+  supportsESCPOS?: boolean;
+  supportsCutters?: boolean;
+  supportsPeeler?: boolean;
 }
 
 export interface PrinterProfileJSON {
@@ -73,6 +82,9 @@ export interface PrinterProfileJSON {
   host?: string;
   port?: number;
   usbIdentifiers?: USBIdentifiers;
+  hardware?: { serialNumber?: string; macAddress?: string; usbVendorId?: number; usbProductId?: number };
+  connection?: { interfaceType?: PrinterConnectionType; host?: string; port?: number; spoolerName?: string };
+  discoverySources?: string[];
   dpi: number;
   media: PrinterMediaCapability;
   capabilities: PrinterHardwareCapabilities;
@@ -92,6 +104,9 @@ export class PrinterProfile {
   public host?: string;
   public port?: number;
   public usbIdentifiers?: USBIdentifiers;
+  public hardware: { serialNumber?: string; macAddress?: string; usbVendorId?: number; usbProductId?: number };
+  public connection: { interfaceType?: PrinterConnectionType; host?: string; port?: number; spoolerName?: string };
+  public discoverySources: string[];
   public dpi: number;
   public media: PrinterMediaCapability;
   public capabilities: PrinterHardwareCapabilities;
@@ -110,6 +125,9 @@ export class PrinterProfile {
     this.host = init.host || "192.168.1.200";
     this.port = init.port || 9100;
     this.usbIdentifiers = init.usbIdentifiers ? { ...init.usbIdentifiers } : undefined;
+    this.hardware = init.hardware ? { ...init.hardware } : {};
+    this.connection = init.connection ? { ...init.connection } : { interfaceType: this.connectionType, host: this.host, port: this.port };
+    this.discoverySources = init.discoverySources ? [...init.discoverySources] : [this.connectionType];
     this.dpi = init.dpi || 203;
 
     this.media = {
@@ -156,6 +174,9 @@ export class PrinterProfile {
       host: this.host,
       port: this.port,
       usbIdentifiers: this.usbIdentifiers ? { ...this.usbIdentifiers } : undefined,
+      hardware: { ...this.hardware },
+      connection: { ...this.connection },
+      discoverySources: [...this.discoverySources],
       dpi: this.dpi,
       media: { ...this.media },
       capabilities: { ...this.capabilities },

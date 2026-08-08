@@ -72,7 +72,7 @@ export class UniversalFieldRegistryService {
         key: "style_code",
         displayName: "Style / Article Code",
         dataType: "string",
-        aliases: ["style_code", "article_no", "style_no", "model_no"],
+        aliases: ["style", "style_code", "article_no", "style_no", "model_no", "article"],
       },
       {
         canonicalPath: "product.category",
