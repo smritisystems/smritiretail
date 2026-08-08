@@ -31,6 +31,10 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [Unreleased]
 
 ### Fixed
+- **Fail-Closed Pre-Resolution Security & Pre-Login Environment Discovery (`EnvironmentContext.tsx` / `EnvironmentResolver.ts` / `apiFetchV1.ts`)**:
+  - `EnvironmentProvider` initializes state as `EnvironmentResolver.unresolved()` (`mode: "UNKNOWN"`, `showDevCredentials: false`, `badgeLabel: "RESOLVING..."`), completely eliminating brief dev credential exposure flashes on page load.
+  - Configured `apiFetchV1.ts` to allow pre-login access to `/admin/environment/profile` (public bootstrap environment profile metadata) without throwing unauthenticated errors.
+  - Added unit test cases in [environmentResolver.test.ts](file:///f:/SMRITRretailNXmgrt/src/tests/environmentResolver.test.ts) verifying pre-resolution fail-closed security.
 - **Unified Environment Context & Shared State Propagation (`EnvironmentContext.tsx` — Rule PROD-004 & PROD-005 Compliance)**:
   - Created [src/kernel/config/EnvironmentContext.tsx](file:///f:/SMRITRretailNXmgrt/src/kernel/config/EnvironmentContext.tsx) (`EnvironmentProvider` / `useEnvironmentContext`) to propagate one authoritative backend-resolved `EnvironmentInfo` state across the application.
   - Mounted `<EnvironmentProvider>` at application root in [App.tsx](file:///f:/SMRITRretailNXmgrt/src/App.tsx), eliminating split-brain environment states between [EnvironmentBadge.tsx](file:///f:/SMRITRretailNXmgrt/src/components/EnvironmentBadge.tsx) and [LoginCard.tsx](file:///f:/SMRITRretailNXmgrt/src/features/auth/components/LoginCard.tsx).

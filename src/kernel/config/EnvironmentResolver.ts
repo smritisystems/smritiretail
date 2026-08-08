@@ -5,10 +5,10 @@
  * Standard     : Rule PROD-004 — Persistent Environment Isolation & Environment Context Authority
  * Author       : Jawahar Ramkripal Mallah
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * Version      : 4.0.0
+ * Version      : 4.1.0
  */
 
-export type EnvironmentCategory = "LOCAL" | "DEVELOPMENT" | "STAGING" | "PRODUCTION";
+export type EnvironmentCategory = "UNKNOWN" | "LOCAL" | "DEVELOPMENT" | "STAGING" | "PRODUCTION";
 
 export interface EnvironmentInfo {
   mode: EnvironmentCategory;
@@ -20,6 +20,17 @@ export interface EnvironmentInfo {
 }
 
 export class EnvironmentResolver {
+  public static unresolved(): EnvironmentInfo {
+    return {
+      mode: "UNKNOWN",
+      databaseName: "smriti_prod",
+      badgeLabel: "RESOLVING...",
+      isDemo: false,
+      showDevCredentials: false,
+      isProduction: false,
+    };
+  }
+
   public static resolve(params?: {
     hostname?: string;
     backendEnvType?: string;
@@ -65,7 +76,7 @@ export class EnvironmentResolver {
       };
     }
 
-    // 2. Client-side Environment Configuration & Hostname Heuristic (Pre-login / Offline)
+    // 2. Client-side Environment Configuration & Hostname Heuristic (Post-Resolution Fallback)
     const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".local") || hostname.endsWith(".test");
     const isStagingDomain = hostname.includes("staging") || hostname.includes("preview");
     const isExplicitProd = viteEnv === "production" || params?.localOverride === "production";
@@ -113,7 +124,7 @@ export class EnvironmentResolver {
       };
     }
 
-    // Default Fallback: Production if external domain, Development if local
+    // Default Fallback
     return {
       mode: "PRODUCTION",
       databaseName: backendDb || "smriti_prod",
@@ -126,6 +137,7 @@ export class EnvironmentResolver {
 
   public static shouldShowDevCredentials(envInfo?: EnvironmentInfo | null): boolean {
     if (!envInfo) return false;
+    if (envInfo.mode === "UNKNOWN") return false; // Strict Fail-Closed Rule: Never expose during UNKNOWN/RESOLVING!
     if (envInfo.isProduction || envInfo.mode === "PRODUCTION" || envInfo.mode === "STAGING") {
       return false;
     }

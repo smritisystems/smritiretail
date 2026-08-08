@@ -36,7 +36,11 @@ export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit
       : null;
 
   let path = endpoint.startsWith("/") ? endpoint : "/" + endpoint;
-  const isAuthCheckEndpoint = path.includes("/auth/me") || path.includes("/auth/login") || path.includes("/auth/token");
+  const isAuthCheckEndpoint =
+    path.includes("/auth/me") ||
+    path.includes("/auth/login") ||
+    path.includes("/auth/token") ||
+    path.includes("/admin/environment/profile");
 
   // Centralized Authentication Guard (P0 Security Compliance):
   if (!isAuthCheckEndpoint) {

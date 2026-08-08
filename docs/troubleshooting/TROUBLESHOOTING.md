@@ -36,12 +36,15 @@ This document details common operational issues and resolutions.
 
 ---
 
-## 1. Split-Brain Environment State Between Header & Login Card
-- **Symptom:** Header badge resolved to `PRODUCTION (smriti_prod)` but `LoginCard` displayed `Dev Credentials Quick-Fill` when accessed on `127.0.0.1`.
-- **Cause:** `EnvironmentBadge` fetched backend environment profile, but `LoginCard` called `EnvironmentResolver.resolve()` independently without backend environment parameters.
+## 1. Split-Brain Environment State & Pre-Resolution Dev Credential Exposure
+- **Symptom:** Brief flash of Dev Credentials on page load, or split-brain environment state between header badge and login card.
+- **Cause:**
+  1. `EnvironmentBadge` fetched backend environment profile, but `LoginCard` called `EnvironmentResolver.resolve()` independently without backend environment parameters.
+  2. Initial state evaluated client-side hostname heuristic (`DEVELOPMENT`) before backend profile API response returned.
 - **Resolution:**
-  1. Built `EnvironmentContext.tsx` (`EnvironmentProvider` / `useEnvironmentContext`) to query backend environment ONCE and propagate single `EnvironmentInfo` state to all UI components.
-  2. Implemented strict **Fail-Closed Security** in `EnvironmentResolver.shouldShowDevCredentials()`, ensuring dev credentials are automatically hidden for `PRODUCTION`, `STAGING`, or `UNKNOWN` environments.
+  1. Built `EnvironmentContext.tsx` (`EnvironmentProvider` / `useEnvironmentContext`) to query backend environment ONCE pre-login and propagate single `EnvironmentInfo` state.
+  2. Configured initial provider state to `EnvironmentResolver.unresolved()` (`mode: "UNKNOWN"`, `showDevCredentials: false`).
+  3. Implemented strict **Fail-Closed Security** in `EnvironmentResolver.shouldShowDevCredentials()`, ensuring dev credentials remain hidden during `UNKNOWN` / pre-resolution loading states.
 
 ## 2. Console Error `401 (Unauthorized)` on API Requests
 - **Symptom:** `GET /api/v1/pos/profiles/`, `/pos/shifts/`, `/inventory/`, `/psv/parties` return `401 (Unauthorized)`.

@@ -2,7 +2,18 @@ import { describe, it, expect } from "vitest";
 import { EnvironmentResolver } from "../kernel/config/EnvironmentResolver.ts";
 
 describe("EnvironmentResolver Architecture (Rule PROD-004 & PROD-005 Compliance)", () => {
-  it("resolves localhost + development backend to DEVELOPMENT mode with dev credentials allowed", () => {
+  it("initializes in UNKNOWN unresolved state with dev credentials HIDDEN (Fail-Closed Initial State)", () => {
+    const unresolved = EnvironmentResolver.unresolved();
+
+    expect(unresolved.mode).toBe("UNKNOWN");
+    expect(unresolved.badgeLabel).toBe("RESOLVING...");
+    expect(unresolved.isProduction).toBe(false);
+
+    const showDev = EnvironmentResolver.shouldShowDevCredentials(unresolved);
+    expect(showDev).toBe(false);
+  });
+
+  it("resolves localhost + development backend to DEVELOPMENT mode with dev credentials allowed AFTER resolution", () => {
     const env = EnvironmentResolver.resolve({
       hostname: "127.0.0.1",
       backendEnvType: "DEVELOPMENT",
@@ -64,14 +75,7 @@ describe("EnvironmentResolver Architecture (Rule PROD-004 & PROD-005 Compliance)
   });
 
   it("enforces fail-closed security rule: dev credentials HIDDEN when environment is UNKNOWN, null, or non-DEV", () => {
-    const unknownEnv = {
-      mode: "UNKNOWN" as any,
-      databaseName: "unknown",
-      badgeLabel: "UNKNOWN",
-      isDemo: false,
-      showDevCredentials: true, // Should be overridden by fail-closed guard
-      isProduction: false,
-    };
+    const unknownEnv = EnvironmentResolver.unresolved();
 
     expect(EnvironmentResolver.shouldShowDevCredentials(unknownEnv)).toBe(false);
     expect(EnvironmentResolver.shouldShowDevCredentials(null as any)).toBe(false);
