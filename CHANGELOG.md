@@ -30,6 +30,17 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Universal Printing Kernel — Phase H Refactor (Universal Print Execution & Spooling Kernel)
+- **Universal Print Execution & Spooling Architecture (`UniversalPrintOrchestrator.ts`, `UniversalPrintJob.ts`, `UniversalPrintSpooler.ts`)**:
+  - Implemented `UniversalPrintJob` model supporting job lifecycle states (`QUEUED`, `PREPARING`, `RENDERING`, `READY`, `PRINTING`, `COMPLETED`, `FAILED`, `CANCELLED`, `RETRYING`, `SENT_UNKNOWN_RESULT`).
+  - Implemented payload checksum calculation (`computeChecksum()`) for strict idempotency and double-print protection.
+  - Implemented `UniversalPrintSpooler` with FIFO queueing, priority support, pause/resume controls, retry management, and cancellation using `IPrintJobStore` (`MemoryPrintJobStore`).
+  - Implemented isolated `PrinterAdapter` transport architecture supporting `USB` (`UsbPrinterAdapter`), `TCP RAW 9100` (`TcpRawPrinterAdapter`), `WINDOWS_SPOOLER` (`WindowsSpoolerPrinterAdapter`), `LOCAL_AGENT` (`LocalAgentPrinterAdapter`), and `FILE` (`FilePrinterAdapter`).
+  - Implemented retry governance (retrying ONLY transport failures like `NETWORK_TIMEOUT`, `CONNECTION_RESET`, `AGENT_UNAVAILABLE`, `TEMPORARY_SPOOLER_ERROR`).
+  - Implemented `UniversalPrintOrchestrator.dryRun()` preview engine providing resolved fields, canvas verification, checksums, and compatibility diagnostics without physical dispatch.
+  - Added 75 new unit tests across 4 test suites (`universalPrintJob.test.ts`, `universalPrintSpooler.test.ts`, `printerAdapter.test.ts`, `printExecutionIntegration.test.ts`), bringing total printing kernel test suite to **370 passing tests**.
+  - Strictly preserved 269 PostgreSQL physical tables (0 schema mutations) and legacy printing code (`src/dop/`, `src/print_engine/`, `BarcodePrintDialog.tsx`).
+
 ### Architecture & Governance (Item Master E8 Business Semantics Decision Audit — CLOSED BY DESIGN)
 - **SMRITI Business Semantics Audit V1**:
   - Audited SMRITI Retail OS business requirements across 15 domains (Item Master, SKU, Variants, Barcodes, Invoices, POs, Sales, Stock, Import, Attributes, Industry Packs, Master Lookup, Multi-Tenant, Auditability, Reporting).

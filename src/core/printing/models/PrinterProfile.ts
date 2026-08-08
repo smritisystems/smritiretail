@@ -115,7 +115,14 @@ export class PrinterProfile {
   public paired: boolean;
   public isDefault: boolean;
 
-  constructor(init: Partial<PrinterProfileJSON> & { id: string; name: string }) {
+  constructor(
+    init: Partial<Omit<PrinterProfileJSON, "media" | "capabilities">> & {
+      id: string;
+      name: string;
+      media?: Partial<PrinterMediaCapability>;
+      capabilities?: Partial<PrinterHardwareCapabilities>;
+    }
+  ) {
     this.id = init.id;
     this.name = init.name;
     this.manufacturer = init.manufacturer || "Generic";
@@ -141,6 +148,7 @@ export class PrinterProfile {
       supportsPeeler: init.media?.supportsPeeler ?? false,
       supportsBlackMark: init.media?.supportsBlackMark ?? true,
       supportsGapSensor: init.media?.supportsGapSensor ?? true,
+      supportedSensors: init.media?.supportedSensors ? [...init.media.supportedSensors] : ["GAP", "BLACK_MARK", "NONE"],
     };
 
     this.capabilities = {
@@ -155,6 +163,11 @@ export class PrinterProfile {
       supportsStatusQuery: init.capabilities?.supportsStatusQuery ?? true,
       supportsCalibration: init.capabilities?.supportsCalibration ?? true,
       supportsRawPrinting: init.capabilities?.supportsRawPrinting ?? true,
+      supportsZPL: init.capabilities?.supportsZPL ?? true,
+      supportsTSPL: init.capabilities?.supportsTSPL ?? false,
+      supportsEPL: init.capabilities?.supportsEPL ?? false,
+      supportsCPCL: init.capabilities?.supportsCPCL ?? false,
+      supportsESCPOS: init.capabilities?.supportsESCPOS ?? false,
     };
 
     this.status = init.status || "READY";

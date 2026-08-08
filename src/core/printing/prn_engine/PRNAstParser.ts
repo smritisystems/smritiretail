@@ -464,6 +464,48 @@ export class PRNAstParserService {
       return;
     }
 
+    // 5b. ^BQ (QR Code)
+    if (raw.startsWith("^BQ")) {
+      setBarcode(15, 0); // Mark 15mm height for QR code
+      nodes.push({
+        id: `ast-${tok.order}`,
+        kind: "SETUP",
+        rawSource: raw,
+        commandName: "^BQ",
+        parameters: raw.substring(3).split(","),
+        x: curX,
+        y: curY,
+        width: 15,
+        height: 15,
+        rotation: 0,
+        symbology: "QR",
+        offset: tok.offset,
+        order: tok.order,
+      });
+      return;
+    }
+
+    // 5c. ^BX (DataMatrix)
+    if (raw.startsWith("^BX")) {
+      setBarcode(15, 0); // Mark 15mm height for DataMatrix
+      nodes.push({
+        id: `ast-${tok.order}`,
+        kind: "SETUP",
+        rawSource: raw,
+        commandName: "^BX",
+        parameters: raw.substring(3).split(","),
+        x: curX,
+        y: curY,
+        width: 15,
+        height: 15,
+        rotation: 0,
+        symbology: "DATAMATRIX",
+        offset: tok.offset,
+        order: tok.order,
+      });
+      return;
+    }
+
     // 6. ^GB (Graphic Box / Solid Fill / Line)
     if (raw.startsWith("^GB")) {
       const paramStr = raw.substring(3);
@@ -507,9 +549,14 @@ export class PRNAstParserService {
       const extractedVars = this.extractPlaceholders(dataContent);
       const isBarcode = curBHeight > 0;
 
+      let kind: PRNAstNodeKind = isBarcode ? "BARCODE" : "TEXT";
+      if (isBarcode && (dataContent.startsWith("QA,") || dataContent.startsWith("LA,"))) {
+        kind = "QR";
+      }
+
       const node: PRNAstNode = {
         id: `ast-${tok.order}`,
-        kind: isBarcode ? "BARCODE" : "TEXT",
+        kind,
         rawSource: raw,
         commandName: "^FD",
         parameters: [dataContent],
@@ -521,7 +568,7 @@ export class PRNAstParserService {
         font: curFont,
         fontSizePt: curFontSize,
         reversePrint: curRev,
-        symbology: isBarcode ? "CODE128" : undefined,
+        symbology: kind === "QR" ? "QR" : isBarcode ? "CODE128" : undefined,
         data: dataContent,
         placeholders: extractedVars.map((v) => v.name),
         offset: tok.offset,
