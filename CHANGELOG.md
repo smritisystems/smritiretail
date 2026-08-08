@@ -31,6 +31,10 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [Unreleased]
 
 ### Fixed
+- **Authoritative Environment Resolver (`EnvironmentResolver.ts` — Rule PROD-004 & PROD-005 Compliance)**:
+  - Created [src/kernel/config/EnvironmentResolver.ts](file:///f:/SMRITRretailNXmgrt/src/kernel/config/EnvironmentResolver.ts) as the single authoritative resolver for `LOCAL`, `DEVELOPMENT`, `STAGING`, and `PRODUCTION` environments.
+  - Eliminated conflicting header badge rendering (`LOCAL STANDALONE` + `PRODUCTION`) in [EnvironmentBadge.tsx](file:///f:/SMRITRretailNXmgrt/src/components/EnvironmentBadge.tsx) by binding badge labels dynamically to `EnvironmentResolver.resolve()`.
+  - Conditioned **Dev Credentials Quick-Fill** accordion in [LoginCard.tsx](file:///f:/SMRITRretailNXmgrt/src/features/auth/components/LoginCard.tsx) on `EnvironmentResolver.shouldShowDevCredentials()`, guaranteeing dev credentials are **never rendered in production** under any URL or cached state condition.
 - **Authentication JWT `access_token` Field Mapping (`ApiAuthProvider.ts`)**:
   - Updated [src/features/auth/providers/ApiAuthProvider.ts](file:///f:/SMRITRretailNXmgrt/src/features/auth/providers/ApiAuthProvider.ts) to extract `access_token` and `refresh_token` from FastAPI `/api/v1/auth/login` responses.
   - Eliminates `401 (Unauthorized)` errors caused by falling back to mock token strings (`smriti_jwt_*`) during real backend authentication sessions.

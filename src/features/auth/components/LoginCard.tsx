@@ -11,6 +11,7 @@ import { ProgressIndicator } from "./ProgressIndicator";
 import { useAuthStore, authStore } from "../store/authStore";
 import { AuthOrchestrator } from "../services/AuthOrchestrator";
 import { User as UserModel } from "../types/auth.types";
+import { EnvironmentResolver } from "../../../kernel/config/EnvironmentResolver.ts";
 
 interface LoginCardProps {
   onLoginSuccess: (user: UserModel) => void;
@@ -28,6 +29,9 @@ export const LoginCard: React.FC<LoginCardProps> = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [showDevAccounts, setShowDevAccounts] = useState(false);
+
+  const envInfo = EnvironmentResolver.resolve();
+  const showDevQuickFill = EnvironmentResolver.shouldShowDevCredentials(envInfo);
 
   const isAuthenticating = authState === "Authenticating" || authState === "LoadingProfile" || authState === "LoadingWorkspace";
 
@@ -135,36 +139,38 @@ export const LoginCard: React.FC<LoginCardProps> = ({ onLoginSuccess }) => {
         </div>
       </div>
 
-      {/* Dev Quick Credentials Accordion */}
-      <div className="mt-4 pt-3 border-t border-slate-800/50">
-        <button
-          type="button"
-          onClick={() => setShowDevAccounts(!showDevAccounts)}
-          className="w-full text-[11px] font-mono text-slate-400 hover:text-slate-200 flex items-center justify-between transition"
-        >
-          <span className="flex items-center space-x-1">
-            <Terminal size={12} className="text-indigo-400" />
-            <span>Dev Credentials Quick-Fill</span>
-          </span>
-          <ChevronDown size={14} className={`transition-transform ${showDevAccounts ? "rotate-180" : ""}`} />
-        </button>
+      {/* Dev Quick Credentials Accordion (Hidden in Production) */}
+      {showDevQuickFill && (
+        <div className="mt-4 pt-3 border-t border-slate-800/50">
+          <button
+            type="button"
+            onClick={() => setShowDevAccounts(!showDevAccounts)}
+            className="w-full text-[11px] font-mono text-slate-400 hover:text-slate-200 flex items-center justify-between transition"
+          >
+            <span className="flex items-center space-x-1">
+              <Terminal size={12} className="text-indigo-400" />
+              <span>Dev Credentials Quick-Fill</span>
+            </span>
+            <ChevronDown size={14} className={`transition-transform ${showDevAccounts ? "rotate-180" : ""}`} />
+          </button>
 
-        {showDevAccounts && (
-          <div className="mt-2 space-y-1.5">
-            {DEV_ACCOUNTS.map((acc) => (
-              <button
-                key={acc.username}
-                type="button"
-                onClick={() => handleDevQuickFill(acc)}
-                className="w-full px-2.5 py-1.5 rounded bg-slate-800/80 hover:bg-slate-800 text-left flex items-center justify-between text-xs transition border border-slate-700/40"
-              >
-                <span className="font-semibold text-slate-200">{acc.label}</span>
-                <span className="font-mono text-[10px] text-indigo-400">{acc.username}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+          {showDevAccounts && (
+            <div className="mt-2 space-y-1.5">
+              {DEV_ACCOUNTS.map((acc) => (
+                <button
+                  key={acc.username}
+                  type="button"
+                  onClick={() => handleDevQuickFill(acc)}
+                  className="w-full px-2.5 py-1.5 rounded bg-slate-800/80 hover:bg-slate-800 text-left flex items-center justify-between text-xs transition border border-slate-700/40"
+                >
+                  <span className="font-semibold text-slate-200">{acc.label}</span>
+                  <span className="font-mono text-[10px] text-indigo-400">{acc.username}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

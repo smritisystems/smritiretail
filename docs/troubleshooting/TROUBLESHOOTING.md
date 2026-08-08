@@ -36,7 +36,17 @@ This document details common operational issues and resolutions.
 
 ---
 
-## 1. Console Error `401 (Unauthorized)` on API Requests
+## 1. Conflicting Header Badges & Dev Credential Exposure in Production
+- **Symptom:** Header displayed dual conflicting badges (`LOCAL STANDALONE` + `PRODUCTION (smriti_prod)`), or `Dev Credentials Quick-Fill` appeared in production.
+- **Cause:**
+  1. `EnvironmentBadge` rendered `<OfflineSessionBadge />` alongside a hardcoded default production badge before login authentication.
+  2. `LoginCard` rendered `Dev Credentials Quick-Fill` unconditionally without checking production environment flags.
+- **Resolution:**
+  1. Implemented `EnvironmentResolver.ts` to provide a single authoritative environment category (`LOCAL`, `DEVELOPMENT`, `STAGING`, `PRODUCTION`).
+  2. Refactored `EnvironmentBadge.tsx` to render a single unified badge driven by `EnvironmentResolver.resolve()`.
+  3. Conditioned `Dev Credentials Quick-Fill` on `EnvironmentResolver.shouldShowDevCredentials()`, guaranteeing zero dev credential exposure in production environments.
+
+## 2. Console Error `401 (Unauthorized)` on API Requests
 - **Symptom:** `GET /api/v1/pos/profiles/`, `/pos/shifts/`, `/inventory/`, `/psv/parties` return `401 (Unauthorized)`.
 - **Cause:** `ApiAuthProvider.ts` only looked for `data.token` from login responses. Because FastAPI returned `access_token`, `ApiAuthProvider` fell back to a mock string (`smriti_jwt_*`). Sending mock token headers to FastAPI failed signature verification.
 - **Resolution:** Updated `ApiAuthProvider.ts` to map `access_token` and `refresh_token` from FastAPI login responses, storing real signed JWTs in `localStorage`.
