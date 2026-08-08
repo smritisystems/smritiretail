@@ -12,6 +12,7 @@ import { useAuthStore, authStore } from "../store/authStore";
 import { AuthOrchestrator } from "../services/AuthOrchestrator";
 import { User as UserModel } from "../types/auth.types";
 import { EnvironmentResolver } from "../../../kernel/config/EnvironmentResolver.ts";
+import { useEnvironmentContext } from "../../../kernel/config/EnvironmentContext.tsx";
 
 interface LoginCardProps {
   onLoginSuccess: (user: UserModel) => void;
@@ -25,12 +26,12 @@ const DEV_ACCOUNTS = [
 
 export const LoginCard: React.FC<LoginCardProps> = ({ onLoginSuccess }) => {
   const { authState, progressSteps, errorMessage } = useAuthStore();
+  const { envInfo } = useEnvironmentContext();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [showDevAccounts, setShowDevAccounts] = useState(false);
 
-  const envInfo = EnvironmentResolver.resolve();
   const showDevQuickFill = EnvironmentResolver.shouldShowDevCredentials(envInfo);
 
   const isAuthenticating = authState === "Authenticating" || authState === "LoadingProfile" || authState === "LoadingWorkspace";

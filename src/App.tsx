@@ -32,6 +32,7 @@ import {
   useLayoutEngine,
 } from "./layout_engine/layout_store.tsx";
 import { LayoutManager } from "./layout_engine/layout_manager.tsx";
+import { EnvironmentProvider } from "./kernel/config/EnvironmentContext.tsx";
 import { LockScreen, LogoutDialog, SessionExpiredDialog, authStore, authEvents } from "./features/auth";
 
 // Import tabs components
@@ -1218,26 +1219,28 @@ const App: React.FC = () => {
         </div>
       }
     >
-      <PrintProvider>
-        <NotificationProvider>
-          <DrillDownProvider>
-            <LayoutEngineProvider>
-              <WorkspaceProvider>
-                <ShortcutProvider>
-                  <ContextProvider>
-                    <AppContent />
-                    <ContextRenderer />
-                    <GlobalSearch />
-                    <DrillDownSidePanel />
-                    <ShortcutPalette />
-                    <WorkspaceTaskbar />
-                  </ContextProvider>
-                </ShortcutProvider>
-              </WorkspaceProvider>
-            </LayoutEngineProvider>
-          </DrillDownProvider>
-        </NotificationProvider>
-      </PrintProvider>
+      <EnvironmentProvider>
+        <PrintProvider>
+          <NotificationProvider>
+            <DrillDownProvider>
+              <LayoutEngineProvider>
+                <WorkspaceProvider>
+                  <ShortcutProvider>
+                    <ContextProvider>
+                      <AppContent />
+                      <ContextRenderer />
+                      <GlobalSearch />
+                      <DrillDownSidePanel />
+                      <ShortcutPalette />
+                      <WorkspaceTaskbar />
+                    </ContextProvider>
+                  </ShortcutProvider>
+                </WorkspaceProvider>
+              </LayoutEngineProvider>
+            </DrillDownProvider>
+          </NotificationProvider>
+        </PrintProvider>
+      </EnvironmentProvider>
     </Suspense>
   );
 };

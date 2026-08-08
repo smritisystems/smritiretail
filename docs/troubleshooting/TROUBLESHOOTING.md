@@ -36,15 +36,12 @@ This document details common operational issues and resolutions.
 
 ---
 
-## 1. Conflicting Header Badges & Dev Credential Exposure in Production
-- **Symptom:** Header displayed dual conflicting badges (`LOCAL STANDALONE` + `PRODUCTION (smriti_prod)`), or `Dev Credentials Quick-Fill` appeared in production.
-- **Cause:**
-  1. `EnvironmentBadge` rendered `<OfflineSessionBadge />` alongside a hardcoded default production badge before login authentication.
-  2. `LoginCard` rendered `Dev Credentials Quick-Fill` unconditionally without checking production environment flags.
+## 1. Split-Brain Environment State Between Header & Login Card
+- **Symptom:** Header badge resolved to `PRODUCTION (smriti_prod)` but `LoginCard` displayed `Dev Credentials Quick-Fill` when accessed on `127.0.0.1`.
+- **Cause:** `EnvironmentBadge` fetched backend environment profile, but `LoginCard` called `EnvironmentResolver.resolve()` independently without backend environment parameters.
 - **Resolution:**
-  1. Implemented `EnvironmentResolver.ts` to provide a single authoritative environment category (`LOCAL`, `DEVELOPMENT`, `STAGING`, `PRODUCTION`).
-  2. Refactored `EnvironmentBadge.tsx` to render a single unified badge driven by `EnvironmentResolver.resolve()`.
-  3. Conditioned `Dev Credentials Quick-Fill` on `EnvironmentResolver.shouldShowDevCredentials()`, guaranteeing zero dev credential exposure in production environments.
+  1. Built `EnvironmentContext.tsx` (`EnvironmentProvider` / `useEnvironmentContext`) to query backend environment ONCE and propagate single `EnvironmentInfo` state to all UI components.
+  2. Implemented strict **Fail-Closed Security** in `EnvironmentResolver.shouldShowDevCredentials()`, ensuring dev credentials are automatically hidden for `PRODUCTION`, `STAGING`, or `UNKNOWN` environments.
 
 ## 2. Console Error `401 (Unauthorized)` on API Requests
 - **Symptom:** `GET /api/v1/pos/profiles/`, `/pos/shifts/`, `/inventory/`, `/psv/parties` return `401 (Unauthorized)`.

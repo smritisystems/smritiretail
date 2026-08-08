@@ -8,10 +8,9 @@
  * Version      : 4.0.0
  */
 
-import React, { useEffect, useState } from "react";
-import { ShieldCheck, Database, FlaskConical, Code2, AlertTriangle, Terminal } from "lucide-react";
-import { apiFetchV1 } from "../lib/apiFetchV1.ts";
-import { EnvironmentResolver, EnvironmentInfo } from "../kernel/config/EnvironmentResolver.ts";
+import React from "react";
+import { ShieldCheck, Database, Code2, AlertTriangle } from "lucide-react";
+import { useEnvironmentContext } from "../kernel/config/EnvironmentContext.tsx";
 
 export type EnvironmentType = "PRODUCTION" | "DEMO" | "TRAINING" | "TEST" | "DEVELOPMENT" | string;
 
@@ -21,28 +20,7 @@ interface EnvironmentBadgeProps {
 }
 
 export const EnvironmentBadge: React.FC<EnvironmentBadgeProps> = ({ className = "", showDetails = false }) => {
-  const [envInfo, setEnvInfo] = useState<EnvironmentInfo>(() => EnvironmentResolver.resolve());
-
-  useEffect(() => {
-    let isMounted = true;
-    apiFetchV1<{ environment_type?: string; database_name?: string }>("admin/environment/profile")
-      .then((res) => {
-        if (isMounted && res) {
-          const resolved = EnvironmentResolver.resolve({
-            backendEnvType: res.environment_type,
-            backendDbName: res.database_name,
-          });
-          setEnvInfo(resolved);
-        }
-      })
-      .catch(() => {
-        // Keep initial EnvironmentResolver client-side resolution
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const { envInfo } = useEnvironmentContext();
 
   const getStyle = () => {
     switch (envInfo.mode) {

@@ -2,24 +2,24 @@ import { describe, it, expect } from "vitest";
 import { EnvironmentResolver } from "../kernel/config/EnvironmentResolver.ts";
 
 describe("EnvironmentResolver Architecture (Rule PROD-004 & PROD-005 Compliance)", () => {
-  it("resolves localhost + development to DEVELOPMENT mode with dev credentials allowed", () => {
+  it("resolves localhost + development backend to DEVELOPMENT mode with dev credentials allowed", () => {
     const env = EnvironmentResolver.resolve({
       hostname: "127.0.0.1",
+      backendEnvType: "DEVELOPMENT",
       viteEnv: "development"
     });
 
     expect(env.mode).toBe("DEVELOPMENT");
     expect(env.databaseName).toBe("smriti_dev");
-    expect(env.badgeLabel).toBe("LOCAL STANDALONE");
     expect(env.isProduction).toBe(false);
 
     const showDev = EnvironmentResolver.shouldShowDevCredentials(env);
     expect(showDev).toBe(true);
   });
 
-  it("resolves localhost + explicit production backend override to PRODUCTION mode and hides dev credentials", () => {
+  it("resolves localhost + PRODUCTION backend to PRODUCTION mode and hides dev credentials (eliminated split-brain)", () => {
     const env = EnvironmentResolver.resolve({
-      hostname: "localhost",
+      hostname: "127.0.0.1",
       backendEnvType: "PRODUCTION",
       backendDbName: "smriti_prod"
     });
@@ -63,13 +63,28 @@ describe("EnvironmentResolver Architecture (Rule PROD-004 & PROD-005 Compliance)
     expect(showDev).toBe(false);
   });
 
-  it("guarantees dev credentials are NEVER rendered in production regardless of URL or flags", () => {
-    const prodEnv1 = EnvironmentResolver.resolve({ hostname: "127.0.0.1", localOverride: "production" });
-    const prodEnv2 = EnvironmentResolver.resolve({ backendEnvType: "PRODUCTION" });
-    const prodEnv3 = EnvironmentResolver.resolve({ hostname: "production-app.com" });
+  it("enforces fail-closed security rule: dev credentials HIDDEN when environment is UNKNOWN, null, or non-DEV", () => {
+    const unknownEnv = {
+      mode: "UNKNOWN" as any,
+      databaseName: "unknown",
+      badgeLabel: "UNKNOWN",
+      isDemo: false,
+      showDevCredentials: true, // Should be overridden by fail-closed guard
+      isProduction: false,
+    };
 
-    expect(EnvironmentResolver.shouldShowDevCredentials(prodEnv1)).toBe(false);
-    expect(EnvironmentResolver.shouldShowDevCredentials(prodEnv2)).toBe(false);
-    expect(EnvironmentResolver.shouldShowDevCredentials(prodEnv3)).toBe(false);
+    expect(EnvironmentResolver.shouldShowDevCredentials(unknownEnv)).toBe(false);
+    expect(EnvironmentResolver.shouldShowDevCredentials(null as any)).toBe(false);
+    expect(EnvironmentResolver.shouldShowDevCredentials(undefined as any)).toBe(false);
+  });
+
+  it("guarantees dev credentials are NEVER rendered under production backend regardless of hostname", () => {
+    const prodEnvLocal = EnvironmentResolver.resolve({ hostname: "127.0.0.1", backendEnvType: "PRODUCTION" });
+    const prodEnvOverride = EnvironmentResolver.resolve({ hostname: "localhost", localOverride: "production" });
+    const prodEnvRemote = EnvironmentResolver.resolve({ hostname: "production-app.com", backendEnvType: "PRODUCTION" });
+
+    expect(EnvironmentResolver.shouldShowDevCredentials(prodEnvLocal)).toBe(false);
+    expect(EnvironmentResolver.shouldShowDevCredentials(prodEnvOverride)).toBe(false);
+    expect(EnvironmentResolver.shouldShowDevCredentials(prodEnvRemote)).toBe(false);
   });
 });

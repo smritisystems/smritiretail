@@ -124,10 +124,14 @@ export class EnvironmentResolver {
     };
   }
 
-  public static shouldShowDevCredentials(envInfo: EnvironmentInfo): boolean {
+  public static shouldShowDevCredentials(envInfo?: EnvironmentInfo | null): boolean {
+    if (!envInfo) return false;
     if (envInfo.isProduction || envInfo.mode === "PRODUCTION" || envInfo.mode === "STAGING") {
       return false;
     }
-    return envInfo.showDevCredentials;
+    if (envInfo.mode !== "DEVELOPMENT" && envInfo.mode !== "LOCAL") {
+      return false;
+    }
+    return Boolean(envInfo.showDevCredentials);
   }
 }
