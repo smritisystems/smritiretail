@@ -169,6 +169,7 @@ export const ItemMasterToolbar: React.FC<ItemMasterToolbarProps> = ({
                 : "bg-theme-surface-2 text-theme-muted border-theme-divider hover:text-theme-heading hover:bg-theme-surface-hover"
             }`}
             title="More workspace modes"
+            aria-label="More workspace modes"
           >
             <MoreHorizontal className="w-3.5 h-3.5" />
             <span className="hidden sm:inline text-xs">More</span>
@@ -222,6 +223,7 @@ export const ItemMasterToolbar: React.FC<ItemMasterToolbarProps> = ({
               : "bg-theme-surface-2 text-theme-muted border-theme-divider hover:text-theme-heading hover:bg-theme-surface-hover"
           }`}
           title="Toggle Filter Drawer (F2)"
+          aria-label="Toggle Filter Drawer (F2)"
         >
           <Filter className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Filter</span>
@@ -258,6 +260,7 @@ export const ItemMasterToolbar: React.FC<ItemMasterToolbarProps> = ({
         onClick={onOpenBarcodeHub}
         className="px-3 py-1.5 text-xs font-bold rounded-lg bg-theme-surface-2 border border-theme-divider text-theme-heading hover:bg-theme-surface-hover flex items-center gap-1.5 transition-colors cursor-pointer flex-shrink-0"
         title="Print Barcode Labels (F4)"
+        aria-label="Print Barcode Labels (F4)"
       >
         <Printer className="w-3.5 h-3.5 text-[var(--c-seef-accent)]" />
         <span className="hidden sm:inline">Labels</span>
@@ -270,6 +273,7 @@ export const ItemMasterToolbar: React.FC<ItemMasterToolbarProps> = ({
         onClick={onRefresh}
         className="p-1.5 rounded-lg bg-theme-surface-2 border border-theme-divider text-theme-muted hover:text-theme-heading hover:bg-theme-surface-hover transition-colors cursor-pointer flex-shrink-0"
         title="Refresh Products"
+        aria-label="Refresh Products"
       >
         <RefreshCw className="w-4 h-4" />
       </button>

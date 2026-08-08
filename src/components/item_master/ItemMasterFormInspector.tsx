@@ -28,6 +28,8 @@ interface ItemMasterFormInspectorProps {
   onDeleteProduct: (id: string) => Promise<void>;
   onOpenBarcodeDialog: (variant?: any) => void;
   isReadOnly?: boolean;
+  isSaving?: boolean;
+  isDeleting?: boolean;
 }
 
 export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = ({
@@ -35,10 +37,12 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
   onSaveProduct,
   onDeleteProduct,
   onOpenBarcodeDialog,
-  isReadOnly = false
+  isReadOnly = false,
+  isSaving = false,
+  isDeleting = false
 }) => {
   const [formData, setFormData] = useState<Product | null>(product ? { ...product } : null);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [internalSaving, setInternalSaving] = useState<boolean>(false);
   const [uomConversions, setUomConversions] = useState<UomConversion[]>([]);
   const [supplierCatalogue, setSupplierCatalogue] = useState<SupplierCatalogueEntry[]>(product?.supplierCatalogue || []);
   const [priceRules, setPriceRules] = useState<PriceRule[]>(product?.priceRules || []);
@@ -575,6 +579,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                           <button
                             onClick={() => setPriceRules((prev) => prev.filter((x) => x.id !== r.id))}
                             className="text-rose-400 hover:text-rose-300 cursor-pointer"
+                            aria-label="Remove price rule"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -642,6 +647,7 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
                     <button
                       onClick={() => setTaggedMedia((prev) => prev.filter((x) => x.id !== m.id))}
                       className="absolute bottom-1.5 right-1.5 p-1.5 bg-rose-500/80 rounded text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                      aria-label="Remove media image"
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
@@ -687,7 +693,8 @@ export const ItemMasterFormInspector: React.FC<ItemMasterFormInspectorProps> = (
         tabs={tabs}
         onSave={!isReadOnly ? handleSave : undefined}
         onDelete={!isReadOnly ? () => onDeleteProduct(activeProduct.id) : undefined}
-        isSaving={isSaving}
+        isSaving={isSaving || internalSaving}
+        isDeleting={isDeleting}
       />
     </div>
   );

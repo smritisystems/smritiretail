@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS v5.0
  * Module       : Item Master Floating Batch Action Toolbar
  * Author       : Jawahar Ramkripal Mallah
@@ -8,7 +8,7 @@
  */
 
 import React from "react";
-import { Download, Printer, Tag, CheckSquare, X, Power, FileSpreadsheet } from "lucide-react";
+import { Download, Printer, Tag, CheckSquare, X, Power, FileSpreadsheet, RefreshCw } from "lucide-react";
 import { Product } from "../../types.js";
 
 interface ItemMasterBatchBarProps {
@@ -18,6 +18,7 @@ interface ItemMasterBatchBarProps {
   onExportCsv: () => void;
   onPrintLabels: () => void;
   onBulkStatusToggle: () => void;
+  isExporting?: "excel" | "csv" | null;
 }
 
 export const ItemMasterBatchBar: React.FC<ItemMasterBatchBarProps> = ({
@@ -26,7 +27,8 @@ export const ItemMasterBatchBar: React.FC<ItemMasterBatchBarProps> = ({
   onExportExcel,
   onExportCsv,
   onPrintLabels,
-  onBulkStatusToggle
+  onBulkStatusToggle,
+  isExporting = null,
 }) => {
   if (selectedProducts.length === 0) return null;
 
@@ -42,16 +44,20 @@ export const ItemMasterBatchBar: React.FC<ItemMasterBatchBarProps> = ({
       <div className="flex items-center gap-2">
         <button
           onClick={onExportExcel}
-          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer text-white shadow-xs"
+          disabled={isExporting !== null}
+          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer text-white shadow-xs"
         >
-          <FileSpreadsheet className="w-3.5 h-3.5" /> Export Excel
+          {isExporting === "excel" ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+          <span>{isExporting === "excel" ? "Exporting..." : "Export Excel"}</span>
         </button>
 
         <button
           onClick={onExportCsv}
-          className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-heading font-bold rounded-lg border border-theme-divider transition-colors flex items-center gap-1.5 cursor-pointer"
+          disabled={isExporting !== null}
+          className="px-3 py-1.5 bg-theme-surface-2 hover:bg-theme-surface-hover disabled:opacity-50 text-theme-heading font-bold rounded-lg border border-theme-divider transition-colors flex items-center gap-1.5 cursor-pointer"
         >
-          <Download className="w-3.5 h-3.5" /> CSV
+          {isExporting === "csv" ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+          <span>{isExporting === "csv" ? "Exporting..." : "CSV"}</span>
         </button>
 
         <button
@@ -74,6 +80,7 @@ export const ItemMasterBatchBar: React.FC<ItemMasterBatchBarProps> = ({
         onClick={onClearSelection}
         className="p-1 hover:bg-theme-surface-hover text-theme-muted hover:text-white rounded-md transition-colors cursor-pointer ml-1"
         title="Clear Selection"
+        aria-label="Clear Selection"
       >
         <X className="w-4 h-4" />
       </button>

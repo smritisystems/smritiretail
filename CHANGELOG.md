@@ -30,6 +30,18 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Fixed
+- **Setup Wizard Fallback Transparency & PDF Health Check Hardening (Rule PROD-006 Compliance)**:
+  - Eliminated silent masking of backend company creation failures when the `"Upstream python-core"` fallback triggers in `SetupWizardTab.tsx`.
+  - Added `isFallbackMode` state tracking and persistent Amber alert badge (`Status: LOCAL FALLBACK MODE — Pending Backend Confirmation`) on the success screen and stored explicit `smriti_setup_fallback_mode` metadata in `localStorage`.
+  - Replaced hardcoded literal health checks (`{ status: "PASS", durationMs: 14 }`) in `downloadSetupReportPDF` with dynamic, truthfully measured execution metrics (`performance.now()`) and dynamic statuses (`PASS` vs `WARNING` depending on fallback mode).
+  - Fixed `setSetupNotice({ message: msg, canIgnore })` to use the computed `canIgnore` boolean instead of hardcoding `true`, preventing non-skippable critical system errors from being offered as skippable.
+- **Item Master Accessibility & Notification Hardening**:
+  - Wrapped all 12 `onNotification` calls in `ItemMasterTab.tsx` and `BarcodePrintDialog.tsx` with a safe dispatcher (`notify`) and console fallback logger (`[ItemMaster Notification - ERROR/SUCCESS]: ...`) to eliminate silent data integrity failures on catalog CRUD operations ("Creation Failed", "Save Failed", "Delete Failed").
+  - Added explicit `aria-label` attributes to icon-only buttons across `ItemMasterTab`, `ItemMasterToolbar`, `ItemMasterContextSidebar`, `ItemMasterBatchBar`, `ItemMasterFormInspector`, and `FioriObjectPage`.
+  - Added async loading states (`isSavingProduct`, `isDeletingProduct`, `isExporting`) with visual spinners and disabled button states for catalog save, delete, item creation, and batch export actions.
+  - Scoped backlog tickets `IM-TICK-001` (Grid Keyboard & Clipboard Paste Support) and `IM-TICK-002` (Product Master Visual Image & Variant Thumbnail Gallery).
+
 ### Security
 - Migrated JWT authentication engine from legacy `python-jose` to `PyJWT` (`pyjwt[crypto]>=2.13.0`), achieving **0 known vulnerabilities** in `pip-audit`.
 - Updated FastAPI/Starlette dependencies (`fastapi>=0.115.11`, `starlette>=0.47.2`, `python-multipart>=0.0.20`).

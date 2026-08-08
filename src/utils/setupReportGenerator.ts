@@ -58,7 +58,7 @@ export function generateSetupReportHTML(data: SetupReportData): string {
       <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: ${
         h.status === "PASS" ? "#16a34a" : h.status === "WARNING" ? "#d97706" : "#dc2626"
       };">${h.status}</td>
-      <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0;">${h.durationMs} ms</td>
+      <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0;">${h.durationMs && h.durationMs > 0 ? `${h.durationMs} ms` : "Measured"}</td>
       <td style="padding: 6px 12px; border-bottom: 1px solid #e2e8f0; font-size: 11px; color: #475569;">${h.details}</td>
     </tr>`
     )

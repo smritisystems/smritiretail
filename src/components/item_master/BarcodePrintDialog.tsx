@@ -45,6 +45,14 @@ export const BarcodePrintDialog: React.FC<BarcodePrintDialogProps> = ({
     return `LP-${today}-${randomHex}`;
   };
 
+  const notify = (title: string, msg: string, type: "success" | "error" = "success") => {
+    if (onNotification) {
+      onNotification(title, msg, type);
+    } else {
+      console.log(`[BarcodePrint Notification - ${type.toUpperCase()}]: ${title} - ${msg}`);
+    }
+  };
+
   const handleExecutePrint = (format: "PDF" | "ZPL" | "TSPL" | "EPL" | "DIRECT_QZ") => {
     const jobId = generatePrintJobId();
 
@@ -64,13 +72,11 @@ export const BarcodePrintDialog: React.FC<BarcodePrintDialogProps> = ({
       URL.revokeObjectURL(url);
     }
 
-    if (onNotification) {
-      onNotification(
-        `Print Job Created: ${jobId}`,
-        `Generated ${printCount} thermal labels (${labelSize}) via ${format} output stream. Logged to Label Print Ledger.`,
-        "success"
-      );
-    }
+    notify(
+      `Print Job Created: ${jobId}`,
+      `Generated ${printCount} thermal labels (${labelSize}) via ${format} output stream. Logged to Label Print Ledger.`,
+      "success"
+    );
     onClose();
   };
 

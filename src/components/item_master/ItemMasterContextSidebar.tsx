@@ -109,6 +109,7 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
                   onClick={() => onFilterChange({ type: "ALL", value: "ALL" })}
                   className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 flex items-center gap-1 text-[10px] font-bold cursor-pointer transition-colors"
                   title="Reset All Filters"
+                  aria-label="Reset All Filters"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Reset</span>
@@ -120,6 +121,7 @@ export const ItemMasterContextSidebar: React.FC<ItemMasterContextSidebarProps> =
                   onClick={onClose}
                   className="p-1.5 rounded-lg text-theme-muted hover:text-theme-heading hover:bg-theme-surface-hover transition-colors cursor-pointer"
                   title="Close Filters Drawer"
+                  aria-label="Close Filters Drawer"
                 >
                   <X className="w-4 h-4" />
                 </button>

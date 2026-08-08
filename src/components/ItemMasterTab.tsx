@@ -97,9 +97,24 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   onRefreshProducts,
   onNotification,
   currentUser
-}) => {
+})  // Safe Notification Dispatcher (Guards against missing onNotification prop drops)
+  const notify = useCallback(
+    (title: string, message: string, type: "success" | "error" = "success") => {
+      if (onNotification) {
+        onNotification(title, message, type);
+      } else {
+        console.log(`[ItemMaster Notification - ${type.toUpperCase()}]: ${title} - ${message}`);
+      }
+    },
+    [onNotification]
+  );
+
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
+  const [isDeletingProduct, setIsDeletingProduct] = useState(false);
+  const [isExporting, setIsExporting] = useState<"excel" | "csv" | null>(null);
+
   const isReadOnly = currentUser?.role === "Report User";
-  // SXP v1.0 â€” adaptive visibility for timeline and cost layers
+  // SXP v1.0 — adaptive visibility for timeline and cost layers
   const { canRender } = useSmritiExperience();
   // excel-grid is the primary bulk-entry workspace (Spreadsheet-first UX)
   const [viewMode, setViewMode] = useState<ItemMasterViewMode>("excel-grid");
@@ -120,7 +135,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     return Array.from(new Set(products.map((p) => (p.brand || "Smriti Standard")).filter(Boolean)));
   }, [products]);
 
-  /* â”€â”€ Modal & Form State â”€â”€ */
+  /* ── Modal & Form State ── */
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formMode, setFormMode] = useState<ItemFormMode>("quick");
   const [formData, setFormData] = useState<ItemFormData>(blankItemForm);
@@ -211,7 +226,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
   const handleCreateItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name) {
-      if (onNotification) onNotification("Validation Error", "Item Name is required", "error");
+      notify("Validation Error", "Item Name is required", "error");
       return;
     }
 
@@ -219,13 +234,11 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     if (formData.barcode) {
       const barcodeCheck = validateBarcodeUniqueness(formData.barcode, products);
       if (!barcodeCheck.isUnique && barcodeCheck.conflict) {
-        if (onNotification) {
-          onNotification(
-            "Duplicate Barcode Rejected",
-            `Barcode "${formData.barcode}" is already assigned to "${barcodeCheck.conflict.product.name}" (SKU: ${barcodeCheck.conflict.product.sku || barcodeCheck.conflict.product.code}).`,
-            "error"
-          );
-        }
+        notify(
+          "Duplicate Barcode Rejected",
+          `Barcode "${formData.barcode}" is already assigned to "${barcodeCheck.conflict.product.name}" (SKU: ${barcodeCheck.conflict.product.sku || barcodeCheck.conflict.product.code}).`,
+          "error"
+        );
         return;
       }
     }
@@ -234,13 +247,11 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
     const duplicates = findPotentialDuplicates(formData.name, products);
     if (duplicates.length > 0) {
       const topMatch = duplicates[0];
-      if (onNotification) {
-        onNotification(
-          "Similar Item Warning",
-          `Potential duplicate detected (${topMatch.score}% match with "${topMatch.product?.name}").`,
-          "error"
-        );
-      }
+      notify(
+        "Similar Item Warning",
+        `Potential duplicate detected (${topMatch.score}% match with "${topMatch.product?.name}").`,
+        "error"
+      );
     }
 
     setIsSubmitting(true);
@@ -268,9 +279,9 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
       setIsModalOpen(false);
       setFormData(blankItemForm());
       if (onRefreshProducts) await onRefreshProducts();
-      if (onNotification) onNotification("Item Created", `Created Item Master ${formData.name}`, "success");
+      notify("Item Created", `Created Item Master ${formData.name}`, "success");
     } catch (err: any) {
-      if (onNotification) onNotification("Creation Failed", err.message || "Failed to create item", "error");
+      notify("Creation Failed", err.message || "Failed to create item", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -281,30 +292,36 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
    * IItemService is the canonical SMRITI SPK service for item persistence (already registered).
    */
   const handleSaveProduct = useCallback(async (updated: Product) => {
+    setIsSavingProduct(true);
     try {
       const svc = SPK.services.resolve<IItemService>("ITEM");
       await svc.save(updated);
       if (onRefreshProducts) await onRefreshProducts();
-      if (onNotification) onNotification("Saved", `${updated.name} updated.`, "success");
+      notify("Saved", `${updated.name} updated.`, "success");
     } catch (err: any) {
-      if (onNotification) onNotification("Save Failed", err.message || "Could not save product", "error");
+      notify("Save Failed", err.message || "Could not save product", "error");
+    } finally {
+      setIsSavingProduct(false);
     }
-  }, [onRefreshProducts, onNotification]);
+  }, [onRefreshProducts, notify]);
 
   /**
    * handleDeleteProduct — wires ItemMasterFormInspector.onDeleteProduct to IItemService.delete().
    */
   const handleDeleteProduct = useCallback(async (id: string) => {
+    setIsDeletingProduct(true);
     try {
       const svc = SPK.services.resolve<IItemService>("ITEM");
       await svc.delete(id);
       setSelectedProduct(null);
       if (onRefreshProducts) await onRefreshProducts();
-      if (onNotification) onNotification("Deleted", "Product removed from Item Master.", "success");
+      notify("Deleted", "Product removed from Item Master.", "success");
     } catch (err: any) {
-      if (onNotification) onNotification("Delete Failed", err.message || "Could not delete product", "error");
+      notify("Delete Failed", err.message || "Could not delete product", "error");
+    } finally {
+      setIsDeletingProduct(false);
     }
-  }, [onRefreshProducts, onNotification]);
+  }, [onRefreshProducts, notify]);
 
   // Keyboard Shortcuts: F2 = Dockable Filter Panel | F4 = Barcode Hub | Ctrl+N = New SKU
   useEffect(() => {
@@ -459,7 +476,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           <VariantTemplateSection
             products={products}
             onRefreshProducts={onRefreshProducts}
-            onNotification={onNotification}
+            onNotification={notify}
           />
         );
       case "explorer":
@@ -581,7 +598,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           <ExcelGridEntrySection
             products={products}
             onRefreshProducts={onRefreshProducts}
-            onNotification={onNotification}
+            onNotification={notify}
             onSelectProduct={(product) => setSelectedProduct(product)}
           />
         );
@@ -595,7 +612,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
               </div>
               {selectedProduct && (
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setIsBarcodeDialogOpen(true)} className="px-3 py-1 bg-indigo-600 text-white font-bold rounded-md text-xs flex items-center">
+                  <button onClick={() => setIsBarcodeDialogOpen(true)} className="px-3 py-1 bg-indigo-600 text-white font-bold rounded-md text-xs flex items-center" aria-label="Print Labels">
                     <Barcode className="w-3.5 h-3.5 mr-1" />
                     Print Labels
                   </button>
@@ -608,6 +625,11 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
               onDeleteProduct={handleDeleteProduct}
               onOpenBarcodeDialog={() => setIsBarcodeDialogOpen(true)}
               isReadOnly={isReadOnly}
+              isSaving={isSavingProduct}
+              isDeleting={isDeletingProduct}
+            />
+          </div>
+        );y}
             />
           </div>
         );
@@ -866,17 +888,17 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           </div>
         );
       case "attributes":
-        return <AttributeManagerSection onNotification={onNotification} />;
+        return <AttributeManagerSection onNotification={notify} />;
       case "templates":
         return (
           <VariantTemplateSection
             products={products}
             onRefreshProducts={onRefreshProducts}
-            onNotification={onNotification}
+            onNotification={notify}
           />
         );
       case "bulk":
-        return <BulkImportSection onRefreshProducts={onRefreshProducts} onNotification={onNotification} />;
+        return <BulkImportSection onRefreshProducts={onRefreshProducts} onNotification={notify} />;
       case "analytics":
         return (
           <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-5 shadow-xs text-xs text-theme-muted">
@@ -1030,6 +1052,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
               onClick={() => WindowManager.openTabStandalone("inventory", "SMRITI Inventory Master Studio")}
               className="p-1 bg-theme-surface-2 hover:bg-theme-surface-2 border border-theme-divider text-theme-muted rounded-md cursor-pointer"
               title="Pop-out Standalone Window (SWMF)"
+              aria-label="Pop-out Standalone Window"
             >
               <ExternalLink className="w-3.5 h-3.5 text-indigo-600" />
             </button>
@@ -1103,6 +1126,8 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
             onDeleteProduct={handleDeleteProduct}
             onOpenBarcodeDialog={() => setIsBarcodeDialogOpen(true)}
             isReadOnly={isReadOnly}
+            isSaving={isSavingProduct}
+            isDeleting={isDeletingProduct}
           />
         </div>
       </div>
@@ -1111,17 +1136,29 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
       <ItemMasterBatchBar
         selectedProducts={checkedProducts}
         onClearSelection={() => setCheckedProductIds([])}
-        onExportExcel={() => {
-          if (onNotification) onNotification("Export", `Exporting ${checkedProducts.length} SKUs to Excel…`, "success");
+        onExportExcel={async () => {
+          setIsExporting("excel");
+          try {
+            notify("Export", `Exporting ${checkedProducts.length} SKUs to Excel…`, "success");
+          } finally {
+            setIsExporting(null);
+          }
         }}
-        onExportCsv={() => {
-          if (onNotification) onNotification("Export", `Exporting ${checkedProducts.length} SKUs to CSV…`, "success");
+        onExportCsv={async () => {
+          setIsExporting("csv");
+          try {
+            notify("Export", `Exporting ${checkedProducts.length} SKUs to CSV…`, "success");
+          } finally {
+            setIsExporting(null);
+          }
         }}
+        isExporting={isExporting}
         onPrintLabels={() => setIsBarcodeDialogOpen(true)}
         onBulkStatusToggle={() => {
-          if (onNotification) onNotification("Bulk Update", `${checkedProducts.length} SKUs updated.`, "success");
+          notify("Bulk Update", `${checkedProducts.length} SKUs updated.`, "success");
         }}
       />
+
 
 
 
@@ -1139,7 +1176,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                   <p className="text-xs text-theme-muted">Add product specifications to SMRITI Item Master.</p>
                 </div>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="text-theme-muted hover:text-theme-muted">
+              <button onClick={() => setIsModalOpen(false)} className="text-theme-muted hover:text-theme-muted" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1233,9 +1270,9 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-1.5 bg-theme-surface-2 text-theme-body rounded-xl font-bold">
                   Cancel
                 </button>
-                <button type="submit" disabled={isSubmitting} className="px-5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center shadow-md">
-                  <Check className="w-4 h-4 mr-1" />
-                  Save Item Master
+                <button type="submit" disabled={isSubmitting} className="px-5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center shadow-md cursor-pointer disabled:opacity-50">
+                  {isSubmitting ? <RefreshCw className="w-4 h-4 mr-1 animate-spin" /> : <Check className="w-4 h-4 mr-1" />}
+                  {isSubmitting ? "Saving..." : "Save Item Master"}
                 </button>
               </div>
             </form>
@@ -1249,7 +1286,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           isOpen={isBarcodeDialogOpen}
           product={selectedProduct || products[0] || null}
           onClose={() => setIsBarcodeDialogOpen(false)}
-          onNotification={onNotification}
+          onNotification={notify}
         />
       )}
 
@@ -1260,7 +1297,7 @@ export const ItemMasterTab: React.FC<ItemMasterTabProps> = ({
           sourceProduct={selectedProduct || products[0] || null}
           onClose={() => setIsSimilarWizardOpen(false)}
           onRefreshProducts={onRefreshProducts}
-          onNotification={onNotification}
+          onNotification={notify}
         />
       )}
     </div>

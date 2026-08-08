@@ -1,4 +1,4 @@
-﻿<!--
+<!--
   Project      : SMRITI Retail OS
   Repository   : SMRITIRetailNX
   Organization : AITDL NETWORKS
@@ -36,7 +36,17 @@ This document details common operational issues and resolutions.
 
 ---
 
-## 1. CRM Server Sync Discrepancies
+## 1. Setup Wizard Fallback Mode & Upstream Python Core Notice
+- **Symptom:** Setup Wizard completes with an Amber warning badge (`Status: LOCAL FALLBACK MODE — Pending Backend Confirmation`).
+- **Cause:** Upstream Python backend core service was unreachable or returned a notice during `/company/setup` provisioning.
+- **Resolution:** Setup details are provisioned locally (`smriti_setup_fallback_mode: true`). Verify backend API connectivity and run database verification via Administrative Modules.
+
+## 2. Item Master Notification Prop Drop & Silent Failures
+- **Symptom:** Catalog creation, save, or delete errors do not display toast notifications if the host workspace omitted `onNotification`.
+- **Cause:** Direct unguarded calls to `if (onNotification) onNotification(...)` caused errors to vanish silently without logging.
+- **Resolution:** `ItemMasterTab` and child components use the safe `notify` dispatcher wrapper. If `onNotification` is missing, notifications fall back automatically to `console.log('[ItemMaster Notification - ERROR/SUCCESS]: ...')`.
+
+## 2. CRM Server Sync Discrepancies
 - **Symptom:** Customers modified in the CRM tab do not show up immediately in other registers.
 - **Cause:** Network offline state or pending sync queue failure.
 - **Resolution:**
