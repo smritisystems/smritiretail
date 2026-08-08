@@ -82,8 +82,22 @@ class QuotationApplicationService:
 
     async def _populate_item_inventory_fields(self, item: SalesQuotationItem) -> None:
         snapshot = await self.orchestrator.resolve_inventory_snapshot(item.product_id)
-        setattr(item, "available_stock", snapshot["available_qty"])
-        setattr(item, "reserved_stock", snapshot["reserved_qty"])
+        avail = snapshot.get("available_qty")
+        resv = snapshot.get("reserved_qty")
+
+        def _fmt_qty(qty_val):
+            if qty_val is None:
+                return "0"
+            try:
+                dec = Decimal(str(qty_val))
+                if dec % 1 == 0:
+                    return str(int(dec))
+                return str(dec.normalize())
+            except Exception:
+                return str(qty_val)
+
+        setattr(item, "available_stock", _fmt_qty(avail))
+        setattr(item, "reserved_stock", _fmt_qty(resv))
 
     async def _populate_quotations_inventory(self, quotations: List[SalesQuotation]) -> None:
         for quotation in quotations:

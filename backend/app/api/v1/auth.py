@@ -19,7 +19,7 @@ Copyright © 2026 SmritiSys.
 All Rights Reserved.
 """
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession

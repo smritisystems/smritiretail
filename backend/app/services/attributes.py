@@ -245,16 +245,38 @@ class AttributesService:
         res = await self.db.execute(q)
         return list(res.scalars().all())
 
-    async def save_category_mapping(self, category: str, attribute_group_id: str, creator: str, company_id: Optional[str] = None) -> CategoryAttributeGroupMapping:
-        q = select(CategoryAttributeGroupMapping).where(
-            CategoryAttributeGroupMapping.category == category,
-            CategoryAttributeGroupMapping.attribute_group_id == attribute_group_id,
-            CategoryAttributeGroupMapping.is_deleted == False
-        )
+    async def save_category_mapping(
+        self, category: str, attribute_group_id: str, creator: str,
+        company_id: Optional[str] = None, category_code: Optional[str] = None
+    ) -> CategoryAttributeGroupMapping:
+        """Save a category-to-attribute-group mapping.
+
+        Phase E6: Uses category_code as the stable reference when available.
+        Falls back to category name for backward compatibility.
+        Multi-group behavior preserved: same category_code + different group_id → new mapping.
+        """
+        # Phase E7: prefer category_code for lookup when available
+        if category_code:
+            q = select(CategoryAttributeGroupMapping).where(
+                CategoryAttributeGroupMapping.category_code == category_code,
+                CategoryAttributeGroupMapping.attribute_group_id == attribute_group_id,
+                CategoryAttributeGroupMapping.is_deleted == False
+            )
+        else:
+            q = select(CategoryAttributeGroupMapping).where(
+                CategoryAttributeGroupMapping.category == category,
+                CategoryAttributeGroupMapping.attribute_group_id == attribute_group_id,
+                CategoryAttributeGroupMapping.is_deleted == False
+            )
         res = await self.db.execute(q)
         existing = res.scalars().first()
 
         if existing:
+            # Phase E6: backfill category_code on existing mapping if missing
+            if category_code and not existing.category_code:
+                existing.category_code = category_code
+                await self.db.commit()
+                await self.db.refresh(existing)
             return existing
 
         new_id = f"map-{uuid.uuid4().hex[:8]}"
@@ -262,6 +284,7 @@ class AttributesService:
             id=new_id,
             company_id=company_id,
             category=category,
+            category_code=category_code,  # Phase E6: stable MasterValue.code
             attribute_group_id=attribute_group_id,
             created_by=creator,
             updated_by=creator

@@ -14,7 +14,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import datetime, date as datetime_date
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field, AliasChoices, field_validator
@@ -140,8 +140,8 @@ class SalesQuotationItemCreate(SalesQuotationItemBase):
 class SalesQuotationItemResponse(SalesQuotationItemBase):
     id: int
     quotation_id: str
-    available_stock: Optional[Decimal] = Decimal("0.00")
-    reserved_stock: Optional[Decimal] = Decimal("0.00")
+    available_stock: Optional[Union[Decimal, int, str]] = "0"
+    reserved_stock: Optional[Union[Decimal, int, str]] = "0"
 
     model_config = ConfigDict(from_attributes=True)
 

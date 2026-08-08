@@ -257,6 +257,19 @@ class InventoryService:
         tax_profiles_data = product_data.pop("tax_profiles", None) or []
         inventory_policy_data = product_data.pop("inventory_policy", None)
 
+        # ── Phase E8: Column→JSONB mirror sync for direct product creation ──
+        attrs = product_data.get("attributes", {}) or {}
+        if isinstance(attrs, dict):
+            color_val = product_data.get("color")
+            size_val = product_data.get("size")
+            if color_val:
+                attrs["Color"] = color_val
+                attrs.pop("color", None)  # Remove legacy lowercase key
+            if size_val:
+                attrs["Size"] = size_val
+                attrs.pop("size", None)   # Remove legacy lowercase key
+            product_data["attributes"] = attrs
+
         db_product = Product(
             **product_data,
             company_id=self.tenant_ctx.company_id,

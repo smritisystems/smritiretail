@@ -85,4 +85,5 @@ class CategoryAttributeGroupMapping(BaseEntity):
     )
 
     category           = Column(String(100), nullable=False)
+    category_code      = Column(String(50), nullable=True)  # Phase E3: stable MasterValue.code reference
     attribute_group_id = Column(String(50), nullable=False)

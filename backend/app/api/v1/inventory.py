@@ -178,13 +178,93 @@ async def update_product(
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Update a product master. Requires MANAGER or SYSADMIN role."""
+    """Update a product master. Requires MANAGER or SYSADMIN role.
+
+    Phase E0 Authority Hardening (AUD-PhaseE / F-E0):
+    - category and brand are FROZEN at product creation (SKU prefix + fingerprint depend on them).
+    - style_code is FROZEN if the product is variant-engine controlled (has variant_template_id).
+    - color and size updates are validated through PlatformValidationEngine and synced to JSONB mirror.
+    """
     repo = ProductRepository(db, tenant_ctx)
     product = await repo.get(product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    
+
     update_data = product_in.model_dump(exclude_unset=True)
+
+    # ── E0-A/B: Freeze category and brand (SKU prefix + fingerprint integrity) ──
+    _FROZEN_FIELDS = {"category", "brand"}
+    frozen_violations = _FROZEN_FIELDS & set(update_data.keys())
+    if frozen_violations:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Fields {sorted(frozen_violations)} cannot be changed after product creation. "
+                "SKU prefix and fingerprint hash depend on these values. "
+                "To recategorize, create a new product and transfer stock."
+            ),
+        )
+
+    # ── E0-C: Freeze style_code if variant-engine controlled ──
+    if "style_code" in update_data and product.variant_template_id:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "style_code cannot be changed on variant-engine products. "
+                "It is derived from the VariantTemplate."
+            ),
+        )
+
+    # ── E0-D/E: Validate color and size through PVE if being updated ──
+    color_size_fields = {"color", "size"}
+    fields_to_validate = color_size_fields & set(update_data.keys())
+    if fields_to_validate:
+        tenant_id = getattr(tenant_ctx, "tenant_id", None) or getattr(tenant_ctx, "company_id", None)
+        user_role = getattr(tenant_ctx, "role", "MANAGER")
+
+        from ...core.validation import get_validation_engine
+        pve = get_validation_engine()
+
+        # Build a minimal data dict for PVE — only validate the fields being changed
+        pve_data = {}
+        for f in fields_to_validate:
+            pve_data[f] = update_data[f]
+
+        val_res = await pve.validate_entity(
+            db=db,
+            entity_type="product",
+            data=pve_data,
+            tenant_id=tenant_id,
+            user_role=user_role,
+        )
+        # Apply PVE-normalized values back (handles Title Case / UPPER normalization)
+        for f in fields_to_validate:
+            if f in val_res.normalized_data:
+                update_data[f] = val_res.normalized_data[f]
+
+    # ── E0-F: Maintain JSONB mirror for Color and Size ──
+    current_attrs = dict(product.attributes) if product.attributes else {}
+    mirror_updated = False
+
+    if "color" in update_data:
+        normalized_color = update_data["color"]
+        current_attrs["Color"] = normalized_color
+        # Remove legacy lowercase key if it exists to prevent duplication
+        if "color" in current_attrs and "color" != "Color":
+            current_attrs.pop("color", None)
+        mirror_updated = True
+
+    if "size" in update_data:
+        normalized_size = update_data["size"]
+        current_attrs["Size"] = normalized_size
+        # Remove legacy lowercase key if it exists to prevent duplication
+        if "size" in current_attrs and "size" != "Size":
+            current_attrs.pop("size", None)
+        mirror_updated = True
+
+    if mirror_updated:
+        update_data["attributes"] = current_attrs
+
     return await repo.update(product, update_data)
 
 

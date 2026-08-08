@@ -99,6 +99,7 @@ class ProductBase(BaseModel):
     tracking_mode: str = "Standard"
     variant_template_id: Optional[str] = Field(None, max_length=50)
     weight_grams: Decimal = Decimal("0.00")
+    cbm_m3: Optional[Decimal] = None  # Phase E10: typed CBM (cubic metres)
     attributes: Dict[str, Any] = {}
     primary_image_url: Optional[str] = Field(None, max_length=512)
     gallery_images: List[str] = []
@@ -109,6 +110,7 @@ class ProductBase(BaseModel):
 
 class ProductCreate(ProductBase):
     id: str = Field(..., max_length=50)
+    category_code: Optional[str] = Field(None, max_length=50)  # Phase E1: set by PVE
 
 
 class ProductUpdate(BaseModel):
@@ -135,6 +137,7 @@ class ProductUpdate(BaseModel):
     tracking_mode: Optional[str] = None
     variant_template_id: Optional[str] = None
     weight_grams: Optional[Decimal] = None
+    cbm_m3: Optional[Decimal] = None  # Phase E10: typed CBM
     attributes: Optional[Dict[str, Any]] = None
     primary_image_url: Optional[str] = None
     gallery_images: Optional[List[str]] = None
@@ -145,6 +148,7 @@ class ProductUpdate(BaseModel):
 
 class ProductResponse(ProductBase):
     id: str
+    category_code: Optional[str] = None  # Phase E1
     tenant_id: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None

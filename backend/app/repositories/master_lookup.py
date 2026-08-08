@@ -139,16 +139,27 @@ class LookupRepository:
 
     async def atomic_replace_value(self, old_value: MasterValue, new_value: MasterValue) -> MasterValue:
         now = datetime.now(timezone.utc)
+
+        # ── Group A: Preserve DB UNIQUE(master_type_id, code) constraint ──
+        # To allow inserting new_value with the canonical business code,
+        # old_value.code is assigned a collision-safe historical code.
+        raw_code = old_value.code.split("#hist-")[0]
+        hist_code = f"{raw_code[:32]}#hist-{old_value.id.hex[:8]}"
+
+        old_value.code = hist_code
         old_value.effective_to = now
         old_value.active = False
         old_value.updated_at = now
-        
+
+        new_value.code = raw_code
         new_value.supersedes_id = old_value.id
         new_value.effective_from = now
         new_value.effective_to = None
         new_value.active = True
 
         self.db.add(old_value)
+        await self.db.flush()  # Release unique (master_type_id, code) slot in DB
+
         self.db.add(new_value)
         await self.db.commit()
         await self.db.refresh(new_value)
@@ -158,18 +169,21 @@ class LookupRepository:
         target = await self.get_value_by_id(value_id)
         if not target:
             return []
-        
-        # Traverse history chain using code & master_type_id
-        stmt = (
-            select(MasterValue)
-            .filter(
-                MasterValue.master_type_id == target.master_type_id,
-                MasterValue.code == target.code
-            )
-            .order_by(MasterValue.effective_from.desc())
-        )
-        result = await self.db.execute(stmt)
-        return result.scalars().all()
+
+        # Traverse history chain via supersedes_id links
+        chain = []
+        curr = target
+        visited = set()
+        while curr and curr.id not in visited:
+            visited.add(curr.id)
+            chain.append(curr)
+            if not curr.supersedes_id:
+                break
+            curr = await self.get_value_by_id(curr.supersedes_id)
+
+        # Sort descending by effective_from
+        chain.sort(key=lambda x: x.effective_from or datetime.min, reverse=True)
+        return chain
 
     async def bulk_set_active(self, value_ids: list[UUID], active: bool) -> int:
         now = datetime.now(timezone.utc)

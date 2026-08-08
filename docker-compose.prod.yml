@@ -32,6 +32,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-smritidb}
       POSTGRES_USER: ${POSTGRES_USER:-smritiuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_prod_password}
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
     healthcheck:

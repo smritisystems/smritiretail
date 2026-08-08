@@ -30,6 +30,20 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Hardened (Phase E Authority Hardening — CERTIFIED)
+- **Product Category & Attribute Authority Reconciliation (Phase E)**:
+  - Hardened product update path: `Product.category` and `Product.brand` frozen at creation (`422 Unprocessable Entity` on update attempt). `style_code` frozen for variant products.
+  - Added PostgreSQL DB constraint `UniqueConstraint('master_type_id', 'code', name='uq_master_value_type_code')` on `master_values` via Alembic migration `v1400_phase_e_authority_hardening.py`.
+  - Added indexed nullable `category_code` `String(50)` column to `products` table and `category_attribute_group_mappings` table, backed by tenant-scoped SQL backfill `v1401_phase_e_backfill.py`.
+  - PlatformValidationEngine (`PVE`) captures and populates `category_code` from authoritative `MasterValue.code` during product validation and auto-creation.
+  - Standardized JSONB mirror keys to canonical uppercase `"Color"` and `"Size"`. Direct and variant product creation paths perform bidirectional sync (`Product.color`/`Product.size` DB columns <-> `attributes["Color"]`/`attributes["Size"]` JSONB mirror), stripping legacy lowercase keys.
+  - PVE enforces strict non-negative, finite numeric validation for `attributes["cbm"]` (`SMRITI-VAL-CBM-001`/`002`). Added typed `cbm_m3` `NUMERIC(10,4)` column to `products`.
+  - `LandedCostEngine` upgraded to three-tier CBM resolution: (1) `Product.cbm_m3` typed column -> (2) `attributes["cbm"]` JSONB fallback -> (3) `Decimal("0.01")` default.
+  - `LookupRepository.atomic_replace_value()` updated to assign a collision-safe historical code to superseded records before inserting the new active record, preserving `UNIQUE(master_type_id, code)` DB constraint and full versioning history.
+  - 100% test pass rate achieved across complete relevant backend test suite (`176/176 PASSED`, `0 FAILED`).
+  - `generate_sku_business_key()` and `generate_fingerprint_hash()` 100% unedited and preserved.
+  - SizeScale adoption explicitly deferred to Phase F.
+
 ### Added
 - **Master & Reference Studio & Dynamic Attribute Architecture (`MasterReferenceStudio.tsx` / `ItemMasterStudio.tsx` / `NavigationRegistry.ts` / `attributes.py`)**:
   - Implemented unified `MasterReferenceStudio.tsx` in [src/features/masters/components/MasterReferenceStudio.tsx](file:///f:/SMRITRretailNXmgrt/src/features/masters/components/MasterReferenceStudio.tsx) adhering to Single Workspace Principle (Rule PROD-002 / SWP-001) and Promote Before Create (Rule PBC-001).

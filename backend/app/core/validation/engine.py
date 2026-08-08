@@ -249,6 +249,9 @@ class PlatformValidationEngine:
 
                 if mv:
                     data_copy[field_name] = mv.name  # Canonical DB casing
+                    # Phase E5: capture stable MasterValue.code for category
+                    if field_name == "category":
+                        data_copy["category_code"] = mv.code
                 else:
                     # Option 1: WARNING mode
                     if eff_mode == ValidationMode.WARNING:
@@ -285,6 +288,9 @@ class PlatformValidationEngine:
                                 "id": str(new_val.id)
                             })
                             data_copy[field_name] = new_val.name
+                            # Phase E5: capture stable code for auto-created category
+                            if field_name == "category":
+                                data_copy["category_code"] = new_val.code
                         else:
                             # User unauthorized to AUTO_CREATE → fallback to STRICT failure
                             opts_res = await db.execute(
@@ -340,6 +346,38 @@ class PlatformValidationEngine:
                         )
             else:
                 data_copy[field_name] = normalized_val
+
+        # ── Phase E9: CBM attribute type validation ──
+        # attributes["cbm"] is used by landed_cost_engine for volumetric allocation.
+        # Must be numeric, non-negative, finite. Reject invalid types early.
+        attrs = data_copy.get("attributes")
+        if isinstance(attrs, dict) and "cbm" in attrs:
+            cbm_raw = attrs["cbm"]
+            if cbm_raw is not None:
+                try:
+                    from decimal import Decimal, InvalidOperation
+                    import math
+                    cbm_val = float(cbm_raw)
+                    if math.isnan(cbm_val) or math.isinf(cbm_val):
+                        raise ValueError("NaN/Inf")
+                    if cbm_val < 0:
+                        raise HTTPException(
+                            status_code=422,
+                            detail={
+                                "title": "Invalid CBM Value",
+                                "explanation": f"attributes.cbm must be non-negative. Got: {cbm_raw}",
+                                "reference_id": "SMRITI-VAL-CBM-001",
+                            }
+                        )
+                except (TypeError, ValueError, InvalidOperation):
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "title": "Invalid CBM Value",
+                            "explanation": f"attributes.cbm must be a valid number. Got: '{cbm_raw}' ({type(cbm_raw).__name__})",
+                            "reference_id": "SMRITI-VAL-CBM-002",
+                        }
+                    )
 
         return ValidationResult(
             valid=True,

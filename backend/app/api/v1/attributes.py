@@ -452,6 +452,29 @@ async def generate_variants(
             created_variants.append(existing)
         else:
             # Create new product item
+            raw_attrs = v.get("attributes", {})
+
+            # ── Phase E8: Bidirectional color/size sync (JSONB → column) ──
+            # Variant engine writes to JSONB; we must also populate the canonical columns.
+            variant_color = (
+                raw_attrs.get("Color") or raw_attrs.get("color")
+                or raw_attrs.get("Colour") or raw_attrs.get("colour")
+            )
+            variant_size = (
+                raw_attrs.get("Size") or raw_attrs.get("size")
+            )
+
+            # Normalize JSONB keys to canonical uppercase
+            normalized_attrs = {}
+            for k, val in raw_attrs.items():
+                k_lower = k.lower()
+                if k_lower in ("color", "colour"):
+                    normalized_attrs["Color"] = val  # Canonical uppercase key
+                elif k_lower == "size":
+                    normalized_attrs["Size"] = val  # Canonical uppercase key
+                else:
+                    normalized_attrs[k] = val
+
             new_prod = Product(
                 id=f"p-var-{int(datetime.now(timezone.utc).timestamp())}-{index}",
                 code=constructed_code,
@@ -465,7 +488,9 @@ async def generate_variants(
                 barcode=barcode,
                 style_code=template.style_code,
                 gst_percentage=template.gst_percentage,
-                attributes=v.get("attributes", {}),
+                color=variant_color,        # Phase E8: JSONB → column sync
+                size=variant_size,           # Phase E8: JSONB → column sync
+                attributes=normalized_attrs, # Phase E8: normalized uppercase keys
                 pricing_mode=template.pricing_mode,
                 tracking_mode=template.tracking_mode,
                 variant_template_id=template.id,
@@ -515,6 +540,7 @@ async def list_category_mappings(
     for m in mappings:
         res.append(CategoryMappingResponse(
             category=m.category,
+            categoryCode=m.category_code,
             attributeGroupId=m.attribute_group_id
         ))
     return res
@@ -536,9 +562,13 @@ async def save_category_mapping(
     """
     service = AttributesService(db)
     company_id = tenant.company_id if (tenant and tenant.company_id != "comp-default") else None
-    m = await service.save_category_mapping(req.category, req.attributeGroupId, current_user.username, company_id=company_id)
+    m = await service.save_category_mapping(
+        req.category, req.attributeGroupId, current_user.username,
+        company_id=company_id, category_code=req.categoryCode
+    )
     return CategoryMappingResponse(
         category=m.category,
+        categoryCode=m.category_code,
         attributeGroupId=m.attribute_group_id
     )
 
