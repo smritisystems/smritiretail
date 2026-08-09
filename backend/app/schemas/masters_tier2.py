@@ -38,7 +38,14 @@ class CompanyUpdate(BaseModel):
 class CompanyResponse(BaseModel):
     id: str
     name: str
+    legal_name: str | None = None
+    short_name: str | None = None
     gstNumber: str | None = None  # noqa: N815
+    company_type: str | None = None
+    industry_type: str | None = None
+    fiscal_year_start_month: int | None = None
+    currency_code: str | None = None
+    is_gst_registered: bool | None = None
     status: str
 
     @classmethod
@@ -46,7 +53,14 @@ class CompanyResponse(BaseModel):
         return cls(
             id=obj.id,
             name=obj.name,
+            legal_name=getattr(obj, "legal_name", None),
+            short_name=getattr(obj, "short_name", None),
             gstNumber=obj.gst_number,
+            company_type=getattr(obj, "company_type", None),
+            industry_type=getattr(obj, "industry_type", None),
+            fiscal_year_start_month=getattr(obj, "fiscal_year_start_month", None),
+            currency_code=getattr(obj, "currency_code", None),
+            is_gst_registered=getattr(obj, "is_gst_registered", None),
             status="Active" if obj.is_active else "Inactive"
         )
 

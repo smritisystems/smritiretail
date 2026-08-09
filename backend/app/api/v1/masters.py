@@ -79,7 +79,11 @@ async def list_masters(
     tid = tenant.tenant_id
 
     if norm_type == "organization":
-        q_org = select(Organization).order_by(Organization.name.asc())
+        q_org = (
+            select(Organization)
+            .where(or_(Organization.tenant_id == tid, Organization.tenant_id.is_(None)))
+            .order_by(Organization.name.asc())
+        )
         res = await db.execute(q_org)
         return [OrganizationResponse.from_orm_model(x) for x in res.scalars().all()]
 
@@ -108,12 +112,26 @@ async def list_masters(
         return [BranchResponse.from_orm_model(x) for x in res.scalars().all()]
 
     elif norm_type == "store":
-        q_store = select(Store).where(Store.is_deleted.is_(False)).order_by(Store.name.asc())
+        q_store = (
+            select(Store)
+            .where(
+                Store.is_deleted.is_(False),
+                or_(Store.tenant_id == tid, Store.tenant_id.is_(None)),
+            )
+            .order_by(Store.name.asc())
+        )
         res = await db.execute(q_store)
         return [StoreResponse.from_orm_model(x) for x in res.scalars().all()]
 
     elif norm_type == "warehouse":
-        q_warehouse = select(Warehouse).where(Warehouse.is_deleted.is_(False)).order_by(Warehouse.name.asc())
+        q_warehouse = (
+            select(Warehouse)
+            .where(
+                Warehouse.is_deleted.is_(False),
+                or_(Warehouse.tenant_id == tid, Warehouse.tenant_id.is_(None)),
+            )
+            .order_by(Warehouse.name.asc())
+        )
         res = await db.execute(q_warehouse)
         return [WarehouseResponse.from_orm_model(x) for x in res.scalars().all()]
         
@@ -143,6 +161,7 @@ async def create_master(
         new_id = f"org-{timestamp_ms}"
         item_org = Organization(
             id=new_id,
+            tenant_id=tenant.tenant_id,
             name=req_org.name,
             org_type=req_org.org_type or "STANDALONE",
             is_active=req_org.is_active if req_org.is_active is not None else True
@@ -209,6 +228,7 @@ async def create_master(
         new_id = f"store-{timestamp_ms}"
         item_store = Store()
         item_store.id = new_id
+        item_store.tenant_id = tenant.tenant_id
         item_store.code = req_store.code
         item_store.name = req_store.name
         item_store.branch_id = req_store.branch
@@ -237,6 +257,7 @@ async def create_master(
         new_id = f"wh-{timestamp_ms}"
         item_warehouse = Warehouse()
         item_warehouse.id = new_id
+        item_warehouse.tenant_id = tenant.tenant_id
         item_warehouse.code = req_warehouse.code
         item_warehouse.name = req_warehouse.name
         item_warehouse.branch_id = req_warehouse.branch
@@ -276,6 +297,8 @@ async def update_master(
         item_org = await db.get(Organization, id)
         if not item_org:
             raise HTTPException(status_code=404, detail="Organization not found.")
+        if item_org.tenant_id and item_org.tenant_id != tenant.tenant_id:
+            raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
         if req_org.name is not None:
             item_org.name = req_org.name
         if req_org.org_type is not None:
@@ -360,6 +383,8 @@ async def update_master(
         item_store = await db.get(Store, id)
         if not item_store or item_store.is_deleted:
             raise HTTPException(status_code=404, detail="Store not found.")
+        if item_store.tenant_id and item_store.tenant_id != tenant.tenant_id:
+            raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
         
         if req_store.branch:
             branch_exists = await db.get(Branch, req_store.branch)
@@ -392,6 +417,8 @@ async def update_master(
         item_warehouse = await db.get(Warehouse, id)
         if not item_warehouse or item_warehouse.is_deleted:
             raise HTTPException(status_code=404, detail="Warehouse not found.")
+        if item_warehouse.tenant_id and item_warehouse.tenant_id != tenant.tenant_id:
+            raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
         
         if req_warehouse.branch:
             branch_exists = await db.get(Branch, req_warehouse.branch)
@@ -442,6 +469,8 @@ async def delete_master(
         item_org = await db.get(Organization, id)
         if not item_org:
             raise HTTPException(status_code=404, detail="Organization not found.")
+        if item_org.tenant_id and item_org.tenant_id != tenant.tenant_id:
+            raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
         item_org.is_active = False
         item_org.modified_at = datetime.now(UTC)
         await db.commit()
@@ -473,6 +502,8 @@ async def delete_master(
         item_store = await db.get(Store, id)
         if not item_store or item_store.is_deleted:
             raise HTTPException(status_code=404, detail="Store not found.")
+        if item_store.tenant_id and item_store.tenant_id != tenant.tenant_id:
+            raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
         item_store.is_deleted = True
         item_store.deleted_at = datetime.now(UTC)
         item_store.deleted_by = current_user.username
@@ -483,6 +514,8 @@ async def delete_master(
         item_warehouse = await db.get(Warehouse, id)
         if not item_warehouse or item_warehouse.is_deleted:
             raise HTTPException(status_code=404, detail="Warehouse not found.")
+        if item_warehouse.tenant_id and item_warehouse.tenant_id != tenant.tenant_id:
+            raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
         item_warehouse.is_deleted = True
         item_warehouse.deleted_at = datetime.now(UTC)
         item_warehouse.deleted_by = current_user.username
