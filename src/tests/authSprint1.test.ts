@@ -11,11 +11,10 @@ import { MockAuthProvider } from "../features/auth/providers/MockAuthProvider.ts
 import { ApiAuthProvider } from "../features/auth/providers/ApiAuthProvider.ts";
 import { authStore } from "../features/auth/store/authStore.ts";
 import { SessionService } from "../features/auth/services/SessionService.ts";
-import { apiFetchV1 } from "../lib/apiFetch";
+import { apiFetchV1 } from "../lib/apiFetchV1.js";
 
-vi.mock("../lib/apiFetch", () => ({
+vi.mock("../lib/apiFetchV1.js", () => ({
   apiFetchV1: vi.fn(),
-  apiFetch: vi.fn(),
 }));
 
 describe("Sprint 1: Authentication & Session Management", () => {
@@ -29,6 +28,7 @@ describe("Sprint 1: Authentication & Session Management", () => {
     authStore.setAuthState("Unauthenticated");
     authStore.setCurrentUser(null);
     localStorage.clear();
+    localStorage.setItem("smriti_jwt_token", "test_mock_jwt_token");
   });
 
   it("should successfully authenticate valid credentials (super / Shpr0128vdq!@)", async () => {
@@ -51,13 +51,13 @@ describe("Sprint 1: Authentication & Session Management", () => {
     expect(result.errorMessage).toBe("Username is required.");
   });
 
-  it("should fall back to the local demo credentials when the API returns an authentication error", async () => {
-    vi.mocked(apiFetchV1).mockResolvedValueOnce({ detail: "Invalid username or password." } as never);
+  it("should return an authentication error when the API returns invalid credentials without falling back to mock auth", async () => {
+    vi.mocked(apiFetchV1).mockRejectedValueOnce(new Error("Invalid username or password."));
 
-    const result = await apiProvider.authenticate({ username: "super", password: "Shpr0128vdq!@" });
+    const result = await apiProvider.authenticate({ username: "super", password: "WrongPassword" });
 
-    expect(result.success).toBe(true);
-    expect(result.user?.role).toBe("SYSADMIN");
+    expect(result.success).toBe(false);
+    expect(result.errorMessage).toBe("Invalid username or password.");
   });
 
   it("should initialize session token and handle logout in SessionService", async () => {
@@ -71,6 +71,7 @@ describe("Sprint 1: Authentication & Session Management", () => {
   });
 
   it("should register CREATE_SALES_INVOICE command handler in SPK.commands during bootstrapDI", async () => {
+    vi.mocked(apiFetchV1).mockResolvedValueOnce({ id: "inv-test-001", invoice_no: "INV-TEST-001" } as never);
     const { bootstrapDI } = await import("../bootstrap/di.ts");
     const { SPK } = await import("../kernel/SPK.ts");
     const { CreateSalesInvoiceCommand } = await import("../kernel/commands/CreateSalesInvoiceCommand.ts");

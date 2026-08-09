@@ -1,3 +1,5 @@
+/** @vitest-environment jsdom */
+
 /**
  * Project      : SMRITI Retail OS
  * Test Suite   : Purchase Phase A — Contract Hardening Tests
@@ -26,6 +28,11 @@ import { PurchaseService } from "../kernel/internal/PurchaseService.js";
 import { IPurchaseService, PurchaseOrderRecord, PurchaseOrderStatus } from "../kernel/public/IPurchaseService.js";
 import { purchaseCommandFacade, PurchaseCommandFacade, PurchaseActionContext } from "../domains/purchase/PurchaseCommandFacade.js";
 import { SPK } from "../kernel/SPK.js";
+import { apiFetchV1 } from "../lib/apiFetchV1.js";
+
+vi.mock("../lib/apiFetchV1.js", () => ({
+  apiFetchV1: vi.fn(),
+}));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -69,9 +76,55 @@ describe("PUR-A01 — PurchaseOrderStatus strict union type", () => {
 describe("PUR-A02 to PUR-A10 — PurchaseService lifecycle guards", () => {
   let svc: PurchaseService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    localStorage.setItem("smriti_jwt_token", "test_mock_jwt_token");
+    const mockStore: Record<string, any[]> = {};
+
+    vi.mocked(apiFetchV1).mockImplementation(async (endpoint, opts) => {
+      const path = endpoint.startsWith("/") ? endpoint : "/" + endpoint;
+      const base = path.endsWith("/") ? path : path + "/";
+      const storeKey = "/purchase/orders/";
+      if (!mockStore[storeKey]) mockStore[storeKey] = [];
+
+      if (opts?.method === "POST" || opts?.method === "PUT") {
+        if (path.includes("/cancel")) {
+          const id = path.split("/purchase/orders/")[1].split("/")[0];
+          const item = mockStore[storeKey].find((r) => r.id === id);
+          if (item) {
+            item.status = "Cancelled";
+          }
+          return { success: true };
+        }
+        const record = JSON.parse(opts.body as string);
+        const idx = mockStore[storeKey].findIndex((r) => r.id === record.id);
+        if (idx >= 0) mockStore[storeKey][idx] = record;
+        else mockStore[storeKey].unshift(record);
+        return record;
+      }
+
+      if (opts?.method === "DELETE") {
+        return { success: true };
+      }
+
+      return mockStore[storeKey] || [];
+    });
+
     svc = new PurchaseService();
     SPK.services.register("PURCHASE", svc);
+
+    // Explicit test fixture (does not rely on production seed data)
+    await svc.savePO({
+      id: "po-101",
+      poNumber: "PO-TEST-101",
+      supplierId: "sup-101",
+      supplierName: "Test Supplier Corp",
+      orderDate: "2026-08-05",
+      status: "Approved",
+      totalAmount: 1000,
+      totalTaxAmount: 180,
+      netPayable: 1180,
+      lines: []
+    });
   });
 
   it("PUR-A02: cancelPO rejects empty reason string", async () => {

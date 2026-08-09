@@ -5,10 +5,24 @@
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { findPotentialDuplicates, validateBarcodeUniqueness, calculateSimilarity } from "../utils/duplicateDetector.js";
 import { ItemService } from "../kernel/internal/ItemService.js";
 import { Product } from "../types.js";
+
+// Mock the API transport layer so that duplicate-barcode tests (which are
+// pure in-process business-rule assertions) do not require a real auth token
+// or a running backend. The mock echoes back the submitted payload so that
+// ItemService.normalizeBackendProduct() receives the correct product data.
+vi.mock("../lib/apiFetchV1.js", () => ({
+  apiFetchV1: vi.fn(async (_url: string, options?: RequestInit) => {
+    if (options?.body) {
+      return JSON.parse(options.body as string);
+    }
+    return [];
+  })
+}));
+
 
 describe("Phase A: Master Data Integrity Engine", () => {
   const sampleProducts: Product[] = [

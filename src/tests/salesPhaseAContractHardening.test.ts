@@ -1,3 +1,5 @@
+/** @vitest-environment jsdom */
+
 /**
  * Project      : SMRITI Retail OS
  * Test Suite   : Sales Phase A — Contract Hardening Tests
@@ -5,33 +7,64 @@
  * Author       : Jawahar Ramkripal Mallah
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * Version      : 1.0.0
- *
- * Covers:
- *   SALES-A01  SalesInvoiceStatus union type contains Paid, Credit, Cancelled, Refunded
- *   SALES-A02  cancelInvoice: rejects empty or short reason (<3 chars)
- *   SALES-A03  cancelInvoice: rejects non-existent invoice ID
- *   SALES-A04  cancelInvoice: rejects already-Cancelled invoice
- *   SALES-A05  cancelInvoice: rejects already-Refunded invoice
- *   SALES-A06  cancelInvoice: successfully cancels invoice and emits InvoiceCancelled event
- *   SALES-A07  getByCustomer: returns invoices matching customer mobile or name
- *   SALES-A08  getByCustomer: returns empty array for unknown customer
- *   SALES-A09  saveInvoice: automatically triggers silent accounting journal posting
- *   SALES-A10  SPK.services.resolve<ISalesService>("SALES") resolves active service instance
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SalesService } from "../kernel/internal/SalesService.js";
 import { ISalesService, SalesInvoiceStatus } from "../kernel/public/ISalesService.js";
 import { SPK } from "../kernel/SPK.js";
+import { apiFetchV1 } from "../lib/apiFetchV1.js";
+
+vi.mock("../lib/apiFetchV1.js", () => ({
+  apiFetchV1: vi.fn(),
+}));
 
 const VALID_STATUSES: SalesInvoiceStatus[] = ["Paid", "Credit", "Cancelled", "Refunded"];
 
 describe("Sales Phase A — Contract Hardening Tests (SALES-A01 to SALES-A10)", () => {
   let svc: SalesService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    localStorage.setItem("smriti_jwt_token", "test_mock_jwt_token");
+    const mockStore: Record<string, any[]> = {};
+
+    vi.mocked(apiFetchV1).mockImplementation(async (endpoint, opts) => {
+      const path = endpoint.startsWith("/") ? endpoint : "/" + endpoint;
+      const base = path.endsWith("/") ? path : path + "/";
+      const storeKey = "/sales/invoices/";
+      if (!mockStore[storeKey]) mockStore[storeKey] = [];
+
+      if (opts?.method === "POST" || opts?.method === "PUT") {
+        if (path.includes("/cancel")) {
+          const id = path.split("/sales/invoices/")[1].split("/")[0];
+          const item = mockStore[storeKey].find((r) => r.id === id);
+          if (item) {
+            item.status = "Cancelled";
+          }
+          return { success: true };
+        }
+        const record = JSON.parse(opts.body as string);
+        const idx = mockStore[storeKey].findIndex((r) => r.id === record.id);
+        if (idx >= 0) mockStore[storeKey][idx] = record;
+        else mockStore[storeKey].unshift(record);
+        return record;
+      }
+
+      return mockStore[storeKey] || [];
+    });
+
     svc = new SalesService();
     SPK.services.register("SALES", svc);
+
+    // Explicit test fixture (does not rely on production seed data)
+    await svc.saveInvoice({
+      id: "inv-1001",
+      invoiceNumber: "INV-TEST-1001",
+      customerName: "Test Customer",
+      customerMobile: "9811223344",
+      netPayable: 1500,
+      status: "Paid",
+    });
   });
 
   it("SALES-A01: SalesInvoiceStatus contains Paid, Credit, Cancelled, Refunded", () => {

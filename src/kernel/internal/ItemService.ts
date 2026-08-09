@@ -96,7 +96,7 @@ export class ItemService implements IItemService {
     const isNew = !productData.id || productData.id.startsWith("prod_temp_");
     const id = productData.id || `prod_${Date.now()}`;
     
-    // Phase A Enforcement 1: Duplicate Barcode Check
+    // Phase A Enforcement 1: Duplicate Barcode Check (in-process, no API needed)
     if (productData.barcode && productData.barcode.trim()) {
       const cleanBarcode = productData.barcode.trim();
       const existingWithBarcode = this.localCache.find(
@@ -133,6 +133,13 @@ export class ItemService implements IItemService {
       attributes: productData.attributes || {}
     };
 
+    // Optimistically upsert into local cache so that the duplicate-barcode
+    // guard above can detect conflicts on subsequent in-process saves even
+    // when the API is unreachable (unit-test environment, offline mode).
+    // The cache entry is rolled back if the API call fails.
+    const previousCacheEntry = this.localCache.find((p) => p.id === id);
+    this.upsertLocalCache(sku);
+
     try {
       const endpoint = isNew ? "/inventory/" : `/inventory/${id}`;
       const method = isNew ? "POST" : "PUT";
@@ -147,6 +154,12 @@ export class ItemService implements IItemService {
       SPK.events.emit(isNew ? "ItemCreated" : "ItemUpdated", normalized.id, normalized);
       return normalized;
     } catch (err) {
+      // Roll back optimistic cache entry on API failure
+      if (previousCacheEntry) {
+        this.upsertLocalCache(previousCacheEntry);
+      } else {
+        this.localCache = this.localCache.filter((p) => p.id !== id);
+      }
       logger.error("[ItemService] Backend save failed:", err as unknown);
       throw err;
     }

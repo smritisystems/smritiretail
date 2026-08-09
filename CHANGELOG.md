@@ -49,6 +49,26 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Removed hardcoded fallback rows (`INV-2026-104`–`108`, `Karan Johar`) from `QuickReportsWidget.tsx`.
   - Cleared seeded wallets from `LoyaltyStudioTab.tsx` and seeded Tally queue from `tallySyncEngine.ts`.
 
+### Test Regression Fix — Phase A Duplicate Barcode Enforcement (SXP-TEST-001)
+
+**Root Cause:** After the Real-Wiring Audit eliminated all mock/seed data, `ItemService.save()` became dependent on a real authenticated API call to persist items. The Phase A unit test `phaseADataIntegrity.test.ts` tested a **pure in-process business rule** (duplicate barcode rejection via `localCache`) but called `save()` without a real auth token, causing the first `save()` to throw `"Unauthenticated session"` before the cache could be populated.
+
+**Fix 1 — `ItemService.ts` (Optimistic Cache Pattern):**
+- `save()` now **optimistically upserts** the normalized SKU into `localCache` immediately after the duplicate barcode check passes but **before** the `apiFetchV1` call.
+- If the API call fails, the optimistic cache entry is **rolled back** (`previousCacheEntry` is restored; for new items the entry is removed entirely).
+- This ensures the duplicate barcode enforcement (a pure in-process guardrail) works correctly in any environment — online, offline, or unit test — without depending on the API round-trip.
+
+**Fix 2 — `phaseADataIntegrity.test.ts` (API Transport Mock):**
+- Added `vi.mock("../lib/apiFetchV1.js")` that echoes back the submitted request body as the API response.
+- This isolates the unit test from the real API transport layer — the test correctly validates the `DUPLICATE BARCODE REJECTED` business rule without requiring real authentication or a running backend.
+- The mock follows the standard Vitest pattern for testing in-process business rules that happen to persist via an API.
+
+**Verified Results:**
+- Targeted: `4/4` passed in `phaseADataIntegrity.test.ts`
+- Full suite: **1101/1101 tests passed — 155 test files — 0 failures**
+
+
+
 ### Full Frontend ↔ Backend Real Wiring & Mock Elimination (SXP-RW-001)
 - **Authentication Hardening (`ApiAuthProvider.ts`)**:
   - Removed `isLocalDemoEnvironment()` mock fallback in `ApiAuthProvider.ts`. REAL BACKEND failures (401, 403, wrong credentials, network errors) now surface honestly to the user as real errors instead of silently converting into mock logins.

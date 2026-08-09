@@ -1,6 +1,55 @@
 # SMRITI RETAIL OS — SYSTEM TROUBLESHOOTING LOG
 
+## ISSUE 2026-08-09-04: Phase A Duplicate Barcode Test Regression After Mock Data Elimination
+
+**Severity:** MEDIUM (Test Suite Integrity)  
+**Status:** RESOLVED  
+**Date:** 2026-08-09  
+
+### Symptom
+After the Real-Wiring Audit (SXP-RW-001 & SXP-RW-002) eliminated all mock/seed data from production code paths, the Vitest suite reported **1 failure** (`phaseADataIntegrity.test.ts → "Rejects saving items with duplicate barcodes in ItemService"`):
+
+```
+Error: Unauthenticated session. Please log in to access protected enterprise API.
+❯ apiFetchV1 src/lib/apiFetchV1.ts:48:13
+❯ ItemService.save src/kernel/internal/ItemService.ts:106:19
+❯ src/tests/phaseADataIntegrity.test.ts:106:19
+```
+
+### Root Cause
+The Phase A test validates a **pure in-process business rule**: that `ItemService.save()` throws `DUPLICATE BARCODE REJECTED` when a barcode already exists in `localCache`.
+
+The test's setup step (`await service.save(sampleProducts[0])`) was designed to pre-populate the service's in-memory cache. However, after the real-wiring remediation, `ItemService.save()` now calls `apiFetchV1` (the real API transport) to persist items. In the unit test environment there is no auth token, so `apiFetchV1` throws `Unauthenticated session` at the API call — **before** `upsertLocalCache()` could run (which was post-API). The cache never got seeded, so the duplicate check on the second save found nothing and never threw.
+
+### Resolution
+
+**Fix 1 — `src/kernel/internal/ItemService.ts` (Optimistic Cache Pattern):**
+- `save()` now **optimistically upserts** the normalized SKU into `localCache` immediately after the duplicate barcode check passes (before the `apiFetchV1` call).
+- If the API call fails, the cache entry is rolled back: `previousCacheEntry` is restored, or the new entry is removed for truly new items.
+- This makes the duplicate barcode enforcement (a pure in-process guardrail) work correctly in any environment — online, offline, or unit test — independently of the API transport layer.
+
+**Fix 2 — `src/tests/phaseADataIntegrity.test.ts` (API Transport Mock):**
+- Added `vi.mock("../lib/apiFetchV1.js")` that echoes back the request body as the API response.
+- Isolates the unit test from the real API transport — the test correctly validates business rules without requiring real authentication or a running backend.
+
+### Verification
+```
+# Targeted test file
+npx vitest run src/tests/phaseADataIntegrity.test.ts --reporter=verbose
+Tests  4 passed (4)
+
+# Full suite
+npx vitest run
+Test Files  155 passed (155)
+Tests  1101 passed (1101)   ← 0 failures
+```
+
+**Evidence:** Status = Done
+
+---
+
 ## ISSUE 2026-08-09-03: Real-Wiring Audit Remediation & Final Mock Business Data Elimination
+
 
 **Severity:** HIGH (Production Data Integrity & Empty Database Compliance)  
 **Status:** RESOLVED  
