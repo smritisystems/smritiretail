@@ -283,3 +283,282 @@ async def test_lookups_validation_and_soft_delete(db_session):
         # 7. Verify soft deleted item is filtered out from active list
         res_list_after = await client.get("/api/v1/masters/lookup/department/values", headers=headers)
         assert len(res_list_after.json()) == 0
+
+
+# ===========================================================================
+# Cross-tenant isolation & field preservation tests
+# ===========================================================================
+
+async def _setup_tenant_user_and_headers(db_session, suffix: str):
+    tenant_id = f"tenant-{suffix}"
+    comp_id = f"comp-{suffix}"
+    br_id = f"br-{suffix}"
+    user_id = f"usr-{suffix}"
+
+    comp = Company(
+        id=comp_id,
+        name=f"Company {suffix}",
+        gst_number=f"27ABCDE{suffix[:4].upper()}1Z5"[:15],
+        is_active=True,
+        tenant_id=tenant_id,
+    )
+    branch = Branch(
+        id=br_id,
+        company_id=comp.id,
+        name=f"Branch {suffix}",
+        code=f"BR-{suffix.upper()}",
+        is_active=True,
+        tenant_id=tenant_id,
+    )
+    user = User(
+        id=user_id,
+        username=f"user_{suffix}",
+        email=f"user_{suffix}@smriti.test",
+        hashed_password=hash_password("Pass@1234"),
+        role=UserRole.SYSADMIN,
+        is_active=True,
+        is_deleted=False,
+        is_platform_admin=True,
+        company_id=comp.id,
+        branch_id=branch.id,
+        tenant_id=tenant_id,
+    )
+    db_session.add_all([comp, branch, user])
+    await db_session.commit()
+
+    token = create_access_token(data={
+        "sub": user.id,
+        "username": user.username,
+        "role": user.role.value if isinstance(user.role, UserRole) else str(user.role),
+        "company_id": user.company_id,
+        "branch_id": user.branch_id,
+        "tenant_id": tenant_id,
+        "jti": str(uuid.uuid4()),
+    })
+    headers = {"Authorization": f"Bearer {token}"}
+    return comp, branch, user, headers, tenant_id
+
+
+async def test_organization_tenant_isolation(db_session):
+    comp_a, br_a, user_a, headers_a, tenant_a_id = await _setup_tenant_user_and_headers(db_session, "org_a")
+    comp_b, br_b, user_b, headers_b, tenant_b_id = await _setup_tenant_user_and_headers(db_session, "org_b")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1 & 2. Create Organization as Tenant A
+        res_create = await client.post("/api/v1/masters/organizations", headers=headers_a, json={
+            "name": "Tenant A Organization",
+            "org_type": "HOLDING"
+        })
+        assert res_create.status_code == 201
+        rec_id = res_create.json()["id"]
+
+        # 3. List Organizations as Tenant B — Tenant A's record must NOT appear
+        res_list_b = await client.get("/api/v1/masters/organizations", headers=headers_b)
+        assert res_list_b.status_code == 200
+        assert not any(x["id"] == rec_id for x in res_list_b.json())
+
+        # 4. Update Organization as Tenant B — must be 403
+        res_put = await client.put(f"/api/v1/masters/organizations/{rec_id}", headers=headers_b, json={
+            "name": "Hacked Org Name"
+        })
+        assert res_put.status_code == 403
+
+        # 5. Delete Organization as Tenant B — must be 403
+        res_del = await client.delete(f"/api/v1/masters/organizations/{rec_id}", headers=headers_b)
+        assert res_del.status_code == 403
+
+        # 6. List Organizations as Tenant A — record is untouched
+        res_list_a = await client.get("/api/v1/masters/organizations", headers=headers_a)
+        assert res_list_a.status_code == 200
+        matching = [x for x in res_list_a.json() if x["id"] == rec_id]
+        assert len(matching) == 1
+        assert matching[0]["name"] == "Tenant A Organization"
+
+
+async def test_company_tenant_isolation(db_session):
+    comp_a, br_a, user_a, headers_a, tenant_a_id = await _setup_tenant_user_and_headers(db_session, "cmp_a")
+    comp_b, br_b, user_b, headers_b, tenant_b_id = await _setup_tenant_user_and_headers(db_session, "cmp_b")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1 & 2. Create Company as Tenant A
+        res_create = await client.post("/api/v1/masters/companies", headers=headers_a, json={
+            "name": "Tenant A Company LLC",
+            "gstNumber": "27AAAAA1234F1ZA",
+            "status": "Active"
+        })
+        assert res_create.status_code == 201
+        rec_id = res_create.json()["id"]
+
+        # 3. List Companies as Tenant B — Tenant A's record must NOT appear
+        res_list_b = await client.get("/api/v1/masters/companies", headers=headers_b)
+        assert res_list_b.status_code == 200
+        assert not any(x["id"] == rec_id for x in res_list_b.json())
+
+        # 4. Update Company as Tenant B — must be 403
+        res_put = await client.put(f"/api/v1/masters/companies/{rec_id}", headers=headers_b, json={
+            "name": "Hacked Company LLC"
+        })
+        assert res_put.status_code == 403
+
+        # 5. Delete Company as Tenant B — must be 403
+        res_del = await client.delete(f"/api/v1/masters/companies/{rec_id}", headers=headers_b)
+        assert res_del.status_code == 403
+
+        # 6. List Companies as Tenant A — record is untouched
+        res_list_a = await client.get("/api/v1/masters/companies", headers=headers_a)
+        assert res_list_a.status_code == 200
+        matching = [x for x in res_list_a.json() if x["id"] == rec_id]
+        assert len(matching) == 1
+        assert matching[0]["name"] == "Tenant A Company LLC"
+
+
+async def test_branch_tenant_isolation(db_session):
+    comp_a, br_a, user_a, headers_a, tenant_a_id = await _setup_tenant_user_and_headers(db_session, "br_a")
+    comp_b, br_b, user_b, headers_b, tenant_b_id = await _setup_tenant_user_and_headers(db_session, "br_b")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1 & 2. Create Branch as Tenant A
+        res_create = await client.post("/api/v1/masters/branches", headers=headers_a, json={
+            "company": comp_a.id,
+            "name": "Tenant A Flagship Branch",
+            "code": "BR-T-A-01"
+        })
+        assert res_create.status_code == 201
+        rec_id = res_create.json()["id"]
+
+        # 3. List Branches as Tenant B — Tenant A's record must NOT appear
+        res_list_b = await client.get("/api/v1/masters/branches", headers=headers_b)
+        assert res_list_b.status_code == 200
+        assert not any(x["id"] == rec_id for x in res_list_b.json())
+
+        # 4. Update Branch as Tenant B — must be 403
+        res_put = await client.put(f"/api/v1/masters/branches/{rec_id}", headers=headers_b, json={
+            "name": "Hacked Branch Name"
+        })
+        assert res_put.status_code == 403
+
+        # 5. Delete Branch as Tenant B — must be 403
+        res_del = await client.delete(f"/api/v1/masters/branches/{rec_id}", headers=headers_b)
+        assert res_del.status_code == 403
+
+        # 6. List Branches as Tenant A — record is untouched
+        res_list_a = await client.get("/api/v1/masters/branches", headers=headers_a)
+        assert res_list_a.status_code == 200
+        matching = [x for x in res_list_a.json() if x["id"] == rec_id]
+        assert len(matching) == 1
+        assert matching[0]["name"] == "Tenant A Flagship Branch"
+
+
+async def test_store_tenant_isolation(db_session):
+    comp_a, br_a, user_a, headers_a, tenant_a_id = await _setup_tenant_user_and_headers(db_session, "st_a")
+    comp_b, br_b, user_b, headers_b, tenant_b_id = await _setup_tenant_user_and_headers(db_session, "st_b")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1 & 2. Create Store as Tenant A
+        res_create = await client.post("/api/v1/masters/stores", headers=headers_a, json={
+            "branch": br_a.id,
+            "code": "ST-T-A-01",
+            "name": "Tenant A Retail Outlet",
+            "store_type": "Retail",
+            "status": "Active"
+        })
+        assert res_create.status_code == 201
+        rec_id = res_create.json()["id"]
+
+        # 3. List Stores as Tenant B — Tenant A's record must NOT appear
+        res_list_b = await client.get("/api/v1/masters/stores", headers=headers_b)
+        assert res_list_b.status_code == 200
+        assert not any(x["id"] == rec_id for x in res_list_b.json())
+
+        # 4. Update Store as Tenant B — must be 403
+        res_put = await client.put(f"/api/v1/masters/stores/{rec_id}", headers=headers_b, json={
+            "name": "Hacked Store Name"
+        })
+        assert res_put.status_code == 403
+
+        # 5. Delete Store as Tenant B — must be 403
+        res_del = await client.delete(f"/api/v1/masters/stores/{rec_id}", headers=headers_b)
+        assert res_del.status_code == 403
+
+        # 6. List Stores as Tenant A — record is untouched
+        res_list_a = await client.get("/api/v1/masters/stores", headers=headers_a)
+        assert res_list_a.status_code == 200
+        matching = [x for x in res_list_a.json() if x["id"] == rec_id]
+        assert len(matching) == 1
+        assert matching[0]["name"] == "Tenant A Retail Outlet"
+
+
+async def test_warehouse_tenant_isolation(db_session):
+    comp_a, br_a, user_a, headers_a, tenant_a_id = await _setup_tenant_user_and_headers(db_session, "wh_a")
+    comp_b, br_b, user_b, headers_b, tenant_b_id = await _setup_tenant_user_and_headers(db_session, "wh_b")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1 & 2. Create Warehouse as Tenant A
+        res_create = await client.post("/api/v1/masters/warehouses", headers=headers_a, json={
+            "branch": br_a.id,
+            "code": "WH-T-A-01",
+            "name": "Tenant A Central Warehouse",
+            "is_transit": False,
+            "status": "Active"
+        })
+        assert res_create.status_code == 201
+        rec_id = res_create.json()["id"]
+
+        # 3. List Warehouses as Tenant B — Tenant A's record must NOT appear
+        res_list_b = await client.get("/api/v1/masters/warehouses", headers=headers_b)
+        assert res_list_b.status_code == 200
+        assert not any(x["id"] == rec_id for x in res_list_b.json())
+
+        # 4. Update Warehouse as Tenant B — must be 403
+        res_put = await client.put(f"/api/v1/masters/warehouses/{rec_id}", headers=headers_b, json={
+            "name": "Hacked Warehouse Name"
+        })
+        assert res_put.status_code == 403
+
+        # 5. Delete Warehouse as Tenant B — must be 403
+        res_del = await client.delete(f"/api/v1/masters/warehouses/{rec_id}", headers=headers_b)
+        assert res_del.status_code == 403
+
+        # 6. List Warehouses as Tenant A — record is untouched
+        res_list_a = await client.get("/api/v1/masters/warehouses", headers=headers_a)
+        assert res_list_a.status_code == 200
+        matching = [x for x in res_list_a.json() if x["id"] == rec_id]
+        assert len(matching) == 1
+        assert matching[0]["name"] == "Tenant A Central Warehouse"
+
+
+async def test_company_response_fields_preservation(db_session):
+    company, branch, user, headers = await _setup_admin_and_auth_headers(db_session)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1. Create company
+        res_create = await client.post("/api/v1/masters/companies", headers=headers, json={
+            "name": "LLP Enterprise Solutions",
+            "gstNumber": "27LLPAA1234F1Z9",
+            "status": "Active"
+        })
+        assert res_create.status_code == 201
+        comp_id = res_create.json()["id"]
+
+        # Update company with explicit company_type, fiscal_year_start_month, currency_code, is_gst_registered
+        res_update = await client.put(f"/api/v1/masters/companies/{comp_id}", headers=headers, json={
+            "company_type": "LLP",
+            "fiscal_year_start_month": 4,
+            "currency_code": "INR",
+            "is_gst_registered": True
+        })
+        assert res_update.status_code == 200
+
+        # 2. Get list of companies
+        res_list = await client.get("/api/v1/masters/companies", headers=headers)
+        assert res_list.status_code == 200
+        matching = [x for x in res_list.json() if x["id"] == comp_id]
+        assert len(matching) == 1
+        c_data = matching[0]
+
+        # 3. Assert fields preserved (company_type == "LLP", fiscal_year_start_month == 4, currency_code == "INR", is_gst_registered == True)
+        assert c_data["company_type"] == "LLP"
+        assert c_data["fiscal_year_start_month"] == 4
+        assert c_data["currency_code"] == "INR"
+        assert c_data["is_gst_registered"] is True
+

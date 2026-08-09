@@ -1,5 +1,44 @@
 # SMRITI RETAIL OS — SYSTEM TROUBLESHOOTING LOG
 
+## ISSUE 2026-08-09-06: Organisation Module — Tenant Isolation & CompanyResponse Regression Suite
+
+**Severity:** HIGH (Security & Tenant Scoping Hardening)  
+**Status:** RESOLVED  
+**Date:** 2026-08-09  
+**Ref:** ORG-TENANT-ISOLATION-GUARD  
+
+### Scope
+
+Locked in tenant isolation across all 5 organizational entity types (`organization`, `company`, `branch`, `store`, `warehouse`) and added regression protection for `CompanyResponse` fields.
+
+### Tests Implemented (`backend/app/tests/test_masters_consolidation.py`)
+
+1. **`test_organization_tenant_isolation`**: Validates `Organization` creation under Tenant A, verifies Tenant B `GET /masters/organizations` excludes Tenant A's record, blocks Tenant B `PUT /masters/organizations/{id}` with `HTTP 403`, blocks Tenant B `DELETE /masters/organizations/{id}` with `HTTP 403`, and verifies Tenant A's record remains untouched.
+2. **`test_company_tenant_isolation`**: Validates `Company` creation under Tenant A, verifies Tenant B `GET /masters/companies` excludes Tenant A's record, blocks Tenant B `PUT /masters/companies/{id}` with `HTTP 403`, blocks Tenant B `DELETE /masters/companies/{id}` with `HTTP 403`, and verifies Tenant A's record remains untouched.
+3. **`test_branch_tenant_isolation`**: Validates `Branch` creation under Tenant A, verifies Tenant B `GET /masters/branches` excludes Tenant A's record, blocks Tenant B `PUT /masters/branches/{id}` with `HTTP 403`, blocks Tenant B `DELETE /masters/branches/{id}` with `HTTP 403`, and verifies Tenant A's record remains untouched.
+4. **`test_store_tenant_isolation`**: Validates `Store` creation under Tenant A, verifies Tenant B `GET /masters/stores` excludes Tenant A's record, blocks Tenant B `PUT /masters/stores/{id}` with `HTTP 403`, blocks Tenant B `DELETE /masters/stores/{id}` with `HTTP 403`, and verifies Tenant A's record remains untouched.
+5. **`test_warehouse_tenant_isolation`**: Validates `Warehouse` creation under Tenant A, verifies Tenant B `GET /masters/warehouses` excludes Tenant A's record, blocks Tenant B `PUT /masters/warehouses/{id}` with `HTTP 403`, blocks Tenant B `DELETE /masters/warehouses/{id}` with `HTTP 403`, and verifies Tenant A's record remains untouched.
+6. **`test_company_response_fields_preservation`**: Creates/updates a Company with `company_type="LLP"`, `fiscal_year_start_month=4`, `currency_code="INR"`, `is_gst_registered=True`, fetches `GET /masters/companies`, and verifies all 4 fields are preserved in `CompanyResponse` without returning `None` or default fallbacks.
+
+### Verification Results
+
+```
+backend/app/tests/test_masters_consolidation.py::test_company_crud PASSED
+backend/app/tests/test_masters_consolidation.py::test_branch_store_warehouse_crud PASSED
+backend/app/tests/test_masters_consolidation.py::test_organization_and_extended_branch_crud PASSED
+backend/app/tests/test_masters_consolidation.py::test_lookups_validation_and_soft_delete PASSED
+backend/app/tests/test_masters_consolidation.py::test_organization_tenant_isolation PASSED
+backend/app/tests/test_masters_consolidation.py::test_company_tenant_isolation PASSED
+backend/app/tests/test_masters_consolidation.py::test_branch_tenant_isolation PASSED
+backend/app/tests/test_masters_consolidation.py::test_store_tenant_isolation PASSED
+backend/app/tests/test_warehouse_tenant_isolation PASSED
+backend/app/tests/test_company_response_fields_preservation PASSED
+
+10 passed in 102.60s
+```
+
+---
+
 ## ISSUE 2026-08-09-05: DHI Structural Audit — Parts 4–6 Remediation
 
 **Severity:** MEDIUM (Test Coverage Gap + Session Reliability)

@@ -30,6 +30,19 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Organisation Module — Tenant Isolation & CompanyResponse Regression Suite
+- `backend/app/tests/test_masters_consolidation.py`:
+  - Added 5 cross-tenant isolation tests covering all 5 organizational master entity types (`organization`, `company`, `branch`, `store`, `warehouse`):
+    - `test_organization_tenant_isolation`: Creates Org in Tenant A, verifies Tenant B list excludes it, Tenant B update/delete blocked with HTTP 403, Tenant A record remains untouched.
+    - `test_company_tenant_isolation`: Creates Company in Tenant A, verifies Tenant B list excludes it, Tenant B update/delete blocked with HTTP 403, Tenant A record remains untouched.
+    - `test_branch_tenant_isolation`: Creates Branch in Tenant A, verifies Tenant B list excludes it, Tenant B update/delete blocked with HTTP 403, Tenant A record remains untouched.
+    - `test_store_tenant_isolation`: Creates Store in Tenant A, verifies Tenant B list excludes it, Tenant B update/delete blocked with HTTP 403, Tenant A record remains untouched.
+    - `test_warehouse_tenant_isolation`: Creates Warehouse in Tenant A, verifies Tenant B list excludes it, Tenant B update/delete blocked with HTTP 403, Tenant A record remains untouched.
+  - Added `test_company_response_fields_preservation`:
+    - Creates and updates company with explicit `company_type="LLP"`, `fiscal_year_start_month=4`, `currency_code="INR"`, `is_gst_registered=True`.
+    - Verifies GET `/api/v1/masters/companies` preserves all 4 fields without returning `None` or default fallbacks.
+- **Result:** 10/10 tests passing in `test_masters_consolidation.py`.
+
 ### DHI Structural Audit — Parts 4–6 (DHI-AUDIT-PARTS-4-6)
 
 #### Part 4 — Zero-Score Module Test Coverage
