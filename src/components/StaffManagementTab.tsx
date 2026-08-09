@@ -58,9 +58,10 @@ import { IdentityProvisioningWizard } from "./IdentityProvisioningWizard.tsx";
 
 interface StaffManagementTabProps {
   currentUser?: { role: string; name: string } | null;
+  viewMode?: "users" | "employees";
 }
 
-export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentUser }) => {
+export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentUser, viewMode = "employees" }) => {
   const { addNotification } = useNotifications();
   const { config: seefConfig } = useSEEF(); // SEEF Phase 6 — density + animation cascade
   const isReadOnly = currentUser?.role === "Report User";
@@ -188,6 +189,20 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
     setStatus("Active");
     setAllowedBranches(branches[0]?.name || "Andheri West, Mumbai");
     setIsModalOpen(true);
+  };
+
+  const getTitle = () => {
+    if (viewMode === "users") {
+      return "User Accounts";
+    }
+    return "Staff & Operator Management";
+  };
+
+  const getSubtitle = () => {
+    if (viewMode === "users") {
+      return "Manage login accounts, access roles, and identity profiles across the enterprise.";
+    }
+    return "Maintain the unified single source of truth for operator logins, payroll allowances, and location security credentials.";
   };
 
   const handleOpenEditModal = (s: User) => {
@@ -398,18 +413,18 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
         <div>
           <h2 className="text-xl font-bold font-display text-theme-body flex items-center gap-2">
             <Users className="text-blue-500" />
-            Staff & Operator Management
+            {getTitle()}
           </h2>
           <p className="text-xs text-theme-muted mt-1">
-            Maintain the unified single source of truth for operator logins, payroll allowances, and location security credentials.
+            {getSubtitle()}
           </p>
         </div>
-        <button 
+          <button 
           onClick={handleOpenAddModal}
           disabled={isReadOnly}
           className={`px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
         >
-          <Plus size={16} /> Add Employee
+          <Plus size={16} /> {viewMode === "users" ? "Add User Account" : "Add Employee"}
         </button>
       </div>
 
@@ -821,12 +836,12 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
                       <div className="bg-theme-surface-2 p-5 rounded-xl border border-theme-divider flex flex-col justify-center">
                         <div className="text-xs text-theme-muted uppercase font-bold mb-1">Attendance Rate</div>
                         <div className="text-2xl font-display font-bold text-theme-body">
-                          {selectedStaff.performance?.attendancePercentage || 100}%
+                          {selectedStaff.performance?.attendancePercentage !== undefined ? selectedStaff.performance.attendancePercentage : 0}%
                         </div>
                         <div className="w-full bg-theme-surface-3 h-2 rounded-full mt-3 overflow-hidden">
                           <div 
                             className="bg-emerald-500 h-full transition-all" 
-                            style={{ width: `${selectedStaff.performance?.attendancePercentage || 100}%` }}
+                            style={{ width: `${selectedStaff.performance?.attendancePercentage ?? 0}%` }}
                           ></div>
                         </div>
                       </div>

@@ -96,7 +96,7 @@ describe("StaffManagementTab", () => {
             commissionEffectiveFrom: "",
           },
           performance: {
-            attendancePercentage: 100,
+            attendancePercentage: 0,
             monthlySales: 0,
             targetsAssigned: 0,
             targetsAchieved: 0,
@@ -137,7 +137,7 @@ describe("StaffManagementTab", () => {
   it("submits create staff payload using camelCase StaffUserCreate fields", async () => {
     await act(async () => {
       root = createRoot(container);
-      root.render(<StaffManagementTab currentUser={{ role: "SYSADMIN", name: "Test Admin" }} />);
+      root.render(<StaffManagementTab currentUser={{ role: "SYSADMIN", name: "Test Admin" }} viewMode="employees" />);
     });
 
     await act(async () => {
@@ -179,7 +179,7 @@ describe("StaffManagementTab", () => {
     await act(async () => {
       const fillInput = (input: HTMLInputElement, value: string) => {
         input.value = value;
-        Simulate.change(input, { target: { value } });
+        Simulate.change(input, { target: { value } } as any);
       };
 
       fillInput(fullNameInput!, "Test Employee");
@@ -194,16 +194,16 @@ describe("StaffManagementTab", () => {
       const branchSelect = selects[3];
 
       roleSelect.value = "REPORT_USER";
-      Simulate.change(roleSelect, { target: { value: "REPORT_USER" } });
+      Simulate.change(roleSelect, { target: { value: "REPORT_USER" } } as any);
 
       designationSelect.value = "des-1";
-      Simulate.change(designationSelect, { target: { value: "des-1" } });
+      Simulate.change(designationSelect, { target: { value: "des-1" } } as any);
 
       departmentSelect.value = "dep-1";
-      Simulate.change(departmentSelect, { target: { value: "dep-1" } });
+      Simulate.change(departmentSelect, { target: { value: "dep-1" } } as any);
 
       branchSelect.value = "br-1";
-      Simulate.change(branchSelect, { target: { value: "br-1" } });
+      Simulate.change(branchSelect, { target: { value: "br-1" } } as any);
     });
 
     await act(async () => {
@@ -246,7 +246,7 @@ describe("StaffManagementTab", () => {
 
     expect(postCall).toBeTruthy();
 
-    const body = JSON.parse(postCall[1].body);
+    const body = JSON.parse((postCall as any)[1]?.body as string);
     expect(body).toEqual(
       expect.objectContaining({
         fullName: "Test Employee",

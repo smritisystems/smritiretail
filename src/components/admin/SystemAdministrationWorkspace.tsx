@@ -30,6 +30,7 @@ import {
   ShieldAlert,
   UserPlus
 } from "lucide-react";
+import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { UserOnboardingWizardModal } from "./UserOnboardingWizardModal.tsx";
 import { DelegationModal } from "./DelegationModal.tsx";
 import { RoleMatrixTab } from "../security/RoleMatrixTab.tsx";
@@ -58,14 +59,40 @@ export const SystemAdministrationWorkspace: React.FC = () => {
   const [showDelegationModal, setShowDelegationModal] = useState(false);
 
   const [telemetry, setTelemetry] = useState<TelemetryCounter>({
-    usersCount: 128,
-    employeesCount: 122,
-    rolesCount: 26,
-    permissionSetsCount: 42,
-    activeSessions: 18,
-    lockedUsers: 1,
-    pendingApprovals: 4
+    usersCount: 0,
+    employeesCount: 0,
+    rolesCount: 0,
+    permissionSetsCount: 0,
+    activeSessions: 0,
+    lockedUsers: 0,
+    pendingApprovals: 0
   });
+
+  useEffect(() => {
+    const loadTelemetry = async () => {
+      try {
+        const data = await apiFetchV1("/users/");
+        const usersCount = typeof data?.total === "number"
+          ? data.total
+          : Array.isArray(data?.users)
+            ? data.users.length
+            : 0;
+        const employeesCount = Array.isArray(data?.users)
+          ? data.users.length
+          : usersCount;
+
+        setTelemetry((prev) => ({
+          ...prev,
+          usersCount,
+          employeesCount,
+        }));
+      } catch (err) {
+        console.warn("Failed to load system telemetry:", err);
+      }
+    };
+
+    loadTelemetry();
+  }, []);
 
   return (
     <div className="flex flex-col h-full bg-theme-bg text-theme-text overflow-hidden">
@@ -332,8 +359,8 @@ export const SystemAdministrationWorkspace: React.FC = () => {
 
         {/* Workspace Body Area */}
         <div className="flex-1 overflow-auto p-4">
-          {activeDomain === "identity" && subTab === "users" && <StaffManagementTab />}
-          {activeDomain === "identity" && subTab === "employees" && <StaffManagementTab />}
+          {activeDomain === "identity" && subTab === "users" && <StaffManagementTab viewMode="users" />}
+          {activeDomain === "identity" && subTab === "employees" && <StaffManagementTab viewMode="employees" />}
           {activeDomain === "identity" && subTab === "audit" && <AuditLogsTab />}
 
           {activeDomain === "organization" && (
