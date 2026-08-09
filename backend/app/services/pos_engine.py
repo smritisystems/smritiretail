@@ -103,6 +103,24 @@ class PosEngine:
         )
         session = (await self.db.execute(stmt)).scalars().first()
 
+        if not session and session_id == "DEFAULT_SESSION":
+            session = PosSession(
+                id="DEFAULT_SESSION",
+                uuid=str(uuid.uuid4()),
+                tenant_id=getattr(self.tenant, "tenant_id", None) or self.tenant.company_id,
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+                session_no="SESS-DEFAULT",
+                cashier_id="SYSTEM_COUNTER",
+                terminal_id="DEFAULT_COUNTER",
+                opened_at=datetime.now(timezone.utc),
+                opening_balance=Decimal("0.00"),
+                expected_cash=Decimal("0.00"),
+                status="OPEN"
+            )
+            self.db.add(session)
+            await self.db.commit()
+
         if not session:
             raise HTTPException(status_code=404, detail=f"POS Session '{session_id}' not found.")
 

@@ -173,12 +173,7 @@ const DEMO_TAX_PRODUCTS: Product[] = [
   }
 ];
 
-const SALESPERSONS = [
-  { id: "emp-101", name: "Rajesh Kumar", code: "EMP101" },
-  { id: "emp-102", name: "Anjali Sharma", code: "EMP102" },
-  { id: "emp-103", name: "Amit Patel", code: "EMP103" },
-  { id: "emp-104", name: "Pooja Roy", code: "EMP104" }
-];
+
 
 export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
   cart,
@@ -319,9 +314,33 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
   });
 
   // Salesperson & Terminal Metadata
-  const [globalSalespersonId, setGlobalSalespersonId] = useState<string>("emp-101");
+  const [salespersons, setSalespersons] = useState<Array<{ id: string; name: string; code: string }>>([
+    { id: "usr-default", name: "Counter Staff", code: "EMP001" }
+  ]);
+  const [globalSalespersonId, setGlobalSalespersonId] = useState<string>("usr-default");
   const [isTaxInclusiveGlobal, setIsTaxInclusiveGlobal] = useState<boolean>(true);
   const [invoiceRemarks, setInvoiceRemarks] = useState<string>("");
+
+  useEffect(() => {
+    async function loadSalespersons() {
+      try {
+        const data = await apiFetchV1("/users/");
+        const usersList = Array.isArray(data) ? data : data?.users || data?.items || [];
+        if (usersList.length > 0) {
+          const mapped = usersList.map((u: any, idx: number) => ({
+            id: u.id || `usr-${idx}`,
+            name: u.name || u.full_name || u.username || "Staff",
+            code: u.employee_code || u.code || `EMP${100 + idx}`
+          }));
+          setSalespersons(mapped);
+          setGlobalSalespersonId(mapped[0].id);
+        }
+      } catch (err) {
+        // Fallback default
+      }
+    }
+    loadSalespersons();
+  }, []);
 
   // B2B & Logistics Transporter Details State
   const [transporterName, setTransporterName] = useState("");
@@ -750,7 +769,7 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       payment: paymentMode === "Single" 
         ? { mode: primaryPaymentMethod, amount: totals.balancePayable }
         : { mode: "Split", breakup: splitAmounts },
-      salesperson: SALESPERSONS.find(s => s.id === globalSalespersonId)?.name || "Default Counter Clerk",
+      salesperson: salespersons.find(s => s.id === globalSalespersonId)?.name || "Default Counter Clerk",
       remarks: invoiceRemarks,
       invoiceNo: `INV-${activeProfile?.id ? activeProfile.id.toUpperCase().replace("PROF-", "T") : "T1"}-${Date.now().toString().slice(-6)}`
     };
@@ -760,20 +779,15 @@ export const AdvancedBillingEngine: React.FC<AdvancedBillingEngineProps> = ({
       await apiFetchV1("/pos/checkout", {
         method: "POST",
         body: JSON.stringify({
-          shiftId: activeShift.id,
-          items: cart,
-          total: totals.grandTotal,
-          customerName: customer.name,
-          customerId: matchedCustomer?.id,
-          payment: paymentMode === "Single"
-            ? { mode: primaryPaymentMethod, amount: totals.balancePayable }
-            : { mode: "Split", breakup: splitAmounts },
-          appliedPromoOffer: activePromoOffer,
-          billDiscountType,
-          billDiscountVal,
-          appliedCoupon,
-          giftCardRedemption,
-          loyaltyRedeemPoints
+          items: cart.map((item) => ({
+            product_id: item.product.id,
+            quantity: item.quantity,
+            unit_price: item.product.price,
+          })),
+          payment_method: paymentMode === "Single" ? primaryPaymentMethod.toUpperCase() : "CASH",
+          tendered_amount: totals.balancePayable,
+          customer_id: matchedCustomer?.id,
+          discount_amount: totals.totalBillDiscounts,
         })
       });
       if (matchedCustomer && isCreditSale) {

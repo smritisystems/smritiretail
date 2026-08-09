@@ -13,48 +13,7 @@ import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 import { SPK } from "../SPK.js";
 
 export class SalesService implements ISalesService {
-  private localCache: SalesInvoiceRecord[] = [
-    {
-      id: "inv-1001",
-      invoiceNumber: "INV-2025-0001",
-      customerName: "Walk-in Retail Customer",
-      customerMobile: "9876543210",
-      invoiceDate: "2025-05-15",
-      paymentMode: "UPI",
-      cashierName: "Jawahar Mallah",
-      itemsTotal: 3000,
-      discountTotal: 0,
-      taxableTotal: 2542.37,
-      cgstTotal: 228.81,
-      sgstTotal: 228.81,
-      igstTotal: 0,
-      taxTotal: 457.63,
-      netPayable: 3000,
-      roundedAmount: 3000,
-      status: "Paid",
-      lines: [
-        {
-          id: "invl-1",
-          itemId: "prod-1",
-          itemCode: "SHOE-001",
-          itemName: "Nike Sports Shoes",
-          hsnCode: "6404",
-          qty: 1,
-          uom: "Pair",
-          rate: 3000,
-          discountPct: 0,
-          discountAmount: 0,
-          taxableValue: 2542.37,
-          gstRate: 18,
-          cgstAmount: 228.81,
-          sgstAmount: 228.81,
-          igstAmount: 0,
-          totalTaxAmount: 457.63,
-          lineTotal: 3000
-        }
-      ]
-    }
-  ];
+  private localCache: SalesInvoiceRecord[] = [];
 
   public async getAllInvoices(): Promise<SalesInvoiceRecord[]> {
     try {
@@ -148,11 +107,8 @@ export class SalesService implements ISalesService {
       SPK.events.emit("InvoiceCreated", normalized.id, normalized);
       return normalized;
     } catch (err) {
-      logger.warn("[SalesService] Backend save warning, caching locally.", err as unknown);
-      this.upsertLocalCache(record);
-      this.triggerSilentAccountingJournal(record);
-      SPK.events.emit("InvoiceCreated", record.id, record);
-      return record;
+      logger.error("[SalesService] Backend invoice save failed:", err as unknown);
+      throw err;
     }
   }
 

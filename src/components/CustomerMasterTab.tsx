@@ -29,6 +29,9 @@ import { SPK } from "../kernel/SPK.js";
 import { CreateCustomerCommand } from "../kernel/commands/CreateCustomerCommand.js";
 import { ICustomerService } from "../kernel/public/ICustomerService.js";
 
+import { apiFetchV1 } from "../lib/apiFetchV1";
+import logger from "../core/logging/logger.js";
+
 export type CustomerFilterMode = "ALL" | "CORPORATE" | "RETAIL" | "PENDING_APPROVAL";
 
 export interface CustomerExtendedRow extends Customer {
@@ -54,68 +57,30 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
   onNotification,
   currentUser,
 }) => {
-  const [customerList, setCustomerList] = useState<CustomerExtendedRow[]>([
-    {
-      id: "CUST-1001",
-      name: "Apex Retailers Pvt Ltd",
-      shortName: "Apex Retail",
-      category: "corporate",
-      customerGroupId: "CG-Corporate",
-      mobile: "9822001122",
-      email: "accounts@apexretail.com",
-      gstNumber: "27AAACA1234F1Z5",
-      outstanding: 180000,
-      creditLimit: 500000,
-      creditDays: 30,
-      status: "Active",
-      billingCity: "Mumbai",
-      billingState: "Maharashtra",
-      isTemporary: false,
-      approvalStatus: "APPROVED",
-      loyaltyPoints: 4500,
-      loyaltyTier: "Platinum",
-      photoUrl: "https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=150&auto=format&fit=crop&q=60",
-    },
-    {
-      id: "CUST-1002",
-      name: "Rajesh Kumar",
-      category: "standard",
-      customerGroupId: "CG-Retail",
-      mobile: "9876543210",
-      email: "rajesh.k@gmail.com",
-      outstanding: 0,
-      creditLimit: 25000,
-      creditDays: 0,
-      status: "Active",
-      billingCity: "Pune",
-      billingState: "Maharashtra",
-      isTemporary: false,
-      approvalStatus: "APPROVED",
-      loyaltyPoints: 1200,
-      loyaltyTier: "Gold",
-      photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=60",
-    },
-    {
-      id: "TEMP-CUST-9901",
-      name: "Metro Supermarket Chain (New Branch)",
-      category: "corporate",
-      customerGroupId: "CG-Corporate",
-      mobile: "9988776655",
-      email: "billing@metrosuper.com",
-      gstNumber: "27BBBCC9988F1Z2",
-      outstanding: 45000,
-      creditLimit: 300000,
-      creditDays: 45,
-      status: "Active",
-      billingCity: "Thane",
-      billingState: "Maharashtra",
-      isTemporary: true,
-      approvalStatus: "PENDING_APPROVAL",
-      loyaltyPoints: 0,
-      loyaltyTier: "Silver",
-      photoUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=60",
-    },
-  ]);
+  const [customerList, setCustomerList] = useState<CustomerExtendedRow[]>([]);
+
+  const fetchCustomers = async () => {
+    try {
+      const data = await apiFetchV1("/customers");
+      if (Array.isArray(data)) {
+        setCustomerList(
+          data.map((c: any) => ({
+            ...c,
+            isTemporary: false,
+            approvalStatus: c.approvalStatus || "APPROVED",
+            loyaltyPoints: c.loyalty_points_balance || c.loyaltyPoints || 0,
+            loyaltyTier: c.loyalty_tier || c.loyaltyTier || "Silver",
+          }))
+        );
+      }
+    } catch (err) {
+      logger.error("[CustomerMasterTab] Failed to fetch customers:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
 
   // Sync props customers if provided
   useEffect(() => {
@@ -135,8 +100,8 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
   // UI Search & Filter States
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [filterMode, setFilterMode] = useState<CustomerFilterMode>("ALL");
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("CUST-1001");
-  const [highlightedCustomerId, setHighlightedCustomerId] = useState<string | null>("CUST-1001");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const [highlightedCustomerId, setHighlightedCustomerId] = useState<string | null>(null);
 
   // Modals & Menu States
   const [showAddMenu, setShowAddMenu] = useState<boolean>(false);
@@ -245,42 +210,45 @@ export const CustomerMasterTab: React.FC<CustomerMasterTabProps> = ({
       onNotification("All Customers Approved", "Promoted all temporary records into Permanent Customer Masters", "success");
   };
 
-  // Add Temporary Customer (On-the-Fly POS Billing)
-  const handleCreateTempCustomer = () => {
+  // Add Customer (Persisted to Backend API)
+  const handleCreateTempCustomer = async () => {
     if (!newCustForm.name || !newCustForm.mobile) {
       if (onNotification) onNotification("Validation Error", "Customer Name and Mobile are required", "error");
       return;
     }
 
-    const newTemp: CustomerExtendedRow = {
-      id: `TEMP-CUST-${Math.floor(1000 + Math.random() * 9000)}`,
-      name: newCustForm.name,
-      mobile: newCustForm.mobile,
-      email: newCustForm.email,
-      gstNumber: newCustForm.gstNumber,
-      category: (newCustForm.category as any) || "standard",
-      customerGroupId: newCustForm.customerGroupId,
-      outstanding: 0,
-      creditLimit: newCustForm.creditLimit,
-      creditDays: newCustForm.creditDays,
-      status: "Active",
-      billingCity: newCustForm.billingCity,
-      isTemporary: true,
-      approvalStatus: "PENDING_APPROVAL",
-      loyaltyPoints: 100,
-      loyaltyTier: "Silver",
-    };
+    try {
+      const created = await apiFetchV1("/customers", {
+        method: "POST",
+        body: JSON.stringify({
+          name: newCustForm.name,
+          mobile: newCustForm.mobile,
+          email: newCustForm.email || undefined,
+          gst_number: newCustForm.gstNumber || undefined,
+          customer_group_id: newCustForm.customerGroupId || "CG-Retail",
+          billing_city: newCustForm.billingCity || "Mumbai",
+          outstanding: 0,
+          lifecycle_stage: "Customer",
+          account_status: "Active"
+        })
+      });
 
-    setCustomerList((prev) => [newTemp, ...prev]);
-    setShowTempCustomerModal(false);
-    setShowAddMenu(false);
-    setSelectedCustomerId(newTemp.id);
-    if (onNotification)
-      onNotification(
-        "Temporary Customer Created",
-        `Created temporary customer ${newTemp.name}. Tagged PENDING APPROVAL.`,
-        "success"
-      );
+      await fetchCustomers();
+      setShowTempCustomerModal(false);
+      setShowAddMenu(false);
+      setShowNewCustomerModal(false);
+      if (created?.id) setSelectedCustomerId(created.id);
+
+      if (onNotification)
+        onNotification(
+          "Customer Created",
+          `Customer ${newCustForm.name} saved to SMRITI database successfully.`,
+          "success"
+        );
+    } catch (err: any) {
+      if (onNotification)
+        onNotification("Create Failed", err?.message || "Could not save customer to backend", "error");
+    }
   };
 
   const searchInputRef = useRef<HTMLInputElement>(null);

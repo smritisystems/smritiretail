@@ -147,10 +147,8 @@ export class ItemService implements IItemService {
       SPK.events.emit(isNew ? "ItemCreated" : "ItemUpdated", normalized.id, normalized);
       return normalized;
     } catch (err) {
-      logger.warn("[ItemService] Backend save warning, caching locally in memory.", err as unknown);
-      this.upsertLocalCache(sku);
-      SPK.events.emit(isNew ? "ItemCreated" : "ItemUpdated", sku.id, sku);
-      return sku;
+      logger.error("[ItemService] Backend save failed:", err as unknown);
+      throw err;
     }
   }
 
@@ -158,7 +156,8 @@ export class ItemService implements IItemService {
     try {
       await apiFetchV1(`/inventory/${id}`, { method: "DELETE" });
     } catch (e) {
-      logger.warn("[ItemService] Offline delete warning, removing from local memory.", e as unknown);
+      logger.error("[ItemService] Backend delete failed:", e as unknown);
+      throw e;
     }
     this.localCache = this.localCache.filter((p) => p.id !== id);
     SPK.events.emit("ItemDeleted", id, { id });

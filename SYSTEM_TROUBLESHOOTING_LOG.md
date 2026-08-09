@@ -1,5 +1,37 @@
 # SMRITI RETAIL OS — SYSTEM TROUBLESHOOTING LOG
 
+## ISSUE 2026-08-09-02: Full Frontend ↔ Backend Real Wiring & Mock Fallback Elimination
+
+**Severity:** HIGH (Production Data Integrity & Auth Integrity)  
+**Status:** RESOLVED  
+**Date:** 2026-08-09  
+
+### Symptom
+1. `ApiAuthProvider.ts` silently fell back to local `MockAuthProvider` on any local environment auth error, causing real backend authentication failures (e.g. wrong password, 401) to masquerade as successful mock logins.
+2. POS direct checkout via `POST /api/v1/pos/checkout` failed with `404 POS Session 'DEFAULT_SESSION' not found` on fresh database installations.
+3. `SalesService.ts` pre-seeded localCache with hardcoded `INV-2025-0001 / Nike Sports Shoes` invoice, and swallowed save errors silently.
+4. `CustomerMasterTab.tsx` displayed 3 hardcoded mock customers and never called `/api/v1/customers`.
+5. `DashboardTab.tsx` hardcoded KPI values (`deadStockPercent = 24.5`, `Math.round(125000 * scaleFactor)`, static weekly revenue array).
+
+### Root Cause
+1. Fallback guard `isLocalDemoEnvironment()` in `ApiAuthProvider.ts` caught API exceptions and invoked `fallbackMock.authenticate()`.
+2. `PosEngine.process_checkout` looked up `session_id` in `pos_sessions` without auto-creating `DEFAULT_SESSION` when omitted by direct checkout clients.
+3. `SalesService.ts` initialized `localCache` array with static demo objects and caught API errors returning cached mock objects.
+4. `CustomerMasterTab.tsx` initialized React state with hardcoded arrays and lacked `apiFetchV1("/customers")` hooks.
+5. `DashboardTab.tsx` used hardcoded multipliers instead of querying `/api/v1/reports/daily-sales`.
+
+### Resolution
+1. Removed `isLocalDemoEnvironment()` fallback in `ApiAuthProvider.ts`. Surfaced real API auth errors.
+2. Added auto-creation of `DEFAULT_SESSION` in `PosEngine.process_checkout` when `session_id == "DEFAULT_SESSION"` and no active session exists.
+3. Cleared static mock objects from `SalesService.ts` and updated `saveInvoice()` / `saveItem()` to rethrow errors on backend API failure.
+4. Aligned `AdvancedBillingEngine.tsx` checkout body with `PosCheckoutReq` schema (`items: [{product_id, quantity, unit_price}]`).
+5. Replaced static `SALESPERSONS` arrays in `PosTerminalTab.tsx` and `AdvancedBillingEngine.tsx` with dynamic fetching from `GET /api/v1/users/`.
+6. Wired `CustomerMasterTab.tsx` to `GET /api/v1/customers` and `POST /api/v1/customers`.
+7. Wired `DashboardTab.tsx` to `GET /api/v1/reports/daily-sales?report_date={today}` and derived `deadStockPercent` dynamically.
+8. Verified clean compilation with `npx tsc --noEmit` returning 0 errors.
+
+---
+
 ## ISSUE 2026-08-09-01: OrganizationStudio 404 Company List Route Failure
 
 **Severity:** MEDIUM (UI Endpoint Resolution)  

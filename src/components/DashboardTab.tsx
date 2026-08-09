@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -480,9 +480,33 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     }
   };
 
+  const [dailySalesSummary, setDailySalesSummary] = useState<{ total_sales: number; total_invoices: number }>({
+    total_sales: 0,
+    total_invoices: 0,
+  });
+
+  const fetchDailySalesReport = async () => {
+    try {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const data = await apiFetchV1(`/reports/daily-sales?report_date=${todayStr}`);
+      if (data) {
+        setDailySalesSummary({
+          total_sales: parseFloat(data.total_sales || "0"),
+          total_invoices: parseInt(data.total_invoices || "0", 10),
+        });
+      }
+    } catch (e) {
+      // Fallback
+    }
+  };
+
   useEffect(() => {
     fetchAuditLogs();
-    const interval = setInterval(fetchAuditLogs, 5000);
+    fetchDailySalesReport();
+    const interval = setInterval(() => {
+      fetchAuditLogs();
+      fetchDailySalesReport();
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -533,13 +557,15 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     .reduce((sum, log) => {
       const match = log.after.match(/Total Sales: (\d+) INR/);
       return match ? parseInt(match[1]) : sum;
-    }, Math.round(9895 * scaleFactor));
+    }, 0);
 
   const totalCapitalLocked = psvParties.reduce(
     (sum, p) => sum + p.capitalLocked,
     0,
   );
-  const deadStockPercent = 24.5; // Fixed mockup calculation representing items with zero 30d sales
+  const deadStockPercent = products.length > 0
+    ? Math.round((products.filter((p) => p.stock <= 0).length / products.length) * 1000) / 10
+    : 0;
 
   // Format INR Currencies
   const formatCurrency = (val: number) => {
@@ -551,21 +577,21 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   };
 
   const lowStockCount = products.filter((p) => p.stock < 15).length;
-  const dailyRevenue = totalLiveSales + Math.round(125000 * scaleFactor);
-  const totalSalesUnits = Math.round(1450 * scaleFactor) + (filteredAuditLogs.filter((log) => log.action === "Invoice Created").length * 5); // Approximate units sold within selection
+  const dailyRevenue = dailySalesSummary.total_sales + totalLiveSales;
+  const totalSalesUnits = filteredAuditLogs.filter((log) => log.action === "Invoice Created").length * 5;
 
   // Real-time Trend Calculations
-  const invoicesCount = filteredAuditLogs.filter((log) => log.action === "Invoice Created").length;
+  const invoicesCount = dailySalesSummary.total_invoices + filteredAuditLogs.filter((log) => log.action === "Invoice Created").length;
   
   const weeklyData = React.useMemo(() => {
     const raw = [
-      { label: "Mon", revenue: Math.round(135000 * scaleFactor), invoices: Math.round(12 * scaleFactor), isForecast: false },
-      { label: "Tue", revenue: Math.round(148000 * scaleFactor), invoices: Math.round(15 * scaleFactor), isForecast: false },
-      { label: "Wed", revenue: Math.round(162000 * scaleFactor), invoices: Math.round(18 * scaleFactor), isForecast: false },
-      { label: "Thu", revenue: Math.round(155000 * scaleFactor), invoices: Math.round(14 * scaleFactor), isForecast: false },
-      { label: "Fri (Today)", revenue: Math.round(125000 * scaleFactor) + totalLiveSales, invoices: Math.round(10 * scaleFactor) + invoicesCount, isForecast: false },
-      { label: "Sat (Fcst)", revenue: Math.round(170000 * scaleFactor), invoices: Math.round(20 * scaleFactor), isForecast: true },
-      { label: "Sun (Fcst)", revenue: Math.round(185000 * scaleFactor), invoices: Math.round(22 * scaleFactor), isForecast: true },
+      { label: "Mon", revenue: 0, invoices: 0, isForecast: false },
+      { label: "Tue", revenue: 0, invoices: 0, isForecast: false },
+      { label: "Wed", revenue: 0, invoices: 0, isForecast: false },
+      { label: "Thu", revenue: 0, invoices: 0, isForecast: false },
+      { label: "Today", revenue: dailyRevenue, invoices: invoicesCount, isForecast: false },
+      { label: "Sat (Fcst)", revenue: Math.round(dailyRevenue * 1.1), invoices: Math.round(invoicesCount * 1.1), isForecast: true },
+      { label: "Sun (Fcst)", revenue: Math.round(dailyRevenue * 1.2), invoices: Math.round(invoicesCount * 1.2), isForecast: true },
     ];
 
     const historical = raw.filter(r => !r.isForecast);

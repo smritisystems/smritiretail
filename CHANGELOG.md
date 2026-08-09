@@ -30,6 +30,24 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Full Frontend ↔ Backend Real Wiring & Mock Elimination (SXP-RW-001)
+- **Authentication Hardening (`ApiAuthProvider.ts`)**:
+  - Removed `isLocalDemoEnvironment()` mock fallback in `ApiAuthProvider.ts`. REAL BACKEND failures (401, 403, wrong credentials, network errors) now surface honestly to the user as real errors instead of silently converting into mock logins.
+- **Sales & Checkout Engine (`SalesService.ts`, `pos_engine.py`, `AdvancedBillingEngine.tsx`)**:
+  - Removed pre-seeded mock invoice `INV-2025-0001` from `SalesService.ts` `localCache`.
+  - Updated `SalesService.saveInvoice()` and `ItemService.save()` to rethrow errors on backend save failures rather than returning fake success.
+  - Extended `PosEngine.process_checkout` to auto-provision `DEFAULT_SESSION` when missing during direct checkout, eliminating 404 session errors.
+  - Aligned `AdvancedBillingEngine.tsx` payload schema with `PosCheckoutReq` (`items: [{product_id, quantity, unit_price}]`).
+  - Replaced hardcoded `SALESPERSONS` array in `PosTerminalTab.tsx` and `AdvancedBillingEngine.tsx` with dynamic fetching from `GET /api/v1/users/`.
+- **Customer CRM Studio (`CustomerMasterTab.tsx`)**:
+  - Removed 3 hardcoded mock customers (`CUST-1001`, `CUST-1002`, `TEMP-CUST-9901`).
+  - Wired `CustomerMasterTab` to fetch real customer records from `GET /api/v1/customers` on mount.
+  - Wired customer creation to `POST /api/v1/customers` for persistence.
+- **Dashboard Operational Intelligence (`DashboardTab.tsx`)**:
+  - Wired KPI cards to `GET /api/v1/reports/daily-sales?report_date={today}`.
+  - Removed hardcoded KPI base numbers (`deadStockPercent = 24.5`, `Math.round(125000 * scaleFactor)`, base weekly revenue array).
+  - Derived `deadStockPercent` dynamically from zero-stock inventory products.
+
 ### Organization Module — Real Editing Wire-Up & Multi-Tenant Isolation (SCS-ORG-001)
 - **Multi-Tenant Isolation Hardening (`masters.py`)**:
   - Implemented `TenantContext` isolation on all organizational master entities (`Company`, `Branch`, `Organization`, `Store`, `Warehouse`).

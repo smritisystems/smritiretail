@@ -31,13 +31,6 @@ interface PosTerminalTabProps {
   onNotification: (title: string, msg: string, type: "success" | "error") => void;
 }
 
-const SALESPERSONS = [
-  { id: "emp-101", name: "Rajesh Kumar", code: "EMP101" },
-  { id: "emp-102", name: "Anjali Sharma", code: "EMP102" },
-  { id: "emp-103", name: "Amit Patel", code: "EMP103" },
-  { id: "emp-104", name: "Pooja Roy", code: "EMP104" }
-];
-
 export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
   products,
   profiles,
@@ -50,8 +43,32 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
   const [activeShift, setActiveShift] = useState<Shift | null>(null);
 
   // Salesperson & Commission Engine State
+  const [salespersons, setSalespersons] = useState<Array<{ id: string; name: string; code: string }>>([
+    { id: "usr-default", name: "Counter Staff", code: "EMP001" }
+  ]);
   const [salespersonMode, setSalespersonMode] = useState<"single" | "line">("single");
-  const [selectedSalespersonId, setSelectedSalespersonId] = useState<string>("emp-101");
+  const [selectedSalespersonId, setSelectedSalespersonId] = useState<string>("usr-default");
+
+  useEffect(() => {
+    async function loadSalespersons() {
+      try {
+        const data = await apiFetchV1("/users/");
+        const usersList = Array.isArray(data) ? data : data?.users || data?.items || [];
+        if (usersList.length > 0) {
+          const mapped = usersList.map((u: any, idx: number) => ({
+            id: u.id || `usr-${idx}`,
+            name: u.name || u.full_name || u.username || "Staff",
+            code: u.employee_code || u.code || `EMP${100 + idx}`
+          }));
+          setSalespersons(mapped);
+          setSelectedSalespersonId(mapped[0].id);
+        }
+      } catch (err) {
+        // Fallback staff default
+      }
+    }
+    loadSalespersons();
+  }, []);
 
   // POS Cart State
   const [cart, setCart] = useState<{ product: Product; quantity: number; salespersonId?: string }[]>([]);
@@ -282,7 +299,7 @@ export const PosTerminalTab: React.FC<PosTerminalTabProps> = ({
               onChange={(e) => setSelectedSalespersonId(e.target.value)}
               className="bg-transparent font-semibold text-xs text-[var(--sds-color-text-main)] focus:outline-none cursor-pointer"
             >
-              {SALESPERSONS.map((sp) => (
+              {salespersons.map((sp) => (
                 <option key={sp.id} value={sp.id}>
                   {sp.name} ({sp.code})
                 </option>

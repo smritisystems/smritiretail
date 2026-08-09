@@ -2,24 +2,16 @@
  * Project      : SMRITI Retail OS
  * Architecture : ADR-AUTH-001 — Real API Auth Provider
  * Feature      : src/features/auth/providers/ApiAuthProvider.ts
+ * Modified     : 2026-08-09 — Removed silent mock fallback (Phase 3 Auth Hardening)
  */
 
 import { IAuthProvider, AuthenticationResult } from "../interfaces/IAuthProvider";
 import { User } from "../types/auth.types";
 import { apiFetch, apiFetchV1 } from "../../../lib/apiFetch";
 
-import { MockAuthProvider } from "./MockAuthProvider";
-
-const isLocalDemoEnvironment = () => {
-  if (typeof window === "undefined") return true;
-  const host = window.location.hostname.toLowerCase();
-  return host === "localhost" || host === "127.0.0.1" || host === "" || host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.");
-};
-
 export class ApiAuthProvider implements IAuthProvider {
   public providerId = "api-auth-provider";
   public providerName = "SMRITI Backend API Auth";
-  private fallbackMock = new MockAuthProvider();
 
   public async authenticate(credentials: { username: string; password?: string }): Promise<AuthenticationResult> {
     const { username, password } = credentials;
@@ -33,7 +25,7 @@ export class ApiAuthProvider implements IAuthProvider {
     }
 
     try {
-      // 1. Try FastAPI Core API endpoint (/api/v1/auth/login)
+      // POST /api/v1/auth/login — real backend authentication
       const data = await apiFetchV1<{
         success?: boolean;
         token?: string;
@@ -71,39 +63,43 @@ export class ApiAuthProvider implements IAuthProvider {
         return {
           success: true,
           user,
-          token: rawToken || `smriti_jwt_${Date.now()}`,
-          refreshToken: rawRefreshToken || `smriti_rf_${Date.now()}`,
+          token: rawToken,
+          refreshToken: rawRefreshToken,
         };
       }
 
+      // Backend returned an explicit error — surface it directly.
+      // RULE (Phase 3): A real backend failure MUST remain a failure.
+      // NEVER convert REAL BACKEND FAILURE → MOCK LOGIN.
       if (data && (data.error || data.detail)) {
-        if (isLocalDemoEnvironment()) {
-          return this.fallbackMock.authenticate(credentials);
-        }
-
         return {
           success: false,
           errorMessage: data.detail || data.error || "Invalid username or password. Please check your credentials."
         };
       }
-    } catch {
-      // Fallback to local authenticated provider for local demo sessions
-      if (isLocalDemoEnvironment()) {
-        return this.fallbackMock.authenticate(credentials);
+
+      return {
+        success: false,
+        errorMessage: "Authentication service returned an unexpected response. Please try again."
+      };
+    } catch (err: any) {
+      // Network error or backend unreachable — surface real failure.
+      const isNetworkError = !err?.message || err?.message?.includes("fetch") ||
+        err?.message?.includes("network") || err?.message?.includes("Failed to fetch");
+      if (isNetworkError) {
+        return {
+          success: false,
+          errorMessage: "Cannot reach the SMRITI backend server. Ensure the backend API is running and accessible."
+        };
       }
+      return {
+        success: false,
+        errorMessage: err?.message || "Authentication failed. Please try again."
+      };
     }
-
-    if (isLocalDemoEnvironment()) {
-      return this.fallbackMock.authenticate(credentials);
-    }
-
-    return {
-      success: false,
-      errorMessage: "Invalid username or password. Please check your credentials."
-    };
   }
 
-  public async revokeSession(token: string): Promise<boolean> {
+  public async revokeSession(_token: string): Promise<boolean> {
     try {
       await apiFetch("/api/auth/logout", { method: "POST" });
       return true;
@@ -112,7 +108,7 @@ export class ApiAuthProvider implements IAuthProvider {
     }
   }
 
-  public async refreshToken(refreshToken: string): Promise<AuthenticationResult> {
+  public async refreshToken(_refreshToken: string): Promise<AuthenticationResult> {
     return {
       success: false,
       errorMessage: "Session expired. Please sign in again."
