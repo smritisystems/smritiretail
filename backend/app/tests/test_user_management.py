@@ -124,6 +124,37 @@ async def test_sysadmin_can_create_manager(db_session):
     assert data["branchId"] == br.id
 
 
+async def test_sysadmin_can_create_report_user_with_passwordHash_and_allowedBranches(db_session):
+    """SYSADMIN can create a REPORT_USER with passwordHash and allowedBranches."""
+    suffix = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, suffix)
+    sysadmin = await _make_user(db_session, f"sa-{suffix}", UserRole.SYSADMIN)
+
+    payload = {
+        "username": f"report_{suffix}",
+        "passwordHash": "Report@123",
+        "fullName": f"Report User {suffix}",
+        "role": "REPORT_USER",
+        "branchId": br.id,
+        "email": f"report_{suffix}@smriti.test",
+        "department": "Reporting",
+        "designation": "Analyst",
+        "allowedBranches": [br.id],
+        "salary": {"fixedMonthly": 35000}
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post("/api/v1/users/", json=payload, headers=_bearer(sysadmin))
+
+    assert res.status_code == 201
+    data = res.json()
+    assert data["role"] == "REPORT_USER"
+    assert data["branchId"] == br.id
+    assert data["fullName"] == payload["fullName"]
+    assert data["allowedBranches"] == [br.id]
+    assert data["salary"]["fixedMonthly"] == 35000
+
+
 async def test_cashier_cannot_create_user(db_session):
     """Cashier must receive 403 when attempting to create a user."""
     suffix = uuid.uuid4().hex[:6]

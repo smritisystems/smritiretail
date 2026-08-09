@@ -78,7 +78,7 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("Cashier");
+  const [role, setRole] = useState("CASHIER");
   const [designation, setDesignation] = useState("");
   const [department, setDepartment] = useState("Sales");
   const [branch, setBranch] = useState("Andheri West, Mumbai");
@@ -180,7 +180,7 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
     setFullName("");
     setUsername("");
     setPassword("");
-    setRole("Cashier");
+    setRole("CASHIER");
     setDesignation(designations[0]?.id || "Sales Executive");
     setDepartment(departments[0]?.id || "Sales");
     setBranch(branches[0]?.id || "Andheri West, Mumbai");
@@ -216,26 +216,6 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
       return;
     }
     try {
-      const payload: Partial<User> = {
-        fullName,
-        username,
-        role,
-        designation: designations.find(d => d.id === designation)?.name || designation,
-        department: departments.find(d => d.id === department)?.name || department,
-        branch: branches.find(b => b.id === branch)?.name || branch,
-        designationId: designation,
-        departmentId: department,
-        branchId: branch,
-        status,
-        allowedBranches: allowedBranches.split(",").map(b => b.trim()).filter(Boolean),
-        salary: {
-          fixedMonthly: Number(fixedMonthly),
-          commission: selectedStaff?.salary?.commission || { type: "None", value: 0 },
-          travelAllowance: selectedStaff?.salary?.travelAllowance || { type: "None", value: 0 },
-          otherAllowances: selectedStaff?.salary?.otherAllowances || { da: 0, mobile: 0, internet: 0, fuel: 0 }
-        }
-      };
-
       if (modalMode === "add") {
         if (!password) {
           alert("Please set a secure password for the new operator.");
@@ -246,20 +226,20 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
         await apiFetchV1("/users/", {
           method: "POST",
           body: JSON.stringify({
-            full_name: fullName,
+            fullName,
             username,
-            password,
+            passwordHash: password,
             role,
             designation: designations.find(d => d.id === designation)?.name || designation,
             department: departments.find(d => d.id === department)?.name || department,
             branch: branches.find(b => b.id === branch)?.name || branch,
-            designation_id: designation,
-            department_id: department,
-            branch_id: branch,
+            designationId: designation,
+            departmentId: department,
+            branchId: branch,
             status,
-            allowed_branches: allowedBranches.split(",").map(b => b.trim()).filter(Boolean),
+            allowedBranches: allowedBranches.split(",").map(b => b.trim()).filter(Boolean),
             salary: {
-              fixed_monthly: Number(fixedMonthly),
+              fixedMonthly: Number(fixedMonthly),
             },
           }),
         });
@@ -275,20 +255,20 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
         await apiFetchV1(`/users/${selectedStaff?.id}`, {
           method: "PATCH",
           body: JSON.stringify({
-            full_name: fullName,
+            fullName,
             role,
             designation: designations.find(d => d.id === designation)?.name || designation,
             department: departments.find(d => d.id === department)?.name || department,
             branch: branches.find(b => b.id === branch)?.name || branch,
-            designation_id: designation,
-            department_id: department,
-            branch_id: branch,
+            designationId: designation,
+            departmentId: department,
+            branchId: branch,
             status,
-            allowed_branches: allowedBranches.split(",").map(b => b.trim()).filter(Boolean),
+            allowedBranches: allowedBranches.split(",").map(b => b.trim()).filter(Boolean),
             salary: {
-              fixed_monthly: Number(fixedMonthly),
+              fixedMonthly: Number(fixedMonthly),
               commission: selectedStaff?.salary?.commission || { type: "None", value: 0 },
-              travel_allowance: selectedStaff?.salary?.travelAllowance || { type: "None", value: 0 },
+              travelAllowance: selectedStaff?.salary?.travelAllowance || { type: "None", value: 0 },
             },
           }),
         });
@@ -982,10 +962,10 @@ export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentU
                       onChange={e => setRole(e.target.value)}
                       className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded text-sm text-theme-body focus:outline-none focus:border-blue-500 font-medium"
                     >
-                      <option value="Cashier">Cashier (POS Operator)</option>
-                      <option value="Store Manager">Store Manager (Admin privilege)</option>
-                      <option value="Warehouse Executive">Warehouse Executive</option>
-                      <option value="Sales Consultant">Sales Consultant</option>
+                      <option value="CASHIER">Cashier (POS Operator)</option>
+                      <option value="MANAGER">Store Manager (Admin privilege)</option>
+                      <option value="REPORT_USER">Report User (Read-only)</option>
+                      <option value="VIEWER">Viewer (Analytics only)</option>
                     </select>
                   </div>
                 </div>
