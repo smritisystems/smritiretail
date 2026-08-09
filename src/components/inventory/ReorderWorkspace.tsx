@@ -183,10 +183,9 @@ export const ReorderWorkspace: React.FC<ReorderWorkspaceProps> = ({
       .then((data) => { if (!cancelled) { setItems(data); setLoading(false); } })
       .catch(() => {
         if (!cancelled) {
-          // Use mock data when API unavailable (offline / dev)
-          setItems(MOCK_SUGGESTIONS);
+          setItems([]);
           setLoading(false);
-          setError("Showing cached suggestions — live data unavailable.");
+          setError("Unable to load reorder suggestions from server.");
         }
       });
     return () => { cancelled = true; };
@@ -228,7 +227,7 @@ export const ReorderWorkspace: React.FC<ReorderWorkspaceProps> = ({
               setRaised(new Set());
               apiFetchV1<ReorderSuggestion[]>("/api/v1/inventory/reorder-suggestions")
                 .then(setItems)
-                .catch(() => setItems(MOCK_SUGGESTIONS))
+                .catch(() => setItems([]))
                 .finally(() => setLoading(false));
             },
           },

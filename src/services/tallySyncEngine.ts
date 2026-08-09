@@ -48,33 +48,7 @@ export class TallySyncEngine {
   }
 
   private seedDefaultQueue(): void {
-    this.syncQueue = [
-      {
-        id: "sync-101",
-        voucherNo: "INV-2026-1001",
-        voucherType: "Sales",
-        voucherDate: "2026-08-05",
-        amount: 14500,
-        partyName: "Walk-in Retail Customer",
-        status: "SYNCED",
-        retryCount: 0,
-        maxRetries: 3,
-        lastAttemptAt: "2026-08-05T14:30:00Z",
-        xmlPayload: this.generateSalesVoucherXML("INV-2026-1001", "2026-08-05", "Walk-in Retail Customer", 14500)
-      },
-      {
-        id: "sync-102",
-        voucherNo: "PO-2026-0045",
-        voucherType: "Purchase",
-        voucherDate: "2026-08-05",
-        amount: 85000,
-        partyName: "Apex Footwear Corp",
-        status: "PENDING",
-        retryCount: 0,
-        maxRetries: 3,
-        xmlPayload: this.generatePurchaseVoucherXML("PO-2026-0045", "2026-08-05", "Apex Footwear Corp", 85000)
-      }
-    ];
+    this.syncQueue = [];
   }
 
   public startDaemon(port: number = 9000): void {

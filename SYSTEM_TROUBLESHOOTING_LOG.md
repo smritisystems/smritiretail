@@ -1,5 +1,31 @@
 # SMRITI RETAIL OS — SYSTEM TROUBLESHOOTING LOG
 
+## ISSUE 2026-08-09-03: Real-Wiring Audit Remediation & Final Mock Business Data Elimination
+
+**Severity:** HIGH (Production Data Integrity & Empty Database Compliance)  
+**Status:** RESOLVED  
+**Date:** 2026-08-09  
+
+### Symptom
+1. `SupplierDashboardTab.tsx` and `SupplierService.ts` retained pre-seeded suppliers (`TechCorp`, `Global Supplies`, `Supreme Garments`) on clean database installations due to `data.length > 0` fallback guards.
+2. `PurchaseService.ts` retained pre-seeded PO (`PO-2025-001 Apex Footwear`) and swallowed backend save/delete errors.
+3. `CRMStudioTab.tsx` displayed 4 hardcoded lead records (`Vikram Malhotra`, `Ananya Sen`, `Karan Johar`, `Priya Desai`) and lacked backend API integration.
+4. `AccountingService.ts`, `AuditService.ts`, `QuickReportsWidget.tsx`, `LoyaltyStudioTab.tsx`, and `tallySyncEngine.ts` contained pre-seeded mock business records or hardcoded fallback rows.
+
+### Root Cause
+1. `data.length > 0` condition in fetch routines treated an empty database array (`[]`) as an API failure and retained seeded fallback arrays.
+2. `CRMStudioTab.tsx` operated on local React state without invoking canonical `GET /api/v1/leads` or `POST /api/v1/leads` endpoints.
+3. Service caches initialized with hardcoded mock arrays rather than empty arrays `[]`.
+
+### Resolution
+1. **Supplier Remediation**: Cleared seeded suppliers from `SupplierDashboardTab.tsx` and `SupplierService.ts`. Replaced `data.length > 0` check with `if (Array.isArray(data))` so empty backend response (`[]`) cleanly renders 0 suppliers.
+2. **Purchase Remediation**: Cleared seeded PO from `PurchaseService.ts`, updated fetch guard to `if (Array.isArray(data))`, and rethrown save/delete errors.
+3. **CRM Remediation**: Wired `CRMStudioTab.tsx` to canonical `GET /api/v1/leads` on mount and `POST /api/v1/leads` on creation. Removed hardcoded lead seeds. Verified Field Visits (0 backend endpoints exist; rendered honest empty state without introducing unvetted database tables).
+4. **Data Integrity Hardening**: Fixed empty array handling across `AccountingService.ts`, `AuditService.ts`, `QuickReportsWidget.tsx`, `LoyaltyStudioTab.tsx`, and `tallySyncEngine.ts`.
+5. Verified clean compilation via `npx tsc --noEmit` (0 errors) and backend pytest suite (27 passed).
+
+---
+
 ## ISSUE 2026-08-09-02: Full Frontend ↔ Backend Real Wiring & Mock Fallback Elimination
 
 **Severity:** HIGH (Production Data Integrity & Auth Integrity)  

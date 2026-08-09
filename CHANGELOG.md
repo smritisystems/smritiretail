@@ -30,6 +30,25 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Real-Wiring Audit Remediation & Mock Data Removal (SXP-RW-002)
+- **Supplier Dashboard & Kernel (`SupplierDashboardTab.tsx`, `SupplierService.ts`)**:
+  - Removed pre-seeded mock suppliers (`SUP-001` TechCorp, `SUP-002` Global Supplies, `SUP-0001` Supreme Garments) from initial states and `localCache`.
+  - Fixed `data.length > 0` fetch guards to `if (Array.isArray(data))` to ensure clean databases (0 records) display an honest 0-supplier empty state.
+- **Purchase Service Kernel (`PurchaseService.ts`)**:
+  - Removed pre-seeded mock PO (`PO-2025-001` Apex Footwear) from `localCache`.
+  - Fixed `data.length > 0` fetch guard to `if (Array.isArray(data))` to display 0 POs on clean database.
+  - Rethrow backend save and delete errors cleanly instead of returning fallback mock objects.
+- **CRM Studio Lead Pipeline (`CRMStudioTab.tsx`)**:
+  - Removed 4 hardcoded lead records (`Vikram Malhotra`, `Ananya Sen`, `Karan Johar`, `Priya Desai`) and fake field visit seeds.
+  - Wired `CRMStudioTab.tsx` to canonical backend endpoints: `GET /api/v1/leads` on mount and `POST /api/v1/leads` on lead creation.
+  - Verified Field Visits: 0 backend endpoints exist; component now displays an honest zero-state without introducing unvetted database tables per Gap 9.
+- **Accounting & Audit Services (`AccountingService.ts`, `AuditService.ts`)**:
+  - Fixed empty array response handling for vouchers and audit logs.
+  - Removed hardcoded 'SPK Bootstrapped' audit log entry from `AuditService.ts` initial cache.
+- **Reports & Widgets (`QuickReportsWidget.tsx`, `LoyaltyStudioTab.tsx`, `tallySyncEngine.ts`)**:
+  - Removed hardcoded fallback rows (`INV-2026-104`–`108`, `Karan Johar`) from `QuickReportsWidget.tsx`.
+  - Cleared seeded wallets from `LoyaltyStudioTab.tsx` and seeded Tally queue from `tallySyncEngine.ts`.
+
 ### Full Frontend ↔ Backend Real Wiring & Mock Elimination (SXP-RW-001)
 - **Authentication Hardening (`ApiAuthProvider.ts`)**:
   - Removed `isLocalDemoEnvironment()` mock fallback in `ApiAuthProvider.ts`. REAL BACKEND failures (401, 403, wrong credentials, network errors) now surface honestly to the user as real errors instead of silently converting into mock logins.

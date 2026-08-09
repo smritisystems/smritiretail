@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -571,22 +571,11 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                                   );
                                 })
                               ) : (
-                                // Realistic Fallback Items if no audit logs exist
-                                [
-                                  { time: "11:24 AM", inv: "INV-2026-104", cashier: "Amit Sharma", branch: "Andheri West, Mumbai", amt: 14200 },
-                                  { time: "01:15 PM", inv: "INV-2026-105", cashier: "Riya Patel", branch: "Andheri West, Mumbai", amt: 29500 },
-                                  { time: "03:40 PM", inv: "INV-2026-106", cashier: "Amit Sharma", branch: "Andheri West, Mumbai", amt: 54000 },
-                                  { time: "05:10 PM", inv: "INV-2026-107", cashier: "Riya Patel", branch: "Andheri West, Mumbai", amt: 39000 },
-                                  { time: "07:35 PM", inv: "INV-2026-108", cashier: "Karan Johar", branch: "Andheri West, Mumbai", amt: 82000 }
-                                ].map((row, index) => (
-                                  <tr key={index}>
-                                    <td className="py-1.5 text-theme-muted">{row.time}</td>
-                                    <td className="py-1.5 font-bold text-blue-800">{row.inv}</td>
-                                    <td className="py-1.5 text-theme-heading font-sans">{row.cashier}</td>
-                                    <td className="py-1.5 text-theme-muted font-sans">{row.branch}</td>
-                                    <td className="py-1.5 text-right font-bold text-theme-heading">{formatCurrency(row.amt * scaleFactor)}</td>
-                                  </tr>
-                                ))
+                                <tr>
+                                  <td colSpan={5} className="py-4 text-center text-theme-muted italic">
+                                    No sales transactions recorded for this period.
+                                  </td>
+                                </tr>
                               )}
                               <tr className="border-t border-theme-divider font-bold bg-theme-surface-2 font-sans">
                                 <td colSpan={4} className="py-2 text-theme-heading uppercase font-bold text-right pr-4">Aggregated Total</td>
@@ -1112,20 +1101,11 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                         );
                       })
                     ) : (
-                      [
-                        { time: "11:24 AM", inv: "INV-2026-104", cashier: "Amit Sharma", amt: 14200 },
-                        { time: "01:15 PM", inv: "INV-2026-105", cashier: "Riya Patel", amt: 29500 },
-                        { time: "03:40 PM", inv: "INV-2026-106", cashier: "Amit Sharma", amt: 54000 },
-                        { time: "05:10 PM", inv: "INV-2026-107", cashier: "Riya Patel", amt: 39000 },
-                        { time: "07:35 PM", inv: "INV-2026-108", cashier: "Karan Johar", amt: 82000 }
-                      ].map((row, index) => (
-                        <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
-                          <td style={{ padding: '6px 0' }}>{row.time}</td>
-                          <td style={{ padding: '6px 0', fontWeight: 'bold' }}>{row.inv}</td>
-                          <td style={{ padding: '6px 0' }}>{row.cashier}</td>
-                          <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(row.amt * scaleFactor)}</td>
-                        </tr>
-                      ))
+                      <tr>
+                        <td colSpan={4} style={{ padding: '12px 0', textAlign: 'center', color: '#888', fontStyle: 'italic' }}>
+                          No sales transactions recorded for this period.
+                        </td>
+                      </tr>
                     ))}
                     <tr style={{ borderTop: '2px solid black', fontWeight: 'bold', background: '#f5f5f5' }}>
                       <td colSpan={3} style={{ padding: '8px 0', textAlign: 'right', paddingRight: '15px' }}>AGGREGATED TOTAL SALES REVENUE</td>
