@@ -24,7 +24,14 @@ class CompanyCreate(BaseModel):
 
 class CompanyUpdate(BaseModel):
     name: str | None = None
+    legal_name: str | None = None
+    short_name: str | None = None
     gstNumber: str | None = None  # noqa: N815
+    company_type: str | None = None
+    industry_type: str | None = None
+    fiscal_year_start_month: int | None = None
+    currency_code: str | None = None
+    is_gst_registered: bool | None = None
     status: str | None = None
 
 

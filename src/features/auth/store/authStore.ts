@@ -1,6 +1,6 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
- * Architecture : ADR-AUTH-001 — Centralized State Machine Store
+ * Architecture : ADR-AUTH-001 â€” Centralized State Machine Store
  * Feature      : src/features/auth/store/authStore.ts
  */
 
@@ -19,17 +19,12 @@ interface AuthStoreState {
 }
 
 // Initial seeded sample organizations
-export const DEFAULT_ORGANIZATIONS: OrganizationContext[] = [
-  { id: "nalanda-main", name: "Nalanda Retail Head Office", code: "NLR-HQ", branchName: "Central Hub", isFavorite: true, lastLoginTimestamp: "Today, 08:30 AM" },
-  { id: "nalanda-south", name: "Nalanda Store — South Campus", code: "NLR-ST01", branchName: "Store #1", isFavorite: true, lastLoginTimestamp: "Yesterday, 06:15 PM" },
-  { id: "smriti-metro", name: "SMRITI Enterprise Metro Outlet", code: "SMR-MTR", branchName: "Metro Mall", lastLoginTimestamp: "04 Aug 2026" },
-  { id: "smriti-express", name: "SMRITI Express Convenience", code: "SMR-EXP", branchName: "Express Store" },
-];
+export const DEFAULT_ORGANIZATIONS: OrganizationContext[] = [];
 
 let globalState: AuthStoreState = {
   authState: "Unauthenticated",
   currentUser: null,
-  selectedOrganization: DEFAULT_ORGANIZATIONS[0],
+  selectedOrganization: null,
   progressSteps: [],
   errorMessage: null,
   isLogoutModalOpen: false,
@@ -112,3 +107,4 @@ export function useAuthStore() {
 
   return state;
 }
+

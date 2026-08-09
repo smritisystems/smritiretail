@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_current_user, get_db, require_permission
+from ...api.deps import get_current_user, get_current_tenant, get_db, require_permission, TenantContext
 from ...models.auth import User
 from ...models.company_master import Organization
 from ...models.inventory import Store, Warehouse
@@ -68,32 +68,50 @@ async def list_masters(
     entity_type: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ) -> list[Any]:
     """
     List all master entities of a given type.
     """
     norm_type = normalize_type(entity_type)
     
+    from sqlalchemy import or_
+    tid = tenant.tenant_id
+
     if norm_type == "organization":
         q_org = select(Organization).order_by(Organization.name.asc())
         res = await db.execute(q_org)
         return [OrganizationResponse.from_orm_model(x) for x in res.scalars().all()]
 
     elif norm_type == "company":
-        q_company = select(Company).where(Company.is_deleted.is_(False)).order_by(Company.name.asc())
+        q_company = (
+            select(Company)
+            .where(
+                Company.is_deleted.is_(False),
+                or_(Company.tenant_id == tid, Company.tenant_id.is_(None)),
+            )
+            .order_by(Company.name.asc())
+        )
         res = await db.execute(q_company)
         return [CompanyResponse.from_orm_model(x) for x in res.scalars().all()]
-        
+
     elif norm_type == "branch":
-        q_branch = select(Branch).where(Branch.is_deleted.is_(False)).order_by(Branch.name.asc())
+        q_branch = (
+            select(Branch)
+            .where(
+                Branch.is_deleted.is_(False),
+                or_(Branch.tenant_id == tid, Branch.tenant_id.is_(None)),
+            )
+            .order_by(Branch.name.asc())
+        )
         res = await db.execute(q_branch)
         return [BranchResponse.from_orm_model(x) for x in res.scalars().all()]
-        
+
     elif norm_type == "store":
         q_store = select(Store).where(Store.is_deleted.is_(False)).order_by(Store.name.asc())
         res = await db.execute(q_store)
         return [StoreResponse.from_orm_model(x) for x in res.scalars().all()]
-        
+
     elif norm_type == "warehouse":
         q_warehouse = select(Warehouse).where(Warehouse.is_deleted.is_(False)).order_by(Warehouse.name.asc())
         res = await db.execute(q_warehouse)
@@ -112,6 +130,7 @@ async def create_master(
     payload: dict,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ) -> Any:
     """
     Create a new organizational master entity record.
@@ -138,6 +157,7 @@ async def create_master(
         new_id = f"comp-{timestamp_ms}"
         item_company = Company()
         item_company.id = new_id
+        item_company.tenant_id = tenant.tenant_id
         item_company.name = req_company.name
         item_company.gst_number = req_company.gstNumber
         item_company.is_active = req_company.status == "Active" if req_company.status else True
@@ -160,6 +180,7 @@ async def create_master(
         new_id = f"br-{timestamp_ms}"
         item_branch = Branch()
         item_branch.id = new_id
+        item_branch.tenant_id = tenant.tenant_id
         item_branch.company_id = req_branch.company
         item_branch.name = req_branch.name
         item_branch.code = req_branch.code
@@ -243,6 +264,7 @@ async def update_master(
     payload: dict,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ) -> Any:
     """
     Update organizational master entity record details.
@@ -269,14 +291,30 @@ async def update_master(
         item_company = await db.get(Company, id)
         if not item_company or item_company.is_deleted:
             raise HTTPException(status_code=404, detail="Company not found.")
-        
+        if item_company.tenant_id and item_company.tenant_id != tenant.tenant_id:
+            raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
+
         if req_company.name is not None:
             item_company.name = req_company.name
+        if req_company.legal_name is not None:
+            item_company.legal_name = req_company.legal_name
+        if req_company.short_name is not None:
+            item_company.short_name = req_company.short_name
         if req_company.gstNumber is not None:
             item_company.gst_number = req_company.gstNumber
+        if req_company.company_type is not None:
+            item_company.company_type = req_company.company_type
+        if req_company.industry_type is not None:
+            item_company.industry_type = req_company.industry_type
+        if req_company.fiscal_year_start_month is not None:
+            item_company.fiscal_year_start_month = req_company.fiscal_year_start_month
+        if req_company.currency_code is not None:
+            item_company.currency_code = req_company.currency_code
+        if req_company.is_gst_registered is not None:
+            item_company.is_gst_registered = req_company.is_gst_registered
         if req_company.status is not None:
             item_company.is_active = req_company.status == "Active"
-        
+
         await db.commit()
         await db.refresh(item_company)
         return CompanyResponse.from_orm_model(item_company)
@@ -286,6 +324,8 @@ async def update_master(
         item_branch = await db.get(Branch, id)
         if not item_branch or item_branch.is_deleted:
             raise HTTPException(status_code=404, detail="Branch not found.")
+        if item_branch.tenant_id and item_branch.tenant_id != tenant.tenant_id:
+            raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
         
         if req_branch.company:
             company_exists = await db.get(Company, req_branch.company)
@@ -391,6 +431,7 @@ async def delete_master(
     id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_current_tenant),
 ) -> Any:
     """
     Soft delete / Retire organizational master entity record.
@@ -410,6 +451,8 @@ async def delete_master(
         item_company = await db.get(Company, id)
         if not item_company or item_company.is_deleted:
             raise HTTPException(status_code=404, detail="Company not found.")
+        if item_company.tenant_id and item_company.tenant_id != tenant.tenant_id:
+            raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
         item_company.is_deleted = True
         item_company.modified_at = datetime.now(UTC)
         await db.commit()
@@ -419,6 +462,8 @@ async def delete_master(
         item_branch = await db.get(Branch, id)
         if not item_branch or item_branch.is_deleted:
             raise HTTPException(status_code=404, detail="Branch not found.")
+        if item_branch.tenant_id and item_branch.tenant_id != tenant.tenant_id:
+            raise HTTPException(status_code=403, detail="Not authorized for this tenant.")
         item_branch.is_deleted = True
         item_branch.modified_at = datetime.now(UTC)
         await db.commit()

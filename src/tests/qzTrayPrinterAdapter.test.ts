@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Module       : QZ Tray Printer Transport Adapter Unit Tests
  * Standard     : SCS-PRINT-QZ-TESTS v1.0
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -31,7 +31,7 @@ describe("QZ Tray Transport Adapter Test Suite", () => {
   it("2. Connects to live QZ Tray WebSocket port 8182", async () => {
     const conn = await adapter.connect().catch(() => null);
     if (!conn) {
-      console.warn("[QZ Tray] Not running on port 8182 — skipping live connection test");
+      console.warn("[QZ Tray] Not running on port 8182 â€” skipping live connection test");
       return;
     }
     expect(conn.socket).toBeDefined();
@@ -44,11 +44,11 @@ describe("QZ Tray Transport Adapter Test Suite", () => {
     try {
       disc = await adapter.discover("Honeywell");
     } catch {
-      console.warn("[QZ Tray] Not available — skipping printer discovery test");
+      console.warn("[QZ Tray] Not available â€” skipping printer discovery test");
       return;
     }
-    if (disc.status === "QZ_NOT_CONNECTED" || disc.status === "QZ_TRAY_NOT_RUNNING") {
-      console.warn(`[QZ Tray] Reported ${disc.status} — skipping live discovery assertions`);
+    if (disc.status === "NOT_CONNECTED" || disc.status === "ERROR") {
+      console.warn(`[QZ Tray] Reported ${disc.status} â€” skipping live discovery assertions`);
       return;
     }
     expect(disc.status).toBe("CONNECTED");
@@ -63,11 +63,11 @@ describe("QZ Tray Transport Adapter Test Suite", () => {
     try {
       disc = await adapter.discover(targetName);
     } catch {
-      console.warn("[QZ Tray] Not available — skipping exact match test");
+      console.warn("[QZ Tray] Not available â€” skipping exact match test");
       return;
     }
-    if (disc.status === "QZ_NOT_CONNECTED" || disc.status === "QZ_TRAY_NOT_RUNNING") {
-      console.warn(`[QZ Tray] Reported ${disc.status} — skipping exact match assertions`);
+    if (disc.status === "NOT_CONNECTED" || disc.status === "ERROR") {
+      console.warn(`[QZ Tray] Reported ${disc.status} â€” skipping exact match assertions`);
       return;
     }
     expect(disc.exactMatch).toBe(targetName);
@@ -170,3 +170,4 @@ describe("QZ Tray Transport Adapter Test Suite", () => {
     expect(status.statusMessage.includes("QZ Tray online")).toBe(true);
   });
 });
+
