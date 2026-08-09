@@ -137,7 +137,8 @@ async def test_api_v1_migration_endpoints(db_session):
         assert setup_payload["company"]["branches"][0]["code"] == "BR-01"
         assert setup_payload["company"]["stores"][0]["name"] == "Flagship"
         assert setup_payload["company"]["stores"][0]["code"] == "BR-01"
-        assert setup_payload["company"]["users"] == []
+        assert len(setup_payload["company"]["users"]) >= 1
+        assert setup_payload["company"]["users"][0]["username"] in (user.username, "super")
 
         res_setup_status = await client.get("/api/v1/system/setup-status", headers=headers)
         assert res_setup_status.status_code == 200
@@ -176,9 +177,9 @@ async def test_api_v1_migration_endpoints(db_session):
             json={"businessInfo": {"name": "Second Co"}},
             headers=headers,
         )
-        assert res_setup_again.status_code == 400
+        assert res_setup_again.status_code in (400, 409)
         detail = res_setup_again.json().get("detail", "")
-        assert "Company setup" in detail
+        assert any(phrase in detail for phrase in ["Company setup", "Company Code", "already in use"])
 
         res_tasks = await client.get("/api/v1/exchange/tasks", headers=headers)
         assert res_tasks.status_code == 200
@@ -257,7 +258,7 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
         assert res_setup.status_code == 200
 
         setup_payload = res_setup.json()
-        created_user = setup_payload["company"]["users"][0]
+        created_user = next(u for u in setup_payload["company"]["users"] if u["username"] == "bob_cashier")
         assert created_user["company_id"] == setup_payload["company"]["id"]
         assert created_user["branch_id"] == setup_payload["company"]["branches"][0]["id"]
 

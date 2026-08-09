@@ -105,9 +105,18 @@ def scan_codebase() -> dict[str, Any]:
     doc_files = []
 
     extensions = {".ts", ".tsx", ".js", ".jsx", ".css", ".sql", ".md", ".json", ".py"}
-    exclude_dirs = {"node_modules", "dist", ".git", ".gemini", ".agents", ".venv", ".venv311"}
+    exclude_dirs = {
+        "node_modules", "dist", ".git", ".gemini", ".agents",
+        ".venv", ".venv311", ".pytest_cache", "__pycache__",
+        ".mypy_cache", ".ruff_cache", ".cache", "scratch",
+    }
 
-    for dirpath, dirnames, filenames in os.walk(root_dir):
+    def _ignore_permission_errors(err: OSError) -> None:
+        if isinstance(err, PermissionError):
+            return
+        raise err
+
+    for dirpath, dirnames, filenames in os.walk(root_dir, onerror=_ignore_permission_errors):
         # Filter directories to avoid recursion overhead
         dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
         for f in filenames:
@@ -423,13 +432,14 @@ def scan_codebase() -> dict[str, Any]:
     }
 
     try:
-        git_info["branch"] = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True).strip()
-        git_info["lastCommitHash"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%h"], text=True).strip()
-        git_info["lastCommitMessage"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%s"], text=True).strip()
-        git_info["lastCommitAuthor"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%an"], text=True).strip()
-        git_info["lastCommitDate"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%ad", "--date=short"], text=True).strip()
-        git_info["commitCount"] = int(subprocess.check_output(["git", "rev-list", "--count", "HEAD"], text=True).strip())
-        status_out = subprocess.check_output(["git", "status", "--porcelain"], text=True).strip()
+        _devnull = subprocess.DEVNULL
+        git_info["branch"] = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True, stderr=_devnull).strip()
+        git_info["lastCommitHash"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%h"], text=True, stderr=_devnull).strip()
+        git_info["lastCommitMessage"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%s"], text=True, stderr=_devnull).strip()
+        git_info["lastCommitAuthor"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%an"], text=True, stderr=_devnull).strip()
+        git_info["lastCommitDate"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%ad", "--date=short"], text=True, stderr=_devnull).strip()
+        git_info["commitCount"] = int(subprocess.check_output(["git", "rev-list", "--count", "HEAD"], text=True, stderr=_devnull).strip())
+        status_out = subprocess.check_output(["git", "status", "--porcelain", "--no-ahead-behind"], text=True, stderr=_devnull).strip()
         if status_out:
             git_info["pendingFiles"] = [line[3:].strip() for line in status_out.splitlines()]
             git_info["pendingChangesCount"] = len(git_info["pendingFiles"])
