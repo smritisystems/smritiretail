@@ -1,5 +1,26 @@
 # SMRITI RETAIL OS — SYSTEM TROUBLESHOOTING LOG
 
+## ISSUE 2026-08-09-01: OrganizationStudio 404 Company List Route Failure
+
+**Severity:** MEDIUM (UI Endpoint Resolution)  
+**Status:** RESOLVED  
+**Date:** 2026-08-09  
+
+### Symptom
+Browser console reported `404 (Not Found)` on `:3000/api/v1/system/company/list` when opening Organization Studio, causing `OrganizationStudio-DNNDVbF1.js` to catch a top-level error and abort rendering of company, branch, warehouse, and user data.
+
+### Root Cause
+1. `OrganizationStudio.tsx` called `/api/v1/system/company/list` as its primary loader. `apiFetchV1` automatically prepends `/api/v1` to relative paths.
+2. The FastAPI backend does not define a `/system/company/list` route. The actual master endpoint is `/api/v1/masters/company` (or `/api/v1/auth/tenants`).
+3. Calling a non-existent endpoint caused `apiFetchV1` to throw an error that jumped straight to the outer `catch` block, skipping downstream calls to `/masters/branch`, `/masters/warehouse`, and `/users/`.
+
+### Resolution
+1. Replaced `/api/v1/system/company/list` in `OrganizationStudio.tsx` with direct call to `/masters/company`.
+2. Wrapped each master entity fetch (`companies`, `branches`, `warehouses`, `users`) in isolated `try/catch` blocks so that a failure in one master query does not block rendering of the remaining tabs.
+3. Verified clean resolution with `npx tsc --noEmit` returning 0 errors.
+
+---
+
 ## ISSUE 2026-08-08-01: Phase E Certification Docker Network & Migration Alignment Failure
 
 **Severity:** BLOCKER (Environment & Integration)  

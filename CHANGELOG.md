@@ -30,6 +30,28 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Organization Module — Real Editing Wire-Up & Multi-Tenant Isolation (SCS-ORG-001)
+- **Multi-Tenant Isolation Hardening (`masters.py`)**:
+  - Implemented `TenantContext` isolation on all organizational master entities (`Company`, `Branch`, `Organization`, `Store`, `Warehouse`).
+  - `list_masters()` now enforces tenant-scoped filtering: `or_(Entity.tenant_id == tid, Entity.tenant_id.is_(None))`.
+  - `create_master()` stamps `tenant_id = tenant.tenant_id` on all new entity records.
+  - `update_master()` and `delete_master()` enforce strict tenant ownership checks returning `403 Forbidden` for cross-tenant mutation attempts.
+- **Company Schema Expansion (`masters_tier2.py`)**:
+  - Expanded `CompanyUpdate` and `CompanyResponse` schemas to expose `legal_name`, `short_name`, `company_type`, `industry_type`, `fiscal_year_start_month`, `currency_code`, and `is_gst_registered`.
+  - Fixed `from_orm_model()` to serialize all legal and financial parameters, preventing edit forms from resetting company metadata to defaults.
+- **Organization Studio UI Modernization (`OrganizationStudio.tsx`)**:
+  - Wired real CRUD operations against `/api/v1/masters/*` and `/api/v1/users/`.
+  - Created `CompanyEditModal.tsx` for inline company attribute updates.
+  - Created data-driven `BranchFormModal.tsx` and `WarehouseFormModal.tsx` for Branch/Store and Warehouse/Stock Room management (Create, Edit, Retire).
+  - Removed all hardcoded fallback data (`SMRITI Footwear Pvt Ltd`, hardcoded branches/warehouses), replacing errors with an `AlertCircle` banner and `Retry` action.
+  - Replaced static licensing and financial year mockups with honest empty state indicators.
+  - Updated `OrganizationSelector.tsx` to dynamically fetch active tenant companies from `/api/v1/auth/tenants` and `/api/v1/masters/company`.
+
+### SMRITI DHI — Quality Score Forensic Audit
+- Completed comprehensive forensic audit of the 15% DHI Quality Score (`SMRITI_DHI_QUALITY_FORENSIC_AUDIT_V1.md`).
+- Deconstructed score formula (`qualityScore = max(0, 100 - floor(todos/10) - 2 * len(large_components))`).
+- Identified root cause of Billing Desk (52%) and CRM & Loyalty (44%) risk flags as stale scanner metadata (`CrmLoyaltyTab.tsx` vs `CrmStudioTab.tsx`) and route prefix exception-list mismatches (`pos.py`).
+
 ### Universal Printing Kernel — Real Hardware Certification Audit (IMPACT by Honeywell IH-2)
 - **Host OS Printer Queue Discovery (`Get-Printer`)**:
   - Successfully enumerated physical Windows printer queue: `IMPACT by Honeywell IH-2 (300 dpi) - DPL` (Driver: `IMPACT by Honeywell IH-2 (300 dpi) - DPL`, Port: `FILE:`).

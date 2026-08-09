@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Module       : OrganizationStudio (SCS-ORG-001 & SCS-PRO-001 Standard)
  * Description  : Enterprise Organization Studio under Administration -> Organization Studio.
@@ -79,49 +79,49 @@ export const OrganizationStudio: React.FC = () => {
   const fetchOrganizationData = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+
+    // 1. Fetch Companies
     try {
-      // 1. Fetch Companies
-      const compRes = await apiFetchV1("/api/v1/system/company/list");
-      if (compRes && compRes.companies) {
-        setCompanies(compRes.companies);
-        if (compRes.companies.length > 0) {
-          setActiveCompanyId(compRes.activeCompanyId || compRes.companies[0].id);
-        }
-      } else {
-        const mastersComp = await apiFetchV1("/masters/company");
-        if (Array.isArray(mastersComp)) {
-          setCompanies(mastersComp);
-          if (mastersComp.length > 0) setActiveCompanyId(mastersComp[0].id);
+      const mastersComp = await apiFetchV1("/masters/company");
+      if (Array.isArray(mastersComp)) {
+        setCompanies(mastersComp);
+        if (mastersComp.length > 0) {
+          setActiveCompanyId((prev) => prev || mastersComp[0].id);
         }
       }
+    } catch (err: any) {
+      console.error("Failed to load companies:", err);
+      setLoadError(err.message || "Could not load company data.");
+    }
 
-      // 2. Fetch Branches
+    // 2. Fetch Branches
+    try {
       const branchRes = await apiFetchV1("/masters/branch");
       if (Array.isArray(branchRes)) {
         setBranches(branchRes);
       }
+    } catch (err: any) {
+      console.error("Failed to load branches:", err);
+    }
 
-      // 3. Fetch Warehouses
+    // 3. Fetch Warehouses
+    try {
       const whRes = await apiFetchV1("/masters/warehouse");
       if (Array.isArray(whRes)) {
         setWarehouses(whRes);
       }
-
-      // 4. Fetch Users
-      try {
-        const userRes = await apiFetchV1("/users/");
-        if (userRes && Array.isArray(userRes.users)) {
-          setUsers(userRes.users);
-        }
-      } catch {
-        // Non-critical if user endpoint requires elevated role
-      }
     } catch (err: any) {
-      console.error("Failed to load organization data:", err);
-      setLoadError(err.message || "Could not load organization data. Check backend connection.");
-      setCompanies([]);
-      setBranches([]);
-      setWarehouses([]);
+      console.error("Failed to load warehouses:", err);
+    }
+
+    // 4. Fetch Users
+    try {
+      const userRes = await apiFetchV1("/users/");
+      if (userRes && Array.isArray(userRes.users)) {
+        setUsers(userRes.users);
+      }
+    } catch {
+      // Non-critical if user endpoint requires elevated role
     } finally {
       setLoading(false);
     }
