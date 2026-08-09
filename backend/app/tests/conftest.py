@@ -39,8 +39,13 @@ def event_loop():
     loop.close()
 
 @pytest.fixture
-async def db_engine():
-    engine = create_async_engine(settings.DATABASE_URL, echo=True)
+async def db_engine(db_available):
+    if not db_available:
+        pytest.skip("PostgreSQL unavailable — skipping DB integration test (start PostgreSQL to run)")
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=True,
+    )
     from sqlalchemy import text
     async with engine.begin() as conn:
         await conn.execute(text("""
@@ -83,6 +88,28 @@ async def db_engine():
         """))
     yield engine
     await engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def db_available():
+    """
+    Session-scoped fixture that checks PostgreSQL reachability once.
+    Tests that depend on db_session are skipped automatically if the DB is unreachable,
+    preventing the test suite from hanging indefinitely on missing/offline DB connections.
+    """
+    import asyncio
+    import socket
+    from urllib.parse import urlparse
+
+    url = urlparse(settings.DATABASE_URL)
+    host = url.hostname or "localhost"
+    port = url.port or 5432
+    try:
+        with socket.create_connection((host, port), timeout=3):
+            return True
+    except (OSError, ConnectionRefusedError):
+        return False
+
 
 @pytest.fixture
 async def db_session(db_engine) -> AsyncSession:

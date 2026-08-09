@@ -27,6 +27,7 @@ from app.api.deps import TenantContext
 from app.models.purchase import (
     BlanketPurchaseAgreement, BlanketPurchaseAgreementLine, PurchaseOrder, Supplier
 )
+from app.models.size_master import SizeScale  # noqa: F401 — ensures SizeScale is in the SQLAlchemy mapper registry before Product relationship string resolves
 from app.models.inventory import Product
 from app.services.inventory import InventoryService
 from app.schemas.inventory import ProductCreate

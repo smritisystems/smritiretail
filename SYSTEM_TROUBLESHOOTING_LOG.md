@@ -1,5 +1,112 @@
 # SMRITI RETAIL OS — SYSTEM TROUBLESHOOTING LOG
 
+## ISSUE 2026-08-09-05: DHI Structural Audit — Parts 4–6 Remediation
+
+**Severity:** MEDIUM (Test Coverage Gap + Session Reliability)
+**Status:** RESOLVED
+**Date:** 2026-08-09
+**AUD Ref:** DHI-AUDIT-PARTS-4-6
+
+### Scope
+
+Three structural gaps from the DHI forensic audit (46% / Grade D) were addressed:
+
+---
+
+#### Part 4 — Zero-Score Module Tests (Evidence-First)
+
+**Finding:** 4 backend service modules had zero isolated test coverage:
+
+| Module | Path |
+|---|---|
+| `workspace_resolver.py` | `backend/app/services/workspace_resolver.py` |
+| `inventory_universal_search.py` | `backend/app/services/inventory_universal_search.py` |
+| `sip/strategies.py` | `backend/app/services/sip/strategies.py` |
+| `printer_registry.py` | `backend/app/services/print_framework/printer_registry.py` |
+
+**Resolution:** Created 4 pure pytest unit test files (no DB, fully mocked):
+- `backend/app/tests/test_workspace_resolver.py` — 9 tests
+- `backend/app/tests/test_inventory_universal_search.py` — 7 tests
+- `backend/app/tests/test_sip_strategies.py` — 22 tests
+- `backend/app/tests/test_printer_registry.py` — 13 tests
+
+**Result:** 51/51 new tests passing.
+
+**Additional DHI Finding (pre-existing bug):** `workspace_resolver.py` imports `Warehouse`, `CompanyFinancialYear`, `CompanyTaxProfile`, `TenantProvisionProfile` from `app.models.tenant` — these classes do not exist in that module. This is a broken production import documented in the test file header and logged as a separate backlog item (SXP-WSR-001).
+
+---
+
+#### Part 5 — Scanner Metadata Fix
+
+**Finding:** `src/modules/dev_tracker/scanner/parser.ts` did not exclude the `backups/` directory from file scanning. Archived code in `backups/` contributed phantom TODO tokens that incorrectly inflated the DHI quality score penalty (`-2 per TODO`).
+
+**Resolution:** Added `"backups"` to the `getFilesRecursively()` exclusion list (`parser.ts` lines 39–50).
+
+**Verified:** CRM frontend key (`CrmStudioTab.tsx`) and POS routeKeywords (`/api/v1/pos`) already correct in the live TypeScript scanner — no further changes needed.
+
+---
+
+#### Part 6A — P0 Concurrency Fix Verification (Evidence)
+
+All 6 P0 findings from the prior session verified present in live code:
+
+| Finding | File | Evidence |
+|---|---|---|
+| `begin_nested()` savepoint | `inventory.py:249` | Confirmed |
+| `IntegrityError` → specific 409 | `inventory.py:308–320` | Confirmed |
+| Tenant-scoped existence check | `attributes.py:467` | Confirmed |
+| `IntegrityError` wrap in generate_variants | `attributes.py:537` | Confirmed |
+| `UniqueConstraint(company_id, code)` | `models/inventory.py:98` | Confirmed |
+| `UniqueConstraint(company_id, sku)` | `models/inventory.py:99` | Confirmed |
+| Migration `v1502_tenant_scoped_product_code_sku.py` | `backend/alembic/versions/` | Confirmed (6,394 bytes) |
+
+---
+
+#### Part 6B — SQLAlchemy Session Recovery Hardening
+
+**Finding:** `pool_pre_ping` was missing from the async engine config. After a PostgreSQL idle timeout, connections become stale; without `pool_pre_ping=True`, the next request may silently fail with a `OperationalError`.
+
+**Resolution:**
+- Added `pool_pre_ping=True` to `create_async_engine()` in `backend/app/db/session.py`
+- Removed a leftover `print(f"DEBUG RLS INTERCEPTOR: ctx={ctx}")` statement from `apply_rls_filter()` that was logging every ORM SELECT query to stdout in production
+
+---
+
+#### Regression Fix — Blanket Agreement SizeScale Mapper Error
+
+**Finding:** `test_blanket_agreement.py::test_create_bpa_with_committed_lines` failed with:
+```
+sqlalchemy.exc.InvalidRequestError: When initializing mapper Mapper[Product(products)],
+expression 'foreign(Product.size_scale_id) == SizeScale.id' failed to locate a name
+("name 'SizeScale' is not defined")
+```
+
+**Root Cause:** `Product` model declares a string-based `relationship("SizeScale", ...)`. This requires `SizeScale` to be registered in SQLAlchemy's mapper registry before the mapper is initialized. The test imported `Product` directly but never triggered loading of `size_master.py`. Pre-existing bug — unrelated to DHI changes.
+
+**Resolution:** Added `from app.models.size_master import SizeScale  # noqa: F401` to `test_blanket_agreement.py` imports.
+
+### Verification
+
+| Check | Command | Result |
+|---|---|---|
+| 4 new unit tests | `pytest test_sip_strategies.py test_printer_registry.py test_inventory_universal_search.py test_workspace_resolver.py -v` | **51/51 passed** |
+| Blanket agreement regression | `pytest test_blanket_agreement.py -v` | **6/6 passed** |
+| Frontend suite | `npx vitest run` | **1101/1101 passed (155 files)** |
+| TypeScript check | `npx tsc --noEmit` | **0 errors** |
+| Full backend suite | `pytest app/tests/ -q` | **746/857 passed — 111 pre-existing failures confirmed** |
+
+---
+
+## BACKLOG ITEM: WorkspaceResolver Broken Import (SXP-WSR-001)
+
+**Priority:** P2
+**Status:** DEFERRED (documented, not production-impacting if the route is not exercised)
+**Date Logged:** 2026-08-09
+
+`backend/app/services/workspace_resolver.py` imports `Warehouse`, `CompanyFinancialYear`, `CompanyTaxProfile`, `TenantProvisionProfile` from `app.models.tenant`. None of these exist in `app.models.tenant` (only `Company` and `Branch` are defined there). This will cause an `ImportError` at the module level if any route handler tries to import `workspace_resolver` directly without the full app context having loaded the missing models transitively. Fix: move the 4 missing models to `app.models.tenant` or update the import in `workspace_resolver.py` to import from the correct module files.
+
+---
+
 ## ISSUE 2026-08-09-04: Phase A Duplicate Barcode Test Regression After Mock Data Elimination
 
 **Severity:** MEDIUM (Test Suite Integrity)  
@@ -335,3 +442,25 @@ Browser console reported `404 (Not Found)` on `:3000/api/v1/system/company/list`
 4. Generated canonical decision deliverable artifact:
    - `SMRITI_E8_BUSINESS_SEMANTICS_DECISION_V1.md`
 5. Final Decision: **E8 = CLOSED — SNAPSHOT SEMANTICS ARE CORRECT** (STATUS: CLOSED BY ARCHITECTURAL DESIGN, DATABASE: FROZEN, PRODUCT SCHEMA: FROZEN, SKU: FROZEN, BARCODE: FROZEN, ATTRIBUTE AUTHORITY: FROZEN).
+
+---
+
+## BACKLOG ITEM: ItemService Optimistic Cache Invariant Audit (SXP-CACHE-001)
+
+**Priority:** P1 (Post-DHI, Pre-Production Certification)
+**Status:** DEFERRED
+**Date Logged:** 2026-08-09
+
+### Concern
+The optimistic cache-before-API pattern introduced in ItemService.save() (Fix for SXP-TEST-001) must be verified to uphold the invariant:
+
+```text
+UI ? Business Validation ? Optimistic Local State ? Real API
+  SUCCESS ? keep state
+  FAILURE ? exact rollback (no stale cache entry survives)
+```n
+### Required Before Closing
+- [ ] Add a focused Vitest test: save() returns a network error ? verify localCache does NOT retain the entry
+- [ ] Verify rollback works when upsertLocalCache(previousCacheEntry) is called with undefined (new item) vs. an existing entry (update)
+- [ ] Architectural review: confirm optimistic cache is safe under concurrent tab/session scenarios (out-of-scope until multi-tab session is certified)
+

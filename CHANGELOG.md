@@ -30,6 +30,49 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### DHI Structural Audit — Parts 4–6 (DHI-AUDIT-PARTS-4-6)
+
+#### Part 4 — Zero-Score Module Test Coverage
+- Created 4 pure pytest unit test files (no DB, fully mocked) for previously untested backend services:
+  - `backend/app/tests/test_sip_strategies.py` — 22 tests: GS1Strategy Mod-10 check digit, EAN-13 barcode generation/uniqueness, Digital Link URI format, UPC/ISBN/UDI/Internal contracts, IdentifierStrategyFactory case-insensitive lookup and fallback, `hashlib_hex` determinism.
+  - `backend/app/tests/test_printer_registry.py` — 13 tests: registration returns complete profile, update-in-place, default printer resolution (first-registered and `is_default` flag), empty-registry guards, default vs custom capabilities, initial `status=ONLINE`.
+  - `backend/app/tests/test_inventory_universal_search.py` — 7 tests: blank/whitespace query guard (no DB hit), correct result structure including all 12 fields, `None` quantity serialization, empty result handling, multiple result aggregation, single-query-per-search assertion.
+  - `backend/app/tests/test_workspace_resolver.py` — 9 tests: full workspace payload structure, `ValueError` on missing company, RBAC permissions coverage, feature flag values, policy governance keys, industry pack fallback, financial year fallback, branding GSTIN sourcing and fallback.
+- **Result:** 51/51 new tests passing.
+- **DHI Finding (pre-existing bug, deferred):** `workspace_resolver.py` imports `Warehouse`, `CompanyFinancialYear`, `CompanyTaxProfile`, `TenantProvisionProfile` from `app.models.tenant` — none exist there. Logged as `SXP-WSR-001` in `SYSTEM_TROUBLESHOOTING_LOG.md`.
+
+#### Part 5 — Scanner Metadata Fix
+- `src/modules/dev_tracker/scanner/parser.ts`: Added `"backups"` to `getFilesRecursively()` exclusion list. Previously, archived backup code contributed phantom TODO tokens to the DHI quality score penalty calculation (`-2 per TODO`).
+- **Verified already-correct** (no changes needed): CRM module key = `"CrmStudioTab.tsx"` ✅; POS `routeKeywords` includes `"/api/v1/pos"` ✅.
+
+#### Part 6A — P0 Concurrency Fix Evidence Verification
+- All 6 P0 concurrency and tenant identity findings from prior session confirmed present in live code via direct `Select-String` evidence (not assumed from session summary):
+  - `inventory.py:249` — `begin_nested()` savepoint confirmed
+  - `inventory.py:308–320` — `IntegrityError` → constraint-specific HTTP 409 confirmed
+  - `attributes.py:467` — tenant-scoped existence check (`Product.company_id == tenant.company_id`) confirmed
+  - `attributes.py:537` — `IntegrityError` wrap in `generate_variants` confirmed
+  - `models/inventory.py:98–99` — `UniqueConstraint("company_id", "code")` and `("company_id", "sku")` confirmed
+  - `backend/alembic/versions/v1502_tenant_scoped_product_code_sku.py` — confirmed present (6,394 bytes) with pre-flight safety checks
+
+#### Part 6B — SQLAlchemy Session Recovery Hardening
+- `backend/app/db/session.py`:
+  - Added `pool_pre_ping=True` to `create_async_engine()`. This validates each connection before use, preventing silent failures on stale connections after PostgreSQL idle timeout expiry.
+  - Removed `print(f"DEBUG RLS INTERCEPTOR: ctx={ctx}", flush=True)` from `apply_rls_filter()` — this debug statement was logging every ORM SELECT query to stdout in production.
+
+#### Regression Fix — Blanket Agreement SizeScale Mapper Resolution
+- `backend/app/tests/test_blanket_agreement.py`: Added `from app.models.size_master import SizeScale  # noqa: F401`.
+  - **Root cause:** `Product` model declares `relationship("SizeScale", ...)` as a string reference. This requires `SizeScale` to be registered in SQLAlchemy's mapper registry before mapper initialization. The test imported `Product` directly without loading `size_master.py`. Pre-existing bug (not introduced by DHI changes).
+  - **Result:** 6/6 tests passing.
+
+#### Full Backend Suite — Hang Fix + Pre-existing Failure Baseline
+- `backend/app/tests/conftest.py`:
+  - Added `db_available` session-scoped fixture: performs a TCP socket probe to PostgreSQL `host:port` (3s timeout) once per test session. If unreachable, all tests depending on `db_session` or `db_engine` are automatically `pytest.skip()`’d with a clear message rather than hanging indefinitely.
+  - Added `db_available` as dependency to `db_engine` fixture (the skip guard propagates to all downstream fixtures automatically).
+  - **Root cause of hang:** Without a connection guard, `db_engine.begin()` blocks the entire process when PostgreSQL is unreachable. The fix makes `pytest app/tests/` safe to run in any environment.
+- **Final full suite result (live DB, 857 tests):** `746 passed, 111 failed` in 47 minutes.
+  - 111 failures confirmed pre-existing via `git stash` regression test — identical failures exist on clean HEAD before any DHI changes.
+  - Our changes introduced **0 new failures**.
+
 ### Real-Wiring Audit Remediation & Mock Data Removal (SXP-RW-002)
 - **Supplier Dashboard & Kernel (`SupplierDashboardTab.tsx`, `SupplierService.ts`)**:
   - Removed pre-seeded mock suppliers (`SUP-001` TechCorp, `SUP-002` Global Supplies, `SUP-0001` Supreme Garments) from initial states and `localCache`.

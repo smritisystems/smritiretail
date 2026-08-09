@@ -46,7 +46,8 @@ export function getFilesRecursively(dir: string, extensions: string[] = [".ts", 
         file !== "venv" && 
         file !== "__pycache__" && 
         file !== ".pytest_cache" && 
-        file !== ".mypy_cache"
+        file !== ".mypy_cache" &&
+        file !== "backups"
       ) {
         results = results.concat(getFilesRecursively(filePath, extensions));
       }

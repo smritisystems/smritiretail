@@ -27,7 +27,8 @@ engine = create_async_engine(
     echo=False,
     pool_size=10,
     max_overflow=20,
-    pool_recycle=1800
+    pool_recycle=1800,
+    pool_pre_ping=True,  # Validates connections before use; prevents stale-connection failures after PostgreSQL idle timeout (SXP-SESSION-001)
 )
 
 # Create Async Session factory
@@ -104,7 +105,6 @@ def apply_rls_filter(execute_state):
     """
     if execute_state.is_select and not execute_state.execution_options.get("ignore_rls_isolation", False):
         ctx = active_security_context.get()
-        print(f"DEBUG RLS INTERCEPTOR: ctx={ctx}", flush=True)
         if ctx and not ctx.platform_admin:
             from ..db.base import RowSecuredMixin
             scope = ctx.record_scope
