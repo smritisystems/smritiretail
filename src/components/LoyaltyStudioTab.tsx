@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -29,13 +29,8 @@ export const LoyaltyStudioTab: React.FC<LoyaltyStudioTabProps> = ({ currentUser 
   const [searchQuery, setSearchQuery] = useState("");
   const [pointsRate, setPointsRate] = useState(1);
 
-  // Seed Data
-  const [wallets, setWallets] = useState<Wallet[]>([
-    { id: "W-100", customer: "Priya Desai", points: 4500, tier: "Platinum" },
-    { id: "W-101", customer: "Rahul Sharma", points: 1200, tier: "Gold" },
-    { id: "W-102", customer: "Amit Kumar", points: 850, tier: "Gold" },
-    { id: "W-103", customer: "Neha Gupta", points: 300, tier: "Silver" },
-  ]);
+  // Wallet state — populated from backend loyalty API
+  const [wallets, setWallets] = useState<Wallet[]>([]);
 
   // Telemetry Audit log triggers
   useEffect(() => {

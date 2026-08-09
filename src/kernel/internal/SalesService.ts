@@ -18,12 +18,13 @@ export class SalesService implements ISalesService {
   public async getAllInvoices(): Promise<SalesInvoiceRecord[]> {
     try {
       const data = await apiFetchV1("/sales/invoices/");
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         this.localCache = data.map((inv: any) => this.normalizeBackendInvoice(inv));
         return this.localCache;
       }
     } catch (e) {
-      logger.warn("[SalesService] API unreachable. Serving cached sales invoices.", e as unknown);
+      logger.error("[SalesService] API unreachable.", e as unknown);
+      throw e;
     }
     return this.localCache;
   }

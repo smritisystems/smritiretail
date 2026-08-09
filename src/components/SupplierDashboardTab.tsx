@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS v5.0
  * Module       : Supplier & Vendor Management Platform
  *                SMRITI Adaptive Form Framework â€” Quick Add + Advanced Add
@@ -228,81 +228,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
   });
 
   /* â”€â”€ Seeded suppliers â”€â”€ */
-  const [suppliers, setSuppliers] = useState<SupplierItem[]>([
-    {
-      id: "SUP-001", code: "SUP-001", name: "TechCorp Distributors",
-      legal_name: "TechCorp India Private Limited", display_name: "TechCorp Tech Hub",
-      trade_name: "TechCorp India Ltd", supplier_type_id: "Distributor",
-      group: "Electronics", contact_person: "Rajesh Kumar",
-      designation: "Senior Manager", mobile: "+91 98200 12345",
-      alt_mobile: "+91 98200 11111", whatsapp: "+91 98200 12345",
-      email: "rajesh@techcorp.com", website: "https://techcorp.com",
-      gst_number: "27ABCDE1234F1Z5", pan_number: "ABCDE1234F",
-      tan_number: "MUMB12345F", cin_number: "U72200MH2010PTC123456",
-      gst_type: "Regular", place_of_supply: "Maharashtra",
-      balance: "₹1,20,000", outstanding_balance: 120000,
-      credit_limit: 500000, credit_days: 30, opening_balance: 25000,
-      payment_terms: "Net 30 Days", status: "Approved",
-      city: "Mumbai", state: "Maharashtra",
-      address: "Plot 45, MIDC Industrial Area, Andheri East", pincode: "400093",
-      msme_category: "Small", msme_number: "UDYAM-MH-12-0001234",
-      iec_code: "1012001122", fssai_license_no: "10019022001234",
-      fssai_expiry: "2026-12-31", is_tds_applicable: true,
-      tds_rate: 0.10, tds_section: "194Q", gstr2b_status: "Matched",
-      scorecard_rating: 94.5, quality_rating: 98.2, delivery_rating: 96.5,
-      price_rating: 92.0, currency: "INR",
-      warehouse: "Central Warehouse (WH-01)", lead_time_days: 3,
-      min_order_qty: 10, max_order_qty: 5000, order_multiple: 5,
-      is_preferred: true, transport_name: "VRL Logistics Ltd",
-      transporter_gstin: "27AAACV1234F1Z9", freight_terms: "Prepaid by Supplier",
-      eway_bill_applicable: true, default_label_template: "50x25mm",
-      default_barcode_type: "CODE128",
-      contacts: [
-        { id: "c1", name: "Rajesh Kumar", role: "Purchase Manager", mobile: "+91 98200 12345", email: "rajesh@techcorp.com", is_primary: true },
-        { id: "c2", name: "Suresh Sharma", role: "Accounts", mobile: "+91 98200 67890", email: "accounts@techcorp.com", is_primary: false }
-      ],
-      bank_accounts: [
-        { id: "b1", bank_name: "HDFC Bank", account_name: "TechCorp India Pvt Ltd", account_number: "50200012345678", ifsc_code: "HDFC0000123", branch_name: "Fort, Mumbai", upi_id: "techcorp@hdfcbank", is_primary: true }
-      ],
-      addresses_list: [
-        { id: "a1", address_type: "Billing", building_name: "TechCorp House", street: "MIDC Road No 12", area: "Andheri East", city: "Mumbai", state: "Maharashtra", pincode: "400093", country: "India", is_primary: true },
-        { id: "a2", address_type: "Central Warehouse", building_name: "Warehouse Complex B", street: "Bhiwandi Bypass", area: "Bhiwandi", city: "Thane", state: "Maharashtra", pincode: "421302", country: "India", is_primary: false }
-      ],
-      documents: [
-        { id: "d1", doc_type: "GST Certificate", doc_number: "27ABCDE1234F1Z5", expiry_date: "2028-03-31", status: "Valid", file_name: "gst_certificate.pdf" },
-        { id: "d2", doc_type: "FSSAI License", doc_number: "10019022001234", expiry_date: "2026-08-15", status: "Expiring Soon", file_name: "fssai_license.pdf" }
-      ],
-      communication_logs: [
-        { id: "l1", timestamp: "2026-07-28 14:30", type: "PO Sent", summary: "Dispatched PO-2026-0089 for ₹1,20,000", user: "System" }
-      ],
-      created_at: "2026-01-15", created_by: "Jawahar Mallah"
-    },
-    {
-      id: "SUP-002", code: "SUP-002", name: "Global Supplies Ltd.",
-      legal_name: "Global Retail & Wholesale Corporation",
-      supplier_type_id: "Wholesaler", group: "General Retail",
-      contact_person: "Anita Singh", designation: "Key Account Officer",
-      mobile: "+91 98333 99887", email: "anita@globalsupplies.com",
-      gst_number: "27XYZPQ9876G1Z3", pan_number: "XYZPQ9876G",
-      gst_type: "Regular", place_of_supply: "Maharashtra",
-      balance: "₹0", outstanding_balance: 0,
-      credit_limit: 300000, credit_days: 15,
-      payment_terms: "Net 15 Days", status: "Approved",
-      city: "Pune", state: "Maharashtra",
-      address: "Sector 18, Hinjewadi Phase 1", pincode: "411057",
-      msme_category: "Non-MSME", is_tds_applicable: false, tds_rate: 0.00,
-      gstr2b_status: "Matched", scorecard_rating: 88.0,
-      quality_rating: 90.0, delivery_rating: 86.0, price_rating: 88.0,
-      lead_time_days: 5, min_order_qty: 25, max_order_qty: 2000, order_multiple: 10,
-      transport_name: "Delhivery", freight_terms: "FOB Destination",
-      default_label_template: "38x25mm", default_barcode_type: "EAN13",
-      contacts: [{ id: "c3", name: "Anita Singh", role: "Sales Executive", mobile: "+91 98333 99887", email: "anita@globalsupplies.com", is_primary: true }],
-      bank_accounts: [{ id: "b2", bank_name: "ICICI Bank", account_name: "Global Supplies Ltd", account_number: "000405012345", ifsc_code: "ICIC0000004", branch_name: "Kothrud, Pune", is_primary: true }],
-      addresses_list: [{ id: "a3", address_type: "Billing", building_name: "Global Towers", street: "Phase 1 Rd", area: "Hinjewadi", city: "Pune", state: "Maharashtra", pincode: "411057", country: "India", is_primary: true }],
-      documents: [{ id: "d3", doc_type: "GST Certificate", doc_number: "27XYZPQ9876G1Z3", expiry_date: "2027-11-30", status: "Valid", file_name: "gst_cert_global.pdf" }],
-      communication_logs: [], created_at: "2026-02-10", created_by: "Admin"
-    }
-  ]);
+  const [suppliers, setSuppliers] = useState<SupplierItem[]>([]);
 
   /* â”€â”€ Search â”€â”€ */
   const [searchTerm, setSearchTerm] = useState("");
@@ -416,7 +342,7 @@ export const SupplierDashboardTab: React.FC<Props> = ({ currentUser, onNotificat
   const fetchSuppliers = async () => {
     try {
       const data = await apiFetchV1("/purchase/suppliers/");
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         setSuppliers(data.map((s: any) => ({
           id: s.id, code: s.code || s.id, name: s.name,
           legal_name: s.legal_name || s.name, display_name: s.display_name || s.name,

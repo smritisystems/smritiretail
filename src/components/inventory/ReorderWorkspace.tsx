@@ -315,10 +315,4 @@ export const ReorderWorkspace: React.FC<ReorderWorkspaceProps> = ({
   );
 };
 
-// ── Mock data for offline / dev ───────────────────────────────────────────────
 
-const MOCK_SUGGESTIONS: ReorderSuggestion[] = [
-  { itemId: "ITM-001", itemName: "A4 Copy Paper (500 sheets)", sku: "SKU-10042", availableQty: 12, reorderPoint: 50, suggestedQty: 200, supplierId: "SUP-001", supplierName: "Paper World", unitCost: 285 },
-  { itemId: "ITM-002", itemName: "Black Ballpoint Pens (Box)", sku: "SKU-10087", availableQty: 5,  reorderPoint: 20, suggestedQty: 50,  supplierId: "SUP-002", supplierName: "Stationery Hub", unitCost: 120 },
-  { itemId: "ITM-003", itemName: "Stapler Heavy Duty",        sku: "SKU-10123", availableQty: 0,  reorderPoint: 10, suggestedQty: 25,  supplierId: "SUP-002", supplierName: "Stationery Hub", unitCost: 450 },
-];

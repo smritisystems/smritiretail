@@ -12,29 +12,18 @@ import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 import { SPK } from "../SPK.js";
 
 export class AuditService implements IAuditService {
-  private localCache: AuditLogRecord[] = [
-    {
-      id: "aud-1001",
-      action: "SYSTEM",
-      module: "system",
-      entityId: "SPK_KERNEL",
-      details: "SMRITI Platform Kernel (SPK) v1.0 Bootstrapped cleanly",
-      userName: "super",
-      userRole: "SUPER_ADMIN",
-      ipAddress: "127.0.0.1",
-      timestamp: new Date().toISOString()
-    }
-  ];
+  private localCache: AuditLogRecord[] = [];
 
   public async getAllLogs(): Promise<AuditLogRecord[]> {
     try {
       const data = await apiFetchV1("/audit/logs/");
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         this.localCache = data.map((log: any) => this.normalizeBackendLog(log));
         return this.localCache;
       }
     } catch (e) {
-      logger.warn("[AuditService] API unreachable. Serving cached audit logs.", e as unknown);
+      logger.error("[AuditService] API unreachable.", e as unknown);
+      throw e;
     }
     return this.localCache;
   }

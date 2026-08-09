@@ -12,50 +12,18 @@ import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 import { SPK } from "../SPK.js";
 
 export class SupplierService implements ISupplierService {
-  private localCache: SupplierRecord[] = [
-    {
-      id: "sup-101",
-      code: "SUP-1001",
-      name: "Apex Footwear Corp",
-      contactPerson: "Rajesh Sharma",
-      mobile: "9820011223",
-      email: "apex@footwear.com",
-      gstNumber: "27AAACA1234A1Z1",
-      city: "Mumbai",
-      state: "Maharashtra",
-      paymentTerms: "Net 30 Days",
-      creditDays: 30,
-      outstanding: 45000,
-      status: "Active",
-      createdDate: "2025-01-15"
-    },
-    {
-      id: "sup-102",
-      code: "SUP-1002",
-      name: "Reliance Retail Ltd",
-      contactPerson: "Amit Patel",
-      mobile: "9833344556",
-      email: "vendor@reliance.com",
-      gstNumber: "27AAACR9988B1Z5",
-      city: "Thane",
-      state: "Maharashtra",
-      paymentTerms: "Net 45 Days",
-      creditDays: 45,
-      outstanding: 120000,
-      status: "Active",
-      createdDate: "2025-02-10"
-    }
-  ];
+  private localCache: SupplierRecord[] = [];
 
   public async getAll(): Promise<SupplierRecord[]> {
     try {
       const data = await apiFetchV1("/suppliers/");
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         this.localCache = data.map((s: any) => this.normalizeBackendSupplier(s));
         return this.localCache;
       }
     } catch (e) {
-      logger.warn("[SupplierService] API unreachable. Serving cached suppliers.", e as unknown);
+      logger.error("[SupplierService] API unreachable.", e as unknown);
+      throw e;
     }
     return this.localCache;
   }
@@ -68,7 +36,7 @@ export class SupplierService implements ISupplierService {
   public async getByCode(code: string): Promise<SupplierRecord | null> {
     const list = await this.getAll();
     const clean = code.trim().toLowerCase();
-    return list.find((s) => s.code.toLowerCase() === clean || s.mobile === clean) || null;
+    return list.find((s) => s.code.toLowerCase() === clean) || null;
   }
 
   public async search(query: string, limit = 50): Promise<SupplierRecord[]> {
@@ -82,9 +50,8 @@ export class SupplierService implements ISupplierService {
         const matchCode = s.code.toLowerCase().includes(q);
         const matchMobile = s.mobile.includes(q);
         const matchGst = s.gstNumber ? s.gstNumber.toLowerCase().includes(q) : false;
-        const matchCity = s.city ? s.city.toLowerCase().includes(q) : false;
 
-        return matchName || matchCode || matchMobile || matchGst || matchCity;
+        return matchName || matchCode || matchMobile || matchGst;
       })
       .slice(0, limit);
   }
@@ -124,10 +91,8 @@ export class SupplierService implements ISupplierService {
       SPK.events.emit(isNew ? "SupplierCreated" : "SupplierUpdated", normalized.id, normalized);
       return normalized;
     } catch (err) {
-      logger.warn("[SupplierService] Backend save warning, caching locally.", err as unknown);
-      this.upsertLocalCache(record);
-      SPK.events.emit(isNew ? "SupplierCreated" : "SupplierUpdated", record.id, record);
-      return record;
+      logger.error("[SupplierService] Backend save failed:", err as unknown);
+      throw err;
     }
   }
 
@@ -135,7 +100,8 @@ export class SupplierService implements ISupplierService {
     try {
       await apiFetchV1(`/suppliers/${id}`, { method: "DELETE" });
     } catch (e) {
-      logger.warn("[SupplierService] Offline delete warning.", e as unknown);
+      logger.error("[SupplierService] Backend delete failed:", e as unknown);
+      throw e;
     }
     this.localCache = this.localCache.filter((s) => s.id !== id);
     SPK.events.emit("SupplierDeleted", id, { id });

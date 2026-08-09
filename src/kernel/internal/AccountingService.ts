@@ -51,12 +51,13 @@ export class AccountingService implements IAccountingService {
   public async getJournalVouchers(): Promise<JournalVoucherRecord[]> {
     try {
       const data = await apiFetchV1("/accounting/vouchers/");
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         this.vouchersCache = data.map((v: any) => this.normalizeBackendVoucher(v));
         return this.vouchersCache;
       }
     } catch (e) {
-      logger.warn("[AccountingService] API unreachable. Serving cached vouchers.", e as unknown);
+      logger.error("[AccountingService] API unreachable.", e as unknown);
+      throw e;
     }
     return this.vouchersCache;
   }

@@ -8,10 +8,11 @@
  * Version      : 6.5.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { recordAuditAction } from "../lib/apiFetch.ts";
+import { apiFetchV1 } from "../lib/apiFetchV1.js";
 import {
   Users, UserCheck, Building2, Plus, Search, X, Phone, Mail, MapPin,
   CheckCircle2, AlertCircle, FileText, ShieldCheck, DollarSign,
@@ -67,26 +68,20 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
     }
   };
 
-  /* â”€â”€ Sub Tab Selector â”€â”€ */
+  /* ── Sub Tab Selector ── */
   const [activeSubTab, setActiveSubTab] = useState<
     "dashboard" | "leads" | "pipeline" | "visits" | "campaigns"
   >("dashboard");
 
-  /* â”€â”€ Lead Datastore â”€â”€ */
-  const [leads, setLeads] = useState<LeadRecord[]>([
-    { id: "LD-2026-001", name: "Vikram Malhotra", company: "Malhotra Electronics", email: "vikram@outlook.com", phone: "+91 98200 12345", source: "Website", status: "New", value: 150000, score: 85, assignedRep: "Ramesh Chandra", date: "2026-07-25", expectedClose: "2026-08-15" },
-    { id: "LD-2026-002", name: "Ananya Sen", company: "Sen Textiles Pvt Ltd", email: "ananya@sentextiles.com", phone: "+91 98700 98765", source: "Referral", status: "Contacted", value: 420000, score: 72, assignedRep: "Anil Kapoor", date: "2026-07-26", expectedClose: "2026-08-20" },
-    { id: "LD-2026-003", name: "Karan Johar", company: "Dharma Productions", email: "karan@dharmaprod.com", phone: "+91 99100 11223", source: "In-Store Walk-in", status: "Qualified", value: 850000, score: 94, assignedRep: "Ramesh Chandra", date: "2026-07-27", expectedClose: "2026-08-10" },
-    { id: "LD-2026-004", name: "Priya Desai", company: "Desai Supermarkets", email: "priya@desaisuper.com", phone: "+91 98222 33445", source: "WhatsApp", status: "Proposal Sent", value: 1200000, score: 98, assignedRep: "Suresh Sharma", date: "2026-07-28", expectedClose: "2026-08-05" },
-  ]);
+  /* ── Lead Datastore — populated from GET /api/v1/leads ── */
+  const [leads, setLeads] = useState<LeadRecord[]>([]);
+  const [leadsLoading, setLeadsLoading] = useState(false);
+  const [leadsError, setLeadsError] = useState<string | null>(null);
 
-  /* â”€â”€ Field Visits Datastore â”€â”€ */
-  const [fieldVisits, setFieldVisits] = useState<FieldVisitRecord[]>([
-    { id: "VST-101", customerName: "Reliance Retail Ltd", repName: "Ramesh Chandra", timestamp: "2026-07-29 10:30", location: "Andheri East, Mumbai", purpose: "Annual Rate Contract Review", notes: "Reviewed catalog add-ons. Client requested 5% extra discount on bulk FMCG.", status: "Completed" },
-    { id: "VST-102", customerName: "Malhotra Electronics", repName: "Anil Kapoor", timestamp: "2026-07-30 14:00", location: "Hinjewadi Phase 1, Pune", purpose: "Product Demo & Proposal Discussion", notes: "Scheduled live demo of POS terminal hardware.", status: "Scheduled" },
-  ]);
+  /* ── Field Visits — no backend capability found; showing empty state ── */
+  const [fieldVisits] = useState<FieldVisitRecord[]>([]);
 
-  /* â”€â”€ Filter & Modal States â”€â”€ */
+  /* ── Filter & Modal States ── */
   const [searchQuery, setSearchQuery] = useState("");
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [newLeadName, setNewLeadName] = useState("");
@@ -96,12 +91,45 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
   const [newLeadSource, setNewLeadSource] = useState<LeadRecord["source"]>("In-Store Walk-in");
   const [newLeadValue, setNewLeadValue] = useState("100000");
 
-  /* â”€â”€ Telemetry Audit Triggers â”€â”€ */
+  /* ── Fetch leads from backend on mount ── */
+  const fetchLeads = useCallback(async () => {
+    setLeadsLoading(true);
+    setLeadsError(null);
+    try {
+      const data = await apiFetchV1("/leads");
+      if (Array.isArray(data)) {
+        setLeads(data.map((l: any) => ({
+          id: l.lead_no || l.id,
+          name: [l.first_name, l.last_name].filter(Boolean).join(" "),
+          company: l.company_name || undefined,
+          email: l.email || "",
+          phone: l.mobile || "",
+          source: (l.lead_source as LeadRecord["source"]) || "Website",
+          status: (l.status === "NEW" ? "New" : l.status) as LeadRecord["status"],
+          value: 0,
+          score: 70,
+          assignedRep: l.assigned_to || "Unassigned",
+          date: l.created_at ? String(l.created_at).substring(0, 10) : new Date().toISOString().substring(0, 10),
+        })));
+      }
+    } catch (err) {
+      setLeadsError("Unable to load leads from server.");
+      console.error("[CRMStudioTab] GET /leads failed:", err);
+    } finally {
+      setLeadsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLeads();
+  }, [fetchLeads]);
+
+  /* ── Telemetry Audit Triggers ── */
   useEffect(() => {
     recordAuditAction("VIEW", "crm", activeSubTab, `Switched CRM view to: ${activeSubTab}`);
   }, [activeSubTab]);
 
-  /* â”€â”€ Move Lead Stage â”€â”€ */
+  /* ── Move Lead Stage ── */
   const handleUpdateLeadStatus = (leadId: string, nextStatus: LeadRecord["status"]) => {
     if (isReadOnly) {
       notify("Access Denied", "Read-only operators cannot update pipeline stages.", "error");
@@ -112,37 +140,42 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser, onNotif
     recordAuditAction("UPDATE", "crm_leads", leadId, `Updated status to: ${nextStatus}`);
   };
 
-  /* â”€â”€ Add New Lead â”€â”€ */
-  const handleCreateLead = (e: React.FormEvent) => {
+  /* ── Add New Lead — wired to POST /api/v1/leads ── */
+  const handleCreateLead = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newLeadName.trim() || !newLeadPhone.trim()) {
-      notify("Validation Error", "Lead Name and Phone are required.", "error");
+    if (!newLeadName.trim()) {
+      notify("Validation Error", "Lead Name is required.", "error");
       return;
     }
 
-    const id = `LD-2026-${Math.floor(100 + Math.random() * 900)}`;
-    const newLd: LeadRecord = {
-      id,
-      name: newLeadName.trim(),
-      company: newLeadCompany.trim() || undefined,
-      phone: newLeadPhone.trim(),
-      email: newLeadEmail.trim() || `${newLeadName.toLowerCase().replace(/\s+/g, "")}@example.com`,
-      source: newLeadSource,
-      status: "New",
-      value: parseFloat(newLeadValue) || 100000,
-      score: 75,
-      assignedRep: currentUser?.name || "Ramesh Chandra",
-      date: new Date().toISOString().substring(0, 10),
-      expectedClose: new Date(Date.now() + 15 * 86400000).toISOString().substring(0, 10),
+    const nameParts = newLeadName.trim().split(" ");
+    const payload = {
+      first_name: nameParts[0],
+      last_name: nameParts.slice(1).join(" ") || undefined,
+      company_name: newLeadCompany.trim() || undefined,
+      mobile: newLeadPhone.trim() || undefined,
+      email: newLeadEmail.trim() || undefined,
+      lead_source: newLeadSource,
+      status: "NEW",
+      assigned_to: currentUser?.name || undefined,
     };
 
-    setLeads((p) => [newLd, ...p]);
-    onNotification?.("Lead Captured âœ“", `${newLd.name} registered in CRM pipeline.`, "success");
-    setIsLeadModalOpen(false);
-    setNewLeadName("");
-    setNewLeadCompany("");
-    setNewLeadPhone("");
-    setNewLeadEmail("");
+    try {
+      await apiFetchV1("/leads", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      notify("Lead Captured", `${newLeadName.trim()} registered in CRM pipeline.`, "success");
+      setIsLeadModalOpen(false);
+      setNewLeadName("");
+      setNewLeadCompany("");
+      setNewLeadPhone("");
+      setNewLeadEmail("");
+      await fetchLeads();
+    } catch (err) {
+      notify("Lead Creation Failed", "Backend returned an error. Please try again.", "error");
+      console.error("[CRMStudioTab] POST /leads failed:", err);
+    }
   };
 
   /* â”€â”€ Pipeline Calculation â”€â”€ */

@@ -12,47 +12,18 @@ import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 import { SPK } from "../SPK.js";
 
 export class PurchaseService implements IPurchaseService {
-  private localCache: PurchaseOrderRecord[] = [
-    {
-      id: "po-101",
-      poNumber: "PO-2025-001",
-      supplierId: "sup-101",
-      supplierName: "Apex Footwear Corp",
-      orderDate: "2025-05-10",
-      expectedDeliveryDate: "2025-05-20",
-      warehouseId: "wh-main",
-      paymentTerms: "Net 30 Days",
-      status: "Approved" as PurchaseOrderStatus,
-      totalAmount: 150000,
-      totalTaxAmount: 27000,
-      netPayable: 177000,
-      lines: [
-        {
-          id: "pol-1",
-          itemId: "prod-1",
-          itemCode: "SHOE-001",
-          itemName: "Nike Sports Shoes",
-          hsnCode: "6404",
-          orderedQty: 50,
-          receivedQty: 50,
-          unitPrice: 2000,
-          taxRate: 18,
-          taxAmount: 18000,
-          totalAmount: 118000
-        }
-      ]
-    }
-  ];
+  private localCache: PurchaseOrderRecord[] = [];
 
   public async getAllPOs(): Promise<PurchaseOrderRecord[]> {
     try {
       const data = await apiFetchV1("/purchase/orders/");
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         this.localCache = data.map((po: any) => this.normalizeBackendPO(po));
         return this.localCache;
       }
     } catch (e) {
-      logger.warn("[PurchaseService] API unreachable. Serving cached purchase orders.", e as unknown);
+      logger.error("[PurchaseService] API unreachable.", e as unknown);
+      throw e;
     }
     return this.localCache;
   }
@@ -96,18 +67,17 @@ export class PurchaseService implements IPurchaseService {
     const record: PurchaseOrderRecord = {
       id,
       poNumber: poData.poNumber || `PO-2025-${Math.floor(1000 + Math.random() * 9000)}`,
-      supplierId: poData.supplierId || "sup-101",
-      supplierName: poData.supplierName || "Apex Footwear Corp",
+      supplierId: poData.supplierId || "sup-general",
+      supplierName: poData.supplierName || "Standard Vendor",
       orderDate: poData.orderDate || new Date().toISOString().slice(0, 10),
-      expectedDeliveryDate: poData.expectedDeliveryDate,
+      expectedDeliveryDate: poData.expectedDeliveryDate || new Date().toISOString().slice(0, 10),
       warehouseId: poData.warehouseId || "wh-main",
       paymentTerms: poData.paymentTerms || "Net 30 Days",
-      status: poData.status || "Approved",
+      status: poData.status || "Draft",
       totalAmount: poData.totalAmount || 0,
       totalTaxAmount: poData.totalTaxAmount || 0,
       netPayable: poData.netPayable || 0,
-      lines: poData.lines || [],
-      notes: poData.notes
+      lines: poData.lines || []
     };
 
     try {
@@ -123,10 +93,8 @@ export class PurchaseService implements IPurchaseService {
       SPK.events.emit(isNew ? "PurchaseOrderCreated" : "PurchaseOrderUpdated", normalized.id, normalized);
       return normalized;
     } catch (err) {
-      logger.warn("[PurchaseService] Backend save warning, caching locally.", err as unknown);
-      this.upsertLocalCache(record);
-      SPK.events.emit(isNew ? "PurchaseOrderCreated" : "PurchaseOrderUpdated", record.id, record);
-      return record;
+      logger.error("[PurchaseService] Backend save failed:", err as unknown);
+      throw err;
     }
   }
 

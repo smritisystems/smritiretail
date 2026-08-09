@@ -19,15 +19,15 @@ export class CustomerService implements ICustomerService {
   public async getAll(): Promise<Customer[]> {
     try {
       const data = await apiFetchV1("/customers/");
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         this.localCache = data.map((c: any) => this.normalizeBackendCustomer(c));
         return this.localCache;
       }
     } catch (e) {
       logger.warn("[CustomerService] Backend API unreachable. Loading from customerStore.", e as unknown);
     }
-    
-    // Fallback to customerStore
+
+    // Fallback to customerStore (backend-derived performance cache only)
     const storeCustomers = getCustomers();
     if (storeCustomers && storeCustomers.length > 0) {
       this.localCache = storeCustomers;
