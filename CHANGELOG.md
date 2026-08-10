@@ -30,7 +30,43 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
-### Item Master Hardening (F-001 → F-004) — 2026-08-10
+### Multi-Company User Experience (SCS-WSC-001/SCS-WSC-002) — 2026-08-10
+
+#### SCS-WSC-002 — /workspace/switch Hardening (Security P0)
+- **Problem (F-1→F-5):** `/workspace/switch` used `get_current_user_optional` → anonymous requests defaulted to `user_role = "SYSADMIN"`. No `UserCompanyAssignment` check. No DB mutation. Switching had no real effect.
+- **Fix:** Changed dependency to mandatory `get_current_user` (anonymous → 401). Added `UserCompanyAssignment` check (unassigned company → 403). Added DB mutation `user.company_id / user.branch_id` — this is the mechanism that makes `get_tenant_context()` immediately reflect the new company on all subsequent requests without JWT reissuance. Branch resolved via: user's default assignment → any assignment → first branch in company.
+- **Files:** `backend/app/api/v1/system.py`
+- **Rules:** AUTH-001, PROD-004 (environment isolation), PROD-003 (data integrity)
+
+#### SCS-WSC-002 — GET /auth/my-companies (New Endpoint)
+- **Problem (F-9):** No endpoint returned the list of companies a specific user was assigned to. Frontend had no scoped company list for the switcher.
+- **Fix:** Added `GET /auth/my-companies` returning only explicitly assigned companies via `UserCompanyAssignment`. SYSADMIN users receive all active companies. Returns `active_company_id` from the current `user.company_id` DB row.
+- **Files:** `backend/app/api/v1/auth.py`
+
+#### SCS-WSC-002 — GET /auth/tenants Fix
+- **Problem (F-9):** `/auth/tenants` used `user.company_id` (single value) instead of `UserCompanyAssignment` table — users with multiple company assignments only saw one company.
+- **Fix:** Updated query to join `UserCompanyAssignment` and return all assigned companies and their branches.
+- **Files:** `backend/app/api/v1/auth.py`
+
+#### SCS-WSC-002 — Frontend Kernel Cache Flush on Company Switch
+- **Problem (F-8):** 5 kernel services (`ItemService`, `CustomerService`, `SupplierService`, `SalesService`, `PurchaseService`) had company-unkeyed `localCache` arrays with no invalidation logic. Switching companies showed stale data from the previous company.
+- **Fix:** Added `constructor()` to each service with `SPK.events.on("Workspace.Changed.v1", () => { this.localCache = []; })` listener. Cache is flushed the moment `SWC.switchWorkspaceContext()` emits the event.
+- **Files:** `src/kernel/internal/ItemService.ts`, `CustomerService.ts`, `SupplierService.ts`, `SalesService.ts`, `PurchaseService.ts`
+
+#### SCS-WSC-002 — CompanySwitcherBadge Component (New)
+- **New Component:** `src/components/CompanySwitcherBadge.tsx`
+- **Behaviour:** Loads assigned companies from `GET /auth/my-companies`. Single-company users see a static label badge. Multi-company users see a dropdown. On switch: `POST /workspace/switch` → `GET /auth/me` (DB confirmation) → `SWC.switchWorkspaceContext()` → `Workspace.Changed.v1` event. 401/403 errors shown inline. Integrated into `WorkspaceKernelHeader` (hidden in POS focus mode).
+- **Files:** `src/components/CompanySwitcherBadge.tsx`, `src/layout_engine/components/WorkspaceKernelHeader.tsx`
+
+#### SCS-WSC-002 — workspace_resolver.py Import Bug Fix
+- **Problem:** `workspace_resolver.py:16` imported `Warehouse`, `CompanyFinancialYear`, `CompanyTaxProfile` from `app.models.tenant` — but these models live in `app.models.inventory` and `app.models.company_master`. The lazy import inside the endpoint function masked the error in production.
+- **Fix:** Split into three correct imports from their actual source modules.
+- **Files:** `backend/app/services/workspace_resolver.py`
+
+#### SCS-WSC-002 — Test Suite (15 Tests)
+- **New File:** `backend/app/tests/test_multi_company_switch.py`
+- **Coverage:** T1 switch to assigned company, T2 unassigned → 403, T3 multi-assignment switch, T4 anonymous → 401, T5 DB mutation `company_id`, T6 DB mutation `branch_id`, T7–T8 product isolation, T9–T10 `/auth/my-companies` scoping, T11 `/auth/tenants` multi-assignment, T12 session preservation, T13 branch boundary, T14 deleted company → 404, T15 critical regression (second request reflects new company).
+
 
 #### F-001 — EAN-13 Barcode: Canonical Generation
 - **Problem:** Three locations generated invalid barcodes: `Math.floor(8900000000000 + Math.random() * 9000000000)` (no GS1 check digit) in `ItemService.ts` and `blankItemForm`, and `SMR-B${Math.random()}` (non-numeric, non-EAN format) in `ExcelGridEntrySection.tsx`.

@@ -13,7 +13,9 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 from typing import Dict, Any, Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.models.tenant import Company, Branch, Warehouse, CompanyFinancialYear, CompanyTaxProfile, TenantProvisionProfile
+from app.models.tenant import Company, Branch, TenantProvisionProfile
+from app.models.inventory import Warehouse
+from app.models.company_master import CompanyFinancialYear, CompanyTaxProfile
 
 
 async def resolve_workspace_context(

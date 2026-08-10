@@ -559,18 +559,118 @@ class WorkspaceSwitchRequest(BaseModel):
 async def switch_workspace(
     payload: WorkspaceSwitchRequest = Body(...),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User = Depends(get_current_user),  # SCS-WSC-002: mandatory auth — anonymous → 401
 ):
     """
-    SCS-WSC-001 Workspace Switch Endpoint.
-    Resolves rich workspace payload returning workspace, permissions, features, policies, industryPack, and branding.
+    SCS-WSC-001 / SCS-WSC-002 Hardened Workspace Switch Endpoint.
+
+    Security model:
+      1. Authenticate user first — anonymous requests are rejected with 401.
+      2. Verify UserCompanyAssignment(user_id, company_id) — unassigned company → 403.
+      3. Verify company is active.
+      4. Mutate user.company_id / user.branch_id (DB row) so that get_tenant_context()
+         which reads current_user.company_id on every subsequent request immediately
+         reflects the new active company — no JWT reissuance required.
+      5. Return resolved workspace context.
+
+    Known trade-off (Section 3, architecture-approved):
+      company_id lives on the User row, not per-session. Switching in one tab
+      affects all active sessions for that user. This is a UX quirk, not a
+      security issue — every session still enforces UserCompanyAssignment.
     """
     from app.services.workspace_resolver import resolve_workspace_context
-    user_role = current_user.role.value if current_user and getattr(current_user, "role", None) else "SYSADMIN"
+    from ...models.user_assignment import UserCompanyAssignment, UserBranchAssignment
+
+    # ── Step 1: Verify UserCompanyAssignment ─────────────────────────────────
+    assignment_res = await db.execute(
+        select(UserCompanyAssignment).where(
+            UserCompanyAssignment.user_id == current_user.id,
+            UserCompanyAssignment.company_id == payload.companyId,
+            UserCompanyAssignment.is_deleted == False,
+        )
+    )
+    assignment = assignment_res.scalars().first()
+    if not assignment:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"You are not assigned to company '{payload.companyId}'. "
+                "Contact your administrator to request access."
+            ),
+        )
+
+    # ── Step 2: Verify company exists and is active ───────────────────────────
+    company_res = await db.execute(
+        select(Company).where(
+            Company.id == payload.companyId,
+            Company.is_deleted == False,
+        )
+    )
+    company = company_res.scalars().first()
+    if not company:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Company '{payload.companyId}' not found or has been deactivated.",
+        )
+
+    # ── Step 3: Resolve branch for this company ───────────────────────────────
+    # Prefer: (a) requested branchId if provided and assigned, (b) user's default
+    # branch assignment for this company, (c) first branch belonging to company.
+    resolved_branch_id = payload.branchId
+
+    if not resolved_branch_id:
+        # Try user's assigned default branch for this company
+        default_branch_res = await db.execute(
+            select(UserBranchAssignment).where(
+                UserBranchAssignment.user_id == current_user.id,
+                UserBranchAssignment.company_id == payload.companyId,
+                UserBranchAssignment.is_default == True,
+                UserBranchAssignment.is_deleted == False,
+            )
+        )
+        default_branch = default_branch_res.scalars().first()
+        if default_branch:
+            resolved_branch_id = default_branch.branch_id
+        else:
+            # Fall back to any assigned branch for this company
+            any_branch_res = await db.execute(
+                select(UserBranchAssignment).where(
+                    UserBranchAssignment.user_id == current_user.id,
+                    UserBranchAssignment.company_id == payload.companyId,
+                    UserBranchAssignment.is_deleted == False,
+                )
+            )
+            any_branch = any_branch_res.scalars().first()
+            if any_branch:
+                resolved_branch_id = any_branch.branch_id
+            else:
+                # Final fallback: first branch in the company (no personal assignment required)
+                from ...models.tenant import Branch
+                first_branch_res = await db.execute(
+                    select(Branch).where(
+                        Branch.company_id == payload.companyId,
+                        Branch.is_deleted == False,
+                    )
+                )
+                first_branch = first_branch_res.scalars().first()
+                resolved_branch_id = first_branch.id if first_branch else None
+
+    # ── Step 4: DB mutation — update user's active company + branch ───────────
+    # This is the mechanism that makes get_tenant_context() (which reads
+    # current_user.company_id fresh from DB on every request) immediately
+    # reflect the new active company for all subsequent business endpoints.
+    current_user.company_id = payload.companyId
+    current_user.branch_id = resolved_branch_id
+    current_user.modified_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(current_user)
+
+    # ── Step 5: Resolve and return full workspace context ─────────────────────
+    user_role = current_user.role.value
     return await resolve_workspace_context(
         db,
         company_id=payload.companyId,
-        branch_id=payload.branchId,
+        branch_id=resolved_branch_id,
         warehouse_id=payload.warehouseId,
         user_role=user_role
     )

@@ -16,6 +16,13 @@ import logger from "../../core/logging/logger.js";
 export class CustomerService implements ICustomerService {
   private localCache: Customer[] = [];
 
+  constructor() {
+    // SCS-WSC-002: Flush company-sensitive cache on workspace switch.
+    SPK.events.on("Workspace.Changed.v1", () => {
+      this.localCache = [];
+    });
+  }
+
   public async getAll(): Promise<Customer[]> {
     try {
       const data = await apiFetchV1("/customers/");

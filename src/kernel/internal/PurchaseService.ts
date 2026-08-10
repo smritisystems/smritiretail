@@ -14,6 +14,13 @@ import { SPK } from "../SPK.js";
 export class PurchaseService implements IPurchaseService {
   private localCache: PurchaseOrderRecord[] = [];
 
+  constructor() {
+    // SCS-WSC-002: Flush company-sensitive cache on workspace switch.
+    SPK.events.on("Workspace.Changed.v1", () => {
+      this.localCache = [];
+    });
+  }
+
   public async getAllPOs(): Promise<PurchaseOrderRecord[]> {
     try {
       const data = await apiFetchV1("/purchase/orders/");

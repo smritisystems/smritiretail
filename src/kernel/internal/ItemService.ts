@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Application Platform (SMAP) v1.0
  * Component    : ItemService Core Domain Implementation
  * Standard     : SMAP Constitution v1.0 — Internal Domain Engine
@@ -71,6 +71,15 @@ export function generateSmritiEan13(): string {
 export class ItemService implements IItemService {
   private localCache: Product[] = [];
   private isLoaded = false;
+
+  constructor() {
+    // SCS-WSC-002: Flush company-sensitive cache on workspace switch.
+    // Prevents stale Company-A data appearing under Company-B.
+    SPK.events.on("Workspace.Changed.v1", () => {
+      this.localCache = [];
+      this.isLoaded = false;
+    });
+  }
 
   public async getAll(): Promise<Product[]> {
     try {

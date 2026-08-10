@@ -21,7 +21,7 @@ All Rights Reserved.
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -35,6 +35,7 @@ from ...schemas.auth import (
 from ...schemas.masters_tier2 import CompanyResponse, BranchResponse
 from ...models.auth import User, UserRole
 from ...models.tenant import Company, Branch
+from ...models.user_assignment import UserCompanyAssignment, UserBranchAssignment
 
 router = APIRouter()
 
@@ -76,28 +77,39 @@ async def list_tenant_options(
 ):
     """
     Authenticated endpoint for tenant selection after login.
-    Returns companies and branches that the current user may access.
+    Returns companies and branches that the current user is explicitly assigned to
+    via UserCompanyAssignment. SYSADMIN users see all companies.
     """
     if current_user.role == UserRole.SYSADMIN:
         q_companies = select(Company).where(Company.is_deleted.is_(False)).order_by(Company.name.asc())
         q_branches = select(Branch).where(Branch.is_deleted.is_(False)).order_by(Branch.name.asc())
-    elif current_user.company_id:
+        companies = (await db.execute(q_companies)).scalars().all()
+        branches = (await db.execute(q_branches)).scalars().all()
+    else:
+        # Use UserCompanyAssignment — return only explicitly assigned companies
+        ca_res = await db.execute(
+            select(UserCompanyAssignment).where(
+                UserCompanyAssignment.user_id == current_user.id,
+                UserCompanyAssignment.is_deleted == False,
+            )
+        )
+        assigned_company_ids = [a.company_id for a in ca_res.scalars().all()]
+        if not assigned_company_ids:
+            return {"companies": [], "branches": []}
+
         q_companies = select(Company).where(
-            Company.id == current_user.company_id,
+            Company.id.in_(assigned_company_ids),
             Company.is_deleted.is_(False),
         ).order_by(Company.name.asc())
+        companies = (await db.execute(q_companies)).scalars().all()
+
+        # Branches: all branches belonging to any of the user's assigned companies
         q_branches = select(Branch).where(
-            Branch.company_id == current_user.company_id,
+            Branch.company_id.in_(assigned_company_ids),
             Branch.is_deleted.is_(False),
         ).order_by(Branch.name.asc())
-    else:
-        return {
-            "companies": [],
-            "branches": [],
-        }
+        branches = (await db.execute(q_branches)).scalars().all()
 
-    companies = (await db.execute(q_companies)).scalars().all()
-    branches = (await db.execute(q_branches)).scalars().all()
     return {
         "companies": [CompanyResponse.from_orm_model(c) for c in companies],
         "branches": [BranchResponse.from_orm_model(b) for b in branches],
@@ -154,6 +166,63 @@ async def resume_session(
         )
     service = AuthService(db)
     return await service.resume_session(current_user, req.password)
+
+
+@router.get("/my-companies")
+async def get_my_companies(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    SCS-WSC-002: Returns only the companies explicitly assigned to the authenticated user.
+    SYSADMIN users receive all active companies.
+    Used by the frontend CompanySwitcherBadge to populate the company dropdown.
+    Never returns companies the user is not assigned to.
+    """
+    if current_user.role == UserRole.SYSADMIN:
+        comp_res = await db.execute(
+            select(Company)
+            .where(Company.is_deleted == False)
+            .order_by(Company.name.asc())
+        )
+        companies = comp_res.scalars().all()
+        return {
+            "companies": [
+                {
+                    "id": c.id,
+                    "name": c.name,
+                    "is_default": False,
+                    "is_active": not c.is_deleted,
+                }
+                for c in companies
+            ],
+            "active_company_id": current_user.company_id,
+        }
+
+    # Non-SYSADMIN: return only explicitly assigned companies
+    ca_res = await db.execute(
+        select(UserCompanyAssignment, Company)
+        .join(Company, Company.id == UserCompanyAssignment.company_id)
+        .where(
+            UserCompanyAssignment.user_id == current_user.id,
+            UserCompanyAssignment.is_deleted == False,
+            Company.is_deleted == False,
+        )
+        .order_by(Company.name.asc())
+    )
+    rows = ca_res.all()
+    return {
+        "companies": [
+            {
+                "id": company.id,
+                "name": company.name,
+                "is_default": assignment.is_default,
+                "is_active": True,
+            }
+            for assignment, company in rows
+        ],
+        "active_company_id": current_user.company_id,
+    }
 
 
 @router.get("/me", response_model=UserResponse)

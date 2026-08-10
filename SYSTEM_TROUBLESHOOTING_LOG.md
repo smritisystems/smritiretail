@@ -1,5 +1,75 @@
 # SMRITI RETAIL OS — SYSTEM TROUBLESHOOTING LOG
 
+## ISSUE 2026-08-10-04: Multi-Company Switch Hardening (SCS-WSC-001/SCS-WSC-002)
+
+**Severity:** CRITICAL (P0 — Security vulnerability + silent data isolation failure)
+**Status:** RESOLVED
+**Date:** 2026-08-10
+**Ref:** SCS-WSC-002-MULTI-COMPANY-SWITCH
+
+### Root Cause & Findings
+
+#### F-1 — Anonymous Access to /workspace/switch (Security P0)
+`/workspace/switch` used `get_current_user_optional` as its dependency. Anonymous (unauthenticated) requests were silently accepted, defaulting `user_role = "SYSADMIN"` — granting full admin workspace context to any unauthenticated caller.
+
+#### F-2 — No UserCompanyAssignment Authorization (Security P0)
+Even authenticated users could pass any arbitrary `companyId` in the switch payload. No check was performed against the `user_company_assignments` table. A user could switch to any company in the system regardless of their assignment.
+
+#### F-3 — No DB Mutation — Switch Had No Real Effect
+The switch endpoint never mutated `user.company_id` or `user.branch_id` on the database row. Since `get_tenant_context()` reads `current_user.company_id` fresh from the DB on every request, calling `/workspace/switch` had zero effect on subsequent business endpoint isolation.
+
+#### F-4 — SYSADMIN Privilege Escalation on Anonymous Request
+The fallback `user_role = "SYSADMIN" if not current_user else current_user.role.value` pattern meant unauthenticated callers received a workspace context with SYSADMIN role permissions.
+
+#### F-5 — Frontend Cache Not Invalidated on Company Switch
+All 5 kernel services (`ItemService`, `CustomerService`, `SupplierService`, `SalesService`, `PurchaseService`) maintained an in-memory `localCache` array with no company-key tagging. Switching companies showed stale data from the previous company until the browser was refreshed.
+
+#### F-6 — workspace_resolver.py Import Error Masked by Lazy Import
+`workspace_resolver.py:16` imported `Warehouse`, `CompanyFinancialYear`, `CompanyTaxProfile` from `app.models.tenant`. These models live in `app.models.inventory` and `app.models.company_master` respectively. The bug was invisible in production because the import was inside the endpoint function body (lazy), but caused `ImportError` when the module was loaded directly (e.g. in tests).
+
+#### F-7 — /auth/tenants Scoped Only to Current Company
+`GET /auth/tenants` used `user.company_id == X` (a single value) instead of the `UserCompanyAssignment` table. Users with multiple company assignments only saw their currently-active company in the tenant selector.
+
+### Resolution
+
+#### F-1, F-4 — Mandatory Authentication
+Changed `get_current_user_optional` → `get_current_user` on `/workspace/switch`. Anonymous requests now return **401 Unauthorized**. Removed the SYSADMIN fallback entirely.
+- **File:** `backend/app/api/v1/system.py`
+
+#### F-2 — UserCompanyAssignment Authorization Check
+Added `UserCompanyAssignment` query before allowing any switch. If no active assignment exists for `(user_id, company_id)`, the endpoint returns **403 Forbidden** with a clear message.
+- **File:** `backend/app/api/v1/system.py`
+
+#### F-3 — DB Mutation (company_id / branch_id)
+Added explicit DB mutation: `current_user.company_id = payload.companyId`, `current_user.branch_id = resolved_branch_id`, followed by `await db.commit()`. Branch is resolved via three fallback tiers: (a) user's default `UserBranchAssignment` for the target company, (b) any assignment, (c) first branch of the company.
+- **File:** `backend/app/api/v1/system.py`
+
+#### F-5 — Cache Flush on Workspace.Changed.v1
+Added `constructor()` to each of the 5 kernel services subscribing to `SPK.events.on("Workspace.Changed.v1")`. On event: `this.localCache = []` (and `this.isLoaded = false` for `ItemService`). The event is emitted by `SWC.switchWorkspaceContext()` which is called by `CompanySwitcherBadge` after a confirmed switch.
+- **Files:** `src/kernel/internal/ItemService.ts`, `CustomerService.ts`, `SupplierService.ts`, `SalesService.ts`, `PurchaseService.ts`
+
+#### F-6 — workspace_resolver.py Import Fix
+Split the single broken import into:
+```python
+from app.models.tenant import Company, Branch, TenantProvisionProfile
+from app.models.inventory import Warehouse
+from app.models.company_master import CompanyFinancialYear, CompanyTaxProfile
+```
+- **File:** `backend/app/services/workspace_resolver.py`
+
+#### F-7 — /auth/tenants Multi-Assignment Fix + /auth/my-companies New Endpoint
+- `GET /auth/tenants` now queries `UserCompanyAssignment` for all assigned company IDs, then returns all those companies and their branches. SYSADMIN still sees all.
+- Added `GET /auth/my-companies` — scoped endpoint specifically for the `CompanySwitcherBadge` dropdown. Returns `{ companies: [...], active_company_id }`.
+- **File:** `backend/app/api/v1/auth.py`
+
+### New Component
+`CompanySwitcherBadge` (`src/components/CompanySwitcherBadge.tsx`) integrated into `WorkspaceKernelHeader`. Switch flow: `POST /workspace/switch` → `GET /auth/me` (confirm DB mutation) → `SWC.switchWorkspaceContext()` → `Workspace.Changed.v1` event. Hidden in POS focus mode.
+
+### Test Coverage
+`backend/app/tests/test_multi_company_switch.py` — 15 tests covering the complete switch contract: auth enforcement (T1,T4), authorization (T2,T3), DB mutation (T5,T6), data isolation (T7,T8), endpoint scoping (T9-T11), session preservation (T12), branch boundary (T13), deleted company (T14), critical regression T15 (second request reflects new company).
+
+---
+
 ## ISSUE 2026-08-10-03: Item Master F-001→F-004 Structural Hardening (ITEM-MASTER-HARDENING)
 
 **Severity:** HIGH (Four structural findings in production Item Master wiring)

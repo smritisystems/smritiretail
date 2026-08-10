@@ -8,6 +8,7 @@ import React, { useEffect, useState } from "react";
 import { WorkspaceEventBus } from "../WorkspaceEventBus.js";
 import { useSmritiExperience } from "../../context/SmritiExperienceContext.js";
 import { Menu, Search, Bell, User } from "lucide-react";
+import { CompanySwitcherBadge } from "../../components/CompanySwitcherBadge.tsx";
 
 export interface KernelHeaderPayload {
   title?: string;
@@ -89,6 +90,9 @@ export const WorkspaceKernelHeader: React.FC<{ initialTitle?: string }> = ({ ini
       </div>
 
       <div style={rightStyle}>
+        {/* SCS-WSC-002: Company switcher — hidden in POS focus mode */}
+        {!isPOS && <CompanySwitcherBadge />}
+
         {!isPOS && (
           <button aria-label="Notifications" className="sxp-btn" title="Notifications">
             <Bell size={16} />
