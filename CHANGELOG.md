@@ -32,6 +32,15 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ### Sales Invoice 422 Fix — customer_id Wiring (SCS-INV-001) — 2026-08-10
 
+
+#### SCS-INV-001 — Quick Add Customer On-The-Fly in Sales Billing Studio
+- **Feature:** Cashiers can now create a new customer directly from the Sales Billing Studio without navigating to CRM Studio. A `+ Add New` button appears next to the "Who is the Customer?" label.
+- **Modal fields:** Full Name (required), Mobile Number (required, 10-digit), GSTIN (optional).
+- **On Save & Select:** Calls `ICustomerService.save()` via the Command Bus → customer persisted in backend → auto-selected in the active billing session → dropdown refreshed → modal closed. Invoice can be posted immediately after.
+- **Validation:** Name required. Mobile must be exactly 10 digits (digits-only enforced). GSTIN upper-cased automatically.
+- **File:** `src/components/sales/SalesBillingStudio.tsx`
+- **Commit:** `c09e2185`
+
 #### SCS-INV-001 — Sales Invoice customer_id Wiring Fix (P0 — Production 422)
 - **Root Cause (3 gaps found):**
   - **Gap 1:** `SalesInvoiceRecord` interface (`ISalesService.ts`) had no `customerId` field — the entire frontend type contract had no slot for the customer FK.
