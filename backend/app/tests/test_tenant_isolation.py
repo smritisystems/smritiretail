@@ -286,10 +286,10 @@ async def test_cross_tenant_branch_validation(db_session):
 
 
 
-async def test_concurrent_duplicate_barcode_returns_400_not_500(db_session, db_engine):
+async def test_concurrent_duplicate_barcode_returns_409_not_500(db_session, db_engine):
     """
     §11: Two simultaneous POST /products with the same barcode under the same tenant.
-    One must succeed (201). The loser of the DB race must return HTTP 400 with a
+    One must succeed (201). The loser of the DB race must return HTTP 409 (Conflict) with a
     business-language detail string — not a raw 500 IntegrityError traceback.
 
     Concurrency test overrides get_db with a factory that creates fresh independent
@@ -350,17 +350,17 @@ async def test_concurrent_duplicate_barcode_returns_400_not_500(db_session, db_e
 
     statuses = [r.status_code for r in results]
 
-    assert sorted(statuses) == [201, 400], (
-        f"Expected one 201 and one 400, got: {statuses}. "
+    assert sorted(statuses) == [201, 409], (
+        f"Expected one 201 and one 409, got: {statuses}. "
         f"Bodies: {[r.text for r in results]}"
     )
 
-    failure_response = next(r for r in results if r.status_code == 400)
+    failure_response = next(r for r in results if r.status_code == 409)
     detail = failure_response.json().get("detail", "")
     # Accept both the Python-level service message ("already exists") AND the
-    # DB-level SMRITI handler message ("conflict") — both are correct 400s.
+    # DB-level SMRITI handler message ("conflict") — both are correct 409s.
     assert ("already exists" in detail or "conflict" in detail.lower()), (
-        f"400 detail should be business-language, got: {detail!r}"
+        f"409 detail should be business-language, got: {detail!r}"
     )
     assert "IntegrityError" not in detail, f"Raw DB error leaked to caller: {detail!r}"
     assert "sqlalchemy" not in detail.lower(), f"Raw framework error leaked to caller: {detail!r}"
