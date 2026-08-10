@@ -19,8 +19,10 @@ Copyright © 2026 SmritiSys.
 All Rights Reserved.
 """
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from typing import Dict, Any
+from ...api.deps import require_role
+from ...models.auth import UserRole
 from ...dev_tracker.scanner import scan_codebase
 from ...dev_tracker.reports import write_reports
 
@@ -29,7 +31,7 @@ router = APIRouter()
 # In-memory scan results caching
 cached_results: Dict[str, Any] = {}
 
-@router.get("/dev-tracker", tags=["Development Intelligence"])
+@router.get("/dev-tracker", tags=["Development Intelligence"], dependencies=[Depends(require_role(UserRole.SYSADMIN))])
 async def get_dev_tracker_status(response: Response):
     """
     Get latest cached codebase development diagnostics scan results.
@@ -46,7 +48,7 @@ async def get_dev_tracker_status(response: Response):
             
     return cached_results
 
-@router.post("/dev-tracker/scan", tags=["Development Intelligence"])
+@router.post("/dev-tracker/scan", tags=["Development Intelligence"], dependencies=[Depends(require_role(UserRole.SYSADMIN))])
 async def trigger_dev_tracker_scan(response: Response):
     """
     Trigger on-demand codebase static scan, rewrite reports, and reload memory cache.

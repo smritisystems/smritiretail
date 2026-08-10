@@ -14,8 +14,10 @@ Classification: Enterprise Operations REST API Router
 
 import tempfile
 from typing import Dict, Any
-from fastapi import APIRouter, HTTPException, Response, Body
+from fastapi import APIRouter, Depends, HTTPException, Response, Body
 
+from app.api.deps import get_current_user, require_role
+from app.models.auth import User, UserRole
 from app.core.operations.cluster_manager import ClusterManager
 from app.core.operations.telemetry_service import TelemetryService
 from app.core.operations.disaster_recovery_service import DisasterRecoveryService
@@ -27,13 +29,13 @@ cluster_manager = ClusterManager()
 dr_service = DisasterRecoveryService()
 
 
-@router.get("/cluster")
+@router.get("/cluster", dependencies=[Depends(require_role(UserRole.MANAGER))])
 async def get_cluster_status():
     """Returns multi-node cluster status and leader election state."""
     return cluster_manager.get_cluster_status()
 
 
-@router.get("/telemetry")
+@router.get("/telemetry", dependencies=[Depends(require_role(UserRole.MANAGER))])
 async def get_prometheus_metrics():
     """Exports Prometheus format metric counters and gauges."""
     metrics_text = TelemetryService.get_prometheus_metrics()
@@ -52,7 +54,7 @@ async def readiness_probe():
     return TelemetryService.get_readiness_probe()
 
 
-@router.post("/backup")
+@router.post("/backup", dependencies=[Depends(require_role(UserRole.SYSADMIN))])
 async def create_dr_backup():
     """Creates a disaster recovery snapshot archive."""
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -62,7 +64,7 @@ async def create_dr_backup():
         return {"success": True, "message": "Snapshot created", "backup_path": path_or_msg}
 
 
-@router.post("/restore")
+@router.post("/restore", dependencies=[Depends(require_role(UserRole.SYSADMIN))])
 async def restore_dr_backup(backup_path: str = Body(..., embed=True)):
     """Restores a disaster recovery snapshot under maintenance lock."""
     ok, msg = dr_service.restore_snapshot(backup_path)
@@ -71,7 +73,7 @@ async def restore_dr_backup(backup_path: str = Body(..., embed=True)):
     return {"success": True, "message": msg}
 
 
-@router.get("/performance")
+@router.get("/performance", dependencies=[Depends(require_role(UserRole.MANAGER))])
 async def evaluate_performance_sla():
     """Evaluates performance budgets against target SLAs."""
     return {

@@ -18,6 +18,8 @@ from typing import Dict, List, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, Body, status
 from pydantic import BaseModel
 
+from app.api.deps import get_current_user, require_role
+from app.models.auth import UserRole
 from app.core.spk_kernel import kernel, ModuleState
 
 router = APIRouter(prefix="/capabilities", tags=["SMRITI Modular Platform (SMP-001) Capabilities"])
@@ -27,7 +29,7 @@ class ModuleToggleRequest(BaseModel):
     enabled: bool
 
 
-@router.get("")
+@router.get("", dependencies=[Depends(require_role(UserRole.MANAGER))])
 async def get_capability_matrix():
     """Returns total categorized 4-level module matrix & installation states."""
     kernel.rebuild_registries()
@@ -60,7 +62,7 @@ async def get_capability_matrix():
     }
 
 
-@router.patch("/{module_id}")
+@router.patch("/{module_id}", dependencies=[Depends(require_role(UserRole.SYSADMIN))])
 async def toggle_capability(module_id: str, payload: ModuleToggleRequest):
     """Toggles module state with dependency validation & critical module protection."""
     new_state = await kernel.toggle_module(module_id, payload.enabled)
@@ -71,14 +73,14 @@ async def toggle_capability(module_id: str, payload: ModuleToggleRequest):
     }
 
 
-@router.post("/profiles/{profile_id}")
+@router.post("/profiles/{profile_id}", dependencies=[Depends(require_role(UserRole.SYSADMIN))])
 async def apply_profile(profile_id: str):
     """Applies a versioned Capability Profile (e.g., RETAIL_LITE, ENTERPRISE)."""
     res = kernel.apply_profile(profile_id)
     return res
 
 
-@router.get("/performance")
+@router.get("/performance", dependencies=[Depends(require_role(UserRole.MANAGER))])
 async def get_performance_diagnostics():
     """Returns real-time SPK kernel performance & memory diagnostics metrics."""
     return kernel.get_kernel_diagnostics()

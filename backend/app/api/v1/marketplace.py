@@ -13,8 +13,10 @@ Classification: Marketplace REST API Gateway Router
 """
 
 from typing import Dict, Any, List
-from fastapi import APIRouter, HTTPException, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 
+from app.api.deps import require_role
+from app.models.auth import UserRole
 from app.core.marketplace.catalog_service import CatalogService
 from app.core.marketplace.marketplace_client import MarketplaceClient
 from app.core.marketplace.package_manager import PackageManager
@@ -27,25 +29,25 @@ client = MarketplaceClient(catalog_service)
 package_manager = PackageManager()
 
 
-@router.get("/catalog", response_model=List[Dict[str, Any]])
+@router.get("/catalog", response_model=List[Dict[str, Any]], dependencies=[Depends(require_role(UserRole.MANAGER))])
 async def get_marketplace_catalog(channel: str = Query("Stable", description="Release channel track")):
     """Retrieves aggregated Marketplace catalog entries across providers."""
     return await client.list_available_extensions(channel=channel)
 
 
-@router.get("/channels")
+@router.get("/channels", dependencies=[Depends(require_role(UserRole.MANAGER))])
 async def get_release_channels():
     """Returns available distribution channels."""
     return SmritiCLI.run_command("channels", {})
 
 
-@router.get("/doctor")
+@router.get("/doctor", dependencies=[Depends(require_role(UserRole.MANAGER))])
 async def get_developer_doctor():
     """Runs developer & system environment diagnostic checks."""
     return SmritiCLI.run_command("doctor", {})
 
 
-@router.post("/install")
+@router.post("/install", dependencies=[Depends(require_role(UserRole.SYSADMIN))])
 async def install_extension_package(smx_path: str = Body(..., embed=True)):
     """Installs a distributable .smx extension package with atomic rollback protection."""
     success, msg = await package_manager.install_package(smx_path)
@@ -54,7 +56,7 @@ async def install_extension_package(smx_path: str = Body(..., embed=True)):
     return {"success": True, "message": msg}
 
 
-@router.post("/rollback/{module_id}")
+@router.post("/rollback/{module_id}", dependencies=[Depends(require_role(UserRole.SYSADMIN))])
 async def rollback_extension_module(module_id: str):
     """Rolls back a module to its previous state."""
     ok = await package_manager.rollback_package(module_id)
