@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Application Platform (SMAP) v1.0
  * Component    : CustomerService Core Domain Implementation
  * Standard     : SMAP Constitution v1.0 — Internal Domain Engine
@@ -111,11 +111,12 @@ export class CustomerService implements ICustomerService {
       SPK.events.emit(isNew ? "CustomerCreated" : "CustomerUpdated", normalized.id, normalized);
       return normalized;
     } catch (err) {
-      logger.warn("[CustomerService] Backend save warning, caching locally.", err as unknown);
-      this.upsertLocalCache(cust);
-      addCustomer(cust);
-      SPK.events.emit(isNew ? "CustomerCreated" : "CustomerUpdated", cust.id, cust);
-      return cust;
+      // SCS-INV-001: Never silently return a local/fake customer ID.
+      // A locally-generated ID (cust_${Date.now()}) has no DB row and will
+      // be rejected by the invoice orchestrator's customer-tenant validation.
+      // Surface the error so the Quick Add modal can display it to the user.
+      logger.error("[CustomerService] Backend customer save failed — not caching locally to prevent fake ID propagation.", err as unknown);
+      throw err;
     }
   }
 
