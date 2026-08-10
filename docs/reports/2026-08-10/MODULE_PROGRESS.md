@@ -1,6 +1,6 @@
 # Module Progress Details
 
-*Generated: 2026-08-10T03:19:39.964Z*
+*Generated: 2026-08-10T22:15:09.019Z*
 
 ### 📦 Executive Hub (72% Complete)
 - **Category:** Operations
@@ -199,6 +199,8 @@
   - **Test Suite:** `backend/app/tests/test_customer_credit_control.py` (100% Verified)
   - **Test Suite:** `backend/app/tests/test_customer_workspace.py` (100% Verified)
   - **Test Suite:** `src/tests/customerCrmLoyaltyDecoupling.test.ts` (100% Verified)
+  - **Test Suite:** `backend/app/tests/test_customer_invoice_wiring_final.py` (100% Verified)
+  - **Test Suite:** `backend/app/tests/test_sales_invoice_customer_wiring.py` (100% Verified)
   - **Architecture Doc:** `docs/adr/ADR-015-CUSTOMER_CRM_STUDIO_ENTERPRISE_STANDARD_v1.0.md` (100% Verified)
 - **Missing Dependencies:**
   - ❌ Quick reports integration missing
@@ -349,7 +351,6 @@
   - **Frontend:** `src/components/ecommerce/EcommerceStudioTab.tsx` (100% Verified)
   - **Frontend:** `src/components/EnvironmentBadge.tsx` (100% Verified)
   - **Frontend:** `src/components/EnvironmentManagerTab.tsx` (100% Verified)
-  - **Frontend:** `src/components/ExcelGridEntrySection.tsx` (100% Verified)
   - **Frontend:** `src/components/ExpandedCellEditor.tsx` (100% Verified)
   - **Frontend:** `src/components/ExplainModal.tsx` (100% Verified)
   - **Frontend:** `src/components/FieldExplorerTab.tsx` (100% Verified)
@@ -478,6 +479,8 @@
   - **Frontend:** `src/components/WorkspaceTaskbar.tsx` (100% Verified)
   - **Frontend:** `src/components/WorkspaceToolbar.tsx` (100% Verified)
   - **Frontend:** `src/components/__tests__/WorkspaceToolbar.test.tsx` (100% Verified)
+  - **Frontend:** `src/components/CompanySwitcherBadge.tsx` (100% Verified)
+  - **Frontend:** `src/components/ExcelGridEntrySection.tsx` (100% Verified)
   - **API Router:** `backend/app/api/v1/ecosystem/portals.py` [@router prefix="/ecosystem" (GET /ecosystem/manifest, GET /ecosystem/portals, GET /ecosystem/portals/{portal_id}/manifest)] (100% Verified)
   - **API Router:** `backend/app/api/v1/endpoints/environment_router.py` [@router prefix="" (GET /profile, GET /environments, POST /environments/{env_type}/provision)] (100% Verified)
   - **API Router:** `backend/app/api/v1/purchase.py` [@router prefix="" (POST /suppliers/, GET /suppliers/, GET /suppliers/{supplier_id})] (100% Verified)
@@ -745,7 +748,6 @@
   - [x] Walkthroughs & Manuals Created
 - **Verifiable Implementation Evidence (SGS v1.0 / SDS v2.2):**
   - **Frontend:** `src/components/common/ProductImage.tsx` (100% Verified)
-  - **Frontend:** `src/components/ItemMasterTab.tsx` (100% Verified)
   - **Frontend:** `src/components/item_master/BarcodePrintDialog.tsx` (100% Verified)
   - **Frontend:** `src/components/item_master/CreateSimilarItemWizard.tsx` (100% Verified)
   - **Frontend:** `src/components/item_master/ItemCompletenessWidget.tsx` (100% Verified)
@@ -763,6 +765,7 @@
   - **Frontend:** `src/components/item_master/ProductMasterManifest.ts` (100% Verified)
   - **Frontend:** `src/components/item_master/SmartSaveValidationModal.tsx` (100% Verified)
   - **Frontend:** `src/components/sales/ScanBarcodeRow.tsx` (100% Verified)
+  - **Frontend:** `src/components/ItemMasterTab.tsx` (100% Verified)
   - **API Router:** `backend/app/api/v1/barcode.py` [@router prefix="" (GET /layouts, POST /layouts, PUT /layouts/{id})] (100% Verified)
   - **API Router:** `backend/app/api/v1/product_identity.py` [@router prefix="" (GET /providers, POST /providers, PUT /providers/{id})] (100% Verified)
   - **Database Model:** `backend/app/models/barcode.py` [SQLAlchemy tables (barcode_layouts, print_histories, print_templates, print_profiles)] (100% Verified)
@@ -815,6 +818,7 @@
   - **Test Suite:** `src/tests/product-foundation/stock-transfer-e2e.test.ts` (100% Verified)
   - **Test Suite:** `src/tests/product-foundation/workflow-approval.test.ts` (100% Verified)
   - **Test Suite:** `src/tests/product-foundation/workflow.test.ts` (100% Verified)
+  - **Test Suite:** `src/tests/itemMasterHardening.test.ts` (100% Verified)
   - **Architecture Doc:** `docs/adr/ADR-012-PROCUREMENT_STUDIO_ENTERPRISE_STANDARD_v1.0.md` (100% Verified)
 - **Missing Dependencies:**
   - ❌ Quick reports integration missing
@@ -1399,7 +1403,6 @@
   - **API Router:** `backend/app/api/v1/assignments.py` [@router prefix="" (GET /user-assignments/{user_id}, POST /user-assignments/{user_id}/companies, POST /user-assignments/{user_id}/branches)] (100% Verified)
   - **API Router:** `backend/app/api/v1/attachments.py` [@router prefix="/attachments" (POST /attachments/upload, GET /attachments/reference/{reference_type}/{reference_id}, GET /attachments/{document_id}/preview)] (100% Verified)
   - **API Router:** `backend/app/api/v1/attributes.py` [@router prefix="" (GET /definitions, POST /definitions, PUT /definitions/{id})] (100% Verified)
-  - **API Router:** `backend/app/api/v1/auth.py` [@router prefix="" (POST /bootstrap, POST /login, GET /tenants)] (100% Verified)
   - **API Router:** `backend/app/api/v1/capabilities.py` [@router prefix="/capabilities" (PATCH /capabilities/{module_id}, POST /capabilities/profiles/{profile_id}, GET /capabilities/performance)] (100% Verified)
   - **API Router:** `backend/app/api/v1/changelog.py` [@router prefix="" (GET /changelog)] (100% Verified)
   - **API Router:** `backend/app/api/v1/communicator.py` [@router prefix="/communicator" (POST /communicator/tally/export, POST /communicator/sync/submit)] (100% Verified)
@@ -1448,7 +1451,6 @@
   - **API Router:** `backend/app/api/v1/stock_audit.py` [@router prefix="/inventory" (POST /inventory/stock-counts, POST /inventory/stock-counts/{id}/counts, POST /inventory/stock-counts/{id}/reconcile)] (100% Verified)
   - **API Router:** `backend/app/api/v1/stock_transfer.py` [@router prefix="/inventory" (POST /inventory/transfers, POST /inventory/transfers/{id}/approve, POST /inventory/transfers/{id}/dispatch)] (100% Verified)
   - **API Router:** `backend/app/api/v1/supplier_payment.py` [@router prefix="" (POST /supplier-payments/, GET /supplier-payments/, GET /supplier-payments/{payment_id})] (100% Verified)
-  - **API Router:** `backend/app/api/v1/system.py` [@router prefix="" (GET /tally, POST /tally, POST /tally/sync)] (100% Verified)
   - **API Router:** `backend/app/api/v1/system_release.py` [@router prefix="/release-info" (GET /release-info/health)] (100% Verified)
   - **API Router:** `backend/app/api/v1/tax.py` [@router prefix="/tax" (GET /tax/gst/settlement, GET /tax/gst/gstr1, POST /tax/eway-bills)] (100% Verified)
   - **API Router:** `backend/app/api/v1/terms.py` [@router prefix="" (GET /clauses, POST /clauses, PUT /clauses/{id})] (100% Verified)
@@ -1458,6 +1460,8 @@
   - **API Router:** `backend/app/api/v1/website/marketing.py` [@router prefix="/website" (GET /website/content, GET /website/solutions, POST /website/demo-request)] (100% Verified)
   - **API Router:** `backend/app/api/v1/wms.py` [@router prefix="/wms" (GET /wms/zones, POST /wms/zones, GET /wms/bins)] (100% Verified)
   - **API Router:** `backend/app/api/v1/workflow.py` [@router prefix="" (POST /{doc_type}/{doc_id}/{action}, GET /{doc_type}/{doc_id}/events)] (100% Verified)
+  - **API Router:** `backend/app/api/v1/auth.py` [@router prefix="" (POST /bootstrap, POST /login, GET /tenants)] (100% Verified)
+  - **API Router:** `backend/app/api/v1/system.py` [@router prefix="" (GET /tally, POST /tally, POST /tally/sync)] (100% Verified)
   - **Database Model:** `backend/app/models/accounting.py` [SQLAlchemy tables (chart_of_accounts, journal_vouchers, journal_ledger_entries, fiscal_periods, financial_year, bank_accounts, cost_centers, tds_entries, gst_return_locks)] (100% Verified)
   - **Database Model:** `backend/app/models/api_key.py` [SQLAlchemy tables (smriti_service_accounts, smriti_api_keys, smriti_api_key_permission_sets, smriti_api_key_logs)] (100% Verified)
   - **Database Model:** `backend/app/models/apparel.py` [SQLAlchemy tables (apparel_matrix_variants, apparel_seasonal_markdowns)] (100% Verified)
@@ -1505,8 +1509,6 @@
   - **Test Suite:** `backend/app/compliance/tests/test_nic_compliance_gateway.py` (100% Verified)
   - **Test Suite:** `backend/app/compliance/tests/test_sgip_phase3_gst_recon.py` (100% Verified)
   - **Test Suite:** `backend/app/compliance/tests/test_sgip_phase4_auto_pull_filing.py` (100% Verified)
-  - **Test Suite:** `backend/app/modules/test_pkg/bootstrap.py` (100% Verified)
-  - **Test Suite:** `backend/app/modules/test_pkg/module.json` (100% Verified)
   - **Test Suite:** `backend/app/tests/.cache/README.md` (100% Verified)
   - **Test Suite:** `backend/app/tests/conftest.py` (100% Verified)
   - **Test Suite:** `backend/app/tests/test_accounting.py` (100% Verified)
@@ -1522,7 +1524,6 @@
   - **Test Suite:** `backend/app/tests/test_bom_kitting.py` (100% Verified)
   - **Test Suite:** `backend/app/tests/test_bootstrap.py` (100% Verified)
   - **Test Suite:** `backend/app/tests/test_capability_manager.py` (100% Verified)
-  - **Test Suite:** `backend/app/tests/test_company_setup.py` (100% Verified)
   - **Test Suite:** `backend/app/tests/test_cs001_inventory_integration.py` (100% Verified)
   - **Test Suite:** `backend/app/tests/test_data_archival.py` (100% Verified)
   - **Test Suite:** `backend/app/tests/test_dispatch.py` (100% Verified)
@@ -1759,12 +1760,18 @@
   - **Test Suite:** `src/tests/universalPrintTemplate.test.ts` (100% Verified)
   - **Test Suite:** `src/tests/universalTemplateRegistry.test.ts` (100% Verified)
   - **Test Suite:** `src/tests/validationRegistry.test.ts` (100% Verified)
-  - **Test Suite:** `src/tests/validatorsAndFormatters.test.ts` (100% Verified)
   - **Test Suite:** `src/tests/wave1EndToEnd.test.ts` (100% Verified)
   - **Test Suite:** `src/tests/workflowRegistry.test.ts` (100% Verified)
   - **Test Suite:** `src/tests/workspaceToolbar.test.ts` (100% Verified)
   - **Test Suite:** `src/tests/workspaceToolbar.test.tsx` (100% Verified)
   - **Test Suite:** `tests/runtime.kernel.validation.test.ts` (100% Verified)
+  - **Test Suite:** `backend/app/tests/test_multi_company_switch.py` (100% Verified)
+  - **Test Suite:** `tmp_cleanup_delete_test_companies.py` (100% Verified)
+  - **Test Suite:** `tmp_cleanup_test_companies.py` (100% Verified)
+  - **Test Suite:** `backend/app/modules/test_pkg/bootstrap.py` (100% Verified)
+  - **Test Suite:** `backend/app/modules/test_pkg/module.json` (100% Verified)
+  - **Test Suite:** `backend/app/tests/test_company_setup.py` (100% Verified)
+  - **Test Suite:** `src/tests/validatorsAndFormatters.test.ts` (100% Verified)
   - **Architecture Doc:** `docs/implementation/foundation/About_Module_Implementation_Plan_v3.4.0.md` (100% Verified)
 - **Missing Dependencies:**
   - ❌ Quick reports integration missing

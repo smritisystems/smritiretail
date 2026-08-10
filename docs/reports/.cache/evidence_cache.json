@@ -2,7 +2,7 @@
   "version": "2.5.0",
   "scannerVersion": "SDS v2.5.0",
   "evidenceSchema": "v2",
-  "generatedAt": "2026-08-10T03:19:39.114Z",
+  "generatedAt": "2026-08-10T22:15:08.210Z",
   "adapters": {
     "fastapi-adapter": "2.3.0",
     "sqlalchemy-adapter": "2.3.0",
@@ -727,7 +727,7 @@
       ]
     },
     "backend/app/api/v1/auth.py": {
-      "sha256": "842829250727e4d0721bf8ff5ff0d61e678659583c8fb5a83d7e1fc81678a7d6",
+      "sha256": "9191c67a8ee0234273193890276a8f4037ed1bc973afa71946399dea8155e5e4",
       "evidenceItems": [
         {
           "id": "EV-API-backend-app-api-v1-auth-py",
@@ -1511,7 +1511,7 @@
       ]
     },
     "backend/app/api/v1/system.py": {
-      "sha256": "f08797a540d45beb3f6cbb1a3b60ae6f85511fb32cec851bf1c63b35ad943298",
+      "sha256": "faa0637f28170cdc1e59110ab0f238781896bd3515ccf5ad20a10dd07ceb9704",
       "evidenceItems": [
         {
           "id": "EV-API-backend-app-api-v1-system-py",
@@ -3123,7 +3123,7 @@
       "evidenceItems": []
     },
     "backend/app/modules/test_pkg/bootstrap.py": {
-      "sha256": "0a0cc15511caaeefcc2b06e840d50b703330f1b0e24f6f1709cded7c52faeb69",
+      "sha256": "55f3fde1e987215ea0942d0ba60febe31ec398920c370111c9c016490cf5e878",
       "evidenceItems": [
         {
           "id": "EV-TST-backend-app-modules-test-pkg-bootstrap-py",
@@ -3135,7 +3135,7 @@
       ]
     },
     "backend/app/modules/test_pkg/module.json": {
-      "sha256": "6d413ddc46cca9e23d7d2a8230887aa518c38b3699fc26f20536f3e167051a9f",
+      "sha256": "c139b6c77d72e7aee790a358ac170933b87027de1c07333241939ed42a809915",
       "evidenceItems": [
         {
           "id": "EV-TST-backend-app-modules-test-pkg-module-json",
@@ -3339,7 +3339,7 @@
       "evidenceItems": []
     },
     "backend/app/schemas/inventory.py": {
-      "sha256": "80dbd99ad9817890b1e5dbf664d8e03c535560124294c581517b90f1f6e53871",
+      "sha256": "897277becdcd52a1d9f9ea12faee2f92da2170050409e006322302d4b4296ccf",
       "evidenceItems": []
     },
     "backend/app/schemas/loyalty.py": {
@@ -3639,7 +3639,7 @@
       "evidenceItems": []
     },
     "backend/app/services/inventory.py": {
-      "sha256": "fe2734ead330954822b58f14e603cb38205ceceb99aac44e867b7fd1d3e84c50",
+      "sha256": "a49ad478ee3150141a2deb5ca2de42a57a4f760c8d7e0b62eb9cdf1cf16d9afa",
       "evidenceItems": []
     },
     "backend/app/services/inventory_availability.py": {
@@ -3755,7 +3755,7 @@
       "evidenceItems": []
     },
     "backend/app/services/sales_orchestrator.py": {
-      "sha256": "4d60d7e691cc866a7b0578f65aa448917d2ecf8ffcc14adf978475c2039c875a",
+      "sha256": "e1a1625312c1180d5d338f4bd73582f9740fe9d3ee3edc49f9a207005ee7a944",
       "evidenceItems": []
     },
     "backend/app/services/scdm_service.py": {
@@ -3859,7 +3859,7 @@
       "evidenceItems": []
     },
     "backend/app/services/workspace_resolver.py": {
-      "sha256": "5c325478f602cfe588bcdc771bb533111f661627839546c36e79a70e558e5640",
+      "sha256": "e6d2dbd9ff0862fe080eac0f5aed2e81da5c5511004ad5f26480f46c7067e255",
       "evidenceItems": []
     },
     "backend/app/services/__init__.py": {
@@ -4083,7 +4083,7 @@
       ]
     },
     "backend/app/tests/test_company_setup.py": {
-      "sha256": "a4314e8c834b5cdca3c4434e71805496d44349d79797b349c3cc5edaf667bcf5",
+      "sha256": "a90ef1ca2a7f2fe8827b1d5471223a620fe92e9ac0757f427180df42b6cee129",
       "evidenceItems": [
         {
           "id": "EV-TST-backend-app-tests-test-company-setup-py",
@@ -4138,6 +4138,18 @@
           "category": "tests",
           "file": "backend/app/tests/test_customer_credit_control.py",
           "symbol": "Test suite (7 assertions)",
+          "confidence": "100% Verified"
+        }
+      ]
+    },
+    "backend/app/tests/test_customer_invoice_wiring_final.py": {
+      "sha256": "f79412140573c212a7dcca6c6e8c635dd0cbcba12226fdc2bc0d7e7987de095c",
+      "evidenceItems": [
+        {
+          "id": "EV-TST-backend-app-tests-test-customer-invoice-wiring-final-py",
+          "category": "tests",
+          "file": "backend/app/tests/test_customer_invoice_wiring_final.py",
+          "symbol": "Test suite (13 assertions)",
           "confidence": "100% Verified"
         }
       ]
@@ -4682,6 +4694,18 @@
         }
       ]
     },
+    "backend/app/tests/test_multi_company_switch.py": {
+      "sha256": "bb1d0afe56d20bb7dba2a8d61f2f1b279b2efde5ec7df57619c9e6ab6e4b2105",
+      "evidenceItems": [
+        {
+          "id": "EV-TST-backend-app-tests-test-multi-company-switch-py",
+          "category": "tests",
+          "file": "backend/app/tests/test_multi_company_switch.py",
+          "symbol": "Test suite (30 assertions)",
+          "confidence": "100% Verified"
+        }
+      ]
+    },
     "backend/app/tests/test_multi_store_rebalancing.py": {
       "sha256": "90a0353fb207fce5f51a81e216b9f9442eff3396beb8c6096c1bef57ead11d83",
       "evidenceItems": [
@@ -5086,6 +5110,18 @@
           "category": "tests",
           "file": "backend/app/tests/test_sales_fulfillment.py",
           "symbol": "Test suite (6 assertions)",
+          "confidence": "100% Verified"
+        }
+      ]
+    },
+    "backend/app/tests/test_sales_invoice_customer_wiring.py": {
+      "sha256": "c2be9c90029c7707c78d21a814ff0ebb74e0b7f46ca83c36ac9109f87718bcf7",
+      "evidenceItems": [
+        {
+          "id": "EV-TST-backend-app-tests-test-sales-invoice-customer-wiring-py",
+          "category": "tests",
+          "file": "backend/app/tests/test_sales_invoice_customer_wiring.py",
+          "symbol": "Test suite (9 assertions)",
           "confidence": "100% Verified"
         }
       ]
@@ -5875,7 +5911,7 @@
       "evidenceItems": []
     },
     "CHANGELOG.md": {
-      "sha256": "e6fa81bd9800914d6f6277c5fb55a8171cb4d797744f163b9f17ccb6fb8797a3",
+      "sha256": "7067912be60fafbf158987640cbc3988339aefe7228a1f879f3dac4255928003",
       "evidenceItems": []
     },
     "CODE_OF_CONDUCT.md": {
@@ -6039,11 +6075,11 @@
       "evidenceItems": []
     },
     "DEPENDENCY_GRAPH.md": {
-      "sha256": "3d0a945dfa0027a19b88237b7474630879488e7aaeaa4bb26bc7a2aa83aaefee",
+      "sha256": "926d936051cd43bfe52b678a234d5e7f939f4be79091bab03a566a9e0854770e",
       "evidenceItems": []
     },
     "DEVELOPMENT_STATUS.md": {
-      "sha256": "486b0bffbec1c0eb034e00d00089185c28306da61d0f09f1c5adeb3ef79f25c9",
+      "sha256": "b3f826aa5013752c6b319f5e8f05988e07e700e5f880f37e5799c4dc990d3486",
       "evidenceItems": []
     },
     "docs/ACCOUNTING_STUDIO_BUSINESS_CERTIFICATION_V1.md": {
@@ -7611,7 +7647,7 @@
       "evidenceItems": []
     },
     "docs/reports/.cache/evidence_cache.json": {
-      "sha256": "eb45b47299651dff7cd654e67408902350346faeb6909a1e8d446925ee279b92",
+      "sha256": "645891f42b1c88728be7f7c784ccc5544b136a0941991275ab9269727822c801",
       "evidenceItems": []
     },
     "docs/reports/2026-07-11/API_STATUS.md": {
@@ -8551,91 +8587,151 @@
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/API_STATUS.md": {
-      "sha256": "8a5a2104e8087c6b2f1e523daeb53e19df7d36668a14f73e1694322556c29f6a",
+      "sha256": "5ccc087d3427404a176d8d57a90263cdb1868e40997b6366f2f22e99070f0545",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/BACKEND_STATUS.md": {
-      "sha256": "c76171227c74e165f5a4274c7b9ec081cc7ed5c251c5df00d05c6c3053982c95",
+      "sha256": "c94f02b7fbad7ec4c5e3332f6c4af9ac343e30742e1281e69c8b6a3ad8aee3e2",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/BUG_TRACKER.md": {
-      "sha256": "a682fb95a41e8d53ae3f9debaf3d7abb2e58e93df0079ca9ed2bfffb6ed0eaf8",
+      "sha256": "2e4d6d99e3dac2b6f812369904ad1ecddcb58bb1700c81afa192741db98a47c4",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/CHANGE_HISTORY.md": {
-      "sha256": "3f1201823fb1d7d4ccd3896b8ab256005f6cfa95a2a29e44ed491353a3049577",
+      "sha256": "1f2bacc5c1abfcb1736d4f4e4c6285463becfb7c98c00c10f67cb851b529a7c7",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/DATABASE_STATUS.md": {
-      "sha256": "27696c82ba6ba7652930142683b0748f64433b404ca985c2b25980d2f90dbdae",
+      "sha256": "5b5a7b5370ed57184bcb907a457da6522a586de2fac3b8f9fc38706bdeebe546",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/DEPENDENCY_GRAPH.md": {
-      "sha256": "3d0a945dfa0027a19b88237b7474630879488e7aaeaa4bb26bc7a2aa83aaefee",
+      "sha256": "926d936051cd43bfe52b678a234d5e7f939f4be79091bab03a566a9e0854770e",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/DEVELOPMENT_STATUS.md": {
-      "sha256": "486b0bffbec1c0eb034e00d00089185c28306da61d0f09f1c5adeb3ef79f25c9",
+      "sha256": "631c3ef1d60d12ef82da53d66262bf006c777e673aba5c230d4fcba4ba509801",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/DOCUMENTATION_STATUS.md": {
-      "sha256": "cf5386e732c5aca2dbdedb0ea3ed3eff7a3516ee646a8be1423fc7582b59b933",
+      "sha256": "4bdbc5c67a712fc1992986b0dd0ba843a0231b21fe0a0e2e83cb46cd31e100c4",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/EXECUTIVE_SUMMARY.md": {
-      "sha256": "de8a901001457c29ac6b80e481a44d5cc3363fcad85434a2e302d4dbd43e5ce1",
+      "sha256": "23274226c5635430c77024734efc24338ed399c21d22ce3baff5ecada3326082",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/FEATURE_MATRIX.md": {
-      "sha256": "0a3dd2d8c13b2de1af5d589f7d9e8afe92836a6df2132d180ef6e3a8abb40416",
+      "sha256": "b40c1b71fb4e84efe404789d5a06760f1b679dae0c12009aa65c677830c77fd8",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/FITNESS_RULES.md": {
-      "sha256": "f02bf06b63bb942611e6c720c712912770e3a38f26eb464e5299e8eb30027016",
+      "sha256": "80e4bb01a55904e4177710ffcf1c5a17198800483aafd48539cd6532dd01ffd2",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/IMPACT_ANALYSIS.md": {
-      "sha256": "fad013a3de5934c997b4d948fefcda26cc0d7dc66df5a54830b7183b05ad4d5e",
+      "sha256": "fe3d273a4d1ff06ee3e8af127b99d2c717b10dc328b7f280872f28f5dea672ba",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/MODULE_PROGRESS.md": {
-      "sha256": "8bc2ee61c8e6abc9720d1d6e23eedb6c97c3d51c703ac0424da0445cd47b150a",
+      "sha256": "40bd7ad1870885b12ba31143abbe9732860a88e9655d1b1db62d0ab89565e1ea",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/RELEASE_READINESS.md": {
-      "sha256": "c98ceb70ef0644d6af78b7214928de364ea8f6b2f4428d97fa95967b13868c68",
+      "sha256": "4a049ea38b79e98bbfe25eec3a4e0613a839516ae441d207587b361bcdd5cef6",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/SCANNER_HEALTH.md": {
-      "sha256": "d2cc6e1e1277dd5d603313881745da99f9820fcf910086297a7a23c1702471a7",
+      "sha256": "512b04b8cb44b8c1fcadca5dfcda1c96f6895e285e2b34c0a5f051c099720d02",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/SCAN_DIFF.md": {
-      "sha256": "10e8a306bb88022d03f6460198c945d060ecf14242ae4aa9924c806455ad2d3e",
+      "sha256": "c6c9561220c5bf9673535a2c632e0b8458c5b7a54ce6dc21389ee95294912f28",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/SECURITY_STATUS.md": {
-      "sha256": "548b2584e60a055c2503ffb420fb79828291d9a968e91c98d5577d8c5c426bef",
+      "sha256": "e337afe90f187c46ee82712b2ef4f50a3a6a0a4fbcf02c1bdbd9051818fe369b",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/SEMANTIC_AST.md": {
-      "sha256": "24cc3983239c07202a18cc4310a0f04decb4808e82d526d458643dcd28590999",
+      "sha256": "1d857c0b07bf0ff0bf673ea78bda35749a9c49831e29dd82a5b061ed7f5357e3",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/TECHNICAL_DEBT.md": {
-      "sha256": "de9f1ae525977e76d141dcf6a1f01ccbe00d110d0a1564542cd251b9a4bb9046",
+      "sha256": "bbee9ad9efd43636a87cc44a9b5e86f525e37c89ec3e4d9d1bbe7aa073fc3c8f",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/TEST_STATUS.md": {
-      "sha256": "0ad9aa2560b1f5f13ede6d57495df4cea1509242a55edece2b3430985343c804",
+      "sha256": "bf8c121d3ef32e7d8129c3752694f49ce76324c29b422b95281de87833ec62de",
       "evidenceItems": []
     },
     "docs/reports/2026-08-10/UI_STATUS.md": {
-      "sha256": "56b16b871f9bf6123fce4959777f7d7fe452e9eee7ac8e6f2684e6d7a8db2281",
+      "sha256": "43bdfcdbd21c7550369e7df3e9988bde6a7350c8637937fd22be185229fff33b",
+      "evidenceItems": []
+    },
+    "docs/reports/2026-08-11/API_STATUS.md": {
+      "sha256": "6f3922c435fc7c4fb42838bef2315b3cff85c08208b30006489a48fbac85c23d",
+      "evidenceItems": []
+    },
+    "docs/reports/2026-08-11/BACKEND_STATUS.md": {
+      "sha256": "123c7fdec3a505a9e3c6d9d200ff80811f131507012c9c0df242bba7244d430c",
+      "evidenceItems": []
+    },
+    "docs/reports/2026-08-11/BUG_TRACKER.md": {
+      "sha256": "697b5309f3225a3ff2ad206522237591cc967285e902b5cfbcceb5b69583d7ff",
+      "evidenceItems": []
+    },
+    "docs/reports/2026-08-11/CHANGE_HISTORY.md": {
+      "sha256": "ddf970683d3e68d6a07b390c27d03fbf6719ab11e1a6cf6001ce148491a1f79d",
+      "evidenceItems": []
+    },
+    "docs/reports/2026-08-11/DATABASE_STATUS.md": {
+      "sha256": "d9ff8ea6aa4e6ac2975c840fa4892693b4c72312ae592ecb73dc0b4fc554fd5c",
+      "evidenceItems": []
+    },
+    "docs/reports/2026-08-11/DEVELOPMENT_STATUS.md": {
+      "sha256": "b3f826aa5013752c6b319f5e8f05988e07e700e5f880f37e5799c4dc990d3486",
+      "evidenceItems": []
+    },
+    "docs/reports/2026-08-11/DOCUMENTATION_STATUS.md": {
+      "sha256": "4594ef9dacddfa70247483b9a8b3c38724dfcad641431afa8c28eba4f761a28f",
+      "evidenceItems": []
+    },
+    "docs/reports/2026-08-11/EXECUTIVE_SUMMARY.md": {
+      "sha256": "bb0adc6458632da7850ad85c61afc994d3fab2ead0bccaed9d01b5a98566b402",
+      "evidenceItems": []
+    },
+    "docs/reports/2026-08-11/FEATURE_MATRIX.md": {
+      "sha256": "db46cbaae0abcc738f2d8fc4313bb8791deb6be9a4a4d56b2be875bc8729541c",
+      "evidenceItems": []
+    },
+    "docs/reports/2026-08-11/MODULE_PROGRESS.md": {
+      "sha256": "baeec8f3668ddc4872124460263eb2997bbdc34aeb14df1e0d409ecbbcdd8379",
+      "evidenceItems": []
+    },
+    "docs/reports/2026-08-11/RELEASE_READINESS.md": {
+      "sha256": "097b45a39bc4d383ff373a28a2e52f69890ff13c621e02e585b01a0867b08278",
+      "evidenceItems": []
+    },
+    "docs/reports/2026-08-11/SECURITY_STATUS.md": {
+      "sha256": "bacba1c4666695d7b4109ee180899f5ce6cb3afc731314614216e1575f134ffd",
+      "evidenceItems": []
+    },
+    "docs/reports/2026-08-11/TECHNICAL_DEBT.md": {
+      "sha256": "71f37c051eea200badacf91da1200324704a9f94911a620c536743f613ff412f",
+      "evidenceItems": []
+    },
+    "docs/reports/2026-08-11/TEST_STATUS.md": {
+      "sha256": "386b81a877bbd69b78c23d112945a363a4265d41e9f6539d0fcb14f1730107a0",
+      "evidenceItems": []
+    },
+    "docs/reports/2026-08-11/UI_STATUS.md": {
+      "sha256": "2402d76f9da08c3c57090d2c8ff406ec0441199b18f762a8ea7d089c625e164f",
       "evidenceItems": []
     },
     "docs/reports/history.json": {
-      "sha256": "3130f929653920645ce4128d7890fbc2081a8ecf60ccef0813de00bad7ed2900",
+      "sha256": "e8ec21f18c264cdee3faf13350c188ec53e16b48ee8afb567b2801e95cfe6a08",
       "evidenceItems": []
     },
     "docs/RETAIL_BETA_DEFINITION_OF_DONE.md": {
@@ -9731,7 +9827,7 @@
       "evidenceItems": []
     },
     "FITNESS_RULES.md": {
-      "sha256": "f02bf06b63bb942611e6c720c712912770e3a38f26eb464e5299e8eb30027016",
+      "sha256": "80e4bb01a55904e4177710ffcf1c5a17198800483aafd48539cd6532dd01ffd2",
       "evidenceItems": []
     },
     "frontend/src/modules/pos/POSTouchLayout.tsx": {
@@ -9763,7 +9859,7 @@
       "evidenceItems": []
     },
     "IMPACT_ANALYSIS.md": {
-      "sha256": "fad013a3de5934c997b4d948fefcda26cc0d7dc66df5a54830b7183b05ad4d5e",
+      "sha256": "fe3d273a4d1ff06ee3e8af127b99d2c717b10dc328b7f280872f28f5dea672ba",
       "evidenceItems": []
     },
     "inspect_test_user_password.py": {
@@ -9792,6 +9888,110 @@
     },
     "live_demo_snapshot.json": {
       "sha256": "89ecf355b4e2c15bba503723a22b213a2ffe2b843dcb0fa2c29315ef823452ca",
+      "evidenceItems": []
+    },
+    "masterbook/00_MASTER_INDEX.md": {
+      "sha256": "5527a95261e85fd32037ddf596811dc44e03570791dec6ccf02a0ed78c815ed9",
+      "evidenceItems": []
+    },
+    "masterbook/01_CONSTITUTION/SMRITI_CONSTITUTION.md": {
+      "sha256": "c0292dc8cb6565c323d8c16f3a668470fd8cf39e43c4d5400e18abf7374896b8",
+      "evidenceItems": []
+    },
+    "masterbook/02_ARCHITECTURE/DATABASE_ARCHITECTURE.md": {
+      "sha256": "2712c2342218f75b198674164be299f437f9381d356a834a765c5a1bc7ec2160",
+      "evidenceItems": []
+    },
+    "masterbook/02_ARCHITECTURE/MASTER_OWNERSHIP_POLICY.md": {
+      "sha256": "6fb63d8aba00ec5b583ae709d6c1a223750ed990577a40b21db218393c633397",
+      "evidenceItems": []
+    },
+    "masterbook/02_ARCHITECTURE/SCHEMA_GOVERNANCE.md": {
+      "sha256": "615c498e8fc040cd30fba0ee760561b22a9867f60969d507de2611edbbfed65c",
+      "evidenceItems": []
+    },
+    "masterbook/02_ARCHITECTURE/SMRITI_HYBRID_MULTI_COMPANY_MASTER_ARCHITECTURE.md": {
+      "sha256": "c19866df2acfccb6da559d0fc74a05c2cccc56adc8e7ae80f9d4119fc8bd3583",
+      "evidenceItems": []
+    },
+    "masterbook/03_SECURITY/COMPANY_ISOLATION.md": {
+      "sha256": "dfc441a72ab5b57b08832a3968fde071f2e14c5120d0e563be898c140bed7e1d",
+      "evidenceItems": []
+    },
+    "masterbook/03_SECURITY/RBAC.md": {
+      "sha256": "6debed2c97141ffd27f2d23d541298d4d988b3732db4102e2becbbb5daf5ffb1",
+      "evidenceItems": []
+    },
+    "masterbook/03_SECURITY/USER_COMPANY_ASSIGNMENT.md": {
+      "sha256": "2f28e45dee08d9d9fbe2060f0dd6992a15c6669658af59a61fdd6b097facb481",
+      "evidenceItems": []
+    },
+    "masterbook/04_MASTER_DATA/APPLICABILITY.md": {
+      "sha256": "fd1b1c399e1ca8aba5ed6a618b4b14a61cb1bc569613e8730d83799d610be3b4",
+      "evidenceItems": []
+    },
+    "masterbook/04_MASTER_DATA/CUSTOMER.md": {
+      "sha256": "26b56b7f0187ca65715ce4f916e845744f298fa2142d96a8696feb9f5feb8798",
+      "evidenceItems": []
+    },
+    "masterbook/04_MASTER_DATA/PRODUCT.md": {
+      "sha256": "10bb99e35982aa21a8c3d1e15f302120c0ae140744c73a01f057bb2b05a50d9c",
+      "evidenceItems": []
+    },
+    "masterbook/04_MASTER_DATA/SUPPLIER.md": {
+      "sha256": "5a487732a9b99329232497f2ae06cc65b2077a5c8612658b83139b14c1238482",
+      "evidenceItems": []
+    },
+    "masterbook/05_TRANSACTION/ACCOUNTING.md": {
+      "sha256": "fbad775b46a375dfe34f69b651e9fe3c9578dc1b24e7a461aa3854b5f23c534c",
+      "evidenceItems": []
+    },
+    "masterbook/05_TRANSACTION/INVENTORY.md": {
+      "sha256": "322658ce441deda2700ca17de8edbc6c301547121c7630f64a3c11768761ee86",
+      "evidenceItems": []
+    },
+    "masterbook/05_TRANSACTION/PURCHASE.md": {
+      "sha256": "a307a3ca1d98cf44a01beaaf7bef1334f8808e77bdccaccbee83b57d04c6e4e0",
+      "evidenceItems": []
+    },
+    "masterbook/05_TRANSACTION/SALES.md": {
+      "sha256": "cbb1ae68a936d59ccdde261984603101fc7a288633193bfad3ecbe01897704e3",
+      "evidenceItems": []
+    },
+    "masterbook/06_DATABASE/COMPANY_DATABASES.md": {
+      "sha256": "961609cd459454e633a715a7e9b2488be5beddf3971d3a51c8b9c92b3ffa6fc6",
+      "evidenceItems": []
+    },
+    "masterbook/06_DATABASE/DATABASE_REGISTRY.md": {
+      "sha256": "7dfaf7d03f461d6a35639192cf3c4ac7ea3274856d160f73708ec505d0cf11bf",
+      "evidenceItems": []
+    },
+    "masterbook/06_DATABASE/MIGRATION_GOVERNANCE.md": {
+      "sha256": "b0de7a6e60666492e30186642fc87970736dfcfac455c261a58837ccf8eb6d87",
+      "evidenceItems": []
+    },
+    "masterbook/07_CONSOLIDATION/CONSOLIDATED_REPORTING.md": {
+      "sha256": "258979ec8286938d9b6ac9c17441e1edf1f603bb64baf3e623d3226a41694106",
+      "evidenceItems": []
+    },
+    "masterbook/08_RECOVERY/DISASTER_RECOVERY.md": {
+      "sha256": "199a40ec7913643fdeeed02e23e2ab3b42a9a6279dbb599a1da342133e86c95a",
+      "evidenceItems": []
+    },
+    "masterbook/08_RECOVERY/TROUBLESHOOTING_REFERENCE.md": {
+      "sha256": "1c3672c24d3a5204ce89627a52572973aa6f2799161eea8f3dbc63ba6a1486ef",
+      "evidenceItems": []
+    },
+    "masterbook/99_AI_AGENT/MASTER_EXECUTION_DIRECTIVE.md": {
+      "sha256": "9a807a6e63cf9718662a7a4e5c020d56ea6a7af08f269b900870eedb9230c7f5",
+      "evidenceItems": []
+    },
+    "masterbook/SMRITI_HYBRID_MULTI_COMPANY_MASTER_ARCHITECTURE (1).md": {
+      "sha256": "a505ceb14f2e24c6139c848f622184bf73a997870efea45324b43a3d6d948736",
+      "evidenceItems": []
+    },
+    "masterbook/SMRITI_HYBRID_MULTI_COMPANY_MASTER_ARCHITECTURE.md": {
+      "sha256": "a505ceb14f2e24c6139c848f622184bf73a997870efea45324b43a3d6d948736",
       "evidenceItems": []
     },
     "metadata.json": {
@@ -9879,11 +10079,11 @@
       "evidenceItems": []
     },
     "SCANNER_HEALTH.md": {
-      "sha256": "d2cc6e1e1277dd5d603313881745da99f9820fcf910086297a7a23c1702471a7",
+      "sha256": "512b04b8cb44b8c1fcadca5dfcda1c96f6895e285e2b34c0a5f051c099720d02",
       "evidenceItems": []
     },
     "SCAN_DIFF.md": {
-      "sha256": "10e8a306bb88022d03f6460198c945d060ecf14242ae4aa9924c806455ad2d3e",
+      "sha256": "c6c9561220c5bf9673535a2c632e0b8458c5b7a54ce6dc21389ee95294912f28",
       "evidenceItems": []
     },
     "scratch/analyze_authority_proof.py": {
@@ -10147,7 +10347,7 @@
       "evidenceItems": []
     },
     "scratch_debug_setup.py": {
-      "sha256": "73b0082e0c7d0cce03b5f6da0bd639e8206d3cc0620a7e983578e52315ede096",
+      "sha256": "a8d6015d1e4be1e6a5a7a5aa07e132986035ba9461e1d0dfbe82d472c86bc22f",
       "evidenceItems": []
     },
     "scripts/add_author_designation_header.py": {
@@ -10343,7 +10543,7 @@
       "evidenceItems": []
     },
     "SEMANTIC_AST.md": {
-      "sha256": "24cc3983239c07202a18cc4310a0f04decb4808e82d526d458643dcd28590999",
+      "sha256": "1d857c0b07bf0ff0bf673ea78bda35749a9c49831e29dd82a5b061ed7f5357e3",
       "evidenceItems": []
     },
     "served_bundle.js": {
@@ -12734,6 +12934,18 @@
         }
       ]
     },
+    "src/components/CompanySwitcherBadge.tsx": {
+      "sha256": "0659a4a56d3395c3f202baef4eb13fd0a8e1e62d293031b45b33e8c6904bd7e1",
+      "evidenceItems": [
+        {
+          "id": "EV-FE-src-components-CompanySwitcherBadge-tsx",
+          "category": "frontend",
+          "file": "src/components/CompanySwitcherBadge.tsx",
+          "symbol": "CompanySwitcherBadge.tsx",
+          "confidence": "100% Verified"
+        }
+      ]
+    },
     "src/components/compliance/ExceptionWorkbenchModal.tsx": {
       "sha256": "313c4bf1a5c177c811e9e5672033ee206e7fd638220698fd87054cd7bd8f2fd3",
       "evidenceItems": [
@@ -13210,7 +13422,7 @@
       ]
     },
     "src/components/ExcelGridEntrySection.tsx": {
-      "sha256": "ebbec1530592c52851f669333902b5f74aa433f1a48043c81cbb1065f79def1a",
+      "sha256": "1d198163c2161049c95d12886eb530e1ad5d95d99b9b70b060e7b2f9126bf7f6",
       "evidenceItems": [
         {
           "id": "EV-FE-src-components-ExcelGridEntrySection-tsx",
@@ -13486,7 +13698,7 @@
       ]
     },
     "src/components/ItemMasterTab.tsx": {
-      "sha256": "bd40eb106095278df47343c3c91cb1a629143d6b6cd4423bec295929554863c5",
+      "sha256": "3cef9d4560c25d0f15ad63bc90504cd6b3acac7e8545c9cb237226ac5285eb66",
       "evidenceItems": [
         {
           "id": "EV-FE-src-components-ItemMasterTab-tsx",
@@ -14310,7 +14522,7 @@
       ]
     },
     "src/components/sales/SalesBillingStudio.tsx": {
-      "sha256": "8ace8b655f80fe0b25212aab95c0d72f911d8d785b93855a5214434bc54f53e4",
+      "sha256": "a2979c9b5394847a114890af6b9f22b036dc967bf7882c001e636c45cd099a8c",
       "evidenceItems": [
         {
           "id": "EV-FE-src-components-sales-SalesBillingStudio-tsx",
@@ -16308,7 +16520,7 @@
       "evidenceItems": []
     },
     "src/kernel/internal/CustomerService.ts": {
-      "sha256": "4216a55f841386b9d74f13c420d5d304b992c5c27f453c7adfbfe07a3c65d61d",
+      "sha256": "148200fa7ec4e9543e29bd0c43c28b59d056654bec5ac0c44b0aa33711bc33c5",
       "evidenceItems": []
     },
     "src/kernel/internal/InventoryService.ts": {
@@ -16316,19 +16528,19 @@
       "evidenceItems": []
     },
     "src/kernel/internal/ItemService.ts": {
-      "sha256": "f555f22df864de9667608b8a2fa9fdbf3a1b5e83ef8f51eb1959606a9b7b39d0",
+      "sha256": "74ef5f55a69e7fc459d45d888d513ce6c77600fc8820b95a78ccaff0d43b9f34",
       "evidenceItems": []
     },
     "src/kernel/internal/PurchaseService.ts": {
-      "sha256": "b497320dde96d02571bc154fe3e31a47417663b2960130ff8259b32526893605",
+      "sha256": "975b9ea0940aafc9a5f53782333d543e22248770e29b2411429829470c0e67fa",
       "evidenceItems": []
     },
     "src/kernel/internal/SalesService.ts": {
-      "sha256": "42d5d728a8ec57faba71b9eaec9c7998018fe4b878b6997204aa8a02e1b3a1ec",
+      "sha256": "1e53a342eafac80d2ed84b2a36366822765b238e27f212a6e8b43d7c87f1eefc",
       "evidenceItems": []
     },
     "src/kernel/internal/SupplierService.ts": {
-      "sha256": "7b0768eb844ff94e1007254b6a30c9bd2f77155d7708e4be8b56692053638ead",
+      "sha256": "44e134217ac837b0ec3080c19c2eee4b8958df7af69c31c1ad5c347661593c96",
       "evidenceItems": []
     },
     "src/kernel/internal/TaxResolutionEngine.ts": {
@@ -16368,7 +16580,7 @@
       "evidenceItems": []
     },
     "src/kernel/public/ISalesService.ts": {
-      "sha256": "149484d835b468c9ed5624bf983037314964eb5494e66fb634de53505a45bba3",
+      "sha256": "0e14633001181828b5f2b578ba71c1c935e1e4b053f64838865e9a377cb2e692",
       "evidenceItems": []
     },
     "src/kernel/public/ISearchService.ts": {
@@ -16972,7 +17184,7 @@
       "evidenceItems": []
     },
     "src/layout_engine/components/WorkspaceKernelHeader.tsx": {
-      "sha256": "ea53fe6194009f7275aa4a9a3e38c08e5fac8900aee525294630e14f74d52863",
+      "sha256": "534ad1357c4f944fc9cb048417e6597b8ec757bce79c0f689951f6ff1a5214fc",
       "evidenceItems": []
     },
     "src/layout_engine/components/WorkspaceLayout.tsx": {
@@ -17148,7 +17360,7 @@
       "evidenceItems": []
     },
     "src/lib/apiFetchV1.ts": {
-      "sha256": "1f374732e3d35b8b20405f5495c44250c2bece6149a8c56ae5e2b80e0d50b43a",
+      "sha256": "e8beb70f425ead0b93b307a163d7d2f86e2e548e08ac3fc97fef969079b81bcf",
       "evidenceItems": []
     },
     "src/lib/capability_store.ts": {
@@ -20607,6 +20819,18 @@
         }
       ]
     },
+    "src/tests/itemMasterHardening.test.ts": {
+      "sha256": "a379650d3bd295047e16fe6984714f597deec19b93f1bf40a0d6b9cc581f5539",
+      "evidenceItems": [
+        {
+          "id": "EV-TST-src-tests-itemMasterHardening-test-ts",
+          "category": "tests",
+          "file": "src/tests/itemMasterHardening.test.ts",
+          "symbol": "Test suite (27 assertions)",
+          "confidence": "100% Verified"
+        }
+      ]
+    },
     "src/tests/itemMasterRuntimeCertification.test.ts": {
       "sha256": "2fde629fe24ecbe651e70a77a639d215e695331bb57d532d067cea086bca9172",
       "evidenceItems": [
@@ -21891,7 +22115,7 @@
       ]
     },
     "src/tests/validatorsAndFormatters.test.ts": {
-      "sha256": "1b5344705b4a920d426865ab6bddc059f39c8a027ed3c9bec32078bfe63140ae",
+      "sha256": "3541dec2792c2107b4b4623279d21f801d134202f0e1b0838fa7f880e561a185",
       "evidenceItems": [
         {
           "id": "EV-TST-src-tests-validatorsAndFormatters-test-ts",
@@ -21987,7 +22211,7 @@
       "evidenceItems": []
     },
     "src/utils/validators.ts": {
-      "sha256": "3b3730b8dcbdf0331ea0007e527ef7d2c46410843c2492dc6835eaba1709cce1",
+      "sha256": "9272f9e9467305c13521beb2849fa2b96f4dc285021903ec58a8e254d8da4ddd",
       "evidenceItems": []
     },
     "src/workflow/engine/DecisionTableEngine.ts": {
@@ -22139,7 +22363,7 @@
       "evidenceItems": []
     },
     "SYSTEM_TROUBLESHOOTING_LOG.md": {
-      "sha256": "28218c564e9c2b844e4fc0e47f0ed6ecbba98407fc92935fd4fc3c0d8dca309c",
+      "sha256": "17a2afcaa0aab9271cdb6d56656f3250103fb19d8db70a50ea1950929857b3af",
       "evidenceItems": []
     },
     "temp_legacy_check.py": {
@@ -22180,6 +22404,86 @@
     },
     "THIRD_PARTY_LICENSES.md": {
       "sha256": "80b79f46f4ad56bd0f99904e95db4ff1cfe830614a64507da4698f213b7b7044",
+      "evidenceItems": []
+    },
+    "tmp_cleanup_all_table_counts.py": {
+      "sha256": "1637e882ae119c6c23a0efeb1d8253ffa53c3d090600902449dac421b08ba900",
+      "evidenceItems": []
+    },
+    "tmp_cleanup_company_search.py": {
+      "sha256": "c527d376bb73d6ad11b707c15dd4dc5e6320f6c5deebe8cce5592edebbb77c12",
+      "evidenceItems": []
+    },
+    "tmp_cleanup_counts.py": {
+      "sha256": "f909266440365667f4d510c722e836354732adb0cdec7fafbf40fbf7db6d7c24",
+      "evidenceItems": []
+    },
+    "tmp_cleanup_delete_test_companies.py": {
+      "sha256": "fbaf3fd59d5cd66416ee92f69bbec570c12fdfb6b82e9bfe12b9072ef194ad25",
+      "evidenceItems": [
+        {
+          "id": "EV-TST-tmp-cleanup-delete-test-companies-py",
+          "category": "tests",
+          "file": "tmp_cleanup_delete_test_companies.py",
+          "symbol": "Test suite (1 assertions)",
+          "confidence": "100% Verified"
+        }
+      ]
+    },
+    "tmp_cleanup_detail_inspection.py": {
+      "sha256": "dcfa1a90b9bb42822521aeb8c986897a958e796d82b97a6559bb09eb3dc21deb",
+      "evidenceItems": []
+    },
+    "tmp_cleanup_fk_dependents.py": {
+      "sha256": "8b22ebda64e51055b190837fbfd7ec29185a6c4217d45a3ee0927890c16f9de5",
+      "evidenceItems": []
+    },
+    "tmp_cleanup_fk_details.py": {
+      "sha256": "95f3ab5ad0cc397cd45b02e259d25e64c4945df07e94ae0921f09a1671b8569c",
+      "evidenceItems": []
+    },
+    "tmp_cleanup_fk_scan.py": {
+      "sha256": "092742478f1b434957fedae9fe56131ef46e19675756f66d87d117d30dfe3b14",
+      "evidenceItems": []
+    },
+    "tmp_cleanup_inspection.py": {
+      "sha256": "37b7fc5f01f06f00d23e2d1a3660b5f7979246c117f0d44924be06fe2bc5decb",
+      "evidenceItems": []
+    },
+    "tmp_cleanup_rows.py": {
+      "sha256": "9e27ebd916aca7ad922aa2af80687baa66733b8aea092c42096d2e134d312435",
+      "evidenceItems": []
+    },
+    "tmp_cleanup_target_fk_scan.py": {
+      "sha256": "a076fa22f8f395c6b7cbac92cf4597e51fc6701c3f7eae51aea2fd41676f00f3",
+      "evidenceItems": []
+    },
+    "tmp_cleanup_test_companies.py": {
+      "sha256": "9ac1ded8750fcba20aa1b57c39e9c65c5947a8ec2c7ca0ec78a61b230279f84d",
+      "evidenceItems": [
+        {
+          "id": "EV-TST-tmp-cleanup-test-companies-py",
+          "category": "tests",
+          "file": "tmp_cleanup_test_companies.py",
+          "symbol": "Test suite (1 assertions)",
+          "confidence": "100% Verified"
+        }
+      ]
+    },
+    "tmp_delete_all_companies.py": {
+      "sha256": "a7a8d4fbbd21f07204016360f073fcd9442e4230df789630d4394c932848f6a2",
+      "evidenceItems": []
+    },
+    "tmp_delete_all_companies_force.py": {
+      "sha256": "691bea50d49109c28e59141c642ab9f71bebdf80c6f4f6e9c8b33eac212efa8f",
+      "evidenceItems": []
+    },
+    "tmp_delete_all_companies_preview.py": {
+      "sha256": "5888dee7719436927feb6435b3394811d596e6ef9747ff85e1854ca3545fd892",
+      "evidenceItems": []
+    },
+    "tmp_list_companies.py": {
+      "sha256": "f961be44a4279b01e181734de693b24b7ce3da37a403c4d3c2eaa9dc519dd692",
       "evidenceItems": []
     },
     "TROUBLESHOOTING.md": {

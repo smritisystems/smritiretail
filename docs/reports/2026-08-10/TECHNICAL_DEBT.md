@@ -1,6 +1,6 @@
 # Technical Debt Audit Report
 
-*Generated: 2026-08-10T03:19:39.964Z*
+*Generated: 2026-08-10T22:15:09.019Z*
 
 ### Code Complexity Deductions
 - **Total TODO Comments:** 32
@@ -22,11 +22,11 @@
 - ⚠️ `src/components/DashboardTab.tsx (1704 lines)`
 - ⚠️ `src/components/DataExchangeTab.tsx (1262 lines)`
 - ⚠️ `src/components/DocumentSeriesTab.tsx (859 lines)`
-- ⚠️ `src/components/ExcelGridEntrySection.tsx (1995 lines)`
+- ⚠️ `src/components/ExcelGridEntrySection.tsx (1997 lines)`
 - ⚠️ `src/components/ExpandedCellEditor.tsx (530 lines)`
 - ⚠️ `src/components/FloatingWindowHost.tsx (527 lines)`
 - ⚠️ `src/components/inventory/inventory.manifest.ts (546 lines)`
-- ⚠️ `src/components/ItemMasterTab.tsx (1408 lines)`
+- ⚠️ `src/components/ItemMasterTab.tsx (1410 lines)`
 - ⚠️ `src/components/item_master/ItemMasterFormInspector.tsx (702 lines)`
 - ⚠️ `src/components/label_print/UniversalLabelPrintingStudio.tsx (1296 lines)`
 - ⚠️ `src/components/LookupPicker.tsx (547 lines)`
@@ -39,7 +39,7 @@
 - ⚠️ `src/components/PurchaseStudioTab.tsx (1837 lines)`
 - ⚠️ `src/components/QuickReportsWidget.tsx (1397 lines)`
 - ⚠️ `src/components/ReportDesignerTab.tsx (1517 lines)`
-- ⚠️ `src/components/sales/SalesBillingStudio.tsx (1291 lines)`
+- ⚠️ `src/components/sales/SalesBillingStudio.tsx (1441 lines)`
 - ⚠️ `src/components/sales/SalesTaxInvoiceFioriObjectPage.tsx (595 lines)`
 - ⚠️ `src/components/SalesStudioTab.tsx (3737 lines)`
 - ⚠️ `src/components/SCDMStudioTab.tsx (811 lines)`
