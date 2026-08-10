@@ -22,12 +22,14 @@ All Rights Reserved.
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, Body, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.deps import get_current_user
+from app.models.auth import User
 
 from app.db.session import get_db
 from app.api.deps import get_current_tenant, TenantContext
 from app.services.ecommerce_sync import ECommerceSyncPipeline
 
-router = APIRouter(prefix="/ecommerce", tags=["E-Commerce Multi-Channel Integration"])
+router = APIRouter(prefix="/ecommerce", tags=["E-Commerce Multi-Channel Integration"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/sync-stock/{product_id}")

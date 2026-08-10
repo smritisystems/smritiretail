@@ -13,13 +13,15 @@ Classification: Franchise & Royalty REST API Gateway
 """
 
 from typing import List, Dict, Any
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Depends
+from app.api.deps import get_current_user
+from app.models.auth import User
 
 from app.core.franchise.franchise_manager import FranchiseManager
 from app.core.franchise.royalty_calculator import RoyaltyCalculator
 from app.core.franchise.settlement_engine import SettlementEngine
 
-router = APIRouter(prefix="/franchise", tags=["Domain Release: Multi-Store Franchise & Royalty Engine (v21.0.0)"])
+router = APIRouter(prefix="/franchise", tags=["Domain Release: Multi-Store Franchise & Royalty Engine (v21.0.0)"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/stores")

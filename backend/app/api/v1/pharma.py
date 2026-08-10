@@ -13,13 +13,15 @@ Classification: Pharma & Healthcare Retail REST API Gateway
 """
 
 from typing import Dict, Any
-from fastapi import APIRouter, Body, Query
+from fastapi import APIRouter, Body, Depends, Query
+from app.api.deps import get_current_user
+from app.models.auth import User
 
 from app.core.pharma.prescription_manager import PrescriptionManager
 from app.core.pharma.generic_salt_search import GenericSaltSearchEngine
 from app.core.pharma.batch_expiry_control import BatchExpiryControlEngine
 
-router = APIRouter(prefix="/pharma", tags=["Domain Release: Pharma & Healthcare Engine (v24.0.0)"])
+router = APIRouter(prefix="/pharma", tags=["Domain Release: Pharma & Healthcare Engine (v24.0.0)"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/prescriptions/validate")

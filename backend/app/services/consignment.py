@@ -396,9 +396,13 @@ class ConsignmentService:
             t_item.qty_on_hand -= item.qty_sold
             self.db.add(t_item)
 
-        # 2. Update shadow customer outstanding balance
+        # 2. Update shadow customer outstanding balance — scoped to company (B7 isolation fix)
         cust_res = await self.db.execute(
-            select(Customer).filter(Customer.id == report.partner_id)
+            select(Customer).filter(
+                Customer.id == report.partner_id,
+                Customer.company_id == self.tenant_ctx.company_id,
+                Customer.is_deleted == False,
+            )
         )
         cust = cust_res.scalars().first()
         billing_policy = getattr(cust, "billing_policy", "InvoiceOnDispatch") if cust else "InvoiceOnDispatch"
@@ -431,9 +435,13 @@ class ConsignmentService:
         settlement_id = f"CS-{uuid.uuid4().hex[:8]}"
         settlement_no = await numbering_service.next("CS", self.tenant_ctx.branch_id, self.db)
 
-        # 1. Update shadow customer outstanding balance
+        # 1. Update shadow customer outstanding balance — scoped to company (B7 isolation fix)
         cust_res = await self.db.execute(
-            select(Customer).filter(Customer.id == settlement_in.partner_id)
+            select(Customer).filter(
+                Customer.id == settlement_in.partner_id,
+                Customer.company_id == self.tenant_ctx.company_id,
+                Customer.is_deleted == False,
+            )
         )
         cust = cust_res.scalars().first()
         if cust:

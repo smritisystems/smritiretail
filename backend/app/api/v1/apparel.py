@@ -13,13 +13,15 @@ Classification: Apparel & Fashion Retail REST API Gateway
 """
 
 from typing import Dict, Any, List
-from fastapi import APIRouter, Body, Query
+from fastapi import APIRouter, Body, Depends, Query
+from app.api.deps import get_current_user
+from app.models.auth import User
 
 from app.core.apparel.matrix_grid import ApparelMatrixGridEngine
 from app.core.apparel.markdown_engine import SeasonalMarkdownEngine
 from app.core.apparel.hangtag_generator import HangtagGeneratorEngine
 
-router = APIRouter(prefix="/apparel", tags=["Domain Release: Apparel & Fashion 3D Matrix Engine (v25.0.0)"])
+router = APIRouter(prefix="/apparel", tags=["Domain Release: Apparel & Fashion 3D Matrix Engine (v25.0.0)"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/matrix/generate")

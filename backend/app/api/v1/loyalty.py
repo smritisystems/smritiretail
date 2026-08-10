@@ -22,12 +22,14 @@ All Rights Reserved.
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Body, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.deps import get_current_user
+from app.models.auth import User
 
 from app.db.session import get_db
 from app.api.deps import get_current_tenant, TenantContext
 from app.services.loyalty import LoyaltyEngineService
 
-router = APIRouter(prefix="/loyalty", tags=["Customer Loyalty & Rewards Engine"])
+router = APIRouter(prefix="/loyalty", tags=["Customer Loyalty & Rewards Engine"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/account/{customer_id}")

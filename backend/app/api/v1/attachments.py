@@ -13,13 +13,15 @@ Classification: Layer 7 SMRITI Content & Document Platform REST API
 """
 
 from typing import List, Dict, Any
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from app.api.deps import get_current_user
+from app.models.auth import User
 
 from app.core.documents.document_service import DocumentService
 from app.core.documents.attachment_service import AttachmentService
 from app.core.documents.document_preview_engine import DocumentPreviewEngine
 
-router = APIRouter(prefix="/attachments", tags=["Layer 7 SMRITI Content & Document Platform (SCDP / UDMS)"])
+router = APIRouter(prefix="/attachments", tags=["Layer 7 SMRITI Content & Document Platform (SCDP / UDMS)"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/upload")

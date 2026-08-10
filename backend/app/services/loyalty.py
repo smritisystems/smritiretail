@@ -102,8 +102,13 @@ class LoyaltyEngineService:
         )
         self.db.add(tx)
 
-        # Update Customer aggregate cache
-        cust_stmt = select(Customer).where(Customer.id == customer_id)
+        # Update Customer aggregate cache — scoped to company (B7 isolation fix)
+        cust_stmt = select(Customer).where(
+            Customer.id == customer_id,
+            Customer.is_deleted == False,
+        )
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            cust_stmt = cust_stmt.where(Customer.company_id == self.tenant_ctx.company_id)
         cust_res = await self.db.execute(cust_stmt)
         customer = cust_res.scalars().first()
         if customer:

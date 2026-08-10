@@ -148,8 +148,12 @@ class PosEngine:
             p_id = line["product_id"]
             qty = Decimal(str(line["quantity"]))
 
-            # Fetch product & verify stock
-            p_stmt = select(Product).where(Product.id == p_id)
+            # Fetch product & verify stock — scoped to company (B7 isolation fix)
+            p_stmt = select(Product).where(
+                Product.id == p_id,
+                Product.company_id == self.tenant.company_id,
+                Product.is_deleted == False,
+            )
             prod = (await self.db.execute(p_stmt)).scalars().first()
 
             if not prod:
