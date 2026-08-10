@@ -30,6 +30,32 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Masterbook Governance Baseline — 2026-08-10 (MILESTONE)
+
+**Commit:** `9a867f4b` | **Tag:** `masterbook-baseline-v1.0`
+
+Established the **SMRITI Masterbook** — the permanent architectural reference library and single source of architectural truth for SMRITI Retail OS.
+
+#### Governance Chain Activated
+- `AGENTS.md` Rule 26 / MBOOK-001 (FROZEN) now mandates that every AI agent reads the relevant Masterbook section before any architectural change.
+- Conflict between Masterbook and source code must be reported — never silently resolved.
+- `9a867f4b` is the reference baseline for all future architectural audits.
+
+#### Documents Created (24 files across 9 sections)
+
+| Section | Documents |
+|---|---|
+| `00` Master Index | Navigation + governance baseline record |
+| `01` Constitution | Product philosophy, SWP-001, AUTH-001, frozen ADRs |
+| `02` Architecture | Hybrid multi-company arch, DB, schema governance, ownership policy |
+| `03` Security | User-Company assignment, RBAC, company isolation (5 enforcement layers) |
+| `04` Master Data | Customer (SCS-INV-001 wiring), Product (AP-008), Supplier, Applicability |
+| `05` Transaction | Sales (full invoice flow), Purchase, Inventory (stock ledger), Accounting |
+| `06` Database | Company databases (PROD-003), table registry (30+ tables), migration governance |
+| `07` Consolidation | Cross-company consolidated reporting |
+| `08` Recovery | Disaster recovery, troubleshooting reference (7 real issues documented) |
+| `99` AI Agent | Master Execution Directive — 9-step mandatory protocol, anti-pattern list |
+
 ### Sales Invoice 422 Fix — customer_id Wiring (SCS-INV-001) — 2026-08-10
 
 

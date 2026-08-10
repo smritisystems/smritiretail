@@ -16,6 +16,21 @@
 
 ---
 
+## Governance Baseline
+
+| Property | Value |
+|---|---|
+| **Baseline Commit** | `9a867f4b` |
+| **Baseline Tag** | `masterbook-baseline-v1.0` |
+| **Established** | 2026-08-10 |
+| **Documents** | 24 |
+| **Sections** | 9 |
+| **AGENTS.md Rule** | Rule 26 / MBOOK-001 (FROZEN) |
+| **Status** | ACTIVE — all agents bound by this baseline |
+
+> `9a867f4b` is the **reference point for all future architectural audits**.
+> If source code diverges from this Masterbook, the divergence must be reported — never silently resolved.
+
 ## What Is the Masterbook?
 
 The Masterbook is the **single source of architectural truth** for SMRITI Retail OS. Every architectural decision, data model, governance rule, and platform contract is recorded here. When source code and Masterbook conflict, the conflict must be surfaced — never silently resolved.
