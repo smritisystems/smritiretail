@@ -1674,6 +1674,69 @@ All Rights Reserved.
 - **Rule 5 (New File Generation)**: Every newly created internal source file or architecture document MUST automatically receive the canonical author signature.
 - **Rule 6 (Python Future Import)**: In Python files containing `from __future__ import ...`, the `from __future__` statement MUST remain at line 1, placed immediately BEFORE the author signature docstring.
 
+## 26. Masterbook Authority & AI Agent Pre-Task Protocol (MBOOK-001 — MANDATORY FROZEN)
 
+**MASTERBOOK is the architectural memory of SMRITI.**
+**Source code is the implementation.**
+**If they differ, the AI agent must NOT silently choose one — it must report the difference and obtain an architectural decision.**
+
+### Masterbook Location
+```
+F:\SMRITRretailNXmgrt\masterbook\
+```
+
+### Mandatory Pre-Task Steps (ALL AI Agents — No Exceptions)
+Before making ANY architectural change, every AI agent MUST execute these steps in order:
+
+```
+STEP 1: Read  masterbook/00_MASTER_INDEX.md
+STEP 2: Identify which Masterbook section is relevant to the task
+STEP 3: Read  the relevant Masterbook document(s)
+STEP 4: Audit the actual current source code
+STEP 5: Compare CURRENT CODE vs MASTERBOOK specification
+STEP 6: Document any divergence found
+STEP 7: If divergence exists → STOP → report to user → await architectural decision
+STEP 8: Implement only after an evidence-based decision
+STEP 9: Update Masterbook if the architecture is intentionally changed
+```
+
+### Masterbook Structure
+| Section | Documents | Purpose |
+|---|---|---|
+| `00_MASTER_INDEX.md` | Index | Navigation + quick-reference ADK map |
+| `01_CONSTITUTION/` | `SMRITI_CONSTITUTION.md` | Product philosophy, frozen rules, SWP-001 |
+| `02_ARCHITECTURE/` | 4 documents | Hybrid multi-company arch, DB, schema, ownership |
+| `03_SECURITY/` | 3 documents | User-Company assignment, RBAC, company isolation |
+| `04_MASTER_DATA/` | 4 documents | Customer, Product, Supplier, applicability rules |
+| `05_TRANSACTION/` | 4 documents | Sales, Purchase, Inventory, Accounting |
+| `06_DATABASE/` | 3 documents | Company DBs, table registry, migration governance |
+| `07_CONSOLIDATION/` | 1 document | Cross-company consolidated reporting |
+| `08_RECOVERY/` | 2 documents | Disaster recovery, troubleshooting reference |
+| `99_AI_AGENT/` | `MASTER_EXECUTION_DIRECTIVE.md` | Complete agent protocol and anti-pattern list |
+
+### Architectural Conflict Protocol
+```
+CONFLICT DETECTED
+    ├── CRITICAL (security/data isolation) → STOP. Report. Await explicit decision.
+    ├── MAJOR (architectural principle)    → Document. Propose resolution. Await approval.
+    └── MINOR (naming/style)              → Note it. Proceed with Masterbook convention.
+```
+
+### When to Update the Masterbook
+- Architecture is intentionally changed (after user approval + ADR)
+- A new pattern or rule is established through a resolved incident
+- A troubleshooting issue is resolved → append to `08_RECOVERY/TROUBLESHOOTING_REFERENCE.md`
+- A new table is added → update `06_DATABASE/DATABASE_REGISTRY.md`
+- A new endpoint pattern is established → update `02_ARCHITECTURE/SCHEMA_GOVERNANCE.md`
+
+**Commit format:** `docs(masterbook): update {section} — {reason}`
+
+### What Is Prohibited Without Masterbook Check
+1. Creating a new workspace, screen, or module — check SWP-001 first
+2. Adding a new table — check DATABASE_REGISTRY.md first
+3. Making a required FK optional — check SCHEMA_GOVERNANCE.md first
+4. Changing authentication flow — check USER_COMPANY_ASSIGNMENT.md first
+5. Changing any security query filter — check COMPANY_ISOLATION.md first
+6. Creating a new AI registry, form renderer, or report engine — check CONSTITUTION first
 
 
