@@ -79,6 +79,7 @@ export class SalesService implements ISalesService {
 
     const record: SalesInvoiceRecord = {
       id,
+      customerId: invoiceData.customerId,   // Gap 2 fix: wire customer FK — backend accepts via AliasChoices('customer_id','customerId')
       invoiceNumber: invoiceData.invoiceNumber || `INV-2025-${Math.floor(10000 + Math.random() * 90000)}`,
       customerName: invoiceData.customerName || "Walk-in Customer",
       customerMobile: invoiceData.customerMobile || "9876543210",
@@ -187,6 +188,7 @@ export class SalesService implements ISalesService {
   private normalizeBackendInvoice(inv: any): SalesInvoiceRecord {
     return {
       id: inv.id,
+      customerId: inv.customer_id || inv.customerId,
       invoiceNumber: inv.invoice_number || inv.invoiceNumber || `INV-${inv.id}`,
       customerName: inv.customer_name || inv.customerName || "Customer",
       customerMobile: inv.customer_mobile || inv.customerMobile || "",

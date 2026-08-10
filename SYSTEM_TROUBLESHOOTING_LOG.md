@@ -1,5 +1,69 @@
 # SMRITI RETAIL OS — SYSTEM TROUBLESHOOTING LOG
 
+## ISSUE 2026-08-10-05: Sales Invoice 422 — customer_id Wiring (SCS-INV-001)
+
+**Severity:** P0 — Production failure (every invoice POST returned HTTP 422)
+**Status:** RESOLVED
+**Date:** 2026-08-10
+**Ref:** SCS-INV-001-CUSTOMER-ID-WIRING
+
+### Symptom
+`POST /api/v1/sales/invoices` returned HTTP 422 with:
+```
+body -> customer_id: Field required
+```
+No sales invoice could be created from the Sales Billing Studio.
+
+### Root Cause — 3 Confirmed Gaps
+
+#### Gap 1 — ISalesService.ts: SalesInvoiceRecord had no customerId field
+`src/kernel/public/ISalesService.ts:33-58` — The entire frontend type contract (`SalesInvoiceRecord`) defined `customerName`, `customerMobile`, `customerGstin` but had no `customerId` field. With no slot in the interface, nothing downstream could carry the customer FK.
+
+#### Gap 2 — SalesService.saveInvoice(): customer_id never sent to backend
+`src/kernel/internal/SalesService.ts:80-110` — The `record` object was built directly from `SalesInvoiceRecord` fields. Because `customerId` was absent from the interface, `JSON.stringify(record)` sent to `POST /api/v1/sales/invoices/` never contained `customer_id`. Backend schema declares `customer_id: str = Field(...)` (required) → 422 on every call.
+
+#### Gap 3 — SalesBillingStudio: selectedCustomer.id never passed to command
+`src/components/sales/SalesBillingStudio.tsx:461-499` — `selectedCustomer` state held the full Customer object including `.id`, used in the dropdown control (line 662). But the `CreateSalesInvoiceCommand` payload only passed `customerName`, `customerMobile`, `customerGstin` — never `customerId: selectedCustomer?.id`.
+
+#### Bonus Finding F-INV-TC — Cross-Company Customer Isolation Missing (Security)
+`backend/app/services/sales_orchestrator.py:282` — `create_sales_invoice()` accepted any `customer_id` without verifying that the customer belongs to `tenant_ctx.company_id`. A customer from Company A could be silently used in a Company B invoice. Discovered by T-C regression test (initially FAILED).
+
+### Resolution
+
+#### Gap 1 Fix
+Added `customerId?: string` to `SalesInvoiceRecord` interface.
+- **File:** `src/kernel/public/ISalesService.ts`
+
+#### Gap 2 Fix
+`SalesService.saveInvoice()` now sets `customerId: invoiceData.customerId` in the record body. Backend accepts `customerId` via `AliasChoices("customer_id", "customerId")`. `normalizeBackendInvoice()` maps `inv.customer_id` back to `customerId`.
+- **File:** `src/kernel/internal/SalesService.ts`
+
+#### Gap 3 Fix
+`SalesBillingStudio` now passes `customerId: selectedCustomer?.id` into `CreateSalesInvoiceCommand`. Added frontend guard: if `selectedCustomer === null`, POST is blocked with a user-facing toast before the API call is made. Added `Workspace.Changed.v1` subscriber to reset `selectedCustomer` on company switch (prevents cross-company customer from persisting in UI state).
+- **File:** `src/components/sales/SalesBillingStudio.tsx`
+
+#### F-INV-TC Fix — Customer-Tenant Validation in Orchestrator
+Added customer ownership check at the top of `create_sales_invoice()`: if `invoice_in.customer_id` is provided, verifies `Customer.company_id == tenant_ctx.company_id`. Cross-company customer → 404.
+- **File:** `backend/app/services/sales_orchestrator.py`
+
+### Test Evidence
+```
+python -m pytest backend/app/tests/test_sales_invoice_customer_wiring.py -v
+
+test_ta_correct_customer_id_accepted       PASSED
+test_tb_missing_customer_id_returns_422    PASSED
+test_tc_cross_company_customer_rejected    PASSED
+test_td_valid_customer_invoice_persists    PASSED
+test_te_walkin_customer_path               SKIPPED (no approved walk-in row)
+
+4 passed, 1 skipped in 43.88s
+```
+TypeScript: `npx tsc --noEmit --skipLibCheck` → 0 errors
+
+### Known Limitation
+Walk-in / Cash Sale: No approved walk-in customer row exists in the current DB architecture. `customer_id` is a required FK to the `customers` table. The frontend guard (`selectedCustomer === null`) prevents the 422 from reaching the backend, but walk-in invoicing requires a provisioned walk-in customer per company. This requires an ADR before implementation.
+
+
 ## ISSUE 2026-08-10-04: Multi-Company Switch Hardening (SCS-WSC-001/SCS-WSC-002)
 
 **Severity:** CRITICAL (P0 — Security vulnerability + silent data isolation failure)

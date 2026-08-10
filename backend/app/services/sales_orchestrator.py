@@ -291,6 +291,25 @@ class SalesBusinessOrchestrator:
         if existing.scalars().first():
             raise HTTPException(status_code=400, detail="Sales invoice with this invoice number already exists")
 
+        # SCS-INV-001 / F-INV-TC: Verify customer belongs to the active company context.
+        # Cross-company customer_id must be rejected before any business logic runs.
+        if invoice_in.customer_id:
+            cust_check = await self.db.execute(
+                select(Customer).where(
+                    Customer.id == invoice_in.customer_id,
+                    Customer.company_id == self.tenant_ctx.company_id,
+                    Customer.is_deleted == False,
+                )
+            )
+            if not cust_check.scalars().first():
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        "Customer '" + invoice_in.customer_id + "' not found in your company. "
+                        "Ensure the customer belongs to the active company context."
+                    ),
+                )
+
         calculated_tax_total = Decimal("0.00")
         calculated_grand_total = Decimal("0.00")
         calculated_cgst_total = Decimal("0.00")

@@ -33,6 +33,7 @@ export interface SalesInvoiceLineItem {
 export interface SalesInvoiceRecord {
   id: string;
   invoiceNumber: string;
+  customerId?: string;      // FK to Customer.id — sent as customer_id to backend (required for POST)
   customerName: string;
   customerMobile: string;
   customerGstin?: string;

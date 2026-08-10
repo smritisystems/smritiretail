@@ -30,6 +30,27 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Sales Invoice 422 Fix — customer_id Wiring (SCS-INV-001) — 2026-08-10
+
+#### SCS-INV-001 — Sales Invoice customer_id Wiring Fix (P0 — Production 422)
+- **Root Cause (3 gaps found):**
+  - **Gap 1:** `SalesInvoiceRecord` interface (`ISalesService.ts`) had no `customerId` field — the entire frontend type contract had no slot for the customer FK.
+  - **Gap 2:** `SalesService.saveInvoice()` built the JSON body from `SalesInvoiceRecord` — since `customerId` was absent from the type, `customer_id` was never sent to the backend. FastAPI's `Field(...)` (required) returned 422.
+  - **Gap 3:** `SalesBillingStudio` held the selected customer in state (`selectedCustomer?.id`) but never extracted it into the `CreateSalesInvoiceCommand` payload.
+- **Bonus Finding (F-INV-TC — Security):** `sales_orchestrator.py` accepted any `customer_id` regardless of active company context — a customer from Company A could be used in a Company B invoice. Cross-company customer isolation was missing from `create_sales_invoice()`.
+- **Fixes:**
+  1. Added `customerId?: string` to `SalesInvoiceRecord` interface.
+  2. `SalesService.saveInvoice()` now passes `customerId` in the record body (backend accepts via `AliasChoices`).
+  3. `SalesBillingStudio` now passes `customerId: selectedCustomer?.id` into `CreateSalesInvoiceCommand`.
+  4. Added frontend guard: POST blocked if `selectedCustomer === null` (user-facing message shown).
+  5. Added `Workspace.Changed.v1` subscriber in `SalesBillingStudio` to reset `selectedCustomer` on company switch — prevents cross-company customer leakage in UI state.
+  6. Added customer-tenant validation in `SalesBusinessOrchestrator.create_sales_invoice()`: customer must belong to `tenant_ctx.company_id` — cross-company customer_id returns 404.
+- **Known Limitation:** Walk-in/cash sale path has no approved walk-in customer row in the DB architecture. `customer_id` is required as a real FK. Walk-in provisioning requires an ADR. Documented as T-E (skipped).
+- **Files:** `src/kernel/public/ISalesService.ts`, `src/kernel/internal/SalesService.ts`, `src/components/sales/SalesBillingStudio.tsx`, `backend/app/services/sales_orchestrator.py`, `backend/app/tests/test_sales_invoice_customer_wiring.py`
+- **Tests:** 4 passed, 1 skipped (T-E walk-in, by design) — `test_sales_invoice_customer_wiring.py`
+- **Rules:** PROD-004 (data isolation), SWP-001 (single workspace)
+
+
 ### Multi-Company User Experience (SCS-WSC-001/SCS-WSC-002) — 2026-08-10
 
 #### SCS-WSC-002 — /workspace/switch Hardening (Security P0)

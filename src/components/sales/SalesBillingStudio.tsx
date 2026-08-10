@@ -130,6 +130,16 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
     };
   }, []);
 
+  // SCS-WSC-002: Reset selected customer on company switch to prevent cross-company customer leakage
+  useEffect(() => {
+    const unsubWorkspace = SPK.events.subscribe("Workspace.Changed.v1", () => {
+      setSelectedCustomer(null);
+      setSelectedCustomerName("Walk-in Retail Customer");
+      setIsWalkIn(true);
+    });
+    return () => unsubWorkspace();
+  }, []);
+
   // Customer Store & Lookup State
   const [customerList, setCustomerList] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -455,11 +465,17 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
       showToast("Cannot post an empty invoice!", "error");
       return;
     }
+    // Gap 3 fix: customer_id is required by backend — block POST before 422 reaches server
+    if (!selectedCustomer?.id) {
+      showToast("Please select a customer before posting the invoice", "error");
+      return;
+    }
 
     try {
       await SPK.commands.execute(
         new CreateSalesInvoiceCommand({
           invoiceNumber: invoiceNo,
+          customerId: selectedCustomer?.id,   // Gap 3 fix: wire selectedCustomer.id ? customer_id
           customerName: selectedCustomerName,
           customerMobile: mobileNumber,
           customerGstin: gstin,
