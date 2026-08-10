@@ -16,6 +16,7 @@ import os
 import asyncio
 from logging.config import fileConfig
 from sqlalchemy.ext.asyncio import create_async_engine
+import sqlalchemy as sa
 from alembic import context
 
 # Ensure backend root is in sys.path for app module imports
@@ -191,19 +192,59 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 def do_run_migrations(connection) -> None:
+    # ── Stage 1: Legacy revision ID compatibility mapping ──────────────────
+    # Revision IDs were shortened to fit standard Alembic VARCHAR(32) width.
+    # Existing databases may still contain the old (>32 char) revision IDs.
+    # This block remaps them BEFORE Alembic resolves the active revision.
+    #
+    # FRESH DATABASE SAFETY: alembic_version does not exist on a brand-new
+    # database. We check table existence first. If absent, no UPDATE is
+    # executed and Alembic bootstraps normally.
+    #
+    # Each UPDATE is a separate execute() call to prevent transaction abort
+    # propagation when running in PostgreSQL asyncpg mode.
     try:
-        connection.execute(sa.text("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255);"))
-        connection.commit()
+        table_exists = connection.scalar(sa.text(
+            "SELECT EXISTS ("
+            "  SELECT 1 FROM information_schema.tables"
+            "  WHERE table_schema = 'public' AND table_name = 'alembic_version'"
+            ");"
+        ))
     except Exception:
-        pass
+        table_exists = False
+
+    if table_exists:
+        _legacy_map = [
+            ("v900_multi_group_category_mapping",    "v900_multigroup_catmap"),
+            ("v1400_phase_e_authority_hardening",    "v1400_phase_e_auth_hardening"),
+            ("v1501_barcode_sourcing_multi_mode",    "v1501_barcode_src_mode"),
+            ("v1502_tenant_scoped_product_code_sku", "v1502_tenant_prod_sku"),
+        ]
+        for old_id, new_id in _legacy_map:
+            try:
+                connection.execute(
+                    sa.text(
+                        "UPDATE alembic_version SET version_num = :new WHERE version_num = :old"
+                    ),
+                    {"new": new_id, "old": old_id}
+                )
+            except Exception:
+                pass
+        try:
+            connection.commit()
+        except Exception:
+            pass
+
+
     context.configure(
-        connection=connection, 
+        connection=connection,
         target_metadata=target_metadata,
         include_object=include_object
     )
 
     with context.begin_transaction():
         context.run_migrations()
+
 
 async def run_async_migrations() -> None:
     connectable = create_async_engine(settings.DATABASE_URL)

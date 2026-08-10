@@ -8,5 +8,25 @@
     "securityScore": 85,
     "testCoverage": 100,
     "documentation": 100
+  },
+  {
+    "timestamp": "2026-08-10T03:17:37.218Z",
+    "dhi": 48,
+    "developmentScore": 42,
+    "qualityScore": 11,
+    "releaseScore": 31,
+    "securityScore": 48,
+    "testCoverage": 35,
+    "documentation": 30
+  },
+  {
+    "timestamp": "2026-08-10T03:19:39.964Z",
+    "dhi": 48,
+    "developmentScore": 42,
+    "qualityScore": 11,
+    "releaseScore": 31,
+    "securityScore": 48,
+    "testCoverage": 35,
+    "documentation": 30
   }
 ]

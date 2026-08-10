@@ -423,14 +423,40 @@ export interface StockLedgerEntry {
   productId: string;
   productCode: string;
   productName: string;
-  movementType: "IN" | "OUT" | "ADJUSTMENT" | "TRANSFER";
+  /**
+   * Canonical ILE movement taxonomy.
+   * Includes all types used by ITEX + legacy direct-POST types.
+   */
+  movementType:
+    | "PURCHASE"
+    | "SALE"
+    | "POS_SALE"
+    | "SALE_RETURN"
+    | "PURCHASE_RETURN"
+    | "TRANSFER_OUT"
+    | "TRANSFER_IN"
+    | "ADJUSTMENT"
+    | "OPENING"
+    | "PRODUCTION"
+    | "RETURN"
+    | "IN"
+    | "OUT"
+    | "TRANSFER"
+    | `REVERSAL_${string}`
+    | string; // forward-compatible for future types
   quantity: number;
-  balanceAfter: number;
-  referenceDocType: "SalesInvoice" | "PurchaseGRN" | "ManualAdjustment" | "Return";
-  referenceDocId: string;
+  /**
+   * Cumulative running balance for this (company, product) at time of entry.
+   * null = not available (not an error).
+   * 0 = valid stock quantity — MUST NOT be displayed as "unknown".
+   */
+  balanceAfter: number | null;
+  /** ILE document reference (= document_no in ILE) */
+  referenceDocType: string | null;
+  referenceDocId: string | null;
   warehouse: string;
   notes?: string;
-  
+
   // Extended Metadata for granular stock tracking
   user?: string;
   sourceModule?: string;
@@ -439,7 +465,22 @@ export interface StockLedgerEntry {
   serial?: string;
   quantityIn?: number;
   quantityOut?: number;
+
+  // Canonical ILE fields (available when reading from inventory_ledger_entries)
+  entry_no?: string;
+  transaction_id?: string;
+  document_no?: string | null;
+  posting_timestamp?: string;
+  from_location_id?: string | null;
+  from_location_name?: string | null;
+  to_location_id?: string | null;
+  to_location_name?: string | null;
+  batch_no?: string | null;
+  serial_no?: string | null;
+  ownership_type?: string;
+  is_reversal?: boolean;
 }
+
 
 export interface AuditLogEntry {
   id: string;

@@ -38,13 +38,18 @@ interface StockLedgerTabProps {
 
 type LedgerRow = StockLedgerEntry & { id: string };
 
-// Movement type badge renderer
+// Movement type badge renderer — handles canonical ILE movement types
 const MovementBadge: React.FC<{ type: string }> = ({ type }) => {
+  const t = type?.toUpperCase() ?? "UNKNOWN";
   const cls =
-    type === "IN"
+    ["PURCHASE", "SALE_RETURN", "TRANSFER_IN", "IN", "OPENING", "PRODUCTION", "RETURN"].includes(t)
       ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-      : type === "OUT"
+      : ["SALE", "POS_SALE", "PURCHASE_RETURN", "TRANSFER_OUT", "OUT", "TRANSFER"].includes(t)
       ? "bg-rose-500/10 text-rose-400 border border-rose-500/30"
+      : t === "ADJUSTMENT"
+      ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+      : t.startsWith("REVERSAL_")
+      ? "bg-purple-500/10 text-purple-400 border border-purple-500/30"
       : "bg-blue-500/10 text-blue-400 border border-blue-500/30";
   return (
     <span className={`px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded-md ${cls}`}>
@@ -118,7 +123,7 @@ const COLUMNS: ListReportColumn<LedgerRow>[] = [
     align: "right",
     render: (row) => (
       <span className="font-bold text-emerald-400">
-        {(row.quantityIn ?? 0) > 0 ? row.quantityIn : row.quantity > 0 ? row.quantity : "—"}
+        {(row.quantityIn ?? 0) > 0 ? row.quantityIn : "\u2014"}
       </span>
     ),
   },
@@ -128,11 +133,7 @@ const COLUMNS: ListReportColumn<LedgerRow>[] = [
     align: "right",
     render: (row) => (
       <span className="font-bold text-rose-400">
-        {(row.quantityOut ?? 0) > 0
-          ? row.quantityOut
-          : row.quantity < 0
-          ? Math.abs(row.quantity)
-          : "—"}
+        {(row.quantityOut ?? 0) > 0 ? row.quantityOut : "\u2014"}
       </span>
     ),
   },
@@ -141,7 +142,9 @@ const COLUMNS: ListReportColumn<LedgerRow>[] = [
     label: "Balance",
     align: "right",
     render: (row) => (
-      <span className="font-bold text-theme-heading">{row.balanceAfter}</span>
+      row.balanceAfter !== null && row.balanceAfter !== undefined
+        ? <span className="font-bold text-theme-heading">{row.balanceAfter}</span>
+        : <span className="text-theme-muted text-xs" title="Balance not available">&mdash;</span>
     ),
   },
 ];
@@ -156,34 +159,41 @@ export const StockLedgerTab: React.FC<StockLedgerTabProps> = ({ currentUser }) =
     setLoading(true);
     apiFetchV1("/inventory/ledger")
       .then((data) => {
-        const mapped: LedgerRow[] = data.map((item: any) => {
+        const mapped: LedgerRow[] = (data as any[]).map((item) => {
+          // ILE response: quantity is always positive.
+          // quantity_in / quantity_out are backend-computed from location semantics.
           const qty = parseFloat(item.quantity) || 0;
-          const mType = item.movement_type;
+          const qtyIn = parseFloat(item.quantity_in) || 0;
+          const qtyOut = parseFloat(item.quantity_out) || 0;
+          const mType = item.movement_type ?? "UNKNOWN";
+          // balance_after: only null means unknown — 0 is a valid stock quantity.
+          const balAfter =
+            item.balance_after !== null && item.balance_after !== undefined
+              ? parseFloat(item.balance_after)
+              : null;
           return {
             id: item.id,
-            timestamp: item.created_at || new Date().toISOString(),
+            timestamp: item.posting_timestamp || item.created_at || new Date().toISOString(),
             productId: item.product_id,
             productCode: item.sku,
             productName: item.product_name,
             movementType: mType,
             quantity: qty,
-            balanceAfter: 0,
-            referenceDocType: item.reference_doc_type,
-            referenceDocId: item.reference_doc_id,
-            warehouse: item.warehouse || "Main Outlet Retail WH",
+            balanceAfter: balAfter,
+            referenceDocType: item.reference_doc_type ?? null,
+            referenceDocId: item.document_no ?? item.reference_doc_id,
+            // Warehouse: backend provides to_location_name / from_location_name;
+            // warehouse shim is pre-computed server-side.
+            warehouse: item.warehouse || item.to_location_name || item.from_location_name || "Main WH",
             bin: item.bin || "Default",
-            batch: item.batch || "-",
-            serial: item.serial || "-",
+            batch: item.batch_no || item.batch || "-",
+            serial: item.serial_no || item.serial || "-",
             notes: item.remarks,
-            user: item.user || "System",
-            sourceModule: item.source_module || "System",
-            quantityIn: mType === "IN" ? qty : mType === "ADJUSTMENT" && qty > 0 ? qty : 0,
-            quantityOut:
-              mType === "OUT"
-                ? Math.abs(qty)
-                : mType === "ADJUSTMENT" && qty < 0
-                ? Math.abs(qty)
-                : 0,
+            user: item.user || item.created_by || "System",
+            sourceModule: item.source_module || "Inventory Kernel",
+            // quantity_in / quantity_out: use backend-computed values (canonical ILE semantics).
+            quantityIn: qtyIn,
+            quantityOut: qtyOut,
           };
         });
         setEntries(mapped.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
@@ -239,10 +249,17 @@ export const StockLedgerTab: React.FC<StockLedgerTabProps> = ({ currentUser }) =
               key: "movementType",
               label: "Movement",
               options: [
-                { label: "Stock IN", value: "IN" },
-                { label: "Stock OUT", value: "OUT" },
-                { label: "Adjustments", value: "ADJUSTMENT" },
-                { label: "Transfers", value: "TRANSFER" },
+                { label: "Purchase (GRN)",       value: "PURCHASE" },
+                { label: "Sale",                  value: "SALE" },
+                { label: "POS Sale",              value: "POS_SALE" },
+                { label: "Sale Return",           value: "SALE_RETURN" },
+                { label: "Purchase Return",       value: "PURCHASE_RETURN" },
+                { label: "Transfer Out",          value: "TRANSFER_OUT" },
+                { label: "Transfer In",           value: "TRANSFER_IN" },
+                { label: "Adjustment",            value: "ADJUSTMENT" },
+                { label: "Opening Stock",         value: "OPENING" },
+                { label: "Production",            value: "PRODUCTION" },
+                { label: "Reversal",              value: "REVERSAL" },
               ],
             },
           ]}

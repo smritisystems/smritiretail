@@ -36,14 +36,8 @@ def write_reports(res: Dict[str, Any]) -> None:
     date_str = datetime.date.today().isoformat()
     reports_dir = root_dir / "docs" / "reports" / date_str
     reports_dir.mkdir(parents=True, exist_ok=True)
-
-    # Demote Python reporter: write only under docs/reports/python-generated/YYYY-MM-DD
-    python_reports_root = root_dir / "docs" / "reports" / "python-generated"
-    python_reports_root.mkdir(parents=True, exist_ok=True)
-    python_reports_dir = python_reports_root / date_str
-    python_reports_dir.mkdir(parents=True, exist_ok=True)
-
-    history_file_path = python_reports_root / "history.json"
+    
+    history_file_path = root_dir / "docs" / "reports" / "history.json"
     
     # 2. Update history log
     history = []
@@ -103,11 +97,12 @@ Security: {sec_bar}
         docs = "✅" if m["documentationComplete"] else "❌"
         md_dev_status += f"| {m['name']} | {m['category']} | {frontend} | {backend} | {db} | {api} | {tests} | {docs} | {m['overallPercentage']}% |\n"
 
-    # NON-AUTHORITATIVE: write only to python-generated folder
-    with open(python_reports_dir / "DEVELOPMENT_STATUS.md", "w", encoding="utf-8") as f:
+    # Write root status sheet
+    with open(root_dir / "DEVELOPMENT_STATUS.md", "w", encoding="utf-8") as f:
         f.write(md_dev_status)
-    # Also write timestamped copy under python-generated
-    with open(python_reports_dir / "DEVELOPMENT_STATUS.md", "w", encoding="utf-8") as f:
+        
+    # Write timestamped copy
+    with open(reports_dir / "DEVELOPMENT_STATUS.md", "w", encoding="utf-8") as f:
         f.write(md_dev_status)
 
     # 4. Generate and write remaining 14 files

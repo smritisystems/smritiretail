@@ -30,6 +30,32 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Stock Ledger Enterprise Hardening — Authoritative Running Balance (Option A)
+- **Architecture Gate Decision (Phase 0 Audit):** Option A selected. Redirected `GET /api/v1/inventory/ledger` read path from legacy shim (`stock_movements`) to the canonical append-only kernel table (`inventory_ledger_entries`).
+- **Backend Schema (`app/schemas/inventory.py`):** Added `StockLedgerEntryResponse` schema supporting ILE location-based direction semantics (`to_location_id` = inbound, `from_location_id` = outbound), always-positive `quantity`, backend-computed `quantity_in`/`quantity_out`, and deterministic `balance_after`.
+- **Backend API (`app/api/v1/inventory.py`):** Rewrote `GET /inventory/ledger` to query `inventory_ledger_entries` with SQL window function `SUM(net_qty) OVER (PARTITION BY company_id, product_id ORDER BY posting_timestamp ASC, entry_no ASC)`.
+- **Frontend UI (`src/components/StockLedgerTab.tsx` & `src/types.ts`):** Removed `balanceAfter: 0` fallback. Displays backend `balance_after` value (renders `—` for null/unavailable, 0 for valid zero balance). Updated movement badges and filter options for full canonical movement taxonomy (PURCHASE, SALE, POS_SALE, SALE_RETURN, PURCHASE_RETURN, TRANSFER_OUT, TRANSFER_IN, ADJUSTMENT).
+- **Backend Test Suite (`app/tests/test_stock_ledger_balance.py`):** Created 18 integration test scenarios covering purchase/inbound, sale/outbound, POS_SALE, returns, adjustments, transfers, same-timestamp determinism, tenant isolation, location isolation, enterprise B2B chain scenario (CHAIN-A DC/stores), customer isolation, ownership separation (COMPANY vs CONSIGNMENT), empty ledger, reversal entries, and commercial sale vs customer sell-through distinction (18/18 passed).
+- **Certification Test Suites:** Verified kernel certification suites `test_inventory_kernel_certification.py` and `test_inventory_kernel_certification_full.py` (15/15 passed).
+- **Frontend Build:** Verified `npx tsc --noEmit` (0 errors).
+
+### Alembic Migration Chain Repair — Fresh-Database Bootstrap (ALEMBIC-FRESH-DB-MIGRATION-REPAIR)
+- **Root Cause Fixed:** Four Alembic revision IDs exceeded the standard `alembic_version.version_num VARCHAR(32)` column width, causing `StringDataRightTruncationError` on any fresh PostgreSQL install.
+- **Migration files renamed** (DDL logic and business logic unchanged):
+  - `v900_multi_group_category_mapping` → `v900_multigroup_catmap` (33→22 chars)
+  - `v1400_phase_e_authority_hardening` → `v1400_phase_e_auth_hardening` (33→28 chars)
+  - `v1501_barcode_sourcing_multi_mode` → `v1501_barcode_src_mode` (33→22 chars)
+  - `v1502_tenant_scoped_product_code_sku` → `v1502_tenant_prod_sku` (36→21 chars)
+- **`v1401_phase_e_backfill.py`**: Updated `down_revision` reference to match renamed `v1400_phase_e_auth_hardening`.
+- **`backend/alembic/env.py`** (`do_run_migrations`):
+  - Removed the `ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255)` workaround that was causing `InFailedSQLTransactionError` on fresh databases via asyncpg transaction abort propagation.
+  - Added table-existence-gated compatibility mapping: checks `information_schema.tables` before attempting any UPDATE, runs 4 separate `execute()` calls (one per legacy ID), commits before Alembic resolves revision graph.
+- **Verified:**
+  - Fresh DB (`alembic upgrade head` from `<base>` to `v1502_tenant_prod_sku`): `SUCCESS`, `alembic_version` column = `VARCHAR(32)`.
+  - Existing DB with legacy `v1502_tenant_scoped_product_code_sku`: auto-remapped to `v1502_tenant_prod_sku`, zero DDL re-executed.
+  - Tenant Isolation Suite: `10 passed` in 66.85s.
+  - Migration graph: 1 head (`v1502_tenant_prod_sku`), no branches introduced.
+
 ### Organisation Module — Tenant Isolation & CompanyResponse Regression Suite
 - `backend/app/tests/test_masters_consolidation.py`:
   - Added 5 cross-tenant isolation tests covering all 5 organizational master entity types (`organization`, `company`, `branch`, `store`, `warehouse`):

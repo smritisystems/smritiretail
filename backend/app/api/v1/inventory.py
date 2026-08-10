@@ -16,6 +16,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from fastapi.responses import FileResponse
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -29,6 +30,7 @@ from ...schemas.inventory import (
     ProductUpdate,
     StockMovementCreate,
     StockMovementResponse,
+    StockLedgerEntryResponse,
 )
 from ...services.inventory import InventoryService
 from ...services.inventory_trace import InventoryTraceService
@@ -78,22 +80,151 @@ async def search_products(
     return await repo.search(q=q, category=category, skip=skip, limit=limit)
 
 
-@router.get("/ledger", response_model=list[StockMovementResponse])
+@router.get("/ledger", response_model=list[StockLedgerEntryResponse])
 async def list_stock_ledger(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """List stock ledger movements. Tenant-scoped."""
-    stmt = select(StockMovement).filter(
-        StockMovement.company_id == tenant_ctx.company_id,
-        StockMovement.branch_id == tenant_ctx.branch_id,
-        StockMovement.is_deleted == False
-    ).order_by(StockMovement.created_at.desc()).offset(skip).limit(limit)
-    
-    res = await db.execute(stmt)
-    return list(res.scalars().all())
+    """
+    List stock ledger movements.
+
+    Source: inventory_ledger_entries (canonical, immutable, append-only).
+    Option A — Phase 0 architectural decision.
+
+    Balance semantics (ILG Rule):
+      - ILE quantity is ALWAYS positive.
+      - Inbound  = to_location_id IS NOT NULL     → +quantity
+      - Outbound = from_location_id IS NOT NULL   → -quantity
+      - Transfer = both set                       → net zero at company level
+      - balance_after = cumulative SUM per (company, product)
+        ordered by posting_timestamp ASC, entry_no ASC (deterministic).
+
+    Tenant-scoped by company_id.
+    """
+    sql = text("""
+        WITH ile_enriched AS (
+            SELECT
+                ile.id,
+                ile.entry_no,
+                ile.transaction_id,
+                ile.document_no,
+                ile.product_id,
+                p.name                                      AS product_name,
+                ile.sku,
+                CAST(ile.quantity AS DOUBLE PRECISION)      AS quantity,
+                ile.movement_type,
+                ile.ownership_type,
+                ile.is_reversal,
+                ile.reversal_entry_id,
+                ile.from_location_id,
+                from_loc.name                               AS from_location_name,
+                ile.to_location_id,
+                to_loc.name                                 AS to_location_name,
+                ile.batch_no,
+                ile.serial_no,
+                CAST(ile.unit_cost AS DOUBLE PRECISION)     AS unit_cost,
+                ile.remarks,
+                ile.posting_timestamp,
+                ile.posting_timestamp                       AS created_at,
+                ile.company_id,
+                ile.branch_id,
+                -- quantity_in: set when this is an inbound entry (to_location exists)
+                CASE
+                    WHEN ile.to_location_id IS NOT NULL
+                    THEN CAST(ile.quantity AS DOUBLE PRECISION)
+                    ELSE 0.0
+                END                                         AS quantity_in,
+                -- quantity_out: set when this is an outbound entry (from_location exists)
+                CASE
+                    WHEN ile.from_location_id IS NOT NULL
+                    THEN CAST(ile.quantity AS DOUBLE PRECISION)
+                    ELSE 0.0
+                END                                         AS quantity_out,
+                -- net_qty for running balance:
+                --   Transfer (both set) = net zero for company-wide balance.
+                --   Pure inbound        = +quantity.
+                --   Pure outbound       = -quantity.
+                -- This mirrors ILG.calculate_network_balance exactly.
+                CASE
+                    WHEN ile.to_location_id IS NOT NULL
+                     AND ile.from_location_id IS NOT NULL  THEN 0.0
+                    WHEN ile.to_location_id IS NOT NULL     THEN CAST(ile.quantity AS DOUBLE PRECISION)
+                    WHEN ile.from_location_id IS NOT NULL   THEN -CAST(ile.quantity AS DOUBLE PRECISION)
+                    ELSE 0.0
+                END                                         AS net_qty,
+                -- warehouse shim (backward compat: prefer destination, fall back to source)
+                COALESCE(to_loc.name, from_loc.name)        AS warehouse
+            FROM   inventory_ledger_entries ile
+            LEFT JOIN products p
+                   ON p.id = ile.product_id
+            LEFT JOIN inventory_location_nodes from_loc
+                   ON from_loc.id = ile.from_location_id
+            LEFT JOIN inventory_location_nodes to_loc
+                   ON to_loc.id = ile.to_location_id
+            WHERE  ile.company_id = :company_id
+              AND  ile.is_deleted = FALSE
+        ),
+        ile_with_balance AS (
+            SELECT
+                *,
+                SUM(net_qty) OVER (
+                    PARTITION BY company_id, product_id
+                    ORDER BY posting_timestamp ASC, entry_no ASC
+                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                )                                           AS balance_after
+            FROM ile_enriched
+        )
+        SELECT *
+        FROM   ile_with_balance
+        ORDER BY posting_timestamp DESC, entry_no DESC
+        LIMIT  :lim
+        OFFSET :off
+    """)
+
+    res = await db.execute(
+        sql,
+        {"company_id": tenant_ctx.company_id, "lim": limit, "off": skip},
+    )
+    rows = res.mappings().all()
+
+    entries: list[StockLedgerEntryResponse] = []
+    for row in rows:
+        entries.append(
+            StockLedgerEntryResponse(
+                id=row["id"],
+                entry_no=row["entry_no"],
+                transaction_id=row["transaction_id"],
+                document_no=row["document_no"],
+                product_id=row["product_id"],
+                product_name=row["product_name"],
+                sku=row["sku"],
+                quantity=float(row["quantity"]),
+                quantity_in=float(row["quantity_in"]),
+                quantity_out=float(row["quantity_out"]),
+                movement_type=row["movement_type"],
+                ownership_type=row["ownership_type"] or "COMPANY",
+                is_reversal=bool(row["is_reversal"]),
+                reversal_entry_id=row["reversal_entry_id"],
+                from_location_id=row["from_location_id"],
+                from_location_name=row["from_location_name"],
+                to_location_id=row["to_location_id"],
+                to_location_name=row["to_location_name"],
+                batch_no=row["batch_no"],
+                serial_no=row["serial_no"],
+                unit_cost=row["unit_cost"],
+                remarks=row["remarks"],
+                posting_timestamp=row["posting_timestamp"],
+                created_at=row["posting_timestamp"],
+                company_id=row["company_id"],
+                branch_id=row["branch_id"],
+                balance_after=float(row["balance_after"]) if row["balance_after"] is not None else None,
+                warehouse=row["warehouse"],
+                reference_doc_id=row["document_no"],
+            )
+        )
+    return entries
 
 
 @router.post(

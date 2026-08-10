@@ -206,3 +206,74 @@ class StockMovementResponse(StockMovementBase):
     branch_id: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
+
+class StockLedgerEntryResponse(BaseModel):
+    """
+    Canonical Stock Ledger API response derived from inventory_ledger_entries.
+
+    Option A (Phase 0 Decision): inventory_ledger_entries is the authoritative
+    ledger. GET /inventory/ledger reads from ILE, not stock_movements.
+
+    Quantity semantics:
+      - quantity is ALWAYS positive (ILE Rule).
+      - Direction encoded by from_location_id / to_location_id nullity.
+      - quantity_in  = +quantity when to_location_id is set (inbound).
+      - quantity_out = +quantity when from_location_id is set (outbound).
+      - For transfers (both set): quantity_in = quantity_out = quantity.
+
+    Balance:
+      - balance_after is the cumulative network balance for (company, product)
+        at the time of this entry, ordered by posting_timestamp + entry_no.
+      - Transfer is NET ZERO at company level (in and out cancel).
+      - Computed as a SQL window function in the API layer.
+    """
+    # ILE identity
+    id: str
+    entry_no: str
+    transaction_id: str
+    document_no: Optional[str] = None
+
+    # Product
+    product_id: str
+    product_name: Optional[str] = None       # JOINed from products.name
+    sku: str
+
+    # Quantity (always positive; direction via location semantics)
+    quantity: float
+    quantity_in: float = 0.0                 # backend-computed
+    quantity_out: float = 0.0                # backend-computed
+
+    # Movement
+    movement_type: str
+    ownership_type: str = "COMPANY"
+    is_reversal: bool = False
+    reversal_entry_id: Optional[str] = None
+
+    # Locations (canonical)
+    from_location_id: Optional[str] = None
+    from_location_name: Optional[str] = None # JOINed from inventory_location_nodes.name
+    to_location_id: Optional[str] = None
+    to_location_name: Optional[str] = None   # JOINed from inventory_location_nodes.name
+
+    # Batch / Serial
+    batch_no: Optional[str] = None
+    serial_no: Optional[str] = None
+
+    # Cost
+    unit_cost: Optional[Decimal] = None
+
+    # Metadata
+    remarks: Optional[str] = None
+    posting_timestamp: Optional[datetime] = None
+    created_at: Optional[datetime] = None    # = posting_timestamp (backward compat alias)
+    company_id: Optional[str] = None
+    branch_id: Optional[str] = None
+
+    # Running balance (Phase 2)
+    balance_after: Optional[float] = None    # None = not computed / not applicable
+
+    # Backward-compatibility shims for frontend StockLedgerTab.tsx
+    warehouse: Optional[str] = None          # = to_location_name or from_location_name
+    reference_doc_id: Optional[str] = None   # = document_no
+
+    model_config = ConfigDict(from_attributes=False)

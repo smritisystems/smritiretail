@@ -5,7 +5,7 @@ E4:  Backfill CategoryAttributeGroupMapping.category_code from MasterValue
 E11: Backfill Product.cbm_m3 from attributes['cbm']
 
 Revision ID: v1401_phase_e_backfill
-Revises: v1400_phase_e_authority_hardening
+Revises: v1400_phase_e_auth_hardening
 """
 
 from typing import Sequence, Union
@@ -16,7 +16,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "v1401_phase_e_backfill"
-down_revision: Union[str, Sequence[str], None] = "v1400_phase_e_authority_hardening"
+down_revision: Union[str, Sequence[str], None] = "v1400_phase_e_auth_hardening"
 branch_labels = None
 depends_on = None
 

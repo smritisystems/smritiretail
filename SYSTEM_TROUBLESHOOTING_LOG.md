@@ -1,5 +1,111 @@
 # SMRITI RETAIL OS — SYSTEM TROUBLESHOOTING LOG
 
+## ISSUE 2026-08-10-02: Stock Ledger Running Balance & Option A Kernel Redirection (STOCK-LEDGER-HARDENING)
+
+**Severity:** HIGH (Blocks enterprise stock ledger auditability & running balance calculation)
+**Status:** RESOLVED
+**Date:** 2026-08-10
+**Ref:** OPTION-A-STOCK-LEDGER-HARDENING
+
+### Root Cause & Findings (Phase 0 Architecture Gate)
+
+`GET /api/v1/inventory/ledger` returned `balanceAfter = 0` for all records because:
+1. The read path queried `stock_movements` (a legacy compatibility shim), which contained no running balance calculation logic.
+2. `stock_movements` had a known trigger gap: `POS_SALE` was omitted from the `inventory_state_reconciliation_trigger` taxonomy.
+3. The true append-only kernel ledger is `inventory_ledger_entries` (ILE), governed by Rule LIM-006 (Ledger Immutability Rule).
+
+### Resolution (Option A)
+
+1. **API Redirection (`app/api/v1/inventory.py`):**
+   - Redirected `GET /api/v1/inventory/ledger` to read from `inventory_ledger_entries`.
+   - Computed `balance_after` via SQL window function `SUM(net_qty) OVER (PARTITION BY company_id, product_id ORDER BY posting_timestamp ASC, entry_no ASC)`.
+   - Derived `quantity_in` and `quantity_out` on the backend using ILE location semantics (`to_location_id` = inbound, `from_location_id` = outbound).
+2. **Schema & Types (`app/schemas/inventory.py`, `src/types.ts`):**
+   - Created `StockLedgerEntryResponse` schema.
+   - Updated `StockLedgerEntry` TypeScript interface to make `balanceAfter` nullable (`number | null`), preventing `0` from masking unavailable balances.
+3. **Frontend UI (`src/components/StockLedgerTab.tsx`):**
+   - Removed `balanceAfter: 0` fallback. Displays backend `balance_after` value directly.
+   - Expanded badge renderer and filter controls for canonical movement taxonomy (`PURCHASE`, `SALE`, `POS_SALE`, `SALE_RETURN`, `PURCHASE_RETURN`, `TRANSFER_OUT`, `TRANSFER_IN`, `ADJUSTMENT`).
+4. **SQLAlchemy Forward-Reference Fix (`app/tests/conftest.py`):**
+   - Added `from app.models.size_master import SizeScale` to `conftest.py` before `app.models.inventory` imports, resolving an `InvalidRequestError: name 'SizeScale' is not defined` lazy mapper error that affected inventory integration tests.
+5. **Validation & Test Suite (`app/tests/test_stock_ledger_balance.py`):**
+   - Implemented 18 comprehensive integration tests covering all business scenarios. 18/18 passed.
+   - Kernel certification suites `test_inventory_kernel_certification.py` and `test_inventory_kernel_certification_full.py`: 15/15 passed.
+   - `npx tsc --noEmit`: 0 errors.
+
+## ISSUE 2026-08-10-01: Alembic Fresh-Database Migration Failure — StringDataRightTruncationError
+
+**Severity:** CRITICAL (Blocks all fresh-install provisioning)
+**Status:** RESOLVED
+**Date:** 2026-08-10
+**Ref:** ALEMBIC-FRESH-DB-MIGRATION-REPAIR
+
+### Root Cause
+
+Alembic persists the active revision ID to `alembic_version.version_num VARCHAR(32)`. Four migration files contained revision IDs longer than 32 characters, causing a `StringDataRightTruncationError` on fresh PostgreSQL databases:
+
+| File (old name) | ID Length |
+|---|---|
+| `v900_multi_group_category_mapping.py` | 33 chars |
+| `v1400_phase_e_authority_hardening.py` | 33 chars |
+| `v1501_barcode_sourcing_multi_mode.py` | 33 chars |
+| `v1502_tenant_scoped_product_code_sku.py` | 36 chars |
+
+A previous workaround in `env.py` used `ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255)` to bypass the limit, but this caused `InFailedSQLTransactionError` on fresh databases (where `alembic_version` doesn't exist yet) via asyncpg transaction state propagation.
+
+### Resolution
+
+**Migration files renamed** (DDL logic unchanged):
+
+| Old Revision ID | New Revision ID (≤32 chars) |
+|---|---|
+| `v900_multi_group_category_mapping` | `v900_multigroup_catmap` |
+| `v1400_phase_e_authority_hardening` | `v1400_phase_e_auth_hardening` |
+| `v1501_barcode_sourcing_multi_mode` | `v1501_barcode_src_mode` |
+| `v1502_tenant_scoped_product_code_sku` | `v1502_tenant_prod_sku` |
+
+**`v1401_phase_e_backfill.py` updated**: `down_revision` reference corrected from `v1400_phase_e_authority_hardening` → `v1400_phase_e_auth_hardening`.
+
+**`env.py` updated** (`do_run_migrations`):
+- Removed the `ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255)` workaround entirely.
+- Added a table-existence-gated compatibility mapping block that:
+  1. Checks `information_schema.tables` for `alembic_version` existence (fresh DB safety).
+  2. If present, runs 4 individual `UPDATE` statements (separate `execute()` calls to prevent asyncpg transaction abort propagation).
+  3. Commits before handing control to Alembic's migration context.
+
+### Verification Results
+
+```
+# Fresh DB (smriti_fresh_test_db — standard VARCHAR(32)):
+alembic upgrade head → 10 passed, 0 errors
+alembic_version = v1502_tenant_prod_sku
+version_num column width = VARCHAR(32)
+
+# Existing DB compatibility fixture (smriti_existing_compat_db):
+Legacy ID v1502_tenant_scoped_product_code_sku → remapped → v1502_tenant_prod_sku
+alembic upgrade head → 0 DDL re-executed (already at head after mapping)
+
+# Tenant Isolation Suite (10/10):
+10 passed, 8 warnings in 66.85s
+```
+
+### Files Changed
+
+```
+backend/alembic/env.py                                        [MODIFIED]
+backend/alembic/versions/v900_multigroup_catmap.py            [NEW]
+backend/alembic/versions/v1400_phase_e_auth_hardening.py      [NEW]
+backend/alembic/versions/v1501_barcode_src_mode.py            [NEW]
+backend/alembic/versions/v1502_tenant_prod_sku.py             [NEW]
+backend/alembic/versions/v900_multi_group_category_mapping.py [DELETED]
+backend/alembic/versions/v1400_phase_e_authority_hardening.py [DELETED]
+backend/alembic/versions/v1501_barcode_sourcing_multi_mode.py [DELETED]
+backend/alembic/versions/v1502_tenant_scoped_product_code_sku.py [DELETED]
+backend/alembic/versions/v1401_phase_e_backfill.py            [MODIFIED — down_revision ref]
+```
+
+---
+
 ## ISSUE 2026-08-09-06: Organisation Module — Tenant Isolation & CompanyResponse Regression Suite
 
 **Severity:** HIGH (Security & Tenant Scoping Hardening)  

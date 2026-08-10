@@ -27,6 +27,17 @@ os.environ.setdefault("INTERNAL_SERVICE_KEY", "smriti_test_internal_key_do_not_u
 
 from app.core.config import settings
 
+# ── SQLAlchemy mapper forward-reference fix ───────────────────────────────────
+# Product declares: relationship('SizeScale', ...) using a string forward-ref.
+# SQLAlchemy resolves it lazily at mapper configuration time.  If SizeScale has
+# not yet been imported when the mapper configures, it raises:
+#   InvalidRequestError: "name 'SizeScale' is not defined"
+# Importing size_master here — before any app.models.inventory import — loads the
+# SizeScale class into the SQLAlchemy class registry, resolving the forward ref.
+from app.models.size_master import SizeScale  # noqa: F401  (mapper registration)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 # Force SelectorEventLoop on Windows to avoid proactor loop lifecycle race conditions in tests
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
