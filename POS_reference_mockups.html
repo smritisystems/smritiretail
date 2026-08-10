@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SMRITI POS Reference — Visual Mockups (Design-only)</title>
+  <style>
+    :root{--bg:#0f1724;--card:#111827;--muted:#94a3b8;--accent:#4f46e5;--success:#10b981}
+    body{font-family:Inter,system-ui,Segoe UI,Arial;margin:0;background:#f3f4f6;color:#0b1220}
+    .wrap{max-width:1200px;margin:28px auto;padding:20px;display:grid;grid-template-columns:1fr;gap:20px}
+    h1{font-size:18px;margin:0 0 8px}
+    .note{font-size:13px;color:#475569;margin-bottom:6px}
+    .variants{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .panel{border-radius:12px;border:1px solid #e6e9ef;background:linear-gradient(180deg,#fff,#fbfdff);padding:12px}
+    .panel.dark{background:linear-gradient(180deg,var(--card),#0b1220);color:#e6eefc;border-color:#1f2937}
+    .mock{border-radius:8px;background:transparent;padding:8px;border:1px dashed rgba(15,23,42,0.06)}
+
+    /* Desktop canvas */
+    .canvas{display:grid;grid-template-columns:58% 38%;gap:12px;height:420px}
+    .header{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;border-radius:8px}
+    .search{height:56px;border-radius:10px;display:flex;align-items:center;padding:10px 12px;border:1px solid rgba(15,23,42,0.06)}
+    .search .primary{font-weight:600;color:#0b1220}
+    .left-scroll{overflow:auto;height:calc(100% - 150px);padding-right:4px}
+    .list-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid rgba(15,23,42,0.04)}
+    .list-item .meta{font-size:13px;color:#475569}
+
+    .cart{display:flex;flex-direction:column;height:100%;border-radius:10px;padding:10px;background:linear-gradient(180deg,#ffffff,#fbfdff);border:1px solid rgba(15,23,42,0.06)}
+    .cart-header{display:flex;justify-content:space-between;align-items:center;padding:6px 4px}
+    .cart-list{flex:1;overflow:auto;padding-right:4px}
+    .cart-row{display:flex;justify-content:space-between;align-items:center;padding:10px 8px;border-bottom:1px solid rgba(15,23,42,0.03)}
+    .qty{display:flex;gap:8px;align-items:center}
+    .pay-bar{height:72px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;margin-top:10px;background:linear-gradient(90deg,var(--accent),#6d28d9);color:white}
+    .pay-total{font-size:24px;font-weight:800}
+    .pay-cta{background:white;color:var(--accent);padding:10px 16px;border-radius:10px;font-weight:700}
+
+    /* Mobile mock */
+    .mobile-canvas{width:320px;height:640px;border-radius:14px;border:1px solid rgba(2,6,23,0.06);overflow:hidden;background:white}
+    .mobile-header{height:56px;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid rgba(2,6,23,0.04)}
+    .mobile-search{padding:10px;border-bottom:1px solid rgba(2,6,23,0.04)}
+    .bottom-pay{position:relative}
+
+    .annotation{font-size:12px;color:var(--muted);margin-top:8px}
+    .callout{font-size:12px;padding:6px;border-radius:8px;background:#eef2ff;color:#3730a3}
+
+    /* Dark overrides */
+    .panel.dark .search{border-color:rgba(255,255,255,0.04);background:linear-gradient(180deg,#0b1220,#071028)}
+    .panel.dark .list-item{border-color:rgba(255,255,255,0.02)}
+    .panel.dark .cart{background:linear-gradient(180deg,#0b1220,#071028);border-color:rgba(255,255,255,0.03)}
+    .panel.dark .pay-bar{background:linear-gradient(90deg,#0b122f,#012);}
+    .panel.dark .pay-cta{background:white;color:#0b1220}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>SMRITI POS Reference — Visual Mockups (Design-only)</h1>
+    <div class="note">4 variants: Desktop Light / Desktop Dark / Mobile Light / Mobile Dark. These are design mockups only — no product code changed.</div>
+
+    <div class="variants">
+      <!-- Desktop Light -->
+      <div class="panel" aria-label="Desktop Light">
+        <strong>Desktop — Light</strong>
+        <div class="mock" style="margin-top:8px">
+          <div class="canvas">
+            <div>
+              <div class="header" style="background:transparent">
+                <div style="font-weight:700">POS</div>
+                <div style="font-size:13px;color:#64748b">Operator • Online</div>
+              </div>
+
+              <div class="search" style="margin-top:10px">
+                <div style="flex:1">
+                  <div class="primary">📷 Scan barcode</div>
+                  <div class="annotation">or 🔍 Search item — always focused</div>
+                </div>
+                <div style="margin-left:12px;color:var(--muted)">F1</div>
+              </div>
+
+              <div class="left-scroll" style="margin-top:10px">
+                <div class="list-item"><div><strong>Suggestions</strong><div class="meta">Auto-suggest as you type</div></div><div>⋯</div></div>
+                <div class="list-item"><div><strong>Recent: Milk 1L</strong><div class="meta">₹45 • Stock 24</div></div><div>＋</div></div>
+                <div class="list-item"><div><strong>Favorite: Coke 500ml</strong><div class="meta">Tap to add</div></div><div>＋</div></div>
+                <div class="list-item"><div><strong>Category: Snacks (collapsed)</strong><div class="meta">Expand only for kiosk</div></div><div>▸</div></div>
+                <div style="height:80px"></div>
+              </div>
+            </div>
+
+            <div class="cart">
+              <div class="cart-header"><div><strong>Cart</strong> <span class="meta">(3 items)</span></div><div><small class="meta">Hold • Clear</small></div></div>
+
+              <div class="cart-list">
+                <div class="cart-row"><div><div><strong>Nike Air</strong></div><div class="meta">SKU 2345</div></div><div class="qty"><button>-</button><div>2</div><button>+</button></div><div style="margin-left:12px">₹4,998</div></div>
+                <div class="cart-row"><div><div><strong>Milk 1L</strong></div><div class="meta">SKU 998</div></div><div class="qty"><button>-</button><div>1</div><button>+</button></div><div style="margin-left:12px">₹45</div></div>
+                <div class="cart-row"><div><div><strong>Coke 500ml</strong></div><div class="meta">SKU 108</div></div><div class="qty"><button>-</button><div>1</div><button>+</button></div><div style="margin-left:12px">₹40</div></div>
+              </div>
+
+              <div class="pay-bar">
+                <div class="pay-total">TOTAL ₹5,083</div>
+                <div style="text-align:center;font-size:13px;color:rgba(255,255,255,0.9)">Subtotal • Tax • Discount</div>
+                <div><span class="pay-cta">PAY</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="annotation">Key: Search-first; Cart dominant; Sticky Pay Bar visible; Variants via bottom sheet per-row</div>
+      </div>
+
+      <!-- Desktop Dark -->
+      <div class="panel dark" aria-label="Desktop Dark">
+        <strong>Desktop — Dark</strong>
+        <div class="mock" style="margin-top:8px">
+          <div class="canvas">
+            <div>
+              <div class="header" style="background:transparent">
+                <div style="font-weight:700">POS</div>
+                <div style="font-size:13px;color:#94a3b8">Operator • Online</div>
+              </div>
+
+              <div class="search" style="margin-top:10px">
+                <div style="flex:1">
+                  <div class="primary">📷 Scan barcode</div>
+                  <div class="annotation">or 🔍 Search item — always focused</div>
+                </div>
+                <div style="margin-left:12px;color:var(--muted)">F1</div>
+              </div>
+
+              <div class="left-scroll" style="margin-top:10px">
+                <div class="list-item"><div><strong>Suggestions</strong><div class="meta">Auto-suggest as you type</div></div><div>⋯</div></div>
+                <div class="list-item"><div><strong>Recent: Milk 1L</strong><div class="meta">₹45 • Stock 24</div></div><div>＋</div></div>
+                <div class="list-item"><div><strong>Favorite: Coke 500ml</strong><div class="meta">Tap to add</div></div><div>＋</div></div>
+                <div style="height:80px"></div>
+              </div>
+            </div>
+
+            <div class="cart">
+              <div class="cart-header"><div><strong>Cart</strong> <span class="meta">(3 items)</span></div><div><small class="meta">Hold • Clear</small></div></div>
+
+              <div class="cart-list">
+                <div class="cart-row"><div><div><strong>Nike Air</strong></div><div class="meta">SKU 2345</div></div><div class="qty"><button>-</button><div>2</div><button>+</button></div><div style="margin-left:12px">₹4,998</div></div>
+                <div class="cart-row"><div><div><strong>Milk 1L</strong></div><div class="meta">SKU 998</div></div><div class="qty"><button>-</button><div>1</div><button>+</button></div><div style="margin-left:12px">₹45</div></div>
+                <div class="cart-row"><div><div><strong>Coke 500ml</strong></div><div class="meta">SKU 108</div></div><div class="qty"><button>-</button><div>1</div><button>+</button></div><div style="margin-left:12px">₹40</div></div>
+              </div>
+
+              <div class="pay-bar">
+                <div class="pay-total">TOTAL ₹5,083</div>
+                <div style="text-align:center;font-size:13px;color:rgba(255,255,255,0.9)">Subtotal • Tax • Discount</div>
+                <div><span class="pay-cta">PAY</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="annotation">Dark theme variant — same hierarchy. Emphasize one-thumb areas on mobile below.</div>
+      </div>
+
+      <!-- Mobile Light -->
+      <div class="panel" aria-label="Mobile Light">
+        <strong>Mobile — Light</strong>
+        <div style="display:flex;justify-content:center;margin-top:8px">
+          <div class="mobile-canvas">
+            <div class="mobile-header"> <div style="font-weight:700">POS</div><div style="font-size:12px;color:#64748b">Operator</div></div>
+            <div class="mobile-search"><div style="font-weight:600">📷 Scan barcode</div><div class="annotation">or 🔍 Search — always focused</div></div>
+            <div style="padding:8px">
+              <div style="font-weight:700;margin-bottom:6px">Recent</div>
+              <div style="border:1px solid #eef2ff;padding:8px;border-radius:8px;margin-bottom:6px">Milk 1L • ₹45 <span style="float:right">＋</span></div>
+              <div style="border:1px solid #eef2ff;padding:8px;border-radius:8px;margin-bottom:6px">Coke 500ml • ₹40 <span style="float:right">＋</span></div>
+            </div>
+            <div style="height:180px"></div>
+            <div class="bottom-pay" style="position:absolute;bottom:0;left:0;right:0;padding:12px;background:#fff;border-top:1px solid #eef2ff">
+              <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:800">₹5,083</div><div style="background:#0b1220;color:#fff;padding:10px 16px;border-radius:10px">PAY NOW</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="annotation">Mobile-first: Search → Recents → Cart via bottom-pay; bottom pay reachable by thumb.</div>
+      </div>
+
+      <!-- Mobile Dark -->
+      <div class="panel dark" aria-label="Mobile Dark">
+        <strong>Mobile — Dark</strong>
+        <div style="display:flex;justify-content:center;margin-top:8px">
+          <div class="mobile-canvas" style="background:linear-gradient(180deg,#071028,#00101a);border-color:#06202a;color:#e6eefc">
+            <div class="mobile-header"> <div style="font-weight:700">POS</div><div style="font-size:12px;color:#94a3b8">Operator</div></div>
+            <div class="mobile-search" style="border-bottom:1px solid rgba(255,255,255,0.03)"><div style="font-weight:600">📷 Scan barcode</div><div class="annotation" style="color:#94a3b8">or 🔍 Search — always focused</div></div>
+            <div style="padding:8px">
+              <div style="font-weight:700;margin-bottom:6px">Recent</div>
+              <div style="border:1px solid rgba(255,255,255,0.03);padding:8px;border-radius:8px;margin-bottom:6px">Milk 1L • ₹45 <span style="float:right">＋</span></div>
+              <div style="border:1px solid rgba(255,255,255,0.03);padding:8px;border-radius:8px;margin-bottom:6px">Coke 500ml • ₹40 <span style="float:right">＋</span></div>
+            </div>
+            <div style="height:180px"></div>
+            <div class="bottom-pay" style="position:absolute;bottom:0;left:0;right:0;padding:12px;background:linear-gradient(90deg,#05203a,#02223f);border-top:1px solid rgba(255,255,255,0.03);color:#e6eefc">
+              <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:800">₹5,083</div><div style="background:#e6eefc;color:#05203a;padding:10px 16px;border-radius:10px">PAY NOW</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="annotation">Dark mobile variant — bottom pay prominent and thumb-reachable.</div>
+      </div>
+    </div>
+
+    <div class="callout">Next step: review these mockups and tell me any edits (spacing, emphasis, or element order). Once approved, I'll produce the 5-step implementation plan (no code until you sign off).</div>
+
+  </div>
+</body>
+</html>
