@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Organization : SmritiSys
  * Component    : SalesBillingStudio (Unified Sales Billing & Invoice Creation Studio — ADR-012 Standard v3.0)
@@ -140,6 +140,47 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
     return () => unsubWorkspace();
   }, []);
 
+  // Quick Add Customer on-the-fly handler
+  const handleQuickAddCustomer = async () => {
+    if (!quickAddName.trim()) {
+      showToast("Customer name is required", "error");
+      return;
+    }
+    if (!quickAddMobile.trim() || quickAddMobile.length < 10) {
+      showToast("Valid 10-digit mobile number is required", "error");
+      return;
+    }
+    setQuickAddSaving(true);
+    try {
+      const customerService = SPK.services.resolve<ICustomerService>("CUSTOMER");
+      const newCustomer = await customerService.save({
+        name: quickAddName.trim(),
+        mobile: quickAddMobile.trim(),
+        gstNumber: quickAddGstin.trim() || undefined,
+        customerGroupId: "default",  // resolved by backend policy
+      });
+      // Auto-select the newly created customer
+      setSelectedCustomer(newCustomer);
+      setSelectedCustomerName(newCustomer.name);
+      setMobileNumber(newCustomer.mobile || "");
+      setGstin(newCustomer.gstNumber || "");
+      // Refresh customer list
+      const customerService2 = SPK.services.resolve<ICustomerService>("CUSTOMER");
+      const all = await customerService2.getAll();
+      setCustomerList(all);
+      // Reset form & close modal
+      setQuickAddName("");
+      setQuickAddMobile("");
+      setQuickAddGstin("");
+      setIsNewCustomerModalOpen(false);
+      showToast(`Customer "${newCustomer.name}" added & selected`);
+    } catch (err: any) {
+      showToast(err.message || "Failed to create customer", "error");
+    } finally {
+      setQuickAddSaving(false);
+    }
+  };
+
   // Customer Store & Lookup State
   const [customerList, setCustomerList] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -184,6 +225,10 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
   // Modals UI States
   const [isScannerModalOpen, setIsScannerModalOpen] = useState<boolean>(false);
   const [isNewCustomerModalOpen, setIsNewCustomerModalOpen] = useState<boolean>(false);
+  const [quickAddName, setQuickAddName] = useState<string>("");
+  const [quickAddMobile, setQuickAddMobile] = useState<string>("");
+  const [quickAddGstin, setQuickAddGstin] = useState<string>("");
+  const [quickAddSaving, setQuickAddSaving] = useState<boolean>(false);
   const [isRecallModalOpen, setIsRecallModalOpen] = useState<boolean>(false);
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState<boolean>(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
@@ -465,7 +510,7 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
       showToast("Cannot post an empty invoice!", "error");
       return;
     }
-    // Gap 3 fix: customer_id is required by backend � block POST before 422 reaches server
+    // Gap 3 fix: customer_id is required by backend � block POST before 422 reaches server
     if (!selectedCustomer?.id) {
       showToast("Please select a customer before posting the invoice", "error");
       return;
@@ -673,7 +718,16 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
             <div>
-              <label className="text-[10px] font-bold text-theme-muted uppercase block mb-0.5">Who is the Customer? *</label>
+              <div className="flex items-center justify-between mb-0.5">
+                <label className="text-[10px] font-bold text-theme-muted uppercase">Who is the Customer? *</label>
+                <button
+                  onClick={() => { setQuickAddName(""); setQuickAddMobile(""); setQuickAddGstin(""); setIsNewCustomerModalOpen(true); }}
+                  className="flex items-center space-x-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-900 hover:bg-indigo-800 text-indigo-200 border border-indigo-700 cursor-pointer transition-colors"
+                  title="Add a new customer on the fly"
+                >
+                  <span>+</span><span>Add New</span>
+                </button>
+              </div>
               <select
                 value={selectedCustomer?.id || ""}
                 onChange={(e) => {
@@ -1301,6 +1355,86 @@ export const SalesBillingStudio: React.FC<SalesBillingStudioProps> = ({ products
           </div>
         </div>
       )}
+
+      {/* Quick Add Customer Modal */}
+      {isNewCustomerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-indigo-700/60 rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-sm">Add New Customer</h2>
+                <p className="text-slate-400 text-[10px] mt-0.5">Customer will be saved and auto-selected</p>
+              </div>
+              <button
+                onClick={() => setIsNewCustomerModalOpen(false)}
+                className="text-slate-400 hover:text-white text-lg font-bold leading-none cursor-pointer"
+              >✕</button>
+            </div>
+
+            {/* Form */}
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-bold text-indigo-300 uppercase tracking-wide block mb-1">
+                  Full Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={quickAddName}
+                  onChange={(e) => setQuickAddName(e.target.value)}
+                  placeholder="e.g. Ramesh Sharma"
+                  autoFocus
+                  className="w-full bg-slate-800 border border-slate-700 focus:border-indigo-500 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-indigo-300 uppercase tracking-wide block mb-1">
+                  Mobile Number <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={quickAddMobile}
+                  onChange={(e) => setQuickAddMobile(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  placeholder="10-digit mobile"
+                  maxLength={10}
+                  className="w-full bg-slate-800 border border-slate-700 focus:border-indigo-500 rounded-lg px-3 py-2 text-sm text-white font-mono placeholder-slate-500 outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">
+                  GSTIN <span className="text-slate-500">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={quickAddGstin}
+                  onChange={(e) => setQuickAddGstin(e.target.value.toUpperCase())}
+                  placeholder="e.g. 27ABCDE1234F1Z5"
+                  maxLength={15}
+                  className="w-full bg-slate-800 border border-slate-700 focus:border-indigo-500 rounded-lg px-3 py-2 text-sm text-white font-mono placeholder-slate-500 outline-none transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex space-x-2 pt-2">
+              <button
+                onClick={() => setIsNewCustomerModalOpen(false)}
+                className="flex-1 py-2 rounded-xl font-bold text-sm bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleQuickAddCustomer}
+                disabled={quickAddSaving}
+                className="flex-1 py-2 rounded-xl font-bold text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white cursor-pointer transition-colors"
+              >
+                {quickAddSaving ? "Saving…" : "Save & Select"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
