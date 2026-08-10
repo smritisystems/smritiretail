@@ -20,15 +20,16 @@ describe("Validators and Formatters Tests", () => {
   describe("Validators", () => {
     it("should validate GSTIN formats correctly", () => {
       // Valid GSTIN examples (Modulus 36 checksum validated)
-      expect(isValidGSTIN("09AAACS1234A1ZP")).toBe(true);
-      expect(isValidGSTIN("27AAACS1234A1ZN")).toBe(true);
+      expect(isValidGSTIN("09AAACS1234A1Z0")).toBe(true);
+      expect(isValidGSTIN("27AAACS1234A1Z2")).toBe(true);
       expect(isValidGSTIN("27AAXFT2508H1ZR")).toBe(true);
       // Case insensitive check
-      expect(isValidGSTIN("09aaacs1234a1zp")).toBe(true);
+      expect(isValidGSTIN("09aaacs1234a1z0")).toBe(true);
       expect(isValidGSTIN("27aaxft2508h1zr")).toBe(true);
       // Invalid GSTIN examples
       expect(isValidGSTIN("1234")).toBe(false);
       expect(isValidGSTIN("09AAACS1234A1Y1")).toBe(false); // Second to last digit must be Z
+      expect(isValidGSTIN("09AAACS1234A1Z1")).toBe(false); // Invalid checksum digit
     });
 
     it("should validate Pincodes correctly", () => {

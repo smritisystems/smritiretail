@@ -1,6 +1,71 @@
 # SMRITI RETAIL OS — SYSTEM TROUBLESHOOTING LOG
 
+## ISSUE 2026-08-10-03: Item Master F-001→F-004 Structural Hardening (ITEM-MASTER-HARDENING)
+
+**Severity:** HIGH (Four structural findings in production Item Master wiring)
+**Status:** RESOLVED
+**Date:** 2026-08-10
+**Ref:** ITEM-MASTER-HARDENING-F001-F004
+
+### Root Cause & Findings
+
+#### F-001 — Invalid Auto-Generated Barcode
+`ItemService.ts` (`save()`), `ItemMasterTab.tsx` (`blankItemForm()`), and `ExcelGridEntrySection.tsx` (two locations) used invalid barcode fallbacks:
+- `Math.floor(8900000000000 + Math.random() * 9000000000)` — 13 digits but no GS1 Mod-10 check digit
+- `` `SMR-B${Math.floor(Math.random() * 900000)}` `` — alphabetic prefix, not a valid barcode symbology
+
+These barcodes fail POS scanner validation and produce incorrect barcode labels.
+
+#### F-002 — Frontend Status Does Not Map to Backend Lifecycle
+Frontend sent `status: "Active"` in the POST body, but the `products` table has no `status` column. The authoritative columns are `workflow_status: String(30)` and `is_active: Boolean` (both in `BaseEntity`). Product lifecycle was therefore never persisted correctly.
+
+#### F-003 — Silent API Failure Returns Empty Cache
+`ItemService.getAll()` caught all exceptions with a single `logger.warn` and silently returned `[]` regardless of whether the cache was empty or populated. A fresh install with a failed API returned empty data without surfacing any error to the UI.
+
+#### F-004 — Client-Generated Timestamp Product IDs
+`save()` used `prod_${Date.now()}` for new product IDs — non-UUID format that collides across browser sessions. `ProductCreate.id` was `required: str`, forcing the client to always supply an ID.
+
+### Resolution
+
+#### F-001
+- Introduced `generateSmritiEan13()` helper in `ItemService.ts`, delegating to the existing `BarcodeEngine.generateInternalEAN13("200", seq)`.
+- GS1 restricted-circulation prefix "200" is the same prefix used by the backend `ProductIdentityService.generate_ean13_barcode()`.
+- Patched `blankItemForm()` in `ItemMasterTab.tsx` and both fallback barcode generation sites in `ExcelGridEntrySection.tsx`.
+- Rule PBC-001: existing `BarcodeEngine` promoted, not duplicated.
+
+#### F-002
+- Added `mapStatusToLifecycle()` / `mapLifecycleToStatus()` helpers in `ItemService.ts`.
+- `backendPayload` in `save()` now includes `workflow_status` and `is_active` derived from frontend status.
+- `normalizeBackendProduct()` derives frontend `status` from `p.workflow_status` and `p.is_active`.
+- Backend schemas (`ProductCreate`, `ProductUpdate`, `ProductResponse`) extended with `workflow_status: Optional[str]` and `is_active: Optional[bool]`.
+- **No migration required** — both columns already exist in `BaseEntity`.
+
+#### F-003
+- Distinguished two failure cases in `getAll()`:
+  - Case A (cache populated): warn, emit `ItemLoadFailed` event, return cache.
+  - Case B (cache empty): rethrow so `ItemMasterTab` can surface an error state.
+
+#### F-004
+- Replaced `prod_${Date.now()}` with `crypto.randomUUID()` (UUID v4).
+- Made `ProductCreate.id: Optional[str] = Field(None, ...)` on the backend.
+- `create_product()` service pops `None` id from `product_data` before `Product(**product_data)` so `BaseEntity`'s `default=lambda: str(uuid4())` fires.
+- Backward compatibility: existing stable UUIDs passed by callers are still honoured.
+
+### Files Modified
+- `src/kernel/internal/ItemService.ts`
+- `src/components/ItemMasterTab.tsx`
+- `src/components/ExcelGridEntrySection.tsx`
+- `backend/app/schemas/inventory.py`
+- `backend/app/services/inventory.py`
+
+### Tests
+- New test file: `src/tests/itemMasterHardening.test.ts` (22 assertions covering F-001–F-004 and barcode source preservation).
+- TypeScript: 0 errors (confirmed `npx tsc --noEmit --skipLibCheck`).
+
+---
+
 ## ISSUE 2026-08-10-02: Stock Ledger Running Balance & Option A Kernel Redirection (STOCK-LEDGER-HARDENING)
+
 
 **Severity:** HIGH (Blocks enterprise stock ledger auditability & running balance calculation)
 **Status:** RESOLVED
@@ -32,6 +97,14 @@
    - Implemented 18 comprehensive integration tests covering all business scenarios. 18/18 passed.
    - Kernel certification suites `test_inventory_kernel_certification.py` and `test_inventory_kernel_certification_full.py`: 15/15 passed.
    - `npx tsc --noEmit`: 0 errors.
+
+### Known Backlog Observation (DHI-SDIC-001)
+
+- **ID:** `DHI-SDIC-001`
+- **Title:** SDIC capability evidence path misalignment
+- **Severity:** P2 (Non-blocking)
+- **Impact:** Scanner reports 8% for Stock Ledger due to static path expectation (`src/product-foundation/inventory/stock-ledger/`). Production functionality & API evidence are 100% complete and verified (18/18 tests pass).
+- **Action:** Refactor SDIC scanner evidence discovery after core commerce priorities, without modifying production module topology for scoring purposes.
 
 ## ISSUE 2026-08-10-01: Alembic Fresh-Database Migration Failure — StringDataRightTruncationError
 

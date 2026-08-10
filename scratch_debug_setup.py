@@ -41,10 +41,10 @@ async def debug_setup():
                     "name": "Smriti Retail India Pvt Ltd",
                     "tradeName": "Smriti Hypermarket",
                     "businessType": "retail",
-                    "gstin": "09AAACS1234A1ZP",
+                    "gstin": "09AAACS1234A1Z0",
                     "pan": "AAACS1234A",
                     "state": "Uttar Pradesh",
-                    "financialYear": "2026-2027",
+                    "financialYear": "2026-04-01",
                     "booksStartDate": "2026-04-01"
                 },
                 "orgStructure": {

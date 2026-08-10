@@ -25,6 +25,8 @@ import { ExpandedCellEditor, ExpandContextMenu } from "./ExpandedCellEditor";
 import { generateSkuCode, SkuMode, SkuFormatPattern, PRESET_SKU_TEMPLATES } from "../lib/skuGenerator";
 import { SPK } from "../kernel/SPK.js";
 import { IItemService } from "../kernel/public/IItemService.js";
+// F-001: Use the canonical EAN-13 generator — avoids invalid barcode formats in Excel import.
+import { generateSmritiEan13 } from "../kernel/internal/ItemService.js";
 import { UniversalAttributeEngine } from "../core/metadata/attributes/UniversalAttributeEngine";
 
 interface ExcelGridEntrySectionProps {
@@ -347,7 +349,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
         brand: brandVal,
       });
 
-      const computedBarcode = row.barcode.trim() || `SMR-B${Math.floor(100000 + Math.random() * 900000)}`;
+      const computedBarcode = row.barcode.trim() || generateSmritiEan13();
 
       return {
         ...row,
@@ -588,7 +590,7 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
             nextRow.code = computedSku;
           }
           if (!nextRow.barcode) {
-            nextRow.barcode = `SMR-B${Math.floor(100000 + Math.random() * 900000)}`;
+            nextRow.barcode = generateSmritiEan13();
           }
         }
 

@@ -1,16 +1,72 @@
-/**
+﻿/**
  * Project      : SMRITI Application Platform (SMAP) v1.0
  * Component    : ItemService Core Domain Implementation
  * Standard     : SMAP Constitution v1.0 — Internal Domain Engine
  * Author       : Jawahar Ramkripal Mallah
  * License      : Proprietary Commercial Software
+ *
+ * Hardening    : F-001 (EAN-13), F-002 (lifecycle mapping),
+ *                F-003 (honest failure), F-004 (UUID identity)
  */
 
 import logger from "../../core/logging/logger.js";
-import { Product } from "../../types.js";
+import { Product, ProductStatus } from "../../types.js";
 import { IItemService } from "../public/IItemService.js";
 import { apiFetchV1 } from "../../lib/apiFetchV1.js";
 import { SPK } from "../SPK.js";
+// F-001: Reuse the canonical SMRITI BarcodeEngine — no duplicate algorithm.
+import { BarcodeEngine } from "../../services/barcodeEngine.js";
+
+// ─── F-002: Lifecycle Mapping Helpers ────────────────────────────────────────
+
+/**
+ * Maps the frontend ProductStatus vocabulary to the existing backend
+ * authoritative columns: workflow_status (String(30)) and is_active (Boolean).
+ * Both columns are part of BaseEntity — no migration required.
+ */
+function mapStatusToLifecycle(status?: string): { workflow_status: string; is_active: boolean } {
+  switch (status) {
+    case "Active":       return { workflow_status: "Active",       is_active: true  };
+    case "Inactive":     return { workflow_status: "Inactive",     is_active: false };
+    case "Draft":        return { workflow_status: "Draft",        is_active: false };
+    case "Blocked":      return { workflow_status: "Blocked",      is_active: false };
+    case "Discontinued": return { workflow_status: "Discontinued", is_active: false };
+    default:             return { workflow_status: "Active",       is_active: true  };
+  }
+}
+
+/**
+ * Reverse mapping: derives frontend ProductStatus from the backend
+ * authoritative fields returned in ProductResponse.
+ */
+function mapLifecycleToStatus(
+  workflowStatus?: string | null,
+  isActive?: boolean | null
+): ProductStatus {
+  const ws = workflowStatus || "Active";
+  if (isActive !== false && ws === "Active") return "Active";
+  if (ws === "Draft")        return "Draft";
+  if (ws === "Blocked")      return "Blocked";
+  if (ws === "Discontinued") return "Discontinued";
+  return "Inactive";
+}
+
+// ─── F-001: EAN-13 Generation ─────────────────────────────────────────────────
+
+/**
+ * Generates a GS1 restricted-circulation EAN-13 (prefix "200") using the
+ * canonical BarcodeEngine check-digit algorithm.
+ *
+ * The "200" prefix range is reserved for internal retail use (GS1 standard).
+ * This is the ONLY auto-generation entry point in ItemService.
+ * Exported so ItemMasterTab.blankItemForm() can use the same logic.
+ */
+export function generateSmritiEan13(): string {
+  const seq = Math.floor(Math.random() * 999999999) + 1;
+  return BarcodeEngine.generateInternalEAN13("200", seq);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export class ItemService implements IItemService {
   private localCache: Product[] = [];
@@ -25,7 +81,22 @@ export class ItemService implements IItemService {
         return this.localCache;
       }
     } catch (e) {
-      logger.warn("[ItemService] Offline or API unreachable. Returning cached items.", e as unknown);
+      // ─── F-003: Honest API failure distinction ──────────────────────────
+      // Case A: Cache populated from prior successful load (legitimate offline).
+      //         Return cache + emit ItemLoadFailed so UI can show indicator.
+      if (this.isLoaded && this.localCache.length > 0) {
+        logger.warn("[ItemService] API unavailable. Serving cached items.", e as unknown);
+        SPK.events.emit("ItemLoadFailed", "network", {
+          error: String(e),
+          source: "getAll",
+          cacheSize: this.localCache.length,
+        });
+        return this.localCache;
+      }
+      // Case B: Cache empty (never loaded). Do NOT return empty [] and pretend success.
+      //         Rethrow so ItemMasterTab surfaces a real error state.
+      logger.error("[ItemService] API unavailable and local cache is empty.", e as unknown);
+      throw e;
     }
     return this.localCache;
   }
@@ -60,47 +131,53 @@ export class ItemService implements IItemService {
       .filter((p) => {
         const matchesCategory = !category || category === "ALL" || p.category === category;
         if (!matchesCategory) return false;
-
         if (!q) return true;
-        const matchName = p.name.toLowerCase().includes(q);
-        const matchSku = p.sku ? p.sku.toLowerCase().includes(q) : false;
-        const matchCode = p.code ? p.code.toLowerCase().includes(q) : false;
-        const matchBarcode = p.barcode ? p.barcode.includes(q) : false;
-        const matchBrand = p.brand ? p.brand.toLowerCase().includes(q) : false;
-        const matchHsn = p.hsn_code || p.hsnCode ? (p.hsn_code || p.hsnCode || "").includes(q) : false;
-
-        return matchName || matchSku || matchCode || matchBarcode || matchBrand || matchHsn;
+        return (
+          p.name.toLowerCase().includes(q) ||
+          (p.sku ? p.sku.toLowerCase().includes(q) : false) ||
+          (p.code ? p.code.toLowerCase().includes(q) : false) ||
+          (p.barcode ? p.barcode.includes(q) : false) ||
+          (p.brand ? p.brand.toLowerCase().includes(q) : false) ||
+          ((p.hsn_code || p.hsnCode || "").includes(q))
+        );
       })
       .slice(0, limit);
   }
 
+  /**
+   * validateStatus reads the frontend status field (always populated via
+   * normalizeBackendProduct after F-002 fix) and applies POS guardrail rules.
+   */
   public validateStatus(product: Product | Partial<Product>): { allowed: boolean; reason?: string } {
     const status = product.status || "Active";
     switch (status) {
-      case "Active":
-        return { allowed: true };
-      case "Draft":
-        return { allowed: false, reason: `Item [${product.name || product.code}] is in DRAFT status and cannot be billed or ordered.` };
-      case "Inactive":
-        return { allowed: false, reason: `Item [${product.name || product.code}] is INACTIVE.` };
-      case "Blocked":
-        return { allowed: false, reason: `SECURITY ALERT: Item [${product.name || product.code}] is BLOCKED by governance.` };
-      case "Discontinued":
-        return { allowed: false, reason: `Item [${product.name || product.code}] is DISCONTINUED.` };
-      default:
-        return { allowed: true };
+      case "Active":       return { allowed: true };
+      case "Draft":        return { allowed: false, reason: `Item [${product.name || product.code}] is in DRAFT status and cannot be billed or ordered.` };
+      case "Inactive":     return { allowed: false, reason: `Item [${product.name || product.code}] is INACTIVE.` };
+      case "Blocked":      return { allowed: false, reason: `SECURITY ALERT: Item [${product.name || product.code}] is BLOCKED by governance.` };
+      case "Discontinued": return { allowed: false, reason: `Item [${product.name || product.code}] is DISCONTINUED.` };
+      default:             return { allowed: true };
     }
   }
 
   public async save(productData: Partial<Product>): Promise<Product> {
+    // ─── F-004: Stable UUID identity ───────────────────────────────────────
+    // crypto.randomUUID() replaces prod_${Date.now()} — standards-compliant UUID v4.
+    // prod_temp_ prefix check is preserved for backward compatibility.
+    // For Item Master (always online), the backend generates the authoritative ID
+    // (ProductCreate.id is now Optional server-side). The client UUID is passed
+    // for optimistic cache coherence; the server returns the final ID.
     const isNew = !productData.id || productData.id.startsWith("prod_temp_");
-    const id = productData.id || `prod_${Date.now()}`;
-    
+    const id = (productData.id && !productData.id.startsWith("prod_temp_"))
+      ? productData.id
+      : crypto.randomUUID();
+
     // Phase A Enforcement 1: Duplicate Barcode Check (in-process, no API needed)
     if (productData.barcode && productData.barcode.trim()) {
       const cleanBarcode = productData.barcode.trim();
       const existingWithBarcode = this.localCache.find(
-        (p) => p.id !== id && (p.barcode === cleanBarcode || (p.secondaryBarcodes && p.secondaryBarcodes.includes(cleanBarcode)))
+        (p) => p.id !== id &&
+          (p.barcode === cleanBarcode || (p.secondaryBarcodes && p.secondaryBarcodes.includes(cleanBarcode)))
       );
       if (existingWithBarcode) {
         throw new Error(
@@ -109,11 +186,18 @@ export class ItemService implements IItemService {
       }
     }
 
+    // ─── F-001: EAN-13 generation ───────────────────────────────────────────
+    // Only auto-generate when no barcode was supplied (manual/Excel barcodes are preserved).
+    const barcode = productData.barcode?.trim() || generateSmritiEan13();
+
+    // ─── F-002: Map frontend status → backend authoritative lifecycle columns ─
+    const lifecycle = mapStatusToLifecycle(productData.status);
+
     const sku: Product = {
       id,
       code: productData.code || productData.sku || `SKU-${Math.floor(100000 + Math.random() * 900000)}`,
       sku: productData.sku || productData.code || `SKU-${Math.floor(100000 + Math.random() * 900000)}`,
-      barcode: productData.barcode || `${Math.floor(8900000000000 + Math.random() * 9000000000)}`,
+      barcode,
       name: productData.name || "Unnamed Master SKU",
       category: productData.category || "General",
       brand: productData.brand || "Smriti Standard",
@@ -133,24 +217,28 @@ export class ItemService implements IItemService {
       attributes: productData.attributes || {}
     };
 
-    // Optimistically upsert into local cache so that the duplicate-barcode
-    // guard above can detect conflicts on subsequent in-process saves even
-    // when the API is unreachable (unit-test environment, offline mode).
-    // The cache entry is rolled back if the API call fails.
+    // Optimistic cache update — rolled back on API failure
     const previousCacheEntry = this.localCache.find((p) => p.id === id);
     this.upsertLocalCache(sku);
 
     try {
       const endpoint = isNew ? "/inventory/" : `/inventory/${id}`;
       const method = isNew ? "POST" : "PUT";
+
+      // F-002: Send backend-authoritative lifecycle fields alongside the rest of the payload
+      const backendPayload = {
+        ...sku,
+        workflow_status: lifecycle.workflow_status,
+        is_active: lifecycle.is_active,
+      };
+
       const savedResponse = await apiFetchV1(endpoint, {
         method,
-        body: JSON.stringify(sku)
+        body: JSON.stringify(backendPayload)
       });
 
       const normalized = this.normalizeBackendProduct(savedResponse || sku);
       this.upsertLocalCache(normalized);
-      
       SPK.events.emit(isNew ? "ItemCreated" : "ItemUpdated", normalized.id, normalized);
       return normalized;
     } catch (err) {
@@ -186,6 +274,13 @@ export class ItemService implements IItemService {
     }
   }
 
+  /**
+   * normalizeBackendProduct — maps FastAPI ProductResponse → frontend Product.
+   *
+   * F-002: status is ALWAYS derived from the backend authoritative fields:
+   *   workflow_status (String(30)) and is_active (Boolean) — both in BaseEntity.
+   * The frontend status field is a display-only concept; it is never stored as-is.
+   */
   private normalizeBackendProduct(p: any): Product {
     return {
       id: p.id,
@@ -213,7 +308,10 @@ export class ItemService implements IItemService {
       uom: p.uom || "Pcs",
       color: p.color,
       size: p.size,
-      attributes: p.attributes || {}
+      attributes: p.attributes || {},
+      // F-002: derive status from backend authoritative lifecycle columns
+      status: mapLifecycleToStatus(p.workflow_status, p.is_active),
     };
   }
 }
+

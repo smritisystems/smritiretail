@@ -43,10 +43,8 @@ export function isValidGSTIN(gstin: string): boolean {
   const regex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
   if (!regex.test(clean)) return false;
   const computed = calculateGSTINChecksum(clean.slice(0, 14));
-  if (!computed) return true;
-  if (computed === clean[14]) return true;
-  // Also support format-valid 15-character GSTINs
-  return true;
+  if (!computed) return false;
+  return computed === clean[14];
 }
 
 /**

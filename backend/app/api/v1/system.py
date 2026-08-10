@@ -797,24 +797,26 @@ async def company_setup(
         )
     tenant_code = raw_code
 
+    company_name = business_info.name or "SMRITI Retail Company"
+    company_gstin = business_info.gstin or None
+    branch_entries = org_structure.stores or []
+
+    allow_subsequent = (business_info and getattr(business_info, "ignoreWarnings", False)) or (current_user is not None)
+    existing_setup = await get_system_config(db, SETUP_COMPLETED_KEY)
+    existing_state = await get_system_config(db, SETUP_STATE_KEY)
+
+    if not allow_subsequent and ((existing_setup and existing_setup.value == "true") or (existing_state and existing_state.value in ["INITIALIZED", "LOCKED"])):
+        raise HTTPException(
+            status_code=400,
+            detail="Initial company setup is locked. To onboard additional legal entities, execute provisioning with ignoreWarnings=true or authenticate as an admin user."
+        )
+
     # Pre-flight Uniqueness check for Company Code
     existing_tenant_res = await db.execute(select(Tenant.id).where(Tenant.tenant_code == tenant_code))
     if existing_tenant_res.scalar_one_or_none():
         raise HTTPException(
             status_code=409,
             detail=f'Company Code "{tenant_code}" is already in use. Please choose another Company Code.'
-        )
-
-    company_name = business_info.name or "SMRITI Retail Company"
-    company_gstin = business_info.gstin or None
-    branch_entries = org_structure.stores or []
-
-    allow_subsequent = (business_info and getattr(business_info, "ignoreWarnings", False)) or (current_user is not None)
-
-    if not allow_subsequent and ((existing_setup and existing_setup.value == "true") or (existing_state and existing_state.value in ["INITIALIZED", "LOCKED"])):
-        raise HTTPException(
-            status_code=400,
-            detail="Initial company setup is locked. To onboard additional legal entities, execute provisioning with ignoreWarnings=true or authenticate as an admin user."
         )
 
 

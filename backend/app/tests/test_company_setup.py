@@ -25,7 +25,7 @@ from sqlalchemy.future import select
 
 from app.main import app
 from app.models.tenant import Company, Branch
-from app.models.inventory import Store
+from app.models.inventory import Store, Warehouse
 from app.models.auth import User
 from app.models.system import SystemConfig
 
@@ -46,6 +46,7 @@ async def test_company_setup_provisioning(db_session):
     await db_session.execute(delete(SystemConfig).where(SystemConfig.key.in_(["setup_completed", "setup_state"])))
     await db_session.execute(delete(SystemConfig).where(SystemConfig.company_id.in_(select(Company.id).where(Company.name == "Smriti Retail India Pvt Ltd"))))
     await db_session.execute(delete(User).where(User.username == "vikram_smriti"))
+    await db_session.execute(delete(User).where(User.branch_id.in_(select(Branch.id).where(Branch.code.in_(["GKP-01", "LKO-02"])))))
     await db_session.execute(delete(Store).where(Store.code.in_(["GKP-01", "LKO-02"])))
     await db_session.execute(delete(Branch).where(Branch.code.in_(["GKP-01", "LKO-02"])))
     await db_session.execute(delete(Company).where(Company.name == "Smriti Retail India Pvt Ltd"))
@@ -58,7 +59,7 @@ async def test_company_setup_provisioning(db_session):
                 "name": "Smriti Retail India Pvt Ltd",
                 "tradeName": "Smriti Hypermarket",
                 "businessType": "retail",
-                "gstin": "09AAACS1234A1ZP",
+                "gstin": "09AAACS1234A1Z0",
                 "pan": "AAACS1234A",
                 "state": "Uttar Pradesh",
                 "financialYear": "2026-2027",
@@ -155,7 +156,7 @@ async def test_company_setup_provisioning(db_session):
             )).scalar_one_or_none()
             assert created_comp is not None
             assert created_comp.name == "Smriti Retail India Pvt Ltd"
-            assert created_comp.gst_number == "09AAACS1234A1ZP"
+            assert created_comp.gst_number == "09AAACS1234A1Z0"
 
             # 2. Verify Database Persisted Branches
             branches = (await fresh_db.execute(

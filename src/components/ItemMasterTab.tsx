@@ -47,6 +47,8 @@ import { ProductStatus } from "../types.js";
 import { ItemHealthDashboard } from "./item_master/ItemHealthDashboard.tsx";
 import { CreateSimilarItemWizard } from "./item_master/CreateSimilarItemWizard.tsx";
 import { apiFetchV1 } from "../lib/apiFetch.ts";
+// F-001: Import the canonical EAN-13 generator — no duplicate barcode algorithm.
+import { generateSmritiEan13 } from "../kernel/internal/ItemService.js";
 
 export type ItemFormMode = "quick" | "advanced";
 
@@ -55,7 +57,7 @@ const DRAFT_KEY = "smriti_item_draft_v2";
 const blankItemForm = () => ({
   code: `SKU-${Math.floor(100000 + Math.random() * 900000)}`,
   sku: `SKU-${Math.floor(100000 + Math.random() * 900000)}`,
-  barcode: `${Math.floor(8900000000000 + Math.random() * 9000000000)}`,
+  barcode: generateSmritiEan13(),
   name: "",
   shortName: "",
   status: "Active" as ProductStatus,

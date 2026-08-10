@@ -225,7 +225,18 @@ class InventoryService:
         tax_profiles_data = product_data.pop("tax_profiles", None) or []
         inventory_policy_data = product_data.pop("inventory_policy", None)
 
+        # F-004: If the client did not supply an id (Optional None), remove it from
+        # product_data so that Product(**product_data) lets BaseEntity's uuid4 default fire.
+        # Clients that supply a stable UUID (e.g. offline-first sync) keep their value.
+        if not product_data.get("id"):
+            product_data.pop("id", None)
+
+        # F-002: Ensure is_active defaults to True when client sends None (new product is active).
+        if product_data.get("is_active") is None:
+            product_data["is_active"] = True
+
         # ── Phase E8: Column→JSONB mirror sync for direct product creation ──
+
         attrs = product_data.get("attributes", {}) or {}
         if isinstance(attrs, dict):
             color_val = product_data.get("color")

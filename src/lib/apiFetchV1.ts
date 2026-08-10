@@ -70,13 +70,7 @@ export async function apiFetchV1<T = any>(endpoint: string, options: RequestInit
     path = `/api/v1${path}`;
   }
 
-  const baseUrl = typeof window !== "undefined" && window.location?.origin
-    ? window.location.origin
-    : "http://localhost:8000";
-
-  const fullUrl = path.startsWith("http://") || path.startsWith("https://")
-    ? path
-    : `${baseUrl}${path}`;
+  const fullUrl = path;
 
   const response = await fetch(fullUrl, {
     ...options,

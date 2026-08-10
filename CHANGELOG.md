@@ -30,6 +30,32 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Unreleased]
 
+### Item Master Hardening (F-001 → F-004) — 2026-08-10
+
+#### F-001 — EAN-13 Barcode: Canonical Generation
+- **Problem:** Three locations generated invalid barcodes: `Math.floor(8900000000000 + Math.random() * 9000000000)` (no GS1 check digit) in `ItemService.ts` and `blankItemForm`, and `SMR-B${Math.random()}` (non-numeric, non-EAN format) in `ExcelGridEntrySection.tsx`.
+- **Fix:** Introduced `generateSmritiEan13()` helper (exported from `ItemService.ts`) which delegates to the existing `BarcodeEngine.generateInternalEAN13("200", seq)` (GS1 restricted-circulation prefix, Mod-10 check digit). No duplicate algorithm. No new file.
+- **Files:** `src/kernel/internal/ItemService.ts`, `src/components/ItemMasterTab.tsx`, `src/components/ExcelGridEntrySection.tsx`.
+- **Rule:** PBC-001 (Promote Before Create) — existing `BarcodeEngine` promoted, not replaced.
+
+#### F-002 — Frontend Status Does Not Map to Backend Lifecycle
+- **Problem:** Frontend `status` ("Active"/"Draft"/"Inactive"/"Blocked"/"Discontinued") was sent as-is but `Product` table has no `status` column. Authoritative columns are `workflow_status` (String(30)) and `is_active` (Boolean) in `BaseEntity`.
+- **Fix:** `mapStatusToLifecycle()` / `mapLifecycleToStatus()` helpers in `ItemService.ts`. Backend `ProductCreate`, `ProductUpdate`, `ProductResponse` schemas extended with `workflow_status: Optional[str]` and `is_active: Optional[bool]`. `normalizeBackendProduct()` now derives frontend `status` from the backend authoritative pair.
+- **Files:** `src/kernel/internal/ItemService.ts`, `backend/app/schemas/inventory.py`.
+- **No migration required** — both columns already exist in `BaseEntity` on every table.
+
+#### F-003 — Silent API Failure Returns Empty Cache
+- **Problem:** `ItemService.getAll()` caught all exceptions and returned `this.localCache` (silent empty `[]` on first load), masking connection failures.
+- **Fix:** Distinguishes two cases: (A) cache populated from prior load → return cache + emit `ItemLoadFailed` event so UI can show indicator; (B) cache empty (never loaded) → rethrow so `ItemMasterTab` surfaces a real error state to the user.
+- **File:** `src/kernel/internal/ItemService.ts`.
+
+#### F-004 — Client-Generated Timestamp Product IDs
+- **Problem:** `save()` used `prod_${Date.now()}` (non-UUID, collides across browser sessions). `ProductCreate.id` was `required: str`.
+- **Fix:** `crypto.randomUUID()` replaces timestamp IDs. `ProductCreate.id` made `Optional[str] = Field(None, ...)`. `create_product()` service pops `None` id from `product_data` before `Product(**product_data)` so `BaseEntity`'s `default=lambda: str(uuid4())` fires.
+- **Files:** `src/kernel/internal/ItemService.ts`, `backend/app/schemas/inventory.py`, `backend/app/services/inventory.py`.
+
+---
+
 ### Stock Ledger Enterprise Hardening — Authoritative Running Balance (Option A)
 - **Architecture Gate Decision (Phase 0 Audit):** Option A selected. Redirected `GET /api/v1/inventory/ledger` read path from legacy shim (`stock_movements`) to the canonical append-only kernel table (`inventory_ledger_entries`).
 - **Backend Schema (`app/schemas/inventory.py`):** Added `StockLedgerEntryResponse` schema supporting ILE location-based direction semantics (`to_location_id` = inbound, `from_location_id` = outbound), always-positive `quantity`, backend-computed `quantity_in`/`quantity_out`, and deterministic `balance_after`.

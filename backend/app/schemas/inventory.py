@@ -109,8 +109,13 @@ class ProductBase(BaseModel):
 
 
 class ProductCreate(ProductBase):
-    id: str = Field(..., max_length=50)
+    # F-004: id is now Optional — when omitted, BaseEntity uuid4 default applies on the DB side.
+    # Clients that supply a stable client-generated UUID (e.g. offline scenarios) are still honoured.
+    id: Optional[str] = Field(None, max_length=50)
     category_code: Optional[str] = Field(None, max_length=50)  # Phase E1: set by PVE
+    # F-002: lifecycle fields — map from frontend status (Active/Inactive/Draft/Blocked/Discontinued)
+    workflow_status: Optional[str] = Field(None, max_length=30)
+    is_active: Optional[bool] = None  # None → BaseEntity default (True) applies
 
 
 class ProductUpdate(BaseModel):
@@ -144,6 +149,9 @@ class ProductUpdate(BaseModel):
     vendors: Optional[List[ProductVendorCreate]] = None
     tax_profiles: Optional[List[ProductTaxProfileCreate]] = None
     inventory_policy: Optional[ProductInventoryPolicyCreate] = None
+    # F-002: allow lifecycle update via PUT
+    workflow_status: Optional[str] = None
+    is_active: Optional[bool] = None
 
 
 class ProductResponse(ProductBase):
@@ -157,8 +165,12 @@ class ProductResponse(ProductBase):
     vendors: List[ProductVendorResponse] = []
     tax_profiles: List[ProductTaxProfileResponse] = []
     inventory_policy: Optional[ProductInventoryPolicyResponse] = None
+    # F-002: expose lifecycle fields so frontend can derive status from authoritative backend columns
+    workflow_status: Optional[str] = None
+    is_active: Optional[bool] = True
 
     model_config = ConfigDict(from_attributes=True)
+
 
 
 class ProductBarcodeBase(BaseModel):
