@@ -40,7 +40,7 @@ from datetime import datetime, date, timezone
 from decimal import Decimal
 from sqlalchemy import (
     Column, String, Numeric, Boolean, Integer, Text,
-    ForeignKey, Date, DateTime, Index, UniqueConstraint, Enum
+    ForeignKey, Date, DateTime, Index, UniqueConstraint, Enum, text
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
@@ -185,7 +185,7 @@ class ChannelDispatch(RowSecuredMixin, BaseEntity):
     settlement_value     = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
 
     notes                = Column(Text, nullable=True)
-    metadata_json        = Column(JSONB, server_default="'{}'::jsonb", default=dict)
+    metadata_json        = Column(JSONB, server_default=text("'{}'"), default=dict)
     # Stores: auto_created_by_event, event_payload_ref, import_source etc.
 
     # Relationships
@@ -345,7 +345,7 @@ class SellOutImport(RowSecuredMixin, BaseEntity):
     rejected_lines    = Column(Integer, nullable=False, default=0)
     duplicate_lines   = Column(Integer, nullable=False, default=0)
 
-    error_summary     = Column(JSONB, server_default="'[]'::jsonb", default=list)
+    error_summary     = Column(JSONB, server_default=text("'[]'"), default=list)
     # [{line: 3, product: "SKU001", error: "Item not mapped"}]
 
     imported_by_user_id = Column(String(50), nullable=True)

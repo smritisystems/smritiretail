@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -21,7 +21,7 @@ Contains:
 from datetime import datetime
 from sqlalchemy import (
     Column, String, Integer, Boolean, Text,
-    DateTime, UniqueConstraint, Index
+    DateTime, UniqueConstraint, Index, text
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import BaseEntity
@@ -99,7 +99,7 @@ class DocumentWorkflow(BaseEntity):
 
     # Full transition history as JSONB array:
     # [{"from": "Draft", "to": "Submitted", "user": "admin", "ts": "...", "remarks": "..."}]
-    status_history  = Column(JSONB, nullable=False, server_default="'[]'::jsonb")
+    status_history  = Column(JSONB, nullable=False, server_default=text("'[]'"))
 
     # Optional: who is currently responsible for action
     assigned_to     = Column(String(100), nullable=True)

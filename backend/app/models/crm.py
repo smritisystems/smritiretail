@@ -17,7 +17,7 @@ Leads, Opportunities, Marketing Campaigns, Support Tickets, and Activity Logs.
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, Text, ForeignKey, Date, DateTime, Index
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, Text, ForeignKey, Date, DateTime, Index, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity, RowSecuredMixin
@@ -119,7 +119,7 @@ class Customer(RowSecuredMixin, BaseEntity):
     loyalty_points_balance = Column(Numeric(15, 2), default=0.00)
     lifetime_points = Column(Numeric(15, 2), default=0.00)
 
-    custom_attributes = Column(JSONB, server_default="'{}'::jsonb", default=dict)
+    custom_attributes = Column(JSONB, server_default=text("'{}'"), default=dict)
 
     billing_address_line1 = Column(String(255), nullable=True)
     billing_address_line2 = Column(String(255), nullable=True)
@@ -134,7 +134,7 @@ class Customer(RowSecuredMixin, BaseEntity):
     shipping_state = Column(String(100), nullable=True)
     shipping_country = Column(String(100), nullable=True)
     shipping_pincode = Column(String(10), nullable=True)
-    additional_addresses = Column(JSONB, server_default="'[]'::jsonb", default=list)
+    additional_addresses = Column(JSONB, server_default=text("'[]'"), default=list)
 
     # ── SCDM: Channel Distribution Management (additive — AOP-004) ───────────
     # These fields enable a customer to participate in SCDM channel tracking.

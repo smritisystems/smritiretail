@@ -38,9 +38,17 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Implemented `ControlDatabaseRegistryService` with `to_public_dict()` credential redaction and `verify_user_company_access()` security guards.
   - Established Masterbook Control Database specification (`CONTROL_DATABASE.md`).
   - Verified 5/5 Phase 1 security unit tests, TypeScript compilation (0 errors), and DDL upgrade/downgrade against PostgreSQL.
+- **Company Database Template Architecture (Phase 2 Execution Complete):**
+  - Implemented `app.db.company_base.CompanyBase` declarative base class for physical Company DBs.
+  - Implemented `CompanyDatabasePoolManager` connection pool manager with dynamic `company_code` connection resolution and pool LRU caching (`pool_size=5`, `max_overflow=10`).
+  - Established Masterbook specifications `COMPANY_DATABASE_TEMPLATE.md` (`MBOOK-DB-TMPL-001`) and `CROSS_DATABASE_REFERENCES.md` (`MBOOK-DB-XREF-001`).
+  - Created `backend/app/tests/test_company_database_isolation.py` physical multi-database isolation test suite.
+  - Verified 5/5 physical database isolation integration tests PASS on PostgreSQL (`smriti_test_control_db`, `smriti_company_a_test`, `smriti_company_b_test`).
+  - Verified 21/21 existing multi-company & tenant isolation regression tests PASS.
+  - Resolved DDL JSONB default escaping syntax (`sqlalchemy.text`) and duplicate index definitions across model entities.
 - **Logical Schema Partitioning:** Empirical audit of 226 `BaseEntity` tables categorized schema into **34 Control DB tables**, **8 Secondary Master DB tables**, and **184 Company Operational DB tables**.
 - **Git Migration Branch:** Created feature branch `feat/physically-isolated-company-dbs` for physical multi-database refactoring.
-- **Phase 1 Status:** `GO / COMPLETED`. Zero mutations performed on `smriti_prod` or operational business tables.
+- **Phase 2 Status:** `GO / COMPLETED`. Zero mutations performed on `smriti_prod` or production data.
 
 ## [Unreleased]
 

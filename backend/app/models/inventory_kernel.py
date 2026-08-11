@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional, List
 from ..db.base import BaseEntity, RowSecuredMixin
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text, DateTime
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text, DateTime, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import relationship, foreign
 
@@ -39,7 +39,7 @@ class InventoryLocationNode(RowSecuredMixin, BaseEntity):
     territory_path  = Column(String(255), nullable=True)  # Global/India/Western Region/Maharashtra/Mumbai
     address         = Column(Text, nullable=True)
     is_active       = Column(Boolean, nullable=False, default=True)
-    kpis            = Column(JSONB, server_default="'{}'::jsonb", default=dict)
+    kpis            = Column(JSONB, server_default=text("'{}'"), default=dict)
 
     # Relationships
     parent          = relationship("InventoryLocationNode", remote_side="InventoryLocationNode.id", backref="children", lazy="selectin")
@@ -62,7 +62,7 @@ class InventoryIdentityRecord(RowSecuredMixin, BaseEntity):
     batch_no            = Column(String(100), nullable=True, index=True)
     serial_no           = Column(String(100), nullable=True, index=True)
     lot_no              = Column(String(100), nullable=True)
-    variant_attributes  = Column(JSONB, server_default="'{}'::jsonb", default=dict)
+    variant_attributes  = Column(JSONB, server_default=text("'{}'"), default=dict)
     uom                 = Column(String(30), nullable=False, default="PCS")
     packaging_profile   = Column(String(50), nullable=True)
     primary_barcode     = Column(String(100), nullable=True, index=True)
@@ -262,4 +262,3 @@ class InventoryCheckpointRecord(RowSecuredMixin, BaseEntity):
     certified_unit_cost = Column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
     checksum            = Column(String(64), nullable=False)
     is_certified        = Column(Boolean, nullable=False, default=True)
-

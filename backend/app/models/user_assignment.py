@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -20,8 +20,8 @@ from ..db.base import BaseEntity
 class UserCompanyAssignment(BaseEntity):
     __tablename__ = "user_company_assignments"
 
-    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
-    user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     is_default = Column(Boolean, default=False, nullable=False)
 
     __table_args__ = (
@@ -49,9 +49,9 @@ class UserCompanyAssignment(BaseEntity):
 class UserBranchAssignment(BaseEntity):
     __tablename__ = "user_branch_assignments"
 
-    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
-    branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=False, index=True)
-    user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False)
+    branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=False)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     is_default = Column(Boolean, default=False, nullable=False)
 
     __table_args__ = (
@@ -81,10 +81,10 @@ class UserBranchAssignment(BaseEntity):
 class UserStoreAssignment(BaseEntity):
     __tablename__ = "user_store_assignments"
 
-    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
-    branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=False, index=True)
-    user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    store_id = Column(String(50), ForeignKey("stores.id", ondelete="RESTRICT"), nullable=False, index=True)
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False)
+    branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=False)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    store_id = Column(String(50), ForeignKey("stores.id", ondelete="RESTRICT"), nullable=False)
 
     __table_args__ = (
         Index("ix_user_store_assignments_user_id", "user_id"),

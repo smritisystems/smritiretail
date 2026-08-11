@@ -11,7 +11,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from sqlalchemy import Column, String, Boolean, Text, Integer, Numeric, UniqueConstraint
+from sqlalchemy import Column, String, Boolean, Text, Integer, Numeric, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import BaseEntity
 
@@ -24,10 +24,10 @@ class AttributeDefinition(BaseEntity):
 
     name                 = Column(String(200), nullable=False)
     label                = Column(String(200), nullable=False)
-    data_type            = Column(String(50), nullable=False)  # Text, Number, Select, Boolean, Date
+    data_type            = Column(String(50), nullable=False)  # Text, Number, Select, Date, Boolean, MultiSelect
     is_variant_dimension = Column(Boolean, default=False)
     is_mandatory         = Column(Boolean, default=False)
-    valid_values         = Column(Text, nullable=True)         # JSON array of values for Select type
+    valid_values         = Column(Text, nullable=True)         # JSON list of select choices
     group_id             = Column(String(50), nullable=True)
 
     # Extended dynamic configuration fields
@@ -40,7 +40,7 @@ class AttributeDefinition(BaseEntity):
     tooltip              = Column(String(500), nullable=True)
     validation_rules     = Column(Text, nullable=True)
     is_enabled           = Column(Boolean, default=True)
-    multi_lang_labels    = Column(JSONB, server_default="'{}'::jsonb", default=dict)
+    multi_lang_labels    = Column(JSONB, server_default=text("'{}'"), default=dict)
 
 
 

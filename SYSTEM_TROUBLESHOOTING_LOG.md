@@ -1,5 +1,28 @@
 # SMRITI RETAIL OS — SYSTEM TROUBLESHOOTING LOG
 
+## ISSUE 2026-08-11-01: DDL Escape & Duplicate Index Syntax Errors During Multi-Database Create All
+
+**Severity:** P1 — Integration Failure (AsyncPG PostgreSQL DDL execution error during multi-DB test environment setup)
+**Status:** RESOLVED
+**Date:** 2026-08-11
+**Ref:** ARCH-MEGA-REFACTOR-PHASE-2-DDL-FIX
+
+### Symptom
+When executing `CompanyBase.metadata.create_all` on PostgreSQL test databases (`smriti_company_a_test`):
+1. `sqlalchemy.exc.DBAPIError: <class 'asyncpg.exceptions.InvalidTextRepresentationError'>: invalid input syntax for type json` with DDL output `DEFAULT '''{}'::jsonb'`.
+2. `sqlalchemy.exc.ProgrammingError: <class 'asyncpg.exceptions.DuplicateTableError'>: relation "ix_user_company_assignments_user_id" already exists`.
+
+### Root Cause
+1. In `inventory_kernel.py`, `scdm.py`, `product_identity.py`, `inventory.py`, `crm.py`, `platform.py`, column definitions declared `server_default="'{}'::jsonb"` or `server_default="'[]'::jsonb"` as raw Python strings. During SQLAlchemy DDL compilation for PostgreSQL dialects, raw string literals are wrapped in extra single quotes resulting in invalid PostgreSQL SQL `'''{}'::jsonb'`.
+2. In `user_assignment.py`, models `UserCompanyAssignment`, `UserBranchAssignment`, and `UserStoreAssignment` defined both `index=True` on column attributes AND explicit `Index("ix_...", "...")` inside `__table_args__`. This caused SQLAlchemy's `create_all` visitor to attempt emitting two duplicate `CREATE INDEX` statements for the same index name.
+
+### Solution
+1. Converted all raw string default assignments to explicit `sqlalchemy.text` expressions (e.g. `server_default=text("'{}'")` and `server_default=text("'[]'")`).
+2. Removed redundant `index=True` column attributes on fields that already possess explicit `Index(...)` declarations in `__table_args__`.
+3. Re-ran `test_company_database_isolation.py`: 5/5 physical database isolation tests passed cleanly on PostgreSQL.
+
+---
+
 ## ISSUE 2026-08-10-05: Sales Invoice 422 — customer_id Wiring (SCS-INV-001)
 
 **Severity:** P0 — Production failure (every invoice POST returned HTTP 422)

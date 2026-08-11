@@ -15,7 +15,7 @@ Classification: Internal
 from datetime import datetime, timezone
 from decimal import Decimal
 from ..db.base import BaseEntity, RowSecuredMixin
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text, DateTime, UniqueConstraint
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, Index, ForeignKey, Text, DateTime, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import relationship, foreign
 from .attributes import VariantTemplate
@@ -48,7 +48,7 @@ class Product(RowSecuredMixin, BaseEntity):
     sourcing_mode_override = Column(String(30), nullable=True)
     weight_grams = Column(Numeric(10, 2), default=0.00)
     cbm_m3 = Column(Numeric(10, 4), nullable=True)  # Phase E10: typed CBM for landed-cost allocation
-    attributes = Column(JSONB, server_default="'{}'::jsonb", default=dict)
+    attributes = Column(JSONB, server_default=text("'{}'"), default=dict)
     primary_image_url = Column(String(512))
     gallery_images = Column(ARRAY(String), server_default="{}")
 
