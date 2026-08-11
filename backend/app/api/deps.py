@@ -330,3 +330,59 @@ def require_permission(permission_code: str) -> Callable:
         return current_user
     return _guard
 
+
+# ---------------------------------------------------------------------------
+# get_company_db — Phase 4 Dynamic Physical Company DB Session Resolver
+# ---------------------------------------------------------------------------
+async def get_company_db(
+    request: Request,
+    x_company_code: Optional[str] = Header(None, alias="X-Company-Code"),
+    token: str = Depends(oauth2_scheme),
+) -> AsyncSession:
+    """
+    MANDATORY PHASE 4 ROUTER DEPENDENCY:
+    Dynamically resolves an AsyncSession connected to the physical Company Database
+    (smriti_company_{company_code}) belonging to the authenticated user's assigned company.
+
+    Enforces 5-level security chain:
+    1. Authenticated User token
+    2. Control DB User Assignment check
+    3. Server-side Connection Credentials resolution
+    4. LRU Engine Pool lookup
+    5. Company DB session yield
+    """
+    from ..db.control_session import control_async_session_maker
+    from ..db.company_session import CompanyDatabasePoolManager
+
+    payload = decode_token(token)
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Token is missing user identity.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    target_code = x_company_code or payload.get("company_code") or payload.get("company_id")
+    if not target_code:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing company context. Header 'X-Company-Code' or token company claim required."
+        )
+
+    async with control_async_session_maker() as control_db:
+        session = await CompanyDatabasePoolManager.get_company_session_by_code(
+            control_db=control_db,
+            company_code=target_code,
+            user_id=user_id,
+        )
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+

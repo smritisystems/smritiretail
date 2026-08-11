@@ -110,6 +110,19 @@ class CompanyDatabasePoolManager:
             self._engines.clear()
             self._sessionmakers.clear()
 
+    @classmethod
+    async def close_all_pools(cls):
+        """Class method helper for disposing singleton pool manager engines."""
+        await company_db_pool_manager.dispose_all()
+
+    @staticmethod
+    async def get_company_session_by_code(
+        company_code: str,
+        user_id: Optional[str] = None,
+        control_db: Optional[AsyncSession] = None,
+    ) -> AsyncSession:
+        return await get_company_session_by_code(company_code, user_id, control_db)
+
 
 # Global Singleton Pool Manager
 company_db_pool_manager = CompanyDatabasePoolManager()
@@ -118,7 +131,8 @@ company_db_pool_manager = CompanyDatabasePoolManager()
 async def get_company_session_by_code(
     company_code: str,
     user_id: Optional[str] = None,
-) -> AsyncGenerator[AsyncSession, None]:
+    control_db: Optional[AsyncSession] = None,
+) -> AsyncSession:
     """
     Server-side Company DB Session Resolver.
     
@@ -127,15 +141,15 @@ async def get_company_session_by_code(
     2. Lookup ControlCompanyDatabase entry in Control DB.
     3. Verify DB status is ACTIVE.
     4. Fetch/create sessionmaker from company_db_pool_manager.
-    5. Yield AsyncSession connected to target Company DB.
+    5. Returns AsyncSession connected to target Company DB.
     """
     clean_code = company_code.strip().upper()
 
-    async with control_async_session_maker() as control_db:
+    async def _resolve(c_db: AsyncSession) -> AsyncSession:
         # 1. Authorization Verification (if user_id is provided)
         if user_id:
             has_access = await ControlDatabaseRegistryService.verify_user_company_access(
-                control_db, user_id, clean_code
+                c_db, user_id, clean_code
             )
             if not has_access:
                 raise HTTPException(
@@ -144,7 +158,7 @@ async def get_company_session_by_code(
                 )
 
         # 2. Database Metadata Lookup
-        db_registry = await ControlDatabaseRegistryService.get_company_database(control_db, clean_code)
+        db_registry = await ControlDatabaseRegistryService.get_company_database(c_db, clean_code)
         if not db_registry:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -172,9 +186,10 @@ async def get_company_session_by_code(
             db_user=db_registry.db_user,
         )
 
-    # 5. Yield Company DB Session
-    async with session_factory() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+        return session_factory()
+
+    if control_db:
+        return await _resolve(control_db)
+    else:
+        async with control_async_session_maker() as c_db:
+            return await _resolve(c_db)
