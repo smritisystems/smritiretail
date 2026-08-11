@@ -333,7 +333,7 @@ async def test_08_company_a_invoice_invisible_in_company_b_db(setup_phase4_envir
         inv_a = SalesInvoice(
             id="inv-phase4-a",
             invoice_no="INV-A-100",
-            customer_id="cust-phase4-a",
+            customer_id=None,
             grand_total=Decimal("5000"),
             company_id="comp-id-a",
             tenant_id="t-a"
@@ -352,6 +352,16 @@ async def test_09_company_a_stock_invisible_in_company_b_db(setup_phase4_environ
     sm_b = setup_phase4_environment["sm_company_b"]
 
     async with sm_a() as a_db:
+        p_a = Product(
+            id="prod-phase4-a",
+            code="PROD-P4-A",
+            name="Company A Laptop",
+            category="Electronics",
+            barcode="BC-P4-A",
+            sku="SKU-LAP-A",
+            company_id="comp-id-a",
+            tenant_id="t-a"
+        )
         stk_a = StockMovement(
             id="stk-phase4-a",
             product_id="prod-phase4-a",
@@ -362,7 +372,7 @@ async def test_09_company_a_stock_invisible_in_company_b_db(setup_phase4_environ
             company_id="comp-id-a",
             tenant_id="t-a"
         )
-        a_db.add(stk_a)
+        a_db.add_all([p_a, stk_a])
         await a_db.commit()
 
     async with sm_b() as b_db:
@@ -442,11 +452,11 @@ async def test_13_supplier_service_uses_company_db(setup_phase4_environment):
 @pytest.mark.asyncio
 async def test_14_sales_service_uses_company_db(setup_phase4_environment):
     sm_a = setup_phase4_environment["sm_company_a"]
-    t_ctx = TenantContext(company_id="comp-id-a", branch_id="b-a", tenant_id="t-a")
+    t_ctx = TenantContext(company_id="comp-id-a", branch_id=None, tenant_id="t-a")
 
     async with sm_a() as a_db:
         repo = SalesInvoiceRepository(a_db, t_ctx)
-        inv = SalesInvoice(id="inv-repo-a", invoice_no="INV-REPO-01", customer_id="cust-repo-a", company_id="comp-id-a")
+        inv = SalesInvoice(id="inv-repo-a", invoice_no="INV-REPO-01", customer_id=None, company_id="comp-id-a")
         created = await repo.create(inv)
         assert created.id == "inv-repo-a"
 
