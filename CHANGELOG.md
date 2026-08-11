@@ -29,15 +29,19 @@
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
 ## [3.34.0] - 2026-08-11
-### Architectural Audit & Governance
-- **Mega Architecture Refactor (Phase 0 Audit Complete):** Established Masterbook Gap Matrix (`MEGA_REFACTOR_GAP_MATRIX.md`), Company Database Migration Plan (`COMPANY_DATABASE_MIGRATION_PLAN.md`), and Execution Log (`MEGA_REFACTOR_EXECUTION_LOG.md`).
-- **Control Database Architecture (Phase 1 Execution Complete):** 
-  - Implemented `app.db.control_base.ControlBase` (decoupled from operational `BaseEntity`).
-  - Implemented `app.db.control_session` connection engine and `get_control_db` FastAPI dependency.
-  - Implemented 7 canonical Control DB models (`ControlCompany`, `ControlCompanyDatabase`, `ControlUser`, `ControlUserCompanyAssignment`, `ControlCapabilityAssignment`, `ControlSecurityAudit`, `ControlSystemConfig`).
-  - Implemented `ControlDatabaseRegistryService` with `to_public_dict()` credential redaction and `verify_user_company_access()` security guards.
-  - Established Masterbook Control Database specification (`CONTROL_DATABASE.md`).
-  - Verified 5/5 Phase 1 security unit tests, TypeScript compilation (0 errors), and DDL upgrade/downgrade against PostgreSQL.
+- **Company Database Template Architecture (Phase 2 Execution Complete):**
+  - Implemented `app.db.company_base.CompanyBase` declarative base class (100% decoupled from `ControlBase.metadata`).
+  - Implemented `app.db.company_session.CompanyDatabasePoolManager` dynamic connection engine pool manager with LRU caching (`max_pools=500`, `pool_size=5`).
+  - Established Masterbook specifications `COMPANY_DATABASE_TEMPLATE.md` (`MBOOK-DB-TMPL-001`) and `CROSS_DATABASE_REFERENCES.md` (`MBOOK-DB-XREF-001`).
+  - Verified 5/5 physical database isolation integration tests and 21/21 multi-company regression tests PASS on PostgreSQL.
+- **Secondary Master Database / Master Exchange Hub Architecture (Phase 3 Execution Complete):**
+  - Implemented `app.db.master_hub_base.MasterHubBase` declarative base class (100% decoupled from `ControlBase` and `CompanyBase`, 0 transactional tables).
+  - Implemented `app.db.master_hub_session` connection engine and session factory (`master_hub_engine`, `get_master_hub_db`).
+  - Implemented Master Hub ORM models (`MasterHubType`, `MasterHubRecord`, `MasterHubVersion`, `MasterHubPublication`, `MasterHubImport`, `MasterHubMapping`, `MasterHubCompanyPolicy`, `MasterHubAuditEvent`).
+  - Implemented `MasterHubExchangeService` with mandatory Control DB user authorization and payload sanitation (stripping stock, pricing, and ledger attributes).
+  - Enforced 5 mandatory safeguards: Hub is not global owner, no automatic sync, operational values sanitized, company code is metadata only, granular per-master-type policy.
+  - Established Masterbook specifications `SECONDARY_MASTER_DATABASE.md` (`MBOOK-DB-SEC-001`) and `MASTER_EXCHANGE_POLICY.md` (`MBOOK-MD-POL-001`).
+  - Verified 20/20 mandatory Master Hub PostgreSQL integration tests, 26/26 isolation & multi-company regression tests PASS, and clean TypeScript compilation (0 errors).
 - **Company Database Template Architecture (Phase 2 Execution Complete):**
   - Implemented `app.db.company_base.CompanyBase` declarative base class for physical Company DBs.
   - Implemented `CompanyDatabasePoolManager` connection pool manager with dynamic `company_code` connection resolution and pool LRU caching (`pool_size=5`, `max_overflow=10`).

@@ -1,4 +1,25 @@
-# SMRITI RETAIL OS — SYSTEM TROUBLESHOOTING LOG
+## ISSUE 2026-08-11-02: Control DB Authorization Signature Resolution & Foreign Key Order in Master Hub Tests
+
+**Severity:** P2 — Integration Test Setup (Authorization helper signature alignment and PostgreSQL foreign key order)
+**Status:** RESOLVED
+**Date:** 2026-08-11
+**Ref:** ARCH-MEGA-REFACTOR-PHASE-3-TEST-FIX
+
+### Symptom
+1. `AttributeError: 'bool' object has no attribute 'company_id'` during `MasterHubExchangeService` authorization evaluation.
+2. `sqlalchemy.exc.IntegrityError: <class 'asyncpg.exceptions.ForeignKeyViolationError'>: insert or update on table "master_hub_imports" violates foreign key constraint "master_hub_imports_hub_master_id_fkey"`.
+
+### Root Cause
+1. `ControlDatabaseRegistryService.verify_user_company_access()` returns `bool` (`True`/`False`), whereas service method assumed it returned `ControlCompanyDatabase`. `get_company_database()` is the helper that fetches `ControlCompanyDatabase`.
+2. In `test_master_hub.py` test 11 (`test_conflict_is_detected`), a `MasterHubImport` record was inserted without inserting a parent `MasterHubRecord` first, violating foreign key constraint `master_hub_imports_hub_master_id_fkey`.
+3. In `setup_master_hub_environment`, `ControlCompanyDatabase` fixture instances omitted `db_user="smriti_app"`, violating NOT NULL constraint on `control_company_databases.db_user`.
+
+### Solution
+1. Updated `MasterHubExchangeService` to check `verify_user_company_access` boolean result first, then fetch `get_company_database` for metadata.
+2. Updated `test_master_hub.py` fixture to specify `db_user="smriti_app"` and insert parent `MasterHubRecord` in test 11.
+3. Re-ran `test_master_hub.py`: 20/20 tests passed cleanly on PostgreSQL.
+
+---
 
 ## ISSUE 2026-08-11-01: DDL Escape & Duplicate Index Syntax Errors During Multi-Database Create All
 
