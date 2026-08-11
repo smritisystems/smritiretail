@@ -72,3 +72,6 @@ jobs:
           except Exception as e:
               print('OpenAPI fetch skipped or unavailable in CI:', e)
           PY
+
+      - name: Clean up temporary artefacts
+        run: node scripts/cleanup-tmp.mjs

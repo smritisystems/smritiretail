@@ -78,7 +78,9 @@ async def test_sip_provider_plugins_across_all_9_domains():
 async def test_sip_identifier_strategies_and_sgtin96_rfid_encoding():
     """Verifies Strategy pattern formatting for GS1, UPC, ISBN, UDI, and SGTIN-96 RFID hex encoding."""
     gs1_strat = IdentifierStrategyFactory.get_strategy("GS1")
-    barcode = gs1_strat.generate_barcode(42)
+    # Pass India GS1 company prefix explicitly (8901000) — this is the code path the test covers.
+    # Without a prefix the fallback is '200...' (neutral); with the India prefix it is '8901000...'.
+    barcode = gs1_strat.generate_barcode(42, gs1_company_prefix="8901000")
     assert len(barcode) == 13
     assert barcode.startswith("8901000")
 

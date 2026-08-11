@@ -4,7 +4,6 @@
 # Founders
 # • Pushpa Devi Jawahar Mallah
 #   Founder & Chairperson
-#
 # • Jawahar Ramkripal Mallah
 #   Founder, Chief Executive Officer (CEO) &
 #   Chief Systems Architect
@@ -20,6 +19,7 @@
 # Copyright       : © SmritiSys. All Rights Reserved.
 # License         : Proprietary Commercial Software
 # Classification  : Internal
+#
 
 name: Tests & Verification Gate
 
@@ -54,6 +54,9 @@ jobs:
 
       - name: Run Frontend Tests
         run: npm test
+
+      - name: Clean up temporary artefacts
+        run: node scripts/cleanup-tmp.mjs
 
   backend-verification:
     name: Backend (FastAPI/Python) Checks
@@ -110,3 +113,9 @@ jobs:
           SGIP_VAULT_MASTER_KEY: ci_vault_master_key_do_not_use_in_prod
           INTERNAL_SERVICE_KEY: ci_internal_service_key_do_not_use_in_prod
         run: pytest -v
+
+      - name: Clean up temporary artefacts
+        run: node scripts/cleanup-tmp.mjs
+
+      - name: Docker build validation (backend)
+        run: docker build -t smriti-backend-validate -f backend/Dockerfile backend/
