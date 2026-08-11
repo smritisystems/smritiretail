@@ -31,9 +31,16 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ## [3.34.0] - 2026-08-11
 ### Architectural Audit & Governance
 - **Mega Architecture Refactor (Phase 0 Audit Complete):** Established Masterbook Gap Matrix (`MEGA_REFACTOR_GAP_MATRIX.md`), Company Database Migration Plan (`COMPANY_DATABASE_MIGRATION_PLAN.md`), and Execution Log (`MEGA_REFACTOR_EXECUTION_LOG.md`).
+- **Control Database Architecture (Phase 1 Execution Complete):** 
+  - Implemented `app.db.control_base.ControlBase` (decoupled from operational `BaseEntity`).
+  - Implemented `app.db.control_session` connection engine and `get_control_db` FastAPI dependency.
+  - Implemented 7 canonical Control DB models (`ControlCompany`, `ControlCompanyDatabase`, `ControlUser`, `ControlUserCompanyAssignment`, `ControlCapabilityAssignment`, `ControlSecurityAudit`, `ControlSystemConfig`).
+  - Implemented `ControlDatabaseRegistryService` with `to_public_dict()` credential redaction and `verify_user_company_access()` security guards.
+  - Established Masterbook Control Database specification (`CONTROL_DATABASE.md`).
+  - Verified 5/5 Phase 1 security unit tests, TypeScript compilation (0 errors), and DDL upgrade/downgrade against PostgreSQL.
 - **Logical Schema Partitioning:** Empirical audit of 226 `BaseEntity` tables categorized schema into **34 Control DB tables**, **8 Secondary Master DB tables**, and **184 Company Operational DB tables**.
 - **Git Migration Branch:** Created feature branch `feat/physically-isolated-company-dbs` for physical multi-database refactoring.
-- **Phase 0 Status:** `CONDITIONAL GO`. Zero code or database mutations executed during Phase 0.
+- **Phase 1 Status:** `GO / COMPLETED`. Zero mutations performed on `smriti_prod` or operational business tables.
 
 ## [Unreleased]
 
