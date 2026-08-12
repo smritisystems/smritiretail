@@ -1,3 +1,36 @@
+## ISSUE 2026-08-12-01: Multi-Company Operations Engine (Phase 5) PostgreSQL Integration Test Resolution
+
+**Severity:** P2 — Integration Test & Backup Formatting (PostgreSQL array literal formatting, connection URL builder, & NOT NULL constraints)
+**Status:** RESOLVED
+**Date:** 2026-08-12
+**Ref:** ARCH-MEGA-REFACTOR-PHASE-5-TEST-FIX
+
+### Symptom
+1. `TypeError: CompanyDatabasePoolManager.dispose_all() missing 1 required positional argument: 'self'`.
+2. `NotNullViolationError: null value in column "ref_document_type" of relation "journal_vouchers" violates not-null constraint`.
+3. `ForeignKeyViolationError: insert or update on table "journal_vouchers" violates foreign key constraint "journal_vouchers_company_id_fkey"`.
+4. `AttributeError: type object 'ControlDatabaseRegistryService' has no attribute 'build_connection_url'`.
+5. `AsyncAdapt_asyncpg_dbapi.Error: <class 'asyncpg.exceptions.InvalidTextRepresentationError'>: malformed array literal: "[]"`.
+6. `NameError: name 'HTTPException' is not defined` in `company_migration_fanout_service.py`.
+
+### Root Cause
+1. `dispose_all` was an instance method; the static/class method helper on `CompanyDatabasePoolManager` is `close_all_pools()`.
+2. `JournalVoucherModel` required non-null `ref_document_type`, `ref_document_id`, `ref_document_no` values.
+3. Test objects passed string `company_id` values pointing to un-inserted parent company rows in isolated company databases where foreign keys were enabled.
+4. `ControlDatabaseRegistryService` lacked a static `build_connection_url` helper method expected by backup and migration fan-out services.
+5. `backup_company_database` formatted empty Python lists `[]` as string `'[]'` instead of PostgreSQL array literal `'{}'`.
+6. Missing `HTTPException` import in `company_migration_fanout_service.py`.
+
+### Solution
+1. Changed teardown call to `await CompanyDatabasePoolManager.close_all_pools()`.
+2. Populated reference document fields in `JournalVoucherModel` test objects and set `company_id=None` on operational entities in isolated Company DBs.
+3. Implemented `build_connection_url` static method in `ControlDatabaseRegistryService`.
+4. Updated `backup_company_database` to format empty lists as `'{}'` and populated lists as PostgreSQL array literals `'{val1,val2}'`.
+5. Imported `HTTPException` in `company_migration_fanout_service.py` and raised 404 for non-existent companies in `inspect_company_database_drift`.
+6. Empirical verification: **15/15 Phase 5 integration tests PASS** on PostgreSQL; **46/46 Phase 1–3 regression tests PASS**; **28/28 Phase 4 integration tests PASS**.
+
+---
+
 ## ISSUE 2026-08-11-03: PostgreSQL ENUM Type Re-creation & Pytest-Asyncio Event Loop Scope Mismatch in Multi-Database Integration Tests
 
 **Severity:** P2 — Integration Test Setup (AsyncPG ENUM type duplication & event loop binding across multi-DB fixtures)

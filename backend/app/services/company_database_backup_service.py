@@ -100,6 +100,12 @@ class CompanyDatabaseBackupService:
                                     vals.append(str(v))
                                 elif isinstance(v, bool):
                                     vals.append("TRUE" if v else "FALSE")
+                                elif isinstance(v, list):
+                                    if not v:
+                                        vals.append("'{}'")
+                                    else:
+                                        escaped_items = [str(item).replace("'", "''") for item in v]
+                                        vals.append(f"'{{{','.join(escaped_items)}}}'")
                                 else:
                                     escaped = str(v).replace("'", "''")
                                     vals.append(f"'{escaped}'")

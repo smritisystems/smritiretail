@@ -12,6 +12,7 @@ Classification: Company Migration Fan-Out & Schema Drift Detection Service
 import asyncio
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
+from fastapi import HTTPException
 from sqlalchemy import inspect, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
@@ -127,6 +128,8 @@ class CompanySchemaDriftDetector:
         """
         clean_code = company_code.strip().upper()
         db_meta = await ControlDatabaseRegistryService.get_company_database(control_db, clean_code)
+        if not db_meta:
+            raise HTTPException(status_code=404, detail=f"Company database configuration for company_code '{clean_code}' not found in registry.")
 
         conn_url = ControlDatabaseRegistryService.build_connection_url(db_meta)
         engine = create_async_engine(conn_url)

@@ -28,6 +28,14 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [3.35.0] - 2026-08-12
+- **Multi-Company Operations Engine (Phase 5 Execution Complete):**
+  - Implemented `MultiCompanyConsolidationService` (`app/services/multi_company_consolidation_service.py`): Async fan-out reporting engine (`asyncio.gather`) for Financial Trial Balance, Sales Summary, Inventory Summary, and Customer Balances.
+  - Implemented `CompanyMigrationFanoutService` (`app/services/company_migration_fanout_service.py`): Schema migration fan-out engine delivering DDL updates across all physical company databases in parallel.
+  - Implemented `CompanySchemaDriftDetector` (`app/services/company_migration_fanout_service.py`): Schema drift detection engine inspecting physical database tables and columns against `CompanyBase.metadata`.
+  - Implemented `CompanyDatabaseBackupService` (`app/services/company_database_backup_service.py`): Isolated company database backup and restore service with SHA-256 checksum verification and PostgreSQL array literal formatting.
+  - Verified 15/15 Phase 5 integration tests PASS on PostgreSQL; 46/46 Phase 1–3 regression tests PASS; 28/28 Phase 4 integration tests PASS.
+
 ## [3.34.0] - 2026-08-11
 - **Existing Application → Physical Company Database Refactor (Phase 4 Execution Complete):**
   - Updated FastAPI session dependency `get_company_db` (`app/api/deps.py`) to dynamically resolve physical company database connections via `CompanyDatabasePoolManager`.
