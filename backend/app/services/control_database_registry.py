@@ -30,6 +30,17 @@ class ControlDatabaseRegistryService:
     """
 
     @staticmethod
+    def build_connection_url(db_meta: ControlCompanyDatabase) -> str:
+        """
+        Builds asyncpg connection URL from database metadata.
+        """
+        import os
+        db_user = db_meta.db_user or "postgres"
+        db_pass = getattr(db_meta, "db_password", None) or getattr(db_meta, "encrypted_credentials", None) or os.environ.get("POSTGRES_PASSWORD", "postgres")
+        password_part = f":{db_pass}" if db_pass else ""
+        return f"postgresql+asyncpg://{db_user}{password_part}@{db_meta.db_host}:{db_meta.db_port}/{db_meta.db_name}"
+
+    @staticmethod
     async def register_company_database(
         db: AsyncSession,
         company_id: str,
