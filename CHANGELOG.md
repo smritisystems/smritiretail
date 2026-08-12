@@ -29,6 +29,13 @@
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
 ## [3.34.0] - 2026-08-11
+- **Existing Application → Physical Company Database Refactor (Phase 4 Execution Complete):**
+  - Updated FastAPI session dependency `get_company_db` (`app/api/deps.py`) to dynamically resolve physical company database connections via `CompanyDatabasePoolManager`.
+  - Server-side credentials resolution against Control DB registry (`control_company_databases` + `control_user_company_assignments`); client parameters declare business context ONLY.
+  - Retained `BaseEntity` with RLS fields while bridging operational entities to physical Company DBs domain-by-domain without single-pass replacement.
+  - Implemented 28 PostgreSQL integration tests in `app/tests/test_phase4_application_routing.py` covering routing, physical isolation, domain services (`ProductRepository`, `CustomerRepository`, `SupplierRepository`, `SalesInvoiceRepository`, `PurchaseOrderRepository`, `StockMovementRepository`, `PosSessionRepository`, `AccountingRepository`), Master Hub, and security boundaries.
+  - Created Masterbook specs `PHASE4_DATABASE_ROUTING_AUDIT.md` (`MBOOK-ARCH-AUD-004`) and `PHASE4_MODEL_CLASSIFICATION.md` (`MBOOK-DB-CLS-004`).
+  - Empirical verification: **28/28 Phase 4 integration tests PASS**; **46/46 Phase 1–3 regression tests PASS**; Python app import (0 errors); TypeScript compilation (`npx tsc --noEmit` -> 0 errors).
 - **Company Database Template Architecture (Phase 2 Execution Complete):**
   - Implemented `app.db.company_base.CompanyBase` declarative base class (100% decoupled from `ControlBase.metadata`).
   - Implemented `app.db.company_session.CompanyDatabasePoolManager` dynamic connection engine pool manager with LRU caching (`max_pools=500`, `pool_size=5`).

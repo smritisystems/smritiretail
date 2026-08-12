@@ -1,3 +1,25 @@
+## ISSUE 2026-08-11-03: PostgreSQL ENUM Type Re-creation & Pytest-Asyncio Event Loop Scope Mismatch in Multi-Database Integration Tests
+
+**Severity:** P2 — Integration Test Setup (AsyncPG ENUM type duplication & event loop binding across multi-DB fixtures)
+**Status:** RESOLVED
+**Date:** 2026-08-11
+**Ref:** ARCH-MEGA-REFACTOR-PHASE-4-TEST-FIX
+
+### Symptom
+1. `sqlalchemy.exc.IntegrityError: <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "pg_type_typname_nsp_index" [SQL: CREATE TYPE userrole AS ENUM ...]`.
+2. `RuntimeError: Task <Task ...> got Future <Future ...> attached to a different loop`.
+
+### Root Cause
+1. In SQLAlchemy, `sqlalchemy.Enum` caches type creation per Python Enum class. When `create_all` is invoked sequentially across multiple distinct PostgreSQL engines (`Control DB`, `Company DB A`, `Company DB B`, `Master Hub DB`), SQLAlchemy's dialect visitor skips checking `pg_type` if the Enum instance was already marked as compiled, while PostgreSQL rejects duplicate `CREATE TYPE` or raises `UndefinedObjectError`.
+2. `pytest-asyncio` creates a new asyncio event loop for every test function by default. When an engine or connection pool is created in a module-scoped fixture, asyncpg connections bind to the setup event loop and throw `RuntimeError` when accessed from function-scoped test loops.
+
+### Solution
+1. In `setup_phase4_environment`, added explicit `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'userrole') THEN CREATE TYPE ... END IF; END $$;` DDL execution across all 4 PostgreSQL engines before calling `create_all`.
+2. Changed `setup_phase4_environment` fixture to function scope with explicit engine/pool disposal on teardown, matching `test_company_database_isolation.py` pattern.
+3. Re-ran Phase 4 suite (`28/28 PASSED`) and Phase 1–3 regression suite (`46/46 PASSED`) on PostgreSQL cleanly.
+
+---
+
 ## ISSUE 2026-08-11-02: Control DB Authorization Signature Resolution & Foreign Key Order in Master Hub Tests
 
 **Severity:** P2 — Integration Test Setup (Authorization helper signature alignment and PostgreSQL foreign key order)
